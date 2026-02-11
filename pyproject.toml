@@ -7,6 +7,10 @@ dependencies = [
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.1",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.6.0",
 ]
 
 [project.optional-dependencies]
@@ -17,7 +21,12 @@ dev = [
     "black>=23.7.0",
     "flake8>=6.1.0",
     "mypy>=1.5.0",
+    "httpx>=0.28.0",  # For testing FastAPI
 ]
+
+[project.scripts]
+datasift-api = "datasift_opensource.app.main:app"
+datasift-orchestrator = "datasift_opensource.orchestrator.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/datasift_opensource"]

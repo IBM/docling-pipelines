@@ -1,6 +1,25 @@
 # datasift-operators
 
-This repository contains the datasift operators.
+This repository contains the datasift operators with FastAPI server, CLI orchestrator, and UI components.
+
+## Project Structure
+
+```
+datasift-opensource/
+├── src/datasift_opensource/
+│   ├── app/                    # FastAPI application
+│   │   ├── routes/            # API route handlers
+│   │   ├── models/            # Database models
+│   │   ├── utils/             # Utility functions
+│   │   └── main.py            # FastAPI app entry point
+│   ├── orchestrator/          # CLI orchestrator for backend services
+│   │   ├── cli.py             # Command-line interface
+│   │   └── __init__.py
+│   └── ui/                    # UI components
+├── Dockerfile                 # Docker configuration
+├── pyproject.toml            # Project dependencies and configuration
+└── README.md
+```
 
 ## Setup
 
@@ -23,7 +42,7 @@ cd datasift-opensource
 
 2. Create a virtual environment and install dependencies:
 ```bash
-uv sync
+uv sync --extra dev
 ```
 
 This will:
@@ -36,12 +55,81 @@ This will:
 source .venv/bin/activate
 ```
 
-### Development
+## Running the Application
 
-Install with development dependencies:
+### FastAPI Server
+
+Start the FastAPI server with uvicorn:
 ```bash
-uv sync --extra dev
+# Using uv
+uv run uvicorn datasift_opensource.app.main:app --reload
+
+# Or with activated venv
+uvicorn datasift_opensource.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+The API will be available at:
+- API: http://localhost:8000
+- Interactive docs: http://localhost:8000/docs
+- Alternative docs: http://localhost:8000/redoc
+
+### CLI Orchestrator
+
+Run the CLI orchestrator:
+```bash
+# Using uv
+uv run datasift-orchestrator --help
+
+# Or with activated venv
+datasift-orchestrator --help
+```
+
+Available commands:
+```bash
+# Start a service
+datasift-orchestrator start <service-name> --config <config-file>
+
+# Stop a service
+datasift-orchestrator stop <service-name>
+
+# Check service status
+datasift-orchestrator status [service-name]
+
+# List all services
+datasift-orchestrator list
+```
+
+## Docker
+
+### Build Docker Image
+
+Build the Docker image:
+```bash
+docker build -t datasift-operators:latest .
+```
+
+### Run with Docker
+
+Run the FastAPI server:
+```bash
+docker run -p 8000:8000 datasift-operators:latest
+```
+
+Run the CLI orchestrator:
+```bash
+docker run datasift-operators:latest datasift-orchestrator --help
+```
+
+### Build Wheel
+
+Build a wheel distribution:
+```bash
+uv build --wheel
+```
+
+The wheel file will be created in the `dist/` directory.
+
+## Development
 
 ### Adding Dependencies
 
@@ -55,26 +143,17 @@ Add a development dependency:
 uv add --dev <package-name>
 ```
 
-### Running the Project
-
-```bash
-uv run python main.py
-```
-
-Or activate the virtual environment and run directly:
-```bash
-source .venv/bin/activate
-python main.py
-```
-
 ### Testing
 
-Run tests (after installing dev dependencies):
+Run tests:
 ```bash
 uv run pytest
+
+# With coverage
+uv run pytest --cov=src/datasift_opensource --cov-report=html
 ```
 
-### Code Formatting
+### Code Quality
 
 Format code with black:
 ```bash
@@ -90,3 +169,48 @@ Type checking with mypy:
 ```bash
 uv run mypy .
 ```
+
+## API Development
+
+### Adding New Routes
+
+1. Create a new route file in `src/datasift_opensource/app/routes/`
+2. Define your route handlers
+3. Import and include the router in `src/datasift_opensource/app/main.py`
+
+Example:
+```python
+# src/datasift_opensource/app/routes/example.py
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/example", tags=["example"])
+
+@router.get("/")
+async def get_example():
+    return {"message": "Example endpoint"}
+```
+
+Then in `main.py`:
+```python
+from .routes import example
+app.include_router(example.router)
+```
+
+## Environment Variables
+
+Create a `.env` file in the project root for environment-specific configuration:
+```bash
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+DEBUG=true
+
+# Add other environment variables as needed
+```
+
+## Contributing
+
+1. Create a new branch for your feature
+2. Make your changes
+3. Run tests and code quality checks
+4. Submit a pull request
