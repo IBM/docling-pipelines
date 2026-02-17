@@ -11,23 +11,24 @@ Datasift-open is a lightweight, standalone runtime for executing data processing
 ```
 datasift-opensource/
 ├── src/datasift_opensource/          # Main source code
-│   ├── config/                       # Configuration management
-│   ├── common/                       # Shared utilities and models
-│   ├── core/                         # Core orchestration framework
-│   │   ├── orchestrator/             # Orchestrator implementations
-│   │   │   ├── cmdline/              # Command-line orchestrator
-│   │   │   └── python/               # Python orchestrator
-│   │   ├── data_access/              # Data access abstractions
-│   │   ├── plugins/                  # Plugin system
-│   │   └── runtime_jobs/             # Runtime job execution
-│   ├── operators/                    # Python operator implementations
-│   │   ├── language/                 # Language processing operators
-│   │   ├── transform/                # Data transformation operators
-│   │   ├── validation/               # Data validation operators
-│   │   ├── universal/                # Universal operators
-│   │   └── custom/                   # Custom operator support
-│   ├── app/                          # Web application (if needed)
-│   ├── orchestrator/                 # Legacy orchestrator (to be migrated)
+│   ├── backend/                      # Backend components
+│   │   ├── config/                   # Configuration management
+│   │   ├── common/                   # Shared utilities and models
+│   │   ├── core/                     # Core orchestration framework
+│   │   │   ├── orchestrator/         # Orchestrator implementations
+│   │   │   │   ├── cmdline/          # Command-line orchestrator
+│   │   │   │   └── python/           # Python orchestrator
+│   │   │   ├── data_access/          # Data access abstractions
+│   │   │   ├── plugins/              # Plugin system
+│   │   │   └── runtime_jobs/         # Runtime job execution
+│   │   ├── operators/                # Python operator implementations
+│   │   │   ├── language/             # Language processing operators
+│   │   │   ├── transform/            # Data transformation operators
+│   │   │   ├── validation/           # Data validation operators
+│   │   │   ├── universal/            # Universal operators
+│   │   │   └── custom/               # Custom operator support
+│   │   ├── app/                      # Backend API application
+│   │   └── orchestrator/             # Legacy orchestrator (to be migrated)
 │   └── ui/                           # User interface components
 ├── apps/                             # Applications
 │   └── cli/                          # Command-line interface
@@ -42,19 +43,19 @@ datasift-opensource/
 
 ## Core Components
 
-### 1. Configuration Management (`src/datasift_opensource/config/`)
+### 1. Configuration Management (`src/datasift_opensource/backend/config/`)
 - Configuration loading and validation
 - Environment-specific settings
 - Configuration schemas and defaults
 
-### 2. Common Utilities (`src/datasift_opensource/common/`)
+### 2. Common Utilities (`src/datasift_opensource/backend/common/`)
 - Shared utility functions
 - Common data models
 - Exception classes
 - Helper functions
 - **Note:** Excludes Spark-specific utilities
 
-### 3. Core Framework (`src/datasift_opensource/core/`)
+### 3. Core Framework (`src/datasift_opensource/backend/core/`)
 
 #### Orchestrator
 - **Abstract Orchestrator**: Base interface for all orchestrators
@@ -79,7 +80,7 @@ datasift-opensource/
 - Runtime flow execution
 - Job management
 
-### 4. Operators (`src/datasift_opensource/operators/`)
+### 4. Operators (`src/datasift_opensource/backend/operators/`)
 
 Python-based operator implementations (non-Spark):
 
