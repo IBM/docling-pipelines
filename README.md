@@ -7,17 +7,32 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ```
 datasift-opensource/
 ├── src/datasift_opensource/
-│   ├── app/                    # FastAPI application
-│   │   ├── routes/            # API route handlers
-│   │   ├── models/            # Database models
-│   │   ├── utils/             # Utility functions
-│   │   └── main.py            # FastAPI app entry point
-│   ├── orchestrator/          # CLI orchestrator for backend services
-│   │   ├── cli.py             # Command-line interface
-│   │   └── __init__.py
+│   ├── backend/               # Backend components
+│   │   ├── config/           # Configuration management
+│   │   ├── common/           # Shared utilities
+│   │   ├── core/             # Core orchestration framework
+│   │   ├── operators/        # Python operators
+│   │   ├── app/              # FastAPI application
+│   │   │   ├── routes/       # API route handlers
+│   │   │   ├── models/       # Database models
+│   │   │   ├── utils/        # Utility functions
+│   │   │   └── main.py       # FastAPI app entry point
+│   │   ├── orchestrator/     # CLI orchestrator
+│   │   │   ├── cli.py        # Command-line interface
+│   │   │   └── __init__.py
+│   │   ├── pyproject.toml    # Backend dependencies and configuration
+│   │   ├── uv.lock           # UV lock file
+│   │   └── .python-version   # Python version
 │   └── ui/                    # UI components
+├── apps/                      # Applications
+│   └── cli/                   # CLI application
+├── tests/                     # Test suites
+│   ├── unit/                  # Unit tests
+│   ├── integration/           # Integration tests
+│   └── fixtures/              # Test fixtures
+├── docs/                      # Documentation
+├── examples/                  # Example flows
 ├── Dockerfile                 # Docker configuration
-├── pyproject.toml            # Project dependencies and configuration
 └── README.md
 ```
 
@@ -40,8 +55,9 @@ git clone <repository-url>
 cd datasift-opensource
 ```
 
-2. Create a virtual environment and install dependencies:
+2. Navigate to the backend directory and create a virtual environment:
 ```bash
+cd src/datasift_opensource/backend
 uv sync --extra dev
 ```
 
@@ -53,6 +69,7 @@ This will:
 3. Activate the virtual environment:
 ```bash
 source .venv/bin/activate
+cd ../../..  # Return to project root
 ```
 
 ## Running the Application
@@ -61,11 +78,12 @@ source .venv/bin/activate
 
 Start the FastAPI server with uvicorn:
 ```bash
-# Using uv
-uv run uvicorn datasift_opensource.app.main:app --reload
+# Using uv (from backend directory)
+cd src/datasift_opensource/backend
+uv run uvicorn datasift_opensource.backend.app.main:app --reload
 
-# Or with activated venv
-uvicorn datasift_opensource.app.main:app --reload --host 0.0.0.0 --port 8000
+# Or with activated venv (from project root)
+uvicorn datasift_opensource.backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at:
@@ -124,6 +142,7 @@ docker run datasift-operators:latest datasift-orchestrator --help
 
 Build a wheel distribution:
 ```bash
+cd src/datasift_opensource/backend
 uv build --wheel
 ```
 
@@ -133,24 +152,27 @@ The wheel file will be created in the `dist/` directory.
 
 ### Adding Dependencies
 
-Add a new dependency:
+Add a new dependency (from backend directory):
 ```bash
+cd src/datasift_opensource/backend
 uv add <package-name>
 ```
 
 Add a development dependency:
 ```bash
+cd src/datasift_opensource/backend
 uv add --dev <package-name>
 ```
 
 ### Testing
 
-Run tests:
+Run tests (from project root):
 ```bash
+cd src/datasift_opensource/backend
 uv run pytest
 
 # With coverage
-uv run pytest --cov=src/datasift_opensource --cov-report=html
+uv run pytest --cov=datasift_opensource --cov-report=html
 ```
 
 ### Code Quality
@@ -174,13 +196,13 @@ uv run mypy .
 
 ### Adding New Routes
 
-1. Create a new route file in `src/datasift_opensource/app/routes/`
+1. Create a new route file in `src/datasift_opensource/backend/app/routes/`
 2. Define your route handlers
-3. Import and include the router in `src/datasift_opensource/app/main.py`
+3. Import and include the router in `src/datasift_opensource/backend/app/main.py`
 
 Example:
 ```python
-# src/datasift_opensource/app/routes/example.py
+# src/datasift_opensource/backend/app/routes/example.py
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/example", tags=["example"])
