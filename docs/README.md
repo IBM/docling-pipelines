@@ -12,6 +12,8 @@ This directory contains comprehensive documentation for the datasift-open projec
 ### User Guide
 - Flow configuration
 - Operator reference
+  - [Ingest LangChain Loader](operators/ingest_langchain_loader.md) - Multi-provider document ingestion
+  - [Google Drive Setup](operators/google_drive_setup.md) - Google Drive configuration guide
 - CLI usage
 - Python API usage
 

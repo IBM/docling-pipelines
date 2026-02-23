@@ -31,6 +31,11 @@ Data validation operators:
 
 ### universal/
 Universal operators that work across different contexts:
+- **Ingest operators**: Document ingestion from cloud storage and collaboration platforms
+  - [`IngestLangchainOperator`](universal/ingest/ingest_langchain_loader.py) - Multi-provider document ingestion (S3, IBM COS, SharePoint, OneDrive, Google Drive)
+  - See [Ingest LangChain Loader Documentation](../../../docs/operators/ingest_langchain_loader.md)
+- **Extract operators**: Content extraction and parsing
+  - [`ExtractDoclingOperator`](universal/extract/extract_docling_operator.py) - Advanced document extraction
 - Storage operations
 - Data access
 - Generic transformations
