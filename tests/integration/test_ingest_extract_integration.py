@@ -30,7 +30,8 @@ class TestIngestExtractIntegration:
             "input_folder": fixtures_dir,
             "include_filter": "pdf",
             "store_binary_content": True,
-            "max_files": 3
+            "max_files": 3,
+            "force_ingest": True  # Skip incremental processing for tests
         }
         
         ingest_operator = IngestLocalOperator(ingest_config)
@@ -77,7 +78,8 @@ class TestIngestExtractIntegration:
             "input_folder": fixtures_dir,
             "include_filter": "pdf",
             "store_binary_content": False,  # Don't store binary content
-            "max_files": 2
+            "max_files": 2,
+            "force_ingest": True  # Skip incremental processing for tests
         }
         
         ingest_operator = IngestLocalOperator(ingest_config)
@@ -121,7 +123,8 @@ class TestIngestExtractIntegration:
             "input_folder": fixtures_dir,
             "include_filter": "pdf",
             "store_binary_content": True,
-            "max_files": 2
+            "max_files": 2,
+            "force_ingest": True  # Skip incremental processing for tests
         }
         
         ingest_operator = IngestLocalOperator(ingest_config)
@@ -166,7 +169,8 @@ def test_basic_integration():
         "input_folder": str(fixtures_dir),
         "store_binary_content": True,
         "include_filter": "pdf",
-        "max_files": 1
+        "max_files": 1,
+        "force_ingest": True  # Skip incremental processing for tests
     }
     
     ingest_op = IngestLocalOperator(ingest_config)
