@@ -26,19 +26,28 @@ tests/
    source venv/bin/activate  # or your virtual environment
    ```
 
-2. **Set PYTHONPATH** (as specified in main README.md):
+2. **Set PYTHONPATH and environment variables**:
    ```bash
-   export PYTHONPATH="${PYTHONPATH}:$(pwd)/src/datasift_opensource/backend"
+   # PYTHONPATH must point to the src directory
+   export PYTHONPATH="$(cd ../../.. && pwd)/src:${PYTHONPATH}"
+   export TEST_CP4D_USERNAME=udp_unittest_user
+   export TEST_CP4D_PASSWORD="udp_unittest_pass@123"
+   ```
+
+3. **Sync dependencies** (first time or after changes):
+   ```bash
+   uv sync --extra dev
    ```
 
 ### Running All Tests
 
 ```bash
-# From the repository root
-pytest tests/ -v
+# From backend directory
+cd src/datasift_opensource/backend
+uv run pytest ../../../tests/ -v
 
 # With coverage
-pytest tests/ -v --cov=src/datasift_opensource/backend
+uv run pytest ../../../tests/ --cov=datasift_opensource --cov-report=html
 ```
 
 ### Running Specific Test Suites
@@ -47,32 +56,32 @@ pytest tests/ -v --cov=src/datasift_opensource/backend
 
 ```bash
 # All unit tests
-pytest tests/unit/ -v
+uv run pytest ../../../tests/unit/ -v
 
 # Specific operator unit tests
-pytest tests/unit/operators/ingest/ -v
-pytest tests/unit/operators/extract/ -v
-pytest tests/unit/operators/chunker/ -v
+uv run pytest ../../../tests/unit/operators/ingest/ -v
+uv run pytest ../../../tests/unit/operators/extract/ -v
+uv run pytest ../../../tests/unit/operators/chunker/ -v
 
 # Single test file
-pytest tests/unit/operators/ingest/test_ingest_local.py -v
+uv run pytest ../../../tests/unit/operators/ingest/test_ingest_local.py -v
 
 # Single test function
-pytest tests/unit/operators/ingest/test_ingest_local.py::test_ingest_local_operator_basic -v
+uv run pytest ../../../tests/unit/operators/ingest/test_ingest_local.py::TestIngestLocalOperator::test_metadata_only_mode -v
 ```
 
 #### Integration Tests
 
 ```bash
 # All integration tests
-pytest tests/integration/ -v
+uv run pytest ../../../tests/integration/ -v
 
 # Specific integration test files
-pytest tests/integration/test_ingest_extract_integration.py -v
-pytest tests/integration/test_full_pipeline_integration.py -v
+uv run pytest ../../../tests/integration/test_ingest_extract_integration.py -v
+uv run pytest ../../../tests/integration/test_full_pipeline_integration.py -v
 
 # Single integration test
-pytest tests/integration/test_full_pipeline_integration.py::TestFullPipelineIntegration::test_ingest_extract_chunk_pipeline -v
+uv run pytest ../../../tests/integration/test_full_pipeline_integration.py::TestFullPipelineIntegration::test_ingest_extract_chunk_pipeline -v
 ```
 
 ### Running Tests with Output
@@ -80,7 +89,7 @@ pytest tests/integration/test_full_pipeline_integration.py::TestFullPipelineInte
 To see print statements and detailed output:
 
 ```bash
-pytest tests/ -v -s
+uv run pytest ../../../tests/ -v -s
 ```
 
 ### Running Tests in Parallel
@@ -88,7 +97,7 @@ pytest tests/ -v -s
 For faster execution (requires pytest-xdist):
 
 ```bash
-pytest tests/ -v -n auto
+uv run pytest ../../../tests/ -v -n auto
 ```
 
 ## Test Categories
