@@ -4,15 +4,11 @@ Unit tests for IngestLocalOperator
 Tests both metadata-only mode and legacy extraction mode
 """
 
-import sys
 import os
 import tempfile
 from pathlib import Path
+import shutil
 import pytest
-
-# Add the backend directory to the path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "src" / "datasift_opensource" / "backend"))
-
 import pyarrow as pa
 
 from datasift_opensource.backend.core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
@@ -23,7 +19,7 @@ class TestIngestLocalOperator:
     
     @pytest.fixture
     def temp_test_dir(self):
-        """Create a temporary directory with test files"""
+        """Create a temporary directory with test files from fixtures"""
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create test files
             test_dir = Path(tmpdir)
@@ -32,58 +28,13 @@ class TestIngestLocalOperator:
             txt_file = test_dir / "test.txt"
             txt_file.write_text("This is a test text file.")
             
-            # Create a PDF file (minimal valid PDF)
-            pdf_file = test_dir / "test.pdf"
-            pdf_content = b"""%PDF-1.4
-1 0 obj
-<<
-/Type /Catalog
-/Pages 2 0 R
->>
-endobj
-2 0 obj
-<<
-/Type /Pages
-/Kids [3 0 R]
-/Count 1
->>
-endobj
-3 0 obj
-<<
-/Type /Page
-/Parent 2 0 R
-/MediaBox [0 0 612 792]
-/Contents 4 0 R
->>
-endobj
-4 0 obj
-<<
-/Length 44
->>
-stream
-BT
-/F1 12 Tf
-100 700 Td
-(Test PDF) Tj
-ET
-endstream
-endobj
-xref
-0 5
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00000 n 
-0000000115 00000 n 
-0000000214 00000 n 
-trailer
-<<
-/Size 5
-/Root 1 0 R
->>
-startxref
-306
-%%EOF"""
-            pdf_file.write_bytes(pdf_content)
+            # Copy a sample PDF from fixtures instead of creating hardcoded content
+            fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "invoices"
+            if fixtures_dir.exists():
+                sample_pdfs = list(fixtures_dir.glob("*.pdf"))
+                if sample_pdfs:
+                    # Copy the first PDF to temp directory
+                    shutil.copy(sample_pdfs[0], test_dir / "test.pdf")
             
             yield str(test_dir)
     
@@ -92,7 +43,8 @@ startxref
         config = {
             "input_folder": temp_test_dir,
             "store_binary_content": True,
-            "max_files": 10
+            "max_files": 10,
+            "force_ingest": True  # Skip incremental processing for tests
         }
         
         operator = IngestLocalOperator(config)
@@ -121,7 +73,8 @@ startxref
         config = {
             "input_folder": temp_test_dir,
             "store_binary_content": False,
-            "max_files": 10
+            "max_files": 10,
+            "force_ingest": True  # Skip incremental processing for tests
         }
         
         operator = IngestLocalOperator(config)
@@ -142,7 +95,8 @@ startxref
             "include_filter": "txt",
             "extract_content": False,
             "store_binary_content": True,
-            "max_files": 10
+            "max_files": 10,
+            "force_ingest": True  # Skip incremental processing for tests
         }
         
         operator = IngestLocalOperator(config)
@@ -160,7 +114,8 @@ startxref
             "input_folder": temp_test_dir,
             "extract_content": False,
             "store_binary_content": True,
-            "max_files": 1
+            "max_files": 1,
+            "force_ingest": True  # Skip incremental processing for tests
         }
         
         operator = IngestLocalOperator(config)

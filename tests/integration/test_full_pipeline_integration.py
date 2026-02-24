@@ -4,13 +4,8 @@ Integration tests for the complete pipeline: IngestLocal -> ExtractDocling -> Se
 Tests the full document processing workflow from file ingestion to chunked content
 """
 
-import sys
 from pathlib import Path
 import pytest
-
-# Add the backend directory to the path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"))
-
 import pyarrow as pa
 
 from datasift_opensource.backend.core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator

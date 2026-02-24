@@ -4,13 +4,8 @@ Integration tests for IngestLocalOperator + ExtractDoclingOperator sequence
 Tests the complete flow from file ingestion to content extraction
 """
 
-import sys
 from pathlib import Path
 import pytest
-
-# Add the backend directory to the path
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"))
-
 import pyarrow as pa
 
 from datasift_opensource.backend.core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
