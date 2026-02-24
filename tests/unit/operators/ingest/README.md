@@ -6,7 +6,7 @@ This directory contains unit tests for the ingest operators.
 
 ### test_ingest_langchain_loader.py
 
-Comprehensive test suite for [`IngestLangchainOperator`](../../../../src/datasift_opensource/backend/operators/universal/ingest/ingest_langchain_loader.py:20) covering all major functionality.
+Comprehensive test suite for [`IngestLangchainOperator`](../../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_langchain_loader.py:20) covering all major functionality.
 
 ## Test Coverage
 
@@ -22,7 +22,7 @@ Tests for proper operator initialization with different providers:
 - ✅ Custom provider initialization
 
 ### 2. Loader Factory Tests (8 tests)
-Tests for the [`_get_loader()`](../../../../src/datasift_opensource/backend/operators/universal/ingest/ingest_langchain_loader.py:78) method:
+Tests for the [`_get_loader()`](../../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_langchain_loader.py:78) method:
 - ✅ S3DirectoryLoader creation for S3
 - ✅ S3DirectoryLoader with endpoint for IBM COS
 - ✅ GoogleDriveLoader creation with token directory setup
@@ -33,7 +33,7 @@ Tests for the [`_get_loader()`](../../../../src/datasift_opensource/backend/oper
 - ✅ Error handling for unsupported providers
 
 ### 3. S3 File Filtering Tests (5 tests)
-Tests for the [`_get_s3_file_keys()`](../../../../src/datasift_opensource/backend/operators/universal/ingest/ingest_langchain_loader.py:31) method:
+Tests for the [`_get_s3_file_keys()`](../../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_langchain_loader.py:31) method:
 - ✅ Basic file key retrieval
 - ✅ Filtering hidden files (starting with `.`)
 - ✅ Filtering zero-size files
@@ -41,7 +41,7 @@ Tests for the [`_get_s3_file_keys()`](../../../../src/datasift_opensource/backen
 - ✅ Empty bucket handling
 
 ### 4. Transform Method Tests (6 tests)
-Tests for the main [`transform()`](../../../../src/datasift_opensource/backend/operators/universal/ingest/ingest_langchain_loader.py:196) method:
+Tests for the main [`transform()`](../../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_langchain_loader.py:196) method:
 - ✅ Successful document processing
 - ✅ Empty document list handling
 - ✅ Error handling and graceful degradation

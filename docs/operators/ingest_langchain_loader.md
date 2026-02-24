@@ -1,7 +1,7 @@
 # Ingest LangChain Loader Operator
 
 ## Overview
-The [`IngestLangchainOperator`](../../../src/datasift_opensource/backend/operators/universal/ingest/ingest_langchain_loader.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It supports Amazon S3, IBM Cloud Object Storage, Microsoft SharePoint, Microsoft OneDrive, Google Drive, and custom loaders.
+The [`IngestLangchainOperator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_langchain_loader.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It supports Amazon S3, IBM Cloud Object Storage, Microsoft SharePoint, Microsoft OneDrive, Google Drive, and custom loaders.
 
 ## Features
 - **Multi-Provider Support**: Single operator for multiple data sources
@@ -185,7 +185,7 @@ node_config = {
 
 ### Basic Example
 ```python
-from datasift_opensource.backend.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+from datasift_opensource.backend.core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
 import pyarrow as pa
 
 # Configure the operator
@@ -395,31 +395,60 @@ print(f"Connection successful: {response['ResponseMetadata']['HTTPStatusCode'] =
 
 ### Core Dependencies
 ```
-langchain-community
-langchain-core
-pyarrow
-pandas
-boto3
+langchain==1.2.10
+langchain-core==1.2.14
+pyarrow==17.0.0
+pandas==2.3.3
+botocore==1.42.55
 ```
 
 ### Provider-Specific Dependencies
-- **Google Drive:** `google-auth-oauthlib`, `google-auth-httplib2`, `google-api-python-client`
-- **SharePoint/OneDrive:** `O365`
-- **PDF Processing:** `pypdf2`, `unstructured[pdf]`
+- **AWS/S3:** `boto3==1.42.55`, `langchain-community==0.4.1`
+- **Google Drive:** `google-auth-oauthlib==1.2.4`, `google-auth-httplib2==0.3.0`, `google-api-python-client==2.190.0`, `langchain-google-community==3.0.5`
+- **SharePoint/OneDrive:** `O365==2.1.9`, `langchain-community==0.4.1`
+- **PDF Processing:** `pypdf2==3.0.1`, `unstructured[pdf]>=0.10.0`
+- **GCP:** `google-cloud-storage==3.9.0`
+- **Azure:** `azure-storage-blob==12.28.0`
 
 ### Installation
+
+Using uv (recommended):
 ```bash
-# Core installation
-pip install langchain-community langchain-core pyarrow pandas boto3
+# Navigate to backend directory
+cd src/datasift_opensource/backend
+
+# Core installation (includes langchain and langchain-core)
+uv sync
+
+# AWS/S3 support
+uv sync --extra aws
 
 # Google Drive support
-pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client
+uv sync --extra google-drive
+
+# Microsoft (SharePoint/OneDrive) support
+uv sync --extra microsoft
+
+# All cloud providers
+uv sync --extra all-cloud
+
+# Development dependencies
+uv sync --extra dev
+```
+
+Using pip:
+```bash
+# Core installation
+pip install langchain==1.2.10 langchain-core==1.2.14 pyarrow==17.0.0 pandas==2.3.3
+
+# AWS/S3 support
+pip install boto3==1.42.55 langchain-community==0.4.1
+
+# Google Drive support
+pip install google-auth-oauthlib==1.2.4 google-auth-httplib2==0.3.0 google-api-python-client==2.190.0 langchain-google-community==3.0.5 pypdf2==3.0.1 "unstructured[pdf]>=0.10.0"
 
 # Microsoft support
-pip install O365
-
-# PDF processing
-pip install pypdf2 "unstructured[pdf]"
+pip install O365==2.1.9 langchain-community==0.4.1
 ```
 
 ## API Reference

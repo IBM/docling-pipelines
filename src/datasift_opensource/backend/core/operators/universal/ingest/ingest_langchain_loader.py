@@ -12,9 +12,9 @@ from langchain_community.document_loaders import (
     S3DirectoryLoader,
     S3FileLoader,
     SharePointLoader,
-    OneDriveLoader,
-    GoogleDriveLoader
+    OneDriveLoader
 )
+from langchain_google_community import GoogleDriveLoader
 from langchain_core.documents import Document
 
 class IngestLangchainOperator:

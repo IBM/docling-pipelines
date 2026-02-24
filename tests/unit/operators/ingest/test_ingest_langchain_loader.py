@@ -48,7 +48,7 @@ class TestIngestLangchainOperatorInitialization:
     
     def test_init_with_s3_provider(self):
         """Test initialization with S3 provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 's3',
@@ -71,7 +71,7 @@ class TestIngestLangchainOperatorInitialization:
     
     def test_init_with_ibm_cos_provider(self):
         """Test initialization with IBM COS provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'ibm_cos',
@@ -93,7 +93,7 @@ class TestIngestLangchainOperatorInitialization:
     
     def test_init_with_google_drive_provider(self):
         """Test initialization with Google Drive provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'google_drive',
@@ -115,7 +115,7 @@ class TestIngestLangchainOperatorInitialization:
     
     def test_init_with_sharepoint_provider(self):
         """Test initialization with SharePoint provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'sharepoint',
@@ -135,7 +135,7 @@ class TestIngestLangchainOperatorInitialization:
     
     def test_init_with_onedrive_provider(self):
         """Test initialization with OneDrive provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'onedrive',
@@ -157,7 +157,7 @@ class TestIngestLangchainOperatorInitialization:
     
     def test_init_with_custom_provider(self):
         """Test initialization with custom provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'custom',
@@ -179,10 +179,10 @@ class TestIngestLangchainOperatorInitialization:
 class TestGetLoader:
     """Test cases for _get_loader method."""
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
     def test_get_loader_s3(self, mock_s3_loader):
         """Test _get_loader returns S3DirectoryLoader for S3 provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 's3',
@@ -206,10 +206,10 @@ class TestGetLoader:
             aws_secret_access_key='test-secret-key'
         )
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
     def test_get_loader_ibm_cos(self, mock_s3_loader):
         """Test _get_loader returns S3DirectoryLoader with endpoint for IBM COS."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'ibm_cos',
@@ -235,12 +235,12 @@ class TestGetLoader:
             endpoint_url='https://s3.us-south.cloud-object-storage.appdomain.cloud'
         )
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.GoogleDriveLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.GoogleDriveLoader')
     @patch('os.path.exists')
     @patch('os.makedirs')
     def test_get_loader_google_drive(self, mock_makedirs, mock_exists, mock_gdrive_loader):
         """Test _get_loader returns GoogleDriveLoader for Google Drive provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         mock_exists.return_value = False
         
@@ -267,10 +267,10 @@ class TestGetLoader:
             recursive=True
         )
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.SharePointLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.SharePointLoader')
     def test_get_loader_sharepoint(self, mock_sp_loader):
         """Test _get_loader returns SharePointLoader for SharePoint provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'sharepoint',
@@ -288,10 +288,10 @@ class TestGetLoader:
         
         mock_sp_loader.assert_called_once()
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.OneDriveLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.OneDriveLoader')
     def test_get_loader_onedrive(self, mock_od_loader):
         """Test _get_loader returns OneDriveLoader for OneDrive provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'onedrive',
@@ -313,7 +313,7 @@ class TestGetLoader:
     @patch('importlib.import_module')
     def test_get_loader_custom(self, mock_import):
         """Test _get_loader returns custom loader for custom provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         # Mock the custom loader class
         mock_loader_class = Mock()
@@ -340,7 +340,7 @@ class TestGetLoader:
     
     def test_get_loader_custom_missing_path(self):
         """Test _get_loader raises error when custom provider missing loader_class_path."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'custom',
@@ -355,7 +355,7 @@ class TestGetLoader:
     
     def test_get_loader_unsupported_provider(self):
         """Test _get_loader raises error for unsupported provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         config = {
             'provider': 'unsupported_provider',
@@ -375,7 +375,7 @@ class TestGetS3FileKeys:
     @patch('boto3.client')
     def test_get_s3_file_keys_basic(self, mock_boto_client):
         """Test _get_s3_file_keys returns valid file keys."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         # Mock S3 client and paginator
         mock_s3 = Mock()
@@ -419,7 +419,7 @@ class TestGetS3FileKeys:
     @patch('boto3.client')
     def test_get_s3_file_keys_filters_hidden_files(self, mock_boto_client):
         """Test _get_s3_file_keys filters hidden files."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         mock_s3 = Mock()
         mock_paginator = Mock()
@@ -461,7 +461,7 @@ class TestGetS3FileKeys:
     @patch('boto3.client')
     def test_get_s3_file_keys_filters_zero_size(self, mock_boto_client):
         """Test _get_s3_file_keys filters zero-size files."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         mock_s3 = Mock()
         mock_paginator = Mock()
@@ -501,7 +501,7 @@ class TestGetS3FileKeys:
     @patch('boto3.client')
     def test_get_s3_file_keys_ibm_cos_endpoint(self, mock_boto_client):
         """Test _get_s3_file_keys uses endpoint_url for IBM COS."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         mock_s3 = Mock()
         mock_paginator = Mock()
@@ -536,7 +536,7 @@ class TestGetS3FileKeys:
     @patch('boto3.client')
     def test_get_s3_file_keys_empty_bucket(self, mock_boto_client):
         """Test _get_s3_file_keys handles empty bucket."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         mock_s3 = Mock()
         mock_paginator = Mock()
@@ -567,10 +567,10 @@ class TestGetS3FileKeys:
 class TestTransform:
     """Test cases for transform method."""
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
     def test_transform_success(self, mock_s3_loader, mock_documents, empty_input_table):
         """Test transform successfully processes documents."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         # Mock loader to return documents
         mock_loader_instance = Mock()
@@ -623,10 +623,10 @@ class TestTransform:
         assert metadata['status'] == 'success'
         assert metadata['count'] == 3
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
     def test_transform_empty_documents(self, mock_s3_loader, empty_input_table):
         """Test transform handles empty document list."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         # Mock loader to return empty list
         mock_loader_instance = Mock()
@@ -656,10 +656,10 @@ class TestTransform:
         assert metadata['status'] == 'success'
         assert metadata['count'] == 0
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
     def test_transform_error_handling(self, mock_s3_loader, empty_input_table):
         """Test transform handles errors gracefully."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         # Mock loader to raise exception
         mock_loader_instance = Mock()
@@ -689,10 +689,10 @@ class TestTransform:
         assert metadata['status'] == 'error'
         assert 'Connection failed' in metadata['message']
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
     def test_transform_schema_validation(self, mock_s3_loader, mock_documents, empty_input_table):
         """Test transform output has correct schema."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         mock_loader_instance = Mock()
         mock_loader_instance.load.return_value = mock_documents
@@ -722,12 +722,12 @@ class TestTransform:
         assert schema.field('metadata').type == pa.string()
         assert schema.field('source_id').type == pa.string()
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.GoogleDriveLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.GoogleDriveLoader')
     @patch('os.path.exists')
     @patch('os.makedirs')
     def test_transform_google_drive(self, mock_makedirs, mock_exists, mock_gdrive_loader, mock_documents, empty_input_table):
         """Test transform with Google Drive provider."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         mock_exists.return_value = False
         mock_loader_instance = Mock()
@@ -755,7 +755,7 @@ class TestTransform:
     
     def test_transform_document_without_source(self, empty_input_table):
         """Test transform handles documents without source in metadata."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         # Document without source
         doc_no_source = Document(
@@ -763,7 +763,7 @@ class TestTransform:
             metadata={"page": 1}
         )
         
-        with patch('operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader') as mock_loader:
+        with patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader') as mock_loader:
             mock_loader_instance = Mock()
             mock_loader_instance.load.return_value = [doc_no_source]
             mock_loader.return_value = mock_loader_instance
@@ -785,10 +785,10 @@ class TestTransform:
 class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
     
-    @patch('operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
+    @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
     def test_s3_to_pyarrow_pipeline(self, mock_s3_loader, empty_input_table):
         """Test complete S3 ingestion to PyArrow table pipeline."""
-        from operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
         
         # Simulate realistic S3 documents
         documents = [

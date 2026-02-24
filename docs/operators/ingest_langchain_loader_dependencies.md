@@ -7,9 +7,10 @@ All Python packages required for the `IngestLangchainOperator` have been validat
 
 ### 1. Updated `pyproject.toml`
 Added missing core dependencies and reorganized LangChain packages:
+- `langchain==1.2.10` - Main LangChain package (core dependency)
 - `langchain-core==1.2.14` - Pinned version for base Document class (core dependency)
-- `langchain-community>=0.3.0` - Moved to optional dependencies (provider-specific)
-- `pandas>=2.0.0` - Used for data manipulation and display
+- `langchain-community==0.4.1` - Moved to optional dependencies (provider-specific)
+- `pandas==2.3.3` - Used for data manipulation and display
 
 ### 2. Dependency Categories
 
@@ -17,9 +18,6 @@ Added missing core dependencies and reorganized LangChain packages:
 ```toml
 [project]
 dependencies = [
-    "langchain-core==1.2.14",      # Pinned version for stability
-    "pandas>=2.0.0",               # Data manipulation
-    "pyarrow==16.1.0",
     "requests==2.32.5",
     "python-dotenv==1.2.1",
     "pyyaml==6.0.3",
@@ -28,6 +26,26 @@ dependencies = [
     "pydantic==2.12.5",
     "pydantic-settings==2.12.0",
     "docling[vlm]",
+    "pyarrow==17.0.0",
+    "urllib3==2.6.3",
+    "botocore==1.42.55",
+    "data-prep-toolkit-transforms==1.1.7",
+    "filelock==3.20.3",
+    "ibm-cos-sdk==2.14.3",
+    "langdetect==1.0.9",
+    "langchain==1.2.10",
+    "langchain-core==1.2.14",
+    "pandas==2.3.3",
+    "prefect==3.4.23",
+    "pyiceberg[glue]==0.9.1",
+    "pyiceberg-core==0.7.0",
+    "pypdf==6.7.1",
+    "sqlglot==27.13.2",
+    "tabulate==0.9.0",
+    "toml==0.10.2",
+    "pillow==12.1.1",
+    "mlx==0.30.6",
+    "orjson==3.11.7"
 ]
 ```
 
@@ -39,44 +57,45 @@ dependencies = [
 ```toml
 [project.optional-dependencies]
 aws = [
-    "boto3>=1.28.0",
-    "langchain-community>=0.3.0",  # Required for S3 loaders
+    "boto3==1.42.55",
+    "langchain-community==0.4.1",  # Required for S3 loaders
 ]
 ```
 
 **Google Drive Support:**
 ```toml
 google-drive = [
-    "google-auth-oauthlib>=1.0.0",
-    "google-auth-httplib2>=0.1.0",
-    "google-api-python-client>=2.0.0",
-    "pypdf2>=3.0.0",
+    "google-auth-oauthlib==1.2.4",
+    "google-auth-httplib2==0.3.0",
+    "google-api-python-client==2.190.0",
+    "pypdf2==3.0.1",
     "unstructured[pdf]>=0.10.0",
-    "langchain-community>=0.3.0",  # Required for GoogleDriveLoader
+    "langchain-google-community==3.0.5",  # Required for GoogleDriveLoader
 ]
 ```
 
 **Microsoft (SharePoint/OneDrive) Support:**
 ```toml
 microsoft = [
-    "O365>=2.0.0",
-    "langchain-community>=0.3.0",  # Required for SharePoint/OneDrive loaders
+    "O365==2.1.9",  # For SharePoint and OneDrive
+    "langchain-community==0.4.1",  # Required for SharePoint/OneDrive loaders
 ]
 ```
 
 **All Cloud Providers:**
 ```toml
 all-cloud = [
-    "boto3>=1.28.0",
-    "google-cloud-storage>=2.10.0",
-    "azure-storage-blob>=12.19.0",
-    "google-auth-oauthlib>=1.0.0",
-    "google-auth-httplib2>=0.1.0",
-    "google-api-python-client>=2.0.0",
-    "pypdf2>=3.0.0",
+    "boto3==1.42.55",
+    "google-cloud-storage==3.9.0",
+    "azure-storage-blob==12.28.0",
+    "google-auth-oauthlib==1.2.4",
+    "google-auth-httplib2==0.3.0",
+    "google-api-python-client==2.190.0",
+    "pypdf2==3.0.1",
     "unstructured[pdf]>=0.10.0",
-    "O365>=2.0.0",
-    "langchain-community>=0.3.0",  # Required for all loaders
+    "O365==2.1.9",
+    "langchain-community==0.4.1",
+    "langchain-google-community==3.0.5",
 ]
 ```
 
@@ -108,13 +127,15 @@ uv sync --extra all-cloud
 ## Validation Results
 
 ### ✅ Core Packages (Always Available)
+- `langchain==1.2.10` - Main LangChain package
 - `langchain_core==1.2.14` - Base Document class (pinned version)
-- `pandas>=2.0.0` - Data manipulation
-- `pyarrow==16.1.0` - Arrow table support
+- `pandas==2.3.3` - Data manipulation
+- `pyarrow==17.0.0` - Arrow table support
+- `botocore==1.42.55` - AWS core functionality (included in core)
 - `json`, `importlib`, `os` - Standard library
 
 ### ✅ Provider-Specific Packages (Optional)
-- `langchain_community>=0.3.0` - Document loaders (installed with provider extras)
+- `langchain_community==0.4.1` - Document loaders (installed with provider extras)
 
 ### ✅ AWS/S3 Packages
 - `boto3` - AWS SDK
@@ -129,12 +150,12 @@ uv sync --extra all-cloud
 
 ### ✅ LangChain Loaders
 All required loaders are available:
-- `S3DirectoryLoader` - Load from S3 directories
-- `S3FileLoader` - Load individual S3 files
-- `SharePointLoader` - Load from SharePoint
-- `OneDriveLoader` - Load from OneDrive
-- `GoogleDriveLoader` - Load from Google Drive
-- `Document` - Base document class
+- `S3DirectoryLoader` - Load from S3 directories (from `langchain-community`)
+- `S3FileLoader` - Load individual S3 files (from `langchain-community`)
+- `SharePointLoader` - Load from SharePoint (from `langchain-community`)
+- `OneDriveLoader` - Load from OneDrive (from `langchain-community`)
+- `GoogleDriveLoader` - Load from Google Drive (from `langchain-google-community`)
+- `Document` - Base document class (from `langchain-core`)
 
 ## Supported Providers
 
@@ -158,7 +179,7 @@ The `IngestLangchainOperator` supports the following providers with all dependen
    
 5. **Google Drive** (`provider: 'google_drive'`)
    - Requires: `uv sync --extra google-drive`
-   - Installs: Google auth packages, `langchain-community`
+   - Installs: Google auth packages, `langchain-google-community`
    
 6. **Custom Loaders** (`provider: 'custom'`)
    - Requires: User-provided loader class
@@ -166,9 +187,10 @@ The `IngestLangchainOperator` supports the following providers with all dependen
 
 ## Notes
 
+- `langchain` is pinned to version `1.2.10` for stability
 - `langchain-core` is pinned to version `1.2.14` for stability
 - `langchain-community` is only installed when provider-specific extras are used
-- The `botocore` package is automatically installed as a dependency of `boto3`
+- The `botocore==1.42.55` package is included in core dependencies
 - Standard library modules (`json`, `importlib`, `os`) are always available
 - For production use, install with `uv sync --extra all-cloud` to support all providers
 - The operator uses dynamic imports for custom loaders, allowing extensibility
@@ -183,10 +205,10 @@ cd src/datasift_opensource/backend
 .venv/bin/python -c "import langchain_core; import pandas; print(f'✓ Core: langchain-core {langchain_core.__version__}, pandas installed')"
 
 # Verify loaders (requires --extra all-cloud)
-.venv/bin/python -c "from langchain_community.document_loaders import S3DirectoryLoader, GoogleDriveLoader; print('✓ All loaders available')"
+.venv/bin/python -c "from langchain_community.document_loaders import S3DirectoryLoader; from langchain_google_community import GoogleDriveLoader; print('✓ All loaders available')"
 ```
 
 ## Related Files
-- [`ingest_langchain_loader.py`](../../src/datasift_opensource/backend/operators/universal/ingest/ingest_langchain_loader.py) - Operator implementation
+- [`ingest_langchain_loader.py`](../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_langchain_loader.py) - Operator implementation
 - [`pyproject.toml`](../../src/datasift_opensource/backend/pyproject.toml) - Dependency configuration
 - [`ingest_langchain_loader.md`](ingest_langchain_loader.md) - Operator documentation
