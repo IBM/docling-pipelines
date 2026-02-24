@@ -193,10 +193,8 @@ Run all tests (from backend directory):
 ```bash
 cd src/datasift_opensource/backend
 
-# Set environment variables (PYTHONPATH must point to src directory)
+# Set PYTHONPATH (must point to src directory)
 export PYTHONPATH="$(cd ../../.. && pwd)/src:${PYTHONPATH}"
-export TEST_CP4D_USERNAME=udp_unittest_user
-export TEST_CP4D_PASSWORD="udp_unittest_pass@123"
 
 # Sync dependencies (first time or after changes)
 uv sync --extra dev

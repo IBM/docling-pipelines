@@ -26,12 +26,10 @@ tests/
    source venv/bin/activate  # or your virtual environment
    ```
 
-2. **Set PYTHONPATH and environment variables**:
+2. **Set PYTHONPATH**:
    ```bash
    # PYTHONPATH must point to the src directory
    export PYTHONPATH="$(cd ../../.. && pwd)/src:${PYTHONPATH}"
-   export TEST_CP4D_USERNAME=udp_unittest_user
-   export TEST_CP4D_PASSWORD="udp_unittest_pass@123"
    ```
 
 3. **Sync dependencies** (first time or after changes):
