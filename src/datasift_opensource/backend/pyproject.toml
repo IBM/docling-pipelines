@@ -24,7 +24,6 @@ dependencies = [
     "prefect==3.4.23",
     "pyiceberg[glue]==0.9.1",
     "pyiceberg-core==0.7.0",
-    "pypdf==6.7.1",
     "sqlglot==27.13.2",
     "tabulate==0.9.0",
     "toml==0.10.2",
