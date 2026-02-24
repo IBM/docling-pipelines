@@ -13,8 +13,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src" / "datasift_o
 
 import pyarrow as pa
 
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
-from operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
+from datasift_opensource.backend.core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
+from datasift_opensource.backend.operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
 
 
 class TestIngestExtractIntegration:
