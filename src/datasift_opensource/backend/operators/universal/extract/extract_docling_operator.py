@@ -14,6 +14,8 @@ from pathlib import Path
 import pyarrow as pa
 from pyarrow import Table
 
+from datasift_opensource.backend.common.util.constants import OperatorConstants
+
 # Try to import TransformUtils from data-prep-toolkit-transforms
 try:
     from data_processing.utils import TransformUtils
@@ -93,13 +95,13 @@ class ExtractDoclingOperator:
                 - expand_extracted_data: Whether to expand extracted_data into individual columns (default: False)
         """
         self.config = config
-        self.doc_column = config.get("doc_column", "content")
-        self.doc_id_hash = config.get("doc_id_hash", "doc_id_hash")
-        self.extract_tables = config.get("extract_tables", True)
-        self.extract_images = config.get("extract_images", True)
-        self.use_template = config.get("use_template", False)
-        self.template = config.get("template", None)
-        self.expand_extracted_data = config.get("expand_extracted_data", False)
+        self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_id_hash = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.extract_tables = config.get(OperatorConstants.EXTRACT_TABLES, True)
+        self.extract_images = config.get(OperatorConstants.EXTRACT_IMAGES, True)
+        self.use_template = config.get(OperatorConstants.USE_TEMPLATE, False)
+        self.template = config.get(OperatorConstants.TEMPLATE, None)
+        self.expand_extracted_data = config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
         
         # Initialize Docling converter
         self.converter = DocumentConverter()
@@ -169,11 +171,11 @@ class ExtractDoclingOperator:
             logger.info(f"Completed extraction for {file_path}")
             
             return {
-                "success": True,
-                "content": markdown_text,
-                "tables": tables,
-                "images": images,
-                "metadata": {
+                OperatorConstants.SUCCESS: True,
+                OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
+                OperatorConstants.TABLES: tables,
+                OperatorConstants.IMAGES: images,
+                OperatorConstants.METADATA: {
                     "table_count": len(tables),
                     "image_count": len(images),
                     "char_count": len(markdown_text)
@@ -182,9 +184,9 @@ class ExtractDoclingOperator:
         except Exception as e:
             logger.error(f"Error extracting content from {file_path}: {str(e)}")
             return {
-                "success": False,
-                "error": str(e),
-                "content": None
+                OperatorConstants.SUCCESS: False,
+                OperatorConstants.ERROR: str(e),
+                OperatorConstants.DOC_COLUMN_DEFAULT: None
             }
         finally:
             # Clean up temporary file
@@ -231,20 +233,20 @@ class ExtractDoclingOperator:
                 pages_data = []
                 for page in result.pages:
                     page_dict = {
-                        "page_no": page.page_no,
-                        "extracted_data": page.extracted_data,
-                        "raw_text": page.raw_text,
-                        "errors": page.errors
+                        OperatorConstants.PAGE_NO: page.page_no,
+                        OperatorConstants.EXTRACTED_DATA: page.extracted_data,
+                        OperatorConstants.RAW_TEXT: page.raw_text,
+                        OperatorConstants.ERRORS: page.errors
                     }
                     pages_data.append(page_dict)
                 
                 logger.info(f"Saved structured results for {file_path}")
                 
                 return {
-                    "success": True,
-                    "content": json.dumps(pages_data, indent=2),
-                    "structured_data": pages_data,
-                    "metadata": {
+                    OperatorConstants.SUCCESS: True,
+                    OperatorConstants.DOC_COLUMN_DEFAULT: json.dumps(pages_data, indent=2),
+                    OperatorConstants.STRUCTURED_DATA: pages_data,
+                    OperatorConstants.METADATA: {
                         "page_count": len(pages_data)
                     }
                 }
@@ -260,16 +262,16 @@ class ExtractDoclingOperator:
             logger.error(f"DocumentExtractor not available. Install with: pip install docling[vlm]")
             logger.error(f"Error: {str(e)}")
             return {
-                "success": False,
-                "error": "DocumentExtractor not available",
-                "content": None
+                OperatorConstants.SUCCESS: False,
+                OperatorConstants.ERROR: "DocumentExtractor not available",
+                OperatorConstants.DOC_COLUMN_DEFAULT: None
             }
         except Exception as e:
             logger.error(f"Error extracting with template: {str(e)}")
             return {
-                "success": False,
-                "error": str(e),
-                "content": None
+                OperatorConstants.SUCCESS: False,
+                OperatorConstants.ERROR: str(e),
+                OperatorConstants.DOC_COLUMN_DEFAULT: None
             }
     
     def _expand_extracted_data_columns(self, table: pa.Table, extracted_data_list: list) -> pa.Table:
@@ -294,8 +296,8 @@ class ExtractDoclingOperator:
             if data and isinstance(data, list):
                 # Handle list of pages - collect keys from first page's extracted_data
                 for page in data:
-                    if isinstance(page, dict) and "extracted_data" in page:
-                        page_data = page["extracted_data"]
+                    if isinstance(page, dict) and OperatorConstants.EXTRACTED_DATA in page:
+                        page_data = page[OperatorConstants.EXTRACTED_DATA]
                         if isinstance(page_data, dict):
                             all_keys.update(page_data.keys())
                         break  # Only use first page to determine schema
@@ -318,8 +320,8 @@ class ExtractDoclingOperator:
                 if data and isinstance(data, list):
                     # Handle list of pages - extract from first page
                     for page in data:
-                        if isinstance(page, dict) and "extracted_data" in page:
-                            page_data = page["extracted_data"]
+                        if isinstance(page, dict) and OperatorConstants.EXTRACTED_DATA in page:
+                            page_data = page[OperatorConstants.EXTRACTED_DATA]
                             if isinstance(page_data, dict):
                                 value = page_data.get(key)
                             break
@@ -359,7 +361,7 @@ class ExtractDoclingOperator:
             "total_docs": table.num_rows,
             "processed_docs": 0,
             "failed_docs": 0,
-            "status": "completed"
+            OperatorConstants.STATUS: "completed"
         }
         
         if table.num_rows == 0:
@@ -367,7 +369,7 @@ class ExtractDoclingOperator:
         
         # Check if content already exists
         if self.doc_column in table.column_names:
-            metadata["message"] = "Content already present. Moving to next operator"
+            metadata[OperatorConstants.MESSAGE] = "Content already present. Moving to next operator"
             return [table], metadata
         
         # Process documents
@@ -379,16 +381,16 @@ class ExtractDoclingOperator:
         for idx in range(table.num_rows):
             try:
                 # Get document information
-                doc_id = table["id"][idx].as_py() if "id" in table.column_names else f"doc_{idx}"
-                doc_name = table["name"][idx].as_py() if "name" in table.column_names else f"document_{idx}"
+                doc_id = table[OperatorConstants.ID][idx].as_py() if OperatorConstants.ID in table.column_names else f"doc_{idx}"
+                doc_name = table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else f"document_{idx}"
                 
                 # Get binary content
-                if "binary_content" in table.column_names:
-                    binary_content = table["binary_content"][idx].as_py()
+                if OperatorConstants.BINARY_CONTENT in table.column_names:
+                    binary_content = table[OperatorConstants.BINARY_CONTENT][idx].as_py()
                 else:
                     # If no binary content, try to read from path
-                    if "path" in table.column_names:
-                        file_path = table["path"][idx].as_py()
+                    if OperatorConstants.PATH in table.column_names:
+                        file_path = table[OperatorConstants.PATH][idx].as_py()
                         with open(file_path, 'rb') as f:
                             binary_content = f.read()
                     else:
@@ -400,13 +402,13 @@ class ExtractDoclingOperator:
                 else:
                     result = self._extract_basic(doc_name, binary_content)
                 
-                if result["success"]:
-                    doc_contents.append(result["content"])
-                    doc_metadata_list.append(result.get("metadata", {}))
+                if result[OperatorConstants.SUCCESS]:
+                    doc_contents.append(result[OperatorConstants.DOC_COLUMN_DEFAULT])
+                    doc_metadata_list.append(result.get(OperatorConstants.METADATA, {}))
                     
                     # Add extracted structured data if template extraction was used
-                    if self.use_template and "structured_data" in result:
-                        extracted_data_list.append(result["structured_data"])
+                    if self.use_template and OperatorConstants.STRUCTURED_DATA in result:
+                        extracted_data_list.append(result[OperatorConstants.STRUCTURED_DATA])
                     else:
                         extracted_data_list.append(None)
                     
@@ -417,7 +419,7 @@ class ExtractDoclingOperator:
                     extracted_data_list.append(None)
                     failed_indices.append(idx)
                     metadata["failed_docs"] += 1
-                    logger.error(f"Failed to extract content from {doc_name}: {result.get('error')}")
+                    logger.error(f"Failed to extract content from {doc_name}: {result.get(OperatorConstants.ERROR)}")
                     
             except Exception as e:
                 logger.error(f"Error processing document at index {idx}: {str(e)}")
@@ -445,7 +447,7 @@ class ExtractDoclingOperator:
                 ]
                 table = TransformUtils.add_column(
                     table=table,
-                    name="extracted_data",
+                    name=OperatorConstants.EXTRACTED_DATA,
                     content=extracted_data_json
                 )
                 logger.info("Added extracted_data column with structured template extraction results")
@@ -458,7 +460,7 @@ class ExtractDoclingOperator:
         
         # Update metadata
         if metadata["failed_docs"] > 0:
-            metadata["status"] = "completed_with_errors"
+            metadata[OperatorConstants.STATUS] = "completed_with_errors"
         
         return [table], metadata
     
@@ -472,87 +474,87 @@ class ExtractDoclingOperator:
             Dictionary containing operator metadata
         """
         return {
-            "sdk": True,
-            "category": "extract",
-            "is_operator_available": True,
-            "label": "Extract Docling",
-            "description": "Extract content from documents using Docling library",
-            "features": {
-                "content": {
-                    "name": "Document Content",
-                    "description": "The markdown content extracted from the document",
-                    "available_for_filter": True,
-                    "available_for_vector_db": True,
-                    "type": "string",
-                    "tags": ["mandatory"]
+            OperatorConstants.SDK: True,
+            OperatorConstants.CATEGORY: "extract",
+            OperatorConstants.IS_OPERATOR_AVAILABLE: True,
+            OperatorConstants.LABEL: "Extract Docling",
+            OperatorConstants.DESCRIPTION: "Extract content from documents using Docling library",
+            OperatorConstants.FEATURES: {
+                OperatorConstants.DOC_COLUMN_DEFAULT: {
+                    OperatorConstants.NAME: "Document Content",
+                    OperatorConstants.DESCRIPTION: "The markdown content extracted from the document",
+                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                    OperatorConstants.TAGS: [OperatorConstants.MANDATORY]
                 },
-                "doc_id_hash": {
-                    "name": "Hash ID",
-                    "description": "Hash ID of the document row",
-                    "available_for_vector_db": True,
-                    "mandatory_for_vector_db": True,
-                    "type": "string",
-                    "is_primary": True,
-                    "tags": ["mandatory", "primary"]
+                OperatorConstants.DOC_ID_HASH_DEFAULT: {
+                    OperatorConstants.NAME: "Hash ID",
+                    OperatorConstants.DESCRIPTION: "Hash ID of the document row",
+                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                    OperatorConstants.IS_PRIMARY: True,
+                    OperatorConstants.TAGS: [OperatorConstants.MANDATORY, OperatorConstants.PRIMARY]
                 },
-                "extracted_data": {
-                    "name": "Extracted Data",
-                    "description": "Structured data extracted using template-based extraction",
-                    "available_for_filter": True,
-                    "available_for_vector_db": True,
-                    "type": "string",
-                    "tags": []
+                OperatorConstants.EXTRACTED_DATA: {
+                    OperatorConstants.NAME: "Extracted Data",
+                    OperatorConstants.DESCRIPTION: "Structured data extracted using template-based extraction",
+                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                    OperatorConstants.TAGS: []
                 }
             },
-            "attributes": {
-                "doc_column": {
-                    "name": "Document Column",
-                    "description": "Name of the column to store document content",
-                    "required": False,
-                    "default": "content",
-                    "type": "string"
+            OperatorConstants.ATTRIBUTES: {
+                OperatorConstants.DOC_COLUMN: {
+                    OperatorConstants.NAME: "Document Column",
+                    OperatorConstants.DESCRIPTION: "Name of the column to store document content",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: OperatorConstants.DOC_COLUMN_DEFAULT,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING
                 },
-                "doc_id_hash": {
-                    "name": "Document ID Hash Column",
-                    "description": "Name of the column to store document hash",
-                    "required": False,
-                    "default": "doc_id_hash",
-                    "type": "string"
+                OperatorConstants.DOC_ID_HASH: {
+                    OperatorConstants.NAME: "Document ID Hash Column",
+                    OperatorConstants.DESCRIPTION: "Name of the column to store document hash",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: OperatorConstants.DOC_ID_HASH_DEFAULT,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING
                 },
-                "extract_tables": {
-                    "name": "Extract Tables",
-                    "description": "Whether to extract tables from documents",
-                    "required": False,
-                    "default": True,
-                    "type": "boolean"
+                OperatorConstants.EXTRACT_TABLES: {
+                    OperatorConstants.NAME: "Extract Tables",
+                    OperatorConstants.DESCRIPTION: "Whether to extract tables from documents",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: True,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_BOOL
                 },
-                "extract_images": {
-                    "name": "Extract Images",
-                    "description": "Whether to extract images from documents",
-                    "required": False,
-                    "default": True,
-                    "type": "boolean"
+                OperatorConstants.EXTRACT_IMAGES: {
+                    OperatorConstants.NAME: "Extract Images",
+                    OperatorConstants.DESCRIPTION: "Whether to extract images from documents",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: True,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_BOOL
                 },
-                "use_template": {
-                    "name": "Use Template",
-                    "description": "Whether to use template-based extraction for structured data",
-                    "required": False,
-                    "default": False,
-                    "type": "boolean"
+                OperatorConstants.USE_TEMPLATE: {
+                    OperatorConstants.NAME: "Use Template",
+                    OperatorConstants.DESCRIPTION: "Whether to use template-based extraction for structured data",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: False,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_BOOL
                 },
-                "template": {
-                    "name": "Extraction Template",
-                    "description": "Template dictionary for structured extraction (required if use_template is True)",
-                    "required": False,
-                    "default": None,
-                    "type": "json"
+                OperatorConstants.TEMPLATE: {
+                    OperatorConstants.NAME: "Extraction Template",
+                    OperatorConstants.DESCRIPTION: "Template dictionary for structured extraction (required if use_template is True)",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: None,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_JSON
                 },
-                "expand_extracted_data": {
-                    "name": "Expand Extracted Data",
-                    "description": "Whether to expand extracted_data JSON into individual columns",
-                    "required": False,
-                    "default": False,
-                    "type": "boolean"
+                OperatorConstants.EXPAND_EXTRACTED_DATA: {
+                    OperatorConstants.NAME: "Expand Extracted Data",
+                    OperatorConstants.DESCRIPTION: "Whether to expand extracted_data JSON into individual columns",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: False,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_BOOL
                 }
             }
         }
@@ -593,12 +595,12 @@ def main():
     
     # Initialize operator
     config = {
-        "doc_column": "content",
-        "doc_id_hash": "doc_id_hash",
-        "extract_tables": True,
-        "extract_images": True,
-        "use_template": use_template,
-        "template": invoice_template if use_template else None
+        OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
+        OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT,
+        OperatorConstants.EXTRACT_TABLES: True,
+        OperatorConstants.EXTRACT_IMAGES: True,
+        OperatorConstants.USE_TEMPLATE: use_template,
+        OperatorConstants.TEMPLATE: invoice_template if use_template else None
     }
     
     operator = ExtractDoclingOperator(config)
@@ -614,10 +616,10 @@ def main():
         
         # Create PyArrow table
         table = pa.table({
-            "id": [str(input_path)],
-            "name": [input_path.name],
-            "path": [str(input_path)],
-            "binary_content": [binary_content]
+            OperatorConstants.ID: [str(input_path)],
+            OperatorConstants.NAME: [input_path.name],
+            OperatorConstants.PATH: [str(input_path)],
+            OperatorConstants.BINARY_CONTENT: [binary_content]
         })
         
         # Transform
@@ -629,20 +631,20 @@ def main():
         logger.info(f"Metadata: {metadata}")
         logger.info(f"Result columns: {result_table.column_names}")
         
-        if "content" in result_table.column_names:
-            content = result_table["content"][0].as_py()
+        if OperatorConstants.DOC_COLUMN_DEFAULT in result_table.column_names:
+            content = result_table[OperatorConstants.DOC_COLUMN_DEFAULT][0].as_py()
             logger.info(f"Content length: {len(content) if content else 0} characters")
             if content:
                 logger.info(f"Content preview: {content[:200]}...")
         
-        if "extracted_data" in result_table.column_names:
-            extracted_data = result_table["extracted_data"][0].as_py()
+        if OperatorConstants.EXTRACTED_DATA in result_table.column_names:
+            extracted_data = result_table[OperatorConstants.EXTRACTED_DATA][0].as_py()
             if extracted_data:
                 logger.info(f"Extracted data length: {len(extracted_data)} characters")
                 logger.info(f"Extracted data preview: {extracted_data[:200]}...")
         
-        if "doc_id_hash" in result_table.column_names:
-            hash_id = result_table["doc_id_hash"][0].as_py()
+        if OperatorConstants.DOC_ID_HASH_DEFAULT in result_table.column_names:
+            hash_id = result_table[OperatorConstants.DOC_ID_HASH_DEFAULT][0].as_py()
             logger.info(f"Document hash: {hash_id}")
     
     elif input_path.is_dir():
@@ -651,20 +653,20 @@ def main():
         
         # Process all files
         file_data = {
-            "id": [],
-            "name": [],
-            "path": [],
-            "binary_content": []
+            OperatorConstants.ID: [],
+            OperatorConstants.NAME: [],
+            OperatorConstants.PATH: [],
+            OperatorConstants.BINARY_CONTENT: []
         }
         
         for file_path in files:
             with open(file_path, 'rb') as f:
                 binary_content = f.read()
             
-            file_data["id"].append(str(file_path))
-            file_data["name"].append(file_path.name)
-            file_data["path"].append(str(file_path))
-            file_data["binary_content"].append(binary_content)
+            file_data[OperatorConstants.ID].append(str(file_path))
+            file_data[OperatorConstants.NAME].append(file_path.name)
+            file_data[OperatorConstants.PATH].append(str(file_path))
+            file_data[OperatorConstants.BINARY_CONTENT].append(binary_content)
         
         # Create PyArrow table
         table = pa.table(file_data)
