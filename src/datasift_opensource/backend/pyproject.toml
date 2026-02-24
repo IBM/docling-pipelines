@@ -12,9 +12,26 @@ dependencies = [
     "pydantic==2.12.5",
     "pydantic-settings==2.12.0",
     "docling[vlm]",
-    "pyarrow==16.1.0",
+    "pyarrow==17.0.0",
+    "urllib3==2.6.3",
+    "botocore==1.38.18",
+    "data-prep-toolkit-transforms==1.1.4.post1",
+    "filelock==3.20.3",
+    "ibm-cos-sdk==2.14.3",
+    "langdetect==1.0.9",
+    "langchain==1.2.10",
     "langchain-core==1.2.14",
-    "pandas>=2.0.0",
+    "pandas==2.3.3",
+    "prefect==3.4.23",
+    "pyiceberg[glue]==0.9.1",
+    "pyiceberg-core==0.7.0",
+    "pypdf==6.7.1",
+    "sqlglot==27.13.2",
+    "tabulate==0.9.0",
+    "toml==0.10.2",
+    "pillow==12.1.1",
+    "mlx==0.30.6",
+    "orjson==3.11.7"
 ]
 
 [project.optional-dependencies]

@@ -155,24 +155,58 @@ The wheel file will be created in the `dist/` directory.
 Add a new dependency (from backend directory):
 ```bash
 cd src/datasift_opensource/backend
-uv add <package-name>
+uv add <package-name>==<version>  # Always specify a fixed version
 ```
 
 Add a development dependency:
 ```bash
 cd src/datasift_opensource/backend
-uv add --dev <package-name>
+uv add --dev <package-name>==<version>  # Always specify a fixed version
+```
+
+**Important**: After adding any new package, always follow these steps:
+
+1. Sync dependencies and update lock file:
+```bash
+cd src/datasift_opensource/backend
+uv sync --extra dev
+```
+
+2. Generate updated requirements.txt:
+```bash
+cd src/datasift_opensource/backend
+uv pip compile pyproject.toml -o requirements.txt
+```
+
+3. Install package in editable mode and run tests:
+```bash
+cd src/datasift_opensource/backend
+uv pip install -e .
+export TEST_CP4D_USERNAME=udp_unittest_user
+export TEST_CP4D_PASSWORD="udp_unittest_pass@123"
+uv run pytest ../../../tests/ -v
 ```
 
 ### Testing
 
-Run tests (from project root):
+Run all tests (from backend directory):
 ```bash
 cd src/datasift_opensource/backend
-uv run pytest
+# Set environment variables
+export TEST_CP4D_USERNAME=udp_unittest_user
+export TEST_CP4D_PASSWORD="udp_unittest_pass@123"
+
+# Install package in editable mode (first time or after changes)
+uv pip install -e .
+
+# Run all tests
+uv run pytest ../../../tests/ -v
+
+# Run specific test directory
+uv run pytest ../../../tests/unit/operators/extract/ -v
 
 # With coverage
-uv run pytest --cov=datasift_opensource --cov-report=html
+uv run pytest ../../../tests/ --cov=datasift_opensource --cov-report=html
 ```
 
 ### Code Quality
