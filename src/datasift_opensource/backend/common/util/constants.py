@@ -525,6 +525,24 @@ class OperatorConstants:
     CREATE_EMBEDDED_IMAGES = "create_embedded_images"
     ENABLED_TEXT = "enabled_text"
     LANGUAGES = "languages" #Extration parameter
+    
+    # Docling extraction constants
+    EXTRACTED_DATA = "extracted_data"
+    STRUCTURED_DATA = "structured_data"
+    ERROR = "error"
+    TABLES = "tables"
+    IMAGES = "images"
+    TEMPLATE = "template"
+    PAGE_NO = "page_no"
+    ERRORS = "errors"
+    EXTRACT_TABLES = "extract_tables"
+    EXTRACT_IMAGES = "extract_images"
+    USE_TEMPLATE = "use_template"
+    EXPAND_EXTRACTED_DATA = "expand_extracted_data"
+    DOCLING_DOCUMENT = "docling_document"
+    SUCCESS = "success"
+    STATUS = "status"
+    MESSAGE = "message"
 
 
 class OrchestratorType:
