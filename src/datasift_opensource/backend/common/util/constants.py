@@ -543,6 +543,8 @@ class OperatorConstants:
     CREATE_EMBEDDED_IMAGES = "create_embedded_images"
     ENABLED_TEXT = "enabled_text"
     LANGUAGES = "languages" #Extration parameter
+    MAX_WORKERS = "max_workers"
+    USE_PROCESSES = "use_processes"
     
     # Docling extraction constants
     EXTRACTED_DATA = "extracted_data"
