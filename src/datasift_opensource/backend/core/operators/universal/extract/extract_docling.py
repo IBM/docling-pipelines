@@ -7,7 +7,10 @@ Follows the structure of IngestLocalOperator with AbstractOperator as parent cla
 
 import json
 import logging
+import os
 import pathlib
+import tempfile
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
 from typing import Any, Dict, List
 from pathlib import Path
 
@@ -74,6 +77,167 @@ class DocIdHashOperator:
         return [table], {}
 
 
+def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool) -> Dict[str, Any]:
+    """
+    Worker function for basic extraction - designed to run in parallel.
+    
+    Args:
+        file_path: Path to the document file
+        binary_content: Binary content of the document
+        extract_tables: Whether to extract tables
+        extract_images: Whether to extract images
+        
+    Returns:
+        Dictionary containing extracted content and DoclingDocument object
+    """
+    logger.info(f"Processing file: {file_path}")
+    
+    # Save binary content to temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
+        tmp_file.write(binary_content)
+        tmp_path = tmp_file.name
+    
+    try:
+        # Initialize converter (each worker gets its own instance)
+        converter = DocumentConverter()
+        
+        # Convert document
+        result = converter.convert(tmp_path)
+        
+        # Export to markdown
+        markdown_text = result.document.export_to_markdown()
+        
+        # Extract tables
+        tables = []
+        if extract_tables:
+            for item, level in result.document.iterate_items():
+                if isinstance(item, TableItem):
+                    table_df = item.export_to_dataframe()
+                    tables.append({
+                        "ref": item.self_ref,
+                        "data": table_df.to_dict() if table_df is not None else None
+                    })
+        
+        # Extract images
+        images = []
+        if extract_images:
+            for item, level in result.document.iterate_items():
+                if isinstance(item, PictureItem):
+                    images.append({
+                        "ref": item.self_ref,
+                        "caption": getattr(item, 'caption', None)
+                    })
+        
+        logger.info(f"Completed extraction for {file_path}")
+        
+        # Serialize the DoclingDocument object for storage
+        docling_doc_json = result.document.model_dump_json()
+        
+        return {
+            OperatorConstants.SUCCESS: True,
+            OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
+            OperatorConstants.DOCLING_DOCUMENT: docling_doc_json,
+            OperatorConstants.TABLES: tables,
+            OperatorConstants.IMAGES: images,
+            OperatorConstants.METADATA: {
+                "table_count": len(tables),
+                "image_count": len(images),
+                "char_count": len(markdown_text)
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error extracting content from {file_path}: {str(e)}")
+        return {
+            OperatorConstants.SUCCESS: False,
+            OperatorConstants.ERROR: str(e),
+            OperatorConstants.DOC_COLUMN_DEFAULT: None,
+            OperatorConstants.DOCLING_DOCUMENT: None
+        }
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(tmp_path)
+        except:
+            pass
+
+
+def _extract_with_template_worker(file_path: str, binary_content: bytes, template: dict) -> Dict[str, Any]:
+    """
+    Worker function for template-based extraction - designed to run in parallel.
+    
+    Args:
+        file_path: Path to the document file
+        binary_content: Binary content of the document
+        template: Template dictionary for structured extraction
+        
+    Returns:
+        Dictionary containing extracted structured data
+    """
+    logger.info(f"Processing file with template: {file_path}")
+    
+    try:
+        from docling.document_extractor import DocumentExtractor
+        
+        # Save binary content to temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
+            tmp_file.write(binary_content)
+            tmp_path = tmp_file.name
+        
+        try:
+            # Initialize extractor (each worker gets its own instance)
+            extractor = DocumentExtractor(allowed_formats=[InputFormat.IMAGE, InputFormat.PDF])
+            
+            # Extract with template
+            if template:
+                result = extractor.extract(source=tmp_path, template=template)
+            else:
+                raise ValueError("Template is required for template-based extraction")
+            
+            # Convert pages to proper dict format
+            pages_data = []
+            for page in result.pages:
+                page_dict = {
+                    OperatorConstants.PAGE_NO: page.page_no,
+                    OperatorConstants.EXTRACTED_DATA: page.extracted_data,
+                    OperatorConstants.RAW_TEXT: page.raw_text,
+                    OperatorConstants.ERRORS: page.errors
+                }
+                pages_data.append(page_dict)
+            
+            logger.info(f"Saved structured results for {file_path}")
+            
+            return {
+                OperatorConstants.SUCCESS: True,
+                OperatorConstants.DOC_COLUMN_DEFAULT: json.dumps(pages_data, indent=2),
+                OperatorConstants.STRUCTURED_DATA: pages_data,
+                OperatorConstants.METADATA: {
+                    "page_count": len(pages_data)
+                }
+            }
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+                
+    except ImportError as e:
+        logger.error(f"DocumentExtractor not available. Install with: pip install docling[vlm]")
+        logger.error(f"Error: {str(e)}")
+        return {
+            OperatorConstants.SUCCESS: False,
+            OperatorConstants.ERROR: "DocumentExtractor not available",
+            OperatorConstants.DOC_COLUMN_DEFAULT: None
+        }
+    except Exception as e:
+        logger.error(f"Error extracting with template: {str(e)}")
+        return {
+            OperatorConstants.SUCCESS: False,
+            OperatorConstants.ERROR: str(e),
+            OperatorConstants.DOC_COLUMN_DEFAULT: None
+        }
+
+
 class ExtractDoclingOperator(AbstractOperator):
     """
     Operator for extracting content from documents using Docling.
@@ -99,6 +263,8 @@ class ExtractDoclingOperator(AbstractOperator):
                 - use_template: Whether to use template-based extraction (default: False)
                 - template: Template dictionary for structured extraction (optional)
                 - expand_extracted_data: Whether to expand extracted_data into individual columns (default: False)
+                - max_workers: Maximum number of parallel workers (default: auto-detect)
+                - use_processes: Use ProcessPoolExecutor instead of ThreadPoolExecutor (default: False)
         """
         super().__init__(config)
         self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
@@ -108,6 +274,11 @@ class ExtractDoclingOperator(AbstractOperator):
         self.use_template = config.get(OperatorConstants.USE_TEMPLATE, False)
         self.template = config.get(OperatorConstants.TEMPLATE, None)
         self.expand_extracted_data = config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
+        
+        # Parallel processing configuration
+        self.max_workers = config.get(OperatorConstants.MAX_WORKERS, self._get_optimal_workers())
+        self.use_processes = config.get(OperatorConstants.USE_PROCESSES, False)
+        
         self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
         
         # Initialize Docling converter
@@ -124,6 +295,34 @@ class ExtractDoclingOperator(AbstractOperator):
             except ImportError:
                 logger.warning("DocumentExtractor not available. Install with: pip install docling[vlm]")
                 self.use_template = False
+        
+        logger.info(f"Initialized ExtractDoclingOperator with {self.max_workers} workers "
+                   f"using {'ProcessPoolExecutor' if self.use_processes else 'ThreadPoolExecutor'}")
+    
+    def _get_optimal_workers(self) -> int:
+        """
+        Determine optimal number of workers based on system resources.
+        Cross-platform compatible: Works on Linux, Windows, and macOS.
+        
+        Returns:
+            Optimal number of workers
+        """
+        import platform
+        
+        cpu_count = os.cpu_count() or 4
+        system = platform.system()
+        
+        # For I/O-bound tasks (document extraction), use more workers than CPU count
+        # For CPU-bound tasks (template extraction with VLM), use CPU count
+        if self.use_template:
+            # Template extraction is more CPU-intensive (uses VLM models)
+            optimal = max(1, cpu_count - 1)  # Leave one CPU free for system
+        else:
+            # Basic extraction is more I/O-bound (file reading, PDF parsing)
+            optimal = min(cpu_count * 2, 16)  # Cap at 16 to avoid excessive threads
+        
+        logger.info(f"Auto-detected optimal workers: {optimal} (CPU count: {cpu_count}, OS: {system})")
+        return optimal
     
     def _extract_basic(self, file_path: str, binary_content: bytes) -> Dict[str, Any]:
         """
@@ -383,16 +582,10 @@ class ExtractDoclingOperator(AbstractOperator):
             metadata[OperatorConstants.MESSAGE] = "Content already present. Moving to next operator"
             return [table], metadata
         
-        # Process documents
-        doc_contents = []
-        doc_metadata_list = []
-        extracted_data_list = []
-        docling_documents = []  # Store serialized DoclingDocument objects
-        failed_indices = []
-        
+        # Prepare document data for parallel processing
+        doc_tasks = []
         for idx in range(table.num_rows):
             try:
-                # Get document information
                 doc_id = table[OperatorConstants.ID][idx].as_py() if OperatorConstants.ID in table.column_names else f"doc_{idx}"
                 doc_name = table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else f"document_{idx}"
                 
@@ -400,7 +593,6 @@ class ExtractDoclingOperator(AbstractOperator):
                 if OperatorConstants.BINARY_CONTENT in table.column_names:
                     binary_content = table[OperatorConstants.BINARY_CONTENT][idx].as_py()
                 else:
-                    # If no binary content, try to read from path
                     if OperatorConstants.PATH in table.column_names:
                         file_path = table[OperatorConstants.PATH][idx].as_py()
                         with open(file_path, 'rb') as f:
@@ -408,52 +600,103 @@ class ExtractDoclingOperator(AbstractOperator):
                     else:
                         raise ValueError(f"No binary content or path available for document {doc_name}")
                 
-                # Extract content
-                if self.use_template:
-                    result = self._extract_with_template(doc_name, binary_content)
-                else:
-                    result = self._extract_basic(doc_name, binary_content)
+                doc_tasks.append({
+                    'idx': idx,
+                    'doc_id': doc_id,
+                    'doc_name': doc_name,
+                    'binary_content': binary_content
+                })
+            except Exception as e:
+                logger.error(f"Error preparing document at index {idx}: {str(e)}")
+                doc_tasks.append({
+                    'idx': idx,
+                    'doc_id': str(idx),
+                    'doc_name': f"document_{idx}",
+                    'error': str(e)
+                })
+        
+        # Process documents in parallel
+        doc_contents = [None] * table.num_rows
+        doc_metadata_list = [{}] * table.num_rows
+        extracted_data_list = [None] * table.num_rows
+        docling_documents = [None] * table.num_rows
+        failed_indices = []
+        
+        # Choose executor based on configuration
+        ExecutorClass = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
+        
+        logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
+        
+        with ExecutorClass(max_workers=self.max_workers) as executor:
+            # Submit all tasks
+            future_to_task = {}
+            for task in doc_tasks:
+                if 'error' in task:
+                    # Skip tasks that had errors during preparation
+                    failed_indices.append(task['idx'])
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(task['doc_id']),
+                        doc_name=task['doc_name'],
+                        reason=task['error']
+                    )
+                    continue
                 
-                if result[OperatorConstants.SUCCESS]:
-                    doc_contents.append(result[OperatorConstants.DOC_COLUMN_DEFAULT])
-                    doc_metadata_list.append(result.get(OperatorConstants.METADATA, {}))
-                    docling_documents.append(result.get(OperatorConstants.DOCLING_DOCUMENT))  # Store DoclingDocument
-                    
-                    # Add extracted structured data if template extraction was used
-                    if self.use_template and OperatorConstants.STRUCTURED_DATA in result:
-                        extracted_data_list.append(result[OperatorConstants.STRUCTURED_DATA])
-                    else:
-                        extracted_data_list.append(None)
-                    
-                    metadata[Metrics.External.PROCESSED_DOCS] += 1
+                if self.use_template:
+                    future = executor.submit(
+                        _extract_with_template_worker,
+                        task['doc_name'],
+                        task['binary_content'],
+                        self.template
+                    )
                 else:
-                    doc_contents.append(None)
-                    doc_metadata_list.append({})
-                    docling_documents.append(None)
-                    extracted_data_list.append(None)
+                    future = executor.submit(
+                        _extract_basic_worker,
+                        task['doc_name'],
+                        task['binary_content'],
+                        self.extract_tables,
+                        self.extract_images
+                    )
+                
+                future_to_task[future] = task
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_task):
+                task = future_to_task[future]
+                idx = task['idx']
+                
+                try:
+                    result = future.result()
+                    
+                    if result[OperatorConstants.SUCCESS]:
+                        doc_contents[idx] = result[OperatorConstants.DOC_COLUMN_DEFAULT]
+                        doc_metadata_list[idx] = result.get(OperatorConstants.METADATA, {})
+                        docling_documents[idx] = result.get(OperatorConstants.DOCLING_DOCUMENT)
+                        
+                        if self.use_template and OperatorConstants.STRUCTURED_DATA in result:
+                            extracted_data_list[idx] = result[OperatorConstants.STRUCTURED_DATA]
+                        
+                        metadata[Metrics.External.PROCESSED_DOCS] += 1
+                    else:
+                        failed_indices.append(idx)
+                        self.record_failed_document(
+                            metadata=metadata,
+                            doc_id=str(task['doc_id']),
+                            doc_name=task['doc_name'],
+                            reason=result.get(OperatorConstants.ERROR, "Unknown error")
+                        )
+                        logger.error(f"Failed to extract content from {task['doc_name']}: {result.get(OperatorConstants.ERROR)}",
+                                   extra=self.common_log_arguments)
+                        
+                except Exception as e:
+                    logger.error(f"Error processing document at index {idx}: {str(e)}")
                     failed_indices.append(idx)
                     self.record_failed_document(
                         metadata=metadata,
-                        doc_id=str(doc_id),
-                        doc_name=doc_name,
-                        reason=result.get(OperatorConstants.ERROR, "Unknown error")
+                        doc_id=str(task['doc_id']),
+                        doc_name=task['doc_name'],
+                        reason=str(e)
                     )
-                    logger.error(f"Failed to extract content from {doc_name}: {result.get(OperatorConstants.ERROR)}",
-                               extra=self.common_log_arguments)
-                    
-            except Exception as e:
-                logger.error(f"Error processing document at index {idx}: {str(e)}")
-                doc_contents.append(None)
-                doc_metadata_list.append({})
-                docling_documents.append(None)
-                extracted_data_list.append(None)
-                failed_indices.append(idx)
-                self.record_failed_document(
-                    metadata=metadata,
-                    doc_id=str(idx),
-                    doc_name=f"document_{idx}",
-                    reason=str(e)
-                )
         
         # Add content column to table (markdown text from docling)
         if doc_contents:
@@ -592,6 +835,20 @@ class ExtractDoclingOperator(AbstractOperator):
                 OperatorConstants.EXPAND_EXTRACTED_DATA: {
                     OperatorConstants.NAME: "Expand Extracted Data",
                     OperatorConstants.DESCRIPTION: "Whether to expand extracted_data JSON into individual columns",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: False,
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
+                },
+                OperatorConstants.MAX_WORKERS: {
+                    OperatorConstants.NAME: "Max Workers",
+                    OperatorConstants.DESCRIPTION: "Maximum number of parallel workers (auto-detect if not specified)",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: None,
+                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER
+                },
+                OperatorConstants.USE_PROCESSES: {
+                    OperatorConstants.NAME: "Use Processes",
+                    OperatorConstants.DESCRIPTION: "Use ProcessPoolExecutor instead of ThreadPoolExecutor for CPU-intensive tasks",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: False,
                     OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
