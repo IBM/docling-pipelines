@@ -1,7 +1,6 @@
 import os
 from typing import Any
 import pyarrow as pa
-from pypdf import PdfReader
 
 from datasift_opensource.backend.common.util.incremental_update_util import IncrementalUpdateUtil
 from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -27,9 +26,18 @@ logger = get_logger()
 
 class IngestLocalOperator(AbstractOperator):
     """
-    Implements loading the contents of files from a local folder. Recursive traversal and
-    filtering documents based on extensions (such as *.pdf) are supported.
-    Note: Currently only PDF files are supported.
+    Metadata-only ingest operator for loading file metadata from a local folder.
+    
+    This operator discovers files, collects metadata, and optionally stores binary content
+    for downstream extraction operators. It does NOT extract text content - that is handled
+    by specialized extraction operators like ExtractDoclingOperator.
+    
+    Supports:
+    - Recursive directory traversal
+    - File filtering by extension (include/exclude)
+    - File size and count limits
+    - Incremental updates (skip previously processed files)
+    - Binary content storage for downstream extraction
     """
 
     short_name = OperatorConstants.INGEST_LOCAL
@@ -37,28 +45,31 @@ class IngestLocalOperator(AbstractOperator):
 
     def __init__(self, config: dict[str, Any]):
         """
-        Initialize based on the dictionary of configuration information. 
-        Expected parameters are:
-        - input folder
-        - column name where the doc content to be stored
-        - filename include filter
-        - filename exclude filter
-        - max number of files to be ingested
-        - max file size in MB, exceeding which the file will be skipped
+        Initialize the metadata-only ingest operator.
+        
+        Expected parameters:
+        - input_folder: Path to the folder containing documents
+        - include_filter: Comma-separated list of file extensions to include
+        - exclude_filter: Comma-separated list of file extensions to exclude
+        - max_files: Maximum number of files to ingest
+        - max_file_size: Maximum file size in MB (larger files are skipped)
+        - store_binary_content: Whether to store binary content for downstream extraction (default: True)
+        - force_ingest: Force re-ingestion of previously processed documents
+        - retain_deleted_docs: Whether to retain documents that have been deleted from source
         """
-        # Make sure that the param name corresponds to the name used in apply_input_params method
         super().__init__(config)
         self.input_folder = config.get(INPUT_FOLDER_NAME_KEY, "../test-data/input")
         self.max_files = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
         self.max_file_size = MB * config.get(MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE)
-        self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
         self.included_extensions = get_filter_extensions(config.get(INCLUDE_FILTER_KEY, None))
         self.excluded_extensions = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY, None))
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
         self.doc_id_hash = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
         self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
         self.force_ingest = config.get(DatasiftConstants.FORCE_INGEST, False)
         self.retain_deleted_docs = config.get(DatasiftConstants.RETAIN_DELETED_DOCS, DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT)
+        
+        # Metadata-only mode configuration
+        self.store_binary_content = config.get("store_binary_content", True)
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -151,37 +162,41 @@ class IngestLocalOperator(AbstractOperator):
         if self.extract_content(file=file, file_stats=stats, file_abs_path=abs_path, doc=doc, metadata=metadata):
             return doc
 
-    def read_pdf(self, filename):
-        reader = PdfReader(filename)
-
-        content = ''
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                content += "\n" + text.strip()
-
-        return content
-    
-    def read_textf(self, filename):
-        content = ''
-        with open(filename) as f: 
-            content = f.read()
-        return content
-
-    def extract_content(self,file,file_stats,file_abs_path,doc:dict[str,str],metadata:dict[str,Any])-> bool:
-        logger.info("Extracting content from: " + file_abs_path, extra={DatasiftConstants.JOB_ID: self.job_id,
-                                                                                            DatasiftConstants.JOB_RUN_ID: self.job_run_id})
-        extn = file.split('.')[-1]
+    def extract_content(self, file, file_stats, file_abs_path, doc: dict[str, str], metadata: dict[str, Any]) -> bool:
+        """
+        Store file metadata and optionally binary content for downstream extraction.
+        
+        This method does NOT extract text content - it prepares files for downstream
+        extraction operators by storing:
+        - File path (always)
+        - Binary content (if store_binary_content is True)
+        
+        Args:
+            file: Filename
+            file_stats: File statistics from os.stat()
+            file_abs_path: Absolute path to the file
+            doc: Document dictionary to populate
+            metadata: Metadata dictionary for tracking
+            
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        logger.info(f"Storing metadata for downstream extraction: {file_abs_path}", extra=self.common_log_arguments)
         try:
-            if extn == 'pdf':
-                doc[self.doc_column] = self.read_pdf(file_abs_path)
-            elif extn == 'txt':
-                doc[self.doc_column] = self.read_textf(file_abs_path)
+            # Always store the path
+            doc['path'] = file_abs_path
+            
+            # Optionally store binary content
+            if self.store_binary_content:
+                with open(file_abs_path, 'rb') as f:
+                    doc['binary_content'] = f.read()
+                logger.info(f"Stored binary content ({len(doc['binary_content'])} bytes) for: {file_abs_path}",
+                           extra=self.common_log_arguments)
             return True
         except Exception as exc:
-            logger.error(f"An error occurred while extracting the content from: {file_abs_path}", extra=self.common_log_arguments)
+            logger.error(f"An error occurred while reading file: {file_abs_path}", extra=self.common_log_arguments)
             self.record_failed_document(metadata=metadata, doc_id=str(file_stats.st_ino), doc_name=file_abs_path,
-                                       reason=f"Couldn't able to extract the content from the file {file_abs_path} due to {str(exc)}")
+                                       reason=f"Couldn't read the file {file_abs_path} due to {str(exc)}")
             return False
             
     def check_constraints(self,file,file_stats,abs_path,metadata:dict[str,Any],file_count) -> bool:
@@ -205,15 +220,36 @@ class IngestLocalOperator(AbstractOperator):
         else:
             return True
     def get_metadata(self):
-        metadata_features = {} #get_common_metadata_features()
+        """
+        Get metadata about the operator including features and attributes.
+        
+        Returns operator metadata for the metadata-only ingest mode.
+        """
+        metadata_features = {}
+        
+        # Metadata-only mode features
         metadata_features.update({
-            self.doc_column: {
-                OperatorConstants.NAME: "Document Content",
-                OperatorConstants.DESCRIPTION: "The content of the document",
+            "path": {
+                OperatorConstants.NAME: "File Path",
+                OperatorConstants.DESCRIPTION: "The absolute path to the document file",
                 OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.TYPE: OperatorConstants.TYPE_STRING
-            },
+            }
+        })
+        
+        if self.store_binary_content:
+            metadata_features.update({
+                "binary_content": {
+                    OperatorConstants.NAME: "Binary Content",
+                    OperatorConstants.DESCRIPTION: "The binary content of the document for downstream extraction",
+                    OperatorConstants.AVAILABLE_FOR_FILTER: False,
+                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING
+                }
+            })
+        
+        metadata_features.update({
             self.doc_id_hash: {
                 OperatorConstants.NAME: "Hash ID",
                 OperatorConstants.DESCRIPTION: "Hash ID of the row",
@@ -223,13 +259,14 @@ class IngestLocalOperator(AbstractOperator):
                 OperatorConstants.TAGS: [OperatorConstants.MANDATORY, OperatorConstants.PRIMARY]
             }
         })
+        
         return {
             OperatorConstants.CATEGORY: self.category.value,
             OperatorConstants.FEATURES: metadata_features,
             OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
             OperatorConstants.ATTRIBUTES: {
                 OperatorConstants.MAX_FILE_SIZE: {
-                    OperatorConstants.NAME : "Max File Size",
+                    OperatorConstants.NAME: "Max File Size",
                     OperatorConstants.DESCRIPTION: "If the document is larger than the given max file size, then it will be skipped",
                     OperatorConstants.DEFAULT: 100,
                     OperatorConstants.REQUIRED: False,
@@ -237,10 +274,17 @@ class IngestLocalOperator(AbstractOperator):
                 },
                 OperatorConstants.INCLUDE_FILTER_KEY: {
                     OperatorConstants.NAME: "Include File Type",
-                    OperatorConstants.DESCRIPTION: "File types to be included",
-                    OperatorConstants.DEFAULT: "pdf,txt,md",
+                    OperatorConstants.DESCRIPTION: "File types to be included (comma-separated extensions)",
+                    OperatorConstants.DEFAULT: "pdf,docx,pptx,txt,md",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.TYPE: AttributeDataTypes.LIST
+                },
+                "store_binary_content": {
+                    OperatorConstants.NAME: "Store Binary Content",
+                    OperatorConstants.DESCRIPTION: "Whether to store binary content for downstream extraction",
+                    OperatorConstants.DEFAULT: True,
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
                 }
             }
         }
