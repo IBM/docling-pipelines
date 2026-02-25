@@ -192,22 +192,24 @@ uv run pytest ../../../tests/ -v
 Run all tests (from backend directory):
 ```bash
 cd src/datasift_opensource/backend
-# Set environment variables
-export TEST_CP4D_USERNAME=udp_unittest_user
-export TEST_CP4D_PASSWORD="udp_unittest_pass@123"
 
-# Install package in editable mode (first time or after changes)
-uv pip install -e .
+# Set PYTHONPATH (must point to src directory)
+export PYTHONPATH="$(cd ../../.. && pwd)/src:${PYTHONPATH}"
+
+# Sync dependencies (first time or after changes)
+uv sync --extra dev
 
 # Run all tests
 uv run pytest ../../../tests/ -v
 
 # Run specific test directory
-uv run pytest ../../../tests/unit/operators/extract/ -v
+uv run pytest ../../../tests/unit/operators/ingest/ -v
 
 # With coverage
 uv run pytest ../../../tests/ --cov=datasift_opensource --cov-report=html
 ```
+
+**Important**: The `PYTHONPATH` must point to the `src` directory (relative to project root) for imports to work correctly.
 
 ### Code Quality
 

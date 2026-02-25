@@ -30,7 +30,6 @@ class ErrorCode(str, Enum):
     JOB_RUN_FAILED = "job_run_failed"
     SDK_EXECUTION_FAILED = "sdk_execution_failed"
     SPARK_JOB_FAILED = "spark_job_failed"
-    CUSTOM_OPERATOR_FAILED = "custom_operator_failed"
     REST_CLIENT_FAILED = "rest_client_failed"
     CAMS_CLIENT_FAILED = "cams_client_failed"
     MILVUS_COLLECTION_ERROR = "milvus_collection_error"

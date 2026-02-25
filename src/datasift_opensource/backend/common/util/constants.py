@@ -15,7 +15,6 @@ class DatasiftConstants:
     RETAIN_DELETED_DOCS = "retain_deleted_docs"
     RETAIN_DELETED_DOCS_DEFAULT = True
     DATA_FOLDER = "data_folder"
-    WAREHOUSE_FOLDER = "WAREHOUSE_FOLDER"
     OPERAND_NAMESPACE = "OPERAND_NAMESPACE"
     WDU_SERVER = "WDU_SERVER"
     WML_SERVER = "WML_SERVER"
@@ -296,7 +295,6 @@ class OperatorConstants:
     MILVUS = "milvus"
     ES_CP4D = "elasticsearch_cp4d"
     INGEST = "ingest"
-    INGEST_CPD_S3 = "ingest_cpd_s3"
     CHUNKER = "chunker"
     CHUNKED_CONTENT = "chunked_content"
     CHUNK = "chunk"
@@ -335,8 +333,7 @@ class OperatorConstants:
     SDK = "sdk"
     DELETED = "deleted"
     CORE_OPERATORS_PATH = "datasift_opensource.backend.core.operators"
-    CUSTOM_OPERATORS = "custom_operators"
-    ALL_OPERATORS_PATH = [CORE_OPERATORS_PATH, CUSTOM_OPERATORS]
+    ALL_OPERATORS_PATH = [CORE_OPERATORS_PATH]
     SCHEMA_NAME = "schema_name"
     TABLE_NAME = "table_name"
     LANG_DETECT = "lang_detect"
@@ -472,7 +469,6 @@ class OperatorConstants:
     TRANSFORMED_ENTITIES_COLUMN_NAME = "transformed_entities"
     MERGE_OPTION = "merge_option"
     VECTOR_DB_NAME = "vector_db_name"
-    CUSTOM_OPERATORS_TARGET = "/data/custom_operators"
     ROWS = "rows"
     COLUMNS = "columns"
     INNER_JOIN_DUPLICATE_COLUMN = "inner_join"

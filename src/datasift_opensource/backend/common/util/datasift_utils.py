@@ -1,34 +1,16 @@
 import os
-import ast
-import hashlib
 from datetime import datetime
-from typing import Dict
 
 import shutil
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union, List, Callable, TypeVar, Any
 
-from datasift_opensource.backend.config.config import settings
 from datasift_opensource.backend.common.util.log import get_logger
 from datasift_opensource.backend.common.exceptions.datasift_exceptions import ValidationAlert
 from datasift_opensource.backend.common.exceptions.datasift_exceptions import ErrorCode
 from datasift_opensource.backend.common.exceptions.error_messages import ValidationMessage
 from datasift_opensource.backend.common.util.constants import OperatorConstants #, RetryConstants, Environments, BucketTypes, \
-
-# Blocklisted AST node types for user code validation
-BLOCKLISTED_NODES = {
-    ast.Import, ast.ImportFrom, ast.Call,
-    ast.Attribute, ast.Global, ast.Nonlocal
-}
-
-# Blocklisted names/patterns for user code validation
-BLOCKLISTED_NAMES = {
-    '__import__', 'exec', 'eval', 'compile', 'open', 'file', 'input',
-    'raw_input', 'reload', 'globals', 'locals', 'vars', 'dir',
-    'help', 'copyright', 'credits', 'license', 'quit', 'exit',
-    '__builtins__', '__builtin__', '__file__', '__name__'
-}
 
 # Try to import OpenTelemetry for distributed tracing support
 try:  # pragma: no cover
@@ -42,27 +24,10 @@ except ImportError:  # pragma: no cover
     detach = None
 
 logger = get_logger()
-_dao = None
 
-# def _get_dao():
-#     """Lazy initialization of DAO to avoid circular import during module initialization."""
-#     global _dao
-#     if _dao is None:
-#         from datasift_integrations.db.database import SessionLocal
-#         _dao = BaseDAO(model=JobRunStats, session=SessionLocal)
-#     return _dao
 
 def get_current_timestamp():
     return round(datetime.now().timestamp())
-
-
-def is_local_mode() -> bool:
-    local_mode = settings.app_config.local_mode
-    if local_mode is None:
-        local_mode = os.environ.get('LOCAL_MODE', 'False').lower() in ('true', '1')
-        settings.app_config.local_mode = local_mode
-
-    return local_mode if local_mode else False
 
 
 def add_validation_alert(
@@ -252,161 +217,3 @@ def submit_task_with_context_propagation(executor: 'ThreadPoolExecutor', func: '
 
 def should_retry_on_result(result, exception):
     return not bool(result), "Error in acquiring postgres advisory lock"
-
-
-def generate_lock_id(identifier: str) -> int:
-    """
-    Generate a unique PostgreSQL advisory lock ID from any string identifier.
-    
-    PostgreSQL advisory locks use bigint (64-bit signed integer).
-    Range: -9223372036854775808 to 9223372036854775807
-    
-    This function uses SHA-256 hashing to ensure:
-    - Uniqueness per identifier
-    - Deterministic (same identifier always produces same lock_id)
-    - Within valid PostgreSQL bigint range
-    
-    Args:
-        identifier: Any string identifier (job_run_id, node_id, document_set_id, etc.)
-        
-    Returns:
-        int: A unique integer lock ID within PostgreSQL bigint range
-        
-    Example:
-        >>> generate_lock_id("job_run_e6ac667b-608e-447d-8f1a-a560afdccb07")
-        4521234567890123456
-        >>> generate_lock_id(f"merge_parquet_node_{node_id}")
-        7823456789012345678
-        >>> generate_lock_id(f"doc_set_{doc_set_id}_{job_run_id}")
-        1234567890123456789
-    """
-    # Hash the identifier to get consistent integer
-    hash_object = hashlib.sha256(identifier.encode())
-    # Take first 8 bytes and convert to unsigned integer
-    hash_int = int.from_bytes(hash_object.digest()[:8], byteorder='big', signed=False)
-    
-    # Convert to signed 64-bit integer range
-    # PostgreSQL bigint max: 9223372036854775807 (2^63 - 1)
-    lock_id = hash_int % (2**63)
-    
-    logger.debug(f"Generated lock_id={lock_id} from identifier={identifier}")
-    return lock_id
-
-
-def _check_blocklisted_node(*, child: ast.AST) -> str | None:
-    """Check if an AST node matches blocklisted patterns and return error message."""
-    match child:
-        case ast.Call(func=ast.Name(id=func_name)) if func_name in BLOCKLISTED_NAMES:
-            return f"Forbidden function call: {func_name}"
-        case ast.Call(func=ast.Attribute(attr=attr_name)) if attr_name.startswith('_'):
-            return f"Forbidden attribute access: {attr_name}"
-        case ast.Attribute(attr=attr_name) if attr_name.startswith('_'):
-            return f"Forbidden attribute access: {attr_name}"
-        case ast.Import() | ast.ImportFrom():
-            return "Import statements are not allowed"
-    return None
-
-
-def _check_dangerous_constant(*, child: ast.AST) -> str | None:
-    """Check if a constant contains dangerous patterns."""
-    if isinstance(child, ast.Constant):
-        dangerous_patterns = ['__', 'import', 'exec', 'eval', 'open(']
-        if any(pattern in str(child.value) for pattern in dangerous_patterns):
-            return f"Potentially dangerous string: {child.value}"
-    return None
-
-
-def _collect_node_errors(*, child: ast.AST) -> list[str]:
-    """Collect all validation errors for a single AST node."""
-    errors = []
-    
-    # Check if node type is blocklisted
-    if type(child) in BLOCKLISTED_NODES:
-        error = _check_blocklisted_node(child=child)
-        if error:
-            errors.append(error)
-        return errors
-    
-    # For non-blocklisted nodes, check names and constants
-    if isinstance(child, ast.Name) and child.id in BLOCKLISTED_NAMES:
-        errors.append(f"Forbidden name: {child.id}")
-    
-    error = _check_dangerous_constant(child=child)
-    if error:
-        errors.append(error)
-    
-    return errors
-
-
-def validate_user_code_ast(
-    *,
-    node: ast.AST | None = None,
-    code: str | None = None
-) -> list[str]:
-    """
-    Validate Python code AST for security issues.
-    """
-    if node is None:
-        if not code:
-            return ["Either provide Python source code or an AST node parsed from code."]
-        try:
-            node = ast.parse(code)
-        except SyntaxError as e:
-            return [f"Syntax error during parsing: {e}"]
-
-    errors = []
-    for child in ast.walk(node):
-        errors.extend(_collect_node_errors(child=child))
-                
-    return errors
-
-
-def _process_assignment_target(*, target: ast.expr, node: ast.Assign, code: str, assignments: Dict[str, str]) -> None:
-    """Process a single assignment target and update assignments dictionary."""
-    if not isinstance(target, ast.Name):
-        return
-    
-    # Handle standard variable assignments
-    segment = ast.get_source_segment(code, node.value)
-    if segment:
-        assignments[target.id] = segment
-    
-    # Handle table = add_column(table, 'col_name', ...) pattern
-    if target.id != "table" or not isinstance(node.value, ast.Call):
-        return
-    
-    call = node.value
-    # Check if it's add_column(table, 'col_name', ...)
-    is_add_column = (
-        isinstance(call.func, ast.Name) and call.func.id == "add_column"
-        and len(call.args) >= 2
-        and isinstance(call.args[0], ast.Name) and call.args[0].id == "table"
-        and isinstance(call.args[1], ast.Constant) and isinstance(call.args[1].value, str)
-    )
-    
-    if is_add_column:
-        col_name = call.args[1].value  # type: ignore[attr-defined]
-        assignment = ast.get_source_segment(code, node)
-        if assignment:
-            assignments[col_name] = assignment
-
-
-def extract_user_code_assignments(*, code: str) -> Dict[str, str]:
-    """
-    Extract variable assignments from Python code to identify new/updated columns.
-    """
-    try:
-        tree = ast.parse(code)
-        assignments = {}
-        
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assign):
-                for target in node.targets:
-                    _process_assignment_target(target=target, node=node, code=code, assignments=assignments)
-        
-        # 'table' cannot be used as column name
-        assignments.pop('table', None)
-        return assignments
-    except Exception as e:
-        from datasift_opensource.backend.common.exceptions import CodeSecurityException
-        raise CodeSecurityException(f"Failed to analyze code: {e}")

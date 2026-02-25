@@ -126,7 +126,7 @@ class ExtractDoclingOperator:
             binary_content: Binary content of the document
             
         Returns:
-            Dictionary containing extracted content
+            Dictionary containing extracted content and DoclingDocument object
         """
         logger.info(f"Processing file: {file_path}")
         
@@ -168,9 +168,13 @@ class ExtractDoclingOperator:
             
             logger.info(f"Completed extraction for {file_path}")
             
+            # Serialize the DoclingDocument object for storage
+            docling_doc_json = result.document.model_dump_json()
+            
             return {
                 "success": True,
                 "content": markdown_text,
+                "docling_document": docling_doc_json,  # Store serialized DoclingDocument
                 "tables": tables,
                 "images": images,
                 "metadata": {
@@ -184,7 +188,8 @@ class ExtractDoclingOperator:
             return {
                 "success": False,
                 "error": str(e),
-                "content": None
+                "content": None,
+                "docling_document": None
             }
         finally:
             # Clean up temporary file
@@ -374,6 +379,7 @@ class ExtractDoclingOperator:
         doc_contents = []
         doc_metadata_list = []
         extracted_data_list = []
+        docling_documents = []  # Store serialized DoclingDocument objects
         failed_indices = []
         
         for idx in range(table.num_rows):
@@ -403,6 +409,7 @@ class ExtractDoclingOperator:
                 if result["success"]:
                     doc_contents.append(result["content"])
                     doc_metadata_list.append(result.get("metadata", {}))
+                    docling_documents.append(result.get("docling_document"))  # Store DoclingDocument
                     
                     # Add extracted structured data if template extraction was used
                     if self.use_template and "structured_data" in result:
@@ -414,6 +421,7 @@ class ExtractDoclingOperator:
                 else:
                     doc_contents.append(None)
                     doc_metadata_list.append({})
+                    docling_documents.append(None)
                     extracted_data_list.append(None)
                     failed_indices.append(idx)
                     metadata["failed_docs"] += 1
@@ -423,6 +431,7 @@ class ExtractDoclingOperator:
                 logger.error(f"Error processing document at index {idx}: {str(e)}")
                 doc_contents.append(None)
                 doc_metadata_list.append({})
+                docling_documents.append(None)
                 extracted_data_list.append(None)
                 failed_indices.append(idx)
                 metadata["failed_docs"] += 1
@@ -430,6 +439,11 @@ class ExtractDoclingOperator:
         # Add content column to table (markdown text from docling)
         if doc_contents:
             table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
+        
+        # Add docling_document column to table (serialized DoclingDocument for chunking)
+        if docling_documents:
+            table = TransformUtils.add_column(table=table, name="docling_document", content=docling_documents)
+            logger.info("Added docling_document column for chunking operator")
         
         # Add extracted_data column if template extraction was used
         if self.use_template and extracted_data_list:
