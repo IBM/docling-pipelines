@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 import pyarrow as pa
 
-from datasift_opensource.backend.core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
-from datasift_opensource.backend.operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
+from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
 
 
 class TestIngestExtractIntegration:

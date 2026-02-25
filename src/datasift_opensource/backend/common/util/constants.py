@@ -332,7 +332,7 @@ class OperatorConstants:
     PARTIAL_INGEST = "partial_ingest"
     SDK = "sdk"
     DELETED = "deleted"
-    CORE_OPERATORS_PATH = "datasift_opensource.backend.core.operators"
+    CORE_OPERATORS_PATH = "core.operators"
     ALL_OPERATORS_PATH = [CORE_OPERATORS_PATH]
     SCHEMA_NAME = "schema_name"
     TABLE_NAME = "table_name"
