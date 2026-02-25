@@ -1,6 +1,3 @@
 {
-  "settingsInheritedFrom": "whitesource-config/whitesource-config@master",
-  "scanSettings": {
-    "configMode" : "LOCAL"
-  }
+  "settingsInheritedFrom": "wdp-gov/whitesource-config@main"
 }
