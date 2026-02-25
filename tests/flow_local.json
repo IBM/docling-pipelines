@@ -15,9 +15,10 @@
                 "name": "ingest",
                 "operator": "ingest_local",
                 "config": {
-                    "input_folder": "cliapp/test/input_docs/customer_support_docs",
+                    "input_folder": "../../../tests/fixtures/customer_support_docs",
                     "include_filter": "pdf, txt" 
                 },
+                "input_edges": [],
                 "output_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}]
             },
             {
@@ -27,6 +28,7 @@
                 "config": {
                     "doc_column": "content"
                 },
+                "input_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"}],
                 "output_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}]
             },
             {
@@ -39,6 +41,7 @@
                     "redaction_masking_pattern": "*",
                     "redaction_regex": "(?!000|.+0{4})(?:\\d{9}|\\d{3}-\\d{2}-\\d{4})"
                 },
+                "input_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}],
                 "output_edges": [{"node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71"}]
             },
             {
@@ -49,6 +52,7 @@
                     "doc_column": "content",
                     "doc_id_column": "id"
                 },
+                "input_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}],
                 "output_edges": ["e9c41958-2d27-4c02-ab03-789e031b9500"]
             },
 
@@ -61,6 +65,7 @@
                     "chunk_size": 200,
                     "data_flight_config": { "url": "grpc+tcp://localhost:5005", "output_folder": "sample_flow" },
                     "data_storage_type": "flight" },
+                "input_edges": [{"node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71"}],
                 "output_edges": ["6de879bd-bbe0-4d60-998f-031f65472a02"]
             },
 
@@ -73,6 +78,7 @@
                     "doc_column": "content",
                     "embeddings_column": "embeddings"
                 },
+                "input_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500"}],
                 "output_edges": ["87249dbf-4a1a-433a-91da-ee5fb3244284"]
             },
             {
@@ -182,6 +188,7 @@
                         "content": "text"
                     }
                 },
+                "input_edges": [{"node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"}],
                 "output_edges": []
             }
         ]
