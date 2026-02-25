@@ -16,7 +16,7 @@ sys.path.insert(0, str(backend_dir))
 def test_extract_docling_basic():
     """Test the ExtractDoclingOperator with basic extraction."""
     import pyarrow as pa
-    from operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
+    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
     
     # Get test files
     fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "invoices"
@@ -83,7 +83,14 @@ def test_extract_docling_basic():
 def test_extract_docling_with_template():
     """Test the ExtractDoclingOperator with template extraction."""
     import pyarrow as pa
-    from operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
+    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    import pytest
+    
+    # Check if DocumentExtractor is available
+    try:
+        from docling.document_extractor import DocumentExtractor
+    except ImportError:
+        pytest.skip("DocumentExtractor not available. Install with: pip install docling[vlm]")
     
     # Get test files
     fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "invoices"
@@ -173,7 +180,14 @@ def test_extract_docling_with_template():
 def test_extract_docling_with_expand_extracted_data():
     """Test the ExtractDoclingOperator with expand_extracted_data flag."""
     import pyarrow as pa
-    from operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
+    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    import pytest
+    
+    # Check if DocumentExtractor is available
+    try:
+        from docling.document_extractor import DocumentExtractor
+    except ImportError:
+        pytest.skip("DocumentExtractor not available. Install with: pip install docling[vlm]")
     
     # Get test files
     fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "invoices"
@@ -255,7 +269,7 @@ def test_extract_docling_with_expand_extracted_data():
 
 def test_get_metadata():
     """Test the get_metadata static method."""
-    from operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
+    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
     
     # Call the static method
     metadata = ExtractDoclingOperator.get_metadata()

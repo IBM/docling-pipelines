@@ -17,7 +17,7 @@ from datasift_opensource.backend.common.util.constants import DatasiftConstants
 from datasift_opensource.backend.common.util.log import get_logger
 
 logger = get_logger()
-DEFAULT_WAREHOUSE_FOLDER = '/datasift/warehouse'
+DEFAULT_WAREHOUSE_FOLDER = './data'
 
 
 def pyarrow_to_presto_type(*, py_type):  # pragma: no coverR
@@ -181,11 +181,12 @@ def convert_presto_dict_to_pyarrow(*, presto_dict):
     """
     return {col: presto_to_pyarrow(presto_type=details['type']) for col, details in presto_dict.items()}
 
+
 def get_warehouse_path(*, path: str) -> str:
-    warehouse_path = os.getenv(DatasiftConstants.WAREHOUSE_FOLDER, DEFAULT_WAREHOUSE_FOLDER)
-    warehouse_path += path
+    warehouse_path = DEFAULT_WAREHOUSE_FOLDER + path
     Path(warehouse_path).mkdir(parents=True, exist_ok=True)
     return warehouse_path
+
 
 def transform_chunked_content(*, chunked_text:str):
     text = chunked_text.replace('\\"', '"').replace('\"[', '[').replace(']"', ']')

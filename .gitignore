@@ -36,6 +36,9 @@ build/
 .env
 .env.local
 
+# Bob AI Assistant
+.bob/
+
 # OS
 .DS_Store
 Thumbs.db

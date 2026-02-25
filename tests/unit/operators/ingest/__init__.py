@@ -1,3 +1,1 @@
-"""Unit tests for ingest operators."""
-
-# Made with Bob
+# Unit tests for ingest operators
