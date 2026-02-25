@@ -150,8 +150,6 @@ node_config = {
 - `credentials_json_path` (required): Path to OAuth client secret JSON
 - `token_path` (optional): Path to store OAuth tokens (default: `~/.credentials/token.json`)
 
-**See Also:** [Google Drive Setup Guide](google_drive_setup.md) for detailed setup instructions.
-
 ### 6. Custom Loaders
 Extend functionality with custom LangChain-compatible loaders.
 
@@ -537,7 +535,6 @@ To add support for a new provider:
 5. Add example configuration and usage
 
 ## Related Documentation
-- [Google Drive Setup Guide](google_drive_setup.md)
 - [Operators Overview](../../src/datasift_opensource/backend/operators/README.md)
 
 ## License
