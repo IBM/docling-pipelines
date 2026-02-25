@@ -1,15 +1,3 @@
 {
-  "settingsInheritedFrom": "wdp-gov/whitesource-config@python3.11",
-  "scanSettings": {
-    "configMode" : "LOCAL"
-  },
-  "issueSettings": {
-    "minSeverityLevel": "LOW",
-    "issueRepoName": "datasift-tracker",
-    "customLabels": ["type:defect","Sev 1","Mend: dependency security vulnerability","from:security","squad:datasift-api","backend"],
-    "assignees": ["Sahil-Berwal", "Narkedamilli-Mounica"]
-  },
-  "remediateSettings": {
-      "enableRenovate": true
-  }   
+  "settingsInheritedFrom": "wdp-gov/whitesource-config@main"
 }
