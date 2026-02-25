@@ -146,12 +146,8 @@ class JobStatsStore(ABC):
             JobStatsStore: An instance of PostgresJobStatsStore or PickleJobStatsStore.
         """
         from .pickle_job_stats_store import PickleJobStatsStore
-        # from .postgres_job_stats_store import PostgresJobStatsStore
 
-        # if JobStatsStore._is_cmd_line_mode():
         return PickleJobStatsStore()
-        # else:
-        #     return PostgresJobStatsStore()
 
     @staticmethod
     def _is_cmd_line_mode() -> bool:
