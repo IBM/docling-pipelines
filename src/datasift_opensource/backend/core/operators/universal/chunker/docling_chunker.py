@@ -2,9 +2,8 @@
 """
 Docling Chunker Operator
 Implements document chunking using Docling's HybridChunker.
+Follows the structure of IngestLocalOperator with AbstractOperator as parent class.
 Based on: https://docling-project.github.io/docling/concepts/chunking/
-
-This operator is designed to run completely locally without CPD, token, or project dependencies.
 """
 
 import json
@@ -13,6 +12,10 @@ from typing import Any, Dict, List
 
 import pyarrow as pa
 from pyarrow import Table
+
+from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from common.util.log import get_logger
 
 # Try to import TransformUtils from data-prep-toolkit-transforms
 try:
@@ -30,10 +33,10 @@ except ImportError:
             return table.append_column(new_field, new_column)
 
 # Import Docling chunking components
-from docling_core.types.doc import DoclingDocument
-from docling.chunking import HybridChunker
+from docling_core.types.doc.document import DoclingDocument
+from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 
-logger = logging.getLogger(__name__)
+logger = get_logger()
 
 
 class DocIdHashOperator:
@@ -68,9 +71,10 @@ class DocIdHashOperator:
         return [table], {}
 
 
-class DoclingChunkerOperator:
+class DoclingChunkerOperator(AbstractOperator):
     """
     Operator for chunking documents using Docling's HybridChunker.
+    Follows the structure of IngestLocalOperator with AbstractOperator as parent class.
     
     This operator uses Docling's hybrid chunking approach which combines:
     - Hierarchical chunking (respects document structure)
@@ -79,7 +83,8 @@ class DoclingChunkerOperator:
     Reference: https://docling-project.github.io/docling/concepts/chunking/
     """
     
-    short_name = "docling_chunker"
+    short_name = OperatorConstants.DOCLING_CHUNKER
+    category = OperatorCategory.Functional
     
     def __init__(self, config: dict[str, Any]):
         """
@@ -93,12 +98,13 @@ class DoclingChunkerOperator:
                 - retain_original_content: Whether to keep original content column (default: True)
                 - tokenizer: Tokenizer to use for chunking (default: "sentence-transformers/all-MiniLM-L6-v2")
         """
-        self.config = config
-        self.doc_column = config.get("doc_column", "content")
-        self.chunk_size = config.get("chunk_size", 512)
+        super().__init__(config)
+        self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.chunk_size = config.get(OperatorConstants.CHUNK_SIZE, OperatorConstants.CHUNK_SIZE_DEFAULT)
         self.chunk_overlap = config.get("chunk_overlap", 128)
         self.retain_original_content = config.get("retain_original_content", True)
         self.tokenizer = config.get("tokenizer", "sentence-transformers/all-MiniLM-L6-v2")
+        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
         
         # Initialize the HybridChunker
         self.chunker = None
@@ -174,7 +180,8 @@ class DoclingChunkerOperator:
         Returns:
             Serialized DoclingDocument JSON string
         """
-        from docling_core.types.doc import DoclingDocument, DocItemLabel
+        from docling_core.types.doc.document import DoclingDocument
+        from docling_core.types.doc.labels import DocItemLabel
         
         # Create a basic DoclingDocument
         doc = DoclingDocument(name=doc_name or "document")
@@ -255,13 +262,9 @@ class DoclingChunkerOperator:
         Returns:
             Tuple of (list of transformed tables, metadata dictionary)
         """
-        metadata = {
-            "total_docs": table.num_rows,
-            "processed_docs": 0,
-            "failed_docs": 0,
-            "total_chunks": 0,
-            "status": "completed"
-        }
+        # Initialize metadata using base method
+        metadata = self.create_base_metadata(total_docs_count=table.num_rows)
+        metadata[Metrics.External.TOTAL_CHUNKS] = 0
         
         if table.num_rows == 0:
             return [table], metadata
@@ -270,9 +273,10 @@ class DoclingChunkerOperator:
         use_docling_doc = "docling_document" in table.column_names
         
         if not use_docling_doc and self.doc_column not in table.column_names:
-            metadata["status"] = "failed"
-            metadata["error"] = f"Neither 'docling_document' nor '{self.doc_column}' column found in table"
-            logger.error(metadata["error"])
+            error_msg = f"Neither 'docling_document' nor '{self.doc_column}' column found in table"
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+            metadata[OperatorConstants.ERROR] = error_msg
+            logger.error(error_msg, extra=self.common_log_arguments)
             return [table], metadata
         
         # Process documents and create chunks
@@ -289,24 +293,35 @@ class DoclingChunkerOperator:
                     docling_doc_json = table["docling_document"][idx].as_py()
                     
                     if not docling_doc_json:
-                        logger.warning(f"Empty docling_document for document: {doc_name}")
+                        logger.warning(f"Empty docling_document for document: {doc_name}", extra=self.common_log_arguments)
                         chunked_content_list.append([])
                         failed_indices.append(idx)
-                        metadata["failed_docs"] += 1
+                        self.record_failed_document(
+                            metadata=metadata,
+                            doc_id=str(idx),
+                            doc_name=doc_name,
+                            reason="Empty docling_document"
+                        )
                         continue
                     
                     # Chunk the document using DoclingDocument
                     chunks = self._chunk_document(docling_doc_json, doc_name)
                 else:
                     # Fallback: create DoclingDocument from markdown content
-                    logger.warning(f"docling_document column not found. Creating DoclingDocument from markdown content.")
+                    logger.warning(f"docling_document column not found. Creating DoclingDocument from markdown content.",
+                                 extra=self.common_log_arguments)
                     content = table[self.doc_column][idx].as_py()
                     
                     if not content:
-                        logger.warning(f"Empty content for document: {doc_name}")
+                        logger.warning(f"Empty content for document: {doc_name}", extra=self.common_log_arguments)
                         chunked_content_list.append([])
                         failed_indices.append(idx)
-                        metadata["failed_docs"] += 1
+                        self.record_failed_document(
+                            metadata=metadata,
+                            doc_id=str(idx),
+                            doc_name=doc_name,
+                            reason="Empty content"
+                        )
                         continue
                     
                     # Create DoclingDocument from markdown and chunk
@@ -314,26 +329,43 @@ class DoclingChunkerOperator:
                         docling_doc_json = self._create_docling_document_from_markdown(content, doc_name)
                         chunks = self._chunk_document(docling_doc_json, doc_name)
                     except Exception as e:
-                        logger.error(f"Error creating DoclingDocument from markdown for {doc_name}: {str(e)}")
+                        logger.error(f"Error creating DoclingDocument from markdown for {doc_name}: {str(e)}",
+                                   extra=self.common_log_arguments)
                         chunked_content_list.append([])
                         failed_indices.append(idx)
-                        metadata["failed_docs"] += 1
+                        self.record_failed_document(
+                            metadata=metadata,
+                            doc_id=str(idx),
+                            doc_name=doc_name,
+                            reason=f"Error creating DoclingDocument: {str(e)}"
+                        )
                         continue
                 
                 if chunks:
                     chunked_content_list.append(chunks)
-                    metadata["processed_docs"] += 1
-                    metadata["total_chunks"] += len(chunks)
+                    metadata[Metrics.External.PROCESSED_DOCS] += 1
+                    metadata[Metrics.External.TOTAL_CHUNKS] += len(chunks)
                 else:
                     chunked_content_list.append([])
                     failed_indices.append(idx)
-                    metadata["failed_docs"] += 1
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(idx),
+                        doc_name=doc_name,
+                        reason="No chunks generated"
+                    )
                     
             except Exception as e:
-                logger.error(f"Error processing document at index {idx}: {str(e)}")
+                logger.error(f"Error processing document at index {idx}: {str(e)}", extra=self.common_log_arguments)
                 chunked_content_list.append([])
                 failed_indices.append(idx)
-                metadata["failed_docs"] += 1
+                doc_name = table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else f"doc_{idx}"
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=str(idx),
+                    doc_name=doc_name,
+                    reason=str(e)
+                )
         
         # Add chunked_content column to table
         if chunked_content_list:
@@ -347,102 +379,104 @@ class DoclingChunkerOperator:
                 name="chunked_content",
                 content=chunked_content_json
             )
-            logger.info(f"Added chunked_content column with {metadata['total_chunks']} total chunks")
+            logger.info(f"Added chunked_content column with {metadata[Metrics.External.TOTAL_CHUNKS]} total chunks",
+                       extra=self.common_log_arguments)
         
         # Add hash column using DocIdHashOperator
-        logger.info("Generating hash IDs for chunks")
+        logger.info("Generating hash IDs for chunks", extra=self.common_log_arguments)
         hash_operator = DocIdHashOperator({})
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
         
         # Remove docling_document column after chunking (no longer needed)
-        if "docling_document" in table.column_names:
-            logger.info("Removing docling_document column after chunking")
-            table = table.drop_columns(["docling_document"])
+        if OperatorConstants.DOCLING_DOCUMENT in table.column_names:
+            logger.info("Removing docling_document column after chunking", extra=self.common_log_arguments)
+            table = table.drop_columns([OperatorConstants.DOCLING_DOCUMENT])
         
         # Remove original content column if not retaining
         if not self.retain_original_content and self.doc_column in table.column_names:
-            logger.info(f"Removing original content column: {self.doc_column}")
+            logger.info(f"Removing original content column: {self.doc_column}", extra=self.common_log_arguments)
             table = table.drop_columns([self.doc_column])
         
-        # Update metadata
-        if metadata["failed_docs"] > 0:
-            metadata["status"] = "completed_with_errors"
+        # Update metadata status
+        node_status = ExecutionStatus.COMPLETED.value
+        if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
+            node_status = ExecutionStatus.COMPLETED_WITH_ERRORS.value
+        metadata[Metrics.External.NODE_STATUS] = node_status
         
         return [table], metadata
     
-    @staticmethod
-    def get_metadata():
+    def get_metadata(self):
         """
         Get metadata about the operator including features and attributes.
+        Follows the structure of IngestLocalOperator.get_metadata()
         
         Returns:
             Dictionary containing operator metadata
         """
-        return {
-            "sdk": True,
-            "category": "chunker",
-            "is_operator_available": True,
-            "label": "Docling Chunker",
-            "description": "Chunk documents using Docling's HybridChunker for semantic and hierarchical chunking",
-            "features": {
-                "chunked_content": {
-                    "name": "Chunked Content",
-                    "description": "Document content split into semantic chunks",
-                    "available_for_filter": True,
-                    "available_for_vector_db": True,
-                    "type": "string",
-                    "tags": ["mandatory"]
-                },
-                "doc_id_hash": {
-                    "name": "Hash ID",
-                    "description": "Hash ID of the document chunk",
-                    "available_for_vector_db": True,
-                    "mandatory_for_vector_db": True,
-                    "type": "string",
-                    "is_primary": True,
-                    "tags": ["mandatory", "primary"]
-                }
+        metadata_features = {
+            OperatorConstants.CHUNKED_CONTENT: {
+                OperatorConstants.NAME: "Chunked Content",
+                OperatorConstants.DESCRIPTION: "Document content split into semantic chunks",
+                OperatorConstants.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.TAGS: [OperatorConstants.MANDATORY]
             },
-            "attributes": {
-                "doc_column": {
-                    "name": "Document Column",
-                    "description": "Name of the column containing document content",
-                    "required": False,
-                    "default": "content",
-                    "type": "string"
+            self.doc_id_hash: {
+                OperatorConstants.NAME: "Hash ID",
+                OperatorConstants.DESCRIPTION: "Hash ID of the document chunk",
+                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
+                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.IS_PRIMARY: True,
+                OperatorConstants.TAGS: [OperatorConstants.MANDATORY, OperatorConstants.PRIMARY]
+            }
+        }
+        
+        return {
+            OperatorConstants.CATEGORY: self.category.value,
+            OperatorConstants.FEATURES: metadata_features,
+            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.ATTRIBUTES: {
+                OperatorConstants.DOC_COLUMN: {
+                    OperatorConstants.NAME: "Document Column",
+                    OperatorConstants.DESCRIPTION: "Name of the column containing document content",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: OperatorConstants.DOC_COLUMN_DEFAULT,
+                    OperatorConstants.TYPE: AttributeDataTypes.STRING
                 },
-                "chunk_size": {
-                    "name": "Chunk Size",
-                    "description": "Target size for chunks in tokens",
-                    "required": False,
-                    "default": 512,
-                    "min_value": 100,
-                    "max_value": 2048,
-                    "type": "integer"
+                OperatorConstants.CHUNK_SIZE: {
+                    OperatorConstants.NAME: "Chunk Size",
+                    OperatorConstants.DESCRIPTION: "Target size for chunks in tokens",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: OperatorConstants.CHUNK_SIZE_DEFAULT,
+                    OperatorConstants.MIN_VALUE: 100,
+                    OperatorConstants.MAX_VALUE: 2048,
+                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER
                 },
                 "chunk_overlap": {
-                    "name": "Chunk Overlap",
-                    "description": "Number of overlapping tokens between consecutive chunks",
-                    "required": False,
-                    "default": 128,
-                    "min_value": 0,
-                    "max_value": 512,
-                    "type": "integer"
+                    OperatorConstants.NAME: "Chunk Overlap",
+                    OperatorConstants.DESCRIPTION: "Number of overlapping tokens between consecutive chunks",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: 128,
+                    OperatorConstants.MIN_VALUE: 0,
+                    OperatorConstants.MAX_VALUE: 512,
+                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER
                 },
                 "retain_original_content": {
-                    "name": "Retain Original Content",
-                    "description": "Whether to keep the original content column after chunking",
-                    "required": False,
-                    "default": True,
-                    "type": "boolean"
+                    OperatorConstants.NAME: "Retain Original Content",
+                    OperatorConstants.DESCRIPTION: "Whether to keep the original content column after chunking",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: True,
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
                 },
                 "tokenizer": {
-                    "name": "Tokenizer",
-                    "description": "Tokenizer model to use for chunking",
-                    "required": False,
-                    "default": "sentence-transformers/all-MiniLM-L6-v2",
-                    "type": "string"
+                    OperatorConstants.NAME: "Tokenizer",
+                    OperatorConstants.DESCRIPTION: "Tokenizer model to use for chunking",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: "sentence-transformers/all-MiniLM-L6-v2",
+                    OperatorConstants.TYPE: AttributeDataTypes.STRING
                 }
             }
         }
@@ -465,7 +499,7 @@ def main():
     
     # First, extract the document using extract_docling_operator
     logger.info("Step 1: Extracting document content")
-    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
     
     extract_config = {
         "doc_column": "content",

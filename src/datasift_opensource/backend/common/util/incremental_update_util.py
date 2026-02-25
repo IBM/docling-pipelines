@@ -5,11 +5,11 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from datasift_opensource.backend.common.util.constants import OperatorConstants, DatasiftConstants
-from datasift_opensource.backend.common.util.iceberg_util import get_warehouse_path
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.parquet_table_handler import get_parquet_table_handler, BaseParquetTableHandler
+from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+from common.util.constants import OperatorConstants, DatasiftConstants
+from common.util.iceberg_util import get_warehouse_path
+from common.util.log import get_logger
+from common.util.parquet_table_handler import get_parquet_table_handler, BaseParquetTableHandler
 
 logger = get_logger(f"{DatasiftConstants.LOGGER_NAME} : INCREMENTAL UPDATE")
 

@@ -4,12 +4,11 @@ import os
 import pyarrow as pa
 from typing import Union, Dict, Any, List, Optional
 
-from datasift_opensource.backend.common.exceptions.error_messages import ValidationMessage, ValidationCodeMessages
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, OperatorConstants, Metrics, DocsStructure, \
-    ExecutionStatus
-from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import NodeStatsDto
-from datasift_opensource.backend.common.util.log import get_logger
+from common.exceptions.error_messages import ValidationMessage, ValidationCodeMessages
+from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+from common.util.constants import DatasiftConstants, OperatorConstants, Metrics, DocsStructure, ExecutionStatus
+from common.util.job_tracker.tracker.job_tracker import NodeStatsDto
+from common.util.log import get_logger
 
 status_codes = {
             ExecutionStatus.FAILED: 1,
@@ -97,7 +96,7 @@ class OperatorUtils:
                 None. Node Metadata is added to file.
         '''
 
-        from datasift_opensource.backend.common.models.session_info import get_session_info
+        from common.models.session_info import get_session_info
         session_info = get_session_info()
         job_id = session_info.job_id
         job_run_id = session_info.job_run_id
@@ -115,7 +114,7 @@ class OperatorUtils:
         }
 
         try:
-            from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import JobTracker
+            from common.util.job_tracker.tracker.job_tracker import JobTracker
             node_stats = {
                 OperatorConstants.NODE_METADATA: op_node_metadata
             }
@@ -197,7 +196,7 @@ class OperatorUtils:
         Returns:
             A dictionary containing the operator logs.
         """
-        from datasift_opensource.backend.common.util.operator_log_details import get_log_and_job_file_path
+        from common.util.operator_log_details import get_log_and_job_file_path
         log_final_path, _, _, aggregated_job_log_path = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
 
         if os.path.exists(aggregated_job_log_path):
@@ -295,7 +294,7 @@ class OperatorUtils:
 
 
 def get_missing_operator(features: list[str]):
-    from datasift_opensource.backend.common.util.operator_metadata import OperatorMetadata
+    from common.util.operator_metadata import OperatorMetadata
     operator_metadata = OperatorMetadata()
     feature_operators_map = operator_metadata.get_feature_operators_map()
     operator_list = set()

@@ -15,7 +15,7 @@ import os
 import sys
 import json
 
-from datasift_opensource.backend.common.util.constants import DatasiftConstants  #, Environments
+from common.util.constants import DatasiftConstants  #, Environments
 
 HEALTH_API_SUFFIX = "/health"
 
@@ -25,7 +25,7 @@ class ConditionalFormatter(logging.Formatter): # pragma: no cover
     fields_to_be_included = [DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID, DatasiftConstants.TRACK_PERF]
 
     def format(self, record):
-        from datasift_opensource.backend.common.models.session_info import get_session_info
+        from common.models.session_info import get_session_info
         session_info = get_session_info()
         log_dict = {
             "time": self.formatTime(record, self.datefmt),

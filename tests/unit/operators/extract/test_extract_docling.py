@@ -16,7 +16,7 @@ sys.path.insert(0, str(backend_dir))
 def test_extract_docling_basic():
     """Test the ExtractDoclingOperator with basic extraction."""
     import pyarrow as pa
-    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
     
     # Get test files
     fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "invoices"
@@ -76,14 +76,14 @@ def test_extract_docling_basic():
     assert len(first_hash) > 0, "Hash should not be empty"
     
     # Check metadata
-    assert metadata["total_docs"] == table.num_rows, "Total docs should match input rows"
+    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
     assert metadata["processed_docs"] > 0, "Should have processed at least one document"
 
 
 def test_extract_docling_with_template():
     """Test the ExtractDoclingOperator with template extraction."""
     import pyarrow as pa
-    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
     import pytest
     
     # Check if DocumentExtractor is available
@@ -174,13 +174,13 @@ def test_extract_docling_with_template():
     assert first_hash is not None, "Hash should not be None"
     
     # Check metadata
-    assert metadata["total_docs"] == table.num_rows, "Total docs should match input rows"
+    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
 
 
 def test_extract_docling_with_expand_extracted_data():
     """Test the ExtractDoclingOperator with expand_extracted_data flag."""
     import pyarrow as pa
-    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
     import pytest
     
     # Check if DocumentExtractor is available
@@ -264,23 +264,29 @@ def test_extract_docling_with_expand_extracted_data():
     assert has_data, "Should have either expanded columns or extracted_data column"
     
     # Check metadata
-    assert metadata["total_docs"] == table.num_rows, "Total docs should match input rows"
+    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
 
 
 def test_get_metadata():
     """Test the get_metadata static method."""
-    from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
     
-    # Call the static method
-    metadata = ExtractDoclingOperator.get_metadata()
+    # Create an instance with minimal config to call get_metadata
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash"
+    }
+    operator = ExtractDoclingOperator(config)
+    
+    # Call the instance method
+    metadata = operator.get_metadata()
     
     # Assertions
     assert isinstance(metadata, dict), "Metadata should be a dictionary"
-    assert "sdk" in metadata, "Metadata should have 'sdk' key"
     assert "category" in metadata, "Metadata should have 'category' key"
-    assert "label" in metadata, "Metadata should have 'label' key"
     assert "features" in metadata, "Metadata should have 'features' key"
     assert "attributes" in metadata, "Metadata should have 'attributes' key"
+    assert "is_operator_available" in metadata, "Metadata should have 'is_operator_available' key"
     
     # Check features
     features = metadata["features"]

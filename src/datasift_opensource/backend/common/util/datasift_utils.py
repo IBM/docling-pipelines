@@ -6,11 +6,11 @@ import shutil
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Union, List, Callable, TypeVar, Any
 
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import ValidationAlert
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import ErrorCode
-from datasift_opensource.backend.common.exceptions.error_messages import ValidationMessage
-from datasift_opensource.backend.common.util.constants import OperatorConstants #, RetryConstants, Environments, BucketTypes, \
+from common.util.log import get_logger
+from common.exceptions.datasift_exceptions import ValidationAlert
+from common.exceptions.datasift_exceptions import ErrorCode
+from common.exceptions.error_messages import ValidationMessage
+from common.util.constants import OperatorConstants #, RetryConstants, Environments, BucketTypes, \
 
 # Try to import OpenTelemetry for distributed tracing support
 try:  # pragma: no cover
@@ -129,7 +129,7 @@ def process_batches_in_parallel(
     results: List[Any] = []
 
     # Get current session_info before creating the ThreadPoolExecutor
-    from datasift_opensource.backend.common.models.session_info import get_session_info
+    from common.models.session_info import get_session_info
     current_session_info = get_session_info()
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -164,7 +164,7 @@ def run_with_session_info(session_info: Any, func: Callable[..., T], *args: Any,
         The result of the function execution
     """
     if session_info:
-        from datasift_opensource.backend.common.models.session_info import set_session_info
+        from common.models.session_info import set_session_info
         # Set the session_info in the current thread/context
         set_session_info(session_info)
         
@@ -194,7 +194,7 @@ def submit_task_with_context_propagation(executor: 'ThreadPoolExecutor', func: '
             future = submit_task_with_context_propagation(executor, my_function, arg1, arg2, key=value)
             result = future.result()
     """
-    from datasift_opensource.backend.common.models.session_info import get_session_info
+    from common.models.session_info import get_session_info
     current_session = get_session_info()
     
     # If OpenTelemetry is available and we have a context, propagate it

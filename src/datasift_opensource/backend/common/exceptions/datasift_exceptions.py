@@ -1,9 +1,9 @@
 from json import JSONEncoder
 from typing import Dict, Any, Optional, List, Union
 
-from datasift_opensource.backend.common.exceptions.error_codes import ErrorCode
-from datasift_opensource.backend.common.exceptions.error_messages import ValidationMessage
-from datasift_opensource.backend.common.util.log import get_logger
+from common.exceptions.error_codes import ErrorCode
+from common.exceptions.error_messages import ValidationMessage
+from common.util.log import get_logger
 
 logger = get_logger()
 

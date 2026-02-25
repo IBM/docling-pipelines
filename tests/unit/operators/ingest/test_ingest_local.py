@@ -11,7 +11,7 @@ import shutil
 import pytest
 import pyarrow as pa
 
-from datasift_opensource.backend.core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
 
 
 class TestIngestLocalOperator:

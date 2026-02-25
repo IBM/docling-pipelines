@@ -9,11 +9,11 @@ import pyarrow.parquet as pq
 from data_processing.data_access import DataAccess
 from data_processing.utils import TransformUtils
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import DatasiftException
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import ErrorCode
-from datasift_opensource.backend.common.util.constants import DatasiftConstants
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.retry_utils import retry_with_exponential_backoff
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.datasift_exceptions import ErrorCode
+from common.util.constants import DatasiftConstants
+from common.util.log import get_logger
+from common.util.retry_utils import retry_with_exponential_backoff
 
 logger = get_logger(__name__)
 

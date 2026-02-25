@@ -3,9 +3,9 @@ import inspect
 import pkgutil
 from typing import Type
 
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator
-from datasift_opensource.backend.common.util.constants import OrchestratorType, OperatorConstants
-from datasift_opensource.backend.common.util.log import get_logger
+from core.operators.abstract_operator import AbstractOperator
+from common.util.constants import OrchestratorType, OperatorConstants
+from common.util.log import get_logger
 
 logger = get_logger()
 

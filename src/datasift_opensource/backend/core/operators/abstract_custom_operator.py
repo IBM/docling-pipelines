@@ -1,6 +1,6 @@
 import pyarrow as pa
 from typing import Any
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator
+from core.operators.abstract_operator import AbstractOperator
 
 
 class AbstractCustomOperator(AbstractOperator):

@@ -41,3 +41,37 @@ The backend layer provides:
 - API services (optional)
 
 All backend components are Python-based with no Spark dependencies.
+
+## Import Structure
+
+**Important**: The `backend` directory is the source root for all imports. When setting up your development environment, ensure `PYTHONPATH` points to `src/datasift_opensource/backend`.
+
+### Import Examples
+
+All imports should be relative to the backend directory:
+
+```python
+# Correct imports
+from common.util.constants import DatasiftConstants
+from common.exceptions.datasift_exceptions import DatasiftException
+from core.operators.abstract_operator import AbstractOperator
+from core.orchestrator.operator_factory import OperatorFactory
+from app.models.session_info import SessionInfo
+
+# Incorrect imports (DO NOT USE)
+from datasift_opensource.backend.common.util.constants import DatasiftConstants
+```
+
+### Setting PYTHONPATH
+
+For development and testing:
+
+```bash
+# From project root
+export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+
+# Or from backend directory
+export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+```
+
+This ensures all imports resolve correctly without needing the full `datasift_opensource.backend` prefix.

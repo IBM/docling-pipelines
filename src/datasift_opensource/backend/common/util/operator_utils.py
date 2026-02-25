@@ -6,16 +6,16 @@ import pyarrow as pa
 from charset_normalizer import from_bytes
 from pyarrow import Table
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import (
+from common.exceptions.datasift_exceptions import (
     FlowValidationException,
     ValidationAlert
 )
-from datasift_opensource.backend.common.exceptions.error_messages import ValidationCodeMessages
-from datasift_opensource.backend.common.util.constants import (
+from common.exceptions.error_messages import ValidationCodeMessages
+from common.util.constants import (
     OperatorConstants,
     internal_metrics
 )
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.log import get_logger
 
 hash_functions = hashlib.sha3_512
 logger = get_logger()

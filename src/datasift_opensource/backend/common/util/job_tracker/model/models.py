@@ -1,6 +1,6 @@
 from typing import List, Optional, Dict
 from pydantic import BaseModel, Field
-from datasift_opensource.backend.common.util.constants import OrchestratorType, ExecutionStatus
+from common.util.constants import OrchestratorType, ExecutionStatus
 message_pattern = r"^[\x20-\x7E\n\r\t]*$"
 node_status_pattern = r"^[A-Za-z0-9 _\-.]+$"
 

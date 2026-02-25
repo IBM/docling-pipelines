@@ -12,8 +12,8 @@
 
 import time
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import DatasiftException
-from datasift_opensource.backend.common.util.log import get_logger
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.util.log import get_logger
 
 logger = get_logger()
 

@@ -751,7 +751,6 @@ requires-dist = [
     { name = "pydantic-settings", specifier = "==2.12.0" },
     { name = "pyiceberg", extras = ["glue"], specifier = "==0.9.1" },
     { name = "pyiceberg-core", specifier = "==0.7.0" },
-    { name = "pypdf", specifier = "==6.7.1" },
     { name = "pypdf2", marker = "extra == 'all-cloud'", specifier = "==3.0.1" },
     { name = "pypdf2", marker = "extra == 'google-drive'", specifier = "==3.0.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==9.0.2" },

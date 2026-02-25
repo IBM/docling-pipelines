@@ -9,16 +9,16 @@ from typing import Optional, Dict, Any, Counter
 import itertools
 import time
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import DatasiftException
-from datasift_opensource.backend.common.models.session_info import get_session_info, update_session_info
-from datasift_opensource.backend.common.util.common_utils import Singleton
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, Metrics, OrchestratorType, ExecutionStatus, \
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.models.session_info import get_session_info, update_session_info
+from common.util.common_utils import Singleton
+from common.util.constants import DatasiftConstants, Metrics, OrchestratorType, ExecutionStatus, \
     OperatorConstants, COMPLETED_JOB_STATUSES
-from datasift_opensource.backend.common.util.datasift_utils import delete_folders
-from datasift_opensource.backend.common.util.iceberg_util import get_warehouse_path
-from datasift_opensource.backend.common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
-from datasift_opensource.backend.common.util.job_tracker.storage.job_stats_store import JobStatsStore
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.datasift_utils import delete_folders
+from common.util.iceberg_util import get_warehouse_path
+from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
+from common.util.job_tracker.storage.job_stats_store import JobStatsStore
+from common.util.log import get_logger
 
 logger = get_logger()
 
@@ -180,7 +180,7 @@ class JobTracker(metaclass=Singleton):
         :param use_local_cache: Flag to check if stats should be fetched from local cache or not. Default is false
         :return: A JobStatsDto object if found, otherwise None.
         """
-        from datasift_opensource.backend.common.models.session_info import SessionInfo, get_session_info
+        from common.models.session_info import SessionInfo, get_session_info
         logger.info(f"Getting job stats by job_run_id: {job_run_id}")
         session_info: SessionInfo = get_session_info()
 
@@ -248,7 +248,7 @@ class JobTracker(metaclass=Singleton):
         :param job_run_id: The unique identifier for this specific run.
         """
         # Local imports to avoid potential circular dependency issues.
-        from datasift_opensource.backend.common.models.session_info import SessionInfo, get_session_info
+        from common.models.session_info import SessionInfo, get_session_info
 
         session_info: SessionInfo = get_session_info()
         # Map the run ID to the orchestrator instance to enable cancellation.
@@ -386,7 +386,7 @@ class JobTracker(metaclass=Singleton):
         :raises DatasiftException: If the job is not found or is in an invalid state.
         :return: The updated JobStatsDto.
         """
-        from datasift_opensource.backend.common.exceptions.datasift_exceptions import DatasiftException
+        from common.exceptions.datasift_exceptions import DatasiftException
 
         logger.info(f"Requesting cancellation for job_run_id: {job_run_id}")
         # jobs_client = JobsClient()
@@ -456,7 +456,7 @@ class JobTracker(metaclass=Singleton):
         :param message: An optional final message for the job.
         :raises DatasiftException: If the job is not found.
         """
-        from datasift_opensource.backend.common.exceptions.datasift_exceptions import DatasiftException
+        from common.exceptions.datasift_exceptions import DatasiftException
 
         # Clean up the orchestrator mapping as the job is no longer active.
         self.__jobs_to_orchestrator.pop(job_run_id, None)

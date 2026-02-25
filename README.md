@@ -193,8 +193,8 @@ Run all tests (from backend directory):
 ```bash
 cd src/datasift_opensource/backend
 
-# Set PYTHONPATH (must point to src directory)
-export PYTHONPATH="$(cd ../../.. && pwd)/src:${PYTHONPATH}"
+# Set PYTHONPATH (must point to backend directory as the source root)
+export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
 
 # Sync dependencies (first time or after changes)
 uv sync --extra dev
@@ -209,7 +209,12 @@ uv run pytest ../../../tests/unit/operators/ingest/ -v
 uv run pytest ../../../tests/ --cov=datasift_opensource --cov-report=html
 ```
 
-**Important**: The `PYTHONPATH` must point to the `src` directory (relative to project root) for imports to work correctly.
+**Important**: The `PYTHONPATH` must point to the `backend` directory (`src/datasift_opensource/backend`) as the source root. All imports in the codebase use this as the base, so imports look like:
+- `from common.util.constants import ...`
+- `from core.operators.abstract_operator import ...`
+- `from app.models import ...`
+
+This means the backend folder is treated as the package root, not `datasift_opensource.backend`.
 
 ### Code Quality
 

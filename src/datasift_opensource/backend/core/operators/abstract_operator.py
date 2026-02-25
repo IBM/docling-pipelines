@@ -3,9 +3,9 @@ from typing import Any
 
 from data_processing.transform import AbstractTableTransform
 
-from datasift_opensource.backend.core.operators.operator_utils import OperatorUtils
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, DocsStructure, ExecutionStatus, Metrics, OperatorConstants
-from datasift_opensource.backend.common.util.log import get_logger
+from core.operators.operator_utils import OperatorUtils
+from common.util.constants import DatasiftConstants, DocsStructure, ExecutionStatus, Metrics, OperatorConstants
+from common.util.log import get_logger
 
 logger = get_logger()
 

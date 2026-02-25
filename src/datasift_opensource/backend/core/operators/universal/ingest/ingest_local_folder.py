@@ -2,12 +2,12 @@ import os
 from typing import Any
 import pyarrow as pa
 
-from datasift_opensource.backend.common.util.incremental_update_util import IncrementalUpdateUtil
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift_opensource.backend.common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, \
+from common.util.incremental_update_util import IncrementalUpdateUtil
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, \
     AttributeDataTypes
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.core.operators.universal.ingest.ingest_utils import get_filter_extensions, filter_based_on_extension, \
+from common.util.log import get_logger
+from core.operators.universal.ingest.ingest_utils import get_filter_extensions, filter_based_on_extension, \
     is_doc_previously_processed
 
 INPUT_FOLDER_NAME_KEY = "input_folder"

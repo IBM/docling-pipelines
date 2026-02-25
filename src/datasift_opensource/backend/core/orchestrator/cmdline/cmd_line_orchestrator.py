@@ -8,13 +8,13 @@ from typing import Any, Dict
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from datasift_opensource.backend.core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
-from datasift_opensource.backend.core.orchestrator.abstract_orchestrator import AbstractOrchestrator
-from datasift_opensource.backend.core.orchestrator.cmdline.cmd_line_operator_executor import CommandLineOperatorExecutor
-from datasift_opensource.backend.common.util.constants import OrchestratorType, DatasiftConstants, OperatorConstants
-from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import JobTracker
-from datasift_opensource.backend.common.util.log import get_logger
+from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
+from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
+from core.orchestrator.cmdline.cmd_line_operator_executor import CommandLineOperatorExecutor
+from common.util.constants import OrchestratorType, DatasiftConstants, OperatorConstants
+from common.util.job_tracker.tracker.job_tracker import JobTracker
+from common.util.log import get_logger
 
 logger = get_logger()
 
@@ -71,9 +71,9 @@ class CommandLineOrchestrator(AbstractOrchestrator):
 
 
 def run_command_line_executor(flow_def: dict)  -> None:
-    from datasift_opensource.backend.common.util.constants import DatasiftConstants
-    from datasift_opensource.backend.core.orchestrator.flow_executor import FlowExecutor
-    from datasift_opensource.backend.core.orchestrator.orchestrator_factory import OrchestratorFactory
+    from common.util.constants import DatasiftConstants
+    from core.orchestrator.flow_executor import FlowExecutor
+    from core.orchestrator.orchestrator_factory import OrchestratorFactory
 
     logger.info('>>> Creating the orchestrator')
     orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
@@ -86,7 +86,7 @@ def run_command_line_executor(flow_def: dict)  -> None:
         DatasiftConstants.JOB_RUN_ID: "002"
     }
     os.environ["RUNTIME"] = "local"
-    from datasift_opensource.backend.common.models.session_info import SessionInfo, set_session_info, create_session_info
+    from common.models.session_info import SessionInfo, set_session_info, create_session_info
     session_info: SessionInfo = create_session_info(job_id="001", job_run_id="002",
                                                     orchestrator=orchestrator, flow_id="flow1")
     set_session_info(session_info)

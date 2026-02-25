@@ -8,9 +8,9 @@ from typing import Optional
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, OperatorConstants
-from datasift_opensource.backend.common.util.iceberg_util import get_warehouse_path
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.constants import DatasiftConstants, OperatorConstants
+from common.util.iceberg_util import get_warehouse_path
+from common.util.log import get_logger
 
 PREFECT_HOME_PREFIX = "prefect_"
 PREFECT_HOME = "PREFECT_HOME"

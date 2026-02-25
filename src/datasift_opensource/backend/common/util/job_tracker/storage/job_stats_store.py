@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from datasift_opensource.backend.common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
-from datasift_opensource.backend.common.util.constants import ExecutionStatus
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
+from common.util.constants import ExecutionStatus
+from common.util.log import get_logger
 
 logger = get_logger()
 
@@ -151,7 +151,7 @@ class JobStatsStore(ABC):
 
     @staticmethod
     def _is_cmd_line_mode() -> bool:
-        from datasift_opensource.backend.common.models.session_info import get_session_info, SessionInfo
+        from common.models.session_info import get_session_info, SessionInfo
         
         session_info: SessionInfo = get_session_info()
         orchestrator: Any | None = session_info.orchestrator

@@ -4,8 +4,8 @@ import pyarrow as pa
 import pyarrow.flight
 from data_processing.data_access import DataAccess
 from data_processing.utils import TransformUtils
-from datasift_opensource.backend.common.util.constants import DatasiftConstants
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.constants import DatasiftConstants
+from common.util.log import get_logger
 
 logger = get_logger()
 

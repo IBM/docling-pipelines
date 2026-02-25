@@ -1,5 +1,5 @@
 import pathlib
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.log import get_logger
 
 logger = get_logger()
 

@@ -3,8 +3,8 @@ from cachetools import TTLCache
 import time
 from typing import Any, Hashable, Optional, Iterable
 
-from datasift_opensource.backend.common.util.common_utils import Singleton
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.common_utils import Singleton
+from common.util.log import get_logger
 
 logger = get_logger()
 

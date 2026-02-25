@@ -1,9 +1,9 @@
 from collections import defaultdict
 
-from datasift_opensource.backend.common.models.session_info import get_session_info
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.core.orchestrator.operator_factory import OperatorFactoryProvider
-from datasift_opensource.backend.common.util.constants import OrchestratorType, OperatorConstants
+from common.models.session_info import get_session_info
+from common.util.log import get_logger
+from core.orchestrator.operator_factory import OperatorFactoryProvider
+from common.util.constants import OrchestratorType, OperatorConstants
 
 logger = get_logger()
 

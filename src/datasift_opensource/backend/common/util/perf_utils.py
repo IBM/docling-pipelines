@@ -4,10 +4,10 @@ from typing import Optional
 import psutil
 import pyarrow as pa
 
-from datasift_opensource.backend.common.util.constants import DatasiftConstants
-from datasift_opensource.backend.common.models.session_info import get_session_info
-from datasift_opensource.backend.common.util.datasift_utils import get_current_timestamp
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.constants import DatasiftConstants
+from common.models.session_info import get_session_info
+from common.util.datasift_utils import get_current_timestamp
+from common.util.log import get_logger
 
 logger = get_logger()
 
@@ -102,7 +102,7 @@ def log_memory_usage(*,
     if logger:
         logger.info(log_fields_str, extra=extra)
     else:
-        from datasift_opensource.backend.common.util.log import get_logger
+        from common.util.log import get_logger
         logger = get_logger()
         logger.info(log_fields_str, extra=extra)
 

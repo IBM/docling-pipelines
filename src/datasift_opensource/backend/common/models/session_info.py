@@ -1,7 +1,7 @@
 from contextvars import ContextVar
 from typing import Any, Optional
 
-from datasift_opensource.backend.common.util.constants import DatasiftConstants
+from common.util.constants import DatasiftConstants
 
 
 class SessionInfo:

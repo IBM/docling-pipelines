@@ -11,8 +11,8 @@ from typing import Any, Callable, Optional, ParamSpec, TypeVar, Union
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
-from datasift_opensource.backend.core.data_access.data_access_utils import DataAccessUtils
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import (
+from core.data_access.data_access_utils import DataAccessUtils
+from common.exceptions.datasift_exceptions import (
     FlowExecutionFailedException,
     FlowValidationException,
     PrefectFlowFailed,
@@ -20,18 +20,18 @@ from datasift_opensource.backend.common.exceptions.datasift_exceptions import (
     ValidationAlert,
     DatasiftException
 )
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import ErrorCode
-from datasift_opensource.backend.common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from datasift_opensource.backend.common.models.session_info import SessionInfo, get_session_info, set_session_info
-from datasift_opensource.backend.core.operators.abstract_operator import OperatorCategory
-from datasift_opensource.backend.core.operators.operator_utils import OperatorUtils
-from datasift_opensource.backend.core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
-from datasift_opensource.backend.core.orchestrator.futured_list import FuturedList
-from datasift_opensource.backend.core.orchestrator.operator_factory import (
+from common.exceptions.datasift_exceptions import ErrorCode
+from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
+from common.models.session_info import SessionInfo, get_session_info, set_session_info
+from core.operators.abstract_operator import OperatorCategory
+from core.operators.operator_utils import OperatorUtils
+from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
+from core.orchestrator.futured_list import FuturedList
+from core.orchestrator.operator_factory import (
     OperatorFactory,
     OperatorFactoryProvider,
 )
-from datasift_opensource.backend.common.util.constants import (
+from common.util.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
@@ -39,31 +39,31 @@ from datasift_opensource.backend.common.util.constants import (
     OrchestratorType,
     TaskType
 )
-from datasift_opensource.backend.common.util.datasift_utils import add_validation_alert, get_current_timestamp
-from datasift_opensource.backend.common.util.iceberg_util import get_warehouse_path
-from datasift_opensource.backend.common.util.incremental_update_util import IncrementalUpdateUtil
-from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import JobStatsDto
-from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import JobTracker
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.datasift_utils import add_validation_alert, get_current_timestamp
+from common.util.iceberg_util import get_warehouse_path
+from common.util.incremental_update_util import IncrementalUpdateUtil
+from common.util.job_tracker.tracker.job_tracker import JobStatsDto
+from common.util.job_tracker.tracker.job_tracker import JobTracker
+from common.util.log import get_logger
 
 # Note that get_logs is imported for the test cases
-from datasift_opensource.backend.common.util.operator_utils import (
+from common.util.operator_utils import (
     find_doc_count_from_tables,
     remove_internal_metrics_from_metadata,
 )
-from datasift_opensource.backend.common.util.orchestrator_utils import (
+from common.util.orchestrator_utils import (
     clean_up_prefect_home,
     combine_cumulative_deleted_rows,
     construct_deleted_rows_table_path,
     create_node_id_to_index_map,
 )
-from datasift_opensource.backend.common.util.parquet_table_handler import (
+from common.util.parquet_table_handler import (
     BaseParquetTableHandler,
     get_parquet_table_handler,
 )
-from datasift_opensource.backend.common.util.perf_utils import log_elapsed_time
+from common.util.perf_utils import log_elapsed_time
 # Import and call set_prefect_env_variables before importing Prefect modules
-from datasift_opensource.backend.common.util.orchestrator_utils import set_prefect_env_variables
+from common.util.orchestrator_utils import set_prefect_env_variables
 set_prefect_env_variables()
 
 # Prefect imports must come after set_prefect_env_variables() call
