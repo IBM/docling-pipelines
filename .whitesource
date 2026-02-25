@@ -1,5 +1,5 @@
 {
-  "settingsInheritedFrom": "wdp-gov/whitesource-config@python3.11",
+  "settingsInheritedFrom": "whitesource-config/whitesource-config@master",
   "scanSettings": {
     "configMode" : "LOCAL"
   },
