@@ -19,7 +19,7 @@ if not env_file.exists():
     sys.exit(0)
 
 from opensearchpy import OpenSearch
-from datasift_opensource.backend.common.util.env_config import get_env_var, get_env_bool, get_env_int
+from common.util.env_config import get_env_var, get_env_bool, get_env_int
 
 # Load connection details from environment
 host = get_env_var('OPENSEARCH_HOST')

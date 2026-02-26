@@ -7,7 +7,7 @@ import pytest
 import pyarrow as pa
 import numpy as np
 from unittest.mock import Mock, MagicMock, patch
-from datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator import (
+from core.operators.universal.vectordb.opensearch_operator import (
     OpenSearchOperator,
     OpenSearchEngineTypes,
     OpenSearchAlgorithmTypes,
@@ -18,8 +18,8 @@ from datasift_opensource.backend.core.operators.universal.vectordb.opensearch_op
     ENGINE_PARAMETERS_KEY,
     SPARSE_EMBEDDINGS_COLUMN_KEY,
 )
-from datasift_opensource.backend.common.util.constants import OperatorConstants
-from datasift_opensource.backend.common.util.env_config import get_opensearch_config
+from common.util.constants import OperatorConstants
+from common.util.env_config import get_opensearch_config
 
 
 @pytest.fixture
@@ -87,7 +87,7 @@ class TestOpenSearchOperatorInitialization:
     def test_basic_initialization(self, basic_config):
         """Test basic operator initialization"""
         with patch(
-            "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+            "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
         ):
             operator = OpenSearchOperator(basic_config)
             assert operator.host == "localhost"
@@ -148,7 +148,7 @@ class TestEngineConfiguration:
         config[ALGORITHM_KEY] = "hnsw"
 
         with patch(
-            "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+            "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
         ):
             operator = OpenSearchOperator(config)
             params = operator._get_engine_parameters()
@@ -162,7 +162,7 @@ class TestEngineConfiguration:
         config[ALGORITHM_KEY] = "ivf"
 
         with patch(
-            "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+            "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
         ):
             operator = OpenSearchOperator(config)
             params = operator._get_engine_parameters()
@@ -175,7 +175,7 @@ class TestEngineConfiguration:
         config[ENGINE_PARAMETERS_KEY] = {"ef_construction": 256, "m": 32}
 
         with patch(
-            "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+            "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
         ):
             operator = OpenSearchOperator(config)
             params = operator._get_engine_parameters()
@@ -187,7 +187,7 @@ class TestIndexManagement:
     """Test index creation and management"""
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     def test_create_index_mapping(self, mock_opensearch, basic_config):
         """Test index mapping creation"""
@@ -210,7 +210,7 @@ class TestIndexManagement:
         assert meta["algorithm"] == "hnsw"
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     def test_index_creation(self, mock_opensearch, basic_config):
         """Test index creation"""
@@ -232,7 +232,7 @@ class TestDocumentProcessing:
     """Test document preparation and processing"""
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     def test_prepare_document(self, mock_opensearch, basic_config):
         """Test document preparation"""
@@ -254,7 +254,7 @@ class TestDocumentProcessing:
         assert doc["text"] == "Test content"
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     def test_prepare_document_with_none_values(self, mock_opensearch, basic_config):
         """Test document preparation with None values"""
@@ -277,10 +277,10 @@ class TestBatchProcessing:
     """Test batch processing functionality"""
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.helpers.bulk"
+        "core.operators.universal.vectordb.opensearch_operator.helpers.bulk"
     )
     def test_transform_basic(
         self, mock_bulk, mock_opensearch, basic_config, sample_table
@@ -304,7 +304,7 @@ class TestBatchProcessing:
         assert metadata["failed_docs_count"] == 0
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     def test_transform_missing_doc_id_column(self, mock_opensearch, basic_config):
         """Test transform with missing doc_id column"""
@@ -322,7 +322,7 @@ class TestBatchProcessing:
         assert metadata["node_status"] == "failed"
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     def test_transform_empty_table(self, mock_opensearch, basic_config):
         """Test transform with empty table"""
@@ -343,7 +343,7 @@ class TestQueryCapabilities:
     """Test query and delete capabilities"""
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     def test_query_by_doc_names(self, mock_opensearch, basic_config):
         """Test querying documents by names"""
@@ -367,10 +367,10 @@ class TestQueryCapabilities:
         assert docs[1]["name"] == "doc2"
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.helpers.bulk"
+        "core.operators.universal.vectordb.opensearch_operator.helpers.bulk"
     )
     def test_delete_documents_by_ids(self, mock_bulk, mock_opensearch, basic_config):
         """Test deleting documents by IDs"""
@@ -386,7 +386,7 @@ class TestQueryCapabilities:
         assert failed == 0
 
     @patch(
-        "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
     )
     def test_get_document_count(self, mock_opensearch, basic_config):
         """Test getting document count"""
@@ -419,7 +419,7 @@ class TestMetadata:
         }
 
         with patch(
-            "datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+            "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
         ):
             operator = OpenSearchOperator(config)
             metadata = operator.get_metadata()

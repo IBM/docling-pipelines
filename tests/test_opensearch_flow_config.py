@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from uuid import UUID
 
-from datasift_opensource.backend.common.util.constants import OperatorConstants
+from common.util.constants import OperatorConstants
 
 
 class TestOpenSearchFlow(unittest.TestCase):

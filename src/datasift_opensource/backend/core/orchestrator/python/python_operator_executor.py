@@ -103,7 +103,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         logger.error(f"Error during transformation in node id: {node_id}: {str(exception)}", stack_info=True, exc_info=True)
 
     def get_operator(self) -> AbstractOperator:
-        operator_factory = OperatorFactoryProvider.refresh_operator_factory(orchestrator=OrchestratorType.PYTHON)
+        operator_factory = PythonOperatorExecutor.operator_factory
         clazz = operator_factory.get_operator(operator_name=self._operator)
         if clazz is None:
             raise DatasiftException(f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}")

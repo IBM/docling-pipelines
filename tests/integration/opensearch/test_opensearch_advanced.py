@@ -20,13 +20,13 @@ if not env_file.exists():
 
 import pyarrow as pa
 import numpy as np
-from datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator import (
+from core.operators.universal.vectordb.opensearch_operator import (
     OpenSearchOperator,
     OpenSearchEngineTypes,
     OpenSearchAlgorithmTypes,
     VectorSimilarityTypes,
 )
-from datasift_opensource.backend.common.util.env_config import get_opensearch_config
+from common.util.env_config import get_opensearch_config
 
 
 def print_section(title):

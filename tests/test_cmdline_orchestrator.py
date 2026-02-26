@@ -4,9 +4,9 @@ import unittest
 import tempfile
 from unittest.mock import patch, MagicMock
 
-from datasift_opensource.backend.core.orchestrator.cmdline.cmd_line_orchestrator import run_command_line_executor, load_flow_definition
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, OperatorConstants
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import FlowValidationException
+from core.orchestrator.cmdline.cmd_line_orchestrator import run_command_line_executor, load_flow_definition
+from common.util.constants import DatasiftConstants, OperatorConstants
+from common.exceptions.datasift_exceptions import FlowValidationException
 
 
 class TestCommandLineOrchestrator(unittest.TestCase):
@@ -46,9 +46,9 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         run_command_line_executor(flow_def=flow_def)
         
     @patch('argparse.ArgumentParser.parse_args')
-    @patch('datasift_opensource.backend.core.orchestrator.cmdline.cmd_line_orchestrator.load_flow_definition')
-    @patch('datasift_opensource.backend.core.orchestrator.cmdline.cmd_line_orchestrator.run_command_line_executor')
-    @patch('datasift_opensource.backend.core.orchestrator.cmdline.cmd_line_orchestrator.get_logger')
+    @patch('core.orchestrator.cmdline.cmd_line_orchestrator.load_flow_definition')
+    @patch('core.orchestrator.cmdline.cmd_line_orchestrator.run_command_line_executor')
+    @patch('core.orchestrator.cmdline.cmd_line_orchestrator.get_logger')
     def test_cmd_line_options(self, mock_get_logger, mock_run_executor, mock_load_flow, mock_parse_args):
         """
         Test command line options parsing
@@ -71,7 +71,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         mock_load_flow.return_value = mock_flow_def
         
         # Import and call the main function
-        from datasift_opensource.backend.core.orchestrator.cmdline.cmd_line_orchestrator import main
+        from core.orchestrator.cmdline.cmd_line_orchestrator import main
         main()
         
         # Verify that the functions were called with the expected arguments
@@ -83,7 +83,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         Test loading a flow definition from a file
         """
-        from datasift_opensource.backend.core.orchestrator.cmdline.cmd_line_orchestrator import load_flow_definition
+        from core.orchestrator.cmdline.cmd_line_orchestrator import load_flow_definition
         filepath = "tests/flow_local.json"
 
         flow_def = load_flow_definition(file_path=filepath)
@@ -140,7 +140,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
             # Clean up the temporary file
             os.unlink(temp_file_path)
             
-    @patch('datasift_opensource.backend.core.orchestrator.orchestrator_factory.OrchestratorFactory.create_orchestrator')
+    @patch('core.orchestrator.orchestrator_factory.OrchestratorFactory.create_orchestrator')
     def test_flow_execution_failure(self, mock_create_orchestrator):
         """
         Test handling of flow execution failure
