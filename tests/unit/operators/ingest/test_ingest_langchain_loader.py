@@ -103,7 +103,8 @@ class TestIngestLangchainOperatorInitialization:
             },
             'credentials': {
                 'credentials_json_path': '/path/to/credentials.json',
-                'token_path': '/path/to/token.json'
+                'token_path': '/path/to/token.json',
+                'scopes': ['https://www.googleapis.com/auth/drive.readonly']
             }
         }
         
@@ -112,6 +113,7 @@ class TestIngestLangchainOperatorInitialization:
         assert operator.provider == 'google_drive'
         assert operator.connection_params['folder_id'] == 'test-folder-id'
         assert operator.connection_params['recursive'] is True
+        assert operator.credentials['scopes'] == ['https://www.googleapis.com/auth/drive.readonly']
     
     def test_init_with_sharepoint_provider(self):
         """Test initialization with SharePoint provider."""
@@ -252,7 +254,8 @@ class TestGetLoader:
             },
             'credentials': {
                 'credentials_json_path': '/path/to/credentials.json',
-                'token_path': '/path/to/token.json'
+                'token_path': '/path/to/token.json',
+                'scopes': ['https://www.googleapis.com/auth/drive.readonly']
             }
         }
         
@@ -264,7 +267,8 @@ class TestGetLoader:
             folder_id='test-folder-id',
             credentials_path='/path/to/credentials.json',
             token_path='/path/to/token.json',
-            recursive=True
+            recursive=True,
+            scopes=['https://www.googleapis.com/auth/drive.readonly']
         )
     
     @patch('core.operators.universal.ingest.ingest_langchain_loader.SharePointLoader')
@@ -567,10 +571,16 @@ class TestGetS3FileKeys:
 class TestTransform:
     """Test cases for transform method."""
     
+    @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
     @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
-    def test_transform_success(self, mock_s3_loader, mock_documents, empty_input_table):
+    def test_transform_success(self, mock_s3_loader, mock_incremental_util, mock_documents, empty_input_table):
         """Test transform successfully processes documents."""
         from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
         
         # Mock loader to return documents
         mock_loader_instance = Mock()
@@ -586,7 +596,9 @@ class TestTransform:
             'credentials': {
                 'access_key': 'test-access-key',
                 'secret_key': 'test-secret-key'
-            }
+            },
+            'job_id': 'test-job-123',
+            'job_run_id': 'test-run-456'
         }
         
         operator = IngestLangchainOperator(config)
@@ -600,6 +612,8 @@ class TestTransform:
         assert 'text' in result_table.column_names
         assert 'metadata' in result_table.column_names
         assert 'source_id' in result_table.column_names
+        assert 'id' in result_table.column_names
+        assert 'name' in result_table.column_names
         
         # Check content
         texts = result_table['text'].to_pylist()
@@ -619,14 +633,21 @@ class TestTransform:
         assert source_ids[1] == 'file2.txt'
         assert source_ids[2] == 'file3.txt'
         
-        # Check metadata
-        assert metadata['status'] == 'success'
-        assert metadata['count'] == 3
+        # Check metadata - now follows AbstractOperator pattern
+        assert metadata['node_status'] == 'completed'
+        assert metadata['processed_docs'] == 3
+        assert metadata['total_docs_count'] == 3
     
+    @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
     @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
-    def test_transform_empty_documents(self, mock_s3_loader, empty_input_table):
+    def test_transform_empty_documents(self, mock_s3_loader, mock_incremental_util, empty_input_table):
         """Test transform handles empty document list."""
         from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
         
         # Mock loader to return empty list
         mock_loader_instance = Mock()
@@ -642,7 +663,9 @@ class TestTransform:
             'credentials': {
                 'access_key': 'test-access-key',
                 'secret_key': 'test-secret-key'
-            }
+            },
+            'job_id': 'test-job-123',
+            'job_run_id': 'test-run-456'
         }
         
         operator = IngestLangchainOperator(config)
@@ -653,13 +676,19 @@ class TestTransform:
         result_table = result_tables[0]
         
         assert result_table.num_rows == 0
-        assert metadata['status'] == 'success'
-        assert metadata['count'] == 0
+        assert metadata['node_status'] == 'completed'
+        assert metadata['processed_docs'] == 0
     
+    @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
     @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
-    def test_transform_error_handling(self, mock_s3_loader, empty_input_table):
+    def test_transform_error_handling(self, mock_s3_loader, mock_incremental_util, empty_input_table):
         """Test transform handles errors gracefully."""
         from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
         
         # Mock loader to raise exception
         mock_loader_instance = Mock()
@@ -675,7 +704,9 @@ class TestTransform:
             'credentials': {
                 'access_key': 'test-access-key',
                 'secret_key': 'test-secret-key'
-            }
+            },
+            'job_id': 'test-job-123',
+            'job_run_id': 'test-run-456'
         }
         
         operator = IngestLangchainOperator(config)
@@ -686,13 +717,19 @@ class TestTransform:
         result_table = result_tables[0]
         
         assert result_table.num_rows == 0
-        assert metadata['status'] == 'error'
-        assert 'Connection failed' in metadata['message']
+        assert metadata['node_status'] == 'completed_with_errors'
+        assert metadata['failed_docs_count'] == 1
     
+    @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
     @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
-    def test_transform_schema_validation(self, mock_s3_loader, mock_documents, empty_input_table):
+    def test_transform_schema_validation(self, mock_s3_loader, mock_incremental_util, mock_documents, empty_input_table):
         """Test transform output has correct schema."""
         from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
         
         mock_loader_instance = Mock()
         mock_loader_instance.load.return_value = mock_documents
@@ -707,7 +744,9 @@ class TestTransform:
             'credentials': {
                 'access_key': 'test-access-key',
                 'secret_key': 'test-secret-key'
-            }
+            },
+            'job_id': 'test-job-123',
+            'job_run_id': 'test-run-456'
         }
         
         operator = IngestLangchainOperator(config)
@@ -716,18 +755,26 @@ class TestTransform:
         result_table = result_tables[0]
         schema = result_table.schema
         
-        # Verify schema
-        assert len(schema) == 3
+        # Verify schema - now includes id and name fields
+        assert len(schema) == 5
         assert schema.field('text').type == pa.string()
         assert schema.field('metadata').type == pa.string()
         assert schema.field('source_id').type == pa.string()
+        assert schema.field('id').type == pa.string()
+        assert schema.field('name').type == pa.string()
     
+    @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
     @patch('core.operators.universal.ingest.ingest_langchain_loader.GoogleDriveLoader')
     @patch('os.path.exists')
     @patch('os.makedirs')
-    def test_transform_google_drive(self, mock_makedirs, mock_exists, mock_gdrive_loader, mock_documents, empty_input_table):
+    def test_transform_google_drive(self, mock_makedirs, mock_exists, mock_gdrive_loader, mock_incremental_util, mock_documents, empty_input_table):
         """Test transform with Google Drive provider."""
         from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
         
         mock_exists.return_value = False
         mock_loader_instance = Mock()
@@ -742,8 +789,11 @@ class TestTransform:
             },
             'credentials': {
                 'credentials_json_path': '/path/to/credentials.json',
-                'token_path': '/path/to/token.json'
-            }
+                'token_path': '/path/to/token.json',
+                'scopes': ['https://www.googleapis.com/auth/drive.readonly']
+            },
+            'job_id': 'test-job-123',
+            'job_run_id': 'test-run-456'
         }
         
         operator = IngestLangchainOperator(config)
@@ -751,11 +801,17 @@ class TestTransform:
         
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == 3
-        assert metadata['status'] == 'success'
+        assert metadata['node_status'] == 'completed'
     
-    def test_transform_document_without_source(self, empty_input_table):
+    @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
+    def test_transform_document_without_source(self, mock_incremental_util, empty_input_table):
         """Test transform handles documents without source in metadata."""
         from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
         
         # Document without source
         doc_no_source = Document(
@@ -771,7 +827,9 @@ class TestTransform:
             config = {
                 'provider': 's3',
                 'connection_params': {'bucket': 'test-bucket', 'prefix': ''},
-                'credentials': {'access_key': 'key', 'secret_key': 'secret'}
+                'credentials': {'access_key': 'key', 'secret_key': 'secret'},
+                'job_id': 'test-job-123',
+                'job_run_id': 'test-run-456'
             }
             
             operator = IngestLangchainOperator(config)
@@ -779,16 +837,22 @@ class TestTransform:
             
             result_table = result_tables[0]
             source_ids = result_table['source_id'].to_pylist()
-            assert source_ids[0] == 'unknown'
+            assert source_ids[0].startswith('unknown_')
 
 
 class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
     
+    @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
     @patch('core.operators.universal.ingest.ingest_langchain_loader.S3DirectoryLoader')
-    def test_s3_to_pyarrow_pipeline(self, mock_s3_loader, empty_input_table):
+    def test_s3_to_pyarrow_pipeline(self, mock_s3_loader, mock_incremental_util, empty_input_table):
         """Test complete S3 ingestion to PyArrow table pipeline."""
         from core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+        
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
         
         # Simulate realistic S3 documents
         documents = [
@@ -815,7 +879,9 @@ class TestIntegrationScenarios:
             'credentials': {
                 'access_key': 'AKIAIOSFODNN7EXAMPLE',
                 'secret_key': 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'
-            }
+            },
+            'job_id': 'test-job-123',
+            'job_run_id': 'test-run-456'
         }
         
         operator = IngestLangchainOperator(config)
@@ -825,8 +891,8 @@ class TestIntegrationScenarios:
         
         # Verify pipeline output
         assert result_table.num_rows == 2
-        assert metadata['status'] == 'success'
-        assert metadata['count'] == 2
+        assert metadata['node_status'] == 'completed'
+        assert metadata['processed_docs'] == 2
         
         # Verify data can be converted to pandas for downstream processing
         df = result_table.to_pandas()
@@ -834,6 +900,8 @@ class TestIntegrationScenarios:
         assert 'text' in df.columns
         assert 'metadata' in df.columns
         assert 'source_id' in df.columns
+        assert 'id' in df.columns
+        assert 'name' in df.columns
 
 
 if __name__ == "__main__":
