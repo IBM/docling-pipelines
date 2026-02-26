@@ -2,6 +2,35 @@
 
 This repository contains the datasift operators with FastAPI server, CLI orchestrator, and UI components.
 
+## Available Operators
+
+### Vector Database Operators
+- **OpenSearch** - Vector similarity search with multiple KNN engines (FAISS, Lucene, nmslib, jVector)
+  - See [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
+  - See [Operator Reference](docs/operators/opensearch.md) - Technical API documentation
+  - See [Integration Example](examples/opensearch_example_README.md) - Code examples
+
+### Ingest Operators
+- **Local Folder** - Ingest documents from local filesystem
+- **Local S3** - Ingest documents from S3-compatible storage
+- **CSV** - Ingest structured data from CSV files
+- **LangChain Loader** - Ingest using LangChain document loaders
+
+### Extract Operators
+- **Docling** - Extract content and structure from documents using Docling
+
+### Chunking Operators
+- **Docling Chunker** - Chunk documents using Docling's chunking capabilities
+- **Semantic Chunker** - Semantic-aware document chunking
+
+### Language Operators
+- **Language Detection** - Detect document language
+- **Readability** - Assess document readability scores
+
+### Utility Operators
+- **Branching** - Conditional flow branching
+- **No-op** - Pass-through operator for testing
+
 ## Project Structure
 
 ```
