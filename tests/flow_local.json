@@ -7,7 +7,8 @@
         "execute_type": "local",
         "global_config": {
             "doc_column": "content",
-            "disable_validation": "true"
+            "disable_validation": "true",
+            "force_ingest": true
         },
         "dag": [
             {
@@ -15,16 +16,17 @@
                 "name": "ingest",
                 "operator": "ingest_local",
                 "config": {
-                    "input_folder": "../../../tests/fixtures/customer_support_docs",
-                    "include_filter": "pdf, txt" 
+                    "input_folder": "./tests/fixtures/customer_support_docs",
+                    "include_filter": "txt" ,
+                    "store_binary_content": "false"
                 },
                 "input_edges": [],
                 "output_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}]
             },
             {
                 "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
-                "name": "doc_quality",
-                "operator": "doc_quality",
+                "name": "extract",
+                "operator": "extract_docling",
                 "config": {
                     "doc_column": "content"
                 },
@@ -33,39 +35,16 @@
             },
             {
                 "id": "6101c752-523e-4a4a-84e2-81e0b2109129",
-                "name": "ssn",
-                "operator": "redaction",
+                "name": "chunk",
+                "operator": "docling_chunker",
                 "config": {
-                    "target_column": "content",
-                    "stats_column": "redaction_stats",
-                    "redaction_masking_pattern": "*",
-                    "redaction_regex": "(?!000|.+0{4})(?:\\d{9}|\\d{3}-\\d{2}-\\d{4})"
+                    "doc_column": "content",
+                    
+                    "chunk_size": 512,
+                    "chunk_overlap": 128,
+                    "retain_original_content": "true"
                 },
                 "input_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}],
-                "output_edges": [{"node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71"}]
-            },
-            {
-                "id": "5df177f6-92bc-4465-826e-f4df107ffb71",
-                "name": "doc_id",
-                "operator": "doc_id_hash",
-                "config": {
-                    "doc_column": "content",
-                    "doc_id_column": "id"
-                },
-                "input_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}],
-                "output_edges": ["e9c41958-2d27-4c02-ab03-789e031b9500"]
-            },
-
-            {
-                "id": "e9c41958-2d27-4c02-ab03-789e031b9500",
-                "name": "chunk",
-                "operator": "chunker",
-                "config": {
-                    "doc_column": "content",
-                    "chunk_size": 200,
-                    "data_flight_config": { "url": "grpc+tcp://localhost:5005", "output_folder": "sample_flow" },
-                    "data_storage_type": "flight" },
-                "input_edges": [{"node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71"}],
                 "output_edges": ["6de879bd-bbe0-4d60-998f-031f65472a02"]
             },
 
@@ -74,118 +53,59 @@
                 "name": "embeddings",
                 "operator": "embeddings",
                 "config": {
-                    "embeddings_type": "local",
-                    "doc_column": "content",
-                    "embeddings_column": "embeddings"
+                    "embeddings_type": "ollama",
+                    "embeddings_model_id": "granite4",
+                    "embeddings_column": "embeddings",
+                    "overlap_ratio": 0.2,
+                    "doc_column": "content"
                 },
-                "input_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500"}],
+                "input_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}],
                 "output_edges": ["87249dbf-4a1a-433a-91da-ee5fb3244284"]
             },
             {
                 "id": "87249dbf-4a1a-433a-91da-ee5fb3244284",
-                "name": "milvusdb_local",
-                "operator": "milvusdb_local",
-                "config": {
-                    "milvus_db_host": "9.30.97.49",
-                    "milvus_db_port": "19530",
-                    "doc_id_column": "doc_id",
+                "name": "vectordb",
+                "operator": "opensearch",
+                "config" : {
+                    "opensearch_host": "localhost",
+                    "opensearch_port": 9200,
+                    "opensearch_username": "admin",
+                    "opensearch_password": "admin",
+                    "opensearch_use_ssl": false,
+                    "opensearch_verify_certs": false,
+                    "index_name": "datasift_documents",
+                    "doc_id_column": "doc_id_hash",
                     "embeddings_column": "embeddings",
-                    "collection_name": "datasift2",
+                    "vector_dimension": 384,
+                    "engine": "faiss",
+                    "algorithm": "hnsw",
+                    "space_type": "l2",
+                    "batch_size": 100,
+                    "create_index": "true",
                     "available_features": {
-                        "id": {
-                            "name": "ID",
-                            "description": "The ID of the document",
-                            "available_for_filter": true,
-                            "available_for_vector_db": true,
-                            "mandatory_for_vector_db": true,
-                            "type": "string"
-                        },
-                        "name": {
-                            "name": "Document Name",
-                            "description": "The name of the document",
-                            "available_for_vector_db": true,
-                            "type": "string"
-                        },
-                        "size": {
-                            "name": "Size",
-                            "description": "The size of the document",
-                            "available_for_filter": true,
-                            "available_for_vector_db": true,
-                            "type": "int64"
-                        },
-                        "created_time": {
-                            "name": "Created Time",
-                            "description": "When the document was created in the project",
-                            "available_for_filter": true,
-                            "available_for_vector_db": true,
-                            "type": "int64"
-                        },
-                        "modified_time": {
-                            "name": "Modified Time",
-                            "description": "When the document was last modified",
-                            "available_for_filter": true,
-                            "available_for_vector_db": true,
-                            "type": "int64"
-                        },
-                        "content": {
-                            "name": "Document Content",
-                            "description": "The content of the document",
-                            "available_for_filter": true,
-                            "available_for_vector_db": true,
-                            "type": "string"
-                        },
                         "doc_id_hash": {
-                            "name": "Hash ID",
-                            "description": "Hash ID of the row",
+                            "name": "Document ID",
                             "available_for_vector_db": true,
                             "mandatory_for_vector_db": true,
                             "type": "string",
                             "is_primary": true
                         },
-                        "redaction_stats": {
-                            "name": "Redaction Count",
-                            "description": "Number of matches found and redacted from the document",
-                            "available_for_filter": true
-                        },
-                        "chunk_sequence_number": {
-                            "name": "Chunk Sequence number",
-                            "description": "Sequential chunk number for each text chunk, representing its position within a larger document",
+                        "content": {
+                            "name": "Content",
                             "available_for_vector_db": true,
-                            "type": "int64"
-                        },
-                        "start_index": {
-                            "name": "Start Index",
-                            "description": "Chunk starting token position in the source document",
-                            "available_for_vector_db": true,
-                            "type": "int64"
-                        },
-                        "chunked_content": {
-                            "name": "Chunked Content",
-                            "description": "Content containing segmented portions of larger text data.",
-                            "is_internal_feature": true
+                            "type": "string"
                         },
                         "embeddings": {
                             "name": "Embeddings",
-                            "description": "The text embeddings",
                             "available_for_vector_db": true,
                             "mandatory_for_vector_db": true,
                             "type": "vector"
-                        },
-                        "sparse_embeddings": {
-                            "name": "Sparse Embeddings",
-                            "type": "vector_sparse",
-                            "description": "Create sparse vectors in Milvus Database",
-                            "available_for_vector_db": true,
-                            "mandatory_for_vector_db": false
                         }
                     },
                     "feature_mappings": {
                         "doc_id_hash": "pk",
-                        "id": "document_id",
-                        "embeddings": "vector_embeddings",
-                        "name": "document_name",
-                        "sparse_embeddings": "sparse_embeddings",
-                        "content": "text"
+                        "content": "text",
+                        "embeddings": "vector_embeddings"
                     }
                 },
                 "input_edges": [{"node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"}],

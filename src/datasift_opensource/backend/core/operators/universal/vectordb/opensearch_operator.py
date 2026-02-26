@@ -12,16 +12,16 @@ import pyarrow as pa
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth, helpers
 import boto3
 
-from datasift_opensource.backend.core.operators.abstract_operator import (
+from core.operators.abstract_operator import (
     AbstractOperator,
     OperatorCategory,
 )
-from datasift_opensource.backend.common.util.constants import (
+from common.util.constants import (
     DatasiftConstants,
     OperatorConstants,
     Metrics,
 )
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.log import get_logger
 
 logger = get_logger()
 
