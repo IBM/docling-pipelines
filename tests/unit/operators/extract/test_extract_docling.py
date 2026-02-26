@@ -307,6 +307,206 @@ def test_get_metadata():
     assert expand_attr["default"] is False, "Default should be False"
 
 
+def test_extract_docling_txt_files():
+    """Test the ExtractDoclingOperator with .txt files."""
+    import pyarrow as pa
+    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    
+    # Get test .txt files
+    fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "customer_support_docs"
+    test_files = list(fixtures_dir.glob("*.txt"))[:2]  # Test with first 2 txt files
+    
+    assert len(test_files) > 0, f"No TXT files found in {fixtures_dir}"
+    
+    # Prepare data for PyArrow table
+    file_data = {
+        "id": [],
+        "name": [],
+        "path": [],
+        "binary_content": []
+    }
+    
+    for file_path in test_files:
+        with open(file_path, 'rb') as f:
+            binary_content = f.read()
+        
+        file_data["id"].append(str(file_path))
+        file_data["name"].append(file_path.name)
+        file_data["path"].append(str(file_path))
+        file_data["binary_content"].append(binary_content)
+    
+    # Create PyArrow table
+    table = pa.table(file_data)
+    assert table.num_rows > 0, "Table should have rows"
+    
+    # Initialize operator with basic configuration
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "extract_tables": False,  # No tables in txt files
+        "extract_images": False,  # No images in txt files
+        "use_template": False
+    }
+    
+    operator = ExtractDoclingOperator(config)
+    
+    # Transform the table
+    result_tables, metadata = operator.transform(table)
+    result_table = result_tables[0]
+    
+    # Assertions
+    assert "content" in result_table.column_names, "Content column should exist"
+    assert "doc_id_hash" in result_table.column_names, "Hash ID column should exist"
+    assert "docling_document" not in result_table.column_names, "docling_document column should not exist (created in chunker now)"
+    
+    # Check content for each file
+    for idx in range(result_table.num_rows):
+        content = result_table["content"][idx].as_py()
+        assert content is not None, f"Content should not be None for file {idx}"
+        assert len(content) > 0, f"Content should not be empty for file {idx}"
+    
+    # Check hash
+    first_hash = result_table["doc_id_hash"][0].as_py()
+    assert first_hash is not None, "Hash should not be None"
+    assert len(first_hash) > 0, "Hash should not be empty"
+    
+    # Check metadata
+    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
+    assert metadata["processed_docs"] > 0, "Should have processed at least one document"
+    assert metadata["processed_docs"] == table.num_rows, "All txt files should be processed successfully"
+
+
+def test_extract_docling_mixed_file_types():
+    """Test the ExtractDoclingOperator with mixed file types (.txt and .pdf)."""
+    import pyarrow as pa
+    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    
+    # Get test files - mix of txt and pdf
+    txt_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "customer_support_docs"
+    pdf_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "invoices"
+    
+    txt_files = list(txt_dir.glob("*.txt"))[:1]
+    pdf_files = list(pdf_dir.glob("*.pdf"))[:1]
+    
+    test_files = txt_files + pdf_files
+    
+    if len(test_files) < 2:
+        import pytest
+        pytest.skip("Need both .txt and .pdf files for mixed type test")
+    
+    # Prepare data for PyArrow table
+    file_data = {
+        "id": [],
+        "name": [],
+        "path": [],
+        "binary_content": []
+    }
+    
+    for file_path in test_files:
+        with open(file_path, 'rb') as f:
+            binary_content = f.read()
+        
+        file_data["id"].append(str(file_path))
+        file_data["name"].append(file_path.name)
+        file_data["path"].append(str(file_path))
+        file_data["binary_content"].append(binary_content)
+    
+    # Create PyArrow table
+    table = pa.table(file_data)
+    
+    # Initialize operator
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "extract_tables": True,
+        "extract_images": True,
+        "use_template": False
+    }
+    
+    operator = ExtractDoclingOperator(config)
+    
+    # Transform the table
+    result_tables, metadata = operator.transform(table)
+    result_table = result_tables[0]
+    
+    # Assertions
+    assert "content" in result_table.column_names, "Content column should exist"
+    assert "doc_id_hash" in result_table.column_names, "Hash ID column should exist"
+    assert "docling_document" not in result_table.column_names, "docling_document column should not exist (created in chunker now)"
+    
+    # Verify all files were processed
+    assert metadata["processed_docs"] == len(test_files), "All files should be processed"
+    
+    # Check that both file types have content
+    for idx in range(result_table.num_rows):
+        content = result_table["content"][idx].as_py()
+        assert content is not None, f"Content should not be None for file {idx}"
+        assert len(content) > 0, f"Content should not be empty for file {idx}"
+
+
+def test_extract_docling_txt_with_special_characters():
+    """Test the ExtractDoclingOperator with .txt files containing special characters."""
+    import pyarrow as pa
+    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    import tempfile
+    import os
+    
+    # Create a temporary txt file with special characters
+    test_content = "Hello World!\n\nThis is a test with special chars: é, ñ, ü, 中文\n\nEnd of test."
+    
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False, encoding='utf-8') as f:
+        f.write(test_content)
+        temp_file_path = f.name
+    
+    try:
+        # Read the file as binary
+        with open(temp_file_path, 'rb') as f:
+            binary_content = f.read()
+        
+        # Create PyArrow table
+        table = pa.table({
+            "id": [temp_file_path],
+            "name": [os.path.basename(temp_file_path)],
+            "path": [temp_file_path],
+            "binary_content": [binary_content]
+        })
+        
+        # Initialize operator
+        config = {
+            "doc_column": "content",
+            "doc_id_hash": "doc_id_hash",
+            "extract_tables": False,
+            "extract_images": False,
+            "use_template": False
+        }
+        
+        operator = ExtractDoclingOperator(config)
+        
+        # Transform the table
+        result_tables, metadata = operator.transform(table)
+        result_table = result_tables[0]
+        
+        # Assertions
+        assert "content" in result_table.column_names, "Content column should exist"
+        content = result_table["content"][0].as_py()
+        assert content is not None, "Content should not be None"
+        assert "Hello World!" in content, "Content should contain the test text"
+        assert "special chars" in content, "Content should contain special characters text"
+        
+        # Verify content was extracted (docling_document is now created in chunker)
+        content = result_table["content"][0].as_py()
+        assert content is not None, "content should not be None"
+        assert len(content) > 0, "content should not be empty"
+        
+        # Check metadata
+        assert metadata["processed_docs"] == 1, "Should have processed one document"
+        
+    finally:
+        # Clean up temporary file
+        if os.path.exists(temp_file_path):
+            os.unlink(temp_file_path)
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])
