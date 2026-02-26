@@ -1,7 +1,7 @@
 import re
 
-from datasift_opensource.backend.common.util.constants import DatasiftConstants
-from datasift_opensource.backend.common.util.iceberg_util import get_warehouse_path
+from common.util.constants import DatasiftConstants
+from common.util.iceberg_util import get_warehouse_path
 
 
 class DataAccessConstants:

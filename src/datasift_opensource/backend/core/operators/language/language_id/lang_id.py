@@ -3,11 +3,11 @@ from typing import Any
 import pyarrow as pa
 
 from data_processing.utils.transform_utils import TransformUtils
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift_opensource.backend.core.operators.operator_utils import OperatorUtils
-from datasift_opensource.backend.common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.operator_utils import find_doc_count, remove_rows
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
+from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
+from common.util.log import get_logger
+from common.util.operator_utils import find_doc_count, remove_rows
 
 logger = get_logger()
 

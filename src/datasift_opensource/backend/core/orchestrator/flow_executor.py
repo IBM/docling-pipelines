@@ -7,12 +7,12 @@ import argparse
 import json
 from data_processing.data_access import DataAccess
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import FlowValidationException, ValidationAlertEncoder
-from datasift_opensource.backend.common.models.session_info import get_session_info
-from datasift_opensource.backend.core.orchestrator.abstract_orchestrator import AbstractOrchestrator
-from datasift_opensource.backend.core.orchestrator.orchestrator_factory import OrchestratorFactory
-from datasift_opensource.backend.common.util.constants import OrchestratorType, DatasiftConstants
-from datasift_opensource.backend.common.util.log import get_logger
+from common.exceptions.datasift_exceptions import FlowValidationException, ValidationAlertEncoder
+from common.models.session_info import get_session_info
+from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
+from core.orchestrator.orchestrator_factory import OrchestratorFactory
+from common.util.constants import OrchestratorType, DatasiftConstants
+from common.util.log import get_logger
 
 logger = get_logger()
 lock = threading.Lock()
@@ -60,7 +60,7 @@ class FlowExecutor:
         - orchestrator: An instance of an orchestrator that will be used to execute the flow.
         - params: A dictionary of runtime parameters
         """
-        from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import JobTracker
+        from common.util.job_tracker.tracker.job_tracker import JobTracker
 
         FlowExecutor.start_diagnostic_collection(self)
         if orchestrator is not None:

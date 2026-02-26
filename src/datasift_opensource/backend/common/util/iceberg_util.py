@@ -12,9 +12,9 @@ from pyiceberg.io.pyarrow import pyarrow_to_schema
 from pyiceberg.partitioning import UNPARTITIONED_PARTITION_SPEC
 from pyiceberg.table import Table, ALWAYS_TRUE
 from pyiceberg.table.name_mapping import MappedField, NameMapping
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import DatasiftException
-from datasift_opensource.backend.common.util.constants import DatasiftConstants
-from datasift_opensource.backend.common.util.log import get_logger
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.util.constants import DatasiftConstants
+from common.util.log import get_logger
 
 logger = get_logger()
 DEFAULT_WAREHOUSE_FOLDER = './data'

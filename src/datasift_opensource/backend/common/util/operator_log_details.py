@@ -3,9 +3,9 @@ import os
 import datetime
 import copy
 
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, Metrics, OperatorConstants, ExecutionStatus
-from datasift_opensource.backend.common.util.iceberg_util import get_warehouse_path
-from datasift_opensource.backend.common.util.job_tracker.model.models import NodeStatsDto
+from common.util.constants import DatasiftConstants, Metrics, OperatorConstants, ExecutionStatus
+from common.util.iceberg_util import get_warehouse_path
+from common.util.job_tracker.model.models import NodeStatsDto
 
 
 def epoch_to_datetime(*, epoch_time):

@@ -6,13 +6,13 @@ import pyarrow as pa
 from datetime import datetime
 from data_processing.data_access import DataAccess, DataAccessFactory
 
-from datasift_opensource.backend.core.data_access.data_access_utils import DataAccessUtils
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator
-from datasift_opensource.backend.core.operators.operator_utils import OperatorUtils
-from datasift_opensource.backend.common.util.constants import OperatorConstants, DatasiftConstants, ExecutionStatus, Metrics
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.orchestrator_utils import update_deleted_rows
-from datasift_opensource.backend.common.models.session_info import get_session_info
+from core.data_access.data_access_utils import DataAccessUtils
+from core.operators.abstract_operator import AbstractOperator
+from core.operators.operator_utils import OperatorUtils
+from common.util.constants import OperatorConstants, DatasiftConstants, ExecutionStatus, Metrics
+from common.util.log import get_logger
+from common.util.orchestrator_utils import update_deleted_rows
+from common.models.session_info import get_session_info
 import pprint
 
 logger = get_logger()
@@ -114,7 +114,7 @@ class AbstractOperatorExecutor:
         node_id = self._params[OperatorConstants.ID]
         logger.info(f"Initializing stats for node '{self._name}' (ID: {node_id}).")
 
-        from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import JobTracker
+        from common.util.job_tracker.tracker.job_tracker import JobTracker
 
         node_stats = {
             'name': self._name,
@@ -144,8 +144,8 @@ class AbstractOperatorExecutor:
         job_run_id = self._params[DatasiftConstants.JOB_RUN_ID]
         logger.info(f"Updating final stats for node '{node_id}'.")
 
-        from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import ExecutionStatus, NodeStatsDto
-        from datasift_opensource.backend.common.util.job_tracker.tracker.job_tracker import JobTracker
+        from common.util.job_tracker.tracker.job_tracker import ExecutionStatus, NodeStatsDto
+        from common.util.job_tracker.tracker.job_tracker import JobTracker
 
         job_stats = JobTracker().get_job(job_run_id=job_run_id)
         existing_node = job_stats.node_stats.get(node_id, {})

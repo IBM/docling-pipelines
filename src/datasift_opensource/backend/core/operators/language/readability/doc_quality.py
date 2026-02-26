@@ -3,11 +3,11 @@ from typing import Any
 
 import pyarrow as pa
 from dpk_doc_quality.transform import DocQualityTransform
-from datasift_opensource.backend.common.util.constants import OperatorConstants, Metrics, AttributeDataTypes
-from datasift_opensource.backend.core.operators.abstract_operator import OperatorCategory
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.operator_utils import find_doc_count
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator
+from common.util.constants import OperatorConstants, Metrics, AttributeDataTypes
+from core.operators.abstract_operator import OperatorCategory
+from common.util.log import get_logger
+from common.util.operator_utils import find_doc_count
+from core.operators.abstract_operator import AbstractOperator
 
 logger = get_logger()
 DOC_CONTENT_COLUMN_KEY = "doc_content_column"

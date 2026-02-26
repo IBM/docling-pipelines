@@ -5,11 +5,11 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from datasift_opensource.backend.common.util.constants import OperatorConstants, DatasiftConstants
-from datasift_opensource.backend.common.util.iceberg_util import get_warehouse_path
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.parquet_table_handler import get_parquet_table_handler, BaseParquetTableHandler
+from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+from common.util.constants import OperatorConstants, DatasiftConstants
+from common.util.iceberg_util import get_warehouse_path
+from common.util.log import get_logger
+from common.util.parquet_table_handler import get_parquet_table_handler, BaseParquetTableHandler
 
 logger = get_logger(f"{DatasiftConstants.LOGGER_NAME} : INCREMENTAL UPDATE")
 
@@ -80,8 +80,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
                 self.parquet_table_handler.save_table(path=table_path, table=table_to_save)
 
             logger.info(
-                f"Incremental metadata table saved successfully for job_id: {job_id}, job_run_id: {job_run_id}, at path: {table_path}",
-                extra=self.common_log_arguments)
+                f"Incremental metadata table saved successfully for job_id: {job_id}, job_run_id: {job_run_id}, at path: {table_path}")
 
         except Exception as exc:
             raise FlowExecutionFailedException(f"Failed to save incremental metadata for job_id={job_id}, job_run_id={job_run_id} at {table_path}. Error: {str(exc)}")
@@ -122,7 +121,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
         """
         table_path = self.construct_table_path(job_id=job_id)
         try:
-            logger.debug(f"Retrieving processed documents for the job id {job_id}", extra=self.common_log_arguments)
+            logger.debug(f"Retrieving processed documents for the job id {job_id}")
             filters = [(OperatorConstants.DELETED, "=", False)]
             columns = [OperatorConstants.ID, OperatorConstants.MODIFIED_TIME]
             table: pa.Table | None = self._get_table(path=table_path, filters=filters, columns=columns)
@@ -166,11 +165,9 @@ class IncrementalUpdateUtil:  # pragma: no cover
 
             updated_table, doc_ids_to_delete = self._mark_docs_to_delete(table=table, doc_ids=doc_ids_set)
             logger.info(
-                f"Marking soft deleted this document ids {doc_ids_to_delete} updating the table located at {table_path}",
-                extra=self.common_log_arguments)
+                f"Marking soft deleted this document ids {doc_ids_to_delete} updating the table located at {table_path}")
             self.parquet_table_handler.save_table(path=table_path, table=updated_table)
-            logger.info("Successfully marked soft deleted in the table",
-                        extra=self.common_log_arguments)
+            logger.info("Successfully marked soft deleted in the table")
             return doc_ids_to_delete
         except Exception as exc:
             raise FlowExecutionFailedException(f"Failed to marked soft deleted document ids for job_id={job_id} at {table_path}. Error: {str(exc)}")
@@ -191,12 +188,10 @@ class IncrementalUpdateUtil:  # pragma: no cover
         table_path = self.construct_table_path(job_id=job_id)
         try:
             logger.info(
-                f"Retrieving the soft deleted document ids for the job id {job_id} from the table located at the {table_path}",
-                extra=self.common_log_arguments)
+                f"Retrieving the soft deleted document ids for the job id {job_id} from the table located at the {table_path}")
             table: pa.Table | None = self._get_table(path=table_path)
             logger.info(
-                f"Fetched soft deleted document IDs for job_id={job_id} from {table_path}",
-                extra=self.common_log_arguments)
+                f"Fetched soft deleted document IDs for job_id={job_id} from {table_path}")
             return self._get_soft_deleted_ids(table=table)
         except Exception as exc:
             raise FlowExecutionFailedException(f"Failed to retrieved soft deleted document ids for job_id={job_id} at {table_path}. Error: {str(exc)}")
@@ -219,15 +214,13 @@ class IncrementalUpdateUtil:  # pragma: no cover
         try:
             if doc_ids:
                 logger.info(
-                    f"Deleting rows with doc_ids for job_id={job_id} from table at {table_path}",
-                    extra=self.common_log_arguments)
+                    f"Deleting rows with doc_ids for job_id={job_id} from table at {table_path}")
 
                 doc_ids_set = pa.array(doc_ids)
                 delete_filter_fn = lambda table: pc.is_in(table[OperatorConstants.ID], value_set=doc_ids_set) # noqa: E731
                 self.parquet_table_handler.delete_rows(path=table_path, delete_filter_fn=delete_filter_fn)
                 logger.info(
-                    f"Successfully deleted rows with doc_ids for job_id={job_id} from table at {table_path}",
-                    extra=self.common_log_arguments)
+                    f"Successfully deleted rows with doc_ids for job_id={job_id} from table at {table_path}")
         except Exception as exc:
             raise FlowExecutionFailedException(f"Failed to delete document ids for job_id={job_id} at {table_path}. Error: {str(exc)}")
 
@@ -238,14 +231,12 @@ class IncrementalUpdateUtil:  # pragma: no cover
     def _get_table(self, *, path: str, filters=None, columns=None) -> pa.Table | None:
         try:
             logger.info(
-                f"Fetching incremental metadata table located at '{path}",
-                extra=self.common_log_arguments)
+                f"Fetching incremental metadata table located at '{path}")
             table: pa.Table | None = self.parquet_table_handler.read_table(path=path, filters=filters, columns=columns)
             if not table:
                 return None
             logger.info(
-                f"Successfully fetched the incremental metadata table located at {path}",
-                extra=self.common_log_arguments)
+                f"Successfully fetched the incremental metadata table located at {path}")
             return table
         except Exception as exc:
             raise FlowExecutionFailedException(f"An error occurred while fetching the incremental metadata table at '{path}'. Error details: {str(exc)}")

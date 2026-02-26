@@ -1,4 +1,4 @@
-from datasift_opensource.backend.core.orchestrator.python.python_operator_executor import PythonOperatorExecutor
+from core.orchestrator.python.python_operator_executor import PythonOperatorExecutor
 
 
 class CommandLineOperatorExecutor(PythonOperatorExecutor):

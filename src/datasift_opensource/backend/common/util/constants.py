@@ -332,7 +332,7 @@ class OperatorConstants:
     PARTIAL_INGEST = "partial_ingest"
     SDK = "sdk"
     DELETED = "deleted"
-    CORE_OPERATORS_PATH = "datasift_opensource.backend.core.operators"
+    CORE_OPERATORS_PATH = "core.operators"
     ALL_OPERATORS_PATH = [CORE_OPERATORS_PATH]
     SCHEMA_NAME = "schema_name"
     TABLE_NAME = "table_name"
@@ -345,6 +345,8 @@ class OperatorConstants:
     INGEST_CSV = "ingest_csv"
     INGEST_LOCAL = "ingest_local"
     INGEST_WEB_PAGES = "ingest_web_page"
+    EXTRACT_DOCLING = "extract_docling"
+    DOCLING_CHUNKER = "docling_chunker"
     NOOP = "noop"
     MERGE = 'merge'
     REDACTION = "redaction"
@@ -448,6 +450,22 @@ class OperatorConstants:
     KEY = 'key'
     SEMANTIC_LABEL = 'semantic_label'
     RAW_TEXT = 'raw_text'
+    DOCLING_DOCUMENT = 'docling_document'
+    TABLES = 'tables'
+    IMAGES = 'images'
+    STRUCTURED_DATA = 'structured_data'
+    PAGE_NO = 'page_no'
+    EXTRACTED_DATA = 'extracted_data'
+    ERRORS = 'errors'
+    SUCCESS = 'success'
+    ERROR = 'error'
+    EXTRACT_TABLES = 'extract_tables'
+    EXTRACT_IMAGES = 'extract_images'
+    USE_TEMPLATE = 'use_template'
+    TEMPLATE = 'template'
+    EXPAND_EXTRACTED_DATA = 'expand_extracted_data'
+    MESSAGE = 'message'
+    STATUS = 'status'
     VALUE_DATA_TYPE = 'value_data_type'
     KEY_VALUE = 'key_value'
     NORMALIZED_VALUE = 'normalized_value'
@@ -525,6 +543,26 @@ class OperatorConstants:
     CREATE_EMBEDDED_IMAGES = "create_embedded_images"
     ENABLED_TEXT = "enabled_text"
     LANGUAGES = "languages" #Extration parameter
+    MAX_WORKERS = "max_workers"
+    USE_PROCESSES = "use_processes"
+    
+    # Docling extraction constants
+    EXTRACTED_DATA = "extracted_data"
+    STRUCTURED_DATA = "structured_data"
+    ERROR = "error"
+    TABLES = "tables"
+    IMAGES = "images"
+    TEMPLATE = "template"
+    PAGE_NO = "page_no"
+    ERRORS = "errors"
+    EXTRACT_TABLES = "extract_tables"
+    EXTRACT_IMAGES = "extract_images"
+    USE_TEMPLATE = "use_template"
+    EXPAND_EXTRACTED_DATA = "expand_extracted_data"
+    DOCLING_DOCUMENT = "docling_document"
+    SUCCESS = "success"
+    STATUS = "status"
+    MESSAGE = "message"
 
 
 class OrchestratorType:

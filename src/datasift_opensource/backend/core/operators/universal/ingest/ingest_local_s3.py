@@ -3,10 +3,10 @@ import boto3
 from typing import Any
 from data_processing.data_access import DataAccessLocal
 
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift_opensource.backend.core.operators.universal.ingest.ingest_utils import get_filter_extensions, filter_based_on_extension
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, OperatorConstants, Metrics
-from datasift_opensource.backend.common.util.log import get_logger
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.universal.ingest.ingest_utils import get_filter_extensions, filter_based_on_extension
+from common.util.constants import DatasiftConstants, OperatorConstants, Metrics
+from common.util.log import get_logger
 
 INCLUDE_FOLDER_KEY = "include_folder"
 MAX_FILES_KEY = "max_files"

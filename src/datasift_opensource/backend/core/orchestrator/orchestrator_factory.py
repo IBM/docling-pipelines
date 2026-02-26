@@ -1,6 +1,6 @@
-from datasift_opensource.backend.core.orchestrator.abstract_orchestrator import AbstractOrchestrator
-from datasift_opensource.backend.core.orchestrator.cmdline.cmd_line_orchestrator import CommandLineOrchestrator
-from datasift_opensource.backend.common.util.constants import OrchestratorType
+from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
+from core.orchestrator.cmdline.cmd_line_orchestrator import CommandLineOrchestrator
+from common.util.constants import OrchestratorType
 
 """
 statically defined list of available orchestrators

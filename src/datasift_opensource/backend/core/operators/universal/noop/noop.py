@@ -2,10 +2,10 @@ from typing import Any
 import pyarrow as pa
 import time
 
-from datasift_opensource.backend.core.operators.abstract_operator import OperatorCategory, AbstractOperator
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, Metrics, OperatorConstants
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.operator_utils import find_doc_count
+from core.operators.abstract_operator import OperatorCategory, AbstractOperator
+from common.util.constants import DatasiftConstants, Metrics, OperatorConstants
+from common.util.log import get_logger
+from common.util.operator_utils import find_doc_count
 
 logger = get_logger()
 

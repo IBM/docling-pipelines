@@ -3,17 +3,17 @@ from typing import Any, Optional, Union
 import copy
 
 from data_processing.data_access import DataAccessFactory
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator
-from datasift_opensource.backend.core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
-from datasift_opensource.backend.core.orchestrator.operator_factory import OperatorFactoryProvider
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import DatasiftException
-from datasift_opensource.backend.common.util.constants import OrchestratorType, OperatorConstants, DatasiftConstants, MemoryLogPhases
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.perf_utils import log_memory_usage, cleanup_pyarrow_buffers
-from datasift_opensource.backend.common.util.operator_utils import remove_internal_metrics_from_metadata, \
+from core.operators.abstract_operator import AbstractOperator
+from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
+from core.orchestrator.operator_factory import OperatorFactoryProvider
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.util.constants import OrchestratorType, OperatorConstants, DatasiftConstants, MemoryLogPhases
+from common.util.log import get_logger
+from common.util.perf_utils import log_memory_usage, cleanup_pyarrow_buffers
+from common.util.operator_utils import remove_internal_metrics_from_metadata, \
     rename_features_and_save_original
-from datasift_opensource.backend.common.util.operator_utils import drop_features_from_table
-from datasift_opensource.backend.common.exceptions.error_messages import ValidationCodeMessages
+from common.util.operator_utils import drop_features_from_table
+from common.exceptions.error_messages import ValidationCodeMessages
 
 logger = get_logger()
 
@@ -96,7 +96,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             "exception.type": type(exception).__name__,
             "exception.message": str(exception)
         })
-        from datasift_opensource.backend.common.models.session_info import get_session_info
+        from common.models.session_info import get_session_info
         # add transaction id in node_logs shown to user only if any error occurs.
         op_logger.error(f"Error during transformation in node id: {node_id} transaction_ID: {str(get_session_info().transaction_id)}")
         # add trace info to console logs

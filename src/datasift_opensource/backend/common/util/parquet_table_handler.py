@@ -4,8 +4,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pyarrow.compute as pc
 from filelock import FileLock
-from datasift_opensource.backend.common.util.constants import DatasiftConstants
-from datasift_opensource.backend.common.util.log import get_logger
+from common.util.constants import DatasiftConstants
+from common.util.log import get_logger
 LOCK_TIMEOUT: float = 20
 
 

@@ -4,16 +4,16 @@ import pyarrow as pa
 from data_processing.utils import TransformUtils
 from langchain_core.documents import Document
 
-from datasift_opensource.backend.common.exceptions.datasift_exceptions import DatasiftException
-from datasift_opensource.backend.common.exceptions.error_messages import ValidationMessage, ValidationCodeMessages
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift_opensource.backend.core.operators.operator_utils import OperatorUtils
-from datasift_opensource.backend.common.util.common_utils import is_value_in_range
-from datasift_opensource.backend.common.util.constants import DatasiftConstants, OperatorConstants, Metrics, ExecutionStatus, \
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_messages import ValidationMessage, ValidationCodeMessages
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
+from common.util.common_utils import is_value_in_range
+from common.util.constants import DatasiftConstants, OperatorConstants, Metrics, ExecutionStatus, \
     AttributeDataTypes
-from datasift_opensource.backend.core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.operator_utils import remove_rows, find_doc_count
+from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
+from common.util.log import get_logger
+from common.util.operator_utils import remove_rows, find_doc_count
 
 SIMPLE_CHUNK_TYPE = "simple"
 CHUNK_TYPE_KEY = "chunk_type"

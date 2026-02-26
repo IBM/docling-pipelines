@@ -4,12 +4,12 @@ import pyarrow as pa
 import sqlglot
 from sqlglot import expressions as exp
 
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift_opensource.backend.core.operators import SQLFilterOperator, extract_columns
-from datasift_opensource.backend.common.util.operator_utils import validate_link_name, find_doc_count, validate_filter_criteria
-from datasift_opensource.backend.common.util.log import get_logger
-from datasift_opensource.backend.common.util.constants import OperatorConstants, Metrics, AttributeDataTypes, MemoryLogPhases
-from datasift_opensource.backend.common.util.perf_utils import log_memory_usage
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators import SQLFilterOperator, extract_columns
+from common.util.operator_utils import validate_link_name, find_doc_count, validate_filter_criteria
+from common.util.log import get_logger
+from common.util.constants import OperatorConstants, Metrics, AttributeDataTypes, MemoryLogPhases
+from common.util.perf_utils import log_memory_usage
 
 logger = get_logger()
 
@@ -162,7 +162,7 @@ class BranchingOperator(AbstractOperator):
                     )
             }
             if spark_session:
-                from datasift_opensource.backend.core.operators import SparkSQLFilterOperator
+                from core.operators import SparkSQLFilterOperator
                 config |= self._config
                 filter_operator = SparkSQLFilterOperator(config=config, spark_session=spark_session)
             else:

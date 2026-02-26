@@ -3,9 +3,9 @@ import os
 from typing import Any
 import pyarrow as pa
 
-from datasift_opensource.backend.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift_opensource.backend.common.util.constants import Metrics, OperatorConstants
-from datasift_opensource.backend.common.util.log import get_logger
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from common.util.constants import Metrics, OperatorConstants
+from common.util.log import get_logger
 
 INPUT_FOLDER_NAME_KEY = "input_folder"
 MAX_ROWS_KEY = "max_rows"

@@ -1,5 +1,5 @@
 """Extract operators for document content extraction."""
 
-from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
 
 __all__ = ["ExtractDoclingOperator"]
