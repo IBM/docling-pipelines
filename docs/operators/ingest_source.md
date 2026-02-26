@@ -195,7 +195,7 @@ node_config = {
 
 ### Basic Example
 ```python
-from datasift_opensource.backend.core.operators.universal.ingest.ingest_source import IngestSourceOperator
+from core.operators.universal.ingest.ingest_source import IngestSourceOperator
 import pyarrow as pa
 
 # Configure the operator
