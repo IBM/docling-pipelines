@@ -1,7 +1,7 @@
-# Ingest LangChain Loader Operator
+# Ingest Source Operator
 
 ## Overview
-The [`IngestLangchainOperator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_langchain_loader.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It inherits from [`AbstractOperator`](../../../src/datasift_opensource/backend/core/operators/abstract_operator.py) and follows the same patterns as [`IngestLocalOperator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_local_folder.py) and [`IngestS3Operator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_local_s3.py).
+The [`IngestSourceOperator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_source.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It inherits from [`AbstractOperator`](../../../src/datasift_opensource/backend/core/operators/abstract_operator.py) and follows the same patterns as [`IngestLocalOperator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_local_folder.py) and [`IngestS3Operator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_local_s3.py).
 
 ## Features
 - **Multi-Provider Support**: Single operator for multiple data sources
@@ -195,7 +195,7 @@ node_config = {
 
 ### Basic Example
 ```python
-from datasift_opensource.backend.core.operators.universal.ingest.ingest_langchain_loader import IngestLangchainOperator
+from datasift_opensource.backend.core.operators.universal.ingest.ingest_source import IngestSourceOperator
 import pyarrow as pa
 
 # Configure the operator
@@ -218,7 +218,7 @@ node_config = {
 }
 
 # Create operator instance
-ingest_node = IngestLangchainOperator(node_config)
+ingest_node = IngestSourceOperator(node_config)
 
 # Execute ingestion (input_table is used as trigger)
 input_table = pa.Table.from_arrays([])
@@ -380,7 +380,7 @@ The output format is designed for seamless integration with:
 ### Example Pipeline
 ```python
 # 1. Ingest documents
-ingest_node = IngestLangchainOperator(ingest_config)
+ingest_node = IngestSourceOperator(ingest_config)
 tables, metadata = ingest_node.transform(input_table)
 
 # 2. Process with downstream operators
@@ -516,7 +516,7 @@ pip install O365==2.1.9 langchain-community==0.4.1
 
 ## API Reference
 
-### Class: IngestLangchainOperator
+### Class: IngestSourceOperator
 
 Inherits from: [`AbstractOperator`](../../../src/datasift_opensource/backend/core/operators/abstract_operator.py)
 

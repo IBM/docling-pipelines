@@ -34,7 +34,7 @@ EXCLUDE_FILTER_KEY = "exclude_filter"
 logger = get_logger()
 
 
-class IngestLangchainOperator(AbstractOperator):
+class IngestSourceOperator(AbstractOperator):
     """
     Ingest operator for loading documents using LangChain loaders.
     
@@ -50,7 +50,7 @@ class IngestLangchainOperator(AbstractOperator):
     - Proper metadata tracking and error handling
     """
 
-    short_name = "ingest_langchain_loader"
+    short_name = "ingest_source"
     category = OperatorCategory.Ingest
 
     def __init__(self, config: dict[str, Any]):
@@ -467,12 +467,12 @@ class IngestLangchainOperator(AbstractOperator):
 # used for unit testing only
 def main():  # pragma: no cover
     """
-    Test the IngestLangchainOperator with various providers.
+    Test the IngestSourceOperator with various providers.
     """
     # Example 1: Google Drive
     node_config = {
         "provider": "google_drive",
-        "connection_params": {"folder_id": "1DKN_mxnoW1Uaacghz8vyEeqw-j4IOSFK"},
+        "connection_params": {"folder_id": "1M1CbsV8oElrKSnW2NKeqrhfa7-v0bGkx"},
         "credentials": {
             "credentials_json_path": "client_secret_path",
         },
@@ -497,7 +497,7 @@ def main():  # pragma: no cover
     #     "force_ingest": True,
     # }
     
-    operator = IngestLangchainOperator(node_config)
+    operator = IngestSourceOperator(node_config)
     input_table = None
     
     # Run the operator
