@@ -115,24 +115,40 @@ def get_logger(name: str = DatasiftConstants.LOGGER_NAME,
         level = level.upper() if isinstance(level, str) else "INFO"
         logger.setLevel(logging.getLevelName(level))
 
-    # for aommand line execution, use the traditional logging, not json format
-    cmdline: bool = os.environ.get("CMD_LINE", "False") == "True"
-    if cmdline:
-        return logger
+    # Use JSON format only if explicitly enabled via environment variable
+    use_json_format: bool = os.environ.get("DS_LOG_JSON", "False") == "True"
     
     # --- Console & file handlers (only add once) ---
     if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
         timefmt = "%H:%M:%S"
-        console_format = ConditionalFormatter(datefmt=timefmt)
+        
+        if use_json_format:
+            # Use JSON format when explicitly enabled
+            console_format = ConditionalFormatter(datefmt=timefmt)
+        else:
+            # Use normal logging format by default
+            console_format = logging.Formatter(
+                fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                datefmt=timefmt
+            )
+        
         console_handler.setFormatter(console_format)
         logger.addHandler(console_handler)
 
         # Optional file handler
         if file:
             file_handler = logging.FileHandler(file)
-            file_log_format = ConditionalFormatter(datefmt=timefmt)
+            
+            if use_json_format:
+                file_log_format = ConditionalFormatter(datefmt=timefmt)
+            else:
+                file_log_format = logging.Formatter(
+                    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    datefmt=timefmt
+                )
+            
             file_handler.setFormatter(file_log_format)
             logger.addHandler(file_handler)
 

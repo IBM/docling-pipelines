@@ -254,7 +254,6 @@ class DoclingChunkerOperator(AbstractOperator):
         
         Args:
             table: PyArrow table containing document information with columns:
-                - docling_document: Serialized DoclingDocument from extract operator
                 - content: Document content (markdown from Docling extraction)
                 - name: Document name (optional)
                 - id: Document ID (optional)
@@ -269,11 +268,9 @@ class DoclingChunkerOperator(AbstractOperator):
         if table.num_rows == 0:
             return [table], metadata
         
-        # Check if docling_document column exists (preferred for chunking)
-        use_docling_doc = "docling_document" in table.column_names
-        
-        if not use_docling_doc and self.doc_column not in table.column_names:
-            error_msg = f"Neither 'docling_document' nor '{self.doc_column}' column found in table"
+        # Check if content column exists
+        if self.doc_column not in table.column_names:
+            error_msg = f"'{self.doc_column}' column not found in table"
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             metadata[OperatorConstants.ERROR] = error_msg
             logger.error(error_msg, extra=self.common_log_arguments)
@@ -288,58 +285,37 @@ class DoclingChunkerOperator(AbstractOperator):
                 # Get document information
                 doc_name = table["name"][idx].as_py() if "name" in table.column_names else f"doc_{idx}"
                 
-                if use_docling_doc:
-                    # Use the serialized DoclingDocument for chunking
-                    docling_doc_json = table["docling_document"][idx].as_py()
-                    
-                    if not docling_doc_json:
-                        logger.warning(f"Empty docling_document for document: {doc_name}", extra=self.common_log_arguments)
-                        chunked_content_list.append([])
-                        failed_indices.append(idx)
-                        self.record_failed_document(
-                            metadata=metadata,
-                            doc_id=str(idx),
-                            doc_name=doc_name,
-                            reason="Empty docling_document"
-                        )
-                        continue
-                    
-                    # Chunk the document using DoclingDocument
+                # Get markdown content from the content column
+                content = table[self.doc_column][idx].as_py()
+                
+                if not content:
+                    logger.warning(f"Empty content for document: {doc_name}", extra=self.common_log_arguments)
+                    chunked_content_list.append([])
+                    failed_indices.append(idx)
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(idx),
+                        doc_name=doc_name,
+                        reason="Empty content"
+                    )
+                    continue
+                
+                # Create DoclingDocument from markdown content and chunk
+                try:
+                    docling_doc_json = self._create_docling_document_from_markdown(content, doc_name)
                     chunks = self._chunk_document(docling_doc_json, doc_name)
-                else:
-                    # Fallback: create DoclingDocument from markdown content
-                    logger.warning(f"docling_document column not found. Creating DoclingDocument from markdown content.",
-                                 extra=self.common_log_arguments)
-                    content = table[self.doc_column][idx].as_py()
-                    
-                    if not content:
-                        logger.warning(f"Empty content for document: {doc_name}", extra=self.common_log_arguments)
-                        chunked_content_list.append([])
-                        failed_indices.append(idx)
-                        self.record_failed_document(
-                            metadata=metadata,
-                            doc_id=str(idx),
-                            doc_name=doc_name,
-                            reason="Empty content"
-                        )
-                        continue
-                    
-                    # Create DoclingDocument from markdown and chunk
-                    try:
-                        docling_doc_json = self._create_docling_document_from_markdown(content, doc_name)
-                        chunks = self._chunk_document(docling_doc_json, doc_name)
-                    except Exception as e:
-                        logger.error(f"Error creating DoclingDocument from markdown for {doc_name}: {str(e)}",
-                                   extra=self.common_log_arguments)
-                        chunked_content_list.append([])
-                        failed_indices.append(idx)
-                        self.record_failed_document(
-                            metadata=metadata,
-                            doc_id=str(idx),
-                            doc_name=doc_name,
-                            reason=f"Error creating DoclingDocument: {str(e)}"
-                        )
-                        continue
+                except Exception as e:
+                    logger.error(f"Error creating DoclingDocument from markdown for {doc_name}: {str(e)}",
+                               extra=self.common_log_arguments)
+                    chunked_content_list.append([])
+                    failed_indices.append(idx)
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(idx),
+                        doc_name=doc_name,
+                        reason=f"Error creating DoclingDocument: {str(e)}"
+                    )
+                    continue
                 
                 if chunks:
                     chunked_content_list.append(chunks)
@@ -387,11 +363,6 @@ class DoclingChunkerOperator(AbstractOperator):
         hash_operator = DocIdHashOperator({})
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
-        
-        # Remove docling_document column after chunking (no longer needed)
-        if OperatorConstants.DOCLING_DOCUMENT in table.column_names:
-            logger.info("Removing docling_document column after chunking", extra=self.common_log_arguments)
-            table = table.drop_columns([OperatorConstants.DOCLING_DOCUMENT])
         
         # Remove original content column if not retaining
         if not self.retain_original_content and self.doc_column in table.column_names:

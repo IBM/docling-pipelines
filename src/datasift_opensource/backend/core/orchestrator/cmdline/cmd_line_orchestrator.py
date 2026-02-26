@@ -133,7 +133,7 @@ def main():  # pragma: no cover
     )
     parser.add_argument(
         '--flow-file', '-f',
-        required=True,
+        required=False,
         help='Path to the JSON file containing the flow definition'
     )
     parser.add_argument(
@@ -142,7 +142,27 @@ def main():  # pragma: no cover
         default='info',
         help='Set the logging level (default: info)'
     )
+    parser.add_argument(
+        '--list-operators', '-lo',
+        action='store_true',
+        help='List all available operators with their details'
+    )
+    parser.add_argument(
+        '--verbose', '-v',
+        action='store_true',
+        help='Show detailed information (use with --list-operators)'
+    )
     args = parser.parse_args()
+    
+    # Handle --list-operators command early (before heavy imports)
+    if args.list_operators:
+        from common.util.operator_display_utils import list_operators
+        print(list_operators(verbose=args.verbose, summary_only=not args.verbose))
+        return
+    
+    # Validate that flow-file is provided for execution
+    if not args.flow_file:
+        parser.error("--flow-file is required unless using --list-operators")
     
     log_level = args.log_level.upper()
     logger: Logger = get_logger(level=log_level)

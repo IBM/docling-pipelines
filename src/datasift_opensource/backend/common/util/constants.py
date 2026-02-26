@@ -47,8 +47,8 @@ class DatasiftConstants:
     NODE_STATS_PATH = "node-stats"
     TRANSACTION_ID = "transaction_id"
     OUTPUT_FOLDER = "output_folder"
-    MASKED_PASSWORD_PATTERN = r'^\*+$'  # Regex pattern to detect masked passwords
-    OUTPUT_FEATURES_TO_DROP = 'output_features_to_drop'
+    MASKED_PASSWORD_PATTERN = r"^\*+$"  # Regex pattern to detect masked passwords
+    OUTPUT_FEATURES_TO_DROP = "output_features_to_drop"
     LINK_NAME = "link_name"
     ASSET_CATEGORY_SYSTEM = "SYSTEM"
     UPDATED_FEATURES = "updated_features"
@@ -111,7 +111,7 @@ DATASOURCE_TYPE = "datasource_type"
 
 class Metrics:
     class External:
-        JOB_RUN_STATUS = 'job_run_status'
+        JOB_RUN_STATUS = "job_run_status"
         TOTAL_DOCS = "total_docs_count"
         TOTAL_DOCS_COUNT_FROM_LOGS = "total_docs"
         PROCESSED_DOCS = "processed_docs"
@@ -139,14 +139,15 @@ class Metrics:
         BRANCHES = "branches"
 
     # Metrics that require atomic aggregation to prevent race conditions
-    AGGREGATION_METRICS = frozenset({
-        External.TOTAL_PAGES_CONVERTED,
-        External.DELETED_DOC_COUNT
-    })
+    AGGREGATION_METRICS = frozenset(
+        {External.TOTAL_PAGES_CONVERTED, External.DELETED_DOC_COUNT}
+    )
 
 
 # Internal metrics used in multiple places so making it as a global variable
-internal_metrics = {value for name, value in vars(Metrics.Internal).items() if not name.startswith("__")}
+internal_metrics = {
+    value for name, value in vars(Metrics.Internal).items() if not name.startswith("__")
+}
 
 
 class BucketTypes:
@@ -177,36 +178,39 @@ class ExtractionLanguageScripts:
     }
     CHINESE_JAPANESE_KOREAN = {
         DatasiftConstants.SCRIPT_LABEL: "Chinese Japanese Korean",
-        DatasiftConstants.SCRIPT_CODE: "cjk"
+        DatasiftConstants.SCRIPT_CODE: "cjk",
     }
     CYRILLIC = {
         DatasiftConstants.SCRIPT_LABEL: "Cyrillic",
-        DatasiftConstants.SCRIPT_CODE: "cyrl"
+        DatasiftConstants.SCRIPT_CODE: "cyrl",
     }
 
     # Define all WDU languages
     CHINESE_SIMPLIFIED = {
         DatasiftConstants.LANGUAGE_LABEL: "Chinese - Simplified",
-        DatasiftConstants.LANGUAGE_CODE: "chi_sim"
+        DatasiftConstants.LANGUAGE_CODE: "chi_sim",
     }
     CHINESE_TRADITIONAL = {
         DatasiftConstants.LANGUAGE_LABEL: "Chinese - Traditional",
-        DatasiftConstants.LANGUAGE_CODE: "chi_tra"
+        DatasiftConstants.LANGUAGE_CODE: "chi_tra",
     }
     JAPANESE = {
         DatasiftConstants.LANGUAGE_LABEL: "Japanese",
-        DatasiftConstants.LANGUAGE_CODE: "jpn"
+        DatasiftConstants.LANGUAGE_CODE: "jpn",
     }
     SPANISH = {
         DatasiftConstants.LANGUAGE_LABEL: "Spanish",
-        DatasiftConstants.LANGUAGE_CODE: "es"
+        DatasiftConstants.LANGUAGE_CODE: "es",
     }
     ENGLISH = {
         DatasiftConstants.LANGUAGE_LABEL: "English",
-        DatasiftConstants.LANGUAGE_CODE: "eng"
+        DatasiftConstants.LANGUAGE_CODE: "eng",
     }
 
-    SCRIPTS = [CHINESE_JAPANESE_KOREAN[DatasiftConstants.SCRIPT_CODE], CYRILLIC[DatasiftConstants.SCRIPT_CODE]]
+    SCRIPTS = [
+        CHINESE_JAPANESE_KOREAN[DatasiftConstants.SCRIPT_CODE],
+        CYRILLIC[DatasiftConstants.SCRIPT_CODE],
+    ]
     LANGUAGES = [ENGLISH, SPANISH, JAPANESE, CHINESE_SIMPLIFIED, CHINESE_TRADITIONAL]
 
 
@@ -285,6 +289,25 @@ class OperatorConstants:
     ELASTIC_FEATURE_MAPPINGS = "elastic_feature_mappings"
     OPENSEARCH_FEATURE_MAPPINGS = "opensearch_feature_mappings"
     ELASTIC_REQUIRED_FEATURES = "elastic_required_features"
+
+    # OpenSearch/Elasticsearch connection constants
+    OPENSEARCH_HOST = "opensearch_host"
+    OPENSEARCH_PORT = "opensearch_port"
+    OPENSEARCH_USERNAME = "opensearch_username"
+    OPENSEARCH_PASSWORD = "opensearch_password"
+    OPENSEARCH_USE_SSL = "opensearch_use_ssl"
+    OPENSEARCH_VERIFY_CERTS = "opensearch_verify_certs"
+    OPENSEARCH_AWS_AUTH = "opensearch_aws_auth"
+    OPENSEARCH_AWS_REGION = "opensearch_aws_region"
+
+    # OpenSearch index configuration constants
+    INDEX_NAME = "index_name"
+    DOC_ID_COLUMN = "doc_id_column"
+    CREATE_INDEX = "create_index"
+    INDEX_SETTINGS = "index_settings"
+
+    # Vector configuration constants (shared across vector DBs)
+    VECTOR_DIMENSION = "vector_dimension"
     PII_LIST = "pii_list"
     PII_THRESHOLD_KEY = "pii_threshold"
     PII_AND_HAP_EXTRACT_REDACT = "pii_and_hap_extract_redact"
@@ -349,7 +372,7 @@ class OperatorConstants:
     EXTRACT_DOCLING = "extract_docling"
     DOCLING_CHUNKER = "docling_chunker"
     NOOP = "noop"
-    MERGE = 'merge'
+    MERGE = "merge"
     REDACTION = "redaction"
     REGEX_ANNOTATOR = "regex_annotator"
     INGEST_DOCUMENT_SET = "ingest_document_set"
@@ -375,7 +398,7 @@ class OperatorConstants:
     DENSE_EMBEDDINGS_COLUMN_DEFAULT = "vector_embeddings"
     COMPUTE = "compute"
     STORAGE = "storage"
-    DATASET_STORAGE = 'dataset_storage'
+    DATASET_STORAGE = "dataset_storage"
     RUNTIME = "runtime"
     ACLS = "acls"
     PROPERTIES = "properties"
@@ -405,8 +428,8 @@ class OperatorConstants:
     CUSTOM_SCHEMA = "custom_schema"
     ALL_SCHEMA_DETAILS = "all_schema_details"
     EXTRACT_CUSTOM_SCHEMA = "extract_schema"
-    NODE_METADATA = 'node_metadata'
-    NODES_METADATA_FILE = 'nodes_metadata.json'
+    NODE_METADATA = "node_metadata"
+    NODES_METADATA_FILE = "nodes_metadata.json"
     OCR_MODE = "ocr_mode"
     ENABLED = "enabled"
     DISABLED = "disabled"
@@ -448,38 +471,38 @@ class OperatorConstants:
     ENTITY_CURATION_OPERATOR = "entity_curation_operator"
     DESIGN_FLOW_OUTPUT_OPERATOR = "design_flow_output"
     ENTITY_STORE_OPERATOR = "entity_store"
-    KEY = 'key'
-    SEMANTIC_LABEL = 'semantic_label'
-    RAW_TEXT = 'raw_text'
-    DOCLING_DOCUMENT = 'docling_document'
-    TABLES = 'tables'
-    IMAGES = 'images'
-    STRUCTURED_DATA = 'structured_data'
-    PAGE_NO = 'page_no'
-    EXTRACTED_DATA = 'extracted_data'
-    ERRORS = 'errors'
-    SUCCESS = 'success'
-    ERROR = 'error'
-    EXTRACT_TABLES = 'extract_tables'
-    EXTRACT_IMAGES = 'extract_images'
-    USE_TEMPLATE = 'use_template'
-    TEMPLATE = 'template'
-    EXPAND_EXTRACTED_DATA = 'expand_extracted_data'
-    MESSAGE = 'message'
-    STATUS = 'status'
-    VALUE_DATA_TYPE = 'value_data_type'
-    KEY_VALUE = 'key_value'
-    NORMALIZED_VALUE = 'normalized_value'
+    KEY = "key"
+    SEMANTIC_LABEL = "semantic_label"
+    RAW_TEXT = "raw_text"
+    DOCLING_DOCUMENT = "docling_document"
+    TABLES = "tables"
+    IMAGES = "images"
+    STRUCTURED_DATA = "structured_data"
+    PAGE_NO = "page_no"
+    EXTRACTED_DATA = "extracted_data"
+    ERRORS = "errors"
+    SUCCESS = "success"
+    ERROR = "error"
+    EXTRACT_TABLES = "extract_tables"
+    EXTRACT_IMAGES = "extract_images"
+    USE_TEMPLATE = "use_template"
+    TEMPLATE = "template"
+    EXPAND_EXTRACTED_DATA = "expand_extracted_data"
+    MESSAGE = "message"
+    STATUS = "status"
+    VALUE_DATA_TYPE = "value_data_type"
+    KEY_VALUE = "key_value"
+    NORMALIZED_VALUE = "normalized_value"
     JSON_IDENTIFIER = "json_identifier"
     USER_DEFINED_CONTENT_COLUMN = "user_defined_content_column"
     JSON_CONTENT = "json_content"
-    INPUT_FEATURES = 'input_features'
-    OUTPUT_FEATURES = 'output_features'
+    INPUT_FEATURES = "input_features"
+    OUTPUT_FEATURES = "output_features"
     USER_CODE = "user_code"
     PYTHON_CODE_KEY = "python_code"
     CODE_TIMEOUT_KEY = "code_timeout"
     NEW_COLUMNS = "selected_python_features"
-    ORIGINAL_FEATURE = 'original_feature'
+    ORIGINAL_FEATURE = "original_feature"
     LINK_ID = "link_id"
     LINK_NAME = "link_name"
     LINK_CONDITIONS = "link_conditions"
@@ -543,10 +566,10 @@ class OperatorConstants:
     DEFAULT_FEATURE_MAPPINGS = "default_feature_mappings"
     CREATE_EMBEDDED_IMAGES = "create_embedded_images"
     ENABLED_TEXT = "enabled_text"
-    LANGUAGES = "languages" #Extration parameter
+    LANGUAGES = "languages"  # Extration parameter
     MAX_WORKERS = "max_workers"
     USE_PROCESSES = "use_processes"
-    
+
     # Docling extraction constants
     EXTRACTED_DATA = "extracted_data"
     STRUCTURED_DATA = "structured_data"
@@ -567,9 +590,9 @@ class OperatorConstants:
 
 
 class OrchestratorType:
-    PYTHON = 'python'
-    SPARK = 'spark'
-    CMDLINE = 'cmdLine'
+    PYTHON = "python"
+    SPARK = "spark"
+    CMDLINE = "cmdLine"
 
 
 class Kvp:
@@ -624,19 +647,21 @@ class ExecutionStatus(str, Enum):
 
 
 # efficient membership checks (O(1) instead of O(n))
-COMPLETED_JOB_STATUSES = frozenset([
-    ExecutionStatus.COMPLETED,
-    ExecutionStatus.COMPLETED_WITH_ERRORS,
-    ExecutionStatus.COMPLETED_WITH_WARNINGS,
-    ExecutionStatus.CANCELED,
-    ExecutionStatus.FAILED
-])
+COMPLETED_JOB_STATUSES = frozenset(
+    [
+        ExecutionStatus.COMPLETED,
+        ExecutionStatus.COMPLETED_WITH_ERRORS,
+        ExecutionStatus.COMPLETED_WITH_WARNINGS,
+        ExecutionStatus.CANCELED,
+        ExecutionStatus.FAILED,
+    ]
+)
 
 active_states = [
     ExecutionStatus.STARTING,
     ExecutionStatus.RUNNING,
     ExecutionStatus.RESUMING,
-    ExecutionStatus.CANCELING
+    ExecutionStatus.CANCELING,
 ]
 
 
@@ -720,6 +745,7 @@ class IcebergCatalogType:
 
 class CatalogType:
     """Supported catalog types"""
+
     ICEBERG = "iceberg"
     SNOWFLAKE = "snowflake"
     JDBC = "jdbc"
@@ -751,5 +777,5 @@ class ProcessingMessageConstants:
 
 
 class LiteralConstants:
-    NEWLINE: str = '\n'
-    SPACE: str = ' '
+    NEWLINE: str = "\n"
+    SPACE: str = " "

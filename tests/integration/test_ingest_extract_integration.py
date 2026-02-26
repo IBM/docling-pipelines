@@ -9,7 +9,7 @@ import pytest
 import pyarrow as pa
 
 from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
-from core.operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
+from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
 
 
 class TestIngestExtractIntegration:
