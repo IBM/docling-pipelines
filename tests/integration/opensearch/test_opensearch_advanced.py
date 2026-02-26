@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """
-Advanced OpenSearch Operator Testing
 Tests all engines, schema evolution, and error handling
 Requires .env file with OpenSearch connection details
 """
 
 import sys
-import os
 from pathlib import Path
 
-sys.path.insert(0, 'src')
+sys.path.insert(0, "src")
 
 # Check if .env file exists
-env_file = Path('.env')
+env_file = Path(".env")
 if not env_file.exists():
     print("❌ .env file not found!")
     print("   This test requires OpenSearch connection details in .env file")
@@ -26,7 +24,7 @@ from datasift_opensource.backend.core.operators.universal.vectordb.opensearch_op
     OpenSearchOperator,
     OpenSearchEngineTypes,
     OpenSearchAlgorithmTypes,
-    VectorSimilarityTypes
+    VectorSimilarityTypes,
 )
 from datasift_opensource.backend.common.util.env_config import get_opensearch_config
 
@@ -40,83 +38,83 @@ def print_section(title):
 
 def create_sample_data(num_docs=5, vector_dim=128):
     """Create sample PyArrow table"""
-    return pa.table({
-        "doc_id_hash": [f"doc_{i}" for i in range(num_docs)],
-        "content": [f"Sample document {i}" for i in range(num_docs)],
-        "embeddings": [np.random.rand(vector_dim).tolist() for _ in range(num_docs)],
-        "metadata": [f"meta_{i}" for i in range(num_docs)]
-    })
+    return pa.table(
+        {
+            "doc_id_hash": [f"doc_{i}" for i in range(num_docs)],
+            "content": [f"Sample document {i}" for i in range(num_docs)],
+            "embeddings": [
+                np.random.rand(vector_dim).tolist() for _ in range(num_docs)
+            ],
+            "metadata": [f"meta_{i}" for i in range(num_docs)],
+        }
+    )
 
 
 def test_engine(engine, algorithm, space_type="l2"):
     """Test a specific engine configuration"""
     print(f"Testing: {engine} + {algorithm} + {space_type}")
-    
+
     # Get base config from environment
     config = get_opensearch_config()
-    
+
     # Override with test-specific settings
-    config.update({
-        "index_name": f"test_{engine}_{algorithm}_{space_type}",
-        "vector_dimension": 128,
-        "engine": engine,
-        "algorithm": algorithm,
-        "space_type": space_type,
-        "available_features": {
-            "doc_id_hash": {
-                "available_for_vector_db": True,
-                "mandatory_for_vector_db": True,
-                "type": "string",
-                "is_primary": True
+    config.update(
+        {
+            "index_name": f"test_{engine}_{algorithm}_{space_type}",
+            "vector_dimension": 128,
+            "engine": engine,
+            "algorithm": algorithm,
+            "space_type": space_type,
+            "available_features": {
+                "doc_id_hash": {
+                    "available_for_vector_db": True,
+                    "mandatory_for_vector_db": True,
+                    "type": "string",
+                    "is_primary": True,
+                },
+                "content": {"available_for_vector_db": True, "type": "string"},
+                "embeddings": {
+                    "available_for_vector_db": True,
+                    "mandatory_for_vector_db": True,
+                    "type": "vector",
+                },
+                "metadata": {"available_for_vector_db": True, "type": "string"},
             },
-            "content": {
-                "available_for_vector_db": True,
-                "type": "string"
+            "feature_mappings": {
+                "doc_id_hash": "id",
+                "content": "text",
+                "embeddings": "vector",
+                "metadata": "meta",
             },
-            "embeddings": {
-                "available_for_vector_db": True,
-                "mandatory_for_vector_db": True,
-                "type": "vector"
-            },
-            "metadata": {
-                "available_for_vector_db": True,
-                "type": "string"
-            }
-        },
-        "feature_mappings": {
-            "doc_id_hash": "id",
-            "content": "text",
-            "embeddings": "vector",
-            "metadata": "meta"
         }
-    })
-    
+    )
+
     try:
         # Initialize operator
         operator = OpenSearchOperator(config)
         print(f"  ✅ Operator initialized (version: {operator.os_version})")
-        
+
         # Create sample data
         table = create_sample_data(5, 128)
-        
+
         # Index documents
         result_tables, metadata = operator.transform(table)
-        
-        if metadata['processed_docs'] == 5:
+
+        if metadata["processed_docs"] == 5:
             print(f"  ✅ Indexed {metadata['processed_docs']} documents")
-            
+
             # Verify count
             count = operator.get_document_count()
             print(f"  ✅ Verified count: {count} documents in index")
-            
+
             # Cleanup
-            operator.client.indices.delete(index=config['index_name'])
+            operator.client.indices.delete(index=config["index_name"])
             print(f"  ✅ Cleaned up index")
-            
+
             return True, "Success"
         else:
             return False, f"Only indexed {metadata['processed_docs']}/5 documents"
-            
+
     except Exception as e:
         error_msg = str(e)
         if "Invalid space_type" in error_msg:
@@ -130,51 +128,61 @@ def test_engine(engine, algorithm, space_type="l2"):
 def test_all_engines():
     """Test all engine combinations"""
     print_section("TEST 1: All Engine Combinations")
-    
+
     results = []
-    
+
     # Test FAISS with both algorithms
     for algo in [OpenSearchAlgorithmTypes.HNSW, OpenSearchAlgorithmTypes.IVF]:
         for space in [VectorSimilarityTypes.L2, VectorSimilarityTypes.COSINE]:
             success, msg = test_engine(OpenSearchEngineTypes.FAISS, algo, space)
             results.append((f"FAISS + {algo} + {space}", success, msg))
-    
+
     # Test Lucene with HNSW
-    for space in [VectorSimilarityTypes.L2, VectorSimilarityTypes.COSINE, VectorSimilarityTypes.INNER_PRODUCT]:
-        success, msg = test_engine(OpenSearchEngineTypes.LUCENE, OpenSearchAlgorithmTypes.HNSW, space)
+    for space in [
+        VectorSimilarityTypes.L2,
+        VectorSimilarityTypes.COSINE,
+        VectorSimilarityTypes.INNER_PRODUCT,
+    ]:
+        success, msg = test_engine(
+            OpenSearchEngineTypes.LUCENE, OpenSearchAlgorithmTypes.HNSW, space
+        )
         results.append((f"Lucene + HNSW + {space}", success, msg))
-    
+
     # Test nmslib with HNSW
     for space in [VectorSimilarityTypes.L2, VectorSimilarityTypes.COSINE]:
-        success, msg = test_engine(OpenSearchEngineTypes.NMSLIB, OpenSearchAlgorithmTypes.HNSW, space)
+        success, msg = test_engine(
+            OpenSearchEngineTypes.NMSLIB, OpenSearchAlgorithmTypes.HNSW, space
+        )
         results.append((f"nmslib + HNSW + {space}", success, msg))
-    
+
     # Print results
     print("\nResults Summary:")
     print("-" * 80)
     for config, success, msg in results:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{status} | {config:40} | {msg}")
-    
+
     passed = sum(1 for _, s, _ in results if s)
     total = len(results)
     print(f"\nTotal: {passed}/{total} passed ({passed/total*100:.1f}%)")
-    
+
     return results
 
 
 def test_schema_evolution():
     """Test schema evolution scenarios"""
     print_section("TEST 2: Schema Evolution")
-    
+
     # Get base config from environment
     base_config = get_opensearch_config()
-    base_config.update({
-        "index_name": "test_schema_evolution",
-        "vector_dimension": 128,
-        "create_index": True
-    })
-    
+    base_config.update(
+        {
+            "index_name": "test_schema_evolution",
+            "vector_dimension": 128,
+            "create_index": True,
+        }
+    )
+
     try:
         # Step 1: Create index with initial schema
         print("Step 1: Creating index with initial schema (3 fields)")
@@ -184,33 +192,34 @@ def test_schema_evolution():
                 "available_for_vector_db": True,
                 "mandatory_for_vector_db": True,
                 "type": "string",
-                "is_primary": True
+                "is_primary": True,
             },
-            "content": {
-                "available_for_vector_db": True,
-                "type": "string"
-            },
+            "content": {"available_for_vector_db": True, "type": "string"},
             "embeddings": {
                 "available_for_vector_db": True,
                 "mandatory_for_vector_db": True,
-                "type": "vector"
-            }
+                "type": "vector",
+            },
         }
         config1["feature_mappings"] = {
             "doc_id_hash": "id",
             "content": "text",
-            "embeddings": "vector"
+            "embeddings": "vector",
         }
-        
+
         operator1 = OpenSearchOperator(config1)
-        table1 = pa.table({
-            "doc_id_hash": ["doc_1", "doc_2"],
-            "content": ["Content 1", "Content 2"],
-            "embeddings": [np.random.rand(128).tolist() for _ in range(2)]
-        })
+        table1 = pa.table(
+            {
+                "doc_id_hash": ["doc_1", "doc_2"],
+                "content": ["Content 1", "Content 2"],
+                "embeddings": [np.random.rand(128).tolist() for _ in range(2)],
+            }
+        )
         result, metadata = operator1.transform(table1)
-        print(f"  ✅ Indexed {metadata['processed_docs']} documents with initial schema")
-        
+        print(
+            f"  ✅ Indexed {metadata['processed_docs']} documents with initial schema"
+        )
+
         # Step 2: Add new field to existing index
         print("\nStep 2: Adding new field 'category' to existing index")
         config2 = base_config.copy()
@@ -220,50 +229,46 @@ def test_schema_evolution():
                 "available_for_vector_db": True,
                 "mandatory_for_vector_db": True,
                 "type": "string",
-                "is_primary": True
+                "is_primary": True,
             },
-            "content": {
-                "available_for_vector_db": True,
-                "type": "string"
-            },
+            "content": {"available_for_vector_db": True, "type": "string"},
             "embeddings": {
                 "available_for_vector_db": True,
                 "mandatory_for_vector_db": True,
-                "type": "vector"
+                "type": "vector",
             },
-            "category": {
-                "available_for_vector_db": True,
-                "type": "string"
-            }
+            "category": {"available_for_vector_db": True, "type": "string"},
         }
         config2["feature_mappings"] = {
             "doc_id_hash": "id",
             "content": "text",
             "embeddings": "vector",
-            "category": "cat"
+            "category": "cat",
         }
-        
+
         operator2 = OpenSearchOperator(config2)
-        table2 = pa.table({
-            "doc_id_hash": ["doc_3", "doc_4"],
-            "content": ["Content 3", "Content 4"],
-            "embeddings": [np.random.rand(128).tolist() for _ in range(2)],
-            "category": ["cat_a", "cat_b"]
-        })
+        table2 = pa.table(
+            {
+                "doc_id_hash": ["doc_3", "doc_4"],
+                "content": ["Content 3", "Content 4"],
+                "embeddings": [np.random.rand(128).tolist() for _ in range(2)],
+                "category": ["cat_a", "cat_b"],
+            }
+        )
         result, metadata = operator2.transform(table2)
         print(f"  ✅ Indexed {metadata['processed_docs']} documents with new field")
-        
+
         # Step 3: Verify total count
         count = operator2.get_document_count()
         print(f"\nStep 3: Verifying total documents")
         print(f"  ✅ Total documents in index: {count}")
-        
+
         # Cleanup
-        operator2.client.indices.delete(index=base_config['index_name'])
+        operator2.client.indices.delete(index=base_config["index_name"])
         print(f"  ✅ Cleaned up index")
-        
+
         return True
-        
+
     except Exception as e:
         print(f"  ❌ Error: {type(e).__name__}: {str(e)[:200]}")
         return False
@@ -272,33 +277,32 @@ def test_schema_evolution():
 def test_error_handling():
     """Test error handling scenarios"""
     print_section("TEST 3: Error Handling & Edge Cases")
-    
+
     # Get base config from environment
     base_config = get_opensearch_config()
-    base_config.update({
-        "vector_dimension": 128,
-        "create_index": True,
-        "available_features": {
-            "doc_id_hash": {
-                "available_for_vector_db": True,
-                "mandatory_for_vector_db": True,
-                "type": "string",
-                "is_primary": True
+    base_config.update(
+        {
+            "vector_dimension": 128,
+            "create_index": True,
+            "available_features": {
+                "doc_id_hash": {
+                    "available_for_vector_db": True,
+                    "mandatory_for_vector_db": True,
+                    "type": "string",
+                    "is_primary": True,
+                },
+                "embeddings": {
+                    "available_for_vector_db": True,
+                    "mandatory_for_vector_db": True,
+                    "type": "vector",
+                },
             },
-            "embeddings": {
-                "available_for_vector_db": True,
-                "mandatory_for_vector_db": True,
-                "type": "vector"
-            }
-        },
-        "feature_mappings": {
-            "doc_id_hash": "id",
-            "embeddings": "vector"
+            "feature_mappings": {"doc_id_hash": "id", "embeddings": "vector"},
         }
-    })
-    
+    )
+
     tests = []
-    
+
     # Test 1: Missing required field (host)
     print("Test 3.1: Missing required field (host)")
     try:
@@ -312,7 +316,7 @@ def test_error_handling():
             print(f"  ✅ Correctly raised: {str(e)}")
         else:
             tests.append(("Missing host", False, f"Wrong error: {str(e)}"))
-    
+
     # Test 2: Invalid engine
     print("\nTest 3.2: Invalid engine name")
     try:
@@ -327,7 +331,7 @@ def test_error_handling():
             print(f"  ✅ Correctly raised: {str(e)[:100]}")
         else:
             tests.append(("Invalid engine", False, f"Wrong error: {str(e)}"))
-    
+
     # Test 3: Incompatible engine-algorithm
     print("\nTest 3.3: Incompatible engine-algorithm combination")
     try:
@@ -343,108 +347,122 @@ def test_error_handling():
             print(f"  ✅ Correctly raised: {str(e)[:100]}")
         else:
             tests.append(("Incompatible combo", False, f"Wrong error: {str(e)}"))
-    
+
     # Test 4: Missing document IDs
     print("\nTest 3.4: Documents with missing IDs")
     try:
         config = base_config.copy()
         config["index_name"] = "test_missing_ids"
         operator = OpenSearchOperator(config)
-        
-        table = pa.table({
-            "doc_id_hash": ["doc_1", None, "doc_3", None],
-            "embeddings": [np.random.rand(128).tolist() for _ in range(4)]
-        })
-        
+
+        table = pa.table(
+            {
+                "doc_id_hash": ["doc_1", None, "doc_3", None],
+                "embeddings": [np.random.rand(128).tolist() for _ in range(4)],
+            }
+        )
+
         result, metadata = operator.transform(table)
-        
-        if metadata['skipped_docs_count'] == 2 and metadata['processed_docs'] == 2:
-            tests.append(("Missing IDs", True, f"Skipped {metadata['skipped_docs_count']}, processed {metadata['processed_docs']}"))
-            print(f"  ✅ Correctly handled: skipped {metadata['skipped_docs_count']}, processed {metadata['processed_docs']}")
+
+        if metadata["skipped_docs_count"] == 2 and metadata["processed_docs"] == 2:
+            tests.append(
+                (
+                    "Missing IDs",
+                    True,
+                    f"Skipped {metadata['skipped_docs_count']}, processed {metadata['processed_docs']}",
+                )
+            )
+            print(
+                f"  ✅ Correctly handled: skipped {metadata['skipped_docs_count']}, processed {metadata['processed_docs']}"
+            )
         else:
             tests.append(("Missing IDs", False, f"Wrong counts: {metadata}"))
-        
-        operator.client.indices.delete(index=config['index_name'])
-        
+
+        operator.client.indices.delete(index=config["index_name"])
+
     except Exception as e:
         tests.append(("Missing IDs", False, f"Unexpected error: {str(e)[:100]}"))
-    
+
     # Test 5: Empty table
     print("\nTest 3.5: Empty table")
     try:
         config = base_config.copy()
         config["index_name"] = "test_empty"
         operator = OpenSearchOperator(config)
-        
-        empty_table = pa.table({
-            "doc_id_hash": [],
-            "embeddings": []
-        })
-        
+
+        empty_table = pa.table({"doc_id_hash": [], "embeddings": []})
+
         result, metadata = operator.transform(empty_table)
-        
-        if metadata['total_docs_count'] == 0 and metadata['processed_docs'] == 0:
+
+        if metadata["total_docs_count"] == 0 and metadata["processed_docs"] == 0:
             tests.append(("Empty table", True, "Handled gracefully"))
             print(f"  ✅ Correctly handled empty table")
         else:
             tests.append(("Empty table", False, f"Wrong metadata: {metadata}"))
-            
+
     except Exception as e:
         tests.append(("Empty table", False, f"Unexpected error: {str(e)[:100]}"))
-    
+
     # Print summary
     print("\nError Handling Summary:")
     print("-" * 80)
     for test_name, success, msg in tests:
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{status} | {test_name:25} | {msg}")
-    
+
     passed = sum(1 for _, s, _ in tests if s)
     total = len(tests)
     print(f"\nTotal: {passed}/{total} passed ({passed/total*100:.1f}%)")
-    
+
     return tests
 
 
 def main():
     """Run all advanced tests"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("OpenSearch Operator - Advanced Testing Suite")
-    print("="*80)
-    
+    print("=" * 80)
+
     try:
         # Test 1: All engines
         engine_results = test_all_engines()
-        
+
         # Test 2: Schema evolution
         schema_success = test_schema_evolution()
-        
+
         # Test 3: Error handling
         error_results = test_error_handling()
-        
+
         # Final summary
         print_section("FINAL SUMMARY")
-        
+
         engine_passed = sum(1 for _, s, _ in engine_results if s)
         engine_total = len(engine_results)
-        
+
         error_passed = sum(1 for _, s, _ in error_results if s)
         error_total = len(error_results)
-        
-        print(f"Engine Tests:        {engine_passed}/{engine_total} passed ({engine_passed/engine_total*100:.1f}%)")
+
+        print(
+            f"Engine Tests:        {engine_passed}/{engine_total} passed ({engine_passed/engine_total*100:.1f}%)"
+        )
         print(f"Schema Evolution:    {'✅ PASS' if schema_success else '❌ FAIL'}")
-        print(f"Error Handling:      {error_passed}/{error_total} passed ({error_passed/error_total*100:.1f}%)")
-        
+        print(
+            f"Error Handling:      {error_passed}/{error_total} passed ({error_passed/error_total*100:.1f}%)"
+        )
+
         total_passed = engine_passed + (1 if schema_success else 0) + error_passed
         total_tests = engine_total + 1 + error_total
-        
-        print(f"\nOverall:             {total_passed}/{total_tests} passed ({total_passed/total_tests*100:.1f}%)")
-        
+
+        print(
+            f"\nOverall:             {total_passed}/{total_tests} passed ({total_passed/total_tests*100:.1f}%)"
+        )
+
         return 0 if total_passed == total_tests else 1
-        
+
     except Exception as e:
         print(f"\n❌ Fatal error: {type(e).__name__}: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return 1
 

@@ -36,6 +36,12 @@ build/
 .env
 .env.local
 
+# Runtime data and logs
+data/
+*.parquet
+*.parquet.lock
+*.pkl
+
 # Bob AI Assistant
 .bob/
 
