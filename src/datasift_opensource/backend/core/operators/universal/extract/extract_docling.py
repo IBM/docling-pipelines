@@ -92,6 +92,76 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
     """
     logger.info(f"Processing file: {file_path}")
     
+    # Check file extension
+    file_ext = Path(file_path).suffix.lower()
+    
+    # Handle .txt files specially (Docling cannot process them)
+    if file_ext == '.txt':
+        try:
+            from docling_core.types.doc.document import DoclingDocument
+            from docling_core.types.doc.labels import DocItemLabel
+            
+            # Decode text content
+            try:
+                raw_text = binary_content.decode('utf-8')
+            except UnicodeDecodeError:
+                # Try other encodings if UTF-8 fails
+                try:
+                    raw_text = binary_content.decode('latin-1')
+                except Exception as e:
+                    logger.error(f"Failed to decode text file {file_path}: {str(e)}")
+                    return {
+                        OperatorConstants.SUCCESS: False,
+                        OperatorConstants.ERROR: f"Failed to decode text: {str(e)}",
+                        OperatorConstants.DOC_COLUMN_DEFAULT: None,
+                        OperatorConstants.DOCLING_DOCUMENT: None
+                    }
+            
+            # Create a basic DoclingDocument structure
+            doc = DoclingDocument(name=Path(file_path).name)
+            
+            # Split text into paragraphs and add as text items
+            paragraphs = [p.strip() for p in raw_text.split('\n\n') if p.strip()]
+            
+            if not paragraphs:
+                # If no double newlines, treat each line as a paragraph
+                paragraphs = [line.strip() for line in raw_text.split('\n') if line.strip()]
+            
+            for para in paragraphs:
+                if para:
+                    doc.add_text(text=para, label=DocItemLabel.PARAGRAPH)
+            
+            # Use the raw text as markdown (since it's already plain text)
+            markdown_text = raw_text
+            
+            # Serialize the DoclingDocument
+            docling_doc_json = doc.model_dump_json()
+            
+            logger.info(f"Completed extraction for text file: {file_path}")
+            
+            return {
+                OperatorConstants.SUCCESS: True,
+                OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
+                OperatorConstants.DOCLING_DOCUMENT: docling_doc_json,
+                OperatorConstants.TABLES: [],  # No tables in plain text
+                OperatorConstants.IMAGES: [],  # No images in plain text
+                OperatorConstants.METADATA: {
+                    "table_count": 0,
+                    "image_count": 0,
+                    "char_count": len(markdown_text),
+                    "is_text_file": True
+                }
+            }
+        except Exception as e:
+            logger.error(f"Error processing text file {file_path}: {str(e)}")
+            return {
+                OperatorConstants.SUCCESS: False,
+                OperatorConstants.ERROR: str(e),
+                OperatorConstants.DOC_COLUMN_DEFAULT: None,
+                OperatorConstants.DOCLING_DOCUMENT: None
+            }
+    
+    # For non-text files, use Docling's DocumentConverter
     # Save binary content to temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
         tmp_file.write(binary_content)
@@ -327,6 +397,7 @@ class ExtractDoclingOperator(AbstractOperator):
     def _extract_basic(self, file_path: str, binary_content: bytes) -> Dict[str, Any]:
         """
         Basic extraction: Convert PDF to markdown and extract tables/images.
+        Handles .txt files specially since Docling cannot process them.
         Based on extract_basic from docling extraction_script.py
         
         Args:
@@ -338,6 +409,76 @@ class ExtractDoclingOperator(AbstractOperator):
         """
         logger.info(f"Processing file: {file_path}")
         
+        # Check file extension
+        file_ext = Path(file_path).suffix.lower()
+        
+        # Handle .txt files specially (Docling cannot process them)
+        if file_ext == '.txt':
+            try:
+                from docling_core.types.doc.document import DoclingDocument
+                from docling_core.types.doc.labels import DocItemLabel
+                
+                # Decode text content
+                try:
+                    raw_text = binary_content.decode('utf-8')
+                except UnicodeDecodeError:
+                    # Try other encodings if UTF-8 fails
+                    try:
+                        raw_text = binary_content.decode('latin-1')
+                    except Exception as e:
+                        logger.error(f"Failed to decode text file {file_path}: {str(e)}")
+                        return {
+                            OperatorConstants.SUCCESS: False,
+                            OperatorConstants.ERROR: f"Failed to decode text: {str(e)}",
+                            OperatorConstants.DOC_COLUMN_DEFAULT: None,
+                            OperatorConstants.DOCLING_DOCUMENT: None
+                        }
+                
+                # Create a basic DoclingDocument structure
+                doc = DoclingDocument(name=Path(file_path).name)
+                
+                # Split text into paragraphs and add as text items
+                paragraphs = [p.strip() for p in raw_text.split('\n\n') if p.strip()]
+                
+                if not paragraphs:
+                    # If no double newlines, treat each line as a paragraph
+                    paragraphs = [line.strip() for line in raw_text.split('\n') if line.strip()]
+                
+                for para in paragraphs:
+                    if para:
+                        doc.add_text(text=para, label=DocItemLabel.PARAGRAPH)
+                
+                # Use the raw text as markdown (since it's already plain text)
+                markdown_text = raw_text
+                
+                # Serialize the DoclingDocument
+                docling_doc_json = doc.model_dump_json()
+                
+                logger.info(f"Completed extraction for text file: {file_path}")
+                
+                return {
+                    OperatorConstants.SUCCESS: True,
+                    OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
+                    OperatorConstants.DOCLING_DOCUMENT: docling_doc_json,
+                    OperatorConstants.TABLES: [],  # No tables in plain text
+                    OperatorConstants.IMAGES: [],  # No images in plain text
+                    OperatorConstants.METADATA: {
+                        "table_count": 0,
+                        "image_count": 0,
+                        "char_count": len(markdown_text),
+                        "is_text_file": True
+                    }
+                }
+            except Exception as e:
+                logger.error(f"Error processing text file {file_path}: {str(e)}")
+                return {
+                    OperatorConstants.SUCCESS: False,
+                    OperatorConstants.ERROR: str(e),
+                    OperatorConstants.DOC_COLUMN_DEFAULT: None,
+                    OperatorConstants.DOCLING_DOCUMENT: None
+                }
+        
+        # For non-text files, use Docling's DocumentConverter
         # Save binary content to temporary file
         import tempfile
         with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
@@ -867,7 +1008,7 @@ def main():
     
     # Input: Path to file or directory
     input_path_str = "tests/fixtures/invoices/TR-INV_044_1_1.1.pdf"
-    
+
     # Use template-based extraction (True) or basic markdown extraction (False)
     use_template = False
     
