@@ -750,7 +750,7 @@ def check_model_available(model_name: str) -> bool:
             if isinstance(model, dict):
                 name = model.get('name', '')
             else:
-                name = getattr(model, 'name', '')
+                name = getattr(model, 'model', '')
             
             # Check if model name matches (handle version tags)
             if name.startswith(model_name) or name.split(':')[0] == model_name:
