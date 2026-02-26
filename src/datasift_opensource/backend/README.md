@@ -75,3 +75,85 @@ export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHO
 ```
 
 This ensures all imports resolve correctly without needing the full `datasift_opensource.backend` prefix.
+
+## Command-Line Orchestrator
+
+The command-line orchestrator allows you to execute data processing flows and manage operators from the command line.
+
+### Running Flows
+
+Execute a flow definition from a JSON file:
+
+```bash
+python -m core.orchestrator.cmdline.cmd_line_orchestrator --flow-file path/to/flow.json
+```
+
+Options:
+- `--flow-file, -f`: Path to the JSON file containing the flow definition (required for execution)
+- `--log-level, -l`: Set logging level (choices: debug, info, warning, error, critical; default: info)
+
+Example:
+```bash
+python -m core.orchestrator.cmdline.cmd_line_orchestrator \
+  --flow-file tests/flow_local.json \
+  --log-level debug
+```
+
+### Listing Available Operators
+
+To see all available operators and their details:
+
+```bash
+# Show summary of all operators
+python -m core.orchestrator.cmdline.cmd_line_orchestrator --list-operators
+
+# Show detailed information about each operator
+python -m core.orchestrator.cmdline.cmd_line_orchestrator --list-operators --verbose
+```
+
+The `--list-operators` command displays:
+- **Summary mode** (default): A table showing operator name, category, availability status, and feature count
+- **Verbose mode** (`--verbose` or `-v`): Detailed information including:
+  - Output features (columns produced by the operator)
+  - Configuration parameters (input parameters for the operator)
+  - Required input features (columns needed by the operator)
+  - Data types, descriptions, and default values
+
+Example output (summary):
+```
+================================================================================
+AVAILABLE OPERATORS SUMMARY
+================================================================================
+
+Operator                  Category        Status       Features
+--------------------------------------------------------------------------------
+ingest_local              Ingest          Available    3
+extract_docling           Extract         Available    5
+docling_chunker           Functional      Available    2
+...
+```
+
+Example output (verbose):
+```
+================================================================================
+Operator: ingest_local
+Category: Ingest
+Status: ✓ Available
+================================================================================
+
+Output Features (3):
+  • path: File Path
+  • binary_content: Binary Content
+  • doc_id_hash: Hash ID
+
+Configuration Parameters (3):
+  • max_file_size [OPTIONAL]: Max File Size (default: 100)
+  • include_filter [OPTIONAL]: Include File Type (default: pdf,docx,pptx,txt,md)
+  • store_binary_content [OPTIONAL]: Store Binary Content (default: True)
+```
+
+This feature is particularly useful for:
+- Understanding what operators are available in your installation
+- Discovering operator capabilities and output features
+- Learning what configuration parameters each operator accepts
+- Planning your data processing flows
