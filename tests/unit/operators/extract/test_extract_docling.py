@@ -357,23 +357,13 @@ def test_extract_docling_txt_files():
     # Assertions
     assert "content" in result_table.column_names, "Content column should exist"
     assert "doc_id_hash" in result_table.column_names, "Hash ID column should exist"
-    assert "docling_document" in result_table.column_names, "docling_document column should exist for chunking"
+    assert "docling_document" not in result_table.column_names, "docling_document column should not exist (created in chunker now)"
     
     # Check content for each file
     for idx in range(result_table.num_rows):
         content = result_table["content"][idx].as_py()
         assert content is not None, f"Content should not be None for file {idx}"
         assert len(content) > 0, f"Content should not be empty for file {idx}"
-        
-        # Check docling_document is present (needed for chunking)
-        docling_doc = result_table["docling_document"][idx].as_py()
-        assert docling_doc is not None, f"docling_document should not be None for file {idx}"
-        assert len(docling_doc) > 0, f"docling_document should not be empty for file {idx}"
-        
-        # Verify it's valid JSON
-        import json
-        doc_dict = json.loads(docling_doc)
-        assert "name" in doc_dict, "DoclingDocument should have 'name' field"
     
     # Check hash
     first_hash = result_table["doc_id_hash"][0].as_py()
@@ -442,7 +432,7 @@ def test_extract_docling_mixed_file_types():
     # Assertions
     assert "content" in result_table.column_names, "Content column should exist"
     assert "doc_id_hash" in result_table.column_names, "Hash ID column should exist"
-    assert "docling_document" in result_table.column_names, "docling_document column should exist"
+    assert "docling_document" not in result_table.column_names, "docling_document column should not exist (created in chunker now)"
     
     # Verify all files were processed
     assert metadata["processed_docs"] == len(test_files), "All files should be processed"
@@ -503,9 +493,10 @@ def test_extract_docling_txt_with_special_characters():
         assert "Hello World!" in content, "Content should contain the test text"
         assert "special chars" in content, "Content should contain special characters text"
         
-        # Verify docling_document was created
-        docling_doc = result_table["docling_document"][0].as_py()
-        assert docling_doc is not None, "docling_document should not be None"
+        # Verify content was extracted (docling_document is now created in chunker)
+        content = result_table["content"][0].as_py()
+        assert content is not None, "content should not be None"
+        assert len(content) > 0, "content should not be empty"
         
         # Check metadata
         assert metadata["processed_docs"] == 1, "Should have processed one document"

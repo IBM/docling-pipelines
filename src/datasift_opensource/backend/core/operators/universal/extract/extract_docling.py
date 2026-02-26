@@ -88,19 +88,16 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
         extract_images: Whether to extract images
         
     Returns:
-        Dictionary containing extracted content and DoclingDocument object
+        Dictionary containing extracted markdown content
     """
     logger.info(f"Processing file: {file_path}")
     
     # Check file extension
     file_ext = Path(file_path).suffix.lower()
     
-    # Handle .txt files specially (Docling cannot process them)
-    if file_ext == '.txt':
+    # Handle .txt and .md files specially (Docling cannot process them)
+    if file_ext in ['.txt', '.md']:
         try:
-            from docling_core.types.doc.document import DoclingDocument
-            from docling_core.types.doc.labels import DocItemLabel
-            
             # Decode text content
             try:
                 raw_text = binary_content.decode('utf-8')
@@ -113,36 +110,17 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
                     return {
                         OperatorConstants.SUCCESS: False,
                         OperatorConstants.ERROR: f"Failed to decode text: {str(e)}",
-                        OperatorConstants.DOC_COLUMN_DEFAULT: None,
-                        OperatorConstants.DOCLING_DOCUMENT: None
+                        OperatorConstants.DOC_COLUMN_DEFAULT: None
                     }
-            
-            # Create a basic DoclingDocument structure
-            doc = DoclingDocument(name=Path(file_path).name)
-            
-            # Split text into paragraphs and add as text items
-            paragraphs = [p.strip() for p in raw_text.split('\n\n') if p.strip()]
-            
-            if not paragraphs:
-                # If no double newlines, treat each line as a paragraph
-                paragraphs = [line.strip() for line in raw_text.split('\n') if line.strip()]
-            
-            for para in paragraphs:
-                if para:
-                    doc.add_text(text=para, label=DocItemLabel.PARAGRAPH)
             
             # Use the raw text as markdown (since it's already plain text)
             markdown_text = raw_text
-            
-            # Serialize the DoclingDocument
-            docling_doc_json = doc.model_dump_json()
             
             logger.info(f"Completed extraction for text file: {file_path}")
             
             return {
                 OperatorConstants.SUCCESS: True,
                 OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
-                OperatorConstants.DOCLING_DOCUMENT: docling_doc_json,
                 OperatorConstants.TABLES: [],  # No tables in plain text
                 OperatorConstants.IMAGES: [],  # No images in plain text
                 OperatorConstants.METADATA: {
@@ -157,8 +135,7 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
             return {
                 OperatorConstants.SUCCESS: False,
                 OperatorConstants.ERROR: str(e),
-                OperatorConstants.DOC_COLUMN_DEFAULT: None,
-                OperatorConstants.DOCLING_DOCUMENT: None
+                OperatorConstants.DOC_COLUMN_DEFAULT: None
             }
     
     # For non-text files, use Docling's DocumentConverter
@@ -200,13 +177,9 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
         
         logger.info(f"Completed extraction for {file_path}")
         
-        # Serialize the DoclingDocument object for storage
-        docling_doc_json = result.document.model_dump_json()
-        
         return {
             OperatorConstants.SUCCESS: True,
             OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
-            OperatorConstants.DOCLING_DOCUMENT: docling_doc_json,
             OperatorConstants.TABLES: tables,
             OperatorConstants.IMAGES: images,
             OperatorConstants.METADATA: {
@@ -220,8 +193,7 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
         return {
             OperatorConstants.SUCCESS: False,
             OperatorConstants.ERROR: str(e),
-            OperatorConstants.DOC_COLUMN_DEFAULT: None,
-            OperatorConstants.DOCLING_DOCUMENT: None
+            OperatorConstants.DOC_COLUMN_DEFAULT: None
         }
     finally:
         # Clean up temporary file
@@ -760,7 +732,6 @@ class ExtractDoclingOperator(AbstractOperator):
         doc_contents = [None] * table.num_rows
         doc_metadata_list = [{}] * table.num_rows
         extracted_data_list = [None] * table.num_rows
-        docling_documents = [None] * table.num_rows
         failed_indices = []
         
         # Choose executor based on configuration
@@ -812,7 +783,6 @@ class ExtractDoclingOperator(AbstractOperator):
                     if result[OperatorConstants.SUCCESS]:
                         doc_contents[idx] = result[OperatorConstants.DOC_COLUMN_DEFAULT]
                         doc_metadata_list[idx] = result.get(OperatorConstants.METADATA, {})
-                        docling_documents[idx] = result.get(OperatorConstants.DOCLING_DOCUMENT)
                         
                         if self.use_template and OperatorConstants.STRUCTURED_DATA in result:
                             extracted_data_list[idx] = result[OperatorConstants.STRUCTURED_DATA]
@@ -842,11 +812,6 @@ class ExtractDoclingOperator(AbstractOperator):
         # Add content column to table (markdown text from docling)
         if doc_contents:
             table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
-        
-        # Add docling_document column to table (serialized DoclingDocument for chunking)
-        if docling_documents:
-            table = TransformUtils.add_column(table=table, name=OperatorConstants.DOCLING_DOCUMENT, content=docling_documents)
-            logger.info("Added docling_document column for chunking operator")
         
         # Add extracted_data column if template extraction was used
         if self.use_template and extracted_data_list:

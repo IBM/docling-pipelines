@@ -73,21 +73,16 @@ class TestIngestExtractChunkTxtIntegration:
         assert extract_table.num_rows > 0, "Should have extracted content"
         assert "content" in extract_table.column_names, "Should have content column"
         assert "doc_id_hash" in extract_table.column_names, "Should have doc_id_hash column"
-        assert "docling_document" in extract_table.column_names, "Should have docling_document column for chunking"
+        assert "docling_document" not in extract_table.column_names, "Should NOT have docling_document column (created in chunker now)"
         
         # Verify content was actually extracted from .txt files
         content_count = 0
         for idx in range(extract_table.num_rows):
             content = extract_table["content"][idx].as_py()
-            docling_doc = extract_table["docling_document"][idx].as_py()
             
             if content and len(content) > 0:
                 content_count += 1
                 print(f"  File {idx}: Content length = {len(content)} chars")
-                
-            # Verify docling_document is present (needed for chunking)
-            assert docling_doc is not None, f"docling_document should not be None for file {idx}"
-            assert len(docling_doc) > 0, f"docling_document should not be empty for file {idx}"
         
         assert content_count > 0, "Should have extracted content from at least one .txt file"
         assert extract_metadata.get("processed_docs", 0) > 0, "Should have processed documents"
@@ -135,8 +130,8 @@ class TestIngestExtractChunkTxtIntegration:
         print(f"Created {total_chunks} total chunks from .txt files")
         print(f"Chunk metadata: {chunk_metadata}")
         
-        # Verify docling_document column was removed after chunking
-        assert "docling_document" not in chunk_table.column_names, "docling_document should be removed after chunking"
+        # Verify docling_document column is not present (never created in extract, only used internally in chunker)
+        assert "docling_document" not in chunk_table.column_names, "docling_document should not be in final output"
         
         print("\n=== Integration test completed successfully! ===")
     
