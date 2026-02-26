@@ -338,6 +338,7 @@ class OperatorConstants:
     TABLE_NAME = "table_name"
     LANG_DETECT = "lang_detect"
     DOC_QUALITY = "doc_quality"
+    READABILITY = "readability"
     DOC_ID_OPERATOR = "doc_id_hash"
     CROMA_DB = "chromadb"
     PATHS = "paths"

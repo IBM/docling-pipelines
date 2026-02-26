@@ -31,7 +31,9 @@ dependencies = [
     "pillow==12.1.1",
     "mlx==0.30.6",
     "orjson==3.11.7",
-    "setuptools==75.8.0"
+    "setuptools==75.8.0",
+    "textstat==0.7.11",
+    "polars==1.32.3",
 ]
 
 [project.optional-dependencies]
