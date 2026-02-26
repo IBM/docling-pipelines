@@ -32,7 +32,8 @@ dependencies = [
     "mlx==0.30.6",
     "orjson==3.11.7",
     "setuptools==75.8.0",
-    "opensearch-py==2.7.1"
+    "opensearch-py==2.7.1",
+    "ollama==0.6.1",
 ]
 
 [project.optional-dependencies]
