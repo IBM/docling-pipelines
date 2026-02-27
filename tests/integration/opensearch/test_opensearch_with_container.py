@@ -13,10 +13,10 @@ import pyarrow as pa
 import numpy as np
 from pathlib import Path
 
-from datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator import (
+from core.operators.universal.vectordb.opensearch_operator import (
     OpenSearchOperator,
 )
-from datasift_opensource.backend.common.util.constants import OperatorConstants
+from common.util.constants import OperatorConstants
 
 
 def is_docker_available():

@@ -15,8 +15,8 @@ from dpk_ededup import (
 )
 # from dpk_ededup.transform_python import EdedupTransform
 # from datasift_core.operators.universal.ededup.ededup import EdedupOperator
-from datasift_opensource.backend.core.operators.universal.ededup.ededup import EdedupOperator
-from datasift_opensource.backend.common.util.constants import Metrics, OperatorConstants
+from core.operators.universal.ededup.ededup import EdedupOperator
+from common.util.constants import Metrics, OperatorConstants
 
 class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
     """

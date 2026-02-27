@@ -24,13 +24,13 @@ import numpy as np
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator import (
+from core.operators.universal.vectordb.opensearch_operator import (
     OpenSearchOperator,
     OpenSearchEngineTypes,
     OpenSearchAlgorithmTypes,
     VectorSimilarityTypes
 )
-from datasift_opensource.backend.common.util.env_config import get_opensearch_config
+from common.util.env_config import get_opensearch_config
 
 
 def create_sample_documents(num_docs=10, vector_dim=384):
