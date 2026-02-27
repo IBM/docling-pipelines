@@ -31,6 +31,8 @@ dependencies = [
     "pillow==12.1.1",
     "mlx==0.30.6",
     "orjson==3.11.7",
+    "textstat==0.7.11",
+    "polars==1.32.3",
     "setuptools==78.1.1",
     "opensearch-py==2.7.1",
     "ollama==0.6.1",

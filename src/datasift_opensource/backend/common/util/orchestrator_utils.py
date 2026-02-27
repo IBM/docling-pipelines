@@ -72,7 +72,6 @@ def write_job_logs(job_stats, job_log_final_path):
 
 # should be called before loading Prefect libraries
 def set_prefect_env_variables() -> None:
-    # due to incompatibility of InstanaTracer with OTel tracer
     os.environ[PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY] = "false"
     os.environ[PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS] = "120"
     if not os.getenv(PREFECT_DEBUG):

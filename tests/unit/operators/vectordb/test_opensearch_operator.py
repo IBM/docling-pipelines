@@ -81,6 +81,33 @@ def sample_table():
     return pa.table(data)
 
 
+@pytest.fixture
+def chunked_embeddings_table():
+    """Sample PyArrow table with chunked embeddings (nested structure)"""
+    data = {
+        "doc_id_hash": ["doc1", "doc2"],
+        "content": [
+            "This is the first document with multiple chunks",
+            "This is the second document with multiple chunks",
+        ],
+        "embeddings": [
+            # Each document has multiple chunks, each chunk is a 384-dim vector
+            [
+                np.random.rand(384).tolist(),
+                np.random.rand(384).tolist(),
+                np.random.rand(384).tolist(),
+            ],
+            [
+                np.random.rand(384).tolist(),
+                np.random.rand(384).tolist(),
+            ],
+        ],
+    }
+    return pa.table(data)
+
+
+
+
 class TestOpenSearchOperatorInitialization:
     """Test operator initialization and configuration"""
 
@@ -399,6 +426,238 @@ class TestQueryCapabilities:
         count = operator.get_document_count()
 
         assert count == 100
+
+
+class TestChunkedEmbeddings:
+    """Test chunked embeddings support"""
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.helpers.bulk"
+    )
+    def test_transform_with_chunked_embeddings(
+        self, mock_bulk, mock_opensearch, basic_config, chunked_embeddings_table
+    ):
+        """Test transform with chunked embeddings creates separate documents per chunk"""
+        # Setup mocks
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+        
+        # doc1 has 3 chunks, doc2 has 2 chunks = 5 total documents
+        mock_bulk.return_value = (5, [])
+
+        operator = OpenSearchOperator(basic_config)
+        result_tables, metadata = operator.transform(chunked_embeddings_table)
+
+        # Verify results
+        assert len(result_tables) == 1
+        assert result_tables[0].num_rows == 2  # Original table has 2 rows
+        assert metadata["processed_docs"] == 5  # But 5 documents were indexed (3 + 2 chunks)
+        assert metadata["failed_docs_count"] == 0
+
+        # Verify bulk was called with correct number of documents
+        call_args = mock_bulk.call_args_list
+        total_docs = sum(len(call[0][1]) for call in call_args)
+        assert total_docs == 5  # 3 chunks from doc1 + 2 chunks from doc2
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.helpers.bulk"
+    )
+    def test_chunked_embeddings_document_ids(
+        self, mock_bulk, mock_opensearch, basic_config, chunked_embeddings_table
+    ):
+        """Test that chunked embeddings get unique document IDs"""
+        # Setup mocks
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+        mock_bulk.return_value = (5, [])
+
+        operator = OpenSearchOperator(basic_config)
+        operator.transform(chunked_embeddings_table)
+
+        # Get all document IDs from bulk calls
+        doc_ids = []
+        for call in mock_bulk.call_args_list:
+            actions = call[0][1]
+            for action in actions:
+                doc_ids.append(action["_id"])
+
+        # Verify unique IDs with chunk suffixes
+        assert "doc1_chunk_0" in doc_ids
+        assert "doc1_chunk_1" in doc_ids
+        assert "doc1_chunk_2" in doc_ids
+        assert "doc2_chunk_0" in doc_ids
+        assert "doc2_chunk_1" in doc_ids
+        assert len(doc_ids) == 5
+        assert len(set(doc_ids)) == 5  # All IDs are unique
+
+
+
+class TestAutoDimensionDetection:
+    """Test automatic vector dimension detection"""
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    def test_detect_dimension_from_flat_embeddings(
+        self, mock_opensearch, basic_config, sample_table
+    ):
+        """Test dimension detection from flat embeddings"""
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+
+        operator = OpenSearchOperator(basic_config)
+        detected_dim = operator._detect_vector_dimension(sample_table)
+
+        assert detected_dim == 384  # Should detect 384 from sample data
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    def test_detect_dimension_from_chunked_embeddings(
+        self, mock_opensearch, basic_config, chunked_embeddings_table
+    ):
+        """Test dimension detection from chunked embeddings"""
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+
+        operator = OpenSearchOperator(basic_config)
+        detected_dim = operator._detect_vector_dimension(chunked_embeddings_table)
+
+        assert detected_dim == 384  # Should detect 384 from first chunk
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    def test_detect_dimension_empty_table(self, mock_opensearch, basic_config):
+        """Test dimension detection with empty table"""
+        mock_client = MagicMock()
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+
+        empty_table = pa.table({"doc_id_hash": [], "embeddings": []})
+        operator = OpenSearchOperator(basic_config)
+        detected_dim = operator._detect_vector_dimension(empty_table)
+
+        assert detected_dim is None  # Should return None for empty table
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    def test_detect_dimension_missing_column(self, mock_opensearch, basic_config):
+        """Test dimension detection with missing embeddings column"""
+        mock_client = MagicMock()
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+
+        table = pa.table({"doc_id_hash": ["doc1"], "content": ["test"]})
+        operator = OpenSearchOperator(basic_config)
+        detected_dim = operator._detect_vector_dimension(table)
+
+        assert detected_dim is None  # Should return None when column missing
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.helpers.bulk"
+    )
+    def test_transform_uses_auto_detected_dimension(
+        self, mock_bulk, mock_opensearch, basic_config, sample_table
+    ):
+        """Test that transform uses auto-detected dimension"""
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+        mock_bulk.return_value = (3, [])
+
+        # Set config dimension to different value
+        basic_config[OperatorConstants.VECTOR_DIMENSION] = 512
+
+        operator = OpenSearchOperator(basic_config)
+        operator.transform(sample_table)
+
+        # Verify dimension was auto-detected and updated
+        assert operator.vector_dimension == 384  # Auto-detected, not config value
+        assert operator.dimension_auto_detected is True
+
+
+class TestBackwardCompatibility:
+    """Test backward compatibility with existing functionality"""
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.helpers.bulk"
+    )
+    def test_flat_embeddings_still_work(
+        self, mock_bulk, mock_opensearch, basic_config, sample_table
+    ):
+        """Test that flat embeddings (original behavior) still work correctly"""
+        # Setup mocks
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+        mock_bulk.return_value = (3, [])
+
+        operator = OpenSearchOperator(basic_config)
+        result_tables, metadata = operator.transform(sample_table)
+
+        # Verify original behavior is preserved
+        assert len(result_tables) == 1
+        assert result_tables[0].num_rows == 3
+        assert metadata["processed_docs"] == 3
+        assert metadata["failed_docs_count"] == 0
+
+        # Verify document IDs are unchanged (no chunk suffixes)
+        doc_ids = []
+        for call in mock_bulk.call_args_list:
+            actions = call[0][1]
+            for action in actions:
+                doc_ids.append(action["_id"])
+
+        assert "doc1" in doc_ids
+        assert "doc2" in doc_ids
+        assert "doc3" in doc_ids
+        assert "doc1_chunk_0" not in doc_ids  # No chunk suffixes for flat embeddings
+
+    @patch(
+        "core.operators.universal.vectordb.opensearch_operator.OpenSearch"
+    )
+    def test_config_dimension_used_when_detection_fails(
+        self, mock_opensearch, basic_config
+    ):
+        """Test that config dimension is used when auto-detection fails"""
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+
+        # Create table with None embeddings (detection will fail)
+        table = pa.table({"doc_id_hash": ["doc1"], "embeddings": [None]})
+        
+        operator = OpenSearchOperator(basic_config)
+        detected_dim = operator._detect_vector_dimension(table)
+
+        assert detected_dim is None
+        # Config dimension should be used as fallback
+        assert operator.config_vector_dimension == 384
 
 
 class TestMetadata:

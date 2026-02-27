@@ -154,7 +154,7 @@ class NodeStatsDto(BaseModel):
                     max_length=36)
     name: str = Field(title="name", description="Name of the node")
     node_status: str = Field("Completed", title="Node status", description="Status of the execution of the node",
-                            min_length=1, max_length =25, pattern=node_status_pattern)
+                            min_length=1, max_length =100, pattern=node_status_pattern)
     start_time: int = Field(default=0,title="Start Time of the Node Execution",description="Epoch timestamp (in seconds) indicating when the node execution started.")
     end_time: int = Field(default=0,title="End Time of the Node Execution",description="Epoch timestamp (in seconds) indicating when the node execution ended.")
     time_taken: int = Field(default=0, title="Time taken", description="Time taken by the node")

@@ -61,9 +61,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             pg_params=pg_params
         )
 
-        # with tracer.start_as_current_span(op.short_name) as span:
         try:
-            # span.set_attribute("operator.name", op.short_name)
             self._log_start(op_logger=op.logger, node_id=node_id, name=op.name, short_name=op.short_name, common_log_arguments=common_log_arguments)
             self.set_default_node_stats(tables=tables)
             if isinstance(tables, dict):
@@ -87,15 +85,10 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             self._log_completion(op_logger=op.logger, name=op.name, time_taken=time_taken, result=result, metadata=metadata, common_log_arguments=common_log_arguments)
             return result
         except Exception as e:
-            self._handle_exception(span=None, op_logger=op.logger, node_id=node_id, exception=e)
+            self._handle_exception(op_logger=op.logger, node_id=node_id, exception=e)
             raise
 
-    def _handle_exception(self, *, span, op_logger, node_id, exception):
-        span.set_attribute("operator.status", "failed")
-        span.add_event("exception", {
-            "exception.type": type(exception).__name__,
-            "exception.message": str(exception)
-        })
+    def _handle_exception(self, *, op_logger, node_id, exception):
         from common.models.session_info import get_session_info
         # add transaction id in node_logs shown to user only if any error occurs.
         op_logger.error(f"Error during transformation in node id: {node_id} transaction_ID: {str(get_session_info().transaction_id)}")
