@@ -12,17 +12,6 @@ from common.exceptions.datasift_exceptions import ErrorCode
 from common.exceptions.error_messages import ValidationMessage
 from common.util.constants import OperatorConstants #, RetryConstants, Environments, BucketTypes, \
 
-# Try to import OpenTelemetry for distributed tracing support
-try:  # pragma: no cover
-    from opentelemetry import context
-    from opentelemetry.context import attach, detach
-    OTEL_AVAILABLE = True
-except ImportError:  # pragma: no cover
-    OTEL_AVAILABLE = False
-    context = None
-    attach = None
-    detach = None
-
 logger = get_logger()
 
 
@@ -174,11 +163,9 @@ def run_with_session_info(session_info: Any, func: Callable[..., T], *args: Any,
 
 def submit_task_with_context_propagation(executor: 'ThreadPoolExecutor', func: 'Callable', *args, **kwargs):
     """
-    Submit a task to ThreadPoolExecutor with session_info and OpenTelemetry span context propagation.
+    Submit a task to ThreadPoolExecutor with session_info context propagation.
     
-    This function ensures that both session information and OpenTelemetry tracing context
-    are properly propagated to worker threads, enabling end-to-end distributed tracing
-    with Instana/OpenTelemetry.
+    This function ensures that session information is properly propagated to worker threads.
     
     Args:
         executor: ThreadPoolExecutor instance to submit the task to
@@ -197,22 +184,7 @@ def submit_task_with_context_propagation(executor: 'ThreadPoolExecutor', func: '
     from common.models.session_info import get_session_info
     current_session = get_session_info()
     
-    # If OpenTelemetry is available and we have a context, propagate it
-    if OTEL_AVAILABLE and context is not None:  # pragma: no cover
-        # Capture current OpenTelemetry context
-        current_context = context.get_current()
-        
-        def task_with_context():
-            # Attach the OpenTelemetry context in the worker thread
-            token = attach(current_context)  # type: ignore
-            try:
-                return run_with_session_info(current_session, func, *args, **kwargs)
-            finally:
-                detach(token)  # type: ignore
-        return executor.submit(task_with_context)
-    else:  # pragma: no cover
-        # Fallback to just session info propagation if OpenTelemetry not available
-        return executor.submit(run_with_session_info, current_session, func, *args, **kwargs)
+    return executor.submit(run_with_session_info, current_session, func, *args, **kwargs)
 
 
 def should_retry_on_result(result, exception):
