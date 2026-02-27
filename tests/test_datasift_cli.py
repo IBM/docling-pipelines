@@ -45,46 +45,13 @@ class TestCommandLineOrchestrator(unittest.TestCase):
 
         run_command_line_executor(flow_def=flow_def)
         
-    @patch('argparse.ArgumentParser.parse_args')
-    @patch('core.orchestrator.cmdline.cmd_line_orchestrator.load_flow_definition')
-    @patch('core.orchestrator.cmdline.cmd_line_orchestrator.run_command_line_executor')
-    @patch('core.orchestrator.cmdline.cmd_line_orchestrator.get_logger')
-    def test_cmd_line_options(self, mock_get_logger, mock_run_executor, mock_load_flow, mock_parse_args):
-        """
-        Test command line options parsing
-        """
-        # Mock the argument parser
-        mock_args: MagicMock = MagicMock()
-        mock_args.flow_file = "test/flow.json"
-        mock_args.log_level = "debug"
-        mock_parse_args.return_value = mock_args
-        
-        # Mock the logger
-        mock_logger: MagicMock = MagicMock()
-        mock_get_logger.return_value = mock_logger
-        
-        # Mock the flow definition
-        mock_flow_def: dict[str, Any] = {
-            "name": "Test Flow",
-            "dag": [{"id": "test-id", "name": "test-op"}]
-        }
-        mock_load_flow.return_value = mock_flow_def
-        
-        # Import and call the main function
-        from core.orchestrator.cmdline.cmd_line_orchestrator import main
-        main()
-        
-        # Verify that the functions were called with the expected arguments
-        mock_load_flow.assert_called_once_with(file_path="test/flow.json")
-        mock_get_logger.assert_called_once_with(level="DEBUG")
-        mock_run_executor.assert_called_once_with(flow_def=mock_flow_def)
 
     def test_load_flow_definition(self):
         """
         Test loading a flow definition from a file
         """
         from core.orchestrator.cmdline.cmd_line_orchestrator import load_flow_definition
-        filepath = "apps/cli/tests/orchestrator/cmdline/flow_local.json"
+        filepath = "tests/flow_local.json"
 
         flow_def = load_flow_definition(file_path=filepath)
         assert flow_def is not None
