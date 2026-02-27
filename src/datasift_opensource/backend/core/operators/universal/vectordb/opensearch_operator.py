@@ -155,9 +155,12 @@ class OpenSearchOperator(AbstractOperator):
         self.batch_size = config.get(OperatorConstants.BATCH_SIZE, DEFAULT_BATCH_SIZE)
         self.create_index = config.get(OperatorConstants.CREATE_INDEX, True)
         self.index_settings = config.get(OperatorConstants.INDEX_SETTINGS)
-        self.vector_dimension = config.get(
+        self.config_vector_dimension = config.get(
             OperatorConstants.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION
         )
+        # This will be set to the detected dimension or fall back to config value
+        self.vector_dimension = self.config_vector_dimension
+        self.dimension_auto_detected = False
 
         # Engine and algorithm configuration
         self.engine = config.get(ENGINE_KEY, OpenSearchEngineTypes.FAISS)
@@ -248,6 +251,93 @@ class OpenSearchOperator(AbstractOperator):
             default_params.update(self.engine_parameters)
 
         return default_params
+
+    def _detect_vector_dimension(self, table: pa.Table) -> Optional[int]:
+        """
+        Auto-detect vector dimension from the embeddings column in the PyArrow table.
+        
+        Handles both flat embeddings and nested (chunked) embeddings:
+        - Flat: [float1, float2, ..., floatN] -> dimension is length of list
+        - Nested: [[emb1], [emb2], ...] -> dimension is length of first inner list
+        
+        Args:
+            table: PyArrow table containing embeddings
+            
+        Returns:
+            Detected dimension or None if detection fails
+        """
+        if self.embeddings_column not in table.column_names:
+            logger.debug(
+                f"Embeddings column '{self.embeddings_column}' not found in table",
+                extra=self.common_log_arguments,
+            )
+            return None
+            
+        if table.num_rows == 0:
+            logger.debug(
+                "Cannot detect dimension from empty table",
+                extra=self.common_log_arguments,
+            )
+            return None
+        
+        try:
+            # Get the first non-null embedding
+            embeddings_col = table[self.embeddings_column]
+            
+            for idx in range(min(table.num_rows, 10)):  # Check first 10 rows
+                embedding_value = embeddings_col[idx].as_py()
+                
+                if embedding_value is None:
+                    continue
+                    
+                if not isinstance(embedding_value, list):
+                    logger.warning(
+                        f"Embedding at row {idx} is not a list: {type(embedding_value)}",
+                        extra=self.common_log_arguments,
+                    )
+                    continue
+                
+                if len(embedding_value) == 0:
+                    continue
+                
+                # Check if this is nested embeddings (chunked)
+                if isinstance(embedding_value[0], list):
+                    # Nested structure: [[emb1], [emb2], ...]
+                    # Get dimension from first inner list
+                    if len(embedding_value[0]) > 0:
+                        dimension = len(embedding_value[0])
+                        logger.info(
+                            f"Auto-detected vector dimension: {dimension} (from chunked embeddings)",
+                            extra=self.common_log_arguments,
+                        )
+                        return dimension
+                elif isinstance(embedding_value[0], (int, float)):
+                    # Flat structure: [float1, float2, ...]
+                    dimension = len(embedding_value)
+                    logger.info(
+                        f"Auto-detected vector dimension: {dimension} (from flat embeddings)",
+                        extra=self.common_log_arguments,
+                    )
+                    return dimension
+                else:
+                    logger.warning(
+                        f"Unexpected embedding structure at row {idx}: first element is {type(embedding_value[0])}",
+                        extra=self.common_log_arguments,
+                    )
+                    continue
+            
+            logger.warning(
+                "Could not find valid embeddings in first 10 rows for dimension detection",
+                extra=self.common_log_arguments,
+            )
+            return None
+            
+        except Exception as e:
+            logger.warning(
+                f"Error detecting vector dimension: {str(e)}",
+                extra=self.common_log_arguments,
+            )
+            return None
 
     def _create_index_mapping(self) -> Dict[str, Any]:
         """Create index mapping based on available features and feature mappings"""
@@ -401,6 +491,8 @@ class OpenSearchOperator(AbstractOperator):
         """
         Transform the input table by indexing documents in OpenSearch.
         Supports batch processing with size limits and detailed error tracking.
+        Handles both single embeddings and chunked embeddings (list of embeddings).
+        Auto-detects vector dimension from embeddings data.
         """
         # Initialize metadata
         metadata = self.create_base_metadata(total_docs_count=table.num_rows)
@@ -422,6 +514,30 @@ class OpenSearchOperator(AbstractOperator):
             logger.error(error_msg, extra=self.common_log_arguments)
             metadata[Metrics.External.NODE_STATUS] = "failed"
             return [table], metadata
+
+        # Auto-detect vector dimension from embeddings data
+        detected_dimension = self._detect_vector_dimension(table)
+        if detected_dimension is not None:
+            if detected_dimension != self.config_vector_dimension:
+                logger.info(
+                    f"Using auto-detected vector dimension: {detected_dimension} "
+                    f"(config specified: {self.config_vector_dimension})",
+                    extra=self.common_log_arguments,
+                )
+            else:
+                logger.info(
+                    f"Auto-detected vector dimension matches config: {detected_dimension}",
+                    extra=self.common_log_arguments,
+                )
+            self.vector_dimension = detected_dimension
+            self.dimension_auto_detected = True
+        else:
+            logger.info(
+                f"Could not auto-detect dimension, using config value: {self.config_vector_dimension}",
+                extra=self.common_log_arguments,
+            )
+            self.vector_dimension = self.config_vector_dimension
+            self.dimension_auto_detected = False
 
         # Create index if needed
         if self.create_index:
@@ -463,23 +579,76 @@ class OpenSearchOperator(AbstractOperator):
                     )
                     continue
 
-                # Prepare document
-                doc = self._prepare_document(row_data)
+                # Get embeddings and check if it's a nested list (chunked embeddings)
+                embeddings_value = row_data.get(self.embeddings_column)
+                
+                # Detect if embeddings is a list of embeddings (chunked content)
+                # The embeddings operator outputs [[emb1], [emb2], [emb3]] for chunked content
+                # where each emb is a vector like [0.1, 0.2, ..., 0.4096]
+                is_chunked = False
+                if embeddings_value and isinstance(embeddings_value, list) and len(embeddings_value) > 0:
+                    # Check if first element is also a list (nested structure)
+                    if isinstance(embeddings_value[0], list):
+                        # Further check: if the first element's first item is a number,
+                        # then we have chunked embeddings [[emb1], [emb2], ...]
+                        if len(embeddings_value[0]) > 0 and isinstance(embeddings_value[0][0], (int, float)):
+                            # This is chunked embeddings - treat all cases as chunked
+                            is_chunked = True
+                            logger.debug(
+                                f"Detected chunked embeddings with {len(embeddings_value)} chunks for doc {doc_id}",
+                                extra=self.common_log_arguments,
+                            )
 
-                action = {"_index": self.index_name, "_id": doc_id, "_source": doc}
+                if is_chunked:
+                    # Create separate documents for each chunk
+                    # embeddings_value is [[emb1], [emb2], ...] where each emb is the actual vector
+                    for chunk_idx, chunk_embedding in enumerate(embeddings_value):
+                        # Create a copy of row_data for this chunk
+                        chunk_row_data = row_data.copy()
+                        
+                        # chunk_embedding is already the flat embedding vector [0.1, 0.2, ..., 0.4096]
+                        # Update the embeddings to be the single chunk embedding
+                        chunk_row_data[self.embeddings_column] = chunk_embedding
+                        
+                        # Create unique document ID for this chunk
+                        chunk_doc_id = f"{doc_id}_chunk_{chunk_idx}"
+                        
+                        # Prepare document
+                        doc = self._prepare_document(chunk_row_data)
+                        
+                        action = {"_index": self.index_name, "_id": chunk_doc_id, "_source": doc}
 
-                # Check batch size
-                action_size = self._calculate_batch_size_bytes([action])
-                if current_batch and (
-                    current_batch_size + action_size > max_batch_size_bytes
-                    or len(current_batch) >= self.batch_size
-                ):
-                    all_actions.append(current_batch)
-                    current_batch = []
-                    current_batch_size = 0
+                        # Check batch size
+                        action_size = self._calculate_batch_size_bytes([action])
+                        if current_batch and (
+                            current_batch_size + action_size > max_batch_size_bytes
+                            or len(current_batch) >= self.batch_size
+                        ):
+                            all_actions.append(current_batch)
+                            current_batch = []
+                            current_batch_size = 0
 
-                current_batch.append(action)
-                current_batch_size += action_size
+                        current_batch.append(action)
+                        current_batch_size += action_size
+                else:
+                    # Single embedding - process as before
+                    # Prepare document
+                    doc = self._prepare_document(row_data)
+
+                    action = {"_index": self.index_name, "_id": doc_id, "_source": doc}
+
+                    # Check batch size
+                    action_size = self._calculate_batch_size_bytes([action])
+                    if current_batch and (
+                        current_batch_size + action_size > max_batch_size_bytes
+                        or len(current_batch) >= self.batch_size
+                    ):
+                        all_actions.append(current_batch)
+                        current_batch = []
+                        current_batch_size = 0
+
+                    current_batch.append(action)
+                    current_batch_size += action_size
 
             except Exception as e:
                 logger.error(
@@ -528,7 +697,7 @@ class OpenSearchOperator(AbstractOperator):
                             metadata=metadata,
                             doc_id=doc_id,
                             doc_name=doc_id,
-                            reason=error_msg,
+                            reason=error_msg[:100],
                         )
 
             except Exception as e:

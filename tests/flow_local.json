@@ -54,7 +54,7 @@
                 "operator": "embeddings",
                 "config": {
                     "embeddings_type": "ollama",
-                    "embeddings_model_id": "granite4",
+                    "embeddings_model_id": "llama2",
                     "embeddings_column": "embeddings",
                     "overlap_ratio": 0.2,
                     "doc_column": "content"
@@ -70,7 +70,7 @@
                     "opensearch_host": "localhost",
                     "opensearch_port": 9200,
                     "opensearch_username": "admin",
-                    "opensearch_password": "admin",
+                    "opensearch_password": "MyStrongPass123!",
                     "opensearch_use_ssl": false,
                     "opensearch_verify_certs": false,
                     "index_name": "datasift_documents",
