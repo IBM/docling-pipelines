@@ -11,7 +11,6 @@ import logging
 from typing import Any, Dict, List
 
 import pyarrow as pa
-from pyarrow import Table
 
 from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -517,7 +516,7 @@ def main():
     chunked_table = chunked_tables[0]
     
     # Log results
-    logger.info(f"\nChunking complete!")
+    logger.info("\nChunking complete!")
     logger.info(f"Metadata: {chunk_metadata}")
     logger.info(f"Result columns: {chunked_table.column_names}")
     

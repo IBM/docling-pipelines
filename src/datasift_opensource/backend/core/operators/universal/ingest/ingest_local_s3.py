@@ -1,7 +1,6 @@
 import pyarrow as pa
 import boto3
 from typing import Any
-from data_processing.data_access import DataAccessLocal
 
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.ingest.ingest_utils import get_filter_extensions, filter_based_on_extension
@@ -160,7 +159,7 @@ class IngestS3Operator(AbstractOperator): # pragma: no cover
             return {}, None
 
         # convert the contents into Markdown format using WDU (Watson Document Understanding) by calling DPK (Data Prep Kit) transform
-        data_access = DataAccessLocal({"input_folder": "", DatasiftConstants.OUTPUT_FOLDER: ""})
+        # data_access = DataAccessLocal({"input_folder": "", DatasiftConstants.OUTPUT_FOLDER: ""})
         # wdu_pdf2md_transform = WduPdf2MdTransform({
         #     "wdu_server": self.wdu_server,
         #     "wdu_max_retries": 3,

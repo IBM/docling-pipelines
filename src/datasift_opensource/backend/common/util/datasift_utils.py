@@ -117,10 +117,6 @@ def process_batches_in_parallel(
 
     results: List[Any] = []
 
-    # Get current session_info before creating the ThreadPoolExecutor
-    from common.models.session_info import get_session_info
-    current_session_info = get_session_info()
-
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_batch = {
             submit_task_with_context_propagation(executor, worker_fn, batch): batch

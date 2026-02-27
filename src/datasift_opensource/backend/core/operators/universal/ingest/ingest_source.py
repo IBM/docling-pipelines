@@ -9,7 +9,6 @@ import hashlib
 # Import standard LangChain loaders
 from langchain_community.document_loaders import (
     S3DirectoryLoader,
-    S3FileLoader,
     SharePointLoader,
     OneDriveLoader
 )
@@ -199,7 +198,7 @@ class IngestSourceOperator(AbstractOperator):
                     metadata=metadata,
                     doc_id=source,
                     doc_name=source,
-                    reason=f"File extension filtered out"
+                    reason="File extension filtered out"
                 )
                 return None
             
@@ -512,7 +511,7 @@ def main():  # pragma: no cover
     
     if output_tables:
         result_table = output_tables[0]
-        print(f"\nTable Schema:")
+        print("\nTable Schema:")
         print(result_table.schema)
         print(f"\nTable Shape: {result_table.num_rows} rows × {result_table.num_columns} columns")
         

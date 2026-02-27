@@ -644,7 +644,6 @@ def check_ollama_installed() -> bool:
         bool: True if Ollama is installed, False otherwise
     """
     import subprocess
-    import platform
     
     try:
         # Try to run 'ollama --version' command
@@ -839,7 +838,6 @@ def main():
         python embeddings_operator.py --no-auto-pull
     """
     import argparse
-    import sys
     import platform
     from pathlib import Path
     
@@ -985,7 +983,7 @@ def main():
         try:
             ollama.list()
             print("✓ Ollama is running")
-        except Exception as e:
+        except Exception:
             print("\n❌ Error: Ollama is not running or not accessible")
             print("   Please start Ollama with: ollama serve")
             print(f"   Then pull a model with: ollama pull {args.model}")
@@ -998,8 +996,8 @@ def main():
         from core.operators.universal.chunker.docling_chunker import DoclingChunkerOperator
     except ImportError as e:
         logger.error(f"Failed to import required operators: {e}")
-        print(f"\n❌ Error: Failed to import operators. Make sure you're running from the correct directory.")
-        print(f"   Try: cd src/datasift_opensource/backend && python -m core.operators.universal.embeddings.embeddings_operator")
+        print("\n❌ Error: Failed to import operators. Make sure you're running from the correct directory.")
+        print("   Try: cd src/datasift_opensource/backend && python -m core.operators.universal.embeddings.embeddings_operator")
         return 1
     
     # Validate PDF path

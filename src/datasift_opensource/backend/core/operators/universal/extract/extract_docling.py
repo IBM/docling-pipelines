@@ -8,14 +8,12 @@ Follows the structure of IngestLocalOperator with AbstractOperator as parent cla
 import json
 import logging
 import os
-import pathlib
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
-from typing import Any, Dict, List
+from typing import Any, Dict
 from pathlib import Path
 
 import pyarrow as pa
-from pyarrow import Table
 
 from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -264,7 +262,7 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
                 pass
                 
     except ImportError as e:
-        logger.error(f"DocumentExtractor not available. Install with: pip install docling[vlm]")
+        logger.error("DocumentExtractor not available. Install with: pip install docling[vlm]")
         logger.error(f"Error: {str(e)}")
         return {
             OperatorConstants.SUCCESS: False,
@@ -586,7 +584,7 @@ class ExtractDoclingOperator(AbstractOperator):
                     pass
                     
         except ImportError as e:
-            logger.error(f"DocumentExtractor not available. Install with: pip install docling[vlm]")
+            logger.error("DocumentExtractor not available. Install with: pip install docling[vlm]")
             logger.error(f"Error: {str(e)}")
             return {
                 OperatorConstants.SUCCESS: False,
@@ -1030,7 +1028,7 @@ def main():
         result_table = result_tables[0]
         
         # Log results
-        logger.info(f"Extraction complete!")
+        logger.info("Extraction complete!")
         logger.info(f"Metadata: {metadata}")
         logger.info(f"Result columns: {result_table.column_names}")
         

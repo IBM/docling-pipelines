@@ -6,7 +6,6 @@ Supports multiple KNN engines, algorithms, incremental updates, and query capabi
 """
 
 import json
-import logging
 from typing import Any, Dict, List, Optional, Tuple
 import pyarrow as pa
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth, helpers
@@ -17,7 +16,6 @@ from core.operators.abstract_operator import (
     OperatorCategory,
 )
 from common.util.constants import (
-    DatasiftConstants,
     OperatorConstants,
     Metrics,
 )
