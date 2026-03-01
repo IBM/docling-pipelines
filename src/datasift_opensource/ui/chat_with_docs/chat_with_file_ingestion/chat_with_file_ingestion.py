@@ -1,8 +1,8 @@
 import reflex as rx
 from chat_with_file_ingestion.components.chat import chat_interface
-from chat_with_file_ingestion.components.sidebar import document_sidebar
+from chat_with_file_ingestion.components.sidebar import document_sidebar, log_tearsheet
 from chat_with_file_ingestion.states.theme_state import ThemeState
-from chat_with_file_ingestion.states.file_state import FileUploadState
+from chat_with_file_ingestion.states.file_state import FileUploadState, LogPollerState
 from chat_with_file_ingestion.states.chat_state import ChatState
 
 
@@ -26,6 +26,8 @@ def index() -> rx.Component:
                 "min-h-screen bg-[#F9FAFB] flex items-center justify-center py-10 transition-colors duration-300",
             ),
         ),
+        # Log tearsheet — renders as a fixed overlay on top of everything
+        log_tearsheet(),
         rx.el.script("""
             (function() {
             var scrollTimer = null;
@@ -56,9 +58,26 @@ def index() -> rx.Component:
                 obs.observe(c, { childList: true, subtree: true });
             }
 
+            function scrollLog() {
+                var box = document.getElementById('pipeline-log-box');
+                if (box) { box.scrollTop = box.scrollHeight; }
+            }
+
+            function attachLogObserver() {
+                var box = document.getElementById('pipeline-log-box');
+                if (!box) { setTimeout(attachLogObserver, 500); return; }
+                var logObs = new MutationObserver(function() {
+                window.requestAnimationFrame(scrollLog);
+                });
+                logObs.observe(box, { childList: true, subtree: true });
+                // Re-attach after a delay in case the element is replaced by Reflex
+                setTimeout(attachLogObserver, 2000);
+            }
+
             function init() {
                 attachObserver();
                 setTimeout(attachObserver, 1000);
+                attachLogObserver();
             }
 
             if (document.readyState === 'loading') {
@@ -86,4 +105,4 @@ app = rx.App(
         ),
     ],
 )
-app.add_page(index, route="/", on_load=[FileUploadState.on_load, ChatState.on_load])
+app.add_page(index, route="/", on_load=[FileUploadState.on_load, ChatState.on_load, LogPollerState.clear_logs])

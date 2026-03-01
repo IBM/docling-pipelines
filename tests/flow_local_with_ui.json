@@ -16,7 +16,7 @@
                 "name": "ingest",
                 "operator": "ingest_local",
                 "config": {
-                    "input_folder": "../ui/chat_with_docs/uploaded_files/",
+                    "input_folder": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
                     "include_filter": "txt,pdf" ,
                     "store_binary_content": "false"
                 },

@@ -3,6 +3,8 @@ from typing import TypedDict
 import asyncio
 import logging
 import shutil
+import tempfile
+import os
 from pathlib import Path
 
 # Configure logging to show in terminal with timestamp
@@ -12,6 +14,13 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+# Shared log file path — written by process_documents, polled by LogPollerState
+# Stored inside the UI repo so it's easy to inspect alongside the app.
+_UI_ROOT = Path(__file__).parents[3]  # .../chat_with_docs/
+_LOG_DIR = _UI_ROOT / "logs"
+_LOG_DIR.mkdir(parents=True, exist_ok=True)
+_LOG_FILE = _LOG_DIR / "datasift_pipeline.log"
 
 
 class FileInfo(TypedDict):
@@ -51,6 +60,85 @@ async def process_document(file_path: Path, file_name: str) -> ProcessedDoc:
     return {"filename": file_name, "chunks": chunks, "total_chars": len(dummy_text)}
 
 
+class LogPollerState(rx.State):
+    """
+    Polls the pipeline log file every second and exposes log lines to the UI.
+    Also owns the log tearsheet visibility (show_logs) — kept here rather than
+    ThemeState so all log-related state is co-located.
+    Runs as a background task so it never blocks FileUploadState's event lock.
+    """
+
+    log_lines: list[str] = []
+    show_logs: bool = False  # Controls log tearsheet overlay visibility
+    _polling: bool = False
+
+    @rx.event
+    def open_logs(self):
+        self.show_logs = True
+
+    @rx.event
+    def close_logs(self):
+        self.show_logs = False
+
+    @rx.event(background=True)
+    async def start_polling(self):
+        """
+        Start polling the log file. Runs in background — does not block other events.
+        Always clears the log file and resets log_lines before starting so a second
+        run never shows stale output from the previous run.
+        """
+        # Clear the log file and reset state BEFORE starting the poll loop.
+        # This must happen here (not in process_documents) because start_polling
+        # fires first; if the old file still contains PIPELINE_DONE the loop would
+        # exit immediately on the first iteration.
+        try:
+            _LOG_FILE.write_text("", encoding="utf-8")
+        except Exception:
+            pass
+
+        async with self:
+            self._polling = True
+            self.log_lines = []
+
+        try:
+            while True:
+                async with self:
+                    # Read the log file and update log_lines
+                    done = False
+                    if _LOG_FILE.exists():
+                        try:
+                            text = _LOG_FILE.read_text(encoding="utf-8", errors="replace")
+                            all_lines = text.splitlines()
+                            # Filter out the sentinel line from display
+                            visible = [l for l in all_lines if l.strip() and "PIPELINE_DONE" not in l]
+                            self.log_lines = visible
+                            # Stop polling when sentinel appears
+                            done = any("PIPELINE_DONE" in l for l in all_lines)
+                        except Exception:
+                            pass
+
+                    if done:
+                        self._polling = False
+                        break
+
+                await asyncio.sleep(1.0)
+        except Exception as e:
+            logger.error(f"LogPollerState polling error: {e}")
+            async with self:
+                self._polling = False
+
+    @rx.event
+    def clear_logs(self):
+        self.log_lines = []
+        self.show_logs = False
+        self._polling = False
+        try:
+            if _LOG_FILE.exists():
+                _LOG_FILE.unlink()
+        except Exception:
+            pass
+
+
 class FileUploadState(rx.State):
     """State management for file uploads and processing status."""
 
@@ -59,6 +147,7 @@ class FileUploadState(rx.State):
     is_uploading: bool = False
     is_processing: bool = False
     processing_status: str = ""
+    processing_failed: bool = False  # True when pipeline exits with error
     pipeline_ran: bool = False  # True after backend pipeline completes successfully
 
     def on_load(self):
@@ -76,9 +165,16 @@ class FileUploadState(rx.State):
             self.files = []
             self.processed_docs = []
             self.processing_status = ""
+            self.processing_failed = False
             self.pipeline_ran = False
             self.is_processing = False
             self.is_uploading = False
+            # Clear the log file on page load
+            try:
+                if _LOG_FILE.exists():
+                    _LOG_FILE.unlink()
+            except Exception:
+                pass
         except Exception as e:
             logger.error(f"Error clearing uploaded_files on page load: {e}")
 
@@ -148,59 +244,100 @@ class FileUploadState(rx.State):
         # Reset processing status when files are removed
         self.processing_status = ""
 
-    @rx.event
+    @rx.event(background=True)
     async def process_documents(self):
         """
         Trigger the datasift pipeline (flow_local.json) to process uploaded files
         by invoking the backend as a subprocess using its own .venv Python interpreter.
-        
+
+        Runs as a background task so the state lock is released between updates,
+        allowing ThemeState.open_logs and LogPollerState to respond while running.
+        Logs are written to _LOG_FILE which LogPollerState polls every second.
         Flow: ingest_local → extract_docling → docling_chunker → embeddings → opensearch
         """
-        import subprocess
-        self.is_processing = True
-        self.processing_status = "Processing documents..."
-        yield
+        async with self:
+            self.is_processing = True
+            self.processing_failed = False
+            self.processing_status = "Processing documents..."
+
+        # Give start_polling a moment to clear the log file before we start writing.
+        # Both are background tasks fired in order; this tiny yield ensures the file
+        # is empty before the pipeline subprocess begins appending to it.
+        await asyncio.sleep(0.3)
+
         try:
             # Resolve paths relative to the project root
             project_root = Path(__file__).parents[6]
-            print(f"Project root: {project_root}")
+            logger.info(f"Project root: {project_root}")
             backend_python = project_root / "src" / "datasift_opensource" / "backend" / ".venv" / "bin" / "python"
             orchestrator_script = project_root / "src" / "datasift_opensource" / "backend" / "core" / "orchestrator" / "cmdline" / "cmd_line_orchestrator.py"
-            flow_file = project_root / "tests" / "flow_local.json"
+            flow_file = project_root / "tests" / "flow_local_with_ui.json"
 
             logger.info(f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file}")
 
+            # Stream subprocess output: write to log file AND echo to terminal via logger
             proc = await asyncio.create_subprocess_exec(
                 str(backend_python),
                 str(orchestrator_script),
                 "--flow-file", str(flow_file),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,  # merge stderr into stdout
-                cwd=str(project_root / "src" / "datasift_opensource" / "backend"),
+                cwd=str(project_root),  # run from project root so flow file path resolves correctly
             )
 
-            # Stream subprocess output line-by-line to the terminal in real-time
-            async for line in proc.stdout:
-                decoded = line.decode().rstrip()
-                if decoded:
-                    logger.info(f"[backend] {decoded}")
+            # Collect all output lines so we can scan for errors after completion
+            output_lines: list[str] = []
+            with _LOG_FILE.open("w", encoding="utf-8", buffering=1) as log_fh:
+                async for raw_line in proc.stdout:
+                    line = raw_line.decode(errors="replace").rstrip()
+                    if line:
+                        logger.info(f"[pipeline] {line}")  # echo to terminal
+                        log_fh.write(line + "\n")
+                        log_fh.flush()
+                        output_lines.append(line)
 
             await proc.wait()
 
-            if proc.returncode == 0:
-                logger.info("Pipeline completed successfully")
-                self.processing_status = "Documents processed successfully!"
-                self.pipeline_ran = True
-            else:
+            # Detect errors even when exit code is 0 — the orchestrator logs errors
+            # but may still exit cleanly (e.g. Ollama connection failure in embeddings).
+            _ERROR_PATTERNS = ("ERROR", "Failed to connect", "failed to generate", "Exception", "Traceback")
+            has_errors_in_log = any(
+                any(pat.lower() in line.lower() for pat in _ERROR_PATTERNS)
+                for line in output_lines
+            )
+
+            if proc.returncode != 0:
                 logger.error(f"Pipeline exited with code {proc.returncode}")
-                self.processing_status = f"Error: Pipeline exited with code {proc.returncode}"
-                self.pipeline_ran = False
+                async with self:
+                    self.processing_status = f"Pipeline failed (exit code {proc.returncode}). Check logs for details."
+                    self.processing_failed = True
+                    self.pipeline_ran = True  # allow chat — partial results may be in OpenSearch
+            elif has_errors_in_log:
+                logger.warning("Pipeline exited 0 but errors were detected in output")
+                async with self:
+                    self.processing_status = "Pipeline completed with errors. Check logs for details."
+                    self.processing_failed = True
+                    self.pipeline_ran = True  # allow chat — partial results may be in OpenSearch
+            else:
+                logger.info("Pipeline completed successfully")
+                async with self:
+                    self.processing_status = "Documents processed successfully!"
+                    self.processing_failed = False
+                    self.pipeline_ran = True
         except Exception as e:
             logger.error(f"Error processing documents: {e}")
-            self.processing_status = f"Error: {str(e)}"
+            async with self:
+                self.processing_status = f"Error: {str(e)}"
+                self.processing_failed = True
         finally:
-            self.is_processing = False
-        yield
+            async with self:
+                self.is_processing = False
+            # Write sentinel so LogPollerState stops polling
+            try:
+                with _LOG_FILE.open("a", encoding="utf-8") as f:
+                    f.write("\nPIPELINE_DONE\n")
+            except Exception:
+                pass
 
     @rx.var
     def has_files(self) -> bool:
