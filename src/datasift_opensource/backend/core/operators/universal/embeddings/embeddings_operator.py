@@ -39,6 +39,7 @@ from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
+from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 
 logger = get_logger()
 
@@ -567,10 +568,10 @@ class EmbeddingsOperator(AbstractOperator):
                 if self.doc_id_hash_column in doc and doc[self.doc_id_hash_column]:
                     doc_hash = doc[self.doc_id_hash_column]
                 else:
-                    # Generate hash from content
+                    # Generate hash from content using DocIdHashOperator
                     content_for_hash = texts[0] if texts else ""
-                    doc_hash = self._generate_document_hash(content_for_hash)
-                
+                    doc_hash = hashlib.sha256(content_for_hash.encode("utf-8")).hexdigest()
+
                 doc_id_hashes.append(doc_hash)
                 metadata[Metrics.External.PROCESSED_DOCS] += 1
 

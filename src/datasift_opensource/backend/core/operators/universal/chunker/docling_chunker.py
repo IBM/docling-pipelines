@@ -14,6 +14,7 @@ import pyarrow as pa
 
 from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 from common.util.log import get_logger
 
 # Try to import TransformUtils from data-prep-toolkit-transforms
@@ -36,38 +37,6 @@ from docling_core.types.doc.document import DoclingDocument
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
 
 logger = get_logger()
-
-
-class DocIdHashOperator:
-    """
-    Placeholder for DocIdHashOperator.
-    Generates hash IDs for document chunks.
-    """
-    def __init__(self, config: dict):
-        self.config = config
-    
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict]:
-        """
-        Generate hash IDs for documents.
-        """
-        import hashlib
-        
-        # Generate hash IDs based on content
-        hash_ids = []
-        if "chunked_content" in table.column_names:
-            for idx in range(table.num_rows):
-                # Create hash from row index and chunked content
-                content_str = f"chunk_{idx}"
-                hash_id = hashlib.sha256(content_str.encode()).hexdigest()[:16]
-                hash_ids.append(hash_id)
-        else:
-            # Fallback: generate hash IDs from row index
-            import uuid
-            hash_ids = [str(uuid.uuid4())[:16] for _ in range(table.num_rows)]
-        
-        # Add hash_id column to table
-        table = TransformUtils.add_column(table=table, name="doc_id_hash", content=hash_ids)
-        return [table], {}
 
 
 class DoclingChunkerOperator(AbstractOperator):
