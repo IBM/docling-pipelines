@@ -84,4 +84,3 @@ for config in configs:
 
 print(f"\n{'='*60}")
 
-# Made with Bob

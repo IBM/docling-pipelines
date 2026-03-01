@@ -478,4 +478,3 @@ def test_operator_init_with_custom_config():
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
-# Made with Bob

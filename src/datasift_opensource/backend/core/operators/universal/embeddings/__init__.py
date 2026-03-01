@@ -6,4 +6,3 @@ from core.operators.universal.embeddings.embeddings_operator import EmbeddingsOp
 
 __all__ = ["EmbeddingsOperator"]
 
-# Made with Bob
