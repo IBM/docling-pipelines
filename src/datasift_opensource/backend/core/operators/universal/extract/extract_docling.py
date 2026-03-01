@@ -17,6 +17,7 @@ import pyarrow as pa
 
 from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 from common.util.log import get_logger
 
 # Try to import TransformUtils from data-prep-toolkit-transforms
@@ -40,39 +41,6 @@ from docling.datamodel.base_models import InputFormat
 from docling_core.types.doc.document import PictureItem, TableItem
 
 logger = get_logger()
-
-
-class DocIdHashOperator:
-    """
-    Placeholder for DocIdHashOperator from data-prep-toolkit-transforms.
-    This should be imported from the actual package.
-    """
-    def __init__(self, config: dict):
-        self.config = config
-    
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict]:
-        """
-        Generate hash IDs for documents.
-        This is a simplified version - actual implementation should use
-        the DocIdHashOperator from data-prep-toolkit-transforms.
-        """
-        import hashlib
-        
-        # Generate hash IDs based on content
-        hash_ids = []
-        if "content" in table.column_names:
-            for content in table["content"]:
-                content_str = content.as_py() if content.as_py() else ""
-                hash_id = hashlib.sha256(content_str.encode()).hexdigest()[:16]
-                hash_ids.append(hash_id)
-        else:
-            # Fallback: generate random hash IDs
-            import uuid
-            hash_ids = [str(uuid.uuid4())[:16] for _ in range(table.num_rows)]
-        
-        # Add hash_id column to table
-        table = TransformUtils.add_column(table=table, name="doc_id_hash", content=hash_ids)
-        return [table], {}
 
 
 def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool) -> Dict[str, Any]:
@@ -832,7 +800,9 @@ class ExtractDoclingOperator(AbstractOperator):
         
         # Add hash column using DocIdHashOperator (similar to extract_cpd_operator)
         logger.info("Generating hash id and adding it to table")
-        hash_operator = DocIdHashOperator({})
+        hash_operator = DocIdHashOperator({
+            OperatorConstants.DOC_COLUMN: self.doc_column,
+        })
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
         

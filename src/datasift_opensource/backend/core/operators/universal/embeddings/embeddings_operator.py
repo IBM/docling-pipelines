@@ -5,7 +5,6 @@ This operator generates vector embeddings for text content using various embeddi
 It supports multiple providers (Ollama, OpenAI, etc.) and handles chunking of long text.
 """
 
-import hashlib
 import json
 from typing import Any
 
@@ -39,6 +38,7 @@ from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
+from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 
 logger = get_logger()
 
@@ -275,14 +275,15 @@ class EmbeddingsOperator(AbstractOperator):
 
     def _generate_document_hash(self, content: str) -> str:
         """
-        Generate a unique hash for document content.
+        Generate a SHA-256 hash for document content.
 
         Args:
-            content: Document content to hash
+            content: Document content string
 
         Returns:
-            str: SHA-256 hash of the content
+            64-character hexadecimal SHA-256 hash string
         """
+        import hashlib
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     def _create_embeddings(
@@ -466,7 +467,37 @@ class EmbeddingsOperator(AbstractOperator):
 
         # Initialize metadata
         metadata = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
-        
+
+        # Ensure doc_id_hash column exists using DocIdHashOperator
+        if self.doc_id_hash_column not in table.column_names:
+            try:
+                doc_id_op = DocIdHashOperator(config={
+                    OperatorConstants.DOC_COLUMN: self.doc_column,
+                    OperatorConstants.DOC_ID_HASH: self.doc_id_hash_column,
+                })
+                result_tables, _ = doc_id_op.transform(table)
+                table = result_tables[0]
+            except Exception as e:
+                logger.error(
+                    f"Failed to generate document hashes: {str(e)}",
+                    extra=self.common_log_arguments,
+                )
+                # Mark all documents as failed
+                for idx in range(table.num_rows):
+                    doc_id = table[OperatorConstants.ID][idx].as_py() if OperatorConstants.ID in table.column_names else f"doc_{idx}"
+                    doc_name = table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else str(doc_id)
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(doc_id),
+                        doc_name=str(doc_name),
+                        reason=str(e),
+                    )
+                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                    metadata[Metrics.External.NODE_STATUS],
+                    ExecutionStatus.COMPLETED_WITH_ERRORS,
+                )
+                return [table.slice(0, 0)], metadata
+
         # Convert table to list for processing
         input_docs = table.to_pylist()
         embeddings_list = []
@@ -563,14 +594,8 @@ class EmbeddingsOperator(AbstractOperator):
                 else:
                     embeddings_list.append(doc_embeddings[0])
 
-                # Generate or retrieve document hash
-                if self.doc_id_hash_column in doc and doc[self.doc_id_hash_column]:
-                    doc_hash = doc[self.doc_id_hash_column]
-                else:
-                    # Generate hash from content
-                    content_for_hash = texts[0] if texts else ""
-                    doc_hash = self._generate_document_hash(content_for_hash)
-                
+                # Retrieve document hash (guaranteed to exist after DocIdHashOperator)
+                doc_hash = doc.get(self.doc_id_hash_column, "")
                 doc_id_hashes.append(doc_hash)
                 metadata[Metrics.External.PROCESSED_DOCS] += 1
 
