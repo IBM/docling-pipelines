@@ -29,21 +29,6 @@ def file_card(file: dict) -> rx.Component:
                         file["name"],
                         class_name="text-sm font-medium text-gray-700 dark:text-gray-200 truncate block max-w-[150px]",
                     ),
-                    rx.el.span(
-                        rx.match(
-                            file["status"],
-                            ("uploading", "Uploading..."),
-                            ("processing", "Analyzing contents..."),
-                            ("complete", "Ready for Q&A"),
-                            ("error", file["error"]),
-                            "Pending",
-                        ),
-                        class_name=rx.cond(
-                            file["status"] == "error",
-                            "text-[10px] text-red-500 uppercase tracking-wider",
-                            "text-[10px] text-gray-500 dark:text-gray-400 uppercase tracking-wider",
-                        ),
-                    ),
                     class_name="flex flex-col",
                 ),
                 class_name="flex items-center gap-3",
@@ -161,12 +146,12 @@ def document_sidebar() -> rx.Component:
             rx.cond(
                 FileUploadState.has_files,
                 rx.el.div(
-                    stats_bar(),
+                    # stats_bar(),
                     rx.el.div(
                         rx.foreach(FileUploadState.files, file_card),
                         class_name="flex flex-col gap-3 flex-1 overflow-y-auto min-h-0 pr-1 mb-4",
                     ),
-                    rx.el.div(dropzone(), class_name="flex-shrink-0"),
+                    rx.el.div(dropzone(), class_name="flex-shrink-0 mb-4"),
                     class_name="flex flex-col flex-1 min-h-0",
                 ),
                 rx.el.div(
@@ -180,6 +165,35 @@ def document_sidebar() -> rx.Component:
                         class_name="flex items-start gap-2 mt-6 p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl",
                     ),
                     class_name="flex flex-col flex-1",
+                ),
+            ),
+            # Process Documents button - always visible, disabled when no files
+            rx.el.button(
+                rx.cond(
+                    FileUploadState.is_processing,
+                    rx.el.div(
+                        rx.icon("refresh-cw", class_name="h-4 w-4 animate-spin mr-2"),
+                        "Processing...",
+                        class_name="flex items-center justify-center",
+                    ),
+                    rx.el.div(
+                        rx.icon("play", class_name="h-4 w-4 mr-2"),
+                        "Process Documents",
+                        class_name="flex items-center justify-center",
+                    ),
+                ),
+                on_click=FileUploadState.process_documents,
+                disabled=FileUploadState.is_processing | ~FileUploadState.has_files,
+                class_name="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-sm hover:shadow-md flex-shrink-0 mt-4",
+            ),
+            rx.cond(
+                FileUploadState.processing_status != "",
+                rx.el.div(
+                    rx.el.p(
+                        FileUploadState.processing_status,
+                        class_name="text-xs text-center text-gray-600 dark:text-gray-400 mt-2",
+                    ),
+                    class_name="flex-shrink-0",
                 ),
             ),
             class_name="flex flex-col h-full",

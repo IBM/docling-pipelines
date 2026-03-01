@@ -72,8 +72,18 @@ def chat_header() -> rx.Component:
                         ),
                     ),
                 ),
+                # Clear chat button — only visible when there are messages
+                rx.cond(
+                    ChatState.messages.length() > 0,
+                    rx.el.button(
+                        rx.icon("trash-2", class_name="h-4 w-4"),
+                        on_click=ChatState.clear_messages,
+                        title="Clear chat",
+                        class_name="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors",
+                    ),
+                ),
                 theme_toggle(),
-                class_name="flex items-center gap-4",
+                class_name="flex items-center gap-2",
             ),
             class_name="flex items-center justify-between p-4 border-b dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-t-2xl",
         )
@@ -92,7 +102,15 @@ def message_bubble(message: dict) -> rx.Component:
     return rx.el.div(
         rx.el.div(
             rx.el.div(
-                rx.el.p(message["content"], class_name="text-sm leading-relaxed"),
+                # Assistant messages: rendered markdown
+                rx.cond(
+                    message["role"] == "user",
+                    rx.el.p(message["content"], class_name="text-sm leading-relaxed"),
+                    rx.markdown(
+                        message["content"],
+                        class_name="text-sm leading-relaxed prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:my-2 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-table:text-xs prose-pre:bg-gray-100 dark:prose-pre:bg-gray-900 prose-code:text-indigo-600 dark:prose-code:text-indigo-400 prose-code:bg-gray-100 dark:prose-code:bg-gray-800 prose-code:px-1 prose-code:rounded",
+                    ),
+                ),
                 rx.cond(
                     message["sources"].length() > 0,
                     rx.el.div(
@@ -107,6 +125,19 @@ def message_bubble(message: dict) -> rx.Component:
                         class_name="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700",
                     ),
                 ),
+                # Copy button — only shown on assistant messages
+                rx.cond(
+                    message["role"] == "assistant",
+                    rx.el.div(
+                        rx.el.button(
+                            rx.icon("copy", class_name="h-3 w-3 mr-1"),
+                            "Copy",
+                            on_click=rx.set_clipboard(message["content"]),
+                            class_name="flex items-center gap-0.5 text-[10px] text-gray-400 dark:text-gray-500 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors mt-2 ml-auto",
+                        ),
+                        class_name="flex justify-end",
+                    ),
+                ),
                 class_name=rx.cond(
                     message["role"] == "user",
                     "bg-indigo-600 text-white rounded-2xl rounded-tr-none px-4 py-3 shadow-sm",
@@ -116,6 +147,36 @@ def message_bubble(message: dict) -> rx.Component:
             class_name=rx.cond(
                 message["role"] == "user", "max-w-[85%] ml-auto", "max-w-[85%] mr-auto"
             ),
+        ),
+        class_name=rx.cond(
+            message["role"] == "user",
+            "w-full flex pb-4",
+            "w-full flex",
+        ),
+    )
+
+
+def typing_indicator() -> rx.Component:
+    """Animated typing indicator shown while AI is generating a response."""
+    return rx.el.div(
+        rx.el.div(
+            rx.el.div(
+                rx.icon("bot", class_name="h-4 w-4 text-indigo-500 dark:text-indigo-400 mr-2 flex-shrink-0"),
+                rx.el.div(
+                    rx.el.span(
+                        class_name="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce",
+                    ),
+                    rx.el.span(
+                        class_name="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.15s]",
+                    ),
+                    rx.el.span(
+                        class_name="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce [animation-delay:0.3s]",
+                    ),
+                    class_name="flex items-center gap-1",
+                ),
+                class_name="flex items-center bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-3 border border-gray-100 dark:border-gray-700 shadow-sm",
+            ),
+            class_name="max-w-[85%] mr-auto",
         ),
         class_name="w-full flex",
     )
@@ -141,10 +202,19 @@ def chat_body() -> rx.Component:
                 class_name="flex flex-col items-center justify-center h-full opacity-60 py-20",
             ),
             rx.el.div(
-                rx.foreach(ChatState.messages, message_bubble), class_name="space-y-6"
+                rx.foreach(ChatState.messages, message_bubble),
+                # Typing indicator appears below messages while AI is processing
+                rx.cond(
+                    ChatState.is_processing,
+                    typing_indicator(),
+                ),
+                # Sentinel element — scrolled into view by rx.call_script() in chat_state.py
+                rx.el.div(id="chat-scroll-anchor", class_name="h-1"),
+                class_name="space-y-6",
             ),
         ),
         class_name="flex-1 overflow-y-auto p-6 scroll-smooth",
+        id="chat-body",
     )
 
 
@@ -153,10 +223,25 @@ def chat_input() -> rx.Component:
         rx.el.div(
             rx.el.div(
                 rx.el.input(
-                    placeholder="Ask a question about your files...",
+                    id="chat-input-field",
+                    value=ChatState.user_input,
+                    placeholder=rx.cond(
+                        FileUploadState.is_processing,
+                        "⏳ Processing your documents, please wait...",
+                        rx.cond(
+                            ~FileUploadState.has_files,
+                            "Upload documents to get started...",
+                            rx.cond(
+                                ~FileUploadState.pipeline_ran,
+                                "Click 'Process Documents' to enable chat...",
+                                "Ask a question about your files...",
+                            ),
+                        ),
+                    ),
                     on_change=ChatState.set_user_input,
-                    class_name="flex-1 bg-gray-50 dark:bg-gray-800 border-none focus:ring-0 text-sm dark:text-white py-3 px-4 rounded-xl",
-                    default_value=ChatState.user_input,
+                    on_key_down=ChatState.handle_key_down,
+                    disabled=FileUploadState.is_processing | ~FileUploadState.has_files | ~FileUploadState.pipeline_ran | ChatState.is_processing,
+                    class_name="flex-1 bg-gray-50 dark:bg-gray-800 border-none focus:ring-0 text-sm dark:text-white py-3 px-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed",
                 ),
                 rx.el.button(
                     rx.cond(
@@ -165,7 +250,7 @@ def chat_input() -> rx.Component:
                         rx.icon("send", class_name="h-5 w-5"),
                     ),
                     on_click=ChatState.send_message,
-                    disabled=ChatState.is_processing,
+                    disabled=FileUploadState.is_processing | ~FileUploadState.has_files | ~FileUploadState.pipeline_ran | ChatState.is_processing,
                     class_name="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed",
                 ),
                 class_name="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 focus-within:border-indigo-300 dark:focus-within:border-indigo-500 transition-all",

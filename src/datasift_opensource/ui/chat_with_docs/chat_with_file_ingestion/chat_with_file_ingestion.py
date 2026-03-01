@@ -2,6 +2,8 @@ import reflex as rx
 from chat_with_file_ingestion.components.chat import chat_interface
 from chat_with_file_ingestion.components.sidebar import document_sidebar
 from chat_with_file_ingestion.states.theme_state import ThemeState
+from chat_with_file_ingestion.states.file_state import FileUploadState
+from chat_with_file_ingestion.states.chat_state import ChatState
 
 
 def index() -> rx.Component:
@@ -24,6 +26,49 @@ def index() -> rx.Component:
                 "min-h-screen bg-[#F9FAFB] flex items-center justify-center py-10 transition-colors duration-300",
             ),
         ),
+        rx.el.script("""
+            (function() {
+            var scrollTimer = null;
+
+            function scrollChat() {
+                var c = document.getElementById('chat-body');
+                if (!c) return;
+                window.requestAnimationFrame(function() {
+                c.scrollTop = c.scrollHeight;
+                window.requestAnimationFrame(function() {
+                    c.scrollTop = c.scrollHeight;
+                });
+                });
+            }
+
+            function debouncedScroll() {
+                if (scrollTimer) clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(scrollChat, 30);
+            }
+
+            function attachObserver() {
+                var c = document.getElementById('chat-body');
+                if (!c) { setTimeout(attachObserver, 200); return; }
+                var obs = new MutationObserver(function(mutations) {
+                var hasAddedNodes = mutations.some(function(m) { return m.addedNodes.length > 0; });
+                if (hasAddedNodes) { debouncedScroll(); }
+                });
+                obs.observe(c, { childList: true, subtree: true });
+            }
+
+            function init() {
+                attachObserver();
+                setTimeout(attachObserver, 1000);
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', init);
+            } else {
+                init();
+            }
+            })();
+            """
+        ),
         class_name=rx.cond(
             ThemeState.is_dark_mode, "dark font-['Inter']", "font-['Inter']"
         ),
@@ -41,4 +86,4 @@ app = rx.App(
         ),
     ],
 )
-app.add_page(index, route="/")
+app.add_page(index, route="/", on_load=[FileUploadState.on_load, ChatState.on_load])

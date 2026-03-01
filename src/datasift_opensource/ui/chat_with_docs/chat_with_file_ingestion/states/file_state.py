@@ -2,7 +2,16 @@ import reflex as rx
 from typing import TypedDict
 import asyncio
 import logging
+import shutil
 from pathlib import Path
+
+# Configure logging to show in terminal with timestamp
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger(__name__)
 
 
 class FileInfo(TypedDict):
@@ -48,10 +57,36 @@ class FileUploadState(rx.State):
     files: list[FileInfo] = []
     processed_docs: list[ProcessedDoc] = []
     is_uploading: bool = False
+    is_processing: bool = False
+    processing_status: str = ""
+    pipeline_ran: bool = False  # True after backend pipeline completes successfully
+
+    def on_load(self):
+        """Clear uploaded_files directory on page load/refresh."""
+        try:
+            upload_dir = rx.get_upload_dir()
+            if upload_dir.exists():
+                # Remove all files in the directory
+                for file_path in upload_dir.iterdir():
+                    if file_path.is_file():
+                        file_path.unlink()
+                        logger.info(f"Deleted file on page load: {file_path.name}")
+                logger.info("Cleared uploaded_files directory on page load")
+            # Reset ALL state — including in-flight flags so a reload always shows a clean UI
+            self.files = []
+            self.processed_docs = []
+            self.processing_status = ""
+            self.pipeline_ran = False
+            self.is_processing = False
+            self.is_uploading = False
+        except Exception as e:
+            logger.error(f"Error clearing uploaded_files on page load: {e}")
 
     @rx.event
     async def handle_upload(self, files: list[rx.UploadFile]):
         self.is_uploading = True
+        # Reset processing status when new files are uploaded
+        self.processing_status = ""
         yield
         upload_dir = rx.get_upload_dir()
         upload_dir.mkdir(parents=True, exist_ok=True)
@@ -96,8 +131,76 @@ class FileUploadState(rx.State):
 
     @rx.event
     def remove_file(self, name: str):
+        # Remove physical file from disk
+        upload_dir = rx.get_upload_dir()
+        file_path = upload_dir / name
+        try:
+            if file_path.exists():
+                file_path.unlink()
+                logging.info(f"Deleted file from disk: {file_path}")
+        except Exception as e:
+            logging.error(f"Error deleting file {name}: {e}")
+        
+        # Remove from state
         self.files = [f for f in self.files if f["name"] != name]
         self.processed_docs = [d for d in self.processed_docs if d["filename"] != name]
+        
+        # Reset processing status when files are removed
+        self.processing_status = ""
+
+    @rx.event
+    async def process_documents(self):
+        """
+        Trigger the datasift pipeline (flow_local.json) to process uploaded files
+        by invoking the backend as a subprocess using its own .venv Python interpreter.
+        
+        Flow: ingest_local → extract_docling → docling_chunker → embeddings → opensearch
+        """
+        import subprocess
+        self.is_processing = True
+        self.processing_status = "Processing documents..."
+        yield
+        try:
+            # Resolve paths relative to the project root
+            project_root = Path(__file__).parents[6]
+            print(f"Project root: {project_root}")
+            backend_python = project_root / "src" / "datasift_opensource" / "backend" / ".venv" / "bin" / "python"
+            orchestrator_script = project_root / "src" / "datasift_opensource" / "backend" / "core" / "orchestrator" / "cmdline" / "cmd_line_orchestrator.py"
+            flow_file = project_root / "tests" / "flow_local.json"
+
+            logger.info(f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file}")
+
+            proc = await asyncio.create_subprocess_exec(
+                str(backend_python),
+                str(orchestrator_script),
+                "--flow-file", str(flow_file),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,  # merge stderr into stdout
+                cwd=str(project_root / "src" / "datasift_opensource" / "backend"),
+            )
+
+            # Stream subprocess output line-by-line to the terminal in real-time
+            async for line in proc.stdout:
+                decoded = line.decode().rstrip()
+                if decoded:
+                    logger.info(f"[backend] {decoded}")
+
+            await proc.wait()
+
+            if proc.returncode == 0:
+                logger.info("Pipeline completed successfully")
+                self.processing_status = "Documents processed successfully!"
+                self.pipeline_ran = True
+            else:
+                logger.error(f"Pipeline exited with code {proc.returncode}")
+                self.processing_status = f"Error: Pipeline exited with code {proc.returncode}"
+                self.pipeline_ran = False
+        except Exception as e:
+            logger.error(f"Error processing documents: {e}")
+            self.processing_status = f"Error: {str(e)}"
+        finally:
+            self.is_processing = False
+        yield
 
     @rx.var
     def has_files(self) -> bool:
