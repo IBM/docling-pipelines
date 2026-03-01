@@ -132,7 +132,7 @@ class EmbeddingsOperator(AbstractOperator):
         
         # Model configuration
         self.embeddings_model_id = config.get(
-            OperatorConstants.EMBEDDINGS_MODEL_ID, "llama2"
+            OperatorConstants.EMBEDDINGS_MODEL_ID, "granite4"
         )
         
         # Column names
@@ -861,8 +861,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="llama2",
-        help="Ollama model to use for embeddings (default: llama2)"
+        default="granite4",
+        help="Ollama model to use for embeddings (default: granite4)"
     )
     parser.add_argument(
         "--chunk-size",
