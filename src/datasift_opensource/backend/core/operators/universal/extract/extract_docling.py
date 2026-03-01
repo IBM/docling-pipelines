@@ -800,7 +800,9 @@ class ExtractDoclingOperator(AbstractOperator):
         
         # Add hash column using DocIdHashOperator (similar to extract_cpd_operator)
         logger.info("Generating hash id and adding it to table")
-        hash_operator = DocIdHashOperator({})
+        hash_operator = DocIdHashOperator({
+            OperatorConstants.DOC_COLUMN: self.doc_column,
+        })
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
         

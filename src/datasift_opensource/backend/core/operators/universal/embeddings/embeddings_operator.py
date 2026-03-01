@@ -273,6 +273,19 @@ class EmbeddingsOperator(AbstractOperator):
             },
         }
 
+    def _generate_document_hash(self, content: str) -> str:
+        """
+        Generate a SHA-256 hash for document content.
+
+        Args:
+            content: Document content string
+
+        Returns:
+            64-character hexadecimal SHA-256 hash string
+        """
+        import hashlib
+        return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
     def _create_embeddings(
         self, text: list[str], model_name: str, overlap_ratio: float
     ) -> list[list[float]]:
@@ -457,12 +470,33 @@ class EmbeddingsOperator(AbstractOperator):
 
         # Ensure doc_id_hash column exists using DocIdHashOperator
         if self.doc_id_hash_column not in table.column_names:
-            doc_id_op = DocIdHashOperator(config={
-                OperatorConstants.DOC_COLUMN: self.doc_column,
-                OperatorConstants.DOC_ID_HASH: self.doc_id_hash_column,
-            })
-            result_tables, _ = doc_id_op.transform(table)
-            table = result_tables[0]
+            try:
+                doc_id_op = DocIdHashOperator(config={
+                    OperatorConstants.DOC_COLUMN: self.doc_column,
+                    OperatorConstants.DOC_ID_HASH: self.doc_id_hash_column,
+                })
+                result_tables, _ = doc_id_op.transform(table)
+                table = result_tables[0]
+            except Exception as e:
+                logger.error(
+                    f"Failed to generate document hashes: {str(e)}",
+                    extra=self.common_log_arguments,
+                )
+                # Mark all documents as failed
+                for idx in range(table.num_rows):
+                    doc_id = table[OperatorConstants.ID][idx].as_py() if OperatorConstants.ID in table.column_names else f"doc_{idx}"
+                    doc_name = table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else str(doc_id)
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(doc_id),
+                        doc_name=str(doc_name),
+                        reason=str(e),
+                    )
+                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                    metadata[Metrics.External.NODE_STATUS],
+                    ExecutionStatus.COMPLETED_WITH_ERRORS,
+                )
+                return [table.slice(0, 0)], metadata
 
         # Convert table to list for processing
         input_docs = table.to_pylist()
