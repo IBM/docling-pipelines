@@ -5,7 +5,6 @@ This operator generates vector embeddings for text content using various embeddi
 It supports multiple providers (Ollama, OpenAI, etc.) and handles chunking of long text.
 """
 
-import hashlib
 import json
 from typing import Any
 
@@ -274,18 +273,6 @@ class EmbeddingsOperator(AbstractOperator):
             },
         }
 
-    def _generate_document_hash(self, content: str) -> str:
-        """
-        Generate a unique hash for document content.
-
-        Args:
-            content: Document content to hash
-
-        Returns:
-            str: SHA-256 hash of the content
-        """
-        return hashlib.sha256(content.encode("utf-8")).hexdigest()
-
     def _create_embeddings(
         self, text: list[str], model_name: str, overlap_ratio: float
     ) -> list[list[float]]:
@@ -467,7 +454,16 @@ class EmbeddingsOperator(AbstractOperator):
 
         # Initialize metadata
         metadata = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
-        
+
+        # Ensure doc_id_hash column exists using DocIdHashOperator
+        if self.doc_id_hash_column not in table.column_names:
+            doc_id_op = DocIdHashOperator(config={
+                OperatorConstants.DOC_COLUMN: self.doc_column,
+                OperatorConstants.DOC_ID_HASH: self.doc_id_hash_column,
+            })
+            result_tables, _ = doc_id_op.transform(table)
+            table = result_tables[0]
+
         # Convert table to list for processing
         input_docs = table.to_pylist()
         embeddings_list = []
@@ -564,14 +560,8 @@ class EmbeddingsOperator(AbstractOperator):
                 else:
                     embeddings_list.append(doc_embeddings[0])
 
-                # Generate or retrieve document hash
-                if self.doc_id_hash_column in doc and doc[self.doc_id_hash_column]:
-                    doc_hash = doc[self.doc_id_hash_column]
-                else:
-                    # Generate hash from content using DocIdHashOperator
-                    content_for_hash = texts[0] if texts else ""
-                    doc_hash = hashlib.sha256(content_for_hash.encode("utf-8")).hexdigest()
-
+                # Retrieve document hash (guaranteed to exist after DocIdHashOperator)
+                doc_hash = doc.get(self.doc_id_hash_column, "")
                 doc_id_hashes.append(doc_hash)
                 metadata[Metrics.External.PROCESSED_DOCS] += 1
 
