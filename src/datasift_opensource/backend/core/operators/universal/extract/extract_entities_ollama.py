@@ -276,7 +276,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
         )
         self.ollama_model: str = config.get("ollama_model", "granite4")
-        self.output_column: str = "entities"
+        self.output_column: str = config.get("output_column", "entities")
         self.max_doc_chars: int = int(config.get("max_doc_chars", 8000))
         self.temperature: float = float(config.get("temperature", 0.0))
         self.max_workers: int = int(config.get(OperatorConstants.MAX_WORKERS, 4))

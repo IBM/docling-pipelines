@@ -206,7 +206,7 @@ class TestExtractEntitiesOllamaOperatorInit:
         op = ExtractEntitiesOllamaOperator(config)
         assert op.doc_column == OperatorConstants.DOC_COLUMN_DEFAULT
         assert op.doc_id_hash_column == OperatorConstants.DOC_ID_HASH_DEFAULT
-        assert op.ollama_model == "llama3"
+        assert op.ollama_model == "granite4"
         assert op.output_column == "entities"
         assert op.max_doc_chars == 8000
         assert op.temperature == 0.0
@@ -540,6 +540,7 @@ class TestExtractEntitiesGetMetadata:
         op = ExtractEntitiesOllamaOperator(basic_config)
         metadata = op.get_metadata()
         attributes = metadata[OperatorConstants.ATTRIBUTES]
+        print('~~ attributes=', attributes)
 
         assert "ollama_model" in attributes
         assert "schema" in attributes
