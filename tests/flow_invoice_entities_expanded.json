@@ -16,7 +16,7 @@
                 "name": "ingest",
                 "operator": "ingest_local",
                 "config": {
-                    "input_folder": "./tests/fixtures/invoices",
+                    "input_folder": "tests/fixtures/invoices",
                     "include_filter": ".pdf",
                     "store_binary_content": "true",
                     "max_workers": 2
@@ -98,7 +98,7 @@
                     "index_name": "invoices_entities_expanded_test",
                     "doc_id_column": "doc_id_hash",
                     "embeddings_column": "embeddings",
-                    "vector_dimension": 384,
+                    "vector_dimension": 2560,
                     "engine": "faiss",
                     "algorithm": "hnsw",
                     "space_type": "l2",

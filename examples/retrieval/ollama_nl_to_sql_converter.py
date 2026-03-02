@@ -9,7 +9,7 @@ import json
 import logging
 import os
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,100 @@ class OllamaNLToSQLConverter:
 
         return _DEFAULT_SCHEMA
 
+    @classmethod
+    def schema_from_index_mapping(
+        cls,
+        index_name: str,
+        opensearch_host: str = "localhost",
+        opensearch_port: int = 9200,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        use_ssl: bool = False,
+    ) -> Dict[str, Any]:
+        """Build a schema dict dynamically from the OpenSearch index mapping.
+
+        Calls ``GET /<index>/_mapping`` and converts the ``properties`` into a
+        ``document_schemas.json``-compatible schema dict so the LLM receives the
+        *actual* field names that exist in the index rather than a static guess.
+
+        Fields whose type is ``knn_vector`` are excluded (not queryable via SQL).
+
+        Args:
+            index_name: OpenSearch index to inspect.
+            opensearch_host: OpenSearch host (default: localhost).
+            opensearch_port: OpenSearch port (default: 9200).
+            username: Optional HTTP-auth username.
+            password: Optional HTTP-auth password.
+            use_ssl: Whether to use HTTPS (default: False).
+
+        Returns:
+            Schema dict with keys ``table``, ``description``, and ``columns``
+            (mapping column name → type string).  Falls back to the static
+            ``document_schemas.json`` entry (via :meth:`infer_schema_from_index`)
+            if the mapping cannot be fetched.
+        """
+        # OpenSearch type → SQL-friendly type label
+        _TYPE_MAP: Dict[str, str] = {
+            "text": "TEXT",
+            "keyword": "VARCHAR",
+            "float": "FLOAT",
+            "double": "DOUBLE",
+            "integer": "INTEGER",
+            "long": "BIGINT",
+            "boolean": "BOOLEAN",
+            "date": "TIMESTAMP",
+        }
+
+        scheme = "https" if use_ssl else "http"
+        url = f"{scheme}://{opensearch_host}:{opensearch_port}/{index_name}/_mapping"
+        auth: Optional[Tuple[str, str]] = (
+            (username, password) if username and password else None
+        )
+
+        try:
+            resp = requests.get(url, auth=auth, timeout=10, verify=False)
+            resp.raise_for_status()
+            mapping_data = resp.json()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "Could not fetch mapping for index '%s': %s. "
+                "Falling back to static schema inference.",
+                index_name,
+                exc,
+            )
+            # Fall back: load the matching static schema from document_schemas.json
+            table = cls.infer_schema_from_index(index_name)
+            try:
+                with open(_SCHEMAS_FILE, "r", encoding="utf-8") as f:
+                    all_schemas = json.load(f)
+                for schema in all_schemas.get("schemas", []):
+                    if schema.get("table") == table:
+                        return schema
+            except Exception:  # noqa: BLE001
+                pass
+            return {"table": table, "description": "", "columns": {}}
+
+        # Extract properties from the mapping response
+        index_mapping = mapping_data.get(index_name, {})
+        properties: Dict[str, Any] = index_mapping.get("mappings", {}).get(
+            "properties", {}
+        )
+
+        columns: Dict[str, str] = {}
+        for field_name, field_def in properties.items():
+            field_type = field_def.get("type", "")
+            # Skip vector fields — not usable in SQL
+            if field_type == "knn_vector":
+                continue
+            sql_type = _TYPE_MAP.get(field_type, "TEXT")
+            columns[field_name] = sql_type
+
+        return {
+            "table": index_name,
+            "description": f"Schema derived from OpenSearch index '{index_name}' mapping.",
+            "columns": columns,
+        }
+
     def __init__(
         self,
         ollama_host: str = "http://localhost:11434",
@@ -65,6 +159,7 @@ class OllamaNLToSQLConverter:
         temperature: float = 0.1,
         dataclass: str = "purchase_orders",
         index_name: Optional[str] = None,
+        schema_dict: Optional[Dict[str, Any]] = None,
     ) -> None:
         """
         Initialize Ollama converter.
@@ -74,17 +169,22 @@ class OllamaNLToSQLConverter:
             model: Model name (e.g., 'llama2', 'mistral', 'codellama', 'mixtral')
             temperature: Temperature for generation (0.0-1.0, lower is more deterministic)
             dataclass: Schema table name used for column definitions (e.g. 'invoices',
-                       'purchase_orders', 'bank_statements').  Use
-                       ``infer_schema_from_index(index_name)`` to derive this
-                       automatically from an OpenSearch index name.
+                       'purchase_orders', 'bank_statements').  Ignored when
+                       *schema_dict* is provided.
             index_name: The actual OpenSearch index name to use in the SQL ``FROM``
                         clause.  When ``None`` the schema table name (*dataclass*) is
                         used as the table name, which is correct when the index name
                         matches the schema name exactly.
+            schema_dict: Pre-built schema dict (with ``table``, ``description``, and
+                         ``columns`` keys) as returned by
+                         :meth:`schema_from_index_mapping`.  When provided, *dataclass*
+                         is ignored and ``document_schemas.json`` is not consulted.
 
         Raises:
-            FileNotFoundError: If document_schemas.json cannot be found.
-            ValueError: If the requested schema is missing from document_schemas.json.
+            FileNotFoundError: If document_schemas.json cannot be found (and
+                               *schema_dict* is not provided).
+            ValueError: If the requested schema is missing from document_schemas.json
+                        (and *schema_dict* is not provided).
         """
         if not model or not model.strip():
             raise ValueError("model name must not be empty")
@@ -94,8 +194,11 @@ class OllamaNLToSQLConverter:
         self.temperature = temperature
         self.api_endpoint = f"{self.ollama_host}/api/generate"
 
-        # Load the schema for the requested data class — fail fast if missing
-        self.schema = self.get_schema(dataclass=dataclass)
+        # Use the pre-built schema dict when provided; otherwise load from file.
+        if schema_dict is not None:
+            self.schema = schema_dict
+        else:
+            self.schema = self.get_schema(dataclass=dataclass)
 
         # The SQL FROM table name is the real index name (may differ from schema name)
         self.index_name: str = (

@@ -1,3 +1,4 @@
+import json
 import reflex as rx
 from typing import TypedDict
 import asyncio
@@ -253,13 +254,18 @@ class FileUploadState(rx.State):
     @rx.event(background=True)
     async def process_documents(self):
         """
-        Trigger the datasift pipeline (flow_local.json) to process uploaded files
-        by invoking the backend as a subprocess using its own .venv Python interpreter.
+        Trigger the datasift pipeline (flow_invoice_entities_expanded.json) to process
+        uploaded files by invoking the backend as a subprocess using its own .venv Python
+        interpreter.
+
+        The OpenSearch index name is taken from the DATASIFT_INDEX environment variable
+        (default: "invoices_entities_expanded_test") so that the same index name is used
+        for both ingestion (here) and querying (chat_state.py / query_runner.py).
 
         Runs as a background task so the state lock is released between updates,
         allowing ThemeState.open_logs and LogPollerState to respond while running.
         Logs are written to _LOG_FILE which LogPollerState polls every second.
-        Flow: ingest_local → extract_docling → docling_chunker → embeddings → opensearch
+        Flow: ingest_local → extract_docling → extract_entities_ollama → docling_chunker → embeddings → opensearch
         """
         async with self:
             self.is_processing = True
@@ -271,6 +277,7 @@ class FileUploadState(rx.State):
         # is empty before the pipeline subprocess begins appending to it.
         await asyncio.sleep(0.3)
 
+        tmp_flow_path: Path | None = None  # track temp file for cleanup in finally
         try:
             # Resolve paths relative to the project root
             project_root = Path(__file__).parents[6]
@@ -294,10 +301,48 @@ class FileUploadState(rx.State):
                 / "cmdline"
                 / "cmd_line_orchestrator.py"
             )
-            flow_file = project_root / "tests" / "flow_invoice_entities.json"
+            base_flow_file = (
+                project_root / "tests" / "flow_invoice_entities_expanded.json"
+            )
+
+            # ----------------------------------------------------------------
+            # Patch the flow JSON so the OpenSearch index_name matches the
+            # DATASIFT_INDEX env var.  This ensures the index created by the
+            # pipeline is the same one queried by chat_state / query_runner.
+            # ----------------------------------------------------------------
+            datasift_index = os.environ.get(
+                "DATASIFT_INDEX", "invoices_entities_expanded_test"
+            )
+            with base_flow_file.open("r", encoding="utf-8") as fh:
+                flow_data = json.load(fh)
+
+            # The flow JSON may be wrapped under a top-level "flow" key
+            flow_def = flow_data.get("flow", flow_data)
+            for node in flow_def.get("dag", []):
+                if node.get("operator") == "opensearch":
+                    node["config"]["index_name"] = datasift_index
+                    logger.info(
+                        f"Patched opensearch node index_name → '{datasift_index}'"
+                    )
+
+            # Write the patched definition to a temp file so the orchestrator
+            # can load it without modifying the original flow JSON on disk.
+            tmp_flow = tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                prefix="datasift_flow_",
+                delete=False,
+                encoding="utf-8",
+            )
+            json.dump(flow_data, tmp_flow, indent=2)
+            tmp_flow.flush()
+            tmp_flow.close()
+            flow_file = Path(tmp_flow.name)
+            tmp_flow_path = flow_file  # record for cleanup
 
             logger.info(
-                f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file}"
+                f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file} "
+                f"(index: {datasift_index})"
             )
 
             # Stream subprocess output: write to log file AND echo to terminal via logger
@@ -315,6 +360,7 @@ class FileUploadState(rx.State):
 
             # Collect all output lines so we can scan for errors after completion
             output_lines: list[str] = []
+            assert proc.stdout is not None  # guaranteed when stdout=PIPE
             with _LOG_FILE.open("w", encoding="utf-8", buffering=1) as log_fh:
                 async for raw_line in proc.stdout:
                     line = raw_line.decode(errors="replace").rstrip()
@@ -376,6 +422,12 @@ class FileUploadState(rx.State):
             try:
                 with _LOG_FILE.open("a", encoding="utf-8") as f:
                     f.write("\nPIPELINE_DONE\n")
+            except Exception:
+                pass
+            # Clean up the temporary patched flow file
+            try:
+                if tmp_flow_path is not None and tmp_flow_path.exists():
+                    tmp_flow_path.unlink()
             except Exception:
                 pass
 

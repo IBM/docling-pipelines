@@ -17,7 +17,13 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics, OperatorConstants
+from common.util.constants import (
+    AttributeDataTypes,
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+    OperatorConstants,
+)
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
@@ -25,12 +31,14 @@ from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 try:
     from data_processing.utils import TransformUtils
 except ImportError:
+
     class TransformUtils:  # type: ignore[no-redef]
         @staticmethod
         def add_column(table: pa.Table, name: str, content: list) -> pa.Table:
             new_column = pa.array(content)
             new_field = pa.field(name, new_column.type)
             return table.append_column(new_field, new_column)
+
 
 logger = get_logger(__name__)
 
@@ -129,7 +137,9 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
     # Strip markdown fences
     if text.startswith("```"):
         lines = text.split("\n")
-        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:]).strip()
+        text = "\n".join(
+            lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
+        ).strip()
     # Direct parse
     try:
         return json.loads(text)
@@ -187,10 +197,16 @@ def _extract_entities_worker(
     try:
         import ollama  # lazy import — not available in all environments
     except ImportError as exc:
-        return {"success": False, "entities": "{}", "error": f"ollama package not installed: {exc}"}
+        return {
+            "success": False,
+            "entities": "{}",
+            "error": f"ollama package not installed: {exc}",
+        }
 
     try:
-        truncated_content = content[:max_doc_chars] if len(content) > max_doc_chars else content
+        truncated_content = (
+            content[:max_doc_chars] if len(content) > max_doc_chars else content
+        )
         has_schema = bool(schema.get("columns"))
 
         if has_schema:
@@ -224,7 +240,9 @@ def _extract_entities_worker(
         return {"success": True, "entities": json.dumps(entities), "error": None}
 
     except Exception as exc:  # noqa: BLE001
-        logger.error("Entity extraction failed for doc '%s' (%s): %s", doc_name, doc_id, exc)
+        logger.error(
+            "Entity extraction failed for doc '%s' (%s): %s", doc_name, doc_id, exc
+        )
         return {"success": False, "entities": "{}", "error": str(exc)}
 
 
@@ -271,7 +289,9 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
 
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
+        )
         self.doc_id_hash_column: str = config.get(
             OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
         )
@@ -280,7 +300,12 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         self.max_doc_chars: int = int(config.get("max_doc_chars", 8000))
         self.temperature: float = float(config.get("temperature", 0.0))
         self.max_workers: int = int(config.get(OperatorConstants.MAX_WORKERS, 4))
-        self.expand_entities: bool = self.config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
+        _raw_expand = config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
+        self.expand_entities: bool = (
+            _raw_expand
+            if isinstance(_raw_expand, bool)
+            else str(_raw_expand).lower() in ("true", "1", "yes")
+        )
 
         # Schema: inline dict takes priority over file reference
         self.schema: dict[str, Any] | None = config.get("schema", None)
@@ -322,8 +347,16 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     # Entity expansion
     # ------------------------------------------------------------------
 
-    def _expand_entities_columns(self, table: pa.Table, entities_list: list) -> pa.Table:
-        """Expand entity dict into individual columns, one per entity key."""
+    def _expand_entities_columns(
+        self, table: pa.Table, entities_list: list
+    ) -> pa.Table:
+        """Expand entity dict into individual columns, one per entity key.
+
+        Column values are cast to the appropriate Python type based on the
+        schema column definition (DOUBLE/FLOAT → float, INT/INTEGER → int,
+        everything else → str).  This ensures OpenSearch receives numeric
+        values as numbers rather than strings so that SQL aggregations work.
+        """
         # Collect all unique keys
         all_keys: set[str] = set()
         for entity in entities_list:
@@ -333,16 +366,46 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         if not all_keys:
             return table
 
+        # Build a lookup: column_name → schema type string (upper-cased)
+        schema_columns: dict[str, str] = {}
+        resolved = self._get_schema()
+        if resolved:
+            for col_name, col_type in resolved.get("columns", {}).items():
+                schema_columns[col_name.lower()] = str(col_type).upper()
+
+        _FLOAT_TYPES = {"DOUBLE", "FLOAT", "FLOAT32", "FLOAT64", "DECIMAL", "NUMERIC"}
+        _INT_TYPES = {"INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT", "LONG"}
+
+        def _cast(key: str, val: Any) -> Any:
+            """Cast *val* to the Python type implied by the schema for *key*."""
+            if val is None:
+                return None
+            col_type = schema_columns.get(key.lower(), "STRING")
+            if col_type in _FLOAT_TYPES:
+                try:
+                    return float(val)
+                except (ValueError, TypeError):
+                    return None
+            if col_type in _INT_TYPES:
+                try:
+                    return int(float(val))
+                except (ValueError, TypeError):
+                    return None
+            return str(val)
+
         # Create one column per key
         for key in sorted(all_keys):
-            column_values = []
-            for entity in entities_list:
-                if entity and isinstance(entity, dict) and key in entity:
-                    val = entity[key]
-                    column_values.append(str(val) if val is not None else None)
-                else:
-                    column_values.append(None)
-            table = TransformUtils.add_column(table, name=f"entity_{key}", content=column_values)
+            column_values = [
+                (
+                    _cast(key, entity[key])
+                    if (entity and isinstance(entity, dict) and key in entity)
+                    else None
+                )
+                for entity in entities_list
+            ]
+            table = TransformUtils.add_column(
+                table, name=f"entity_{key}", content=column_values
+            )
 
         return table
 
@@ -354,6 +417,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     def is_available() -> bool:
         try:
             import ollama  # noqa: F401
+
             return True
         except ImportError:
             return False
@@ -367,7 +431,9 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
 
         if self.should_validate_field(field_value=self.ollama_model):
             if not self.ollama_model or not isinstance(self.ollama_model, str):
-                errors.append("ollama_model must be a non-empty string (e.g. 'llama3', 'mistral').")
+                errors.append(
+                    "ollama_model must be a non-empty string (e.g. 'llama3', 'mistral')."
+                )
 
         if self.should_validate_field(field_value=self.doc_column):
             if self.doc_column not in available_features:
@@ -387,9 +453,13 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         entities_list: list[str] = ["{}"] * table.num_rows
 
         # Build task list
-        doc_tasks: list[tuple[int, str, str, str]] = []  # (row_idx, doc_id, doc_name, content)
+        doc_tasks: list[tuple[int, str, str, str]] = (
+            []
+        )  # (row_idx, doc_id, doc_name, content)
         for row_idx in range(table.num_rows):
-            row = {col: table.column(col)[row_idx].as_py() for col in table.column_names}
+            row = {
+                col: table.column(col)[row_idx].as_py() for col in table.column_names
+            }
             doc_id = str(row.get(OperatorConstants.ID, row_idx))
             doc_name = str(row.get(OperatorConstants.NAME, f"doc_{row_idx}"))
             content = row.get(self.doc_column) or ""
@@ -458,7 +528,9 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                 table = self._expand_entities_columns(table, parsed_entities_list)
 
         # Add entities column
-        table = TransformUtils.add_column(table=table, name=self.output_column, content=entities_list)
+        table = TransformUtils.add_column(
+            table=table, name=self.output_column, content=entities_list
+        )
 
         # Ensure doc_id_hash column exists
         if self.doc_id_hash_column not in table.column_names:
@@ -473,7 +545,9 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
 
         # Set final node status
         if metadata.get(Metrics.External.FAILED_DOCS_COUNT, 0) > 0:
-            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_ERRORS
+            metadata[Metrics.External.NODE_STATUS] = (
+                ExecutionStatus.COMPLETED_WITH_ERRORS
+            )
         else:
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED
 
@@ -509,7 +583,10 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                     OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
                     OperatorConstants.IS_PRIMARY: True,
                     OperatorConstants.TYPE: AttributeDataTypes.STRING,
-                    OperatorConstants.TAGS: [OperatorConstants.MANDATORY, OperatorConstants.PRIMARY],
+                    OperatorConstants.TAGS: [
+                        OperatorConstants.MANDATORY,
+                        OperatorConstants.PRIMARY,
+                    ],
                 },
             },
             OperatorConstants.ATTRIBUTES: {
@@ -588,5 +665,6 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                 },
             },
         }
+
 
 # Made with Bob

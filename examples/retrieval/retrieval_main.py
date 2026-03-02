@@ -95,15 +95,33 @@ class CompleteQuerySystem:
             ollama_model=self.ollama_model, temperature=0.3
         )
 
-        # Resolve schema: use explicit override, or infer from index name.
-        resolved_schema = (
-            schema_name.strip()
-            if schema_name and schema_name.strip()
-            else OllamaNLToSQLConverter.infer_schema_from_index(self.index_name)
-        )
-        logger.debug(
-            "Using schema '%s' for index '%s'", resolved_schema, self.index_name
-        )
+        # Resolve schema:
+        #   1. Explicit schema_name override → load from document_schemas.json by name.
+        #   2. No override → fetch the live index mapping from OpenSearch and build the
+        #      schema dynamically so the LLM sees the actual field names.
+        if schema_name and schema_name.strip():
+            resolved_schema_name = schema_name.strip()
+            resolved_schema_dict = None  # let OllamaNLToSQLConverter load from file
+            logger.debug(
+                "Using explicit schema '%s' for index '%s'",
+                resolved_schema_name,
+                self.index_name,
+            )
+        else:
+            resolved_schema_name = "purchase_orders"  # fallback, unused when dict given
+            resolved_schema_dict = OllamaNLToSQLConverter.schema_from_index_mapping(
+                index_name=self.index_name,
+                opensearch_host=opensearch_host,
+                opensearch_port=opensearch_port,
+                username=opensearch_username,
+                password=opensearch_password,
+                use_ssl=opensearch_use_ssl,
+            )
+            logger.debug(
+                "Schema derived from index mapping for '%s': columns=%s",
+                self.index_name,
+                list(resolved_schema_dict.get("columns", {}).keys()),
+            )
 
         # Initialize NL to SQL converter (Ollama-backed)
         # Propagate FileNotFoundError / ValueError from schema loading immediately.
@@ -111,8 +129,9 @@ class CompleteQuerySystem:
             self.nl_to_sql_converter = OllamaNLToSQLConverter(
                 ollama_host=ollama_host,
                 model=self.ollama_model,
-                dataclass=resolved_schema,
+                dataclass=resolved_schema_name,
                 index_name=self.index_name,
+                schema_dict=resolved_schema_dict,
             )
         except (FileNotFoundError, ValueError) as exc:
             raise RuntimeError(
