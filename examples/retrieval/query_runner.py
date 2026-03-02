@@ -110,6 +110,7 @@ def _get_system(cfg: QueryConfig) -> CompleteQuerySystem:
             ollama_model=cfg.model,
             index_name=cfg.index,
             schema_name=cfg.schema,  # None → auto-inferred from index_name
+
         )
     return _system_cache[cache_key]
 

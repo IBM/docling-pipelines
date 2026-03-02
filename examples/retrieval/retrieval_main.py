@@ -138,6 +138,7 @@ class CompleteQuerySystem:
                 f"Failed to initialise OllamaNLToSQLConverter: {exc}"
             ) from exc
 
+
     def query(
         self,
         user_question: str,

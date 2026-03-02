@@ -305,6 +305,7 @@ class FileUploadState(rx.State):
                 project_root / "tests" / "flow_invoice_entities_expanded.json"
             )
 
+
             # ----------------------------------------------------------------
             # Patch the flow JSON so the OpenSearch index_name matches the
             # DATASIFT_INDEX env var.  This ensures the index created by the
