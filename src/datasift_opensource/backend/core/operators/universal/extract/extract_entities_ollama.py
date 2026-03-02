@@ -280,6 +280,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         self.max_doc_chars: int = int(config.get("max_doc_chars", 8000))
         self.temperature: float = float(config.get("temperature", 0.0))
         self.max_workers: int = int(config.get(OperatorConstants.MAX_WORKERS, 4))
+        self.expand_entities: bool = self.config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
 
         # Schema: inline dict takes priority over file reference
         self.schema: dict[str, Any] | None = config.get("schema", None)
@@ -312,6 +313,38 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             self._resolved_schema = {"columns": {}}
 
         return self._resolved_schema
+
+    # ------------------------------------------------------------------
+    # Availability
+    # ------------------------------------------------------------------
+
+    # ------------------------------------------------------------------
+    # Entity expansion
+    # ------------------------------------------------------------------
+
+    def _expand_entities_columns(self, table: pa.Table, entities_list: list) -> pa.Table:
+        """Expand entity dict into individual columns, one per entity key."""
+        # Collect all unique keys
+        all_keys: set[str] = set()
+        for entity in entities_list:
+            if entity and isinstance(entity, dict):
+                all_keys.update(entity.keys())
+
+        if not all_keys:
+            return table
+
+        # Create one column per key
+        for key in sorted(all_keys):
+            column_values = []
+            for entity in entities_list:
+                if entity and isinstance(entity, dict) and key in entity:
+                    val = entity[key]
+                    column_values.append(str(val) if val is not None else None)
+                else:
+                    column_values.append(None)
+            table = TransformUtils.add_column(table, name=f"entity_{key}", content=column_values)
+
+        return table
 
     # ------------------------------------------------------------------
     # Availability
@@ -409,6 +442,20 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                         doc_name=doc_name,
                         reason=result["error"],
                     )
+
+        # Optionally expand entities into individual columns
+        if self.expand_entities:
+            parsed_entities_list = []
+            for json_str in entities_list:
+                if json_str is not None:
+                    try:
+                        parsed_entities_list.append(json.loads(json_str))
+                    except (json.JSONDecodeError, TypeError):
+                        parsed_entities_list.append(None)
+                else:
+                    parsed_entities_list.append(None)
+            if parsed_entities_list:
+                table = self._expand_entities_columns(table, parsed_entities_list)
 
         # Add entities column
         table = TransformUtils.add_column(table=table, name=self.output_column, content=entities_list)
@@ -521,6 +568,23 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: 4,
                     OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "output_column": {
+                    OperatorConstants.NAME: "Output Column",
+                    OperatorConstants.DESCRIPTION: "Name of the output column that stores the extracted entities JSON string.",
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: OperatorConstants.ENTITIES,
+                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.EXPAND_EXTRACTED_DATA: {
+                    OperatorConstants.NAME: "Expand Extracted Data",
+                    OperatorConstants.DESCRIPTION: (
+                        "When True, expands the extracted entities JSON into individual columns "
+                        "(one per entity key, named 'entity_{key}')."
+                    ),
+                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.DEFAULT: False,
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
                 },
             },
         }
