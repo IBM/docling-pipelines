@@ -5,7 +5,7 @@ import sqlglot
 from sqlglot import expressions as exp
 
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators import SQLFilterOperator, extract_columns
+from core.operators.universal.filter.sql_filter import SQLFilterOperator, extract_columns
 from common.util.operator_utils import validate_link_name, find_doc_count, validate_filter_criteria
 from common.util.log import get_logger
 from common.util.constants import OperatorConstants, Metrics, AttributeDataTypes, MemoryLogPhases
@@ -162,7 +162,7 @@ class BranchingOperator(AbstractOperator):
                     )
             }
             if spark_session:
-                from core.operators import SparkSQLFilterOperator
+                from core.operators.universal.filter.sql_filter import SparkSQLFilterOperator
                 config |= self._config
                 filter_operator = SparkSQLFilterOperator(config=config, spark_session=spark_session)
             else:
