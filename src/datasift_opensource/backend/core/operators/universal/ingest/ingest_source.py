@@ -2,6 +2,7 @@ import pyarrow as pa
 import json
 import importlib
 import os
+import io
 import boto3
 from typing import Any
 import hashlib
@@ -106,15 +107,16 @@ class IngestSourceOperator(AbstractOperator):
         if doc_data:
             output_table = pa.Table.from_pylist(doc_data)
         else:
-            # Create empty table with expected schema
+            # Create empty table with expected schema (matches IngestLocalOperator output)
             output_table = pa.Table.from_pydict(
-                {"text": [], "metadata": [], "source_id": [], "id": [], "name": []},
+                {"id": [], "name": [], "metadata": [], "source_id": [], "path": [], "binary_content": []},
                 schema=pa.schema([
-                    ('text', pa.string()),
+                    ('id', pa.string()),
+                    ('name', pa.string()),
                     ('metadata', pa.string()),
                     ('source_id', pa.string()),
-                    ('id', pa.string()),
-                    ('name', pa.string())
+                    ('path', pa.string()),
+                    ('binary_content', pa.binary()),
                 ])
             )
         
@@ -230,15 +232,20 @@ class IngestSourceOperator(AbstractOperator):
                 )
                 return None
             
-            # Create processed document
+            # Build base document record
+            # NOTE: modified_time is required by IncrementalUpdateUtil._prepare_table_for_save()
             processed_doc = {
                 "id": doc_id,
                 "name": source,
-                "text": doc.page_content,
+                "modified_time": modified_time,
                 "metadata": json.dumps(doc.metadata),
                 "source_id": source
             }
-            
+
+            # Download binary content so downstream ExtractDoclingOperator can process it
+            if not self.extract_content(doc=doc, source=source, processed_doc=processed_doc, metadata=metadata, idx=idx):
+                return None
+
             logger.info(f"Successfully processed document: {source}", extra=self.common_log_arguments)
             return processed_doc
             
@@ -251,6 +258,203 @@ class IngestSourceOperator(AbstractOperator):
                 reason=f"Processing error: {str(e)}"
             )
             return None
+
+    def extract_content(self, doc: Document, source: str, processed_doc: dict[str, Any],
+                        metadata: dict[str, Any], idx: int) -> bool:
+        """
+        Download and store binary content for a document so that downstream operators
+        (e.g. ExtractDoclingOperator) can process it.  Mirrors the pattern used by
+        IngestLocalOperator.extract_content().
+
+        For providers that expose a file_id / object key in the document metadata the
+        binary is fetched directly via the provider SDK.  For all other cases the
+        already-extracted page_content text is encoded to UTF-8 bytes as a fallback so
+        that the pipeline can still continue.
+
+        Args:
+            doc: LangChain Document object returned by the loader.
+            source: Source identifier (URL, path, file ID …).
+            processed_doc: Document dictionary being built; ``binary_content`` and
+                ``path`` are added in-place.
+            metadata: Operator metadata dictionary used for error tracking.
+            idx: Document index (used for error reporting only).
+
+        Returns:
+            True if binary content was successfully obtained, False otherwise.
+        """
+        try:
+            binary_content: bytes | None = None
+
+            # ------------------------------------------------------------------ #
+            # Google Drive                                                        #
+            # ------------------------------------------------------------------ #
+            if self.provider == 'google_drive':
+                file_id = doc.metadata.get("id") or doc.metadata.get("file_id")
+                if file_id:
+                    try:
+                        from google.oauth2.credentials import Credentials
+                        from googleapiclient.discovery import build
+                        from googleapiclient.http import MediaIoBaseDownload
+
+                        credentials_path = self.credentials.get('credentials_json_path')
+                        token_path = self.credentials.get(
+                            'token_path', os.path.expanduser('~/.credentials/token.json')
+                        )
+                        scopes = self.credentials.get(
+                            'scopes', ['https://www.googleapis.com/auth/drive.readonly']
+                        )
+
+                        creds = None
+                        if os.path.exists(token_path):
+                            creds = Credentials.from_authorized_user_file(token_path, scopes)
+
+                        if creds is None or not creds.valid:
+                            from google_auth_oauthlib.flow import InstalledAppFlow
+                            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, scopes)
+                            creds = flow.run_local_server(port=0)
+                            token_dir = os.path.dirname(token_path)
+                            if token_dir:
+                                os.makedirs(token_dir, exist_ok=True)
+                            with open(token_path, 'w') as token_file:
+                                token_file.write(creds.to_json())
+
+                        service = build('drive', 'v3', credentials=creds)
+
+                        # Determine MIME type to decide export vs. direct download
+                        file_meta = service.files().get(
+                            fileId=file_id, fields='mimeType,name'
+                        ).execute()
+                        mime_type = file_meta.get('mimeType', '')
+                        gdrive_file_name = file_meta.get('name', '')
+
+                        # Google Workspace documents must be exported; map to Office formats
+                        export_map = {
+                            'application/vnd.google-apps.document': (
+                                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                                '.docx'
+                            ),
+                            'application/vnd.google-apps.spreadsheet': (
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                '.xlsx'
+                            ),
+                            'application/vnd.google-apps.presentation': (
+                                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                                '.pptx'
+                            ),
+                        }
+
+                        # MIME type → file extension for non-Workspace files
+                        mime_to_ext = {
+                            'application/pdf': '.pdf',
+                            'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+                            'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+                            'application/msword': '.doc',
+                            'text/plain': '.txt',
+                            'text/markdown': '.md',
+                            'text/html': '.html',
+                            'image/png': '.png',
+                            'image/jpeg': '.jpg',
+                            'image/gif': '.gif',
+                            'image/tiff': '.tiff',
+                        }
+
+                        buf = io.BytesIO()
+                        if mime_type in export_map:
+                            export_mime, export_ext = export_map[mime_type]
+                            request = service.files().export_media(
+                                fileId=file_id, mimeType=export_mime
+                            )
+                            # Ensure the filename has the correct exported extension
+                            if gdrive_file_name and not gdrive_file_name.lower().endswith(export_ext):
+                                gdrive_file_name = gdrive_file_name + export_ext
+                        else:
+                            request = service.files().get_media(fileId=file_id)
+                            # Derive extension from MIME type if filename has none
+                            if gdrive_file_name and '.' not in gdrive_file_name:
+                                ext = mime_to_ext.get(mime_type, '')
+                                if ext:
+                                    gdrive_file_name = gdrive_file_name + ext
+
+                        downloader = MediaIoBaseDownload(buf, request)
+                        done = False
+                        while not done:
+                            _, done = downloader.next_chunk()
+                        binary_content = buf.getvalue()
+
+                        # Override the document name with the real filename so that
+                        # ExtractDoclingOperator can derive the correct temp-file extension
+                        if gdrive_file_name:
+                            processed_doc['name'] = gdrive_file_name
+
+                        logger.info(
+                            f"Downloaded {len(binary_content)} bytes from Google Drive for: {source} "
+                            f"(name={gdrive_file_name})",
+                            extra=self.common_log_arguments
+                        )
+                    except Exception as gdrive_err:
+                        logger.warning(
+                            f"Could not download binary from Google Drive for {source}: {gdrive_err}. "
+                            "Falling back to page_content text.",
+                            extra=self.common_log_arguments
+                        )
+
+            # ------------------------------------------------------------------ #
+            # Amazon S3 / IBM COS                                                 #
+            # ------------------------------------------------------------------ #
+            elif self.provider in ('s3', 'ibm_cos'):
+                bucket = self.connection_params.get('bucket')
+                # The loader sets source to the S3 key
+                key = doc.metadata.get("source", source)
+                try:
+                    client_config = {
+                        'aws_access_key_id': self.credentials.get('access_key'),
+                        'aws_secret_access_key': self.credentials.get('secret_key'),
+                    }
+                    if self.provider == 'ibm_cos':
+                        client_config['endpoint_url'] = self.connection_params.get('endpoint_url')
+                    s3_client = boto3.client('s3', **client_config)
+                    response = s3_client.get_object(Bucket=bucket, Key=key)
+                    s3_bytes: bytes = response['Body'].read()
+                    logger.info(
+                        f"Downloaded {len(s3_bytes)} bytes from S3/COS for: {source}",
+                        extra=self.common_log_arguments
+                    )
+                    binary_content = s3_bytes
+                except Exception as s3_err:
+                    logger.warning(
+                        f"Could not download binary from S3/COS for {source}: {s3_err}. "
+                        "Falling back to page_content text.",
+                        extra=self.common_log_arguments
+                    )
+
+            # ------------------------------------------------------------------ #
+            # Fallback: encode page_content as UTF-8 bytes                        #
+            # ------------------------------------------------------------------ #
+            if binary_content is None:
+                logger.info(
+                    f"No provider-specific download available for {source}; "
+                    "using page_content as binary content.",
+                    extra=self.common_log_arguments
+                )
+                binary_content = (doc.page_content or "").encode("utf-8")
+
+            processed_doc['binary_content'] = binary_content
+            processed_doc['path'] = source
+            return True
+
+        except Exception as exc:
+            logger.error(
+                f"Error extracting content for document {idx} ({source}): {exc}",
+                extra=self.common_log_arguments
+            )
+            self.record_failed_document(
+                metadata=metadata,
+                doc_id=str(idx),
+                doc_name=source,
+                reason=f"Could not extract binary content: {exc}"
+            )
+            return False
 
     def _get_s3_file_keys(self):
         """
@@ -386,11 +590,18 @@ class IngestSourceOperator(AbstractOperator):
         Returns operator metadata for the LangChain loader ingest mode.
         """
         metadata_features = {
-            "text": {
-                OperatorConstants.NAME: "Document Text",
-                OperatorConstants.DESCRIPTION: "The extracted text content from the document",
+            "path": {
+                OperatorConstants.NAME: "Source Path",
+                OperatorConstants.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
                 OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING
+            },
+            "binary_content": {
+                OperatorConstants.NAME: "Binary Content",
+                OperatorConstants.DESCRIPTION: "The raw binary content of the document for downstream extraction operators",
+                OperatorConstants.AVAILABLE_FOR_FILTER: False,
+                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.TYPE: OperatorConstants.TYPE_STRING
             },
             "metadata": {
