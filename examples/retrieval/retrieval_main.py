@@ -276,6 +276,9 @@ SQL: SELECT * FROM {self.index_name} WHERE content LIKE '%AI%' ORDER BY views DE
             List of search results
         """
         # Hybrid search combines multiple search strategies
+        # NOTE: datasift feature_mappings renames "content" -> "text" at index time,
+        # so the actual field name in OpenSearch is "text" (confirmed via _mapping API).
+        # Index only contains: pk, text, vector_embeddings
         search_body = {
             "size": size,
             "query": {
@@ -285,7 +288,7 @@ SQL: SELECT * FROM {self.index_name} WHERE content LIKE '%AI%' ORDER BY views DE
                         {
                             "multi_match": {
                                 "query": query,
-                                "fields": ["title^3", "content", "category^2"],
+                                "fields": ["text"],
                                 "type": "best_fields",
                                 "fuzziness": "AUTO"
                             }
@@ -294,7 +297,7 @@ SQL: SELECT * FROM {self.index_name} WHERE content LIKE '%AI%' ORDER BY views DE
                         {
                             "multi_match": {
                                 "query": query,
-                                "fields": ["title", "content"],
+                                "fields": ["text"],
                                 "type": "phrase",
                                 "boost": 2
                             }
@@ -305,8 +308,7 @@ SQL: SELECT * FROM {self.index_name} WHERE content LIKE '%AI%' ORDER BY views DE
             },
             "highlight": {
                 "fields": {
-                    "content": {},
-                    "title": {}
+                    "text": {}
                 }
             }
         }
