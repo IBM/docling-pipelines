@@ -328,7 +328,7 @@ class DoclingChunkerOperator(AbstractOperator):
         
         # Add hash column using DocIdHashOperator
         logger.info("Generating hash IDs for chunks", extra=self.common_log_arguments)
-        hash_operator = DocIdHashOperator({})
+        hash_operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: self.doc_column})
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
         

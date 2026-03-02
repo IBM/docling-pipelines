@@ -10,12 +10,13 @@ from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # Try to import DocIDTransform from dpk_doc_id
 try:
-    from dpk_doc_id import DocIDTransform, hash_column_name_key
+    from dpk_doc_id import DocIDTransform, hash_column_name_key, doc_column_name_key
     HAS_DOC_ID_TRANSFORM = True
 except ImportError:
     HAS_DOC_ID_TRANSFORM = False
     DocIDTransform = None
-    hash_column_name_key = "hash_column_name"
+    hash_column_name_key = "hash_column"
+    doc_column_name_key = "doc_column"
 
 # Try to import TransformUtils from data-prep-toolkit-transforms
 try:
@@ -58,8 +59,9 @@ class DocIdHashOperator(AbstractOperator):
                 - doc_column: Which column contains the text content (default: "content")
                 - doc_id_hash_column: Name of the output hash column (default: "doc_id_hash")
         """
-        # Set the hash column name in config for DocIDTransform
+        # Set the hash column name and doc column name in config for DocIDTransform
         config[hash_column_name_key] = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        config[doc_column_name_key] = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
         super().__init__(config)
         self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
         self.hash_column = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
