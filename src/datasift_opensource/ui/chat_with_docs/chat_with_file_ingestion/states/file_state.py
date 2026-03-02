@@ -271,7 +271,7 @@ class FileUploadState(rx.State):
             logger.info(f"Project root: {project_root}")
             backend_python = project_root / "src" / "datasift_opensource" / "backend" / ".venv" / "bin" / "python"
             orchestrator_script = project_root / "src" / "datasift_opensource" / "backend" / "core" / "orchestrator" / "cmdline" / "cmd_line_orchestrator.py"
-            flow_file = project_root / "tests" / "flow_local_with_ui.json"
+            flow_file = project_root / "tests" / "flow_invoice_entities_expanded_ui.json"
 
             logger.info(f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file}")
 

@@ -43,7 +43,7 @@ def main():
 
         result = system.query(
             user_question=args.query,
-            use_sql=False,
+            use_sql=True,
             use_hybrid=True,
         )
 

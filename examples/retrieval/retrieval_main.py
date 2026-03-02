@@ -76,31 +76,111 @@ class CompleteQuerySystem:
             temperature=0.3
         )
         
-        # Initialize NL to SQL converter
+        # Initialize NL to SQL converter — prompt is built dynamically from
+        # the live OpenSearch mapping so it always reflects the actual schema.
         self.nl_to_sql_client = OllamaClient(
             model=ollama_model,
             mode=InteractionMode.CHAT,
             system_prompt=self._get_nl_to_sql_prompt()
         )
-    
+
+    # ------------------------------------------------------------------
+    # OpenSearch mapping helpers
+    # ------------------------------------------------------------------
+
+    # OpenSearch type -> SQL type label used in the prompt
+    _OS_TYPE_TO_SQL: Dict[str, str] = {
+        "keyword": "VARCHAR",
+        "text": "TEXT",
+        "integer": "INTEGER",
+        "long": "BIGINT",
+        "float": "FLOAT",
+        "double": "DOUBLE",
+        "boolean": "BOOLEAN",
+        "date": "TIMESTAMP",
+        "nested": "NESTED",
+        "object": "OBJECT",
+    }
+
+    # Fields that are not queryable via OpenSearch SQL (skip them in prompt)
+    _SQL_SKIP_TYPES = {"knn_vector", "binary", "nested", "object"}
+
+    def _fetch_index_schema(self) -> Dict[str, str]:
+        """
+        Query the OpenSearch _mapping API for self.index_name and return a
+        flat dict of {field_name: sql_type_label}.
+
+        Nested objects are flattened with dot notation.
+        knn_vector / binary fields are excluded (not SQL-queryable).
+        Falls back to a minimal default schema on any error.
+        """
+        try:
+            mapping = self.opensearch_client.indices.get_mapping(index=self.index_name)
+            # mapping shape: {index_name: {"mappings": {"properties": {...}}}}
+            index_key = list(mapping.keys())[0]
+            properties: Dict[str, Any] = (
+                mapping[index_key]
+                .get("mappings", {})
+                .get("properties", {})
+            )
+
+            fields: Dict[str, str] = {}
+
+            def _flatten(props: Dict[str, Any], prefix: str = "") -> None:
+                for field_name, field_def in props.items():
+                    full_name = f"{prefix}{field_name}" if not prefix else f"{prefix}.{field_name}"
+                    os_type = field_def.get("type", "object")
+                    if os_type in self._SQL_SKIP_TYPES:
+                        continue
+                    sql_type = self._OS_TYPE_TO_SQL.get(os_type, "VARCHAR")
+                    fields[full_name] = sql_type
+                    # Recurse into nested object properties
+                    sub_props = field_def.get("properties", {})
+                    if sub_props:
+                        _flatten(sub_props, full_name)
+
+            _flatten(properties)
+            print(f"[retrieval_main] Fetched schema for '{self.index_name}': {fields}", flush=True)
+            return fields
+
+        except Exception as e:
+            print(f"[retrieval_main] Warning: could not fetch mapping for '{self.index_name}': {e}. "
+                  "Using fallback schema.", flush=True)
+            # Minimal fallback — always valid for datasift_documents
+            return {"pk": "VARCHAR", "text": "TEXT"}
+
     def _get_nl_to_sql_prompt(self) -> str:
-        """Get system prompt for NL to SQL conversion"""
+        """Build the NL-to-SQL system prompt dynamically from the live index mapping."""
+        schema = self._fetch_index_schema()
+
+        # Build the field list string for the prompt
+        field_lines = "\n".join(
+            f"- {name:<30} {sql_type}"
+            for name, sql_type in schema.items()
+        )
+
+        # Pick a sensible example field for the WHERE clause
+        text_field = "text" if "text" in schema else next(iter(schema), "text")
+
         return f"""You are a SQL query generator for OpenSearch.
 Convert natural language questions into valid SQL queries for OpenSearch.
 
-Index schema for '{self.index_name}':
-- Common fields: title, content, category, author, date, views, rating, status
+Index name: '{self.index_name}'
+
+Available fields in this index (fetched from live mapping):
+{field_lines}
 
 Rules:
-1. Generate ONLY the SQL query, no explanations
-2. Use proper SQL syntax compatible with OpenSearch
-3. Include appropriate WHERE, ORDER BY, LIMIT clauses
-4. Use the index name '{self.index_name}' in FROM clause
-5. Keep queries simple and efficient
+1. Generate ONLY the SQL query, no explanations, no markdown
+2. Use proper SQL syntax compatible with OpenSearch SQL
+3. Always use '{self.index_name}' in the FROM clause
+4. Use LIKE for text search on TEXT fields
+5. Do NOT reference fields that are not listed above
+6. Keep queries simple — prefer SELECT * with a WHERE and LIMIT
 
 Example:
-Question: "Show me top 10 documents about AI"
-SQL: SELECT * FROM {self.index_name} WHERE content LIKE '%AI%' ORDER BY views DESC LIMIT 10"""
+Question: "Show me documents about machine learning"
+SQL: SELECT * FROM {self.index_name} WHERE {text_field} LIKE '%machine learning%' LIMIT 10"""
     
     def query(
         self,

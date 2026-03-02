@@ -43,7 +43,7 @@ async def generate_response(query: str) -> dict[str, str | list[str]]:
         str(backend_python),
         str(query_runner),
         "--query", query,
-        "--index", "datasift_documents",
+        "--index", "invoices_entities_expanded_test",
         "--model", "granite4",
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
@@ -53,11 +53,15 @@ async def generate_response(query: str) -> dict[str, str | list[str]]:
     stdout_bytes, stderr_bytes = await proc.communicate()
 
     if stderr_bytes:
-        logger.warning(f"[query_runner stderr] {stderr_bytes.decode().strip()}")
+        logger.warning(f"[query_runner stderr]\n{stderr_bytes.decode().strip()}")
 
     if proc.returncode == 0 and stdout_bytes:
-        # The last non-empty line is the JSON output from query_runner.py
+        # Split all stdout lines; log non-JSON lines so print() calls from
+        # retrieval_main.py appear in the Reflex terminal, then take the last
+        # line as the JSON result from query_runner.py.
         lines = [line.strip() for line in stdout_bytes.decode().splitlines() if line.strip()]
+        for line in lines[:-1]:
+            logger.info(f"[query_runner stdout] {line}")
         json_line = lines[-1] if lines else "{}"
         result = json.loads(json_line)
         return {
