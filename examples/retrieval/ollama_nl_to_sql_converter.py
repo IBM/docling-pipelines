@@ -20,11 +20,51 @@ _SCHEMAS_FILE = os.path.join(os.path.dirname(__file__), "document_schemas.json")
 class OllamaNLToSQLConverter:
     """Converts natural language to SQL using local Ollama service."""
 
+    @classmethod
+    def infer_schema_from_index(cls, index_name: str) -> str:
+        """Infer the best-matching schema table name from an OpenSearch index name.
+
+        Loads all known schema table names from document_schemas.json and returns
+        the first one whose name appears as a substring of *index_name*.  Falls back
+        to ``"purchase_orders"`` when no match is found.
+
+        Examples::
+
+            infer_schema_from_index("invoices_entities_test")  # -> "invoices"
+            infer_schema_from_index("bank_statements_v2")      # -> "bank_statements"
+            infer_schema_from_index("my_custom_index")         # -> "purchase_orders"
+
+        Args:
+            index_name: OpenSearch index name to inspect.
+
+        Returns:
+            Schema table name string.
+        """
+        _DEFAULT_SCHEMA = "purchase_orders"
+        if not index_name:
+            return _DEFAULT_SCHEMA
+
+        try:
+            with open(_SCHEMAS_FILE, "r", encoding="utf-8") as f:
+                all_schemas = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return _DEFAULT_SCHEMA
+
+        index_lower = index_name.lower()
+        for schema in all_schemas.get("schemas", []):
+            table = schema.get("table", "")
+            if table and table in index_lower:
+                return table
+
+        return _DEFAULT_SCHEMA
+
     def __init__(
         self,
         ollama_host: str = "http://localhost:11434",
         model: str = "granite4",
         temperature: float = 0.1,
+        dataclass: str = "purchase_orders",
+        index_name: Optional[str] = None,
     ) -> None:
         """
         Initialize Ollama converter.
@@ -33,10 +73,18 @@ class OllamaNLToSQLConverter:
             ollama_host: Ollama service URL (default: http://localhost:11434)
             model: Model name (e.g., 'llama2', 'mistral', 'codellama', 'mixtral')
             temperature: Temperature for generation (0.0-1.0, lower is more deterministic)
+            dataclass: Schema table name used for column definitions (e.g. 'invoices',
+                       'purchase_orders', 'bank_statements').  Use
+                       ``infer_schema_from_index(index_name)`` to derive this
+                       automatically from an OpenSearch index name.
+            index_name: The actual OpenSearch index name to use in the SQL ``FROM``
+                        clause.  When ``None`` the schema table name (*dataclass*) is
+                        used as the table name, which is correct when the index name
+                        matches the schema name exactly.
 
         Raises:
             FileNotFoundError: If document_schemas.json cannot be found.
-            ValueError: If the default 'purchase_orders' schema is missing.
+            ValueError: If the requested schema is missing from document_schemas.json.
         """
         if not model or not model.strip():
             raise ValueError("model name must not be empty")
@@ -46,8 +94,13 @@ class OllamaNLToSQLConverter:
         self.temperature = temperature
         self.api_endpoint = f"{self.ollama_host}/api/generate"
 
-        # Load purchase order schema for context — fail fast if schemas file is missing
-        self.schema = self.get_schema(dataclass="purchase_orders")
+        # Load the schema for the requested data class — fail fast if missing
+        self.schema = self.get_schema(dataclass=dataclass)
+
+        # The SQL FROM table name is the real index name (may differ from schema name)
+        self.index_name: str = (
+            index_name.strip() if index_name else self.schema["table"]
+        )
 
     def get_schema(self, dataclass: str) -> Dict[str, Any]:
         """Return the schema for the given data class from document_schemas.json.
@@ -143,14 +196,13 @@ DATABASE SCHEMA:
 {schema_str}
 
 IMPORTANT RULES:
-1. Table name is '{self.schema.get('table')}'
-2. Use nested field notation with dots (e.g., supplier.name, shipping_address.city)
+1. Table name in the FROM clause MUST be '{self.index_name}' (the actual OpenSearch index name)
+2. Use nested field notation with dots (e.g., vendor.name, customer.address.city)
 3. OpenSearch SQL supports standard SQL syntax
 4. Use appropriate aggregations: COUNT, SUM, AVG, MAX, MIN
 5. Always include ORDER BY for better results
 6. For date comparisons, use DATE_SUB(NOW(), INTERVAL X DAY) or specific dates
-7. Status values are: pending, approved, delivered, cancelled
-8. Return ONLY the SQL query without any explanation or markdown formatting
+7. Return ONLY the SQL query without any explanation or markdown formatting
 
 NATURAL LANGUAGE QUESTION:
 {natural_language_query}

@@ -107,10 +107,16 @@ class LogPollerState(rx.State):
                     done = False
                     if _LOG_FILE.exists():
                         try:
-                            text = _LOG_FILE.read_text(encoding="utf-8", errors="replace")
+                            text = _LOG_FILE.read_text(
+                                encoding="utf-8", errors="replace"
+                            )
                             all_lines = text.splitlines()
                             # Filter out the sentinel line from display
-                            visible = [l for l in all_lines if l.strip() and "PIPELINE_DONE" not in l]
+                            visible = [
+                                l
+                                for l in all_lines
+                                if l.strip() and "PIPELINE_DONE" not in l
+                            ]
                             self.log_lines = visible
                             # Stop polling when sentinel appears
                             done = any("PIPELINE_DONE" in l for l in all_lines)
@@ -236,11 +242,11 @@ class FileUploadState(rx.State):
                 logging.info(f"Deleted file from disk: {file_path}")
         except Exception as e:
             logging.error(f"Error deleting file {name}: {e}")
-        
+
         # Remove from state
         self.files = [f for f in self.files if f["name"] != name]
         self.processed_docs = [d for d in self.processed_docs if d["filename"] != name]
-        
+
         # Reset processing status when files are removed
         self.processing_status = ""
 
@@ -269,20 +275,42 @@ class FileUploadState(rx.State):
             # Resolve paths relative to the project root
             project_root = Path(__file__).parents[6]
             logger.info(f"Project root: {project_root}")
-            backend_python = project_root / "src" / "datasift_opensource" / "backend" / ".venv" / "bin" / "python"
-            orchestrator_script = project_root / "src" / "datasift_opensource" / "backend" / "core" / "orchestrator" / "cmdline" / "cmd_line_orchestrator.py"
-            flow_file = project_root / "tests" / "flow_local_with_ui.json"
+            backend_python = (
+                project_root
+                / "src"
+                / "datasift_opensource"
+                / "backend"
+                / ".venv"
+                / "bin"
+                / "python"
+            )
+            orchestrator_script = (
+                project_root
+                / "src"
+                / "datasift_opensource"
+                / "backend"
+                / "core"
+                / "orchestrator"
+                / "cmdline"
+                / "cmd_line_orchestrator.py"
+            )
+            flow_file = project_root / "tests" / "flow_invoice_entities.json"
 
-            logger.info(f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file}")
+            logger.info(
+                f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file}"
+            )
 
             # Stream subprocess output: write to log file AND echo to terminal via logger
             proc = await asyncio.create_subprocess_exec(
                 str(backend_python),
                 str(orchestrator_script),
-                "--flow-file", str(flow_file),
+                "--flow-file",
+                str(flow_file),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,  # merge stderr into stdout
-                cwd=str(project_root),  # run from project root so flow file path resolves correctly
+                cwd=str(
+                    project_root
+                ),  # run from project root so flow file path resolves correctly
             )
 
             # Collect all output lines so we can scan for errors after completion
@@ -300,7 +328,13 @@ class FileUploadState(rx.State):
 
             # Detect errors even when exit code is 0 — the orchestrator logs errors
             # but may still exit cleanly (e.g. Ollama connection failure in embeddings).
-            _ERROR_PATTERNS = ("ERROR", "Failed to connect", "failed to generate", "Exception", "Traceback")
+            _ERROR_PATTERNS = (
+                "ERROR",
+                "Failed to connect",
+                "failed to generate",
+                "Exception",
+                "Traceback",
+            )
             has_errors_in_log = any(
                 any(pat.lower() in line.lower() for pat in _ERROR_PATTERNS)
                 for line in output_lines
@@ -311,13 +345,19 @@ class FileUploadState(rx.State):
                 async with self:
                     self.processing_status = f"Pipeline failed (exit code {proc.returncode}). Check logs for details."
                     self.processing_failed = True
-                    self.pipeline_ran = True  # allow chat — partial results may be in OpenSearch
+                    self.pipeline_ran = (
+                        True  # allow chat — partial results may be in OpenSearch
+                    )
             elif has_errors_in_log:
                 logger.warning("Pipeline exited 0 but errors were detected in output")
                 async with self:
-                    self.processing_status = "Pipeline completed with errors. Check logs for details."
+                    self.processing_status = (
+                        "Pipeline completed with errors. Check logs for details."
+                    )
                     self.processing_failed = True
-                    self.pipeline_ran = True  # allow chat — partial results may be in OpenSearch
+                    self.pipeline_ran = (
+                        True  # allow chat — partial results may be in OpenSearch
+                    )
             else:
                 logger.info("Pipeline completed successfully")
                 async with self:

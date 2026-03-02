@@ -58,6 +58,10 @@ class QueryConfig:
     opensearch_password: str = "MyStrongPass123!"
     opensearch_use_ssl: bool = False
     ollama_host: str = "http://localhost:11434"
+    # Schema table name for SQL generation.  When None (default) the schema is
+    # inferred automatically from *index* via
+    # OllamaNLToSQLConverter.infer_schema_from_index().
+    schema: Optional[str] = None
     # Maximum number of source snippets to return
     max_sources: int = 3
     # Characters per source snippet
@@ -92,7 +96,7 @@ def _get_system(cfg: QueryConfig) -> CompleteQuerySystem:
     """Return a cached CompleteQuerySystem for the given config key."""
     cache_key = (
         f"{cfg.opensearch_host}:{cfg.opensearch_port}:"
-        f"{cfg.index}:{cfg.model}:{cfg.ollama_host}"
+        f"{cfg.index}:{cfg.model}:{cfg.ollama_host}:{cfg.schema or ''}"
     )
     if cache_key not in _system_cache:
         logger.debug("Initialising CompleteQuerySystem (cache key: %s)", cache_key)
@@ -105,6 +109,7 @@ def _get_system(cfg: QueryConfig) -> CompleteQuerySystem:
             ollama_host=cfg.ollama_host,
             ollama_model=cfg.model,
             index_name=cfg.index,
+            schema_name=cfg.schema,  # None → auto-inferred from index_name
         )
     return _system_cache[cache_key]
 
@@ -155,7 +160,7 @@ def run_query(cfg: QueryConfig) -> QueryResult:
 
     # --- Execute query ---------------------------------------------------------
     try:
-        raw = system.query(user_question=cfg.query, use_sql=False, use_hybrid=True)
+        raw = system.query(user_question=cfg.query, use_sql=True, use_hybrid=True)
     except Exception as exc:  # noqa: BLE001
         msg = f"Query execution failed: {exc}"
         logger.exception(msg)
@@ -212,6 +217,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ollama-host", default="http://localhost:11434", help="Ollama host URL"
     )
     p.add_argument(
+        "--schema",
+        default=None,
+        help=(
+            "Schema table name for SQL generation (e.g. 'invoices', 'purchase_orders'). "
+            "Inferred automatically from --index when omitted."
+        ),
+    )
+    p.add_argument(
         "--max-sources", type=int, default=3, help="Max source snippets to return"
     )
     return p
@@ -235,6 +248,7 @@ def main() -> None:
         opensearch_username=args.username,
         opensearch_password=args.password,
         ollama_host=args.ollama_host,
+        schema=args.schema,
         max_sources=args.max_sources,
     )
 

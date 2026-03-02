@@ -42,6 +42,7 @@ class CompleteQuerySystem:
         ollama_host: str = "http://localhost:11434",
         ollama_model: str = "llama3",
         index_name: str = "documents",
+        schema_name: Optional[str] = None,
     ):
         """
         Initialize the complete query system.
@@ -55,6 +56,10 @@ class CompleteQuerySystem:
             ollama_host: Ollama service URL (default: http://localhost:11434)
             ollama_model: Ollama model to use
             index_name: Default index name for queries
+            schema_name: Schema table name to use for SQL generation (e.g. 'invoices',
+                         'purchase_orders').  When omitted the schema is inferred
+                         automatically from *index_name* via
+                         ``OllamaNLToSQLConverter.infer_schema_from_index()``.
 
         Raises:
             ValueError: If index_name or ollama_model is empty.
@@ -90,11 +95,24 @@ class CompleteQuerySystem:
             ollama_model=self.ollama_model, temperature=0.3
         )
 
+        # Resolve schema: use explicit override, or infer from index name.
+        resolved_schema = (
+            schema_name.strip()
+            if schema_name and schema_name.strip()
+            else OllamaNLToSQLConverter.infer_schema_from_index(self.index_name)
+        )
+        logger.debug(
+            "Using schema '%s' for index '%s'", resolved_schema, self.index_name
+        )
+
         # Initialize NL to SQL converter (Ollama-backed)
         # Propagate FileNotFoundError / ValueError from schema loading immediately.
         try:
             self.nl_to_sql_converter = OllamaNLToSQLConverter(
-                ollama_host=ollama_host, model=self.ollama_model
+                ollama_host=ollama_host,
+                model=self.ollama_model,
+                dataclass=resolved_schema,
+                index_name=self.index_name,
             )
         except (FileNotFoundError, ValueError) as exc:
             raise RuntimeError(

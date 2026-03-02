@@ -1,6 +1,7 @@
 import asyncio
+import json
 import logging
-import sys
+import subprocess
 import os
 from pathlib import Path
 from typing import Any, TypedDict
@@ -11,38 +12,17 @@ from .file_state import FileUploadState
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Bootstrap the retrieval package into sys.path once at import time so that
-# `from query_runner import run_query, QueryConfig` works regardless of the
-# working directory the Reflex server was started from.
-# ---------------------------------------------------------------------------
 _PROJECT_ROOT = Path(__file__).parents[6]
-_RETRIEVAL_DIR = _PROJECT_ROOT / "examples" / "retrieval"
-_SRC_DIR = _PROJECT_ROOT / "src"
-
-for _p in (str(_RETRIEVAL_DIR), str(_SRC_DIR)):
-    if _p not in sys.path:
-        sys.path.insert(0, _p)
-
-# Assign to module-level names unconditionally so they are always defined.
-# The real implementations are substituted on successful import; the None
-# sentinels are checked at call time in _run_query_sync().
-_run_query: Any = None
-_QueryConfig: Any = None
-_QUERY_RUNNER_AVAILABLE = False
-
-try:
-    from query_runner import QueryConfig as _QC, run_query as _rq  # type: ignore[import]
-
-    _QueryConfig = _QC
-    _run_query = _rq
-    _QUERY_RUNNER_AVAILABLE = True
-except ImportError as _import_err:
-    logger.error(
-        "Could not import query_runner: %s. "
-        "Ensure examples/retrieval/ is present and dependencies are installed.",
-        _import_err,
-    )
+_BACKEND_PYTHON = (
+    _PROJECT_ROOT
+    / "src"
+    / "datasift_opensource"
+    / "backend"
+    / ".venv"
+    / "bin"
+    / "python"
+)
+_QUERY_RUNNER = _PROJECT_ROOT / "examples" / "retrieval" / "query_runner.py"
 
 
 # ---------------------------------------------------------------------------
@@ -57,44 +37,77 @@ class Message(TypedDict):
 
 
 # ---------------------------------------------------------------------------
-# Query execution — runs in a thread pool to avoid blocking the event loop
+# Query execution — runs query_runner.py as a subprocess using the backend
+# Python interpreter (which has opensearch-py installed).  The UI venv never
+# needs opensearch-py or any other retrieval dependency.
 # ---------------------------------------------------------------------------
 
 
 def _run_query_sync(query: str) -> dict[str, Any]:
     """
-    Synchronous wrapper around run_query() — called via asyncio.to_thread().
+    Execute query_runner.py in the backend venv as a subprocess.
 
-    Returns a plain dict so it can cross the thread boundary safely.
+    query_runner.py prints a single JSON line to stdout and exits.
+    This function captures that JSON and returns it as a dict.
     Never raises — all errors are returned in the dict's 'error' key.
     """
-    if not _QUERY_RUNNER_AVAILABLE or _run_query is None or _QueryConfig is None:
-        return {
-            "content": (
-                "Query runner is not available. "
-                "Check that examples/retrieval/ dependencies are installed."
-            ),
-            "sources": [],
-            "error": "import_error",
-        }
+    cmd = [
+        str(_BACKEND_PYTHON),
+        str(_QUERY_RUNNER),
+        "--query",
+        query,
+        "--index",
+        os.environ.get("DATASIFT_INDEX", "datasift_documents"),
+        "--model",
+        os.environ.get("DATASIFT_MODEL", "granite4"),
+        "--host",
+        os.environ.get("OPENSEARCH_HOST", "localhost"),
+        "--port",
+        os.environ.get("OPENSEARCH_PORT", "9200"),
+        "--username",
+        os.environ.get("OPENSEARCH_USERNAME", "admin"),
+        "--password",
+        os.environ.get("OPENSEARCH_PASSWORD", "MyStrongPass123!"),
+        "--ollama-host",
+        os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
+    ]
 
-    cfg = _QueryConfig(
-        query=query,
-        index=os.environ.get("DATASIFT_INDEX", "datasift_documents"),
-        model=os.environ.get("DATASIFT_MODEL", "granite4"),
-        opensearch_host=os.environ.get("OPENSEARCH_HOST", "localhost"),
-        opensearch_port=int(os.environ.get("OPENSEARCH_PORT", "9200")),
-        opensearch_username=os.environ.get("OPENSEARCH_USERNAME", "admin"),
-        opensearch_password=os.environ.get("OPENSEARCH_PASSWORD", "MyStrongPass123!"),
-        ollama_host=os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
-    )
+    try:
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except FileNotFoundError:
+        msg = f"Backend Python not found at {_BACKEND_PYTHON}. Ensure the backend venv is set up."
+        logger.error(msg)
+        return {"content": msg, "sources": [], "error": "backend_not_found"}
+    except subprocess.TimeoutExpired:
+        msg = "Query timed out after 120 seconds."
+        logger.error(msg)
+        return {"content": msg, "sources": [], "error": "timeout"}
+    except Exception as exc:  # noqa: BLE001
+        msg = f"Unexpected error running query subprocess: {exc}"
+        logger.exception(msg)
+        return {"content": msg, "sources": [], "error": str(exc)}
 
-    result = _run_query(cfg)
+    # Log stderr (query_runner logs at WARNING level to stderr)
+    if proc.stderr.strip():
+        logger.debug("[query_runner stderr] %s", proc.stderr.strip())
 
-    if result.error:
-        logger.error("run_query returned error: %s", result.error)
+    stdout = proc.stdout.strip()
+    if not stdout:
+        msg = f"query_runner produced no output (exit code {proc.returncode}). stderr: {proc.stderr.strip()}"
+        logger.error(msg)
+        return {"content": msg, "sources": [], "error": "no_output"}
 
-    return result.to_dict()
+    try:
+        return json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        msg = f"Failed to parse query_runner output as JSON: {exc}. Output: {stdout[:200]}"
+        logger.error(msg)
+        return {"content": msg, "sources": [], "error": "json_parse_error"}
 
 
 # ---------------------------------------------------------------------------
