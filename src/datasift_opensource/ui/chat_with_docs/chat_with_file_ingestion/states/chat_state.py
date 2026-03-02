@@ -1,12 +1,53 @@
-import reflex as rx
-from typing import TypedDict
 import asyncio
-import json
 import logging
+import sys
+import os
 from pathlib import Path
+from typing import Any, TypedDict
+
+import reflex as rx  # type: ignore[import]
+
 from .file_state import FileUploadState
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Bootstrap the retrieval package into sys.path once at import time so that
+# `from query_runner import run_query, QueryConfig` works regardless of the
+# working directory the Reflex server was started from.
+# ---------------------------------------------------------------------------
+_PROJECT_ROOT = Path(__file__).parents[6]
+_RETRIEVAL_DIR = _PROJECT_ROOT / "examples" / "retrieval"
+_SRC_DIR = _PROJECT_ROOT / "src"
+
+for _p in (str(_RETRIEVAL_DIR), str(_SRC_DIR)):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
+# Assign to module-level names unconditionally so they are always defined.
+# The real implementations are substituted on successful import; the None
+# sentinels are checked at call time in _run_query_sync().
+_run_query: Any = None
+_QueryConfig: Any = None
+_QUERY_RUNNER_AVAILABLE = False
+
+try:
+    from query_runner import QueryConfig as _QC, run_query as _rq  # type: ignore[import]
+
+    _QueryConfig = _QC
+    _run_query = _rq
+    _QUERY_RUNNER_AVAILABLE = True
+except ImportError as _import_err:
+    logger.error(
+        "Could not import query_runner: %s. "
+        "Ensure examples/retrieval/ is present and dependencies are installed.",
+        _import_err,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Types
+# ---------------------------------------------------------------------------
 
 
 class Message(TypedDict):
@@ -15,65 +56,50 @@ class Message(TypedDict):
     sources: list[str]
 
 
-async def generate_response(query: str) -> dict[str, str | list[str]]:
+# ---------------------------------------------------------------------------
+# Query execution — runs in a thread pool to avoid blocking the event loop
+# ---------------------------------------------------------------------------
+
+
+def _run_query_sync(query: str) -> dict[str, Any]:
     """
-    Invoke query_runner.py via the backend's .venv Python as a subprocess.
-    query_runner.py uses CompleteQuerySystem from retrieval_main.py to:
-      1. Execute hybrid search against OpenSearch (index: datasift_documents)
-      2. Generate an answer using Ollama (model: llama3)
+    Synchronous wrapper around run_query() — called via asyncio.to_thread().
 
-    Returns:
-        dict with keys "content" (str) and "sources" (list[str])
+    Returns a plain dict so it can cross the thread boundary safely.
+    Never raises — all errors are returned in the dict's 'error' key.
     """
-    project_root = Path(__file__).parents[6]
-    backend_python = (
-        project_root
-        / "src"
-        / "datasift_opensource"
-        / "backend"
-        / ".venv"
-        / "bin"
-        / "python"
-    )
-    query_runner = project_root / "examples" / "retrieval" / "query_runner.py"
-
-    logger.info(f"Running query via backend subprocess: {query_runner}")
-
-    proc = await asyncio.create_subprocess_exec(
-        str(backend_python),
-        str(query_runner),
-        "--query", query,
-        "--index", "datasift_documents",
-        "--model", "granite4",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        cwd=str(project_root / "examples" / "retrieval"),
-    )
-
-    stdout_bytes, stderr_bytes = await proc.communicate()
-
-    if stderr_bytes:
-        logger.warning(f"[query_runner stderr] {stderr_bytes.decode().strip()}")
-
-    if proc.returncode == 0 and stdout_bytes:
-        # The last non-empty line is the JSON output from query_runner.py
-        lines = [line.strip() for line in stdout_bytes.decode().splitlines() if line.strip()]
-        json_line = lines[-1] if lines else "{}"
-        result = json.loads(json_line)
-        return {
-            "content": str(result.get("content", "No answer returned.")),
-            "sources": list(result.get("sources", [])),
-        }
-    else:
-        error_text = stderr_bytes.decode().strip() if stderr_bytes else "Unknown error"
-        logger.error(f"query_runner failed (code {proc.returncode}): {error_text}")
+    if not _QUERY_RUNNER_AVAILABLE or _run_query is None or _QueryConfig is None:
         return {
             "content": (
-                "Error querying documents. Please ensure OpenSearch and Ollama are running.\n\n"
-                f"Details: {error_text[:300]}"
+                "Query runner is not available. "
+                "Check that examples/retrieval/ dependencies are installed."
             ),
             "sources": [],
+            "error": "import_error",
         }
+
+    cfg = _QueryConfig(
+        query=query,
+        index=os.environ.get("DATASIFT_INDEX", "datasift_documents"),
+        model=os.environ.get("DATASIFT_MODEL", "granite4"),
+        opensearch_host=os.environ.get("OPENSEARCH_HOST", "localhost"),
+        opensearch_port=int(os.environ.get("OPENSEARCH_PORT", "9200")),
+        opensearch_username=os.environ.get("OPENSEARCH_USERNAME", "admin"),
+        opensearch_password=os.environ.get("OPENSEARCH_PASSWORD", "MyStrongPass123!"),
+        ollama_host=os.environ.get("OLLAMA_HOST", "http://localhost:11434"),
+    )
+
+    result = _run_query(cfg)
+
+    if result.error:
+        logger.error("run_query returned error: %s", result.error)
+
+    return result.to_dict()
+
+
+# ---------------------------------------------------------------------------
+# Reflex state
+# ---------------------------------------------------------------------------
 
 
 class ChatState(rx.State):
@@ -106,7 +132,7 @@ class ChatState(rx.State):
     @staticmethod
     def _scroll_js() -> str:
         """
-        Uses a requestAnimationFrame loop to ensure we scroll 
+        Uses a requestAnimationFrame loop to ensure we scroll
         only after the browser has finished painting the new elements.
         """
         return (
@@ -115,14 +141,12 @@ class ChatState(rx.State):
             "  var scroll = function() {"
             "    var lastHeight = c.scrollHeight;"
             "    c.scrollTop = lastHeight;"
-            "    /* Check again after a frame to see if height increased */"
             "    window.requestAnimationFrame(function() {"
             "      if (c.scrollHeight > lastHeight) {"
             "        c.scrollTop = c.scrollHeight;"
             "      }"
             "    });"
             "  };"
-            "  /* Run immediately and then again after a short macro-task delay */"
             "  scroll();"
             "  setTimeout(scroll, 50);"
             "  setTimeout(scroll, 150);"
@@ -136,26 +160,26 @@ class ChatState(rx.State):
 
         query = self.user_input
 
-        # 1. Capture query, clear state — controlled input (value=user_input) will
-        #    clear automatically when this state diff reaches the browser.
+        # 1. Capture query, clear input, show user bubble + typing indicator
         self.user_input = ""
         self.messages.append({"role": "user", "content": query, "sources": []})
         self.is_processing = True
-
-        # 2. Push state to DOM (user bubble + typing indicator now visible, input cleared)
         yield
 
-        # 4. Scroll NOW — typing indicator just appeared, scroll to show it
+        # 2. Scroll to show typing indicator
         await asyncio.sleep(0.05)
         yield rx.call_script(ChatState._scroll_js())
 
-        # 4. Check Document State
+        # 3. Guard: documents must have been processed first
         file_state = await self.get_state(FileUploadState)
         if not file_state.pipeline_ran:
             self.messages.append(
                 {
                     "role": "assistant",
-                    "content": "I'd be happy to help, but no documents have been processed yet. Please upload files and click 'Process Documents'!",
+                    "content": (
+                        "I'd be happy to help, but no documents have been processed yet. "
+                        "Please upload files and click 'Process Documents'!"
+                    ),
                     "sources": [],
                 }
             )
@@ -163,20 +187,30 @@ class ChatState(rx.State):
             yield
             return
 
-        # 5. Get Assistant Response
+        # 4. Run query in a thread pool — keeps the event loop free
         try:
-            response = await generate_response(query)
-        except Exception as e:
-            logger.exception(f"Error: {e}")
-            response = {"content": f"Error: {str(e)}", "sources": []}
+            response: dict = await asyncio.to_thread(_run_query_sync, query)
+        except Exception as exc:
+            logger.exception("Unexpected error in _run_query_sync: %s", exc)
+            response = {
+                "content": (
+                    "An unexpected error occurred while processing your query. "
+                    "Please check that OpenSearch and Ollama are running."
+                ),
+                "sources": [],
+                "error": str(exc),
+            }
 
-        # 6. Final Assistant Message
+        # 5. Append assistant reply
         self.messages.append(
             {
                 "role": "assistant",
-                "content": str(response.get("content", "Error generating response.")),
-                "sources": list(response.get("sources", [])),
+                "content": str(response.get("content") or "Error generating response."),
+                "sources": list(response.get("sources") or []),
             }
         )
         self.is_processing = False
-        yield
+        yield rx.call_script(ChatState._scroll_js())
+
+
+# Made with Bob
