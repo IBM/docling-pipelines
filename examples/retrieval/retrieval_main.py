@@ -14,9 +14,6 @@ import sys
 import os
 from typing import Dict, List, Any, Optional
 
-# Add paths for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../packages/datasift-integrations/src'))
-
 from opensearchpy import OpenSearch
 from opensearch_sql import OpenSearchSQLClient, SQLQueryResult
 from result_combiner import OpenSearchResultCombiner

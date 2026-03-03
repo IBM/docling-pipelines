@@ -53,8 +53,6 @@ datasift-opensource/
 │   │   ├── uv.lock           # UV lock file
 │   │   └── .python-version   # Python version
 │   └── ui/                    # UI components
-├── apps/                      # Applications
-│   └── cli/                   # CLI application
 ├── tests/                     # Test suites
 │   ├── unit/                  # Unit tests
 │   ├── integration/           # Integration tests

@@ -30,8 +30,6 @@ datasift-opensource/
 │   │   ├── app/                      # Backend API application
 │   │   └── orchestrator/             # Legacy orchestrator (to be migrated)
 │   └── ui/                           # User interface components
-├── apps/                             # Applications
-│   └── cli/                          # Command-line interface
 ├── tests/                            # Test suites
 │   ├── unit/                         # Unit tests
 │   ├── integration/                  # Integration tests
@@ -90,8 +88,8 @@ Python-based operator implementations (non-Spark):
 - **Universal Operators**: Storage operations, generic transformations
 - **Custom Operators**: User-defined operators, plugin-based extensions
 
-### 5. CLI Application (`apps/cli/`)
-- Command-line interface for flow execution
+### 5. CLI Application
+- Command-line interface for flow execution is now integrated in the orchestrator
 - Local data processing
 - Development and testing workflows
 

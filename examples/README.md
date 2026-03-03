@@ -24,10 +24,10 @@ This directory contains example flows and usage patterns for the datasift-open p
 
 ```bash
 # Run a simple example
-python apps/cli/cmd_line_orchestrator.py --flow-file examples/simple_transform.json
+python -m datasift_opensource.backend.core.orchestrator.cli --flow-file examples/simple_transform.json
 
 # Run with custom configuration
-python apps/cli/cmd_line_orchestrator.py --flow-file examples/validation_flow.json --config config.yaml
+python -m datasift_opensource.backend.core.orchestrator.cli --flow-file examples/validation_flow.json --config config.yaml
 ```
 
 ## Creating Your Own Flows
