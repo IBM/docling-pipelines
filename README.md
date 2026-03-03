@@ -107,12 +107,12 @@ cd ../../..  # Return to project root
 
 Start the FastAPI server with uvicorn:
 ```bash
-# Using uv (from backend directory)
-cd src/datasift_opensource/backend
-uv run uvicorn datasift_opensource.backend.app.main:app --reload
+# Using uvicorn from project root
+uvicorn src.datasift_opensource.backend.app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Or with activated venv (from project root)
-uvicorn datasift_opensource.backend.app.main:app --reload --host 0.0.0.0 --port 8000
+# Or using uv from backend directory
+cd src/datasift_opensource/backend
+uv run uvicorn app.main:app --reload --reload --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at:
