@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Dict, List, Tuple, Optional
 
 import pyarrow as pa
 from dpk_doc_quality.transform import DocQualityTransform
@@ -10,15 +10,15 @@ from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator
 
 logger = get_logger()
-DOC_CONTENT_COLUMN_KEY = "doc_content_column"
-TEXT_LANG_KEY = "text_lang"
-DEFAULT_TEXT_LANG = "en"
-BAD_WORD_FILEPATH_KEY = "bad_word_filepath"
-BASE_PATH = os.path.dirname(__file__)
-BAD_WORD_FILEPATH_VALUE = os.path.join(BASE_PATH, "en")
+DOC_CONTENT_COLUMN_KEY: str = "doc_content_column"
+TEXT_LANG_KEY: str = "text_lang"
+DEFAULT_TEXT_LANG: str = "en"
+BAD_WORD_FILEPATH_KEY: str = "bad_word_filepath"
+BASE_PATH: str = os.path.dirname(__file__)
+BAD_WORD_FILEPATH_VALUE: str = os.path.join(BASE_PATH, "en")
 if os.getenv('RUNTIME') == 'CLOUD' and os.getenv('IS_SPARK_RUNTIME'):
     BAD_WORD_FILEPATH_VALUE = BAD_WORD_FILEPATH_VALUE.replace(
-        '/datasift_core.zip/datasift_core/operators/language/readability','')
+        '/datasift_core.zip/datasift_core/operators/language/readability', '')
 
 
 class DocQuality(DocQualityTransform, AbstractOperator):
@@ -28,19 +28,19 @@ class DocQuality(DocQualityTransform, AbstractOperator):
 
     Badwordfile is currently stored at same location as source folder.
     """
-    short_name = OperatorConstants.DOC_QUALITY
-    category = OperatorCategory.Quality
+    short_name: str = OperatorConstants.DOC_QUALITY
+    category: OperatorCategory = OperatorCategory.Quality
     
-    def __init__(self, config: dict[str, Any]):
-        normalized_bad_word_filepath = BAD_WORD_FILEPATH_VALUE.replace('./datasift.zip', '/datasift/storage/job-assets')
+    def __init__(self, config: Dict[str, Any]) -> None:
+        normalized_bad_word_filepath: str = BAD_WORD_FILEPATH_VALUE.replace('./datasift.zip', '/datasift/storage/job-assets')
         config.update({BAD_WORD_FILEPATH_KEY: normalized_bad_word_filepath})
         super().__init__(config)
-        self.doc_column_name = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.doc_content_column = config.get(DOC_CONTENT_COLUMN_KEY, "content")
-        self.text_lang = config.get(TEXT_LANG_KEY, DEFAULT_TEXT_LANG)
-        self.bad_word_filepath = config.get(BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath)
+        self.doc_column_name: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_content_column: str = config.get(DOC_CONTENT_COLUMN_KEY, "content")
+        self.text_lang: str = config.get(TEXT_LANG_KEY, DEFAULT_TEXT_LANG)
+        self.bad_word_filepath: str = config.get(BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath)
 
-    def get_metadata(self):
+    def get_metadata(self) -> Dict[str, Any]:
         return {
             OperatorConstants.SDK: True,
             OperatorConstants.CATEGORY: self.category.value,
@@ -118,10 +118,10 @@ class DocQuality(DocQualityTransform, AbstractOperator):
             }
         }
 
-    def get_required_features(self):
+    def get_required_features(self) -> List[str]:
         return [self.doc_column_name]
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table) -> Tuple[List[pa.Table], Dict[str, Any]]:
         """
         Operator-specific logic to convert one input Table to 0 or more output tables.
         Calling the DocQualityTransform() transform() method.
@@ -129,10 +129,10 @@ class DocQuality(DocQualityTransform, AbstractOperator):
         generates document statistics and adds a column for each statistic.
         """
 
-        transformed_table = super().transform(table)[0][0]
+        transformed_table: pa.Table = super().transform(table)[0][0]
 
-        total_docs = find_doc_count(table=table)
-        metadata = self.create_base_metadata(total_docs_count=total_docs)
+        total_docs: int = find_doc_count(table=table)
+        metadata: Dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
         metadata[Metrics.External.PROCESSED_DOCS] = total_docs
         metadata[Metrics.External.PROCESSED_ROWS] = transformed_table.num_rows
 
