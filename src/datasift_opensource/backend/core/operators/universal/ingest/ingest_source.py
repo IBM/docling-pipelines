@@ -3,7 +3,7 @@ import json
 import importlib
 import os
 import boto3
-from typing import Any
+from typing import Any, Optional, Dict, List, Tuple, Union
 import hashlib
 
 # Import standard LangChain loaders
@@ -14,6 +14,7 @@ from langchain_community.document_loaders import (
 )
 from langchain_google_community import GoogleDriveLoader
 from langchain_core.documents import Document
+from langchain_core.document_loaders.base import BaseLoader
 
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.ingest.ingest_utils import get_filter_extensions, filter_based_on_extension, is_doc_previously_processed
@@ -22,13 +23,13 @@ from common.util.log import get_logger
 from common.util.incremental_update_util import IncrementalUpdateUtil
 
 # Configuration keys
-PROVIDER_KEY = "provider"
-CONNECTION_PARAMS_KEY = "connection_params"
-CREDENTIALS_KEY = "credentials"
-MAX_FILES_KEY = "max_files"
-MAX_FILES_DEFAULT_VALUE = 100
-INCLUDE_FILTER_KEY = "include_filter"
-EXCLUDE_FILTER_KEY = "exclude_filter"
+PROVIDER_KEY: str = "provider"
+CONNECTION_PARAMS_KEY: str = "connection_params"
+CREDENTIALS_KEY: str = "credentials"
+MAX_FILES_KEY: str = "max_files"
+MAX_FILES_DEFAULT_VALUE: int = 100
+INCLUDE_FILTER_KEY: str = "include_filter"
+EXCLUDE_FILTER_KEY: str = "exclude_filter"
 
 logger = get_logger()
 
@@ -49,10 +50,10 @@ class IngestSourceOperator(AbstractOperator):
     - Proper metadata tracking and error handling
     """
 
-    short_name = "ingest_source"
-    category = OperatorCategory.Ingest
+    short_name: str = "ingest_source"
+    category: OperatorCategory = OperatorCategory.Ingest
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: Dict[str, Any]) -> None:
         """
         Initialize the LangChain-based ingest operator.
         
@@ -66,20 +67,21 @@ class IngestSourceOperator(AbstractOperator):
         - force_ingest: Force re-ingestion of previously processed documents
         """
         super().__init__(config)
-        self.provider = config.get(PROVIDER_KEY, '').lower()
-        self.connection_params = config.get(CONNECTION_PARAMS_KEY, {})
-        self.credentials = config.get(CREDENTIALS_KEY, {})
-        self.max_files = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
-        self.included_extensions = get_filter_extensions(config.get(INCLUDE_FILTER_KEY, None))
-        self.excluded_extensions = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY, None))
-        self.force_ingest = config.get(DatasiftConstants.FORCE_INGEST, False)
-        self.doc_id_hash = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
-        self.common_log_arguments = {
+        self.provider: str = config.get(PROVIDER_KEY, '').lower()
+        self.connection_params: Dict[str, Any] = config.get(CONNECTION_PARAMS_KEY, {})
+        self.credentials: Dict[str, Any] = config.get(CREDENTIALS_KEY, {})
+        self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
+        self.included_extensions: Optional[List[str]] = get_filter_extensions(config.get(INCLUDE_FILTER_KEY, None))
+        self.excluded_extensions: Optional[List[str]] = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY, None))
+        self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
+        self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.common_log_arguments: Dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id
         }
+        self.previously_processed_docs_dict: Optional[Dict[str, Any]] = None
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table) -> Tuple[List[pa.Table], Dict[str, Any]]:
         """
         Operator-specific logic to load documents using LangChain loaders.
         
@@ -91,18 +93,19 @@ class IngestSourceOperator(AbstractOperator):
         """
         
         # Initialize incremental update utility
-        incremental_update_util = IncrementalUpdateUtil()
-        job_id_for_tracking = self.context_id if self.context_id else (self.job_id if self.job_id else "")
+        incremental_update_util: IncrementalUpdateUtil = IncrementalUpdateUtil()
+        job_id_for_tracking: str = self.context_id if self.context_id else (self.job_id if self.job_id else "")
         self.previously_processed_docs_dict = None if self.force_ingest else incremental_update_util.get_all_processed_docs(
             job_id=job_id_for_tracking)
 
         # Initialize metadata
-        metadata = self.create_base_metadata(total_docs_count=0)
+        metadata: Dict[str, Any] = self.create_base_metadata(total_docs_count=0)
         
         # Process documents
-        doc_data = self.process_documents(metadata)
+        doc_data: List[Dict[str, Any]] = self.process_documents(metadata)
         
         # Create output table
+        output_table: pa.Table
         if doc_data:
             output_table = pa.Table.from_pylist(doc_data)
         else:
@@ -123,7 +126,7 @@ class IngestSourceOperator(AbstractOperator):
         metadata[Metrics.External.PROCESSED_DOCS] = len(doc_data)
         
         # Determine node status
-        node_status = ExecutionStatus.COMPLETED.value
+        node_status: str = ExecutionStatus.COMPLETED.value
         if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
             node_status = ExecutionStatus.COMPLETED_WITH_ERRORS.value
         elif metadata[Metrics.External.SKIPPED_DOCS_COUNT] > 0:
@@ -132,7 +135,7 @@ class IngestSourceOperator(AbstractOperator):
         
         return [output_table], metadata
 
-    def process_documents(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
+    def process_documents(self, metadata: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Process documents from the configured LangChain loader.
         
@@ -142,15 +145,15 @@ class IngestSourceOperator(AbstractOperator):
         Returns:
             List of document dictionaries
         """
-        doc_data = []
-        processed_count = 0
+        doc_data: List[Dict[str, Any]] = []
+        processed_count: int = 0
         
         try:
-            loader = self._get_loader()
+            loader: BaseLoader = self._get_loader()
             logger.info(f"Loading documents from {self.provider}", extra=self.common_log_arguments)
             
             # Load documents
-            documents = loader.load()
+            documents: List[Document] = loader.load()
             logger.info(f"Loaded {len(documents)} documents from {self.provider}", extra=self.common_log_arguments)
             
             for idx, doc in enumerate(documents):
@@ -159,7 +162,7 @@ class IngestSourceOperator(AbstractOperator):
                     break
                 
                 # Process individual document
-                processed_doc = self.process_document(doc, idx, metadata)
+                processed_doc: Optional[Dict[str, Any]] = self.process_document(doc, idx, metadata)
                 if processed_doc:
                     doc_data.append(processed_doc)
                     processed_count += 1
@@ -175,7 +178,7 @@ class IngestSourceOperator(AbstractOperator):
         
         return doc_data
 
-    def process_document(self, doc: Document, idx: int, metadata: dict[str, Any]) -> dict[str, Any] | None:
+    def process_document(self, doc: Document, idx: int, metadata: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
         Process a single LangChain document.
         
@@ -189,7 +192,7 @@ class IngestSourceOperator(AbstractOperator):
         """
         try:
             # Extract source information
-            source = doc.metadata.get("source", f"unknown_{idx}")
+            source: str = doc.metadata.get("source", f"unknown_{idx}")
             
             # Check file extension filter
             if filter_based_on_extension(source, self.excluded_extensions, self.included_extensions):
@@ -203,11 +206,11 @@ class IngestSourceOperator(AbstractOperator):
                 return None
             
             # Generate document ID (use source hash for consistency)
-            doc_id = hashlib.md5(source.encode()).hexdigest()
+            doc_id: str = hashlib.md5(source.encode()).hexdigest()
             
             # Check if document was previously processed
             # For cloud sources, we use the source path as a proxy for modification time
-            modified_time = doc.metadata.get("last_modified", 0)
+            modified_time: Union[int, str] = doc.metadata.get("last_modified", 0)
             if isinstance(modified_time, str):
                 # Try to parse timestamp if it's a string
                 try:
@@ -231,7 +234,7 @@ class IngestSourceOperator(AbstractOperator):
                 return None
             
             # Create processed document
-            processed_doc = {
+            processed_doc: Dict[str, Any] = {
                 "id": doc_id,
                 "name": source,
                 "text": doc.page_content,
@@ -252,15 +255,15 @@ class IngestSourceOperator(AbstractOperator):
             )
             return None
 
-    def _get_s3_file_keys(self):
+    def _get_s3_file_keys(self) -> List[str]:
         """
         Get list of S3 file keys, filtering out directories and hidden files.
         """
-        bucket = self.connection_params.get('bucket')
-        prefix = self.connection_params.get('prefix', '')
+        bucket: str = self.connection_params.get('bucket')
+        prefix: str = self.connection_params.get('prefix', '')
         
         # Setup boto3 client
-        client_config = {
+        client_config: Dict[str, Any] = {
             'aws_access_key_id': self.credentials.get('access_key'),
             'aws_secret_access_key': self.credentials.get('secret_key')
         }
@@ -268,26 +271,26 @@ class IngestSourceOperator(AbstractOperator):
         if self.provider == 'ibm_cos':
             client_config['endpoint_url'] = self.connection_params.get('endpoint_url')
         
-        s3_client = boto3.client('s3', **client_config)
+        s3_client: Any = boto3.client('s3', **client_config)
         
         # List all objects
-        paginator = s3_client.get_paginator('list_objects_v2')
-        pages = paginator.paginate(Bucket=bucket, Prefix=prefix)
+        paginator: Any = s3_client.get_paginator('list_objects_v2')
+        pages: Any = paginator.paginate(Bucket=bucket, Prefix=prefix)
         
-        file_keys = []
+        file_keys: List[str] = []
         for page in pages:
             if 'Contents' not in page:
                 continue
                 
             for obj in page['Contents']:
-                key = obj['Key']
+                key: str = obj['Key']
                 
                 # Skip directory markers (keys ending with /)
                 if key.endswith('/'):
                     continue
                 
                 # Skip hidden files/directories (any path component starting with .)
-                path_parts = key.split('/')
+                path_parts: List[str] = key.split('/')
                 if any(part.startswith('.') and part not in ['.', '..'] for part in path_parts):
                     continue
                 
@@ -299,7 +302,7 @@ class IngestSourceOperator(AbstractOperator):
         
         return file_keys
 
-    def _get_loader(self):
+    def _get_loader(self) -> BaseLoader:
         """
         Factory method to initialize the correct LangChain loader.
         """
@@ -307,7 +310,7 @@ class IngestSourceOperator(AbstractOperator):
         # 1. Amazon S3 / IBM COS (S3 Compatible)
         if self.provider in ['s3', 'ibm_cos']:
             # IBM COS requires an endpoint_url; AWS S3 does not
-            client_config = {}
+            client_config: Dict[str, Any] = {}
             if self.provider == 'ibm_cos':
                 client_config['endpoint_url'] = self.connection_params.get('endpoint_url')
 
@@ -324,7 +327,7 @@ class IngestSourceOperator(AbstractOperator):
             # Requires O365 package installed
             return SharePointLoader(
                 document_library_id=self.connection_params.get('document_library_id'),
-                auth_with_token=True, 
+                auth_with_token=True,
                 **self.credentials
             )
 
@@ -340,17 +343,17 @@ class IngestSourceOperator(AbstractOperator):
         # 4. Google Drive
         elif self.provider == 'google_drive':
             # Get credentials path and token path
-            credentials_path = self.credentials.get('credentials_json_path')
-            token_path = self.credentials.get('token_path', os.path.expanduser('~/.credentials/token.json'))
+            credentials_path: str = self.credentials.get('credentials_json_path')
+            token_path: str = self.credentials.get('token_path', os.path.expanduser('~/.credentials/token.json'))
             
             # Ensure the token directory exists
-            token_dir = os.path.dirname(token_path)
+            token_dir: str = os.path.dirname(token_path)
             if token_dir and not os.path.exists(token_dir):
                 os.makedirs(token_dir, exist_ok=True)
             
             # Define required Google Drive API scopes
             # Use read-only scope for security best practices
-            scopes = self.credentials.get('scopes', ['https://www.googleapis.com/auth/drive.readonly'])
+            scopes: List[str] = self.credentials.get('scopes', ['https://www.googleapis.com/auth/drive.readonly'])
             
             return GoogleDriveLoader(
                 folder_id=self.connection_params.get('folder_id'),
@@ -363,29 +366,31 @@ class IngestSourceOperator(AbstractOperator):
         # 5. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         elif self.provider == 'custom':
-            loader_path = self.connection_params.get('loader_class_path')
+            loader_path: str = self.connection_params.get('loader_class_path')
             if not loader_path:
                 raise ValueError("Provider is 'custom' but 'loader_class_path' is missing.")
             
             # Dynamic Import: "my_package.loaders.FileNetLoader"
+            module_name: str
+            class_name: str
             module_name, class_name = loader_path.rsplit('.', 1)
-            module = importlib.import_module(module_name)
-            LoaderClass = getattr(module, class_name)
+            module: Any = importlib.import_module(module_name)
+            LoaderClass: Any = getattr(module, class_name)
             
             # Initialize with merged params and credentials
-            init_kwargs = {**self.connection_params, **self.credentials}
+            init_kwargs: Dict[str, Any] = {**self.connection_params, **self.credentials}
             return LoaderClass(**init_kwargs)
 
         else:
             raise ValueError(f"Provider '{self.provider}' is not supported.")
 
-    def get_metadata(self):
+    def get_metadata(self) -> Dict[str, Any]:
         """
         Get metadata about the operator including features and attributes.
         
         Returns operator metadata for the LangChain loader ingest mode.
         """
-        metadata_features = {
+        metadata_features: Dict[str, Dict[str, Any]] = {
             "text": {
                 OperatorConstants.NAME: "Document Text",
                 OperatorConstants.DESCRIPTION: "The extracted text content from the document",
@@ -464,12 +469,12 @@ class IngestSourceOperator(AbstractOperator):
 
 
 # used for unit testing only
-def main():  # pragma: no cover
+def main() -> None:  # pragma: no cover
     """
     Test the IngestSourceOperator with various providers.
     """
     # Example 1: Google Drive
-    node_config = {
+    node_config: Dict[str, Any] = {
         "provider": "google_drive",
         "connection_params": {"folder_id": "1M1CbsV8oElrKSnW2NKeqrhfa7-v0bGkx"},
         "credentials": {
@@ -496,10 +501,12 @@ def main():  # pragma: no cover
     #     "force_ingest": True,
     # }
     
-    operator = IngestSourceOperator(node_config)
-    input_table = None
+    operator: IngestSourceOperator = IngestSourceOperator(node_config)
+    input_table: Optional[pa.Table] = None
     
     # Run the operator
+    output_tables: List[pa.Table]
+    metadata: Dict[str, Any]
     output_tables, metadata = operator.transform(input_table)
     
     # Print results
@@ -510,7 +517,7 @@ def main():  # pragma: no cover
     print(f"\nNumber of output tables: {len(output_tables)}")
     
     if output_tables:
-        result_table = output_tables[0]
+        result_table: pa.Table = output_tables[0]
         print("\nTable Schema:")
         print(result_table.schema)
         print(f"\nTable Shape: {result_table.num_rows} rows × {result_table.num_columns} columns")
@@ -519,7 +526,7 @@ def main():  # pragma: no cover
             print(f"\nFirst {min(5, result_table.num_rows)} rows:")
             print("-"*80)
             import pandas as pd
-            df = result_table.to_pandas()
+            df: Any = result_table.to_pandas()
             with pd.option_context('display.max_colwidth', 100,
                                    'display.width', None,
                                    'display.max_rows', 5):

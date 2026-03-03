@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, Dict, List, Tuple, Optional
 import pyarrow as pa
 from data_processing.utils import TransformUtils
 from langchain_core.documents import Document
@@ -15,46 +15,46 @@ from core.operators.universal.ingest.ingest_local_folder import IngestLocalOpera
 from common.util.log import get_logger
 from common.util.operator_utils import remove_rows, find_doc_count
 
-SIMPLE_CHUNK_TYPE = "simple"
-CHUNK_TYPE_KEY = "chunk_type"
-CHUNK_TYPE_DEFAULT = SIMPLE_CHUNK_TYPE
-CHUNK_OVERLAP_KEY = "chunk_overlap"
-CHUNK_OVERLAP_DEFAULT = 200
-RETAIN_ORIGINAL_CONTENT_KEY = "retain_original_content"
-RETAIN_ORIGINAL_CONTENT_DEFAULT = True
-CHUNK_MIN_SIZE = 500
-CHUNK_MAX_SIZE = 5000
-CHUNK_OVERLAP_MIN_SIZE = 0
-CHUNK_OVERLAP_MAX_SIZE = 512
+SIMPLE_CHUNK_TYPE: str = "simple"
+CHUNK_TYPE_KEY: str = "chunk_type"
+CHUNK_TYPE_DEFAULT: str = SIMPLE_CHUNK_TYPE
+CHUNK_OVERLAP_KEY: str = "chunk_overlap"
+CHUNK_OVERLAP_DEFAULT: int = 200
+RETAIN_ORIGINAL_CONTENT_KEY: str = "retain_original_content"
+RETAIN_ORIGINAL_CONTENT_DEFAULT: bool = True
+CHUNK_MIN_SIZE: int = 500
+CHUNK_MAX_SIZE: int = 5000
+CHUNK_OVERLAP_MIN_SIZE: int = 0
+CHUNK_OVERLAP_MAX_SIZE: int = 512
 logger = get_logger()
-VALID_CHUNK_TYPES = [SIMPLE_CHUNK_TYPE]
+VALID_CHUNK_TYPES: List[str] = [SIMPLE_CHUNK_TYPE]
 
 
 class SemanticChunkerOperator(AbstractOperator):
     """
     Chunks the text based on semantic similarity.
     """
-    short_name = OperatorConstants.CHUNKER
-    category = OperatorCategory.Functional
+    short_name: str = OperatorConstants.CHUNKER
+    category: OperatorCategory = OperatorCategory.Functional
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: Dict[str, Any]) -> None:
         """
-        Initialize based on the dictionary of configuration information. 
+        Initialize based on the dictionary of configuration information.
         Expected parameters are:
         - name of the column that has doc content
         """
         super().__init__(config)
-        self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.chunk_type = config.get(CHUNK_TYPE_KEY, CHUNK_TYPE_DEFAULT)
-        self.chunk_size = config.get(OperatorConstants.CHUNK_SIZE, OperatorConstants.CHUNK_SIZE_DEFAULT)
-        self.chunk_overlap = config.get(CHUNK_OVERLAP_KEY, CHUNK_OVERLAP_DEFAULT)
-        self.retain_original_content = config.get(RETAIN_ORIGINAL_CONTENT_KEY, RETAIN_ORIGINAL_CONTENT_DEFAULT)
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id,
+        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.chunk_type: str = config.get(CHUNK_TYPE_KEY, CHUNK_TYPE_DEFAULT)
+        self.chunk_size: int = config.get(OperatorConstants.CHUNK_SIZE, OperatorConstants.CHUNK_SIZE_DEFAULT)
+        self.chunk_overlap: int = config.get(CHUNK_OVERLAP_KEY, CHUNK_OVERLAP_DEFAULT)
+        self.retain_original_content: bool = config.get(RETAIN_ORIGINAL_CONTENT_KEY, RETAIN_ORIGINAL_CONTENT_DEFAULT)
+        self.common_log_arguments: Dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id,
                                      DatasiftConstants.JOB_RUN_ID: self.job_run_id}
         # if not is_parameterized_field(field=self.chunk_size) and isinstance(self.chunk_size, str):
         self.chunk_size = int(self.chunk_size)
 
-    def get_metadata(self):
+    def get_metadata(self) -> Dict[str, Any]:
         operator_metadata = {
             OperatorConstants.SDK: True,
             OperatorConstants.CATEGORY: self.category.value,
@@ -114,10 +114,10 @@ class SemanticChunkerOperator(AbstractOperator):
 
         return operator_metadata
 
-    def get_required_features(self):
+    def get_required_features(self) -> List[str]:
         return [self.doc_column]
 
-    def _validate_standard_chunker(self, errors: list):
+    def _validate_standard_chunker(self, errors: List[Any]) -> None:
         """
         Validate configuration for standard chunking (non-semantic).
         
@@ -136,43 +136,43 @@ class SemanticChunkerOperator(AbstractOperator):
             if self.chunk_type not in VALID_CHUNK_TYPES:
                 errors.append(ValidationMessage.create(message=f"Invalid chunk_type: {self.chunk_type}", message_code=ValidationCodeMessages.CHUNKER_INVALID_CHUNK_TYPE.name, chunk_type=self.chunk_type))
 
-    def validate(self, errors: list, warnings: list, available_features: list):
+    def validate(self, errors: List[Any], warnings: List[Any], available_features: List[str]) -> None:
         super().validate(errors, warnings, available_features)
         if OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT in available_features:
             errors.append(ValidationMessage.create(message=ValidationCodeMessages.CHUNKER_OPERATOR_MISPLACED.value, message_code=ValidationCodeMessages.CHUNKER_OPERATOR_MISPLACED.name))
 
         self._validate_standard_chunker(errors)
 
-    def simple_split_text(self, content: str):
+    def simple_split_text(self, content: str) -> List[Document]:
         from langchain_text_splitters import CharacterTextSplitter
 
-        doc = Document(page_content=content, metadata={"source": "parameter"})
-        text_splitter = CharacterTextSplitter(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap, separator=".")
+        doc: Document = Document(page_content=content, metadata={"source": "parameter"})
+        text_splitter: CharacterTextSplitter = CharacterTextSplitter(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap, separator=".")
         return text_splitter.split_documents([doc])
 
-    def _split_text(self, content):
-        chunk_type = self.chunk_type.lower()
+    def _split_text(self, content: str) -> List[Document]:
+        chunk_type: str = self.chunk_type.lower()
 
         if chunk_type == SIMPLE_CHUNK_TYPE:
             return self.simple_split_text(content)
         else:
             raise DatasiftException(f"Invalid chunk type: {self.chunk_type}")
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table) -> Tuple[List[pa.Table], Dict[str, Any]]:
         logger.info(f"Using {self.chunk_type} for generating chunks", extra=self.common_log_arguments)
 
-        input_doc_data = table.to_pylist()
-        chunked_content_column = []
-        metadata = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
-        remove_row_idx = []
+        input_doc_data: List[Dict[str, Any]] = table.to_pylist()
+        chunked_content_column: List[List[Dict[str, Any]]] = []
+        metadata: Dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        remove_row_idx: List[int] = []
         for idx, doc in enumerate(input_doc_data):
             try:
                 logger.debug(f"Creating chunks for the document {doc.get(OperatorConstants.NAME, doc.get(OperatorConstants.ID))} with {self.chunk_type.lower()} chunk type",
                     extra=self.common_log_arguments)
-                content = doc[self.doc_column]
+                content: str = doc[self.doc_column]
                 if not content:
                     raise DatasiftException(f"The column '{self.doc_column}' was not found in the input data. This may be due to the use of the merge operator with the 'columns' merge type. For this flow, please use the 'rows' merge type instead.")
-                chunks = self._split_text(content)
+                chunks: List[Document] = self._split_text(content)
             except Exception as exc:
                 logger.error(f"An error occurred while creating chunking for the document {doc.get(OperatorConstants.NAME,doc.get(OperatorConstants.ID))} : \n {str(exc)}",exc_info=True,stack_info=True)
                 self.record_failed_document(metadata=metadata, doc_id=doc.get(OperatorConstants.ID),
@@ -182,7 +182,7 @@ class SemanticChunkerOperator(AbstractOperator):
                                                                                     ExecutionStatus.COMPLETED_WITH_ERRORS.value)
                 remove_row_idx.append(idx)
                 continue
-            chunked_content = []
+            chunked_content: List[Dict[str, Any]] = []
             for chunk in chunks:
                 chunked_content.append({
                     OperatorConstants.CHUNK: chunk.page_content,
@@ -209,19 +209,20 @@ class SemanticChunkerOperator(AbstractOperator):
         return [table], metadata
 
 
-def main(runtime: str = 'python'): # pragma: no cover
+def main(runtime: str = 'python') -> None:  # pragma: no cover
 
-    ingest_operator = IngestLocalOperator({
+    ingest_operator: IngestLocalOperator = IngestLocalOperator({
         "doc_column": "content",
         "input_folder": "../../../../test/input_docs/customer_support_docs/",
         "include_filter": "pdf,txt"})
 
     # 2. Create an in-memory py-arrow table, as the input
-    input_table = None
+    input_table: Optional[pa.Table] = None
 
     # 3. Run the operators
+    table_list: List[pa.Table]
     table_list, _ = ingest_operator.transform(input_table)
-    table = table_list[0]
+    table: pa.Table = table_list[0]
 
     # 4. Run hashing operator
     # hashing_operator = DocIdHashOperator({})
@@ -231,15 +232,17 @@ def main(runtime: str = 'python'): # pragma: no cover
     print(f">>>>>>>>>>>>> Number of rows before chunking: {table.num_rows}")
 
     # 5. Run chunking operator
-    config = {"chunk_size": 200}
+    config: Dict[str, Any] = {"chunk_size": 200}
+    operator: SemanticChunkerOperator
     if runtime == 'python':
         operator = SemanticChunkerOperator(config=config)
     else:
         raise ValueError("unknown operator value")
     print(operator)
 
+    metadata: Dict[str, Any]
     table_list, metadata = operator.transform(table)
-    table: pa.Table = table_list[0]
+    table = table_list[0]
     print(table.schema)
     print(f">>>>>>>>>>>>> Number of rows after chunking: {table.num_rows}")
 
