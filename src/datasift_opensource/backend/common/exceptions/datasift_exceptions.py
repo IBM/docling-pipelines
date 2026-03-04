@@ -90,11 +90,6 @@ class FlowValidationException(DatasiftException):
         self.warnings = warnings
 
 
-class MaskedPasswordException(Exception):  # pragma: no cover
-    def __init__(self, message):
-        super().__init__(message)
-
-
 class FlowCanceledException(DatasiftException):
     # Thrown when the given flow or flow definition is cancelled
     def __init__(self, message):
@@ -120,11 +115,3 @@ class ValidationException(DatasiftException):
         self.errors = errors
         self.warnings = warnings
 
-class InvalidDocumentTypeException(DatasiftException):
-    def __init__(self, message):
-        super().__init__(message)
-
-
-class SetSelectOptionsException(DatasiftException):
-    def __init__(self,message, status_code: int = 500, error_code: ErrorCode = None, message_code= None):
-        super().__init__(message =message,status_code=status_code, error_code=error_code, message_code=message_code)

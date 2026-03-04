@@ -21,13 +21,6 @@ hash_functions = hashlib.sha3_512
 logger = get_logger()
 
 
-def safe_get(table: pa.Table, key):
-    if key not in table.column_names:
-        return None
-    col = table.column(key)
-    return col[0].as_py() if len(col) > 0 else None
-
-
 def remove_rows(*, table: pa.Table, remove_row_idx: list) -> pa.Table:
     """
     Removes the rows for the given list of indexes in remove_row_idx from the table
@@ -90,23 +83,6 @@ def doc_id_hash(*, content) -> str:
     hashed_value = hash_fn(content.encode())
 
     return hashed_value.hexdigest()
-
-
-def calculate_pages(*, content) -> int:
-    """
-    Returns back the number of pages for .txt and .md formats considering each page has 3000 characters
-    """
-    # Calculate the number of characters in the decoded content
-    num_chars = len(content)
-
-    # Initialize page counter
-    page_counter = 1
-
-    # Check if the number of characters exceeds 3000
-    while num_chars > 3000 * page_counter:
-        page_counter += 1
-
-    return page_counter
 
 
 def decode_binary_content(*, binary_content : bytes) -> str:
