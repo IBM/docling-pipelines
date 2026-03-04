@@ -353,4 +353,3 @@ class TestDockerAvailability:
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
 
-# Made with Bob

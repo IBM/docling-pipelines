@@ -7,3 +7,4 @@ assets/external/
 .states/
 __pycache__/
 /app/__pycache__/
+logs/

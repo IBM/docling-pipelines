@@ -107,12 +107,12 @@ cd ../../..  # Return to project root
 
 Start the FastAPI server with uvicorn:
 ```bash
-# Using uv (from backend directory)
-cd src/datasift_opensource/backend
-uv run uvicorn datasift_opensource.backend.app.main:app --reload
+# Using uvicorn from project root
+uvicorn src.datasift_opensource.backend.app.main:app --reload --host 0.0.0.0 --port 8000
 
-# Or with activated venv (from project root)
-uvicorn datasift_opensource.backend.app.main:app --reload --host 0.0.0.0 --port 8000
+# Or using uv from backend directory
+cd src/datasift_opensource/backend
+uv run uvicorn app.main:app --reload --reload --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at:
@@ -299,6 +299,97 @@ DEBUG=true
 
 # Add other environment variables as needed
 ```
+
+## Operator Specific Setup
+
+### Embeddings Operator — Ollama Setup
+
+The [`EmbeddingsOperator`](src/datasift_opensource/backend/core/operators/universal/embeddings/embeddings_operator.py) uses Ollama as its **default** embeddings provider (`embeddings_type = "ollama"`). Before using this operator, you must complete the following setup steps.
+
+#### Step 1 — Install Ollama
+
+- **macOS**: `brew install ollama` or download from https://ollama.ai/download
+- **Linux**: `curl -fsSL https://ollama.ai/install.sh | sh`
+- **Windows**: Download from https://ollama.ai/download
+
+#### Step 2 — Start the Ollama server
+
+```bash
+ollama serve
+```
+
+The server runs on `http://localhost:11434` by default.
+
+#### Step 3 — Pull a model
+
+```bash
+ollama pull granite4
+```
+
+The default model used by the operator is `granite4`. Other supported models include: `llama3`, `llama3.1`, `llama3.2`, `mistral`, `mixtral`, `codellama`, `phi`, `gemma`, `qwen`, `granite3.2:2b`, `granite3.2:8b`.
+
+#### Step 4 — Install the Python package
+
+```bash
+pip install ollama
+```
+
+> **Note**: If Ollama is not installed, the server is not running, or no model has been pulled, the operator will raise a [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py) at runtime.
+
+### OpenSearch Vector Store Operator
+
+The [`OpenSearchOperator`](src/datasift_opensource/backend/core/operators/universal/vectordb/opensearch_operator.py) requires a running OpenSearch instance. The quickest way to get one locally is via the provided Compose file.
+
+#### Step 1 — Start OpenSearch
+
+**Docker:**
+```bash
+docker-compose -f docker-compose.opensearch.yml up -d
+```
+
+**Podman:**
+```bash
+podman-compose -f docker-compose.opensearch.yml up -d
+```
+
+This starts:
+- OpenSearch API on `http://localhost:9200` (default credentials: `admin` / `MyStrongPass123!`)
+- OpenSearch Dashboards on `http://localhost:5601`
+
+#### Step 2 — Verify it's running
+
+```bash
+curl -u admin:MyStrongPass123! http://localhost:9200/_cluster/health?pretty
+```
+
+#### Step 3 — Configure environment variables
+
+Copy the example env file and set your connection details:
+```bash
+cp .env.example .env
+```
+
+Key variables:
+| Variable | Default | Description |
+|---|---|---|
+| `OPENSEARCH_HOST` | `localhost` | OpenSearch host |
+| `OPENSEARCH_PORT` | `9200` | OpenSearch port |
+| `OPENSEARCH_USERNAME` | — | Username |
+| `OPENSEARCH_PASSWORD` | — | Password |
+| `OPENSEARCH_INDEX_NAME` | `datasift_test` | Index to write to |
+| `OPENSEARCH_USE_SSL` | `false` | Enable SSL |
+
+#### Step 4 — Stop OpenSearch
+
+```bash
+# Docker
+docker-compose -f docker-compose.opensearch.yml down
+
+# Podman
+podman-compose -f docker-compose.opensearch.yml down
+```
+
+> For full configuration options, engine selection (FAISS/Lucene), AWS OpenSearch Service setup, and advanced usage, see [`docs/opensearch/`](docs/opensearch/) and [`docs/operators/opensearch.md`](docs/operators/opensearch.md).
 
 ## Contributing
 

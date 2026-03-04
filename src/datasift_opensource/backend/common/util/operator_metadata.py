@@ -107,14 +107,7 @@ class OperatorMetadata:
 
 # Only used for unit testing
 def main(): # pragma: no cover
-    token = ""
-    token_object = {
-        "access_token": token,
-        "expiration": 9999999999
-    }
-    base_url = "https://cpd-wkc.apps.udptest7.cp.fyre.ibm.com"
-    # token_manager = TokenManager(base_url, token_object)
-    # create_session_info(token_manager=token_manager)
+    
     operator = OperatorMetadata()
     operator_items = operator.get_operator_metadata()
     for key, value in operator_items.items():

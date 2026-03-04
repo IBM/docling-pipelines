@@ -180,10 +180,8 @@ class JobTracker(metaclass=Singleton):
         :param use_local_cache: Flag to check if stats should be fetched from local cache or not. Default is false
         :return: A JobStatsDto object if found, otherwise None.
         """
-        from common.models.session_info import SessionInfo, get_session_info
         logger.info(f"Getting job stats by job_run_id: {job_run_id}")
-        session_info: SessionInfo = get_session_info()
-
+        
         if JobStatsStore._is_cmd_line_mode():
             return self.all_jobs.get(job_run_id, None)
 

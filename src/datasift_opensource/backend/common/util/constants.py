@@ -370,6 +370,7 @@ class OperatorConstants:
     INGEST_LOCAL = "ingest_local"
     INGEST_WEB_PAGES = "ingest_web_page"
     EXTRACT_DOCLING = "extract_docling"
+    EXTRACT_ENTITIES_OLLAMA = "extract_entities_ollama"
     DOCLING_CHUNKER = "docling_chunker"
     NOOP = "noop"
     MERGE = "merge"

@@ -63,4 +63,3 @@ networks:
   opensearch-net:
     driver: bridge
 
-# Made with Bob

@@ -171,7 +171,7 @@ class TestEmbeddingsOperatorInitialization:
         
         # Should use all defaults
         assert operator.embeddings_type == EMBEDDINGS_TYPE_DEFAULT
-        assert operator.embeddings_model_id == "llama2"
+        assert operator.embeddings_model_id == "granite4"
         assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
 
     def test_init_with_openai_provider(self):

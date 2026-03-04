@@ -1,13 +1,14 @@
 from typing import Any
 import pyarrow as pa
 import time
+from logging import Logger
 
 from core.operators.abstract_operator import OperatorCategory, AbstractOperator
 from common.util.constants import DatasiftConstants, Metrics, OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 
-logger = get_logger()
+logger: Logger = get_logger()
 
 
 class NOOPOperator(AbstractOperator):
@@ -15,10 +16,10 @@ class NOOPOperator(AbstractOperator):
     Implements a simple copy of a pyarrow Table.
     """
 
-    short_name = OperatorConstants.NOOP
-    category = OperatorCategory.Functional
+    short_name: str = OperatorConstants.NOOP
+    category: OperatorCategory = OperatorCategory.Functional
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: dict[str, Any]) -> None:
         """
         Initialize based on the dictionary of configuration information.
         This is generally called with configuration parsed from the CLI arguments defined
@@ -28,10 +29,10 @@ class NOOPOperator(AbstractOperator):
         # Make sure that the param name corresponds to the name used in apply_input_params method
         # of NOOPTransformConfiguration class
         super().__init__(config)
-        self.sleep = config.get("sleep_sec", 1)
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.sleep: int = config.get("sleep_sec", 1)
+        self.common_log_arguments: dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
 
-    def get_metadata(self):
+    def get_metadata(self) -> dict[str, Any]:
         return {
             OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()
         }
@@ -46,10 +47,10 @@ class NOOPOperator(AbstractOperator):
         logger.debug(f"Transforming one table with {len(table)} rows", extra=self.common_log_arguments)
 
         # Calculate doc count
-        total_docs_count = find_doc_count(table=table)
+        total_docs_count: int = find_doc_count(table=table)
 
         # Initialize metadata
-        metadata = self.create_base_metadata(total_docs_count=total_docs_count)
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs_count)
         metadata["nfiles"] = 0
         metadata["nrows"] = len(table)
 
@@ -66,16 +67,18 @@ class NOOPOperator(AbstractOperator):
 
 
 # used for unit testing only
-def main():  # pragma: no cover
+def main() -> None:  # pragma: no cover
 
     # 1. Construct the operators with the required configuration and input parameters
-    operator = NOOPOperator({"sleep_sec": 1})
+    operator: NOOPOperator = NOOPOperator({"sleep_sec": 1})
     print(operator)
 
     # 2. Create an in-memory py-arrow table, as the input
-    input_table = pa.Table.from_arrays([], names=[])
+    input_table: pa.Table = pa.Table.from_arrays([], names=[])
 
     # 3. Run the operators
+    table_list: list[pa.Table]
+    metadata: dict[str, Any]
     table_list, metadata = operator.transform(input_table)
 
     # 4. Inspect and print the results after the operators is completed

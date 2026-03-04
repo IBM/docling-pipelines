@@ -634,7 +634,7 @@ class TestTransform:
         assert source_ids[2] == 'file3.txt'
         
         # Check metadata - now follows AbstractOperator pattern
-        assert metadata['node_status'] == 'completed'
+        assert metadata['node_status'] == 'Completed'
         assert metadata['processed_docs'] == 3
         assert metadata['total_docs_count'] == 3
     
@@ -676,7 +676,7 @@ class TestTransform:
         result_table = result_tables[0]
         
         assert result_table.num_rows == 0
-        assert metadata['node_status'] == 'completed'
+        assert metadata['node_status'] == 'Completed'
         assert metadata['processed_docs'] == 0
     
     @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
@@ -717,7 +717,7 @@ class TestTransform:
         result_table = result_tables[0]
         
         assert result_table.num_rows == 0
-        assert metadata['node_status'] == 'completed_with_errors'
+        assert metadata['node_status'] == 'CompletedWithErrors'
         assert metadata['failed_docs_count'] == 1
     
     @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
@@ -801,7 +801,7 @@ class TestTransform:
         
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == 3
-        assert metadata['node_status'] == 'completed'
+        assert metadata['node_status'] == 'Completed'
     
     @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
     def test_transform_document_without_source(self, mock_incremental_util, empty_input_table):
@@ -891,7 +891,7 @@ class TestIntegrationScenarios:
         
         # Verify pipeline output
         assert result_table.num_rows == 2
-        assert metadata['node_status'] == 'completed'
+        assert metadata['node_status'] == 'Completed'
         assert metadata['processed_docs'] == 2
         
         # Verify data can be converted to pandas for downstream processing
@@ -907,4 +907,3 @@ class TestIntegrationScenarios:
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
-# Made with Bob

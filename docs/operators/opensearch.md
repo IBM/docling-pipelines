@@ -41,8 +41,8 @@ The OpenSearch operator stores documents and embeddings in OpenSearch for vector
 | `opensearch_port` | integer | No | 9200 | OpenSearch server port |
 | `opensearch_username` | string | No | - | Username for authentication |
 | `opensearch_password` | string | No | - | Password for authentication |
-| `opensearch_use_ssl` | boolean | No | true | Use SSL connection |
-| `opensearch_verify_certs` | boolean | No | true | Verify SSL certificates |
+| `opensearch_use_ssl` | boolean | No | false | Use SSL connection |
+| `opensearch_verify_certs` | boolean | No | false | Verify SSL certificates |
 | `opensearch_aws_auth` | boolean | No | false | Use AWS IAM authentication |
 | `opensearch_aws_region` | string | No | - | AWS region for authentication |
 
@@ -339,29 +339,7 @@ for failed_doc in metadata['failed_docs']:
 
 ## Troubleshooting
 
-### Engine Mismatch Error
-```
-Engine mismatch: index has 'lucene', config specifies 'faiss'
-```
-**Solution**: Use the same engine as the existing index or delete and recreate the index.
-
-### Algorithm Not Supported
-```
-Algorithm 'ivf' not supported by engine 'lucene'
-```
-**Solution**: Check engine-algorithm compatibility table and use a supported combination.
-
-### Connection Timeout
-```
-Bulk indexing failed: Connection timeout
-```
-**Solution**: Increase `BULK_INSERT_TIMEOUT` or reduce batch size.
-
-### Version Compatibility
-```
-Engine 'nmslib' is deprecated in OpenSearch 2.13+
-```
-**Solution**: Use FAISS or Lucene instead.
+See [`docs/opensearch/DOCKER_SETUP.md`](../opensearch/DOCKER_SETUP.md) for troubleshooting.
 
 ## Related Operators
 

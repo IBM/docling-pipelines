@@ -5,22 +5,21 @@ This operator generates vector embeddings for text content using various embeddi
 It supports multiple providers (Ollama, OpenAI, etc.) and handles chunking of long text.
 """
 
-import hashlib
 import json
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pyarrow as pa
 
 try:
     from data_processing.utils import TransformUtils
-    HAS_TRANSFORM_UTILS = True
+    HAS_TRANSFORM_UTILS: bool = True
 except ImportError:
-    HAS_TRANSFORM_UTILS = False
+    HAS_TRANSFORM_UTILS: bool = False
     # Fallback implementation
     class TransformUtils:
         @staticmethod
-        def add_column(table: pa.Table, name: str, content: list) -> pa.Table:
+        def add_column(table: pa.Table, name: str, content: List[Any]) -> pa.Table:
             """Add a column to a PyArrow table."""
             # Infer the type from the content
             new_column = pa.array(content)
@@ -39,14 +38,15 @@ from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
+from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 
 logger = get_logger()
 
 # Supported embeddings providers
-SUPPORTED_EMBEDDINGS_TYPES = ["ollama", "openai"]
+SUPPORTED_EMBEDDINGS_TYPES: List[str] = ["ollama", "openai"]
 
 # Ollama model token limits (approximate)
-OLLAMA_MODEL_TOKEN_LIMITS = {
+OLLAMA_MODEL_TOKEN_LIMITS: Dict[str, int] = {
     "llama2": 4096,
     "llama3": 8192,
     "llama3.1": 128000,
@@ -70,17 +70,17 @@ OLLAMA_MODEL_TOKEN_LIMITS = {
 }
 
 # Default token limit for unknown models
-DEFAULT_TOKEN_LIMIT = 4096
+DEFAULT_TOKEN_LIMIT: int = 4096
 
 # Overlap ratio for chunking
-OVERLAP_RATIO_KEY = "overlap_ratio"
-OVERLAP_RATIO_DEFAULT = 0.2
-OVERLAP_RATIO_MIN = 0.0
-OVERLAP_RATIO_MAX = 0.5
+OVERLAP_RATIO_KEY: str = "overlap_ratio"
+OVERLAP_RATIO_DEFAULT: float = 0.2
+OVERLAP_RATIO_MIN: float = 0.0
+OVERLAP_RATIO_MAX: float = 0.5
 
 # Embeddings type configuration key
-EMBEDDINGS_TYPE_KEY = "embeddings_type"
-EMBEDDINGS_TYPE_DEFAULT = "ollama"
+EMBEDDINGS_TYPE_KEY: str = "embeddings_type"
+EMBEDDINGS_TYPE_DEFAULT: str = "ollama"
 
 
 class EmbeddingsOperator(AbstractOperator):
@@ -107,10 +107,10 @@ class EmbeddingsOperator(AbstractOperator):
     4. Update metadata and documentation
     """
 
-    short_name = OperatorConstants.EMBEDDINGS
-    category = OperatorCategory.Functional
+    short_name: str = OperatorConstants.EMBEDDINGS
+    category: OperatorCategory = OperatorCategory.Functional
 
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: Dict[str, Any]) -> None:
         """
         Initialize the Embeddings Operator.
 
@@ -126,32 +126,32 @@ class EmbeddingsOperator(AbstractOperator):
         super().__init__(config)
         
         # Provider configuration
-        self.embeddings_type = config.get(
+        self.embeddings_type: str = config.get(
             EMBEDDINGS_TYPE_KEY, EMBEDDINGS_TYPE_DEFAULT
         )
         
         # Model configuration
-        self.embeddings_model_id = config.get(
-            OperatorConstants.EMBEDDINGS_MODEL_ID, "llama2"
+        self.embeddings_model_id: str = config.get(
+            OperatorConstants.EMBEDDINGS_MODEL_ID, "granite4"
         )
         
         # Column names
-        self.embeddings_column = config.get(
+        self.embeddings_column: str = config.get(
             OperatorConstants.EMBEDDINGS_COLUMN,
             OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT,
         )
-        self.doc_column = config.get(
+        self.doc_column: str = config.get(
             OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
         )
-        self.doc_id_hash_column = config.get(
+        self.doc_id_hash_column: str = config.get(
             OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
         )
         
         # Chunking configuration
-        self.overlap_ratio = config.get(OVERLAP_RATIO_KEY, OVERLAP_RATIO_DEFAULT)
+        self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, OVERLAP_RATIO_DEFAULT)
         
         # Logging
-        self.common_log_arguments = {
+        self.common_log_arguments: Dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
@@ -162,11 +162,11 @@ class EmbeddingsOperator(AbstractOperator):
             extra=self.common_log_arguments,
         )
 
-    def get_required_features(self):
+    def get_required_features(self) -> List[str]:
         """Return list of required input features."""
         return [self.doc_column]
 
-    def validate(self, errors: list, warnings: list, available_features: list):
+    def validate(self, errors: List[str], warnings: List[str], available_features: List[str]) -> None:
         """
         Validate operator configuration.
 
@@ -207,7 +207,7 @@ class EmbeddingsOperator(AbstractOperator):
             ):
                 errors.append("embeddings_model_id must be a non-empty string")
 
-    def get_metadata(self):
+    def get_metadata(self) -> Dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
 
@@ -275,19 +275,20 @@ class EmbeddingsOperator(AbstractOperator):
 
     def _generate_document_hash(self, content: str) -> str:
         """
-        Generate a unique hash for document content.
+        Generate a SHA-256 hash for document content.
 
         Args:
-            content: Document content to hash
+            content: Document content string
 
         Returns:
-            str: SHA-256 hash of the content
+            64-character hexadecimal SHA-256 hash string
         """
+        import hashlib
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
     def _create_embeddings(
-        self, text: list[str], model_name: str, overlap_ratio: float
-    ) -> list[list[float]]:
+        self, text: List[str], model_name: str, overlap_ratio: float
+    ) -> List[List[float]]:
         """
         Generate embeddings for text using the configured provider.
         
@@ -316,8 +317,8 @@ class EmbeddingsOperator(AbstractOperator):
             )
 
     def _create_embeddings_ollama(
-        self, text: list[str], model_name: str, overlap_ratio: float
-    ) -> list[list[float]]:
+        self, text: List[str], model_name: str, overlap_ratio: float
+    ) -> List[List[float]]:
         """
         Generate embeddings for text using Ollama.
 
@@ -342,12 +343,12 @@ class EmbeddingsOperator(AbstractOperator):
                 "ollama package not installed. Install it with: pip install ollama"
             )
 
-        embeddings = []
-        token_limit = OLLAMA_MODEL_TOKEN_LIMITS.get(model_name, DEFAULT_TOKEN_LIMIT)
+        embeddings: List[List[float]] = []
+        token_limit: int = OLLAMA_MODEL_TOKEN_LIMITS.get(model_name, DEFAULT_TOKEN_LIMIT)
         
         # Approximate: 1 token ≈ 4 characters
-        char_limit = token_limit * 4
-        overlap_chars = int(char_limit * overlap_ratio)
+        char_limit: int = token_limit * 4
+        overlap_chars: int = int(char_limit * overlap_ratio)
 
         logger.debug(
             f"Using token limit: {token_limit}, char limit: {char_limit}, "
@@ -385,11 +386,11 @@ class EmbeddingsOperator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
                 
-                chunks = []
-                start = 0
+                chunks: List[str] = []
+                start: int = 0
                 while start < len(text_item):
-                    end = start + char_limit
-                    chunk = text_item[start:end]
+                    end: int = start + char_limit
+                    chunk: str = text_item[start:end]
                     chunks.append(chunk)
                     start = end - overlap_chars if end < len(text_item) else end
 
@@ -399,7 +400,7 @@ class EmbeddingsOperator(AbstractOperator):
                 )
 
                 # Generate embeddings for each chunk
-                chunk_embeddings = []
+                chunk_embeddings: List[List[float]] = []
                 for i, chunk in enumerate(chunks):
                     try:
                         response = ollama.embeddings(model=model_name, prompt=chunk)
@@ -415,14 +416,14 @@ class EmbeddingsOperator(AbstractOperator):
                         )
 
                 # Average the chunk embeddings
-                avg_embedding = np.mean(chunk_embeddings, axis=0).tolist()
+                avg_embedding: List[float] = np.mean(chunk_embeddings, axis=0).tolist()
                 embeddings.append(avg_embedding)
 
         return embeddings
 
     def _create_embeddings_openai(
-        self, text: list[str], model_name: str, overlap_ratio: float
-    ) -> list[list[float]]:
+        self, text: List[str], model_name: str, overlap_ratio: float
+    ) -> List[List[float]]:
         """
         Generate embeddings for text using OpenAI.
         
@@ -446,8 +447,8 @@ class EmbeddingsOperator(AbstractOperator):
         )
 
     def transform(
-        self, table: pa.Table, file_name: str | None = None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+        self, table: pa.Table, file_name: Optional[str] = None
+    ) -> Tuple[List[pa.Table], Dict[str, Any]]:
         """
         Transform the input table by adding embeddings.
 
@@ -465,31 +466,62 @@ class EmbeddingsOperator(AbstractOperator):
         )
 
         # Initialize metadata
-        metadata = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
-        
+        metadata: Dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+
+        # Ensure doc_id_hash column exists using DocIdHashOperator
+        if self.doc_id_hash_column not in table.column_names:
+            try:
+                doc_id_op: DocIdHashOperator = DocIdHashOperator(config={
+                    OperatorConstants.DOC_COLUMN: self.doc_column,
+                    OperatorConstants.DOC_ID_HASH: self.doc_id_hash_column,
+                })
+                result_tables: List[pa.Table]
+                result_tables, _ = doc_id_op.transform(table)
+                table = result_tables[0]
+            except Exception as e:
+                logger.error(
+                    f"Failed to generate document hashes: {str(e)}",
+                    extra=self.common_log_arguments,
+                )
+                # Mark all documents as failed
+                for idx in range(table.num_rows):
+                    doc_id: Union[str, Any] = table[OperatorConstants.ID][idx].as_py() if OperatorConstants.ID in table.column_names else f"doc_{idx}"
+                    doc_name: Union[str, Any] = table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else str(doc_id)
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(doc_id),
+                        doc_name=str(doc_name),
+                        reason=str(e),
+                    )
+                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                    metadata[Metrics.External.NODE_STATUS],
+                    ExecutionStatus.COMPLETED_WITH_ERRORS,
+                )
+                return [table.slice(0, 0)], metadata
+
         # Convert table to list for processing
-        input_docs = table.to_pylist()
-        embeddings_list = []
-        doc_id_hashes = []
-        remove_row_idx = []
+        input_docs: List[Dict[str, Any]] = table.to_pylist()
+        embeddings_list: List[Union[List[float], List[List[float]]]] = []
+        doc_id_hashes: List[str] = []
+        remove_row_idx: List[int] = []
 
         # Check if we have chunked content
-        has_chunked_content = OperatorConstants.CHUNKED_CONTENT in table.column_names
+        has_chunked_content: bool = OperatorConstants.CHUNKED_CONTENT in table.column_names
 
         for idx, doc in enumerate(input_docs):
-            doc_id = doc.get(OperatorConstants.ID, f"doc_{idx}")
-            doc_name = doc.get(OperatorConstants.NAME, doc_id)
+            doc_id: Any = doc.get(OperatorConstants.ID, f"doc_{idx}")
+            doc_name: Any = doc.get(OperatorConstants.NAME, doc_id)
 
             try:
                 # Get content to embed
                 if has_chunked_content:
                     # Process chunked content
-                    chunked_content_raw = doc.get(OperatorConstants.CHUNKED_CONTENT, [])
+                    chunked_content_raw: Any = doc.get(OperatorConstants.CHUNKED_CONTENT, [])
                     if not chunked_content_raw:
                         raise DatasiftException("Chunked content is empty")
                     
                     # Parse chunked_content - it can be a JSON string or a list
-                    chunked_content = []
+                    chunked_content: List[Any] = []
                     if isinstance(chunked_content_raw, str):
                         # Parse JSON string from DoclingChunkerOperator
                         try:
@@ -517,11 +549,11 @@ class EmbeddingsOperator(AbstractOperator):
                         )
                     
                     # Extract text from chunks - handle both dict and string formats
-                    texts = []
+                    texts: List[str] = []
                     for chunk in chunked_content:
                         if isinstance(chunk, dict):
                             # Chunk is a dictionary with 'chunk' key
-                            chunk_text = chunk.get(OperatorConstants.CHUNK, "")
+                            chunk_text: str = chunk.get(OperatorConstants.CHUNK, "")
                             if chunk_text:
                                 texts.append(chunk_text)
                         elif isinstance(chunk, str):
@@ -543,7 +575,7 @@ class EmbeddingsOperator(AbstractOperator):
                     )
                 else:
                     # Process full document content
-                    content = doc.get(self.doc_column)
+                    content: Any = doc.get(self.doc_column)
                     if not content:
                         raise DatasiftException(
                             f"Document content column '{self.doc_column}' is empty or missing"
@@ -551,7 +583,7 @@ class EmbeddingsOperator(AbstractOperator):
                     texts = [content]
 
                 # Generate embeddings using configured provider
-                doc_embeddings = self._create_embeddings(
+                doc_embeddings: List[List[float]] = self._create_embeddings(
                     text=texts,
                     model_name=self.embeddings_model_id,
                     overlap_ratio=self.overlap_ratio,
@@ -563,14 +595,8 @@ class EmbeddingsOperator(AbstractOperator):
                 else:
                     embeddings_list.append(doc_embeddings[0])
 
-                # Generate or retrieve document hash
-                if self.doc_id_hash_column in doc and doc[self.doc_id_hash_column]:
-                    doc_hash = doc[self.doc_id_hash_column]
-                else:
-                    # Generate hash from content
-                    content_for_hash = texts[0] if texts else ""
-                    doc_hash = self._generate_document_hash(content_for_hash)
-                
+                # Retrieve document hash (guaranteed to exist after DocIdHashOperator)
+                doc_hash: str = doc.get(self.doc_id_hash_column, "")
                 doc_id_hashes.append(doc_hash)
                 metadata[Metrics.External.PROCESSED_DOCS] += 1
 
@@ -644,11 +670,10 @@ def check_ollama_installed() -> bool:
         bool: True if Ollama is installed, False otherwise
     """
     import subprocess
-    import platform
     
     try:
         # Try to run 'ollama --version' command
-        result = subprocess.run(
+        result: subprocess.CompletedProcess[str] = subprocess.run(
             ["ollama", "--version"],
             capture_output=True,
             text=True,
@@ -687,7 +712,7 @@ def start_ollama_server() -> bool:
     import time
     
     try:
-        system = platform.system()
+        system: str = platform.system()
         
         if system == "Windows":
             # Windows: Start in background using START command
@@ -735,11 +760,11 @@ def check_model_available(model_name: str) -> bool:
     """
     try:
         import ollama
-        models = ollama.list()
+        models: Any = ollama.list()
         
         # Check if model exists in the list
         if hasattr(models, 'models'):
-            model_list = models.models
+            model_list: Any = models.models
         elif isinstance(models, dict) and 'models' in models:
             model_list = models['models']
         else:
@@ -748,7 +773,7 @@ def check_model_available(model_name: str) -> bool:
         for model in model_list:
             # Handle both dict and object formats
             if isinstance(model, dict):
-                name = model.get('name', '')
+                name: str = model.get('name', '')
             else:
                 name = getattr(model, 'model', '')
             
@@ -780,7 +805,7 @@ def pull_ollama_model(model_name: str) -> bool:
         print("   Progress:")
         
         # Use subprocess to show real-time progress
-        process = subprocess.Popen(
+        process: subprocess.Popen[str] = subprocess.Popen(
             ["ollama", "pull", model_name],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
@@ -789,10 +814,11 @@ def pull_ollama_model(model_name: str) -> bool:
         )
         
         # Stream output
-        for line in process.stdout:
-            line = line.strip()
+        if process.stdout:
+            for line in process.stdout:
+                line = line.strip()
             if line:
-                print(f"   {line}")
+                    print(f"   {line}")
         
         process.wait()
         
@@ -809,7 +835,7 @@ def pull_ollama_model(model_name: str) -> bool:
         return False
 
 
-def main():
+def main() -> int:
     """
     Demo pipeline: Ingest → Extract → Chunk → Embeddings
     
@@ -839,7 +865,6 @@ def main():
         python embeddings_operator.py --no-auto-pull
     """
     import argparse
-    import sys
     import platform
     from pathlib import Path
     
@@ -847,11 +872,11 @@ def main():
     # Current file is at: src/datasift_opensource/backend/core/operators/universal/embeddings/embeddings_operator.py
     # Path structure: embeddings_operator.py -> embeddings -> universal -> operators -> core -> backend -> datasift_opensource -> src -> PROJECT_ROOT
     # Need to go up 8 levels to reach project root
-    project_root = Path(__file__).resolve().parents[7]
-    default_pdf_path = project_root / "tests" / "fixtures" / "invoices"
+    project_root: Path = Path(__file__).resolve().parents[7]
+    default_pdf_path: Path = project_root / "tests" / "fixtures" / "invoices"
     
     # Parse command line arguments
-    parser = argparse.ArgumentParser(
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description="Demo: Complete pipeline from PDF ingestion to embeddings generation"
     )
     parser.add_argument(
@@ -863,8 +888,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="llama2",
-        help="Ollama model to use for embeddings (default: llama2)"
+        default="granite4",
+        help="Ollama model to use for embeddings (default: granite4)"
     )
     parser.add_argument(
         "--chunk-size",
@@ -882,7 +907,7 @@ def main():
         action="store_true",
         help="Disable automatic model pulling (only check if model exists)"
     )
-    args = parser.parse_args()
+    args: argparse.Namespace = parser.parse_args()
     
     # ========================================================================
     # OLLAMA SETUP - Automatic setup if not disabled
@@ -899,7 +924,7 @@ def main():
             print("\n" + "=" * 80)
             print("INSTALLATION INSTRUCTIONS")
             print("=" * 80)
-            system = platform.system()
+            system: str = platform.system()
             if system == "Darwin":  # macOS
                 print("macOS:")
                 print("  brew install ollama")
@@ -985,7 +1010,7 @@ def main():
         try:
             ollama.list()
             print("✓ Ollama is running")
-        except Exception as e:
+        except Exception:
             print("\n❌ Error: Ollama is not running or not accessible")
             print("   Please start Ollama with: ollama serve")
             print(f"   Then pull a model with: ollama pull {args.model}")
@@ -998,12 +1023,12 @@ def main():
         from core.operators.universal.chunker.docling_chunker import DoclingChunkerOperator
     except ImportError as e:
         logger.error(f"Failed to import required operators: {e}")
-        print(f"\n❌ Error: Failed to import operators. Make sure you're running from the correct directory.")
-        print(f"   Try: cd src/datasift_opensource/backend && python -m core.operators.universal.embeddings.embeddings_operator")
+        print("\n❌ Error: Failed to import operators. Make sure you're running from the correct directory.")
+        print("   Try: cd src/datasift_opensource/backend && python -m core.operators.universal.embeddings.embeddings_operator")
         return 1
     
     # Validate PDF path
-    pdf_path = Path(args.pdf)
+    pdf_path: Path = Path(args.pdf)
     if not pdf_path.exists():
         print("\n" + "=" * 80)
         print("❌ ERROR: PDF PATH NOT FOUND")
@@ -1019,6 +1044,8 @@ def main():
         return 1
     
     # Count PDF files
+    pdf_files: List[Path]
+    pdf_count: int
     if pdf_path.is_dir():
         pdf_files = list(pdf_path.glob("*.pdf")) + list(pdf_path.glob("*.PDF"))
         pdf_count = len(pdf_files)
@@ -1048,7 +1075,7 @@ def main():
     print("STEP 1: INGEST PDF FILES")
     print("=" * 80)
     
-    ingest_config = {
+    ingest_config: Dict[str, Any] = {
         "input_folder": args.pdf,
         "include_filter": "pdf",
         "max_files": 10,
@@ -1057,9 +1084,11 @@ def main():
     }
     
     try:
-        ingest_operator = IngestLocalOperator(ingest_config)
+        ingest_operator: Any = IngestLocalOperator(ingest_config)
+        ingest_tables: List[pa.Table]
+        ingest_metadata: Dict[str, Any]
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
-        ingest_table = ingest_tables[0]
+        ingest_table: pa.Table = ingest_tables[0]
         
         print(f"✓ Ingested {ingest_table.num_rows} document(s)")
         print(f"  Columns: {ingest_table.column_names}")
@@ -1086,16 +1115,18 @@ def main():
     print("STEP 2: EXTRACT CONTENT WITH DOCLING")
     print("=" * 80)
     
-    extract_config = {
+    extract_config: Dict[str, Any] = {
         "doc_column": "content",
         "extract_tables": True,
         "extract_images": False
     }
     
     try:
-        extract_operator = ExtractDoclingOperator(extract_config)
+        extract_operator: Any = ExtractDoclingOperator(extract_config)
+        extract_tables: List[pa.Table]
+        extract_metadata: Dict[str, Any]
         extract_tables, extract_metadata = extract_operator.transform(ingest_table)
-        extract_table = extract_tables[0]
+        extract_table: pa.Table = extract_tables[0]
         
         print(f"✓ Extracted content from {extract_table.num_rows} document(s)")
         print(f"  Columns: {extract_table.column_names}")
@@ -1104,9 +1135,9 @@ def main():
         
         # Show sample extracted content
         if "content" in extract_table.column_names and extract_table.num_rows > 0:
-            content = extract_table["content"][0].as_py()
+            content: Any = extract_table["content"][0].as_py()
             if content:
-                preview = content[:200].replace('\n', ' ')
+                preview: str = content[:200].replace('\n', ' ')
                 print(f"\n  Content preview: {preview}...")
                 print(f"  Total characters: {len(content)}")
         
@@ -1122,7 +1153,7 @@ def main():
     print("STEP 3: CHUNK CONTENT")
     print("=" * 80)
     
-    chunk_config = {
+    chunk_config: Dict[str, Any] = {
         "doc_column": "content",
         "chunk_size": args.chunk_size,
         "chunk_overlap": 128,
@@ -1130,9 +1161,11 @@ def main():
     }
     
     try:
-        chunker_operator = DoclingChunkerOperator(chunk_config)
+        chunker_operator: Any = DoclingChunkerOperator(chunk_config)
+        chunk_tables: List[pa.Table]
+        chunk_metadata: Dict[str, Any]
         chunk_tables, chunk_metadata = chunker_operator.transform(extract_table)
-        chunk_table = chunk_tables[0]
+        chunk_table: pa.Table = chunk_tables[0]
         
         print(f"✓ Chunked {chunk_table.num_rows} document(s)")
         print(f"  Columns: {chunk_table.column_names}")
@@ -1143,12 +1176,12 @@ def main():
         # Show sample chunk info
         if "chunked_content" in chunk_table.column_names and chunk_table.num_rows > 0:
             import json
-            chunked_content = chunk_table["chunked_content"][0].as_py()
+            chunked_content: Any = chunk_table["chunked_content"][0].as_py()
             if chunked_content:
-                chunks = json.loads(chunked_content)
+                chunks: List[Dict[str, Any]] = json.loads(chunked_content)
                 print(f"\n  First document has {len(chunks)} chunks")
                 if chunks:
-                    first_chunk = chunks[0]
+                    first_chunk: Dict[str, Any] = chunks[0]
                     preview = first_chunk['chunk'][:150].replace('\n', ' ')
                     print(f"  First chunk preview: {preview}...")
                     print(f"  First chunk metadata: {first_chunk.get('metadata', {})}")
@@ -1165,7 +1198,7 @@ def main():
     print("STEP 4: GENERATE EMBEDDINGS")
     print("=" * 80)
     
-    embeddings_config = {
+    embeddings_config: Dict[str, Any] = {
         "embeddings_type": "ollama",
         "embeddings_model_id": args.model,
         "embeddings_column": "embeddings",
@@ -1174,9 +1207,11 @@ def main():
     }
     
     try:
-        embeddings_operator = EmbeddingsOperator(embeddings_config)
+        embeddings_operator: EmbeddingsOperator = EmbeddingsOperator(embeddings_config)
+        embeddings_tables: List[pa.Table]
+        embeddings_metadata: Dict[str, Any]
         embeddings_tables, embeddings_metadata = embeddings_operator.transform(chunk_table)
-        embeddings_table = embeddings_tables[0]
+        embeddings_table: pa.Table = embeddings_tables[0]
         
         print(f"✓ Generated embeddings for {embeddings_table.num_rows} document(s)")
         print(f"  Columns: {embeddings_table.column_names}")
@@ -1185,7 +1220,7 @@ def main():
         
         # Show embedding details
         if "embeddings" in embeddings_table.column_names and embeddings_table.num_rows > 0:
-            embeddings_data = embeddings_table["embeddings"][0].as_py()
+            embeddings_data: Any = embeddings_table["embeddings"][0].as_py()
             if embeddings_data:
                 # Handle both single embedding and list of embeddings
                 if isinstance(embeddings_data, list):
@@ -1201,7 +1236,7 @@ def main():
         
         # Show document hash
         if "doc_id_hash" in embeddings_table.column_names and embeddings_table.num_rows > 0:
-            doc_hash = embeddings_table["doc_id_hash"][0].as_py()
+            doc_hash: str = embeddings_table["doc_id_hash"][0].as_py()
             print(f"  Document hash: {doc_hash}")
         
     except Exception as e:

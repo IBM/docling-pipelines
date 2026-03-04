@@ -228,7 +228,7 @@ class AbstractOrchestrator:
 
         # LATER: based on some config, pass None to deleted_rows_list to skip tracking deleted rows
         data_accesses, metadata = executor.execute(data_access=prev_data_access, deleted_rows_list=self.deleted_rows_list)
-        time_taken = get_current_timestamp() - start
+        
         # Removing the internal metrics from the operator metadata if any to another dict
         internal_metadata = remove_internal_metrics_from_metadata(metadata=metadata)
 
@@ -1047,7 +1047,6 @@ class AbstractOrchestrator:
         # Execute ingest operator to get initial table
         ingest_operator = op_flow[0]
         incremental_update_util = IncrementalUpdateUtil()
-        session_info = get_session_info()
 
         initial_result = ExecuteStepResults([data_access], [pa.Table.from_arrays(arrays=[], names=[])], None)
         step_results = self._execute_step(op_def=ingest_operator, global_config=global_config,

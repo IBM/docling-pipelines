@@ -1,5 +1,4 @@
 import json
-import os
 import re
 from functools import lru_cache
 from pathlib import Path
@@ -13,7 +12,6 @@ from pyiceberg.partitioning import UNPARTITIONED_PARTITION_SPEC
 from pyiceberg.table import Table, ALWAYS_TRUE
 from pyiceberg.table.name_mapping import MappedField, NameMapping
 from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.constants import DatasiftConstants
 from common.util.log import get_logger
 
 logger = get_logger()
