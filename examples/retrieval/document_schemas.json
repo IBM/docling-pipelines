@@ -1,6 +1,20 @@
 {
   "schemas": [
     {
+      "table": "invoices_entities",
+      "description": "Invoice documents with extracted entities for billing and payment tracking. All financial and metadata fields are prefixed with 'entity_'.",
+      "columns": {
+        "pk": "VARCHAR - Document hash / primary key",
+        "text": "TEXT - Full raw invoice text content",
+        "invoice_entities": "TEXT - JSON string of all extracted invoice entities",
+        "entity_invoice_number": "VARCHAR - Extracted invoice number",
+        "entity_invoice_date": "VARCHAR - Extracted invoice date",
+        "entity_vendor_name": "VARCHAR - Extracted vendor or seller name",
+        "entity_total_amount": "FLOAT - Extracted subtotal or total amount before grand total",
+        "entity_grand_total": "FLOAT - Extracted grand total amount (the final amount due on the invoice)"
+      }
+    },
+    {
       "table": "purchase_orders",
       "description": "Purchase order documents for procurement tracking",
       "columns": {

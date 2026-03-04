@@ -1,5 +1,5 @@
 from langdetect import detect_langs
-from typing import Any, Optional
+from typing import Any
 import pyarrow as pa
 from logging import Logger
 

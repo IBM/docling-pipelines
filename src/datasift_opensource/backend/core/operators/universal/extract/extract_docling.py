@@ -9,8 +9,8 @@ import json
 import logging
 import os
 import tempfile
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed, Future
-from typing import Any, Dict, List, Optional, Tuple, Set, Union
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
 import pyarrow as pa
@@ -38,7 +38,7 @@ except ImportError:
 
 from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import InputFormat
-from docling_core.types.doc.document import PictureItem, TableItem, DoclingDocument
+from docling_core.types.doc.document import PictureItem, TableItem
 
 logger: logging.Logger = get_logger()
 
