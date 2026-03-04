@@ -6,11 +6,10 @@ Supports multiple KNN engines, algorithms, incremental updates, and query capabi
 """
 
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 import pyarrow as pa
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth, helpers
 import boto3
-from boto3 import Session
 from botocore.credentials import Credentials
 
 from core.operators.abstract_operator import (

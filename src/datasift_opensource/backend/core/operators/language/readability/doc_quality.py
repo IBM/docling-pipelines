@@ -1,5 +1,5 @@
 import os
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple
 
 import pyarrow as pa
 from dpk_doc_quality.transform import DocQualityTransform
