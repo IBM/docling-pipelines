@@ -134,7 +134,7 @@
             "entities": {
               "name": "Entities",
               "available_for_vector_db": true,
-              "type": "string"
+              "type": "object"
             }
           },
           "feature_mappings": {

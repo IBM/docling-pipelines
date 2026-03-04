@@ -2,16 +2,31 @@
   "schemas": [
     {
       "table": "invoices_entities",
-      "description": "Invoice documents with extracted entities for billing and payment tracking. All financial and metadata fields are prefixed with 'entity_'.",
+      "description": "Invoice documents with extracted entities for billing and payment tracking stored as nested objects.",
       "columns": {
         "pk": "VARCHAR - Document hash / primary key",
         "text": "TEXT - Full raw invoice text content",
-        "invoice_entities": "TEXT - JSON string of all extracted invoice entities",
-        "entity_invoice_number": "VARCHAR - Extracted invoice number",
-        "entity_invoice_date": "VARCHAR - Extracted invoice date",
-        "entity_vendor_name": "VARCHAR - Extracted vendor or seller name",
-        "entity_total_amount": "FLOAT - Extracted subtotal or total amount before grand total",
-        "entity_grand_total": "FLOAT - Extracted grand total amount (the final amount due on the invoice)"
+        "invoice_entities.order_number": "VARCHAR - Purchase order number",
+        "invoice_entities.order_date": "VARCHAR - Order date",
+        "invoice_entities.supplier.name": "VARCHAR - Supplier company name",
+        "invoice_entities.supplier.address": "VARCHAR - Supplier address",
+        "invoice_entities.bill_to.address": "VARCHAR - Bill to address",
+        "invoice_entities.ship_to.address": "VARCHAR - Ship to address",
+        "invoice_entities.line_items": "NESTED - Array of line items",
+        "invoice_entities.line_items.sku": "VARCHAR - Item SKU",
+        "invoice_entities.line_items.description": "VARCHAR - Item description",
+        "invoice_entities.line_items.quantity": "INTEGER - Quantity ordered",
+        "invoice_entities.line_items.unit_price": "FLOAT - Price per unit",
+        "invoice_entities.line_items.total": "FLOAT - Line item total before shipping",
+        "invoice_entities.line_items.shipping": "FLOAT - Shipping cost for item",
+        "invoice_entities.line_items.item_total": "FLOAT - Line item total including shipping",
+        "invoice_entities.subtotal": "FLOAT - Subtotal before tax and shipping",
+        "invoice_entities.shipping_total": "FLOAT - Total shipping cost",
+        "invoice_entities.tax.rate": "INTEGER - Tax rate percentage",
+        "invoice_entities.tax.amount": "FLOAT - Tax amount",
+        "invoice_entities.order_total": "FLOAT - Grand total amount",
+        "invoice_entities.contract_reference": "VARCHAR - Contract or agreement reference",
+        "invoice_entities.terms_and_conditions": "TEXT - Payment terms and conditions"
       }
     },
     {

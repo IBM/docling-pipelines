@@ -138,7 +138,9 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
     # Strip markdown fences
     if text.startswith("```"):
         lines: list[str] = text.split("\n")
-        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:]).strip()
+        text = "\n".join(
+            lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
+        ).strip()
     # Direct parse
     try:
         return json.loads(text)
@@ -150,7 +152,9 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
         try:
             return json.loads(match.group())
         except json.JSONDecodeError:
-            repaired: Optional[dict[str, Any]] = _try_repair_truncated_json(match.group())
+            repaired: Optional[dict[str, Any]] = _try_repair_truncated_json(
+                match.group()
+            )
             if repaired is not None:
                 return repaired
     # Last-resort repair
@@ -160,7 +164,9 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
     return {}
 
 
-def _load_schema_from_file(schema_file: str, table_name: str) -> Optional[dict[str, Any]]:
+def _load_schema_from_file(
+    schema_file: str, table_name: str
+) -> Optional[dict[str, Any]]:
     """Load a named schema from a JSON schema file."""
     try:
         with open(schema_file, encoding="utf-8") as fh:
@@ -203,9 +209,10 @@ def _extract_entities_worker(
         }
 
     try:
-        truncated_content: str = content[:max_doc_chars] if len(content) > max_doc_chars else content
+        truncated_content: str = (
+            content[:max_doc_chars] if len(content) > max_doc_chars else content
+        )
         has_schema: bool = bool(schema.get("columns"))
-
 
         if has_schema:
             schema_desc: str = _build_schema_description(schema)
@@ -235,13 +242,13 @@ def _extract_entities_worker(
         )
         raw: str = response["message"]["content"]
         entities: dict[str, Any] = _parse_llm_json(raw)
-        return {"success": True, "entities": json.dumps(entities), "error": None}
+        return {"success": True, "entities": entities, "error": None}
 
     except Exception as exc:  # noqa: BLE001
         logger.error(
             "Entity extraction failed for doc '%s' (%s): %s", doc_name, doc_id, exc
         )
-        return {"success": False, "entities": "{}", "error": str(exc)}
+        return {"success": False, "entities": {}, "error": str(exc)}
 
 
 # ---------------------------------------------------------------------------
@@ -406,7 +413,6 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                 table, name=f"entity_{key}", content=column_values
             )
 
-
         return table
 
     # ------------------------------------------------------------------
@@ -426,7 +432,9 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     # Validation
     # ------------------------------------------------------------------
 
-    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+    def validate(
+        self, errors: list[str], warnings: list[str], available_features: list[str]
+    ) -> None:
         super().validate(errors, warnings, available_features)
 
         if self.should_validate_field(field_value=self.ollama_model):
@@ -447,10 +455,12 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     # ------------------------------------------------------------------
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
+        metadata: dict[str, Any] = self.create_base_metadata(
+            total_docs_count=table.num_rows
+        )
 
         schema: dict[str, Any] = self._get_schema()
-        entities_list: list[str] = ["{}"] * table.num_rows
+        entities_list: list[dict[str, Any]] = [{}] * table.num_rows
 
         # Build task list
         doc_tasks: list[tuple[int, str, str, str]] = (
@@ -516,21 +526,15 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
 
         # Optionally expand entities into individual columns
         if self.expand_entities:
-            parsed_entities_list: list[Optional[dict[str, Any]]] = []
-            for json_str in entities_list:
-                if json_str is not None:
-                    try:
-                        parsed_entities_list.append(json.loads(json_str))
-                    except (json.JSONDecodeError, TypeError):
-                        parsed_entities_list.append(None)
-                else:
-                    parsed_entities_list.append(None)
-            if parsed_entities_list:
-                table = self._expand_entities_columns(table, parsed_entities_list)
+            if entities_list:
+                table = self._expand_entities_columns(table, entities_list)
 
-        # Add entities column
+        # Add entities column - convert to JSON strings for PyArrow compatibility
+        entities_json_list: list[str] = [
+            json.dumps(entity) if entity else "{}" for entity in entities_list
+        ]
         table = TransformUtils.add_column(
-            table=table, name=self.output_column, content=entities_list
+            table=table, name=self.output_column, content=entities_json_list
         )
 
         # Ensure doc_id_hash column exists
