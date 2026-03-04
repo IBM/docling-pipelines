@@ -301,10 +301,7 @@ class FileUploadState(rx.State):
                 / "cmdline"
                 / "cmd_line_orchestrator.py"
             )
-            base_flow_file = (
-                project_root / "tests" / "flow_invoice_entities_expanded.json"
-            )
-
+            base_flow_file = project_root / "tests" / "flow_invoice_entities.json"
 
             # ----------------------------------------------------------------
             # Patch the flow JSON so the OpenSearch index_name matches the
