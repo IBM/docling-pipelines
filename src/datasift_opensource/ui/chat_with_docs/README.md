@@ -127,30 +127,25 @@ If you create a **new flow JSON** to use with the UI, make sure `input_folder` i
 
 ---
 
-## Changing the Query Index
+## OpenSearch Index Name
 
-The OpenSearch index queried during chat is set in **[`chat_state.py`](chat_with_file_ingestion/states/chat_state.py)** at **line 46**:
+The OpenSearch index name is **automatically extracted from the flow JSON file** specified in [`file_state.py`](chat_with_file_ingestion/states/file_state.py). The UI reads the `index_name` from the OpenSearch operator configuration and uses it for both:
+- **Document ingestion** (pipeline processing)
+- **Document querying** (chat interface)
 
-```python
-# chat_state.py — line 46
-"--index", "invoices_entities_expanded_test",
-```
+This ensures the pipeline and chat always use the same index without manual configuration.
 
-Change this to match the `index_name` in your chosen flow JSON's `vectordb` operator config. This value is forwarded as `--index` to [`query_runner.py`](../../../../../examples/retrieval/query_runner.py) (line 29), which uses it for both hybrid search and the dynamic NL-to-SQL schema fetch.
+### Index Names by Flow File
 
-**Example** — switch to the general documents index:
-
-```python
-"--index", "datasift_documents",
-```
-
-| Flow file | `index_name` to use |
+| Flow file | Index name (from flow JSON) |
 |---|---|
 | `flow_local_with_ui.json` | `datasift_documents` |
 | `flow_invoice.json` | `invoices_test` |
 | `flow_invoice_entities.json` | `invoices_entities_test` |
 | `flow_invoice_entities_expanded.json` | `invoices_entities_expanded_test` |
-| `flow_invoice_entities_expanded_ui.json` | `invoices_entities_expanded_test` ✅ Default |
+| `flow_invoice_entities_expanded_ui.json` | `invoices_entities_expanded_test_1` ✅ Default |
+
+**To change the index name:** Edit the `index_name` field in the OpenSearch operator configuration within your flow JSON file. The UI will automatically use the updated value.
 
 ---
 

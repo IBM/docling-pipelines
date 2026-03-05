@@ -43,7 +43,7 @@ class Message(TypedDict):
 # ---------------------------------------------------------------------------
 
 
-def _run_query_sync(query: str) -> dict[str, Any]:
+def _run_query_sync(query: str, index_name: str) -> dict[str, Any]:
     """
     Execute query_runner.py in the backend venv as a subprocess.
 
@@ -57,7 +57,7 @@ def _run_query_sync(query: str) -> dict[str, Any]:
         "--query",
         query,
         "--index",
-        os.environ.get("DATASIFT_INDEX", "datasift_documents"),
+        index_name,
         "--model",
         os.environ.get("DATASIFT_MODEL", "granite4"),
         "--host",
@@ -200,9 +200,12 @@ class ChatState(rx.State):
             yield
             return
 
+        # Get the index name from file_state (extracted from flow JSON)
+        index_name = file_state.datasift_index or "datasift_documents"
+
         # 4. Run query in a thread pool — keeps the event loop free
         try:
-            response: dict = await asyncio.to_thread(_run_query_sync, query)
+            response: dict = await asyncio.to_thread(_run_query_sync, query, index_name)
         except Exception as exc:
             logger.exception("Unexpected error in _run_query_sync: %s", exc)
             response = {
