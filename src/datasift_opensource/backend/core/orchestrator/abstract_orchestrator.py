@@ -1089,10 +1089,13 @@ class AbstractOrchestrator:
 
         # Build and execute batch flow (works for both single and multiple batches)
         batch_flow = self._build_batching_flow()
-        batch_results = batch_flow(
+        batch_futures = batch_flow(
             op_flow=op_flow[1:],  # Skip ingest operator
             batches=batches, global_config=global_config,
             common_log_arguments=common_log_arguments, job_log_final_path=job_log_final_path)
+
+        batch_results = self.wait_and_get_batch_results(op_flow=op_flow, global_config=global_config,
+                                                        batch_futures=batch_futures, common_log_arguments=common_log_arguments)
 
         # Merge batch results (for single batch, _merge_batch_results efficiently returns the table)
         if batch_results:
@@ -1117,6 +1120,63 @@ class AbstractOrchestrator:
         clean_up_prefect_home()
         return self.finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path,
                                       common_log_arguments=common_log_arguments)
+
+    def wait_and_get_batch_results(self, *, op_flow, global_config, batch_futures, common_log_arguments):
+        # Wait for batches with fail-fast cancellation
+        batch_results = []
+        failed_batch = None
+        cancellation_event = threading.Event()
+
+        for batch_num, future in batch_futures:
+            # Check if another batch already failed
+            if cancellation_event.is_set():
+                try:
+                    future.cancel()
+                    self.logger.info(f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
+                                     extra=common_log_arguments)
+                except Exception as e:
+                    self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
+                continue
+
+            try:
+                # Wait for this batch to complete
+                future.result()
+
+                # Extract result table from batch's final operator output
+                batch_global_config = global_config.copy()
+                batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
+                result_table = self._extract_batch_result_table(batch_num=batch_num, op_flow=op_flow,
+                                                                global_config=batch_global_config)
+                if result_table is not None:
+                    batch_results.append(result_table)
+                    self.logger.info(f"Batch {batch_num} completed with {result_table.num_rows} rows",
+                                     extra=common_log_arguments)
+
+            except Exception as e:
+                # Batch failed - trigger cancellation
+                cancellation_event.set()
+
+                self.logger.error(f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
+                                  extra=common_log_arguments, exc_info=True)
+
+                # Cancel all remaining batches
+                for remaining_num, remaining_future in batch_futures[batch_num + 1:]:
+                    try:
+                        remaining_future.cancel()
+                        self.logger.info(f"Cancelled batch {remaining_num}", extra=common_log_arguments)
+                    except Exception as cancel_error:
+                        self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
+
+                # Clean up semaphore
+                self._global_operator_semaphore = None
+
+                # Re-raise the exception to fail the entire job
+                raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
+
+        # Clean up semaphore
+        self._global_operator_semaphore = None
+
+        return batch_results
 
     def _build_batching_flow(self): # pragma: no cover
         """
@@ -1184,7 +1244,6 @@ class AbstractOrchestrator:
 
         # Submit all batches as tasks (which execute subflows)
         batch_futures = []
-        cancellation_event = threading.Event()
 
         for batch_num, batch_table in enumerate(batches):
             # Create batch-specific data access BEFORE submitting task
@@ -1201,61 +1260,7 @@ class AbstractOrchestrator:
             )
             batch_futures.append((batch_num, future))
 
-        # Wait for batches with fail-fast cancellation
-        batch_results = []
-        failed_batch = None
-
-        for batch_num, future in batch_futures:
-            # Check if another batch already failed
-            if cancellation_event.is_set():
-                try:
-                    future.cancel()
-                    self.logger.info(f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
-                                   extra=common_log_arguments)
-                except Exception as e:
-                    self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
-                continue
-            
-            try:
-                # Wait for this batch to complete
-                future.result()
-                
-                # Extract result table from batch's final operator output
-                batch_global_config = global_config.copy()
-                batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
-                result_table = self._extract_batch_result_table(batch_num=batch_num, op_flow=op_flow,
-                                                                global_config=batch_global_config)
-                if result_table is not None:
-                    batch_results.append(result_table)
-                    self.logger.info(f"Batch {batch_num} completed with {result_table.num_rows} rows",
-                                   extra=common_log_arguments)
-
-            except Exception as e:
-                # Batch failed - trigger cancellation
-                cancellation_event.set()
-                
-                self.logger.error(f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
-                                  extra=common_log_arguments, exc_info=True)
-
-                # Cancel all remaining batches
-                for remaining_num, remaining_future in batch_futures[batch_num + 1:]:
-                    try:
-                        remaining_future.cancel()
-                        self.logger.info(f"Cancelled batch {remaining_num}", extra=common_log_arguments)
-                    except Exception as cancel_error:
-                        self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
-
-                # Clean up semaphore
-                self._global_operator_semaphore = None
-
-                # Re-raise the exception to fail the entire job
-                raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
-
-        # Clean up semaphore
-        self._global_operator_semaphore = None
-
-        return batch_results
-
+        return batch_futures
 
     @staticmethod
     def _create_batches(*, table: pa.Table, batch_size: int) -> list[pa.Table]: # pragma: no cover

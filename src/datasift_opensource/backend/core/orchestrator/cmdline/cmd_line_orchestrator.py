@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import sys
+import uuid
 from logging import Logger
 from typing import Any, Dict
 
@@ -80,14 +81,15 @@ def run_command_line_executor(flow_def: dict)  -> None:
     logger.info('>>> Creating the flow executor')
     executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
     logger.info('>>> Setting up execution parameters')
+    job_run_id = str(uuid.uuid4())
     
     params: dict[str, Any] = {
         DatasiftConstants.JOB_ID: "001", 
-        DatasiftConstants.JOB_RUN_ID: "002"
+        DatasiftConstants.JOB_RUN_ID: job_run_id
     }
     os.environ["RUNTIME"] = "local"
     from common.models.session_info import SessionInfo, set_session_info, create_session_info
-    session_info: SessionInfo = create_session_info(job_id="001", job_run_id="002",
+    session_info: SessionInfo = create_session_info(job_id="001", job_run_id=job_run_id,
                                                     orchestrator=orchestrator, flow_id="flow1")
     set_session_info(session_info)
     
