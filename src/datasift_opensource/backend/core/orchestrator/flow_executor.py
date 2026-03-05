@@ -165,8 +165,8 @@ class FlowExecutor:
 def main():  # pragma: no cover
     parser = argparse.ArgumentParser(description='Run flow json file')
     parser.add_argument('-f', '--file',
-                        help='input filename to be executed (default: test/flows/flow.json)',
-                        default='packages/datasift-core/tests/flows/flow.json')
+                        help='input filename to be executed (default: tests/flow_local.json)',
+                        default='tests/flow_local.json')
     parser.add_argument('-o', '--orchestrator',
                         help='Orchestrator to be used (default: python)',
                         default=OrchestratorType.PYTHON)

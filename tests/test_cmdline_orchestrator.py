@@ -26,7 +26,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                     "name": "ingest",
                     OperatorConstants.OPERATOR: OperatorConstants.INGEST_LOCAL,
                     "config": {
-                        "input_folder": "packages/datasift-common/tests/input_docs/customer_support_docs",
+                        "input_folder": "tests/fixtures/customer_support_docs",
                         "include_filter": "txt"},
                     "input_edges": [],
                     "output_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9501"}]

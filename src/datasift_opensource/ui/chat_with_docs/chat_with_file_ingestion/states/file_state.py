@@ -156,6 +156,7 @@ class FileUploadState(rx.State):
     processing_status: str = ""
     processing_failed: bool = False  # True when pipeline exits with error
     pipeline_ran: bool = False  # True after backend pipeline completes successfully
+    datasift_index: str = ""  # Index name extracted from flow JSON
 
     def on_load(self):
         """Clear uploaded_files directory on page load/refresh."""
@@ -301,30 +302,37 @@ class FileUploadState(rx.State):
                 / "cmdline"
                 / "cmd_line_orchestrator.py"
             )
-            base_flow_file = (
-                project_root / "tests" / "flow_invoice_entities_expanded.json"
-            )
-
+            base_flow_file = project_root / "tests" / "flow_invoice_entities.json"
 
             # ----------------------------------------------------------------
-            # Patch the flow JSON so the OpenSearch index_name matches the
-            # DATASIFT_INDEX env var.  This ensures the index created by the
-            # pipeline is the same one queried by chat_state / query_runner.
+            # Extract the index_name from the flow JSON's OpenSearch node.
+            # This ensures the index created by the pipeline is the same one
+            # queried by chat_state / query_runner.
             # ----------------------------------------------------------------
-            datasift_index = os.environ.get(
-                "DATASIFT_INDEX", "invoices_entities_expanded_test"
-            )
             with base_flow_file.open("r", encoding="utf-8") as fh:
                 flow_data = json.load(fh)
 
             # The flow JSON may be wrapped under a top-level "flow" key
             flow_def = flow_data.get("flow", flow_data)
+            datasift_index = None
             for node in flow_def.get("dag", []):
                 if node.get("operator") == "opensearch":
-                    node["config"]["index_name"] = datasift_index
+                    datasift_index = node["config"].get("index_name")
                     logger.info(
-                        f"Patched opensearch node index_name → '{datasift_index}'"
+                        f"Using index_name from flow JSON: '{datasift_index}'"
                     )
+                    break
+            
+            # Fallback if no OpenSearch node found
+            if not datasift_index:
+                datasift_index = "datasift_documents"
+                logger.warning(
+                    f"No OpenSearch node found in flow JSON, using default: '{datasift_index}'"
+                )
+            
+            # Store the index name in state so chat_state can access it
+            async with self:
+                self.datasift_index = datasift_index
 
             # Write the patched definition to a temp file so the orchestrator
             # can load it without modifying the original flow JSON on disk.

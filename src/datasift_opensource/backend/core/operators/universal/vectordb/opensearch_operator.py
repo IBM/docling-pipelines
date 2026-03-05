@@ -6,11 +6,10 @@ Supports multiple KNN engines, algorithms, incremental updates, and query capabi
 """
 
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 import pyarrow as pa
 from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth, helpers
 import boto3
-from boto3 import Session
 from botocore.credentials import Credentials
 
 from core.operators.abstract_operator import (
@@ -138,23 +137,39 @@ class OpenSearchOperator(AbstractOperator):
         self.username: Optional[str] = config.get(OperatorConstants.OPENSEARCH_USERNAME)
         self.password: Optional[str] = config.get(OperatorConstants.OPENSEARCH_PASSWORD)
         self.use_ssl: bool = config.get(OperatorConstants.OPENSEARCH_USE_SSL, True)
-        self.verify_certs: bool = config.get(OperatorConstants.OPENSEARCH_VERIFY_CERTS, True)
+        self.verify_certs: bool = config.get(
+            OperatorConstants.OPENSEARCH_VERIFY_CERTS, True
+        )
         self.aws_auth: bool = config.get(OperatorConstants.OPENSEARCH_AWS_AUTH, False)
-        self.aws_region: Optional[str] = config.get(OperatorConstants.OPENSEARCH_AWS_REGION)
+        self.aws_region: Optional[str] = config.get(
+            OperatorConstants.OPENSEARCH_AWS_REGION
+        )
 
         # Index configuration
         self.index_name: Optional[str] = config.get(OperatorConstants.INDEX_NAME)
-        self.doc_id_column: str = config.get(OperatorConstants.DOC_ID_COLUMN, "doc_id_hash")
+        self.doc_id_column: str = config.get(
+            OperatorConstants.DOC_ID_COLUMN, "doc_id_hash"
+        )
         self.embeddings_column: str = config.get(
             OperatorConstants.EMBEDDINGS_COLUMN,
             OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT,
         )
-        self.sparse_embeddings_column: Optional[str] = config.get(SPARSE_EMBEDDINGS_COLUMN_KEY)
-        self.feature_mappings: Dict[str, str] = config.get(OperatorConstants.FEATURE_MAPPINGS, {})
-        self.available_features: Dict[str, Any] = config.get(OperatorConstants.AVAILABLE_FEATURES, {})
-        self.batch_size: int = config.get(OperatorConstants.BATCH_SIZE, DEFAULT_BATCH_SIZE)
+        self.sparse_embeddings_column: Optional[str] = config.get(
+            SPARSE_EMBEDDINGS_COLUMN_KEY
+        )
+        self.feature_mappings: Dict[str, str] = config.get(
+            OperatorConstants.FEATURE_MAPPINGS, {}
+        )
+        self.available_features: Dict[str, Any] = config.get(
+            OperatorConstants.AVAILABLE_FEATURES, {}
+        )
+        self.batch_size: int = config.get(
+            OperatorConstants.BATCH_SIZE, DEFAULT_BATCH_SIZE
+        )
         self.create_index: bool = config.get(OperatorConstants.CREATE_INDEX, True)
-        self.index_settings: Optional[Dict[str, Any]] = config.get(OperatorConstants.INDEX_SETTINGS)
+        self.index_settings: Optional[Dict[str, Any]] = config.get(
+            OperatorConstants.INDEX_SETTINGS
+        )
         self.config_vector_dimension: int = config.get(
             OperatorConstants.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION
         )
@@ -221,7 +236,9 @@ class OpenSearchOperator(AbstractOperator):
         # Add authentication
         if self.aws_auth:
             credentials: Optional[Credentials] = boto3.Session().get_credentials()
-            auth: AWSV4SignerAuth = AWSV4SignerAuth(credentials, self.aws_region or "us-east-1")
+            auth: AWSV4SignerAuth = AWSV4SignerAuth(
+                credentials, self.aws_region or "us-east-1"
+            )
             connection_params["http_auth"] = auth
         elif self.username and self.password:
             connection_params["http_auth"] = (self.username, self.password)
@@ -245,7 +262,9 @@ class OpenSearchOperator(AbstractOperator):
     def _get_engine_parameters(self) -> Dict[str, Any]:
         """Get engine parameters, merging defaults with custom parameters"""
         param_key: Tuple[str, str] = (self.engine, self.algorithm)
-        default_params: Dict[str, Any] = ENGINE_ALGORITHM_DEFAULT_PARAMETERS.get(param_key, {}).copy()
+        default_params: Dict[str, Any] = ENGINE_ALGORITHM_DEFAULT_PARAMETERS.get(
+            param_key, {}
+        ).copy()
 
         if self.engine_parameters:
             default_params.update(self.engine_parameters)
@@ -255,14 +274,14 @@ class OpenSearchOperator(AbstractOperator):
     def _detect_vector_dimension(self, table: pa.Table) -> Optional[int]:
         """
         Auto-detect vector dimension from the embeddings column in the PyArrow table.
-        
+
         Handles both flat embeddings and nested (chunked) embeddings:
         - Flat: [float1, float2, ..., floatN] -> dimension is length of list
         - Nested: [[emb1], [emb2], ...] -> dimension is length of first inner list
-        
+
         Args:
             table: PyArrow table containing embeddings
-            
+
         Returns:
             Detected dimension or None if detection fails
         """
@@ -272,34 +291,34 @@ class OpenSearchOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
             return None
-            
+
         if table.num_rows == 0:
             logger.debug(
                 "Cannot detect dimension from empty table",
                 extra=self.common_log_arguments,
             )
             return None
-        
+
         try:
             # Get the first non-null embedding
             embeddings_col: pa.ChunkedArray = table[self.embeddings_column]
-            
+
             for idx in range(min(table.num_rows, 10)):  # Check first 10 rows
                 embedding_value: Any = embeddings_col[idx].as_py()
-                
+
                 if embedding_value is None:
                     continue
-                    
+
                 if not isinstance(embedding_value, list):
                     logger.warning(
                         f"Embedding at row {idx} is not a list: {type(embedding_value)}",
                         extra=self.common_log_arguments,
                     )
                     continue
-                
+
                 if len(embedding_value) == 0:
                     continue
-                
+
                 # Check if this is nested embeddings (chunked)
                 if isinstance(embedding_value[0], list):
                     # Nested structure: [[emb1], [emb2], ...]
@@ -325,13 +344,13 @@ class OpenSearchOperator(AbstractOperator):
                         extra=self.common_log_arguments,
                     )
                     continue
-            
+
             logger.warning(
                 "Could not find valid embeddings in first 10 rows for dimension detection",
                 extra=self.common_log_arguments,
             )
             return None
-            
+
         except Exception as e:
             logger.warning(
                 f"Error detecting vector dimension: {str(e)}",
@@ -377,6 +396,9 @@ class OpenSearchOperator(AbstractOperator):
                 properties[mapped_name] = {"type": "float"}
             elif feature_type == "boolean":
                 properties[mapped_name] = {"type": "boolean"}
+            elif feature_type in ("object", "nested", "json"):
+                # Support for nested/object types - enables dynamic mapping for JSON objects
+                properties[mapped_name] = {"type": "object", "enabled": True}
             else:
                 properties[mapped_name] = {"type": "text"}
 
@@ -430,8 +452,12 @@ class OpenSearchOperator(AbstractOperator):
     def _validate_existing_index(self) -> None:
         """Validate that existing index configuration matches requested settings"""
         try:
-            mappings: Dict[str, Any] = self.client.indices.get_mapping(index=self.index_name)
-            index_mappings: Dict[str, Any] = mappings.get(self.index_name, {}).get("mappings", {})
+            mappings: Dict[str, Any] = self.client.indices.get_mapping(
+                index=self.index_name
+            )
+            index_mappings: Dict[str, Any] = mappings.get(self.index_name, {}).get(
+                "mappings", {}
+            )
             meta: Dict[str, Any] = index_mappings.get("_meta", {})
 
             existing_engine: Optional[str] = meta.get("engine")
@@ -456,6 +482,8 @@ class OpenSearchOperator(AbstractOperator):
 
     def _prepare_document(self, row_data: Dict[str, Any]) -> Dict[str, Any]:
         """Prepare a document for indexing by mapping columns to index fields"""
+        import json
+
         doc: Dict[str, Any] = {}
 
         for feature_name, feature_config in self.available_features.items():
@@ -473,6 +501,17 @@ class OpenSearchOperator(AbstractOperator):
                 # Convert numpy arrays to lists
                 if hasattr(value, "tolist"):
                     value = value.tolist()
+
+                # Parse JSON strings for object/nested types
+                feature_type: str = feature_config.get("type", "text")
+                if feature_type in ("object", "nested", "json") and isinstance(
+                    value, str
+                ):
+                    try:
+                        value = json.loads(value)
+                    except (json.JSONDecodeError, TypeError):
+                        # If parsing fails, keep as string
+                        pass
 
                 doc[mapped_name] = value
 
@@ -495,7 +534,9 @@ class OpenSearchOperator(AbstractOperator):
         Auto-detects vector dimension from embeddings data.
         """
         # Initialize metadata
-        metadata: Dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
+        metadata: Dict[str, Any] = self.create_base_metadata(
+            total_docs_count=table.num_rows
+        )
         metadata["number_of_batches"] = 0
 
         if table.num_rows == 0:
@@ -504,13 +545,17 @@ class OpenSearchOperator(AbstractOperator):
 
         # Validate required columns
         if self.doc_id_column not in table.column_names:
-            error_msg: str = f"Required column '{self.doc_id_column}' not found in table"
+            error_msg: str = (
+                f"Required column '{self.doc_id_column}' not found in table"
+            )
             logger.error(error_msg, extra=self.common_log_arguments)
             metadata[Metrics.External.NODE_STATUS] = "failed"
             return [table], metadata
 
         if self.embeddings_column not in table.column_names:
-            error_msg: str = f"Required column '{self.embeddings_column}' not found in table"
+            error_msg: str = (
+                f"Required column '{self.embeddings_column}' not found in table"
+            )
             logger.error(error_msg, extra=self.common_log_arguments)
             metadata[Metrics.External.NODE_STATUS] = "failed"
             return [table], metadata
@@ -581,17 +626,23 @@ class OpenSearchOperator(AbstractOperator):
 
                 # Get embeddings and check if it's a nested list (chunked embeddings)
                 embeddings_value: Any = row_data.get(self.embeddings_column)
-                
+
                 # Detect if embeddings is a list of embeddings (chunked content)
                 # The embeddings operator outputs [[emb1], [emb2], [emb3]] for chunked content
                 # where each emb is a vector like [0.1, 0.2, ..., 0.4096]
                 is_chunked: bool = False
-                if embeddings_value and isinstance(embeddings_value, list) and len(embeddings_value) > 0:
+                if (
+                    embeddings_value
+                    and isinstance(embeddings_value, list)
+                    and len(embeddings_value) > 0
+                ):
                     # Check if first element is also a list (nested structure)
                     if isinstance(embeddings_value[0], list):
                         # Further check: if the first element's first item is a number,
                         # then we have chunked embeddings [[emb1], [emb2], ...]
-                        if len(embeddings_value[0]) > 0 and isinstance(embeddings_value[0][0], (int, float)):
+                        if len(embeddings_value[0]) > 0 and isinstance(
+                            embeddings_value[0][0], (int, float)
+                        ):
                             # This is chunked embeddings - treat all cases as chunked
                             is_chunked = True
                             logger.debug(
@@ -605,18 +656,22 @@ class OpenSearchOperator(AbstractOperator):
                     for chunk_idx, chunk_embedding in enumerate(embeddings_value):
                         # Create a copy of row_data for this chunk
                         chunk_row_data: Dict[str, Any] = row_data.copy()
-                        
+
                         # chunk_embedding is already the flat embedding vector [0.1, 0.2, ..., 0.4096]
                         # Update the embeddings to be the single chunk embedding
                         chunk_row_data[self.embeddings_column] = chunk_embedding
-                        
+
                         # Create unique document ID for this chunk
                         chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
-                        
+
                         # Prepare document
                         doc: Dict[str, Any] = self._prepare_document(chunk_row_data)
-                        
-                        action: Dict[str, Any] = {"_index": self.index_name, "_id": chunk_doc_id, "_source": doc}
+
+                        action: Dict[str, Any] = {
+                            "_index": self.index_name,
+                            "_id": chunk_doc_id,
+                            "_source": doc,
+                        }
 
                         # Check batch size
                         action_size: int = self._calculate_batch_size_bytes([action])
@@ -635,7 +690,11 @@ class OpenSearchOperator(AbstractOperator):
                     # Prepare document
                     doc: Dict[str, Any] = self._prepare_document(row_data)
 
-                    action: Dict[str, Any] = {"_index": self.index_name, "_id": doc_id, "_source": doc}
+                    action: Dict[str, Any] = {
+                        "_index": self.index_name,
+                        "_id": doc_id,
+                        "_source": doc,
+                    }
 
                     # Check batch size
                     action_size: int = self._calculate_batch_size_bytes([action])
@@ -755,7 +814,9 @@ class OpenSearchOperator(AbstractOperator):
             if fields:
                 query["_source"] = fields
 
-            response: Dict[str, Any] = self.client.search(index=self.index_name, body=query)
+            response: Dict[str, Any] = self.client.search(
+                index=self.index_name, body=query
+            )
             hits: List[Dict[str, Any]] = response.get("hits", {}).get("hits", [])
 
             return [hit["_source"] for hit in hits]
