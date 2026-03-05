@@ -164,7 +164,6 @@ class AbstractOrchestrator:
         job_log_final_path = self.create_log_folders_cpd(job_id=self.__job_id, type_="job")
         self.context_id = params.get(DatasiftConstants.CONTEXT_ID, self.__job_id)
         try:
-            # execute flows
             ret_val = self.execute_flow(op_flow=op_flow, data_access=data_access, global_config=global_config,
                                         common_log_arguments=common_log_arguments, job_log_final_path=job_log_final_path)
             return ret_val
@@ -755,30 +754,6 @@ class AbstractOrchestrator:
         self.write_jobs_logs(job_stats=job_stats, job_log_final_path=job_log_final_path)
         self.logger.info(f">>> Job status is {job_status}.", extra=common_log_arguments)
 
-    def _ingest_task(self, op_def, global_config,
-                     data_access, job_log_final_path, common_log_arguments, session_info: SessionInfo,
-                     incremental_update_util: IncrementalUpdateUtil) -> tuple[Optional[ExecuteStepResults], int]:
-        set_session_info(session_info)
-        try:
-            initial_result = ExecuteStepResults([data_access], [pa.Table.from_arrays(arrays=[], names=[])], None)
-            step_results = self._execute_step(op_def=op_def, global_config=global_config, prev_results=initial_result,
-                                              deleted_docs_count=0)
-
-            deleted_docs_count = step_results.internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN, 0)
-
-            self.message = self._process_ingest_results(output_table=step_results.tables[0], deleted_docs_count=deleted_docs_count, operator=op_def,
-                                                   common_log_arguments=common_log_arguments)
-            if global_config.get(DatasiftConstants.FORCE_INGEST):
-                incremental_update_util.clear_incremental_table(job_id=self.__job_id)
-            else:
-                self._mark_soft_deleted_docs(incremental_update_util=incremental_update_util,
-                                             internal_metadata=step_results.internal_metadata, global_config=global_config)
-            return step_results, deleted_docs_count
-        except Exception as e:
-            self._handle_exception(e=e, op_def=op_def, job_log_final_path=job_log_final_path,
-                                   common_log_arguments=common_log_arguments, global_config=global_config)
-            return None, -1
-
     def wait_for_tasks(self, *, destinations):
         futures = [item[0] for item in destinations]
         # Wait till all tasks are finished
@@ -805,37 +780,25 @@ class AbstractOrchestrator:
     # ??? insert some of the parameters to self.
     def execute_flow(self, *, op_flow, data_access, global_config, common_log_arguments, job_log_final_path):
         """
-        Build and execute a flow using Prefect.
+        Build and execute a flow using Prefect with unified batching approach.
+        Both batch and non-batch modes now use the same code path.
 
-        Some components, such as job_tracker and incremental_update, currently
-        lack support for forked flows.
+        Non-batch mode is implemented as a special case of batch mode with a single
+        batch containing all documents (no splitting).
 	    """
 
         if JobTracker().cancel_job_run_if_cancelling(self.__job_run_id):
             self.logger.info(CANCELLED_MSG, self.__job_run_id)
             return None
 
-        # Set the Prefect global logger level
-        # logging.getLogger("prefect").setLevel(logging.WARNING)
         # Configure prefect server logging
         _ = get_logger(name="prefect")
 
-        # Check if micro-batching is enabled
-        # Note: Micro-batching is only applied for Python orchestrator
-        enable_batching = global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False)
-        orchestrator_type = self.get_type()
-
-        if enable_batching and orchestrator_type != OrchestratorType.SPARK: # pragma: no cover
-            return self.execute_dag_flow_with_batching(op_flow=op_flow, data_access=data_access,
-                                                             global_config=global_config,
-                                                             common_log_arguments=common_log_arguments,
-                                                             job_log_final_path=job_log_final_path)
-
-        dynamic_flow = self.build_flow()
-        dynamic_flow(op_flow, data_access, global_config, common_log_arguments, job_log_final_path)
-        clean_up_prefect_home()
-        return self.finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path,
-                                      common_log_arguments=common_log_arguments)
+        # UNIFIED APPROACH: Always use batching path
+        # Non-batch mode will create a single batch with all documents
+        return self.execute_dag_flow_with_batching(
+            op_flow=op_flow, data_access=data_access, global_config=global_config,
+            common_log_arguments=common_log_arguments, job_log_final_path=job_log_final_path)
 
     def inner_flow(self, op_flow, data_access, global_config, common_log_arguments, job_log_final_path):
         # In batch mode, get the ingest operator ID from global_config
@@ -859,22 +822,24 @@ class AbstractOrchestrator:
                 if node_id_ref not in node_id_to_index_map: # pragma: no cover
                     self.logger.debug(f"Node {node_id_ref} not in node_id_to_index_map. Checking: is_batch_mode={is_batch_mode}, ingest_node_id={ingest_node_id}, match={node_id_ref == ingest_node_id}", extra=common_log_arguments)
 
-                    if is_batch_mode and ingest_node_id and node_id_ref == ingest_node_id:
-                        # In batch mode, the ingest operator is excluded from flow
-                        # Skip this edge; we'll create synthetic result from batch data later
-                        self.logger.debug(f"Skipping missing ingest node {node_id_ref} in batch mode", extra=common_log_arguments)
+                    # In unified batch/non-batch approach, ingest is always excluded from op_flow
+                    # Skip this edge if it references the ingest node; we'll create synthetic result from batch data later
+                    if ingest_node_id and node_id_ref == ingest_node_id:
+                        self.logger.debug(f"Skipping missing ingest node {node_id_ref} (unified batch approach)",
+                                          extra=common_log_arguments)
                         continue
                     else:
-                        # Missing node that's not ingest, or not in batch mode - this is an error
+                        # Missing node that's not ingest - this is an error
                         self.logger.error(f"Node {node_id_ref} not found in flow. is_batch_mode={is_batch_mode}, ingest_node_id={ingest_node_id}", extra=common_log_arguments)
                         raise FlowExecutionFailedException(f"Node {node_id_ref} not found in flow")
                 
                 prev_index = node_id_to_index_map[node_id_ref]
                 prev_res[prev_node.get(DatasiftConstants.LINK_NAME)] = results_.get_future(prev_index)
-            
-            # In batch mode, ingest node is not executed as part of DAG, so all nodes should have incoming data.
-            # In non-batch mode, ingest node is executed as part of DAG, so ingest node will not have incoming data.
-            if not prev_res and is_batch_mode:
+
+            # In unified batch/non-batch approach, ingest is always excluded from op_flow
+            # If no previous results found (because ingest was skipped), return None
+            # The calling code will create synthetic results from batch data
+            if not prev_res and ingest_node_id:
                 return None
                 
             if len(prev_res) == 1:
@@ -884,7 +849,6 @@ class AbstractOrchestrator:
         task_retries = prefect_config["task_retries"]
         persist_result = prefect_config["persist_result"]
         inner_task = self.__create_execute_task(task_func=self._inner_task, retries=task_retries, persist_result=persist_result)
-        ingest_task = self.__create_execute_task(task_func=self._ingest_task, retries=task_retries, persist_result=persist_result)
         session_info = get_session_info()
 
         results: FuturedList = FuturedList.from_size(len(op_flow))
@@ -892,28 +856,25 @@ class AbstractOrchestrator:
         node_id_to_index_map = create_node_id_to_index_map(flow_def=op_flow)
         deleted_docs_count = 0
         incremental_update_util = IncrementalUpdateUtil()
+
         for op_def in op_flow:
             index = node_id_to_index_map[op_def[OperatorConstants.ID]]
             try:
-                if op_def["input_edges"]:
-                    link_id = op_def.get(OperatorConstants.LINK_ID, None)
-                    prev_results = get_prev_results(op_def, results)
-                    
-                    # In batch mode: if prev_results is None (ingest excluded), create synthetic result from batch data
-                    if prev_results is None and global_config.get(DatasiftConstants.BATCH_NUM) is not None: # pragma: no cover
-                        # Batch mode: ingest was excluded, create synthetic result from batch data
-                        batch_table = data_access.get_table("")[0]
-                        prev_results = ExecuteStepResults([data_access], [batch_table], {})
-                    
-                    future = inner_task.submit(
-                        op_def=op_def, global_config=global_config, prev_results=prev_results,
-                        job_log_final_path=job_log_final_path, common_log_arguments=common_log_arguments,
-                        session_info=session_info, deleted_docs_count=deleted_docs_count, link_id=link_id)
-                else:
-                    future, deleted_docs_count = ingest_task.submit(
-                        op_def=op_def, global_config=global_config, data_access=data_access,
-                        job_log_final_path=job_log_final_path,common_log_arguments=common_log_arguments,
-                        session_info=session_info, incremental_update_util=incremental_update_util).result(raise_on_failure=True)
+                # In batch mode, ingest is already done - all operators have input_edges or use batch data
+                link_id = op_def.get(OperatorConstants.LINK_ID, None)
+                prev_results = get_prev_results(op_def, results) if op_def["input_edges"] else None
+
+                # In batch mode: if prev_results is None (first operator after ingest), create synthetic result from batch data
+                if prev_results is None:  # pragma: no cover
+                    # Batch mode: ingest was excluded, create synthetic result from batch data
+                    batch_table = data_access.get_table("")[0]
+                    prev_results = ExecuteStepResults([data_access], [batch_table], {})
+
+                future = inner_task.submit(
+                    op_def=op_def, global_config=global_config, prev_results=prev_results,
+                    job_log_final_path=job_log_final_path, common_log_arguments=common_log_arguments,
+                    session_info=session_info, deleted_docs_count=deleted_docs_count, link_id=link_id)
+
                 if not op_def["output_edges"]:
                     destinations.append((future, op_def))
                 else:
@@ -1030,14 +991,28 @@ class AbstractOrchestrator:
     def execute_dag_flow_with_batching(self, *, op_flow, data_access, global_config,
                                              common_log_arguments, job_log_final_path): # pragma: no cover
         """
-        Execute DAG flow with micro-batching enabled.
-        
-        Splits the input data into batches and processes each batch through the entire DAG in parallel.
-        """
-        self.logger.info(">>> Micro-batching enabled - processing data in batches", extra=common_log_arguments)
+        Execute DAG flow with unified batching approach.
+        Supports both batch mode (multiple batches) and non-batch mode (single table).
 
-        # Get batch configuration
-        batch_size = global_config.get(DatasiftConstants.MICRO_BATCH_SIZE, DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE)
+        Batch Creation Rules:
+        - Batches are created ONLY when ALL conditions are met:
+          1. ENABLE_MICRO_BATCHING is True (batching feature enabled)
+          2. orchestrator_type is NOT SPARK (Spark doesn't support micro-batching)
+        - When batching is enabled, MICRO_BATCH_SIZE is read (defaults to DEFAULT_MICRO_BATCH_SIZE)
+        - Otherwise, entire ingested table is treated as single "batch" for unified execution
+
+        Note: Micro-batching is only applied for Python orchestrator, not for Spark.
+        """
+        self.logger.info(">>> Starting flow execution with unified batching approach",
+                         extra=common_log_arguments)
+
+        # Get batch configuration and orchestrator type
+        enable_batching = global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False)
+        orchestrator_type = self.get_type()
+
+        # Only read batch_size if batching is enabled
+        batch_size = global_config.get(DatasiftConstants.MICRO_BATCH_SIZE,
+                                       DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE) if enable_batching else None
 
         # Execute ingest operator to get initial table
         ingest_operator = op_flow[0]
@@ -1063,33 +1038,61 @@ class AbstractOrchestrator:
 
         # Check if table is empty
         if ingested_table.num_rows == 0:
-            self.logger.info(">>> No data to process - skipping micro-batch processing", extra=common_log_arguments)
+            self.logger.info(">>> No data to process - skipping flow execution", extra=common_log_arguments)
             clean_up_prefect_home()
             return self.finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path,
                                           common_log_arguments=common_log_arguments)
 
-        # Split table into batches
-        batches = self._create_batches(table=ingested_table, batch_size=batch_size)
-        batch_count = len(batches)
+        # ============================================================
+        # CONDITIONAL BATCH CREATION
+        # Note: Micro-batching is only applied for Python orchestrator
+        # ============================================================
+        should_create_batches = (
+                enable_batching and  # Feature flag enabled
+                orchestrator_type != OrchestratorType.SPARK  # Not Spark orchestrator
+        )
 
-        self.logger.info(f">>> Split {ingested_table.num_rows} rows into {batch_count} batches of size {batch_size}",
-                         extra=common_log_arguments)
+        if should_create_batches:
+            # BATCH MODE: Split table into multiple batches (Python orchestrator only)
+            # batch_size is guaranteed to have a value here (either from config or default)
+            batches = self._create_batches(table=ingested_table, batch_size=batch_size)
+            batch_count = len(batches)
 
-        # Add batch_count to global_config for operators to use
-        global_config[DatasiftConstants.BATCH_COUNT] = batch_count
-        
+            self.logger.info(f">>> Split {ingested_table.num_rows} rows into {batch_count} batches of size {batch_size}",
+                             extra=common_log_arguments)
+
+            # Add batch_count to global_config for operators to use
+            global_config[DatasiftConstants.BATCH_COUNT] = batch_count
+        else:
+            # NON-BATCH MODE: Use entire table as single "batch" (no splitting)
+            # This applies when ANY of the following is true:
+            # 1. enable_batching is False (feature disabled), OR
+            # 2. orchestrator_type is SPARK (batching not supported for Spark)
+            batches = [ingested_table]  # Single element list containing entire table
+
+            self.logger.info(
+                f">>> Non-batch mode: Processing all {ingested_table.num_rows} rows in single execution",
+                extra=common_log_arguments
+            )
+
+            # NOTE: Do NOT set BATCH_COUNT or BATCH_NUM in non-batch mode
+            # This ensures output paths don't include batch number subdirectories
+
         # Store ingest node ID for batch processing (needed to handle references to excluded ingest operator)
         ingest_node_id = op_flow[0].get(OperatorConstants.ID) if op_flow else None
         global_config[DatasiftConstants.INGEST_NODE_ID] = ingest_node_id
 
-        # Build and execute batch flow
+        # Build and execute batch flow (works for both single and multiple batches)
         batch_flow = self._build_batching_flow()
-        batch_results = batch_flow(
+        batch_futures = batch_flow(
             op_flow=op_flow[1:],  # Skip ingest operator
             batches=batches, global_config=global_config,
             common_log_arguments=common_log_arguments, job_log_final_path=job_log_final_path)
 
-        # Merge batch results
+        batch_results = self.wait_and_get_batch_results(op_flow=op_flow, global_config=global_config,
+                                                        batch_futures=batch_futures, common_log_arguments=common_log_arguments)
+
+        # Merge batch results (for single batch, _merge_batch_results efficiently returns the table)
         if batch_results:
             merged_table = self._merge_batch_results(batch_results=batch_results)
             self.logger.info(
@@ -1112,6 +1115,63 @@ class AbstractOrchestrator:
         clean_up_prefect_home()
         return self.finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path,
                                       common_log_arguments=common_log_arguments)
+
+    def wait_and_get_batch_results(self, *, op_flow, global_config, batch_futures, common_log_arguments):
+        # Wait for batches with fail-fast cancellation
+        batch_results = []
+        failed_batch = None
+        cancellation_event = threading.Event()
+
+        for batch_num, future in batch_futures:
+            # Check if another batch already failed
+            if cancellation_event.is_set():
+                try:
+                    future.cancel()
+                    self.logger.info(f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
+                                     extra=common_log_arguments)
+                except Exception as e:
+                    self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
+                continue
+
+            try:
+                # Wait for this batch to complete
+                future.result()
+
+                # Extract result table from batch's final operator output
+                batch_global_config = global_config.copy()
+                batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
+                result_table = self._extract_batch_result_table(batch_num=batch_num, op_flow=op_flow,
+                                                                global_config=batch_global_config)
+                if result_table is not None:
+                    batch_results.append(result_table)
+                    self.logger.info(f"Batch {batch_num} completed with {result_table.num_rows} rows",
+                                     extra=common_log_arguments)
+
+            except Exception as e:
+                # Batch failed - trigger cancellation
+                cancellation_event.set()
+
+                self.logger.error(f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
+                                  extra=common_log_arguments, exc_info=True)
+
+                # Cancel all remaining batches
+                for remaining_num, remaining_future in batch_futures[batch_num + 1:]:
+                    try:
+                        remaining_future.cancel()
+                        self.logger.info(f"Cancelled batch {remaining_num}", extra=common_log_arguments)
+                    except Exception as cancel_error:
+                        self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
+
+                # Clean up semaphore
+                self._global_operator_semaphore = None
+
+                # Re-raise the exception to fail the entire job
+                raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
+
+        # Clean up semaphore
+        self._global_operator_semaphore = None
+
+        return batch_results
 
     def _build_batching_flow(self): # pragma: no cover
         """
@@ -1158,8 +1218,13 @@ class AbstractOrchestrator:
                                   common_log_arguments, job_log_final_path, batch_data_access):
             """Execute a single batch as a Prefect subflow."""
             # Create batch-specific config (without semaphore - it's accessed from orchestrator instance)
+            logger.info(("Inside execute_batch_subflow()"))
             batch_global_config = global_config.copy()
-            batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
+            # Only set BATCH_NUM if micro-batching is enabled
+            # In non-batch mode (ENABLE_MICRO_BATCHING=False), don't set BATCH_NUM
+            # to avoid batch subdirectories in output paths
+            if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
+                batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
             # Note: Semaphore is NOT added to config to avoid pickling issues
             # It will be accessed directly from self._global_operator_semaphore in _inner_task
             
@@ -1174,7 +1239,6 @@ class AbstractOrchestrator:
 
         # Submit all batches as tasks (which execute subflows)
         batch_futures = []
-        cancellation_event = threading.Event()
 
         for batch_num, batch_table in enumerate(batches):
             # Create batch-specific data access BEFORE submitting task
@@ -1191,61 +1255,7 @@ class AbstractOrchestrator:
             )
             batch_futures.append((batch_num, future))
 
-        # Wait for batches with fail-fast cancellation
-        batch_results = []
-        failed_batch = None
-
-        for batch_num, future in batch_futures:
-            # Check if another batch already failed
-            if cancellation_event.is_set():
-                try:
-                    future.cancel()
-                    self.logger.info(f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
-                                   extra=common_log_arguments)
-                except Exception as e:
-                    self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
-                continue
-            
-            try:
-                # Wait for this batch to complete
-                future.result()
-                
-                # Extract result table from batch's final operator output
-                batch_global_config = global_config.copy()
-                batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
-                result_table = self._extract_batch_result_table(batch_num=batch_num, op_flow=op_flow,
-                                                                global_config=batch_global_config)
-                if result_table is not None:
-                    batch_results.append(result_table)
-                    self.logger.info(f"Batch {batch_num} completed with {result_table.num_rows} rows",
-                                   extra=common_log_arguments)
-
-            except Exception as e:
-                # Batch failed - trigger cancellation
-                cancellation_event.set()
-                
-                self.logger.error(f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
-                                  extra=common_log_arguments, exc_info=True)
-
-                # Cancel all remaining batches
-                for remaining_num, remaining_future in batch_futures[batch_num + 1:]:
-                    try:
-                        remaining_future.cancel()
-                        self.logger.info(f"Cancelled batch {remaining_num}", extra=common_log_arguments)
-                    except Exception as cancel_error:
-                        self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
-
-                # Clean up semaphore
-                self._global_operator_semaphore = None
-
-                # Re-raise the exception to fail the entire job
-                raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
-
-        # Clean up semaphore
-        self._global_operator_semaphore = None
-
-        return batch_results
-
+        return batch_futures
 
     @staticmethod
     def _create_batches(*, table: pa.Table, batch_size: int) -> list[pa.Table]: # pragma: no cover
@@ -1435,7 +1445,6 @@ class AbstractOrchestrator:
         batch_data_access.save_table(path="", table=batch_table)
         return batch_data_access
 
-
     def _extract_batch_result_table(self, *, batch_num: int, op_flow: list, global_config: dict) -> Optional[pa.Table]: # pragma: no cover
         """
         Extract the result table for a batch after its sub-flow completes.
@@ -1468,9 +1477,13 @@ class AbstractOrchestrator:
             branch_index = 0
             while True:
                 try:
-                    # Construct path: <output_folder>/<node_name>_<branch_index>/<batch_num>/output.parquet
+                    # Construct path based on whether micro-batching is enabled
+                    # Batch mode: <output_folder>/<node_name>_<branch_index>/<batch_num>/output.parquet
+                    # Non-batch mode: <output_folder>/<node_name>_<branch_index>/output.parquet
                     params = global_config.copy()
-                    params[DatasiftConstants.BATCH_NUM] = batch_num
+                    # Only add BATCH_NUM if micro-batching is enabled
+                    if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
+                        params[DatasiftConstants.BATCH_NUM] = batch_num
 
                     node_name_with_branch = f"{op_name}_{branch_index}"
                     DataAccessUtils.add_node_name_to_output_folder(params=params, node_name=node_name_with_branch)
