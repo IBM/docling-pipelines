@@ -1,3 +1,4 @@
+import json
 import reflex as rx
 from typing import TypedDict
 import asyncio
@@ -107,10 +108,16 @@ class LogPollerState(rx.State):
                     done = False
                     if _LOG_FILE.exists():
                         try:
-                            text = _LOG_FILE.read_text(encoding="utf-8", errors="replace")
+                            text = _LOG_FILE.read_text(
+                                encoding="utf-8", errors="replace"
+                            )
                             all_lines = text.splitlines()
                             # Filter out the sentinel line from display
-                            visible = [l for l in all_lines if l.strip() and "PIPELINE_DONE" not in l]
+                            visible = [
+                                l
+                                for l in all_lines
+                                if l.strip() and "PIPELINE_DONE" not in l
+                            ]
                             self.log_lines = visible
                             # Stop polling when sentinel appears
                             done = any("PIPELINE_DONE" in l for l in all_lines)
@@ -149,6 +156,7 @@ class FileUploadState(rx.State):
     processing_status: str = ""
     processing_failed: bool = False  # True when pipeline exits with error
     pipeline_ran: bool = False  # True after backend pipeline completes successfully
+    datasift_index: str = ""  # Index name extracted from flow JSON
 
     def on_load(self):
         """Clear uploaded_files directory on page load/refresh."""
@@ -236,24 +244,29 @@ class FileUploadState(rx.State):
                 logging.info(f"Deleted file from disk: {file_path}")
         except Exception as e:
             logging.error(f"Error deleting file {name}: {e}")
-        
+
         # Remove from state
         self.files = [f for f in self.files if f["name"] != name]
         self.processed_docs = [d for d in self.processed_docs if d["filename"] != name]
-        
+
         # Reset processing status when files are removed
         self.processing_status = ""
 
     @rx.event(background=True)
     async def process_documents(self):
         """
-        Trigger the datasift pipeline (flow_local.json) to process uploaded files
-        by invoking the backend as a subprocess using its own .venv Python interpreter.
+        Trigger the datasift pipeline (flow_invoice_entities_expanded.json) to process
+        uploaded files by invoking the backend as a subprocess using its own .venv Python
+        interpreter.
+
+        The OpenSearch index name is taken from the DATASIFT_INDEX environment variable
+        (default: "invoices_entities_expanded_test") so that the same index name is used
+        for both ingestion (here) and querying (chat_state.py / query_runner.py).
 
         Runs as a background task so the state lock is released between updates,
         allowing ThemeState.open_logs and LogPollerState to respond while running.
         Logs are written to _LOG_FILE which LogPollerState polls every second.
-        Flow: ingest_local → extract_docling → docling_chunker → embeddings → opensearch
+        Flow: ingest_local → extract_docling → extract_entities_ollama → docling_chunker → embeddings → opensearch
         """
         async with self:
             self.is_processing = True
@@ -265,28 +278,98 @@ class FileUploadState(rx.State):
         # is empty before the pipeline subprocess begins appending to it.
         await asyncio.sleep(0.3)
 
+        tmp_flow_path: Path | None = None  # track temp file for cleanup in finally
         try:
             # Resolve paths relative to the project root
             project_root = Path(__file__).parents[6]
             logger.info(f"Project root: {project_root}")
-            backend_python = project_root / "src" / "datasift_opensource" / "backend" / ".venv" / "bin" / "python"
-            orchestrator_script = project_root / "src" / "datasift_opensource" / "backend" / "core" / "orchestrator" / "cmdline" / "cmd_line_orchestrator.py"
-            flow_file = project_root / "tests" / "flow_invoice_entities_expanded_ui.json"
+            backend_python = (
+                project_root
+                / "src"
+                / "datasift_opensource"
+                / "backend"
+                / ".venv"
+                / "bin"
+                / "python"
+            )
+            orchestrator_script = (
+                project_root
+                / "src"
+                / "datasift_opensource"
+                / "backend"
+                / "core"
+                / "orchestrator"
+                / "cmdline"
+                / "cmd_line_orchestrator.py"
+            )
+            base_flow_file = project_root / "tests" / "flow_invoice_entities.json"
 
-            logger.info(f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file}")
+            # ----------------------------------------------------------------
+            # Extract the index_name from the flow JSON's OpenSearch node.
+            # This ensures the index created by the pipeline is the same one
+            # queried by chat_state / query_runner.
+            # ----------------------------------------------------------------
+            with base_flow_file.open("r", encoding="utf-8") as fh:
+                flow_data = json.load(fh)
+
+            # The flow JSON may be wrapped under a top-level "flow" key
+            flow_def = flow_data.get("flow", flow_data)
+            datasift_index = None
+            for node in flow_def.get("dag", []):
+                if node.get("operator") == "opensearch":
+                    datasift_index = node["config"].get("index_name")
+                    logger.info(
+                        f"Using index_name from flow JSON: '{datasift_index}'"
+                    )
+                    break
+            
+            # Fallback if no OpenSearch node found
+            if not datasift_index:
+                datasift_index = "datasift_documents"
+                logger.warning(
+                    f"No OpenSearch node found in flow JSON, using default: '{datasift_index}'"
+                )
+            
+            # Store the index name in state so chat_state can access it
+            async with self:
+                self.datasift_index = datasift_index
+
+            # Write the patched definition to a temp file so the orchestrator
+            # can load it without modifying the original flow JSON on disk.
+            tmp_flow = tempfile.NamedTemporaryFile(
+                mode="w",
+                suffix=".json",
+                prefix="datasift_flow_",
+                delete=False,
+                encoding="utf-8",
+            )
+            json.dump(flow_data, tmp_flow, indent=2)
+            tmp_flow.flush()
+            tmp_flow.close()
+            flow_file = Path(tmp_flow.name)
+            tmp_flow_path = flow_file  # record for cleanup
+
+            logger.info(
+                f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file} "
+                f"(index: {datasift_index})"
+            )
 
             # Stream subprocess output: write to log file AND echo to terminal via logger
             proc = await asyncio.create_subprocess_exec(
                 str(backend_python),
                 str(orchestrator_script),
-                "--flow-file", str(flow_file),
+                "--flow-file",
+                str(flow_file),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,  # merge stderr into stdout
-                cwd=str(project_root),  # run from project root so flow file path resolves correctly
+                cwd=str(
+                    project_root
+                ),  # run from project root so flow file path resolves correctly
             )
 
             # Collect all output lines so we can scan for errors after completion
             output_lines: list[str] = []
+            assert proc.stdout is not None  # guaranteed when stdout=PIPE
             with _LOG_FILE.open("w", encoding="utf-8", buffering=1) as log_fh:
                 async for raw_line in proc.stdout:
                     line = raw_line.decode(errors="replace").rstrip()
@@ -300,7 +383,13 @@ class FileUploadState(rx.State):
 
             # Detect errors even when exit code is 0 — the orchestrator logs errors
             # but may still exit cleanly (e.g. Ollama connection failure in embeddings).
-            _ERROR_PATTERNS = ("ERROR", "Failed to connect", "failed to generate", "Exception", "Traceback")
+            _ERROR_PATTERNS = (
+                "ERROR",
+                "Failed to connect",
+                "failed to generate",
+                "Exception",
+                "Traceback",
+            )
             has_errors_in_log = any(
                 any(pat.lower() in line.lower() for pat in _ERROR_PATTERNS)
                 for line in output_lines
@@ -311,13 +400,19 @@ class FileUploadState(rx.State):
                 async with self:
                     self.processing_status = f"Pipeline failed (exit code {proc.returncode}). Check logs for details."
                     self.processing_failed = True
-                    self.pipeline_ran = True  # allow chat — partial results may be in OpenSearch
+                    self.pipeline_ran = (
+                        True  # allow chat — partial results may be in OpenSearch
+                    )
             elif has_errors_in_log:
                 logger.warning("Pipeline exited 0 but errors were detected in output")
                 async with self:
-                    self.processing_status = "Pipeline completed with errors. Check logs for details."
+                    self.processing_status = (
+                        "Pipeline completed with errors. Check logs for details."
+                    )
                     self.processing_failed = True
-                    self.pipeline_ran = True  # allow chat — partial results may be in OpenSearch
+                    self.pipeline_ran = (
+                        True  # allow chat — partial results may be in OpenSearch
+                    )
             else:
                 logger.info("Pipeline completed successfully")
                 async with self:
@@ -336,6 +431,12 @@ class FileUploadState(rx.State):
             try:
                 with _LOG_FILE.open("a", encoding="utf-8") as f:
                     f.write("\nPIPELINE_DONE\n")
+            except Exception:
+                pass
+            # Clean up the temporary patched flow file
+            try:
+                if tmp_flow_path is not None and tmp_flow_path.exists():
+                    tmp_flow_path.unlink()
             except Exception:
                 pass
 
