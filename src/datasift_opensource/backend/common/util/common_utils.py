@@ -1,6 +1,4 @@
-import base64
 import json
-import os
 import re
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
@@ -14,9 +12,9 @@ class Singleton(type):
             cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
         return cls._instances[cls]
 
+
 def lowercase_keys(*, input_dict: dict[str, Any]):
     return {key.lower(): value for key, value in input_dict.items()}
-
 
 
 def batch_list(*, input_list: list, batch_size=20):

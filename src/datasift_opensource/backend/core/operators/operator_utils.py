@@ -7,6 +7,7 @@ from typing import Union, Dict, Any, List, Optional
 from common.exceptions.error_messages import ValidationMessage, ValidationCodeMessages
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 from common.util.constants import DatasiftConstants, OperatorConstants, Metrics, DocsStructure, ExecutionStatus
+from common.util.job_tracker.model.models import normalize_node_stats_for_dto
 from common.util.job_tracker.tracker.job_tracker import NodeStatsDto
 from common.util.log import get_logger
 
@@ -32,7 +33,6 @@ class OperatorUtils:
         """
         Check if required columns exist in the provided available features or table.
         
-        :param available_features: List of available features or pyarrow table
         :param required: List of required columns
         :param operator_name: Name of the operator for error reporting
         :param error_messages: (optional) List of error messages
@@ -153,8 +153,6 @@ class OperatorUtils:
                          Must contain both the ID and Name columns.
             output_table: The PyArrow Table with the processed documents.
             reason: A string explaining why these documents were skipped.
-            id_column_name: The name of the column containing the document IDs.
-            name_column_name: The name of the column containing the document names.
 
         Returns:
             A dictionary containing:

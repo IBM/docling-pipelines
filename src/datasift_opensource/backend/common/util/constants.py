@@ -8,24 +8,17 @@ class DatasiftConstants:
     INPUT = "input"
     LOGGER_NAME = "DATASIFT"
     SESSION_INFO = "session_info"
-    BEARER = "Bearer "
-    BASIC = "Basic "
     CONTEXT_ID = "context_id"
     FORCE_INGEST = "force_ingest"
     RETAIN_DELETED_DOCS = "retain_deleted_docs"
     RETAIN_DELETED_DOCS_DEFAULT = True
     DATA_FOLDER = "data_folder"
     OPERAND_NAMESPACE = "OPERAND_NAMESPACE"
-    WDU_SERVER = "WDU_SERVER"
-    WML_SERVER = "WML_SERVER"
     DAG = "dag"
     FLOW_ID = "flow_id"
     FLOW_NAME = "flow_name"
     FLOW_DESCRIPTION = "flow_description"
     FLOW_DEFINITION = "flow_definition"
-    GEN_AI_INGEST_FLOW = "gen_ai_ingest_flow"
-    FLOW_VERSION = "flow_version"
-    FLOW_VERSION_2 = "2.0"
     JOB = "job"
     JOB_ID = "job_id"
     NODE_ID = "node_id"
@@ -34,11 +27,8 @@ class DatasiftConstants:
     JOB_RUN_ID = "job_run_id"
     TRACK_PERF = "track_perf"
     DATASIFT = "datasift"
-    TEMPLATE_FLAG = "is_template"
-    RESOURCES = "resources"
     METADATA = "metadata"
     TRACE_MEMORY_ALLOCATIONS = "TRACE_MEMORY_ALLOCATIONS"
-    ASYNC_MODE = "async_mode"
     METRICS = "metrics"
     DEFAULT_TRANSACTION_ID = "TRANSACTION999"
     UDP_LOGS = "UDP_logs"
@@ -47,10 +37,8 @@ class DatasiftConstants:
     NODE_STATS_PATH = "node-stats"
     TRANSACTION_ID = "transaction_id"
     OUTPUT_FOLDER = "output_folder"
-    MASKED_PASSWORD_PATTERN = r"^\*+$"  # Regex pattern to detect masked passwords
     OUTPUT_FEATURES_TO_DROP = "output_features_to_drop"
     LINK_NAME = "link_name"
-    ASSET_CATEGORY_SYSTEM = "SYSTEM"
     UPDATED_FEATURES = "updated_features"
     NAME = "name"
     UUID = "uuid"
@@ -58,33 +46,21 @@ class DatasiftConstants:
     STATE = "state"
     MESSAGE = "message"
     LAST_UPDATED_AT = "last_updated_at"
-    ASSET = "asset"
-    PROPAGATE_SOURCE_ACLS = "propagate_source_acls"
-    FLOWS = "flows"
     FLOW = "flow"
     DETAILS = "details"
     JOBS = "jobs"
     RUNS = "runs"
     OPERATORS = "operators"
-    DERIVATIVE_STORE = "derivative_store"
     DOCUMENTS = "documents"
     OPERATOR_FILE = "operator_file"
-    DEPENDENCY_ARCHIVE = "dependency_archive"
-    PACKAGE_ARCHIVE = "package_archive"
-    IS_DERIVATIVE_AVAILABLE = "is_derivative_available"
     SUMMARY = "summary"
     VALIDATION_FAILED = "validation_failed"
     PYTHON_PATH = "PYTHONPATH"
     ABSTRACT_OPERATOR = "AbstractOperator"
     VALIDATING_FLOW = "validating_flow"
-    DEEPCOPY = "deepcopy"
-    AUTO_COPY_REMOTE_CONNECTIONS = "auto_copy_remote_connections"
     SKIP_CUSTOM_OP_VALIDATION = "skip_custom_op_validation"
     SUCCESS = "success"
-    OBJECTS = "objects"
-    IS_SPARK_RUNTIME = "IS_SPARK_RUNTIME"
     TMP = "tmp"
-    TARGET_ASSET_STORAGE_PATH = "/datasift/storage/job-assets"
     ENABLE_MICRO_BATCHING = "enable_micro_batching"
     MICRO_BATCH_SIZE = "micro_batch_size"
     DEFAULT_MICRO_BATCH_SIZE = 100
@@ -94,19 +70,12 @@ class DatasiftConstants:
     MAX_CONCURRENT_TASKS = "max_concurrent_tasks"
     DEFAULT_MAX_CONCURRENT_TASKS = 10
     OPERATOR_SEMAPHORE = "_operator_semaphore"
-    SUCCESS_FILE_PATH = os.path.join(TARGET_ASSET_STORAGE_PATH, "_SUCCESS")
     BUILD_VERSION = "BUILD_VERSION"
     PARQUET_BATCH_SIZE = 1000
-    DEFAULT_SCHEMA = "datasift"
     LANGUAGE_LABEL = "language_label"
     LANGUAGE_CODE = "language_code"
     SCRIPT_CODE = "script_code"
     SCRIPT_LABEL = "script_label"
-
-
-# Datasource Type Constants
-# Used for identifying the type of vector store or entity table connection
-DATASOURCE_TYPE = "datasource_type"
 
 
 class Metrics:
@@ -150,16 +119,9 @@ internal_metrics = {
 }
 
 
-class BucketTypes:
-    DEDICATED = "dedicated"
-    SHARED = "shared"
-
-
 class TaskType(Enum):
     EXECUTE_FLOW = "execute_flow"
     VALIDATE_FLOW = "validate_flow"
-    SET_NODE_FEATURES = "set_node_features"
-    ADD_OPERATOR_CARD_DETAILS = "add_operator_card_details"
     NON_EXECUTE_FLOW = "non_execute_flow"
 
 
@@ -171,7 +133,6 @@ class DocsStructure(TypedDict):
 
 
 class ExtractionLanguageScripts:
-    # Define all WDU scripts
     LATIN = {
         DatasiftConstants.SCRIPT_LABEL: "Latin",
         DatasiftConstants.SCRIPT_CODE: "latn",
@@ -185,7 +146,6 @@ class ExtractionLanguageScripts:
         DatasiftConstants.SCRIPT_CODE: "cyrl",
     }
 
-    # Define all WDU languages
     CHINESE_SIMPLIFIED = {
         DatasiftConstants.LANGUAGE_LABEL: "Chinese - Simplified",
         DatasiftConstants.LANGUAGE_CODE: "chi_sim",
@@ -216,22 +176,9 @@ class ExtractionLanguageScripts:
 
 class OperatorConstants:
     # Defines constants that are used across multiple operators
-    # adding variable for KVP Extraction
-    DATABRICKS = "Microsoft Azure Databricks"
     PRIMARY = "primary"
     ENTITY_EXTRACT = "extract_entity"
-    KVP_BASE_URL = "kvp_base_url"
     INGEST_TYPE = "ingest_type"
-    CATALOG_NAME = "catalog_name"
-    DATASET_CONNECTION = "dataset_connection"
-    CONNECTION_ID = "connection_id"
-    CONNECTION_NAME = "connection_name"
-    OUTPUT_CONNECTION = "output_connection"
-    INTERACTION_PROPERTIES = "interaction_properties"
-    DEFAULT_REDACTION_VALUE = True
-    DEFAULT_REDACTION_CHARACTER_VALUE = ""
-    KVP_COLUMN = "kvp_column"
-    KVP_COLUMN_DEFAULT = "entity"
     DOC_COLUMN = "doc_column"
     DOC_COLUMN_DEFAULT = "content"
     DOC_ID_HASH = "doc_id_hash_column"
@@ -260,7 +207,6 @@ class OperatorConstants:
     OPERATOR = "operator"
     CONFIG = "config"
     GLOBAL_CONFIG = "global_config"
-    BLOCKING_THRESHOLD = "blocking_threshold"
     CONFIGURATION = "configuration"
     SIZE = "size"
     PAGES = "pages"
@@ -270,25 +216,15 @@ class OperatorConstants:
     BINARY_CONTENT = "binary_content"
     URL = "url"
     CONTENT_TYPE = "content_type"
-    WDU_SERVER_KEY = "wdu_server"
-    WDU_API_MAX_CONCURRENCY = "wdu_api_max_concurrency"
     BATCH_SIZE = "batch_size"
     SQL_FILTER = "sql_filter"
-    SAMPLING_FILTER = "sampling_filter"
     EMBEDDINGS = "embeddings"
-    ENTITY_STORE = "entity_store"
-    MILVUS_FEATURE_MAPPINGS = "milvus_feature_mappings"
-    MILVUS_REQUIRED_FEATURES = "milvus_required_features"
-    COLLECTION_NAME = "collection_name"
     FEATURE_MAPPINGS = "feature_mappings"
-    CUSTOM_COLLECTION_COLUMN_NAME = "Custom"
     NEW_COLLECTION_DEFAULT_FEATURE_MAPPINGS = "new_collection_default_feature_mappings"
     FEATURES = "features"
     VALID_COLUMNS = "valid_columns"
     AVAILABLE_FEATURES = "available_features"
-    ELASTIC_FEATURE_MAPPINGS = "elastic_feature_mappings"
     OPENSEARCH_FEATURE_MAPPINGS = "opensearch_feature_mappings"
-    ELASTIC_REQUIRED_FEATURES = "elastic_required_features"
 
     # OpenSearch/Elasticsearch connection constants
     OPENSEARCH_HOST = "opensearch_host"
@@ -312,11 +248,8 @@ class OperatorConstants:
     PII_THRESHOLD_KEY = "pii_threshold"
     PII_AND_HAP_EXTRACT_REDACT = "pii_and_hap_extract_redact"
     MODERATIONS = "moderations"
-    ES = "elasticsearch"
     VECTOR_SIMILARITY_KEY = "vector_similarity"
     OPENSEARCH = "opensearch"
-    MILVUS = "milvus"
-    ES_CP4D = "elasticsearch_cp4d"
     INGEST = "ingest"
     CHUNKER = "chunker"
     CHUNKED_CONTENT = "chunked_content"
@@ -325,13 +258,11 @@ class OperatorConstants:
     CHUNK_SIZE_DEFAULT = 4000
     CHUNK_SEQUENCE_NUMBER = "chunk_sequence_number"
     START_INDEX = "start_index"
-    KVP_ICEBERG = "kvp_iceberg"
     DESCRIPTION = "description"
     ATTRIBUTES = "attributes"
     DEFAULT = "default"
     REQUIRED = "required"
     MAX_FILE_SIZE = "max_file_size"
-    INPUT_ASSETS = "input_assets"
     INCLUDE_FILTER_KEY = "include_filter"
     AVAILABLE_FOR_FILTER = "available_for_filter"
     AVAILABLE_FOR_VECTOR_DB = "available_for_vector_db"
@@ -343,8 +274,6 @@ class OperatorConstants:
     PII_REDACTION_CHARACTER_KEY = "redaction_character"
     HAP_REDACTION_CHARACTER_KEY = "hap_redaction_character"
     EXPECTED_REDACTIONS = "expected_redactions"
-    WNLP_SERVER_KEY = "wnlp_server"
-    WNLP_API_ROUTE = "api_route"
     HAP_THRESHOLD_KEY = "hap_threshold"
     REDACTION_CHARACTER_KEY = "redaction_character"
     PII_REDACTION_KEY = "redaction"
@@ -352,7 +281,6 @@ class OperatorConstants:
     PII_FIELD_NAME = "pii"
     HAP_FIELD_NAME = "hap"
     REGEX_KEY = "regex"
-    PARTIAL_INGEST = "partial_ingest"
     SDK = "sdk"
     DELETED = "deleted"
     CORE_OPERATORS_PATH = "core.operators"
@@ -363,12 +291,10 @@ class OperatorConstants:
     DOC_QUALITY = "doc_quality"
     READABILITY = "readability"
     DOC_ID_OPERATOR = "doc_id_hash"
-    CROMA_DB = "chromadb"
     PATHS = "paths"
     PATH = "path"
     INGEST_CSV = "ingest_csv"
     INGEST_LOCAL = "ingest_local"
-    INGEST_WEB_PAGES = "ingest_web_page"
     EXTRACT_DOCLING = "extract_docling"
     EXTRACT_ENTITIES_OLLAMA = "extract_entities_ollama"
     DOCLING_CHUNKER = "docling_chunker"
@@ -376,18 +302,7 @@ class OperatorConstants:
     MERGE = "merge"
     REDACTION = "redaction"
     REGEX_ANNOTATOR = "regex_annotator"
-    INGEST_DOCUMENT_SET = "ingest_document_set"
     SAMPLING_PERCENTAGE = "sampling_percentage"
-    DOCUMENT_SET_ID = "document_set_id"
-    DOCUMENT_SET = "document_set"
-    DOCUMENT_SET_LABEL = "Document Set"
-    DOCUMENT_SET_NAME = "document_set_name"
-    DOCUMENT_SET_DESCRIPTION = "document_set_description"
-    BASE_DOCUMENT_SET_TEMPLATE = "base_document_set_template"
-    BASE_DOCUMENT_SET = "base_document_set"
-    BASE_DOCUMENT_SET_ID = "base_document_set_id"
-    DOCUMENT_LIBRARY_ID = "document_lib_id"
-    ICEBERG_STORAGE = "iceberg_storage"
     COLUMN_LIST = "column_list"
     ADD_SPARSE_VECTOR = "add_sparse_vector"
     ADD_SPARSE_VECTOR_DEFAULT = True
@@ -399,12 +314,9 @@ class OperatorConstants:
     DENSE_EMBEDDINGS_COLUMN_DEFAULT = "vector_embeddings"
     COMPUTE = "compute"
     STORAGE = "storage"
-    DATASET_STORAGE = "dataset_storage"
     RUNTIME = "runtime"
-    ACLS = "acls"
     PROPERTIES = "properties"
     DATASOURCE_TYPE = "datasource_type"
-    CATALOG_TYPE = "catalog_type"
     COS_ENDPOINT = "cos_endpoint"
     COS_STORAGE_TYPE = "bmcos_object_storage"
     AWS_STORAGE_TYPE = "amazon_s3"
@@ -412,13 +324,11 @@ class OperatorConstants:
     METADATA = "metadata"
     PIPELINE_DETAILS = "pipeline_details"
     PARAMETERS = "parameters"
-    PROJECT_ID = "project_id"
     NODE_PARAMETERS = "node_parameters"
     DOCUMENT_ID = "document_id"
     LAST_MODIFIED_TIME = "last_modified_time"
     LANGUAGE = "language"
     LANGUAGE_SCORE = "language_score"
-    IMAGE_PATH = "image_path"
     DOCUMENT_CLASS_ID = "document_class_id"
     DOCUMENT_CLASS = "document_class"
     FORMAT = "format"
@@ -435,8 +345,6 @@ class OperatorConstants:
     ENABLED = "enabled"
     DISABLED = "disabled"
     FORCED = "forced"
-    EXTRACT_ACL = "extract_acl"
-    ACL_OPERATOR = "acl_operator"
     IS_OPERATOR_AVAILABLE = "is_operator_available"
     IS_INTERNAL_FEATURE = "is_internal_feature"
     ALWAYS_RETRIEVE_DOCUMENT = "always_retrieve_document"
@@ -448,17 +356,9 @@ class OperatorConstants:
     JSON_SCHEMA = "json_schema"
     LANGUAGE_NAME_COLUMN_KEY = "lang_name"
     LANGUAGE_SCORE_COLUMN_KEY = "lang_score"
-    ASSIGNED_DATA_CLASSES = "assigned_data_classes"
-    ASSIGNED_BUSINESS_TERMS = "assigned_business_terms"
-    ASSIGNED_CLASSIFICATIONS = "assigned_classifications"
     PROCESSING_STATE = "processing_state"
-    PRESTO_READ_BATCH_SIZE = "presto_read_batch_size"
-    PRESTO_INSERT_BATCH_SIZE = "presto_insert_batch_size"
-    PRESTO_DELETE_BATCH_SIZE = "presto_delete_batch_size"
-    ORIGINAL_PROJECT_CLIENT = "original_project_client"
     DOCUMENT_TYPE = "document_type"
     DOCUMENT_FORMAT = "document_format"
-    GENERIC_KVP = "generic_kvp"
     VALID_VALUES = "valid_values"
     BRANCHING = "branching"
     FILTER_CRITERIA_LIST = "criteria_list"
@@ -467,8 +367,6 @@ class OperatorConstants:
     FILTER_FEATURES_TO_DROP_KEY = "features_to_drop"
     MIN_VALUE = "min_value"
     MAX_VALUE = "max_value"
-    DATA_TYPE_IDENTIFIER_KVPS_OPERATOR = "kvps_datatype_identifier_operator"
-    CLASSIFICATION_OPERATOR = "classification_operator"
     ENTITY_CURATION_OPERATOR = "entity_curation_operator"
     DESIGN_FLOW_OUTPUT_OPERATOR = "design_flow_output"
     ENTITY_STORE_OPERATOR = "entity_store"
@@ -500,8 +398,6 @@ class OperatorConstants:
     INPUT_FEATURES = "input_features"
     OUTPUT_FEATURES = "output_features"
     USER_CODE = "user_code"
-    PYTHON_CODE_KEY = "python_code"
-    CODE_TIMEOUT_KEY = "code_timeout"
     NEW_COLUMNS = "selected_python_features"
     ORIGINAL_FEATURE = "original_feature"
     LINK_ID = "link_id"
@@ -539,11 +435,8 @@ class OperatorConstants:
     COLLECTION_COLUMNS = "collection_columns"
     STORED_INDEX_METADATA = "stored_index_metadata"
     TARGET_STORE = "target_store"
-    ASSET_TYPE = "asset_type"
     DOCUMENTS = "documents"
-    HREF = "href"
     CONNECTION_PATH = "connection_path"
-    ATTACHMENTS = "attachments"
     COMPUTE_EMBEDDINGS = "compute_embeddings"
     TOTAL_PAGES_PROCESSED = "total_pages_converted"
     ENTITY_IDS_COLUMN_NAME = "entity_ids"
@@ -553,12 +446,9 @@ class OperatorConstants:
     RESOURCE_KEY = "resource_key"
     METRIC_TYPE = "metric_type"
     INDEX_TYPE = "index_type"
-    INDEX_NAME = "index_name"
     SEMANTIC_CONFIG = "semantic_config"
-    ENTITLEMENTS = "entitlements"
     INPUT_LINKS = "input_links"
     MAX_BATCH_SIZE_MB = "max_batch_size_mb"
-    ENABLE_DATABRICKS = "enable_databricks"
     MARKED_UNSTRUCTURED_STATUS = "marked_unstructured_status"
     TOTAL_FILE_COUNT = "file_count"
     NODE_IDS = "node_ids"
@@ -596,20 +486,9 @@ class OrchestratorType:
     CMDLINE = "cmdLine"
 
 
-class Kvp:
-    KVP_SERVER = "kvp_server"
-    SEMANTIC_LABEL = "semantic_label"
-    KEY = "key"
-    VALUE = "value"
-    RAW_TEXT = "raw_text"
-    TABLE_NAME = "table_name"
-    TABLE_ROW_INDEX = "table_row_index"
-
-
 class DataSourceType:
     AMAZON_S3 = "Amazon S3"
     BOX = "Box"
-    DATA_ASSET = "data_asset"
     FILENET = "AppConnectAdapter - FileNet"
     SHAREPOINT = "AppConnectAdapter - MsSharePoint"
     WXD_PRESTO = "IBM watsonx.data Presto"
@@ -733,17 +612,6 @@ class LlmModelName(str, Enum):
     GRANITE_3_2_8B = "granite3.2:8b"
 
 
-class IcebergCatalogType:
-    DYNAMODB = "dynamodb"
-    GLUE = "glue"
-    HIVE = "hive"
-    MEMORY = "memory"
-    NOOP = "noop"
-    WXD_REST = "wxd_rest"
-    REST = "rest"
-    SQL = "sql"
-
-
 class CatalogType:
     """Supported catalog types"""
 
@@ -751,20 +619,6 @@ class CatalogType:
     SNOWFLAKE = "snowflake"
     JDBC = "jdbc"
     NESSIE = "nessie"
-
-
-class ElasticSearchDataTypes:
-    TEXT = "text"
-    BYTE = "byte"
-    SHORT = "short"
-    INTEGER = "integer"
-    LONG = "long"
-    DENSE_VECTOR = "dense_vector"
-    SPARSE_VECTOR = "sparse_vector"
-    BOOLEAN = "boolean"
-    FLOAT = "float"
-    DOUBLE = "double"
-    OBJECT = "object"
 
 
 class MemoryLogPhases:

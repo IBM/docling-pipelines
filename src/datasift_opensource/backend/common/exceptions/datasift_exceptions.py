@@ -18,12 +18,6 @@ class DatasiftException(Exception):
         self.message_code = message_code
 
 
-class FlowNotFoundException(DatasiftException):
-    # Thrown when the given flow or flow definition not found
-    def __init__(self, message):
-        super().__init__(message, 404)
-
-
 class ValidationAlert(dict):
     def __init__(self, code=None, message = None, message_code = None, node_id=None, node_name=None, operator=None,  **kwargs):
 
@@ -74,12 +68,6 @@ class FlowExecutionFailedException(DatasiftException):
         self.errors = errors
 
 
-class FlowExecutionBlockedException(DatasiftException):
-    def __init__(self, message: str, status_code: int = 500, errors: list[ValidationAlert] = None):
-        super().__init__(message, status_code)
-        self.errors = errors
-
-
 class FlowValidationException(DatasiftException):
     def __init__(self, message="Invalid Flow definition",
                  errors: Optional[List[Union[ValidationAlert, ValidationMessage]]] = None,
@@ -90,20 +78,10 @@ class FlowValidationException(DatasiftException):
         self.warnings = warnings
 
 
-class FlowCanceledException(DatasiftException):
-    # Thrown when the given flow or flow definition is cancelled
-    def __init__(self, message):
-        super().__init__(message)
-
-
 class PrefectFlowFailed(DatasiftException):
     #thrown when a prefect flow execution failed for a task
     def __init__(self, message, error_code: ErrorCode,  message_code: str= None, status_code: int = 500):
         super().__init__(message, error_code=error_code, message_code=message_code, status_code= status_code)
-        
-class CodeSecurityException(DatasiftException):
-    def __init__(self, message:str  = "Code Security Violation", status_code:int = 400, err_code:ErrorCode = ErrorCode.CODE_SECURITY_VIOLATION):
-        super().__init__(message, status_code, err_code)
 
 
 class ValidationException(DatasiftException):

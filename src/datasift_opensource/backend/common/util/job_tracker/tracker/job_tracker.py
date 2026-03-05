@@ -134,18 +134,6 @@ def _log_inconsistencies(*, job_stats: JobStatsDto):
             extra={DatasiftConstants.JOB_RUN_ID: job_stats.job_run_id}
         )
 
-# def _get_job_id_from_jobframework(job_run_id: str) -> Optional[str]:
-#     logger.debug(f"Job stats do not exist locally for job run ID: {job_run_id}. Pulling from Jobs Framework")
-#     try:
-#         jobs_client = JobsClient()
-#         jobs_asset = jobs_client.get_jobs(query_params={"run_id": job_run_id})
-#         job_id = jobs_asset.get("results", [{}])[0].get(OperatorConstants.METADATA, {}).get(
-#             OperatorConstants.ASSET_ID)
-#         return job_id
-#     except Exception as ex:
-#         logger.error(f"Failed to get job id from Jobs Framework. Error message: {str(ex)}")
-#         return None
-
 
 class JobTracker(metaclass=Singleton):
     """
@@ -495,46 +483,6 @@ class JobTracker(metaclass=Singleton):
             return False
 
         return job_stats.status in COMPLETED_JOB_STATUSES
-
-    @staticmethod
-    def get_flow_execution_status(flow_id, run_id, cos_client):
-        max_retry = 2
-        retry = 0
-        job_stats = None
-
-        while retry < max_retry:
-            job_stats = JobTracker().get_job(job_run_id=run_id)
-            if job_stats:
-                break
-            retry += 1
-            time.sleep(1)
-
-        if job_stats is None:
-            raise DatasiftException(f"Unable to find stats for job run: {run_id}", 404)
-
-        if not job_stats.start_time:
-            start_time = 0
-            end_time = 0
-            time_elapsed = 0
-        else:
-            start_time = job_stats.start_time
-            end_time = job_stats.end_time or round(datetime.now().timestamp())
-            time_elapsed = end_time - start_time
-        node_stats_list = []
-        if job_stats.node_stats:
-            for node_id, node_stats in job_stats.node_stats.items():
-                node_stats_list.append(node_stats)
-        status_value = job_stats.status.value if isinstance(job_stats.status, ExecutionStatus) else job_stats.status
-        flow_status = FlowExecutionStatus(flow_id=flow_id, job_run_id=run_id, status=status_value,
-                                          node_stats=node_stats_list, total_docs=job_stats.total_docs,
-                                          failed_docs=job_stats.failed_docs, skipped_docs=job_stats.skipped_docs,
-                                          processed_docs=job_stats.processed_docs, start_time=start_time,
-                                          end_time=end_time, elapsed_time=str(timedelta(seconds=time_elapsed)),
-                                          orchestrator=job_stats.orchestrator)
-        if job_stats.message:
-            flow_status.message = job_stats.message
-
-        return flow_status
 
     def determine_and_update_final_documents_count(self, *, job_stats: JobStatsDto, dag_nodes: list[dict[str, Any]]):
         """

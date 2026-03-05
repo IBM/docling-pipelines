@@ -58,7 +58,6 @@ class IngestS3Operator(AbstractOperator): # pragma: no cover
         self.aws_access_secret: Optional[str] = config.get(AWS_ACCESS_SECRET_KEY, None)
         self.aws_bucket_name: Optional[str] = config.get(AWS_BUCKET_NAME_KEY, None)
 
-        self.wdu_server: Optional[str] = config.get(OperatorConstants.WDU_SERVER_KEY, None)
         self.common_log_arguments: dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
 
     @staticmethod
@@ -160,14 +159,6 @@ class IngestS3Operator(AbstractOperator): # pragma: no cover
         if len(binary_content) == 0:
             return {}, None
 
-        # convert the contents into Markdown format using WDU (Watson Document Understanding) by calling DPK (Data Prep Kit) transform
-        # data_access = DataAccessLocal({"input_folder": "", DatasiftConstants.OUTPUT_FOLDER: ""})
-        # wdu_pdf2md_transform = WduPdf2MdTransform({
-        #     "wdu_server": self.wdu_server,
-        #     "wdu_max_retries": 3,
-        #     "data_access": data_access})
-        # result_file_details, metadata = wdu_pdf2md_transform.transform_binary(file_name="test.pdf", byte_array=binary_content)
-        # content = result_file_details[0][0].decode('utf8')
         content: str = ""
 
         metadata['file-name'] = file_name
@@ -193,7 +184,6 @@ def main() -> None:  # pragma: no cover
         "aws_access_id": "XXXX",
         "aws_access_secret": "XXXX",   #pragma: allowlist secret
         "aws_bucket_name": "tm-wkc-storage-1",
-        "wdu_server": "https://cpd-wkc.apps.udptest7.cp.fyre.ibm.com",
         "include_filter": "pdf"
     })
 
