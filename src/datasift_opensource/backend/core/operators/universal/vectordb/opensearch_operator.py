@@ -396,9 +396,15 @@ class OpenSearchOperator(AbstractOperator):
                 properties[mapped_name] = {"type": "float"}
             elif feature_type == "boolean":
                 properties[mapped_name] = {"type": "boolean"}
-            elif feature_type in ("object", "nested", "json"):
-                # Support for nested/object types - enables dynamic mapping for JSON objects
-                properties[mapped_name] = {"type": "object", "enabled": True}
+            elif feature_type in ("object", "json", "nested"):
+                # Support for object/nested types - enables dynamic mapping for JSON objects
+                # Don't pre-define properties - let OpenSearch dynamically map each document
+                # This allows SQL queries on nested fields while handling schema variations from LLM extraction
+                # Using "enabled": true allows the field to be indexed and queried
+                properties[mapped_name] = {
+                    "type": "object",
+                    "enabled": True,
+                }
             else:
                 properties[mapped_name] = {"type": "text"}
 

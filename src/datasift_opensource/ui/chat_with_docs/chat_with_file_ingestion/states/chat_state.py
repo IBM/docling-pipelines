@@ -184,21 +184,21 @@ class ChatState(rx.State):
         yield rx.call_script(ChatState._scroll_js())
 
         # 3. Guard: documents must have been processed first
-        file_state = await self.get_state(FileUploadState)
-        if not file_state.pipeline_ran:
-            self.messages.append(
-                {
-                    "role": "assistant",
-                    "content": (
-                        "I'd be happy to help, but no documents have been processed yet. "
-                        "Please upload files and click 'Process Documents'!"
-                    ),
-                    "sources": [],
-                }
-            )
-            self.is_processing = False
-            yield
-            return
+        #file_state = await self.get_state(FileUploadState)
+        #if not file_state.pipeline_ran:
+        #    self.messages.append(
+        #        {
+        #            "role": "assistant",
+        #            "content": (
+        #                "I'd be happy to help, but no documents have been processed yet. "
+        #                "Please upload files and click 'Process Documents'!"
+        #            ),
+        #            "sources": [],
+        #        }
+        #    )
+        #    self.is_processing = False
+        #    yield
+        #    return
 
         # Get the index name from file_state (extracted from flow JSON)
         index_name = file_state.datasift_index or "datasift_documents"

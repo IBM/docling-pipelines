@@ -48,27 +48,12 @@
           "doc_column": "content",
           "ollama_model": "granite4:latest",
           "max_doc_chars": 8000,
-          "temperature": 0.0
+          "temperature": 0.0,
+          "schema_file": "examples/retrieval/document_schemas.json",
+          "schema_table": "invoices_entities"
         },
         "input_edges": [
           { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
-        ],
-        "output_edges": [
-          { "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129" }
-        ]
-      },
-      {
-        "id": "6101c752-523e-4a4a-84e2-81e0b2109129",
-        "name": "chunk",
-        "operator": "docling_chunker",
-        "config": {
-          "doc_column": "content",
-          "chunk_size": 512,
-          "chunk_overlap": 128,
-          "retain_original_content": "true"
-        },
-        "input_edges": [
-          { "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
         ],
         "output_edges": [
           { "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02" }
@@ -86,7 +71,7 @@
           "doc_column": "content"
         },
         "input_edges": [
-          { "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129" }
+          { "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
         ],
         "output_edges": [
           { "node_id_ref": "87249dbf-4a1a-433a-91da-ee5fb3244284" }

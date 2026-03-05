@@ -79,27 +79,86 @@ Rules:
 
 
 def _build_schema_description(schema: dict[str, Any]) -> str:
-    """Convert schema columns dict to human-readable description."""
+    """Convert schema columns dict to human-readable description.
+
+    Strips common prefix from column names to avoid double-nesting.
+    """
+    columns = schema.get("columns", {})
+    if not columns:
+        return ""
+
+    # Check if all columns start with a common prefix (e.g., "invoice_entities.")
+    col_names = list(columns.keys())
+    first_parts = [name.split(".", 1)[0] for name in col_names if "." in name]
+
+    # If all dotted columns share the same first part, strip it
+    common_prefix = None
+    if first_parts and all(part == first_parts[0] for part in first_parts):
+        # Check if this prefix appears in most columns
+        prefix_count = sum(
+            1 for name in col_names if name.startswith(first_parts[0] + ".")
+        )
+        if prefix_count > len(col_names) * 0.5:  # More than 50% have this prefix
+            common_prefix = first_parts[0]
+
     lines: list[str] = []
-    for col_name, col_type in schema.get("columns", {}).items():
-        lines.append(f"  - {col_name} ({col_type})")
+    for col_name, col_type in columns.items():
+        # Strip common prefix if present
+        display_name = col_name
+        if common_prefix and col_name.startswith(common_prefix + "."):
+            display_name = col_name[len(common_prefix) + 1 :]
+        lines.append(f"  - {display_name} ({col_type})")
+
     return "\n".join(lines)
 
 
 def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
-    """Build skeleton JSON template matching schema structure."""
+    """Build skeleton JSON template matching schema structure.
+
+    Handles nested paths by building a hierarchical structure.
+    If all columns start with the same prefix (e.g., 'invoice_entities.'),
+    that prefix is stripped to avoid double-nesting.
+    """
+    columns = schema.get("columns", {})
+    if not columns:
+        return {}
+
+    # Check if all columns start with a common prefix (e.g., "invoice_entities.")
+    col_names = list(columns.keys())
+    first_parts = [name.split(".", 1)[0] for name in col_names if "." in name]
+
+    # If all dotted columns share the same first part, strip it
+    common_prefix = None
+    if first_parts and all(part == first_parts[0] for part in first_parts):
+        # Check if this prefix appears in most columns
+        prefix_count = sum(
+            1 for name in col_names if name.startswith(first_parts[0] + ".")
+        )
+        if prefix_count > len(col_names) * 0.5:  # More than 50% have this prefix
+            common_prefix = first_parts[0]
+
     template: dict[str, Any] = {}
-    for col_name, col_type in schema.get("columns", {}).items():
+    for col_name, col_type in columns.items():
+        # Strip common prefix if present
+        if common_prefix and col_name.startswith(common_prefix + "."):
+            col_name = col_name[len(common_prefix) + 1 :]
+
         if "." in col_name:
-            parts: list[str] = col_name.split(".", 1)
-            parent: str = parts[0]
-            child: str = parts[1]
-            if parent not in template:
-                template[parent] = [{}]
-            if isinstance(template[parent], list) and template[parent]:
-                template[parent][0][child] = None
+            # Build nested structure
+            parts: list[str] = col_name.split(".")
+            current = template
+            for i, part in enumerate(parts[:-1]):
+                if part not in current:
+                    current[part] = {}
+                elif not isinstance(current[part], dict):
+                    # If the value is not a dict, convert it to one
+                    current[part] = {}
+                current = current[part]
+            # Set the final value
+            current[parts[-1]] = None
         else:
-            template[col_name] = [{}] if col_type == "NESTED" else None
+            template[col_name] = None
+
     return template
 
 
@@ -343,10 +402,6 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             self._resolved_schema = {"columns": {}}
 
         return self._resolved_schema
-
-    # ------------------------------------------------------------------
-    # Availability
-    # ------------------------------------------------------------------
 
     # ------------------------------------------------------------------
     # Entity expansion

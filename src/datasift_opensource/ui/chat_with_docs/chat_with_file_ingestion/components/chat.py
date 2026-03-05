@@ -244,7 +244,7 @@ def chat_input() -> rx.Component:
                     ),
                     on_change=ChatState.set_user_input,
                     on_key_down=ChatState.handle_key_down,
-                    disabled=FileUploadState.is_processing | ~FileUploadState.has_files | (~FileUploadState.pipeline_ran & ~FileUploadState.processing_failed) | ChatState.is_processing,
+                    disabled=FileUploadState.is_processing | ChatState.is_processing,
                     class_name="flex-1 bg-gray-50 dark:bg-gray-800 border-none focus:ring-0 text-sm dark:text-white py-3 px-4 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed",
                 ),
                 rx.el.button(
@@ -254,7 +254,7 @@ def chat_input() -> rx.Component:
                         rx.icon("send", class_name="h-5 w-5"),
                     ),
                     on_click=ChatState.send_message,
-                    disabled=FileUploadState.is_processing | ~FileUploadState.has_files | (~FileUploadState.pipeline_ran & ~FileUploadState.processing_failed) | ChatState.is_processing,
+                    disabled=FileUploadState.is_processing | ChatState.is_processing,
                     class_name="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed",
                 ),
                 class_name="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 focus-within:border-indigo-300 dark:focus-within:border-indigo-500 transition-all",
