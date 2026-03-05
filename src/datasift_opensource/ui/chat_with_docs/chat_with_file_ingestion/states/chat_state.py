@@ -184,7 +184,7 @@ class ChatState(rx.State):
         yield rx.call_script(ChatState._scroll_js())
 
         # 3. Guard: documents must have been processed first
-        #file_state = await self.get_state(FileUploadState)
+        file_state = await self.get_state(FileUploadState)
         #if not file_state.pipeline_ran:
         #    self.messages.append(
         #        {
