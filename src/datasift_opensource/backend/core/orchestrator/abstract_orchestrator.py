@@ -16,7 +16,6 @@ from common.exceptions.datasift_exceptions import (
     FlowExecutionFailedException,
     FlowValidationException,
     PrefectFlowFailed,
-    SetSelectOptionsException,
     ValidationAlert,
     DatasiftException
 )
@@ -952,10 +951,6 @@ class AbstractOrchestrator:
                     stop_submission = True
                     final_destination = future
 
-            except SetSelectOptionsException as se:
-                error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{str(se)}"
-                logger.error(se, stack_info=True, exc_info=True)
-                raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED, message_code=se.message_code, status_code=400)
             except Exception as e:
                 error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{str(e)}"
                 logger.error(error, stack_info=True, exc_info=True)

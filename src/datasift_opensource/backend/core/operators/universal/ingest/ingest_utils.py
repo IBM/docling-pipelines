@@ -30,11 +30,6 @@ def filter_based_on_extension(file_path: str, excluded_extensions: Optional[List
     return False
 
 
-def bytes_to_mb(bytes_value: Union[int, float]) -> float:
-    """Convert bytes to megabytes (MB)."""
-    return bytes_value / 1048576  # 1 MB = 1048576 bytes
-
-
 def is_doc_previously_processed(*, previously_processed_docs_dict: Dict[str, Any], doc_id: str, modified_time: Any) -> bool:
     """Returns True if the doc was processed in the previous job run and the doc is not modified since the last processed time."""
     if not previously_processed_docs_dict:
