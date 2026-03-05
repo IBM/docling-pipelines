@@ -48,7 +48,9 @@
           "doc_column": "content",
           "ollama_model": "granite4:latest",
           "max_doc_chars": 8000,
-          "temperature": 0.0
+          "temperature": 0.0,
+          "schema_file": "examples/retrieval/document_schemas.json",
+          "schema_table": "invoices_entities"
         },
         "input_edges": [
           { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
