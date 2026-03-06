@@ -128,18 +128,47 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
     first_parts = [name.split(".", 1)[0] for name in col_names if "." in name]
 
     # If all dotted columns share the same first part, strip it
+    # BUT only if that first part is NOT itself a column (to avoid stripping parent objects)
+    # AND only if there are also non-dotted columns (to avoid stripping when ALL columns are under same parent)
     common_prefix = None
     if first_parts and all(part == first_parts[0] for part in first_parts):
-        # Check if this prefix appears in most columns
+        potential_prefix = first_parts[0]
+        # Check if this prefix appears in most columns AND is not itself a column
         prefix_count = sum(
-            1 for name in col_names if name.startswith(first_parts[0] + ".")
+            1 for name in col_names if name.startswith(potential_prefix + ".")
         )
-        if prefix_count > len(col_names) * 0.5:  # More than 50% have this prefix
-            common_prefix = first_parts[0]
+        non_dotted_count = len([name for name in col_names if "." not in name])
+        # Only use as common prefix if:
+        # 1. It's not a standalone column
+        # 2. It appears in >50% of columns
+        # 3. There are some non-dotted columns (otherwise it's just a parent object)
+        if (potential_prefix not in col_names and
+            prefix_count > len(col_names) * 0.5 and
+            non_dotted_count > 0):
+            common_prefix = potential_prefix
+
+    # Track which fields are NESTED type
+    nested_fields = {col_name for col_name, col_type in columns.items() if col_type == "NESTED"}
+    
+    # Track parent fields that should be lists (when all children share same parent)
+    parent_fields = {}
+    for col_name in col_names:
+        if "." in col_name:
+            parent = col_name.split(".", 1)[0]
+            if parent not in parent_fields:
+                parent_fields[parent] = []
+            parent_fields[parent].append(col_name)
+    
+    # Determine which parents should be lists (when they have multiple children and aren't standalone columns)
+    list_parents = set()
+    for parent, children in parent_fields.items():
+        if len(children) > 1 and parent not in col_names:
+            list_parents.add(parent)
 
     template: dict[str, Any] = {}
     for col_name, col_type in columns.items():
         # Strip common prefix if present
+        original_col_name = col_name
         if common_prefix and col_name.startswith(common_prefix + "."):
             col_name = col_name[len(common_prefix) + 1 :]
 
@@ -149,15 +178,40 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
             current = template
             for i, part in enumerate(parts[:-1]):
                 if part not in current:
+                    # Check if this parent field is marked as NESTED or should be a list
+                    parent_path = ".".join(parts[:i+1])
+                    if common_prefix:
+                        full_parent_path = f"{common_prefix}.{parent_path}"
+                    else:
+                        full_parent_path = parent_path
+                    
+                    if (full_parent_path in nested_fields or part in nested_fields or
+                        part in list_parents):
+                        # Create a list with a single dict element
+                        current[part] = [{}]
+                        current = current[part][0]
+                    else:
+                        current[part] = {}
+                        current = current[part]
+                elif isinstance(current[part], list):
+                    # Already a list, ensure it has at least one element
+                    if len(current[part]) == 0:
+                        current[part].append({})
+                    current = current[part][0]
+                elif isinstance(current[part], dict):
+                    current = current[part]
+                else:
+                    # If the value is not a dict or list, convert it to one
                     current[part] = {}
-                elif not isinstance(current[part], dict):
-                    # If the value is not a dict, convert it to one
-                    current[part] = {}
-                current = current[part]
+                    current = current[part]
             # Set the final value
             current[parts[-1]] = None
         else:
-            template[col_name] = None
+            # Check if this field itself is NESTED
+            if original_col_name in nested_fields:
+                template[col_name] = []
+            else:
+                template[col_name] = None
 
     return template
 
