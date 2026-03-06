@@ -50,7 +50,7 @@ def create_sample_data(num_docs=5, vector_dim=128):
     )
 
 
-def test_engine(engine="nmslib", algorithm="knn", space_type="l2"):
+def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
     """Test a specific engine configuration"""
     print(f"Testing: {engine} + {algorithm} + {space_type}")
 
