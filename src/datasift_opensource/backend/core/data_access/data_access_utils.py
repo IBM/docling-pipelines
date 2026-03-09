@@ -36,9 +36,7 @@ class DataAccessUtils:
             batch_num = params.get(DatasiftConstants.BATCH_NUM)
             if batch_num is not None:
                 # Add batch number to path: <output_folder>/<node_name>/<batch_num>
-                config[DatasiftConstants.OUTPUT_FOLDER] = (
-                    f"{output_folder}/{node_name}/{batch_num}"
-                )
+                config[DatasiftConstants.OUTPUT_FOLDER] = f"{output_folder}/{node_name}/{batch_num}"
             else:
                 config[DatasiftConstants.OUTPUT_FOLDER] = f"{output_folder}/{node_name}"
 
@@ -47,13 +45,8 @@ class DataAccessUtils:
     @staticmethod
     def add_intermediate_storage_config(config: dict, job_id: str, job_run_id: str):
         """Based on the data_storage_type, the corresponding storage configuration is added to the config."""
-        if (
-            config.get(DataAccessConstants.DATA_STORAGE_TYPE, "")
-            == DataAccessConstants.LOCAL
-        ):
-            DataAccessUtils.add_data_local_config_for_cpd(
-                config=config, job_id=job_id, job_run_id=job_run_id
-            )
+        if config.get(DataAccessConstants.DATA_STORAGE_TYPE, "") == DataAccessConstants.LOCAL:
+            DataAccessUtils.add_data_local_config_for_cpd(config=config, job_id=job_id, job_run_id=job_run_id)
         else:  # storage type is memory
             if "data_local_config" in config:
                 config["data_local_config"] = None

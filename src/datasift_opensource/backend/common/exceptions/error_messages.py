@@ -1,5 +1,4 @@
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -10,15 +9,13 @@ class ValidationMessage(BaseModel):
 
     """
 
-    message: Optional[str] = None
-    message_code: Optional[str] = None
+    message: str | None = None
+    message_code: str | None = None
 
     model_config = ConfigDict(extra="allow")
 
     @classmethod
-    def create(
-        cls, message: str, message_code: Optional[str] = None, **kwargs
-    ) -> "ValidationMessage":
+    def create(cls, message: str, message_code: str | None = None, **kwargs) -> "ValidationMessage":
         """
         Factory method to create a ValidationMessage with extra attributes.
 
@@ -45,27 +42,21 @@ class ValidationCodeMessages(str, Enum):
 
     OPERATOR_NAME_REPEATED = """Same operator name(s) are used for multiple operators, operator(s): {operators}"""
 
-    MISSING_MODEL_ID_FOR_EMBEDDINGS = """Missing model id for generating embeddings. Model ID not found in project settings or configuration."""
+    MISSING_MODEL_ID_FOR_EMBEDDINGS = (
+        """Missing model id for generating embeddings. Model ID not found in project settings or configuration."""
+    )
 
     INVALID_EMBEDDINGS_MODEL_ID = """Invalid embeddings model ID '{model_id}'. This model is not available to generate embeddings. Please verify the model ID."""
 
-    EXTRACT_OPERATOR_MISSING = (
-        """Extract operator is either missing or not connected in the flow."""
-    )
+    EXTRACT_OPERATOR_MISSING = """Extract operator is either missing or not connected in the flow."""
 
     CHUNKER_OPERATOR_MISSING = """Chunker operator is either missing or not connected in the flow or is placed after the Embeddings operator."""
 
-    INGEST_OPERATOR_MISPLACED = (
-        """The first operator in the flow must be an "Ingest data" operator"""
-    )
+    INGEST_OPERATOR_MISPLACED = """The first operator in the flow must be an "Ingest data" operator"""
 
-    GENERATE_OUTPUT_MISSING = (
-        """The last operator is not a "Generate Output" operator"""
-    )
+    GENERATE_OUTPUT_MISSING = """The last operator is not a "Generate Output" operator"""
 
-    MULTIPLE_EXTRACTED_DETECTED = (
-        """Multiple extract operators detected. Ensure they are used correctly"""
-    )
+    MULTIPLE_EXTRACTED_DETECTED = """Multiple extract operators detected. Ensure they are used correctly"""
 
     PIPELINE_NOT_FOUND_ERROR = """Flow must have 'dag'."""
 
@@ -93,6 +84,10 @@ class ValidationCodeMessages(str, Enum):
 
     DROPPING_MANDATORY_FEATURES = "Mandatory features drop attempted: {mandatory_features} By node: '{operator}', mandatory features cannot be dropped"
 
-    RENAMING_MANDATORY_FEATURES = "Mandatory features rename attempted: {mandatory_features}, renaming of mandatory features is not allowed"
+    RENAMING_MANDATORY_FEATURES = (
+        "Mandatory features rename attempted: {mandatory_features}, renaming of mandatory features is not allowed"
+    )
 
-    DISJOINT_OPERATORS_DETECTED = """Flow contains disconnected operators. Ensure every operator has valid input and output connections."""
+    DISJOINT_OPERATORS_DETECTED = (
+        """Flow contains disconnected operators. Ensure every operator has valid input and output connections."""
+    )

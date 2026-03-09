@@ -1,11 +1,12 @@
 import csv
 import os
-from typing import Any, Optional
+from typing import Any
+
 import pyarrow as pa
 
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from common.util.constants import Metrics, OperatorConstants
 from common.util.log import get_logger
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 INPUT_FOLDER_NAME_KEY: str = "input_folder"
 MAX_ROWS_KEY: str = "max_rows"
@@ -44,9 +45,7 @@ class IngestCSVOperator(AbstractOperator):
     def get_metadata(self) -> dict[str, Any]:
         return {OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()}
 
-    def transform(
-        self, table: Optional[pa.Table]
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Operator-specific logic to convert one input Table to 0 or more output tables.
         In this case, crawl through the given folder, find all the CSV files, and add
@@ -84,9 +83,7 @@ class IngestCSVOperator(AbstractOperator):
             print("\n\n", table)
 
             # Initialize metadata
-            metadata: dict[str, Any] = self.create_base_metadata(
-                total_docs_count=file_count
-            )
+            metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=file_count)
             metadata[Metrics.External.PROCESSED_DOCS] = file_count
             metadata["row_count"] = row_count
 

@@ -6,12 +6,12 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.util.constants import OperatorConstants, DatasiftConstants
+from common.util.constants import DatasiftConstants, OperatorConstants
 from common.util.iceberg_util import get_warehouse_path
 from common.util.log import get_logger
 from common.util.parquet_table_handler import (
-    get_parquet_table_handler,
     BaseParquetTableHandler,
+    get_parquet_table_handler,
 )
 
 logger = get_logger(f"{DatasiftConstants.LOGGER_NAME} : INCREMENTAL UPDATE")
@@ -24,9 +24,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
     PARQUET_FILE_NAME = "inc_update_metadata.parquet"
 
     def __init__(self):
-        self.parquet_table_handler: BaseParquetTableHandler = (
-            get_parquet_table_handler()
-        )
+        self.parquet_table_handler: BaseParquetTableHandler = get_parquet_table_handler()
 
     def delete_failed_doc(self, *, table, result_table, job_id):
         """
@@ -40,15 +38,9 @@ class IncrementalUpdateUtil:  # pragma: no cover
         Returns:
             set: A set of remaining document IDs after deleting failed documents.
         """
-        ids_to_delete = self._get_ids_to_delete(
-            input_table=table, result_table=result_table
-        )
+        ids_to_delete = self._get_ids_to_delete(input_table=table, result_table=result_table)
         self.delete_docs_for_ids(doc_ids=ids_to_delete, job_id=job_id)
-        return (
-            set(table[OperatorConstants.ID].to_pylist())
-            if table.num_rows != 0
-            else set()
-        )
+        return set(table[OperatorConstants.ID].to_pylist()) if table.num_rows != 0 else set()
 
     def save_metadata_for_incremental_update(
         self, *, job_id, job_run_id, tables: list[pa.Table], failed_doc_ids: list = None
@@ -72,37 +64,25 @@ class IncrementalUpdateUtil:  # pragma: no cover
             table_to_save = None
             for table in tables:
                 if table.num_rows != 0:
-                    table = self._prepare_table_for_save(
-                        table=table, job_id=job_id, job_run_id=job_run_id
-                    )
+                    table = self._prepare_table_for_save(table=table, job_id=job_id, job_run_id=job_run_id)
                     if not table_to_save:
                         table_to_save = table
                     else:
-                        table_to_save = self.concatenate_tables(
-                            table1=table_to_save, table2=table
-                        )
+                        table_to_save = self.concatenate_tables(table1=table_to_save, table2=table)
             if not table_to_save:
                 return
 
-            table_to_save = self.filter_rows(
-                table=table_to_save, ids_to_delete=failed_doc_ids
-            )
+            table_to_save = self.filter_rows(table=table_to_save, ids_to_delete=failed_doc_ids)
             table: pa.Table | None = self._get_table(path=table_path)
 
             if not table:
-                self.parquet_table_handler.save_table(
-                    path=table_path, table=table_to_save
-                )
+                self.parquet_table_handler.save_table(path=table_path, table=table_to_save)
             else:
                 # remove the redundant columns, if exist
                 updated_table = self._remove_columns_from_saved_table(table=table)
-                table_to_save = self.concatenate_tables(
-                    table1=table_to_save, table2=updated_table
-                )
+                table_to_save = self.concatenate_tables(table1=table_to_save, table2=updated_table)
 
-                self.parquet_table_handler.save_table(
-                    path=table_path, table=table_to_save
-                )
+                self.parquet_table_handler.save_table(path=table_path, table=table_to_save)
 
             logger.info(
                 f"Incremental metadata table saved successfully for job_id: {job_id}, job_run_id: {job_run_id}, at path: {table_path}"
@@ -110,7 +90,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
 
         except Exception as exc:
             raise FlowExecutionFailedException(
-                f"Failed to save incremental metadata for job_id={job_id}, job_run_id={job_run_id} at {table_path}. Error: {str(exc)}"
+                f"Failed to save incremental metadata for job_id={job_id}, job_run_id={job_run_id} at {table_path}. Error: {exc!s}"
             )
 
     def concatenate_tables(self, *, table1: pa.Table, table2: pa.Table):
@@ -152,23 +132,17 @@ class IncrementalUpdateUtil:  # pragma: no cover
             logger.debug(f"Retrieving processed documents for the job id {job_id}")
             filters = [(OperatorConstants.DELETED, "=", False)]
             columns = [OperatorConstants.ID, OperatorConstants.MODIFIED_TIME]
-            table: pa.Table | None = self._get_table(
-                path=table_path, filters=filters, columns=columns
-            )
+            table: pa.Table | None = self._get_table(path=table_path, filters=filters, columns=columns)
             if not table:
                 return {}
             df = table.to_pandas()
-            return dict(
-                zip(df[OperatorConstants.ID], df[OperatorConstants.MODIFIED_TIME])
-            )
+            return dict(zip(df[OperatorConstants.ID], df[OperatorConstants.MODIFIED_TIME], strict=False))
         except Exception as exc:
             raise FlowExecutionFailedException(
-                f"Failed to retrieved process document ids for job_id={job_id} at {table_path}. Error: {str(exc)}"
+                f"Failed to retrieved process document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
             )
 
-    def get_deleted_doc_ids_from_dict(
-        self, *, previously_processed_docs_dict: dict, doc_ids
-    ):
+    def get_deleted_doc_ids_from_dict(self, *, previously_processed_docs_dict: dict, doc_ids):
         """Returns a list of deleted document ids that exist in previously_processed_docs_dict and not in doc_ids."""
         if not previously_processed_docs_dict:
             return []
@@ -191,21 +165,15 @@ class IncrementalUpdateUtil:  # pragma: no cover
         table_path = self.construct_table_path(job_id=job_id)
         try:
             # First delete previously marked as DELETED documents from previous execution
-            previously_soft_deleted_doc_ids = self.get_soft_deleted_doc_ids(
-                job_id=job_id
-            )
-            self.delete_docs_for_ids(
-                doc_ids=list(previously_soft_deleted_doc_ids), job_id=job_id
-            )
+            previously_soft_deleted_doc_ids = self.get_soft_deleted_doc_ids(job_id=job_id)
+            self.delete_docs_for_ids(doc_ids=list(previously_soft_deleted_doc_ids), job_id=job_id)
 
             table: pa.Table | None = self._get_table(path=table_path)
             doc_ids_set = set(doc_ids)
             if table is None or table.num_rows == 0:
                 return doc_ids_set
 
-            updated_table, doc_ids_to_delete = self._mark_docs_to_delete(
-                table=table, doc_ids=doc_ids_set
-            )
+            updated_table, doc_ids_to_delete = self._mark_docs_to_delete(table=table, doc_ids=doc_ids_set)
             logger.info(
                 f"Marking soft deleted this document ids {doc_ids_to_delete} updating the table located at {table_path}"
             )
@@ -214,7 +182,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
             return doc_ids_to_delete
         except Exception as exc:
             raise FlowExecutionFailedException(
-                f"Failed to marked soft deleted document ids for job_id={job_id} at {table_path}. Error: {str(exc)}"
+                f"Failed to marked soft deleted document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
             )
 
     def get_soft_deleted_doc_ids(self, *, job_id):
@@ -236,13 +204,11 @@ class IncrementalUpdateUtil:  # pragma: no cover
                 f"Retrieving the soft deleted document ids for the job id {job_id} from the table located at the {table_path}"
             )
             table: pa.Table | None = self._get_table(path=table_path)
-            logger.info(
-                f"Fetched soft deleted document IDs for job_id={job_id} from {table_path}"
-            )
+            logger.info(f"Fetched soft deleted document IDs for job_id={job_id} from {table_path}")
             return self._get_soft_deleted_ids(table=table)
         except Exception as exc:
             raise FlowExecutionFailedException(
-                f"Failed to retrieved soft deleted document ids for job_id={job_id} at {table_path}. Error: {str(exc)}"
+                f"Failed to retrieved soft deleted document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
             )
 
     def delete_docs_for_ids(self, *, doc_ids: list, job_id):
@@ -262,23 +228,15 @@ class IncrementalUpdateUtil:  # pragma: no cover
         table_path = self.construct_table_path(job_id=job_id)
         try:
             if doc_ids:
-                logger.info(
-                    f"Deleting rows with doc_ids for job_id={job_id} from table at {table_path}"
-                )
+                logger.info(f"Deleting rows with doc_ids for job_id={job_id} from table at {table_path}")
 
                 doc_ids_set = pa.array(doc_ids)
-                delete_filter_fn = lambda table: pc.is_in(
-                    table[OperatorConstants.ID], value_set=doc_ids_set
-                )  # noqa: E731
-                self.parquet_table_handler.delete_rows(
-                    path=table_path, delete_filter_fn=delete_filter_fn
-                )
-                logger.info(
-                    f"Successfully deleted rows with doc_ids for job_id={job_id} from table at {table_path}"
-                )
+                delete_filter_fn = lambda table: pc.is_in(table[OperatorConstants.ID], value_set=doc_ids_set)  # noqa: E731
+                self.parquet_table_handler.delete_rows(path=table_path, delete_filter_fn=delete_filter_fn)
+                logger.info(f"Successfully deleted rows with doc_ids for job_id={job_id} from table at {table_path}")
         except Exception as exc:
             raise FlowExecutionFailedException(
-                f"Failed to delete document ids for job_id={job_id} at {table_path}. Error: {str(exc)}"
+                f"Failed to delete document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
             )
 
     def clear_incremental_table(self, *, job_id):
@@ -288,18 +246,14 @@ class IncrementalUpdateUtil:  # pragma: no cover
     def _get_table(self, *, path: str, filters=None, columns=None) -> pa.Table | None:
         try:
             logger.info(f"Fetching incremental metadata table located at '{path}")
-            table: pa.Table | None = self.parquet_table_handler.read_table(
-                path=path, filters=filters, columns=columns
-            )
+            table: pa.Table | None = self.parquet_table_handler.read_table(path=path, filters=filters, columns=columns)
             if not table:
                 return None
-            logger.info(
-                f"Successfully fetched the incremental metadata table located at {path}"
-            )
+            logger.info(f"Successfully fetched the incremental metadata table located at {path}")
             return table
         except Exception as exc:
             raise FlowExecutionFailedException(
-                f"An error occurred while fetching the incremental metadata table at '{path}'. Error details: {str(exc)}"
+                f"An error occurred while fetching the incremental metadata table at '{path}'. Error details: {exc!s}"
             )
 
     def construct_table_path(self, *, job_id: str):
@@ -330,19 +284,13 @@ class IncrementalUpdateUtil:  # pragma: no cover
         table_to_save = table.select(columns)
 
         job_id_column = pa.array([job_id] * total_rows)
-        table_to_save = table_to_save.append_column(
-            DatasiftConstants.JOB_ID, job_id_column
-        )
+        table_to_save = table_to_save.append_column(DatasiftConstants.JOB_ID, job_id_column)
 
         job_run_id_column = pa.array([job_run_id] * total_rows)
-        table_to_save = table_to_save.append_column(
-            DatasiftConstants.JOB_RUN_ID, job_run_id_column
-        )
+        table_to_save = table_to_save.append_column(DatasiftConstants.JOB_RUN_ID, job_run_id_column)
 
         deleted_column = pa.array([False] * total_rows)
-        table_to_save = table_to_save.append_column(
-            OperatorConstants.DELETED, deleted_column
-        )
+        table_to_save = table_to_save.append_column(OperatorConstants.DELETED, deleted_column)
 
         return table_to_save
 
@@ -379,9 +327,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
 
         return soft_deleted_ids
 
-    def _get_ids_to_delete(
-        self, *, input_table: pa.Table, result_table: pa.Table
-    ) -> list:
+    def _get_ids_to_delete(self, *, input_table: pa.Table, result_table: pa.Table) -> list:
         """
         Determine document IDs to delete based on input and result tables.
 
@@ -392,24 +338,14 @@ class IncrementalUpdateUtil:  # pragma: no cover
         Returns:
             list: Document IDs to delete.
         """
-        input_doc_ids = (
-            set(input_table[OperatorConstants.ID].to_pylist())
-            if input_table.num_rows != 0
-            else set()
-        )
-        output_doc_ids = (
-            set(result_table[OperatorConstants.ID].to_pylist())
-            if result_table.num_rows != 0
-            else set()
-        )
+        input_doc_ids = set(input_table[OperatorConstants.ID].to_pylist()) if input_table.num_rows != 0 else set()
+        output_doc_ids = set(result_table[OperatorConstants.ID].to_pylist()) if result_table.num_rows != 0 else set()
 
         ids_to_delete = list(input_doc_ids - output_doc_ids)
 
         return ids_to_delete
 
-    def _mark_docs_to_delete(
-        self, *, table: pa.Table, doc_ids: set
-    ) -> tuple[pa.Table | None, set[str]]:
+    def _mark_docs_to_delete(self, *, table: pa.Table, doc_ids: set) -> tuple[pa.Table | None, set[str]]:
         """
         Identify documents that exist in table and not in doc_ids and mark them as soft-deleted.
         """
@@ -436,5 +372,5 @@ class IncrementalUpdateUtil:  # pragma: no cover
 
         except Exception as exc:
             raise FlowExecutionFailedException(
-                f"An error occurred while marking documents soft soft deletion. Error details: {str(exc)}"
+                f"An error occurred while marking documents soft soft deletion. Error details: {exc!s}"
             )

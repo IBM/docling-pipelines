@@ -10,8 +10,7 @@ import pyarrow.parquet as pq
 from data_processing.data_access import DataAccess
 from data_processing.utils import TransformUtils
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.datasift_exceptions import ErrorCode
+from common.exceptions.datasift_exceptions import DatasiftException, ErrorCode
 from common.util.constants import DatasiftConstants
 from common.util.log import get_logger
 from common.util.retry_utils import retry_with_exponential_backoff
@@ -61,9 +60,7 @@ class DatasiftDataAccessS3(DataAccess):
             n_samples=n_samples,
             batch_size=batch_size,
             files_to_use=files_to_use if files_to_use else [".parquet"],
-            files_to_checkpoint=files_to_checkpoint
-            if files_to_checkpoint
-            else [".parquet"],
+            files_to_checkpoint=files_to_checkpoint if files_to_checkpoint else [".parquet"],
         )
 
         if not config:
@@ -81,9 +78,7 @@ class DatasiftDataAccessS3(DataAccess):
             )
 
         self.input_folder = TransformUtils.clean_path(config.get("input_folder", ""))
-        self.output_folder = TransformUtils.clean_path(
-            config.get(DatasiftConstants.OUTPUT_FOLDER, "")
-        )
+        self.output_folder = TransformUtils.clean_path(config.get(DatasiftConstants.OUTPUT_FOLDER, ""))
         self.s3_max_retries = s3_max_retries
         self.s3_backoff_factor = s3_backoff_factor
         self.tables = {}
@@ -207,9 +202,7 @@ class DatasiftDataAccessS3(DataAccess):
             file_content = _read_file()
             return file_content, max(0, call_count[0] - 1)
         except Exception:
-            logger.error(
-                f"Exhausted {self.s3_max_retries} retries. Could not read from S3 at: {path}"
-            )
+            logger.error(f"Exhausted {self.s3_max_retries} retries. Could not read from S3 at: {path}")
             return b"", call_count[0]
 
     def save_file(self, path: str, data: bytes) -> tuple[dict[str, Any], int]:
@@ -242,9 +235,7 @@ class DatasiftDataAccessS3(DataAccess):
             file_info = _write_file()
             return file_info, max(0, call_count[0] - 1)
         except Exception:
-            logger.error(
-                f"Exhausted all {self.s3_max_retries} retry attempts. Failed to write to S3 at: {path}"
-            )
+            logger.error(f"Exhausted all {self.s3_max_retries} retry attempts. Failed to write to S3 at: {path}")
             return {}, call_count[0]
 
     def save_job_metadata(self, metadata: dict[str, Any]) -> tuple[dict[str, Any], int]:

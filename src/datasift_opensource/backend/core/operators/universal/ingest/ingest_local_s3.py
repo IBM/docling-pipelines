@@ -1,14 +1,15 @@
-import pyarrow as pa
-import boto3
-from typing import Any, Optional
+from typing import Any
 
+import boto3
+import pyarrow as pa
+
+from common.util.constants import DatasiftConstants, Metrics, OperatorConstants
+from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.ingest.ingest_utils import (
-    get_filter_extensions,
     filter_based_on_extension,
+    get_filter_extensions,
 )
-from common.util.constants import DatasiftConstants, OperatorConstants, Metrics
-from common.util.log import get_logger
 
 INCLUDE_FOLDER_KEY: str = "include_folder"
 MAX_FILES_KEY: str = "max_files"
@@ -51,23 +52,15 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
         # Make sure that the param name corresponds to the name used in apply_input_params method
         super().__init__(config)
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
-        self.max_file_size: int = MB * config.get(
-            MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE
-        )
-        self.included_extensions: Optional[list[str]] = get_filter_extensions(
-            config.get(INCLUDE_FILTER_KEY, None)
-        )
-        self.excluded_extensions: Optional[list[str]] = get_filter_extensions(
-            config.get(EXCLUDE_FILTER_KEY, None)
-        )
-        self.doc_column: str = config.get(
-            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
-        )
-        self.include_folder: Optional[str] = config.get(INCLUDE_FOLDER_KEY, None)
+        self.max_file_size: int = MB * config.get(MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE)
+        self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
+        self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
+        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.include_folder: str | None = config.get(INCLUDE_FOLDER_KEY)
 
-        self.aws_access_id: Optional[str] = config.get(AWS_ACCESS_ID_KEY, None)
-        self.aws_access_secret: Optional[str] = config.get(AWS_ACCESS_SECRET_KEY, None)
-        self.aws_bucket_name: Optional[str] = config.get(AWS_BUCKET_NAME_KEY, None)
+        self.aws_access_id: str | None = config.get(AWS_ACCESS_ID_KEY)
+        self.aws_access_secret: str | None = config.get(AWS_ACCESS_SECRET_KEY)
+        self.aws_bucket_name: str | None = config.get(AWS_BUCKET_NAME_KEY)
 
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
@@ -81,9 +74,7 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
     def get_metadata(self) -> dict[str, Any]:
         return {OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()}
 
-    def transform(
-        self, table: pa.Table, file_name: Optional[str] = None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Operator-specific logic to read files from S3
         """
@@ -96,9 +87,7 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
         s3: Any = session.resource("s3")
 
         s3_bucket: Any = s3.Bucket(self.aws_bucket_name)
-        file_list: list[str] = self.list_files(
-            bucket=s3_bucket, max_files=self.max_files * 50
-        )
+        file_list: list[str] = self.list_files(bucket=s3_bucket, max_files=self.max_files * 50)
 
         doc_data: list[dict[str, Any]] = []
         processed_count: int = 0
@@ -123,9 +112,7 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
                         reason="File is outside the given folder",
                     )
                     continue
-                elif filter_based_on_extension(
-                    file, self.excluded_extensions, self.included_extensions
-                ):
+                elif filter_based_on_extension(file, self.excluded_extensions, self.included_extensions):
                     self.record_skipped_document(
                         metadata=metadata,
                         doc_id=file,
@@ -135,17 +122,11 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
                     continue
 
             file_metadata: dict[str, Any]
-            content: Optional[str]
-            file_metadata, content = self.get_file(
-                s3=s3, bucket_name=self.aws_bucket_name, file_name=file
-            )
+            content: str | None
+            file_metadata, content = self.get_file(s3=s3, bucket_name=self.aws_bucket_name, file_name=file)
             if content is None:
-                logger.info(
-                    f"Skipping empty file: {file}", extra=self.common_log_arguments
-                )
-                self.record_skipped_document(
-                    metadata=metadata, doc_id=file, doc_name=file, reason="Empty file"
-                )
+                logger.info(f"Skipping empty file: {file}", extra=self.common_log_arguments)
+                self.record_skipped_document(metadata=metadata, doc_id=file, doc_name=file, reason="Empty file")
             else:
                 processed_count += 1
                 file_metadata[self.doc_column] = content
@@ -154,9 +135,7 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
         result_table: pa.Table = pa.Table.from_pylist(doc_data)
 
         # Update total docs and processed count
-        metadata[Metrics.External.TOTAL_DOCS] = (
-            len(doc_data) + metadata[Metrics.External.SKIPPED_DOCS_COUNT]
-        )
+        metadata[Metrics.External.TOTAL_DOCS] = len(doc_data) + metadata[Metrics.External.SKIPPED_DOCS_COUNT]
         metadata[Metrics.External.PROCESSED_DOCS] = len(doc_data)
 
         return [result_table], metadata
@@ -182,9 +161,7 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
 
         return file_list
 
-    def get_file(
-        self, s3: Any, bucket_name: Optional[str], file_name: str
-    ) -> tuple[dict[str, Any], Optional[str]]:
+    def get_file(self, s3: Any, bucket_name: str | None, file_name: str) -> tuple[dict[str, Any], str | None]:
         """Get the contents of a file stored in S3"""
         metadata: dict[str, Any] = {}
 
@@ -218,7 +195,6 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
 
 
 def main() -> None:  # pragma: no cover
-
     # 1. Construct the operators with the required configuration and input parameters
     operator: IngestS3Operator = IngestS3Operator(
         {
@@ -234,7 +210,7 @@ def main() -> None:  # pragma: no cover
     )
 
     # 2. Create an in-memory py-arrow table, as the input
-    input_table: Optional[pa.Table] = None
+    input_table: pa.Table | None = None
 
     # 3. Run the operators
     table_list: list[pa.Table]

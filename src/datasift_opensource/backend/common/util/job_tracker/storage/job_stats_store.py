@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
+
 from common.util.constants import ExecutionStatus
+from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.log import get_logger
 
 logger = get_logger()
@@ -62,18 +63,12 @@ class JobStatsStore(ABC):
             return new_stats
 
         if old_stats.job_id != new_stats.job_id:
-            logger.warning(
-                f"Job ids not matching: {old_stats.job_id}, {new_stats.job_id}"
-            )
+            logger.warning(f"Job ids not matching: {old_stats.job_id}, {new_stats.job_id}")
 
         if old_stats.job_run_id != new_stats.job_run_id:
-            logger.warning(
-                f"Job run ids not matching: {old_stats.job_run_id}, {new_stats.job_run_id}"
-            )
+            logger.warning(f"Job run ids not matching: {old_stats.job_run_id}, {new_stats.job_run_id}")
 
-        new_stats.status = JobStatsStore._merge_status(
-            old_stats.status, new_stats.status
-        )
+        new_stats.status = JobStatsStore._merge_status(old_stats.status, new_stats.status)
         new_stats.processed_docs += old_stats.processed_docs
         new_stats.skipped_docs += old_stats.skipped_docs
         new_stats.failed_docs += old_stats.failed_docs
@@ -131,9 +126,7 @@ class JobStatsStore(ABC):
         pass
 
     @abstractmethod
-    def atomic_increment_fields(
-        self, *, job_run_id: str, increments: dict, updates: dict | None = None
-    ):
+    def atomic_increment_fields(self, *, job_run_id: str, increments: dict, updates: dict | None = None):
         """
         Atomically increment numeric fields and update other fields.
 
@@ -159,7 +152,7 @@ class JobStatsStore(ABC):
 
     @staticmethod
     def _is_cmd_line_mode() -> bool:
-        from common.models.session_info import get_session_info, SessionInfo
+        from common.models.session_info import SessionInfo, get_session_info
 
         session_info: SessionInfo = get_session_info()
         orchestrator: Any | None = session_info.orchestrator

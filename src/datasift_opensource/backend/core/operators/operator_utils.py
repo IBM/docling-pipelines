@@ -1,17 +1,18 @@
 import datetime
 import json
 import os
-import pyarrow as pa
-from typing import Union, Dict, Any, List, Optional
+from typing import Any
 
-from common.exceptions.error_messages import ValidationMessage, ValidationCodeMessages
+import pyarrow as pa
+
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.constants import (
     DatasiftConstants,
-    OperatorConstants,
-    Metrics,
     DocsStructure,
     ExecutionStatus,
+    Metrics,
+    OperatorConstants,
 )
 from common.util.job_tracker.model.models import normalize_node_stats_for_dto
 from common.util.job_tracker.tracker.job_tracker import NodeStatsDto
@@ -37,7 +38,7 @@ class OperatorUtils:
 
     @staticmethod
     def validate_columns(
-        table: Union[pa.Table, list],
+        table: pa.Table | list,
         required: list[str],
         operator_name: str,
         error_messages: list = None,
@@ -91,9 +92,7 @@ class OperatorUtils:
                 raise FlowExecutionFailedException(message)
 
     @staticmethod
-    def merge_status(
-        old_stat: ExecutionStatus, new_stat: ExecutionStatus
-    ) -> ExecutionStatus:
+    def merge_status(old_stat: ExecutionStatus, new_stat: ExecutionStatus) -> ExecutionStatus:
         """
         Merge two JobStatus values by returning the one with the lower numeric code (i.e., higher severity).
         If the old status is more severe, it is returned; otherwise, the new status is returned.
@@ -129,9 +128,7 @@ class OperatorUtils:
 
         logger = get_logger()
 
-        metadata_file_path = (
-            f"{job_id}/{job_run_id}/{OperatorConstants.NODES_METADATA_FILE}"
-        )
+        metadata_file_path = f"{job_id}/{job_run_id}/{OperatorConstants.NODES_METADATA_FILE}"
 
         op_node_metadata = {
             OperatorConstants.ID: operator[OperatorConstants.ID],
@@ -151,7 +148,7 @@ class OperatorUtils:
 
         except Exception as e:
             logger.error(
-                f"An error occurred while storing {operator[OperatorConstants.NAME]} metadata to {metadata_file_path} file: {str(e)}",
+                f"An error occurred while storing {operator[OperatorConstants.NAME]} metadata to {metadata_file_path} file: {e!s}",
                 exc_info=True,
                 stack_info=True,
                 extra=common_log_arguments,
@@ -176,9 +173,7 @@ class OperatorUtils:
         }
 
     @staticmethod
-    def find_skipped_docs(
-        input_table: pa.Table, output_table: pa.Table, reason: str
-    ) -> Dict[str, Any]:
+    def find_skipped_docs(input_table: pa.Table, output_table: pa.Table, reason: str) -> dict[str, Any]:
         """
         Compares two PyArrow tables to find documents that are in the input but not
         in the output, and returns them in a structured format.
@@ -202,13 +197,11 @@ class OperatorUtils:
         input_names = input_table.column(OperatorConstants.NAME).to_pylist()
 
         # 3. Iterate through the input data and build the list of skipped docs.
-        skipped_docs_list: List[DocsStructure] = []
-        for doc_id, doc_name in zip(input_ids, input_names):
+        skipped_docs_list: list[DocsStructure] = []
+        for doc_id, doc_name in zip(input_ids, input_names, strict=False):
             # If the ID from the input is NOT in the output set, it was skipped.
             if doc_id not in output_ids_set:
-                skipped_docs_list.append(
-                    {"id": doc_id, "name": doc_name, "reason": reason}
-                )
+                skipped_docs_list.append({"id": doc_id, "name": doc_name, "reason": reason})
 
         return {
             Metrics.External.SKIPPED_DOCS: skipped_docs_list,
@@ -229,21 +222,16 @@ class OperatorUtils:
         """
         from common.util.operator_log_details import get_log_and_job_file_path
 
-        log_final_path, _, _, aggregated_job_log_path = get_log_and_job_file_path(
-            job_id=job_id, jobrun_id=jobrun_id
-        )
+        log_final_path, _, _, aggregated_job_log_path = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
 
         if os.path.exists(aggregated_job_log_path):
-            with open(aggregated_job_log_path, "r") as file:
+            with open(aggregated_job_log_path) as file:
                 aggregated_flow_logs = json.load(file)
         else:
             return {"message": "Logs are not available.!"}
 
         # Normalize node_stats before returning
-        if (
-            isinstance(aggregated_flow_logs, dict)
-            and "job_stats" in aggregated_flow_logs
-        ):
+        if isinstance(aggregated_flow_logs, dict) and "job_stats" in aggregated_flow_logs:
             job_stats = aggregated_flow_logs["job_stats"]
             if isinstance(job_stats, dict):
                 normalize_node_stats_for_dto(job_stats)
@@ -257,11 +245,7 @@ class OperatorUtils:
 
         min_code = min(
             status_codes.get(
-                ExecutionStatus(
-                    node.node_status
-                    if isinstance(node, NodeStatsDto)
-                    else node["node_status"]
-                ),
+                ExecutionStatus(node.node_status if isinstance(node, NodeStatsDto) else node["node_status"]),
                 1000,
             )
             for node in node_stats_list.values()
@@ -277,7 +261,7 @@ class OperatorUtils:
 
     @staticmethod
     def get_unique_ids(
-        tables: Optional[Union[pa.Table, list[pa.Table], dict[str, pa.Table]]],
+        tables: pa.Table | list[pa.Table] | dict[str, pa.Table] | None,
         id_col=OperatorConstants.ID,
     ):
         # wrap single table as list
@@ -300,7 +284,7 @@ class OperatorUtils:
         return unique_ids
 
     @staticmethod
-    def epoch_ms_to_iso8601_utc(epoch_ms: Optional[int]) -> Optional[str]:
+    def epoch_ms_to_iso8601_utc(epoch_ms: int | None) -> str | None:
         """
         Convert epoch time in milliseconds to ISO8601 UTC string format.
 
@@ -313,14 +297,10 @@ class OperatorUtils:
         if not epoch_ms:
             return None
         try:
-            dt = datetime.datetime.fromtimestamp(
-                epoch_ms / 1000, tz=datetime.timezone.utc
-            )
+            dt = datetime.datetime.fromtimestamp(epoch_ms / 1000, tz=datetime.UTC)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         except (ValueError, TypeError, OverflowError) as e:
-            OperatorUtils.logger.error(
-                f"Failed to convert epoch milliseconds to ISO8601: {e}"
-            )
+            OperatorUtils.logger.error(f"Failed to convert epoch milliseconds to ISO8601: {e}")
             return None
 
     @staticmethod
@@ -336,9 +316,7 @@ class OperatorUtils:
         if not flow_definition or not isinstance(flow_definition, dict):
             return False
 
-        exists = any(
-            node.get("operator") == operator for node in flow_definition.get("dag", [])
-        )
+        exists = any(node.get("operator") == operator for node in flow_definition.get("dag", []))
 
         return exists
 

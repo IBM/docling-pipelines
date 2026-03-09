@@ -1,5 +1,5 @@
 from contextvars import ContextVar
-from typing import Any, Optional
+from typing import Any
 
 from common.util.constants import DatasiftConstants
 
@@ -14,7 +14,7 @@ class SessionInfo:
         job_run_id=None,
         flow_id=None,
         transaction_id=None,
-        track_perf: Optional[Any] = False,
+        track_perf: Any | None = False,
         application=None,
     ):  # NOSONAR
         self.orchestrator = orchestrator
@@ -32,9 +32,7 @@ class SessionInfo:
         }
 
 
-session_info_var: ContextVar[Optional[SessionInfo]] = ContextVar(
-    "session_info", default=None
-)
+session_info_var: ContextVar[SessionInfo | None] = ContextVar("session_info", default=None)
 
 
 def create_session_info(
@@ -43,7 +41,7 @@ def create_session_info(
     job_run_id=None,
     flow_id=None,
     transaction_id=DatasiftConstants.DEFAULT_TRANSACTION_ID,
-    track_perf: Optional[Any] = False,
+    track_perf: Any | None = False,
 ):  # NOSONAR
     session_info = SessionInfo(
         orchestrator=orchestrator,
@@ -64,9 +62,7 @@ def set_session_info(session_info):
 def get_session_info() -> SessionInfo:
     session_info = session_info_var.get()
     if session_info is None:
-        return create_session_info(
-            transaction_id=DatasiftConstants.DEFAULT_TRANSACTION_ID
-        )
+        return create_session_info(transaction_id=DatasiftConstants.DEFAULT_TRANSACTION_ID)
     return session_info
 
 

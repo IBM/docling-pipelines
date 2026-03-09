@@ -4,20 +4,20 @@ import os
 import sys
 import uuid
 from logging import Logger
-from typing import Any, Dict
+from typing import Any
 
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+from common.util.constants import DatasiftConstants, OperatorConstants, OrchestratorType
+from common.util.job_tracker.tracker.job_tracker import JobTracker
+from common.util.log import get_logger
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.cmdline.cmd_line_operator_executor import (
     CommandLineOperatorExecutor,
 )
-from common.util.constants import OrchestratorType, DatasiftConstants, OperatorConstants
-from common.util.job_tracker.tracker.job_tracker import JobTracker
-from common.util.log import get_logger
 
 logger = get_logger()
 
@@ -31,31 +31,23 @@ class CommandLineOrchestrator(AbstractOrchestrator):
     def __init__(self):
         super().__init__()
 
-    def create_executor_impl(
-        self, *, name: str, operator: str, params: dict
-    ) -> AbstractOperatorExecutor:
+    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:
         return CommandLineOperatorExecutor(name, operator, params)
 
     def execute(self, *, flow_def: dict, params: dict) -> DataAccess | None:
         self.set_job_id(job_id=params.get(DatasiftConstants.JOB_ID))
         self.set_job_run_id(job_run_id=params.get(DatasiftConstants.JOB_RUN_ID))
         global_config = (
-            flow_def.get(OperatorConstants.GLOBAL_CONFIG, {})
-            | params
-            | {DatasiftConstants.FLOW_DEFINITION: flow_def}
+            flow_def.get(OperatorConstants.GLOBAL_CONFIG, {}) | params | {DatasiftConstants.FLOW_DEFINITION: flow_def}
         )
 
         if DatasiftConstants.DAG not in flow_def:
-            raise FlowExecutionFailedException(
-                "Invalid flow: 'dag' not found in the flow definition"
-            )
+            raise FlowExecutionFailedException("Invalid flow: 'dag' not found in the flow definition")
         op_flow = flow_def.get(DatasiftConstants.DAG, [])
 
         # Create an empty DataAccess as input to the flow
         data_access_factory = DataAccessFactory()
-        config = {
-            "data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}
-        }
+        config = {"data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}}
         data_access_factory.apply_input_params(args=config)
         data_access = data_access_factory.create_data_access()
         data_access.save_table(path="", table=pa.Table.from_arrays([], names=[]))
@@ -67,9 +59,7 @@ class CommandLineOrchestrator(AbstractOrchestrator):
             job_run_id=self.get_job_run_id(),
         )
 
-        job_log_final_path = self.create_log_folders_cpd(
-            job_id=self.get_job_id(), type_="job"
-        )
+        job_log_final_path = self.create_log_folders_cpd(job_id=self.get_job_id(), type_="job")
         self.context_id = params.get(DatasiftConstants.CONTEXT_ID, self.get_job_id())
 
         # execute flows
@@ -94,9 +84,7 @@ def run_command_line_executor(flow_def: dict) -> None:
     from core.orchestrator.orchestrator_factory import OrchestratorFactory
 
     logger.info(">>> Creating the orchestrator")
-    orchestrator = OrchestratorFactory.create_orchestrator(
-        orchestrator_name=OrchestratorType.CMDLINE
-    )
+    orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
     logger.info(">>> Creating the flow executor")
     executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
     logger.info(">>> Setting up execution parameters")
@@ -109,8 +97,8 @@ def run_command_line_executor(flow_def: dict) -> None:
     os.environ["RUNTIME"] = "local"
     from common.models.session_info import (
         SessionInfo,
-        set_session_info,
         create_session_info,
+        set_session_info,
     )
 
     session_info: SessionInfo = create_session_info(
@@ -123,7 +111,7 @@ def run_command_line_executor(flow_def: dict) -> None:
     logger.info(">>> Completed flow execution")
 
 
-def load_flow_definition(file_path: str) -> Dict[str, Any]:
+def load_flow_definition(file_path: str) -> dict[str, Any]:
     """
     Load a flow definition from a JSON file.
 
@@ -138,7 +126,7 @@ def load_flow_definition(file_path: str) -> Dict[str, Any]:
         json.JSONDecodeError: If the file contains invalid JSON
     """
     try:
-        with open(file=file_path, mode="r") as file:
+        with open(file=file_path) as file:
             flow_def = json.load(file)
 
         # Check if the flow definition is nested under a 'flow' key
@@ -156,9 +144,7 @@ def load_flow_definition(file_path: str) -> Dict[str, Any]:
 def main():  # pragma: no cover
     os.environ["CMD_LINE"] = "True"
     # Parse command line arguments
-    parser = argparse.ArgumentParser(
-        description="Execute a flow definition using the CommandLineOrchestrator."
-    )
+    parser = argparse.ArgumentParser(description="Execute a flow definition using the CommandLineOrchestrator.")
     parser.add_argument(
         "--flow-file",
         "-f",
@@ -206,9 +192,7 @@ def main():  # pragma: no cover
 
     logger.info(f"Loaded flow definition from {args.flow_file}")
     logger.info(f"Flow name: {flow_def.get('name', 'Unnamed flow')}")
-    logger.info(
-        f"Number of operators: {len(flow_def.get('sequence', flow_def.get('dag', [])))}"
-    )
+    logger.info(f"Number of operators: {len(flow_def.get('sequence', flow_def.get('dag', [])))}")
 
     # Execute the flow using the CommandLineOrchestrator
     run_command_line_executor(flow_def=flow_def)

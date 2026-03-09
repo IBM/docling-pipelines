@@ -10,10 +10,10 @@
 # limitations under the License.
 ################################################################################
 
+import json
 import logging
 import os
 import sys
-import json
 
 from common.util.constants import DatasiftConstants  # , Environments
 
@@ -56,9 +56,7 @@ class ConditionalFormatter(logging.Formatter):  # pragma: no cover
 
         # if record level is debug then update the message.
         if record.levelno == logging.DEBUG:
-            log_dict["message"] = (
-                f"{record.getMessage()} at {record.pathname}:{record.lineno}"
-            )
+            log_dict["message"] = f"{record.getMessage()} at {record.pathname}:{record.lineno}"
 
         # The below changes are specific for Local Environment.
         if "exc_info" in log_dict:

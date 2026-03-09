@@ -3,7 +3,6 @@ from typing import Any
 
 from data_processing.transform import AbstractTableTransform
 
-from core.operators.operator_utils import OperatorUtils
 from common.util.constants import (
     DatasiftConstants,
     DocsStructure,
@@ -12,6 +11,7 @@ from common.util.constants import (
     OperatorConstants,
 )
 from common.util.log import get_logger
+from core.operators.operator_utils import OperatorUtils
 
 logger = get_logger()
 
@@ -36,9 +36,7 @@ class AbstractOperator(AbstractTableTransform):
         self.job_id = config.get(DatasiftConstants.JOB_ID)
         self.job_run_id = config.get(DatasiftConstants.JOB_RUN_ID)
         self.context_id = config.get(DatasiftConstants.CONTEXT_ID, self.job_id)
-        self.output_features_to_drop = config.get(
-            DatasiftConstants.OUTPUT_FEATURES_TO_DROP, []
-        )
+        self.output_features_to_drop = config.get(DatasiftConstants.OUTPUT_FEATURES_TO_DROP, [])
         self.updated_features = config.get(DatasiftConstants.UPDATED_FEATURES, [])
         self.validating_flow = config.get(DatasiftConstants.VALIDATING_FLOW, False)
         self.common_log_arguments = {
@@ -52,9 +50,7 @@ class AbstractOperator(AbstractTableTransform):
 
     def validate(self, errors: list, warnings: list, available_features: list):
         # The concrete subclasses validates the parameters passed to the operators from the flow definition
-        OperatorUtils.validate_columns(
-            available_features, self.get_required_features(), self.short_name, errors
-        )
+        OperatorUtils.validate_columns(available_features, self.get_required_features(), self.short_name, errors)
 
     def get_required_features(self):
         # The concrete subclasses will retrieve the required features.
@@ -95,9 +91,7 @@ class AbstractOperator(AbstractTableTransform):
         }
 
     @staticmethod
-    def record_failed_document(
-        *, metadata: dict[str, Any], doc_id: str, doc_name: str, reason: str
-    ) -> None:
+    def record_failed_document(*, metadata: dict[str, Any], doc_id: str, doc_name: str, reason: str) -> None:
         # Record a failed document in metadata.
         metadata[Metrics.External.FAILED_DOCS_COUNT] += 1
         metadata[Metrics.External.FAILED_DOCS].append(
@@ -105,9 +99,7 @@ class AbstractOperator(AbstractTableTransform):
         )
 
     @staticmethod
-    def record_skipped_document(
-        *, metadata: dict[str, Any], doc_id: str, doc_name: str, reason: str
-    ) -> None:
+    def record_skipped_document(*, metadata: dict[str, Any], doc_id: str, doc_name: str, reason: str) -> None:
         # Record a skipped document in metadata.
         metadata[Metrics.External.SKIPPED_DOCS_COUNT] += 1
         metadata[Metrics.External.SKIPPED_DOCS].append(

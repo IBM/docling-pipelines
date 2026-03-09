@@ -1,13 +1,13 @@
+import copy
+import datetime
 import json
 import os
-import datetime
-import copy
 
 from common.util.constants import (
     DatasiftConstants,
+    ExecutionStatus,
     Metrics,
     OperatorConstants,
-    ExecutionStatus,
 )
 from common.util.iceberg_util import get_warehouse_path
 from common.util.job_tracker.model.models import NodeStatsDto
@@ -102,7 +102,7 @@ def retrieve_operator_logs(*, job_id, jobrun_id):
 
     # Fall back to old sequential flow format (backward compatibility)
     if os.path.exists(log_final_path):
-        with open(log_final_path, "r") as file:
+        with open(log_final_path) as file:
             content = file.read()
 
     operator_logs_combined = get_logs(
@@ -116,24 +116,18 @@ def retrieve_operator_logs(*, job_id, jobrun_id):
 def read_json_if_exists(*, path):
     """Reads and returns JSON if file exists."""
     if path and os.path.exists(path):
-        with open(path, "r") as f:
+        with open(path) as f:
             return json.load(f)
     return None
 
 
-def _parse_sequential_log_content(
-    log_content: str, operator_logs_combined: dict
-) -> dict:
+def _parse_sequential_log_content(log_content: str, operator_logs_combined: dict) -> dict:
     """
     Parses sequential flow log content (Backward compatibility).
     """
-    content_split = log_content.split(
-        ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    )
+    content_split = log_content.split(">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     for value in content_split:
-        operator_logs_combined = _operator_log_split(
-            value=value, operator_logs_combined=operator_logs_combined
-        )
+        operator_logs_combined = _operator_log_split(value=value, operator_logs_combined=operator_logs_combined)
     return operator_logs_combined
 
 
@@ -144,9 +138,7 @@ def _handle_dict_with_logs_key(content: dict, operator_logs_combined: dict) -> d
 
     log_content = content.get("logs", "")
     if log_content:
-        operator_logs_combined = _parse_sequential_log_content(
-            log_content, operator_logs_combined
-        )
+        operator_logs_combined = _parse_sequential_log_content(log_content, operator_logs_combined)
     return operator_logs_combined
 
 
@@ -157,9 +149,7 @@ def _handle_string_logs(
     nodes_metadata_final_path: str | None,
 ) -> dict:
     """Handle string format logs (old sequential flow backward compatibility)."""
-    operator_logs_combined = _parse_sequential_log_content(
-        content, operator_logs_combined
-    )
+    operator_logs_combined = _parse_sequential_log_content(content, operator_logs_combined)
 
     # Merge additional files if present (old format)
     job_stats = read_json_if_exists(path=job_log_final_path)
@@ -173,9 +163,7 @@ def _handle_string_logs(
     return operator_logs_combined
 
 
-def get_logs(
-    *, content, job_log_final_path: str = None, nodes_metadata_final_path: str = None
-):
+def get_logs(*, content, job_log_final_path: str = None, nodes_metadata_final_path: str = None):
     """
     Processes log content from various sources and formats.
 
@@ -279,9 +267,7 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
             errors = _extract_document_level_errors(node_metadata=metadata)
             if errors:
                 node_info.setdefault("document_level_errors", []).extend(errors)
-            node_info.pop(
-                OperatorConstants.NODE_METADATA, None
-            )  # Remove metadata after processing
+            node_info.pop(OperatorConstants.NODE_METADATA, None)  # Remove metadata after processing
 
         # Replace document ID lists with their counts
         _count_and_remove_lists(node_info=node_info, keys_to_count=keys_to_count)
@@ -292,9 +278,7 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
     return json.dumps(new_node_stats, indent=6)
 
 
-def format_operator_logs(
-    *, job_id: str, job_stats: dict, node_sequence: list = None
-) -> str:
+def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list = None) -> str:
     job_status = (
         job_stats.get("status").value
         if isinstance(job_stats.get("status"), ExecutionStatus)
@@ -305,9 +289,7 @@ def format_operator_logs(
         node_sequence = retrieve_operators_sequence(
             job_id=job_id, job_run_id=job_stats.get(DatasiftConstants.JOB_RUN_ID)
         )
-    node_stats = format_node_stats(
-        node_stats=job_stats.get("node_stats"), node_sequence=node_sequence
-    )
+    node_stats = format_node_stats(node_stats=job_stats.get("node_stats"), node_sequence=node_sequence)
     complete_message = f"""
 >>> The flow execution is {job_status}.
 >>> Job Statistics:

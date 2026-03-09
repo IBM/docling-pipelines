@@ -1,21 +1,23 @@
-from typing import Any, Optional, Dict, List
+from typing import Any
+
 import pyarrow as pa
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from common.util.operator_utils import find_doc_count
-from common.util.log import get_logger
-from common.util.constants import (
-    OperatorConstants,
-    Metrics,
-    AttributeDataTypes,
-    DatasiftConstants,
-)
-from dpk_readability.transform import ReadabilityTransform
 from dpk_readability.common import (
     contents_column_name_cli_param,
-    short_name,
     score_list_cli_param,
     score_list_default,
+    short_name,
 )
+from dpk_readability.transform import ReadabilityTransform
+
+from common.util.constants import (
+    AttributeDataTypes,
+    DatasiftConstants,
+    Metrics,
+    OperatorConstants,
+)
+from common.util.log import get_logger
+from common.util.operator_utils import find_doc_count
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 logger = get_logger()
 
@@ -33,7 +35,7 @@ SPACHE_READABILITY: str = "spache_readability"
 MCALPINE_EFLAW: str = "mcalpine_eflaw"
 READING_TIME: str = "reading_time"
 
-DEFAULT_READABILITY_SCORES: List[str] = [
+DEFAULT_READABILITY_SCORES: list[str] = [
     FLESCH_EASE,
     FLESCH_KINCAID,
     GUNNING_FOG,
@@ -58,22 +60,20 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
     short_name: str = short_name
     category: OperatorCategory = OperatorCategory.Quality
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config=config)
         self.contents_column_name: str = config.get(
             contents_column_name_cli_param, OperatorConstants.DOC_COLUMN_DEFAULT
         )
-        self.score_list: List[str] = config.get(
-            score_list_cli_param, score_list_default
-        )
+        self.score_list: list[str] = config.get(score_list_cli_param, score_list_default)
         if isinstance(self.score_list, str):
             self.score_list = [self.score_list]
-        self.common_log_arguments: Dict[str, Any] = {
+        self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         return {
             OperatorConstants.SDK: True,
             OperatorConstants.CATEGORY: ReadabilityOperator.category.value,
@@ -172,19 +172,15 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
         }
 
     @staticmethod
-    def get_static_required_features() -> List[str]:
+    def get_static_required_features() -> list[str]:
         return [OperatorConstants.DOC_COLUMN_DEFAULT]
 
-    def get_required_features(self) -> List[str]:
+    def get_required_features(self) -> list[str]:
         return [self.contents_column_name]
 
-    def transform(
-        self, table: pa.Table, file_name: Optional[str] = None
-    ) -> tuple[List[pa.Table], Dict[str, Any]]:
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """Transform function for readability scores"""
-        self.score_list = [
-            s if s.endswith("_textstat") else f"{s}_textstat" for s in self.score_list
-        ]
+        self.score_list = [s if s.endswith("_textstat") else f"{s}_textstat" for s in self.score_list]
         transformed_table: pa.Table = super().transform(table=table)[0][0]
 
         # Casting large_string returned by the dpk_readability transform to string for Python runtime compatibility
@@ -192,18 +188,12 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
             if pa.types.is_large_string(field.type):
                 column: pa.ChunkedArray = transformed_table.column(i)
                 casted_column: pa.ChunkedArray = column.cast(pa.string())
-                transformed_table = transformed_table.set_column(
-                    i, field.name, casted_column
-                )
-        metadata: Dict[str, Any] = self.create_base_metadata(
-            total_docs_count=find_doc_count(table=table)
-        )
+                transformed_table = transformed_table.set_column(i, field.name, casted_column)
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
         metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
         return [transformed_table], metadata
 
-    def validate(
-        self, errors: List[str], warnings: List[str], available_features: List[str]
-    ) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         if not self.score_list:
             warnings.append("At least one readability score must be selected")
         elif not set(self.score_list).issubset(set(DEFAULT_READABILITY_SCORES)):
@@ -212,7 +202,7 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
 
 # Used for unit testing only
 def main() -> None:  # pragma: no cover
-    config: Dict[str, Any] = {
+    config: dict[str, Any] = {
         "readability_contents_column_name": "content",
         "readability_score_list": DEFAULT_READABILITY_SCORES,
     }
@@ -226,11 +216,11 @@ def main() -> None:  # pragma: no cover
             "The implementation of sophisticated algorithms necessitates comprehensive understanding.",
         ]
     )
-    col_names: List[str] = ["content"]
+    col_names: list[str] = ["content"]
     input_table: pa.Table = pa.Table.from_arrays([content], names=col_names)
 
-    table_list: List[pa.Table]
-    metadata: Dict[str, Any]
+    table_list: list[pa.Table]
+    metadata: dict[str, Any]
     table_list, metadata = operator.transform(table=input_table)
 
     print(">>> completed the operator", operator)

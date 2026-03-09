@@ -1,13 +1,12 @@
 """Utility functions for displaying operator information to users."""
 
-from typing import Any, Dict
-from common.util.operator_metadata import OperatorMetadata
+from typing import Any
+
 from common.util.constants import OperatorConstants
+from common.util.operator_metadata import OperatorMetadata
 
 
-def format_operator_details(
-    operator_metadata: Dict[str, Any], verbose: bool = False
-) -> str:
+def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = False) -> str:
     """
     Format operator metadata into a human-readable string.
 
@@ -83,9 +82,7 @@ def format_operator_details(
                     if default is not None:
                         lines.append(f"    Default: {default}")
                 else:
-                    default_str = (
-                        f" (default: {default})" if default is not None else ""
-                    )
+                    default_str = f" (default: {default})" if default is not None else ""
                     lines.append(f"  • {attr_name} {req_marker}: {name}{default_str}")
 
         # Required features (input columns needed)
@@ -96,7 +93,7 @@ def format_operator_details(
     return "\n".join(lines)
 
 
-def display_operator_summary(operator_metadata: Dict[str, Any]) -> str:
+def display_operator_summary(operator_metadata: dict[str, Any]) -> str:
     """
     Display a summary table of all operators.
 
@@ -123,9 +120,7 @@ def display_operator_summary(operator_metadata: Dict[str, Any]) -> str:
         features = metadata.get(OperatorConstants.FEATURES, {})
         feature_count = len(features)
 
-        lines.append(
-            f"{short_name:<25} {category:<15} {status:<12} {feature_count:<10}"
-        )
+        lines.append(f"{short_name:<25} {category:<15} {status:<12} {feature_count:<10}")
 
     lines.append("-" * 80)
     lines.append(f"\nTotal operators: {len(operator_metadata)}")
@@ -147,9 +142,7 @@ def list_operators(verbose: bool = False, summary_only: bool = False) -> str:
         Formatted string with operator information
     """
     operator_metadata_obj = OperatorMetadata()
-    operator_metadata = operator_metadata_obj.get_operator_metadata(
-        internal_features=False
-    )
+    operator_metadata = operator_metadata_obj.get_operator_metadata(internal_features=False)
 
     if summary_only or not verbose:
         return display_operator_summary(operator_metadata)

@@ -1,12 +1,12 @@
 from typing import Any
+
 import pyarrow as pa
 import pyarrow.fs as fs
 import pyarrow.parquet as pq
 from data_processing.data_access import DataAccess
 from data_processing.utils import TransformUtils
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.datasift_exceptions import ErrorCode
+from common.exceptions.datasift_exceptions import DatasiftException, ErrorCode
 from common.util.constants import DatasiftConstants
 from common.util.log import get_logger
 from common.util.retry_utils import retry_with_exponential_backoff
@@ -47,11 +47,7 @@ class DatasiftDataAccessCOS(DataAccess):
             files_to_use=files_to_use,
             files_to_checkpoint=files_to_checkpoint,
         )
-        if (
-            config is None
-            or config.get("access_key", None) is None
-            or config.get("secret_key", None) is None
-        ):
+        if config is None or config.get("access_key", None) is None or config.get("secret_key", None) is None:
             raise DatasiftException(
                 "COS credentials are not defined",
                 500,
@@ -62,9 +58,7 @@ class DatasiftDataAccessCOS(DataAccess):
             self.output_folder = None
         else:
             self.input_folder = TransformUtils.clean_path(config["input_folder"])
-            self.output_folder = TransformUtils.clean_path(
-                config[DatasiftConstants.OUTPUT_FOLDER]
-            )
+            self.output_folder = TransformUtils.clean_path(config[DatasiftConstants.OUTPUT_FOLDER])
         self.cos_max_retries = cos_max_retries
         self.cos_backoff_factor = cos_backoff_factor
         self.tables = {}
@@ -218,9 +212,7 @@ class DatasiftDataAccessCOS(DataAccess):
             # Return attempts as call_count - 1 (excluding the successful final call)
             return file_content, max(0, call_count[0] - 1)
         except Exception:
-            logger.error(
-                f"Exhausted {self.cos_max_retries} retries. Could not read from COS at: {path}"
-            )
+            logger.error(f"Exhausted {self.cos_max_retries} retries. Could not read from COS at: {path}")
             # When all retries exhausted, call_count includes initial + all retries
             return b"", call_count[0]
 
@@ -257,15 +249,11 @@ class DatasiftDataAccessCOS(DataAccess):
             # Return attempts as call_count - 1 (excluding the successful final call)
             return file_info, max(0, call_count[0] - 1)
         except Exception:
-            logger.error(
-                f"Exhausted all {self.cos_max_retries} retry attempts. Failed to write to COS at: {path}"
-            )
+            logger.error(f"Exhausted all {self.cos_max_retries} retry attempts. Failed to write to COS at: {path}")
             # When all retries exhausted, call_count includes initial + all retries
             return {}, call_count[0]
 
-    def save_job_metadata(
-        self, metadata: dict[str, Any]
-    ) -> tuple[dict[str, Any], int]:  # pragma: no cover
+    def save_job_metadata(self, metadata: dict[str, Any]) -> tuple[dict[str, Any], int]:  # pragma: no cover
         """Just have written this function to not fail in abstract classs instantiation. will be handled in"""
         return {}, 0
 

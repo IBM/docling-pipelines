@@ -1,7 +1,7 @@
 import ast
 import re
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any
 
 import duckdb
 import pyarrow as pa
@@ -30,15 +30,15 @@ logger = get_logger()
 """ AST Key holds the list of features to drop after filtering"""
 FILTER_LOGICAL_OPERATOR_AND: str = "AND"
 FILTER_LOGICAL_OPERATOR_OR: str = "OR"
-VALID_FILTER_LOGICAL_OPERATORS: List[str] = [
+VALID_FILTER_LOGICAL_OPERATORS: list[str] = [
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
 ]
 # defaults
-FILTER_CRITERIA_DEFAULT: List[Any] = ast.literal_eval("[]")
+FILTER_CRITERIA_DEFAULT: list[Any] = ast.literal_eval("[]")
 """ The default list of filter criteria (in SQL WHERE clause format)"""
 FILTER_LOGICAL_OPERATOR_DEFAULT: str = FILTER_LOGICAL_OPERATOR_AND
-FILTER_FEATURES_TO_DROP_DEFAULT: List[Any] = ast.literal_eval("[]")
+FILTER_FEATURES_TO_DROP_DEFAULT: list[Any] = ast.literal_eval("[]")
 """ The default list of features to drop"""
 
 IS_NULL: str = "IS NULL"
@@ -60,7 +60,7 @@ class SQLFilterOperator(AbstractOperator):
     short_name: str = OperatorConstants.SQL_FILTER
     category: OperatorCategory = OperatorCategory.Quality
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         """
         Initialize based on the dictionary of configuration information.
         This is generally called with configuration parsed from the CLI arguments defined
@@ -69,38 +69,30 @@ class SQLFilterOperator(AbstractOperator):
         """
 
         super().__init__(config)
-        self.filter_criteria: List[str] = config.get(
-            OperatorConstants.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT
-        )
+        self.filter_criteria: list[str] = config.get(OperatorConstants.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT)
         self.logical_operator: str = config.get(
             OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY,
             FILTER_LOGICAL_OPERATOR_DEFAULT,
         )
-        self.features_to_drop: List[str] = config.get(
+        self.features_to_drop: list[str] = config.get(
             OperatorConstants.FILTER_FEATURES_TO_DROP_KEY,
             FILTER_FEATURES_TO_DROP_DEFAULT,
         )
-        self.columns_to_drop: List[str] = self.features_to_drop
-        self.filter_criteria_json: Optional[Dict[str, Any]] = config.get(
-            OperatorConstants.FILTER_CRITERIA_JSON
-        )
+        self.columns_to_drop: list[str] = self.features_to_drop
+        self.filter_criteria_json: dict[str, Any] | None = config.get(OperatorConstants.FILTER_CRITERIA_JSON)
 
     def validate(
         self,
-        errors: List[Union[str, ValidationMessage]],
-        warnings: List[str],
-        available_features: List[str],
+        errors: list[str | ValidationMessage],
+        warnings: list[str],
+        available_features: list[str],
     ) -> None:
         """
         Validate operator conditions.
         """
         # Check if at least one filter criteria is provided (only validate non-parameterized fields)
-        should_validate_criteria = self.should_validate_field(
-            field_value=self.filter_criteria
-        )
-        should_validate_json = self.should_validate_field(
-            field_value=self.filter_criteria_json
-        )
+        should_validate_criteria = self.should_validate_field(field_value=self.filter_criteria)
+        should_validate_json = self.should_validate_field(field_value=self.filter_criteria_json)
 
         # Only validate if both fields are not parameterized
         if should_validate_criteria and should_validate_json:
@@ -124,11 +116,7 @@ class SQLFilterOperator(AbstractOperator):
 
             for feature, error_msg in protected_features.items():
                 if feature in self.features_to_drop:
-                    errors.append(
-                        ValidationMessage(
-                            message=error_msg.value, message_code=error_msg.name
-                        )
-                    )
+                    errors.append(ValidationMessage(message=error_msg.value, message_code=error_msg.name))
 
         # Validate filter criteria columns - only if at least one is not parameterized
         criteria_to_validate = None
@@ -141,11 +129,7 @@ class SQLFilterOperator(AbstractOperator):
             criteria_columns = extract_columns(criteria_to_validate)
 
             # Identify invalid features
-            invalid_features = [
-                feature
-                for feature in criteria_columns
-                if feature not in available_features
-            ]
+            invalid_features = [feature for feature in criteria_columns if feature not in available_features]
             if invalid_features:
                 errors.append(
                     ValidationMessage(
@@ -163,14 +147,12 @@ class SQLFilterOperator(AbstractOperator):
                 input_table_columns_set=set(available_features),
                 mode=Mode.COLUMNS_TO_DROP,
             )
-            if drop_column_validation and isinstance(
-                drop_column_validation, (set, list)
-            ):
+            if drop_column_validation and isinstance(drop_column_validation, (set, list)):
                 errors.append(
                     f"Invalid feature name in the feature drop list: {', '.join(drop_column_validation)}. Please select features from {', '.join(available_features)}"
                 )
 
-    def transform(self, table: pa.Table) -> Tuple[List[pa.Table], Dict[str, Any]]:
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         This implementation filters the input table using a SQL statement and
         returns the filtered table and execution stats
@@ -178,13 +160,9 @@ class SQLFilterOperator(AbstractOperator):
         :return: list of output tables and custom statistics
         """
         # Initialize metadata
-        metadata: Dict[str, Any] = self.create_base_metadata(
-            total_docs_count=find_doc_count(table=table)
-        )
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
 
-        filtered_table: List[pa.Table] = self._dpk_transform(
-            table=table, metadata=metadata
-        )
+        filtered_table: list[pa.Table] = self._dpk_transform(table=table, metadata=metadata)
         if not metadata.get(Metrics.External.SKIPPED_DOCS_COUNT):
             metadata.update(
                 OperatorUtils.find_skipped_docs(
@@ -195,9 +173,7 @@ class SQLFilterOperator(AbstractOperator):
             )
         return filtered_table, metadata
 
-    def _dpk_transform(
-        self, table: pa.Table, metadata: Dict[str, Any]
-    ) -> List[pa.Table]:
+    def _dpk_transform(self, table: pa.Table, metadata: dict[str, Any]) -> list[pa.Table]:
         """
         This implementation filters the input table using a SQL statement and
         returns the filtered table and execution stats
@@ -210,7 +186,7 @@ class SQLFilterOperator(AbstractOperator):
         total_docs: int = input_table.num_rows
         total_columns: int = input_table.num_columns
         total_bytes: int = input_table.nbytes
-        input_table_columns_set: Set[str] = set(input_table.column_names)
+        input_table_columns_set: set[str] = set(input_table.column_names)
 
         # initialize the metadata dictionary
         metadata["total_docs_count"] = total_docs
@@ -219,7 +195,7 @@ class SQLFilterOperator(AbstractOperator):
 
         # initialize the SQL statement used for filtering
         sql_statement: str = "SELECT * FROM input_table"
-        con: Optional[duckdb.DuckDBPyConnection] = None
+        con: duckdb.DuckDBPyConnection | None = None
 
         if self.filter_criteria_json:
             if self.has_invalid_columns(
@@ -250,13 +226,13 @@ class SQLFilterOperator(AbstractOperator):
                 metadata[f"bytes_filtered_out_by '{filter_criterion}'"] = bytes_filtered
 
             # use filtering criteria to build the SQL query for filtering
-            filter_clauses: List[str] = [f"({x})" for x in self.filter_criteria]
+            filter_clauses: list[str] = [f"({x})" for x in self.filter_criteria]
             where_clause: str = f" {self.logical_operator} ".join(filter_clauses)
             sql_statement = f"{sql_statement} WHERE {where_clause}"
 
         if "WHERE" in sql_statement and con is not None:
             # filter using SQL statement
-            duckdb_binding_errors: Tuple[type, ...] = (
+            duckdb_binding_errors: tuple[type, ...] = (
                 duckdb.BinderException,
                 duckdb.ConversionException,
                 duckdb.CatalogException,
@@ -290,9 +266,7 @@ class SQLFilterOperator(AbstractOperator):
             ):
                 return [table]
 
-            filtered_table_cols_dropped: pa.Table = filtered_table.drop_columns(
-                self.columns_to_drop
-            )
+            filtered_table_cols_dropped: pa.Table = filtered_table.drop_columns(self.columns_to_drop)
         else:
             filtered_table_cols_dropped: pa.Table = filtered_table
 
@@ -300,19 +274,17 @@ class SQLFilterOperator(AbstractOperator):
         metadata["docs_after_filter"] = filtered_table.num_rows
         metadata["columns_after_filter"] = filtered_table_cols_dropped.num_columns
         metadata["bytes_after_filter"] = filtered_table.nbytes
-        metadata[Metrics.External.PROCESSED_DOCS] = find_doc_count(
-            table=filtered_table_cols_dropped
-        )
+        metadata[Metrics.External.PROCESSED_DOCS] = find_doc_count(table=filtered_table_cols_dropped)
 
         return [filtered_table_cols_dropped]
 
     def has_invalid_columns(
         self,
-        input_table_columns_set: Set[str],
+        input_table_columns_set: set[str],
         mode: Mode,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Union[bool, List[str]]:
-        filter_column_set: Set[str]
+        metadata: dict[str, Any] | None = None,
+    ) -> bool | list[str]:
+        filter_column_set: set[str]
         if mode == Mode.COLUMNS_TO_DROP:
             filter_column_set = set(self.columns_to_drop)
         elif mode == Mode.FILTER_CRITERIA_JSON:
@@ -320,7 +292,7 @@ class SQLFilterOperator(AbstractOperator):
         else:
             filter_column_set = extract_columns(self.filter_criteria)
 
-        invalid_columns: Set[str] = filter_column_set - input_table_columns_set
+        invalid_columns: set[str] = filter_column_set - input_table_columns_set
 
         if invalid_columns:
             logger.error(
@@ -328,15 +300,13 @@ class SQLFilterOperator(AbstractOperator):
             )
             if metadata is not None:
                 metadata[Metrics.External.PROCESSED_DOCS] = 0
-                metadata[Metrics.External.NODE_STATUS] = (
-                    ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-                )
+                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
                 return True
             else:
                 return list(invalid_columns)
         return False
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         return {
             OperatorConstants.IS_OPERATOR_AVAILABLE: True,
             OperatorConstants.CATEGORY: self.category.value,
@@ -375,7 +345,7 @@ class SQLFilterOperator(AbstractOperator):
         }
 
 
-_OPERATOR_MAP: Dict[str, str] = {
+_OPERATOR_MAP: dict[str, str] = {
     "=": "=",
     "==": "=",
     "!=": "!=",
@@ -404,9 +374,7 @@ def convert_operator(op: str) -> str:
     try:
         return _OPERATOR_MAP[op.lower()]
     except KeyError:
-        raise DatasiftException(
-            f"Unknown operator: {op}", error_code=ErrorCode.SQL_FILTER_ERROR
-        )
+        raise DatasiftException(f"Unknown operator: {op}", error_code=ErrorCode.SQL_FILTER_ERROR)
 
 
 def format_value(value: Any) -> str:
@@ -429,10 +397,10 @@ def format_value(value: Any) -> str:
         return f"'{escaped}'"
 
 
-def process_condition(condition: Dict[str, Any]) -> str:
+def process_condition(condition: dict[str, Any]) -> str:
     """Process a single condition."""
 
-    required_keys: List[str] = ["variable", "operator"]
+    required_keys: list[str] = ["variable", "operator"]
     if not all(key in condition for key in required_keys):
         raise DatasiftException(
             message="Condition must contain 'variable' and 'operator'",
@@ -454,7 +422,7 @@ def process_condition(condition: Dict[str, Any]) -> str:
             upper: str = format_value(value_raw[1])
             return f"{variable} {operator} {lower} AND {upper}"
         elif isinstance(value_raw, str):
-            parts: List[str] = [v.strip() for v in value_raw.split(",")]
+            parts: list[str] = [v.strip() for v in value_raw.split(",")]
             if len(parts) != 2:
                 raise DatasiftException(
                     message=f"BETWEEN operator requires 2 values, got: '{value_raw}'",
@@ -472,7 +440,7 @@ def process_condition(condition: Dict[str, Any]) -> str:
             )
 
     if operator in ["IN", "NOT IN"]:
-        value_list: List[Any]
+        value_list: list[Any]
         if isinstance(value_raw, str):
             value_list = [v.strip() for v in value_raw.split(",")]
         elif isinstance(value_raw, list):
@@ -491,7 +459,7 @@ def process_condition(condition: Dict[str, Any]) -> str:
     return f"{variable} {operator} {formatted_value}"
 
 
-def process_criteria_group(group: Dict[str, Any]) -> str:
+def process_criteria_group(group: dict[str, Any]) -> str:
     """Process a group of criteria connected by a logical operator."""
     if not isinstance(group, dict):
         raise DatasiftException(
@@ -505,7 +473,7 @@ def process_criteria_group(group: Dict[str, Any]) -> str:
         return process_condition(group)
 
     logical_op: str = group.get("logical_operator", "AND").upper()
-    criteria_list: List[Any] = group["criteria_list"]
+    criteria_list: list[Any] = group["criteria_list"]
 
     if not isinstance(criteria_list, list):
         raise DatasiftException(
@@ -516,7 +484,7 @@ def process_criteria_group(group: Dict[str, Any]) -> str:
     if not criteria_list:
         return ""
 
-    processed_criteria: List[str] = []
+    processed_criteria: list[str] = []
     for criterion in criteria_list:
         if isinstance(criterion, dict) and "criteria_list" in criterion:
             # Nested group
@@ -542,7 +510,7 @@ def process_criteria_group(group: Dict[str, Any]) -> str:
     return f" {logical_op} ".join(processed_criteria)
 
 
-def json_to_sql_where(where_json: Optional[Dict[str, Any]]) -> str:
+def json_to_sql_where(where_json: dict[str, Any] | None) -> str:
     """Convert JSON representation to SQL WHERE clause."""
     if not where_json or not isinstance(where_json, dict):
         return ""
@@ -562,7 +530,7 @@ def json_to_sql_where(where_json: Optional[Dict[str, Any]]) -> str:
     return f"WHERE {where_clause}"
 
 
-def extract_columns(filter_input: Union[Dict[str, Any], List[str]]) -> Set[str]:
+def extract_columns(filter_input: dict[str, Any] | list[str]) -> set[str]:
     """
     Extract column names from either JSON criteria (dict) or list of filter strings.
 
@@ -574,9 +542,7 @@ def extract_columns(filter_input: Union[Dict[str, Any], List[str]]) -> Set[str]:
     """
     if isinstance(filter_input, dict):
         return extract_columns_json(filter_input)
-    elif isinstance(filter_input, list) and all(
-        isinstance(x, str) for x in filter_input
-    ):
+    elif isinstance(filter_input, list) and all(isinstance(x, str) for x in filter_input):
         return extract_columns_list(filter_input)
     else:
         raise DatasiftException(
@@ -585,9 +551,9 @@ def extract_columns(filter_input: Union[Dict[str, Any], List[str]]) -> Set[str]:
         )
 
 
-def extract_columns_json(condition_or_group: Dict[str, Any]) -> Set[str]:
+def extract_columns_json(condition_or_group: dict[str, Any]) -> set[str]:
     """Extract all column names from condition(s)."""
-    columns: Set[str] = set()
+    columns: set[str] = set()
     if "variable" in condition_or_group and "operator" in condition_or_group:
         columns.add(condition_or_group["variable"])
     elif "criteria_list" in condition_or_group:
@@ -597,13 +563,11 @@ def extract_columns_json(condition_or_group: Dict[str, Any]) -> Set[str]:
     return columns
 
 
-def extract_columns_list(filter_criteria: List[str]) -> Set[str]:
+def extract_columns_list(filter_criteria: list[str]) -> set[str]:
     """Extract column names from filter criteria strings."""
 
     # Pattern to split expressions on AND / OR
-    logical_split_pattern: re.Pattern[str] = re.compile(
-        r"\s+(AND|OR)\s+", flags=re.IGNORECASE
-    )
+    logical_split_pattern: re.Pattern[str] = re.compile(r"\s+(AND|OR)\s+", flags=re.IGNORECASE)
 
     # Pattern to match a column name at the start of a condition
     column_pattern: re.Pattern[str] = re.compile(
@@ -611,14 +575,14 @@ def extract_columns_list(filter_criteria: List[str]) -> Set[str]:
         flags=re.IGNORECASE,
     )
 
-    columns: Set[str] = set()
+    columns: set[str] = set()
     for criterion in filter_criteria:
         # Split complex condition into individual expressions
-        expressions: List[str] = logical_split_pattern.split(criterion)
+        expressions: list[str] = logical_split_pattern.split(criterion)
         for expr in expressions:
             if expr.upper() in {"AND", "OR"}:
                 continue
-            match: Optional[re.Match[str]] = column_pattern.match(expr.strip())
+            match: re.Match[str] | None = column_pattern.match(expr.strip())
             if match:
                 columns.add(match.group(1))
 

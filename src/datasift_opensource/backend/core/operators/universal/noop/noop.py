@@ -1,12 +1,13 @@
-from typing import Any
-import pyarrow as pa
 import time
 from logging import Logger
+from typing import Any
 
-from core.operators.abstract_operator import OperatorCategory, AbstractOperator
+import pyarrow as pa
+
 from common.util.constants import DatasiftConstants, Metrics, OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 logger: Logger = get_logger()
 
@@ -54,16 +55,12 @@ class NOOPOperator(AbstractOperator):
         total_docs_count: int = find_doc_count(table=table)
 
         # Initialize metadata
-        metadata: dict[str, Any] = self.create_base_metadata(
-            total_docs_count=total_docs_count
-        )
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs_count)
         metadata["nfiles"] = 0
         metadata["nrows"] = len(table)
 
         if self.sleep is not None:
-            logger.info(
-                f"Sleep for {self.sleep} seconds", extra=self.common_log_arguments
-            )
+            logger.info(f"Sleep for {self.sleep} seconds", extra=self.common_log_arguments)
             time.sleep(self.sleep)
             logger.info("Sleep completed - continue")
 
@@ -79,7 +76,6 @@ class NOOPOperator(AbstractOperator):
 
 # used for unit testing only
 def main() -> None:  # pragma: no cover
-
     # 1. Construct the operators with the required configuration and input parameters
     operator: NOOPOperator = NOOPOperator({"sleep_sec": 1})
     print(operator)

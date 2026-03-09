@@ -1,7 +1,8 @@
 import json
 import re
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 
 class Singleton(type):
@@ -18,9 +19,7 @@ def lowercase_keys(*, input_dict: dict[str, Any]):
 
 
 def batch_list(*, input_list: list, batch_size=20):
-    return [
-        input_list[i : i + batch_size] for i in range(0, len(input_list), batch_size)
-    ]
+    return [input_list[i : i + batch_size] for i in range(0, len(input_list), batch_size)]
 
 
 def process_in_batches(
@@ -149,26 +148,24 @@ def is_date_time_as_per_format(date_time_str: str, date_time_format: str):
         return False
 
 
-def is_null_or_empty(value: Optional[str]) -> bool:
+def is_null_or_empty(value: str | None) -> bool:
     """Mimic Guava Strings.isNullOrEmpty (no trimming)."""
     return value is None or value == ""
 
 
-def get_list_from_map(obj: Dict[str, Any], key: str) -> List[Dict[str, Any]]:
+def get_list_from_map(obj: dict[str, Any], key: str) -> list[dict[str, Any]]:
     val = obj.get(key)
     if isinstance(val, list):
         return [x for x in val if isinstance(x, dict)]
     return []
 
 
-def get_map_from_map(obj: Dict[str, Any], key: str) -> Dict[str, Any]:
+def get_map_from_map(obj: dict[str, Any], key: str) -> dict[str, Any]:
     val = obj.get(key)
     return val if isinstance(val, dict) else {}
 
 
-def get_truncated_text(
-    *, text_string: str, n_chars: int = 1000, n_json_entries: int = 4
-):
+def get_truncated_text(*, text_string: str, n_chars: int = 1000, n_json_entries: int = 4):
     """
     Truncates the input string based on its content:
     1. If it's plain text, returns the first `n_chars` characters.
@@ -203,9 +200,7 @@ def get_truncated_text(
         return text_string[:n_chars]
 
 
-def is_value_in_range(
-    *, value: int | float, min_value: int | float, max_value: int | float
-) -> bool:
+def is_value_in_range(*, value: int | float, min_value: int | float, max_value: int | float) -> bool:
     """
     Check if a value is within the specified range (inclusive).
 

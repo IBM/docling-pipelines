@@ -2,6 +2,7 @@ import hashlib
 import os
 from pathlib import Path
 from typing import Any
+
 import pyarrow as pa
 from charset_normalizer import from_bytes
 from pyarrow import Table
@@ -67,9 +68,7 @@ def validate_link_name(*, link_name: str, existing_link_names: set, errors: list
         return
     key = link_name.lower()
     if key in existing_link_names:
-        errors.append(
-            f"Duplicate link name found: '{link_name}'. Link names must be unique."
-        )
+        errors.append(f"Duplicate link name found: '{link_name}'. Link names must be unique.")
     else:
         existing_link_names.add(key)
 
@@ -102,9 +101,7 @@ def decode_binary_content(*, binary_content: bytes) -> str:
         return binary_content.decode("utf-8", errors="replace")
 
 
-def upsert_fields_in_schema(
-    *, schema: pa.Schema, updates: dict[str, pa.DataType]
-) -> pa.Schema:
+def upsert_fields_in_schema(*, schema: pa.Schema, updates: dict[str, pa.DataType]) -> pa.Schema:
     """
     Returns a new schema with updated or added fields:
     - If a field exists in the schema and is in `updates`, its type is replaced.
@@ -151,27 +148,21 @@ def import_transforms_code_from_file(transforms_path: Path) -> dict[str, any]:
 
     # Replace zip path with extracted location (similar to doc_quality.py)
     if "./datasift.zip" in normalized_path:
-        normalized_path = normalized_path.replace(
-            "./datasift.zip", "/datasift/storage/job-assets"
-        )
+        normalized_path = normalized_path.replace("./datasift.zip", "/datasift/storage/job-assets")
     elif "datasift.zip" in normalized_path:
-        normalized_path = normalized_path.replace(
-            "datasift.zip", "/datasift/storage/job-assets"
-        )
+        normalized_path = normalized_path.replace("datasift.zip", "/datasift/storage/job-assets")
     else:
-        logger.info(
-            f"[DEBUG] import_transforms_code_from_file - No zip path found, using original: {normalized_path}"
-        )
+        logger.info(f"[DEBUG] import_transforms_code_from_file - No zip path found, using original: {normalized_path}")
 
     normalized_path = Path(normalized_path)
     for transformation_code_file in os.listdir(normalized_path):
         if transformation_code_file.endswith(".py"):
             transforms_code[transformation_code_file.replace(".py", "")] = open(
-                normalized_path / transformation_code_file, "r", encoding="utf-8"
+                normalized_path / transformation_code_file, encoding="utf-8"
             ).read()
         if transformation_code_file.endswith(".json"):
             transforms_code[transformation_code_file] = open(
-                normalized_path / transformation_code_file, "r", encoding="utf-8"
+                normalized_path / transformation_code_file, encoding="utf-8"
             ).read()
     return transforms_code
 
@@ -191,9 +182,7 @@ def drop_features_from_table(output_features_to_drop: list, table: Table):
     # Get existing column names
     existing_columns = set(table.schema.names)
     # Filter to only columns that actually exist
-    valid_columns_to_drop = [
-        col for col in output_features_to_drop if col in existing_columns
-    ]
+    valid_columns_to_drop = [col for col in output_features_to_drop if col in existing_columns]
     # Drop only valid columns
     if valid_columns_to_drop:
         return table.drop_columns(valid_columns_to_drop)
@@ -203,19 +192,12 @@ def drop_features_from_table(output_features_to_drop: list, table: Table):
 def rename_features_and_save_original(
     *, updated_features: list = None, input_features: dict | Table = None
 ) -> Any | None:
-
     if not input_features or not updated_features:
         return None
 
-    existing_features = (
-        set(input_features.schema.names)
-        if isinstance(input_features, Table)
-        else input_features
-    )
+    existing_features = set(input_features.schema.names) if isinstance(input_features, Table) else input_features
 
-    rename_map = _build_rename_map(
-        updated_features=updated_features, existing_features=existing_features
-    )
+    rename_map = _build_rename_map(updated_features=updated_features, existing_features=existing_features)
 
     _validate_existing_features(rename_map, existing_features)
 
@@ -228,7 +210,6 @@ def rename_features_and_save_original(
 
 
 def _build_rename_map(*, updated_features: list = None, existing_features: set):
-
     rename_map: dict[str, str] = {}
     seen_old: set = set()
     seen_new: set = set()
@@ -258,11 +239,8 @@ def _build_rename_map(*, updated_features: list = None, existing_features: set):
 
 
 def _validate_feature(upd: dict, idx: int):
-
     if not isinstance(upd, dict):
-        _raise_value_error(
-            f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}"
-        )
+        _raise_value_error(f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}")
 
     old_name = upd.get(OperatorConstants.OLD_FEATURE, None)
     new_name = upd.get(OperatorConstants.NEW_FEATURE, None)
@@ -288,11 +266,8 @@ def _check_duplicate(
     seen_new: set,
     input_features: Any,
 ):
-
     if old_name in seen_old:
-        _raise_value_error(
-            f"Duplicate mapping for old_feature '{old_name}' at index {idx}"
-        )
+        _raise_value_error(f"Duplicate mapping for old_feature '{old_name}' at index {idx}")
 
     if new_name in seen_new or new_name in seen_old or new_name in input_features:
         _raise_value_error(
@@ -301,7 +276,7 @@ def _check_duplicate(
 
 
 def _validate_existing_features(rename_map: dict[str, str], existing_features: set):
-    missing_old = [old for old in rename_map.keys() if old not in existing_features]
+    missing_old = [old for old in rename_map if old not in existing_features]
     if missing_old:
         error = f"Cannot rename non-existing column(s): {missing_old}"
         logger.error(error, stack_info=True, exc_info=True)
@@ -309,9 +284,7 @@ def _validate_existing_features(rename_map: dict[str, str], existing_features: s
 
 
 def _rename_table(input_table: Table, rename_map: dict[str, str]) -> Table:
-    new_names_ordered = [
-        rename_map.get(name, name) for name in input_table.schema.names
-    ]
+    new_names_ordered = [rename_map.get(name, name) for name in input_table.schema.names]
 
     if len(new_names_ordered) != len(set(new_names_ordered)):
         dup = {name for name in new_names_ordered if new_names_ordered.count(name) > 1}
@@ -324,9 +297,7 @@ def _rename_table(input_table: Table, rename_map: dict[str, str]) -> Table:
 
 
 def _validate_dict_mandatory(rename_map: dict[str, str], input_features: dict):
-    mandatory_features = get_mandatory_features(
-        check_features=list(rename_map.keys()), input_features=input_features
-    )
+    mandatory_features = get_mandatory_features(check_features=list(rename_map.keys()), input_features=input_features)
     if mandatory_features:
         raise FlowValidationException(
             message="Invalid rename attempted",
@@ -361,8 +332,7 @@ def get_mandatory_features(*, check_features: list, input_features: dict):
     mandatory_features = [
         feature
         for feature, value in input_features.items()
-        if feature in check_features
-        and OperatorConstants.MANDATORY in value.get(OperatorConstants.TAGS, [])
+        if feature in check_features and OperatorConstants.MANDATORY in value.get(OperatorConstants.TAGS, [])
     ]
     return mandatory_features
 
@@ -388,9 +358,7 @@ def validate_filter_criteria(*, criteria_list, criteria_json) -> tuple[bool, boo
         - json_valid: Whether criteria_json has valid content (leaf condition or non-empty group with valid criteria)
     """
     # Check if criteria_list has valid non-empty content
-    criteria_valid = isinstance(criteria_list, list) and any(
-        c and c.strip() for c in criteria_list
-    )
+    criteria_valid = isinstance(criteria_list, list) and any(c and c.strip() for c in criteria_list)
 
     # Check if criteria_json has valid content
     json_valid = _validate_criteria_json(criteria_json=criteria_json)
@@ -424,8 +392,7 @@ def _validate_criteria_json(*, criteria_json) -> bool:
         # ALL items must be valid (either leaf conditions or nested groups)
         # Recursively validate each item to match runtime behavior
         return all(
-            isinstance(item, dict) and _validate_criteria_json(criteria_json=item)
-            for item in json_criteria_list
+            isinstance(item, dict) and _validate_criteria_json(criteria_json=item) for item in json_criteria_list
         )
 
     return False

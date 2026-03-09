@@ -1,16 +1,14 @@
 import os
-from datetime import datetime
-
 import shutil
-
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Union, List, Callable, TypeVar, Any
+from datetime import datetime
+from typing import Any, TypeVar
 
-from common.util.log import get_logger
-from common.exceptions.datasift_exceptions import ValidationAlert
-from common.exceptions.datasift_exceptions import ErrorCode
+from common.exceptions.datasift_exceptions import ErrorCode, ValidationAlert
 from common.exceptions.error_messages import ValidationMessage
 from common.util.constants import OperatorConstants
+from common.util.log import get_logger
 
 logger = get_logger()
 
@@ -19,9 +17,7 @@ def get_current_timestamp():
     return round(datetime.now().timestamp())
 
 
-def add_validation_alert(
-    message: Union[str, ValidationMessage], op_def: dict, alerts: List, **kwargs
-):
+def add_validation_alert(message: str | ValidationMessage, op_def: dict, alerts: list, **kwargs):
     """
 
     Parameters
@@ -34,11 +30,7 @@ def add_validation_alert(
     -------
     instance of ValidationAlert model
     """
-    message_obj = (
-        message
-        if isinstance(message, ValidationMessage)
-        else ValidationMessage(message=message)
-    )
+    message_obj = message if isinstance(message, ValidationMessage) else ValidationMessage(message=message)
 
     alerts.append(
         ValidationAlert(
@@ -92,11 +84,11 @@ def _append_result(batch_result, result_extractor, results):
 
 def process_batches_in_parallel(
     *,
-    batches: List[T],
+    batches: list[T],
     worker_fn: Callable[[T], R],
     max_workers: int = OperatorConstants.DEFAULT_MAX_THREADS,
-    result_extractor: Callable[[R], List[Any] | None] | None = None,
-) -> List[Any]:
+    result_extractor: Callable[[R], list[Any] | None] | None = None,
+) -> list[Any]:
     """
     Run a worker function in parallel on batches and merge results.
 
@@ -112,13 +104,10 @@ def process_batches_in_parallel(
         List[Any]: Combined results from all batches.
     """
 
-    results: List[Any] = []
+    results: list[Any] = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_batch = {
-            submit_task_with_context_propagation(executor, worker_fn, batch): batch
-            for batch in batches
-        }
+        future_to_batch = {submit_task_with_context_propagation(executor, worker_fn, batch): batch for batch in batches}
 
         for future in as_completed(future_to_batch):
             try:
@@ -131,9 +120,7 @@ def process_batches_in_parallel(
     return results
 
 
-def run_with_session_info(
-    session_info: Any, func: Callable[..., T], *args: Any, **kwargs: Any
-) -> T:
+def run_with_session_info(session_info: Any, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """
     A utility function that runs a function with the given session_info in the current thread/context.
     This is particularly useful for ThreadPoolExecutor workers to ensure they have the correct session_info.
@@ -157,9 +144,7 @@ def run_with_session_info(
     return func(*args, **kwargs)
 
 
-def submit_task_with_context_propagation(
-    executor: "ThreadPoolExecutor", func: "Callable", *args, **kwargs
-):
+def submit_task_with_context_propagation(executor: "ThreadPoolExecutor", func: "Callable", *args, **kwargs):
     """
     Submit a task to ThreadPoolExecutor with session_info context propagation.
 
@@ -183,9 +168,7 @@ def submit_task_with_context_propagation(
 
     current_session = get_session_info()
 
-    return executor.submit(
-        run_with_session_info, current_session, func, *args, **kwargs
-    )
+    return executor.submit(run_with_session_info, current_session, func, *args, **kwargs)
 
 
 def should_retry_on_result(result, exception):

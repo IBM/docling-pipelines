@@ -1,6 +1,6 @@
 import hashlib
-from typing import Any, Optional
 from logging import Logger
+from typing import Any
 
 import pyarrow as pa
 
@@ -11,7 +11,7 @@ from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # Try to import DocIDTransform from dpk_doc_id
 try:
-    from dpk_doc_id import DocIDTransform, hash_column_name_key, doc_column_name_key
+    from dpk_doc_id import DocIDTransform, doc_column_name_key, hash_column_name_key
 
     HAS_DOC_ID_TRANSFORM: bool = True
 except ImportError:
@@ -65,25 +65,17 @@ class DocIdHashOperator(AbstractOperator):
                 - doc_id_hash_column: Name of the output hash column (default: "doc_id_hash")
         """
         # Set the hash column name and doc column name in config for DocIDTransform
-        config[hash_column_name_key] = config.get(
-            OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
-        )
-        config[doc_column_name_key] = config.get(
-            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
-        )
+        config[hash_column_name_key] = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        config[doc_column_name_key] = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
-        )
-        self.hash_column: str = config.get(
-            OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
-        )
+        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.hash_column: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
 
         # Initialize DocIDTransform if available
         if HAS_DOC_ID_TRANSFORM and DocIDTransform is not None:
-            self._doc_id_transform: Optional[Any] = DocIDTransform(config)
+            self._doc_id_transform: Any | None = DocIDTransform(config)
         else:
-            self._doc_id_transform: Optional[Any] = None
+            self._doc_id_transform: Any | None = None
 
     def get_metadata(self) -> dict[str, Any]:
         return {OperatorConstants.IS_OPERATOR_AVAILABLE: False}
@@ -102,15 +94,11 @@ class DocIdHashOperator(AbstractOperator):
             Tuple of (list of output tables, metadata dictionary)
         """
         total_docs: int = find_doc_count(table=table)
-        metadata: dict[str, Any] = self.create_base_metadata(
-            total_docs_count=total_docs
-        )
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
 
         if self._doc_id_transform is not None:
             # Use DocIDTransform from dpk_doc_id
-            result: tuple[list[pa.Table], dict[str, Any]] = (
-                self._doc_id_transform.transform(table)
-            )
+            result: tuple[list[pa.Table], dict[str, Any]] = self._doc_id_transform.transform(table)
             table = result[0][0]
         else:
             # Fallback: use hashlib.sha256 directly
@@ -118,9 +106,7 @@ class DocIdHashOperator(AbstractOperator):
             if self.doc_column in table.column_names:
                 for content in table[self.doc_column]:
                     content_str: str = content.as_py() if content.as_py() else ""
-                    hash_id: str = hashlib.sha256(
-                        content_str.encode("utf-8")
-                    ).hexdigest()
+                    hash_id: str = hashlib.sha256(content_str.encode("utf-8")).hexdigest()
                     hash_ids.append(hash_id)
             else:
                 logger.warning(
@@ -132,9 +118,7 @@ class DocIdHashOperator(AbstractOperator):
                     hash_ids.append(hash_id)
 
             # Add hash column to table
-            table = TransformUtils.add_column(
-                table=table, name=self.hash_column, content=hash_ids
-            )
+            table = TransformUtils.add_column(table=table, name=self.hash_column, content=hash_ids)
 
         metadata["hashed_rows"] = total_docs
         metadata[Metrics.External.PROCESSED_DOCS] = total_docs

@@ -1,9 +1,11 @@
 import os
 from abc import ABC, abstractmethod
+
 import pyarrow as pa
-import pyarrow.parquet as pq
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 from filelock import FileLock
+
 from common.util.constants import DatasiftConstants
 from common.util.log import get_logger
 
@@ -35,9 +37,7 @@ class BaseParquetTableHandler(ABC):
 
     @property
     def logger(self):
-        return get_logger(
-            f"{DatasiftConstants.LOGGER_NAME} : {self.__class__.__name__.upper()}"
-        )
+        return get_logger(f"{DatasiftConstants.LOGGER_NAME} : {self.__class__.__name__.upper()}")
 
     @abstractmethod
     def read_table(self, *, path, filters=None, columns=None) -> pa.Table | None:
@@ -152,10 +152,7 @@ def main():  # pragma: no cover
     table: pa.Table = CpdParquetTableHandler().read_table(path="")
     from tabulate import tabulate
 
-    print(
-        "Incremental Table : \n "
-        + tabulate(table.to_pandas(), headers="keys", tablefmt="pretty")
-    )
+    print("Incremental Table : \n " + tabulate(table.to_pandas(), headers="keys", tablefmt="pretty"))
     print(table.schema)
     print(table.num_rows)
 

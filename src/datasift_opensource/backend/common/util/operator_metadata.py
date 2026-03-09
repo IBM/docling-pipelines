@@ -1,9 +1,9 @@
 from collections import defaultdict
 
 from common.models.session_info import get_session_info
+from common.util.constants import OperatorConstants, OrchestratorType
 from common.util.log import get_logger
 from core.orchestrator.operator_factory import OperatorFactoryProvider
-from common.util.constants import OrchestratorType, OperatorConstants
 
 logger = get_logger()
 
@@ -17,9 +17,7 @@ class OperatorMetadata:
         refresh_operator_metadata = {}
         config = {}
         failed_operator_list = {}
-        operator_factory = OperatorFactoryProvider.get_operator_factory(
-            orchestrator=OrchestratorType.PYTHON
-        )
+        operator_factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
         logger.info(f"Available Operators: {operator_factory.operators.keys()}")
         for short_name, cls in operator_factory.operators.items():
             try:
@@ -32,8 +30,7 @@ class OperatorMetadata:
                     filtered_features = {
                         k: v
                         for k, v in features.items()
-                        if OperatorConstants.INTERNAL_FEATURE
-                        not in v.get(OperatorConstants.TAGS, [])
+                        if OperatorConstants.INTERNAL_FEATURE not in v.get(OperatorConstants.TAGS, [])
                     }
                     config_values[OperatorConstants.FEATURES] = filtered_features
 
@@ -64,12 +61,9 @@ class OperatorMetadata:
         """
         if (
             self.operator_metadata.get(short_name) is not None
-            and self.operator_metadata.get(short_name).get(OperatorConstants.FEATURES)
-            is not None
+            and self.operator_metadata.get(short_name).get(OperatorConstants.FEATURES) is not None
         ):
-            features: dict = self.operator_metadata.get(short_name).get(
-                OperatorConstants.FEATURES
-            )
+            features: dict = self.operator_metadata.get(short_name).get(OperatorConstants.FEATURES)
             if purpose is None:
                 return {k: v for k, v in features.items()}
             else:
@@ -111,9 +105,7 @@ class OperatorMetadata:
         for short_name in operator_short_names:
             op_features = list(self.get_features(short_name=short_name).keys())
             for feature in op_features:
-                label = self.operator_metadata.get(short_name).get(
-                    OperatorConstants.LABEL, None
-                )
+                label = self.operator_metadata.get(short_name).get(OperatorConstants.LABEL, None)
                 if label:
                     feature_operators_map[feature].append(label)
 
@@ -122,7 +114,6 @@ class OperatorMetadata:
 
 # Only used for unit testing
 def main():  # pragma: no cover
-
     operator = OperatorMetadata()
     operator_items = operator.get_operator_metadata()
     for key, value in operator_items.items():

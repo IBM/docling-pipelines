@@ -1,5 +1,5 @@
 from json import JSONEncoder
-from typing import Dict, Any, Optional, List, Union
+from typing import Any
 
 from common.exceptions.error_codes import ErrorCode
 from common.exceptions.error_messages import ValidationMessage
@@ -35,7 +35,6 @@ class ValidationAlert(dict):
         operator=None,
         **kwargs,
     ):
-
         all_fields = {
             "code": code,
             "message": message,
@@ -58,7 +57,7 @@ class ValidationAlert(dict):
         # Set extra fields as instance attributes with validation
         self._set_extra_attributes(kwargs)
 
-    def _set_extra_attributes(self, kwargs: Dict[str, Any]) -> None:
+    def _set_extra_attributes(self, kwargs: dict[str, Any]) -> None:
         """Set extra fields as instance attributes with basic validation."""
         for key, value in kwargs.items():
             if not isinstance(key, str) or not key.isidentifier():
@@ -66,7 +65,7 @@ class ValidationAlert(dict):
                 continue
             setattr(self, key, value)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Return a copy of the dictionary representation."""
         return dict(self)
 
@@ -78,9 +77,7 @@ class ValidationAlertEncoder(JSONEncoder):
 
 class FlowExecutionFailedException(DatasiftException):
     # Thrown when the given flow or flow definition not found
-    def __init__(
-        self, message: str, status_code: int = 500, errors: list[ValidationAlert] = None
-    ):
+    def __init__(self, message: str, status_code: int = 500, errors: list[ValidationAlert] = None):
         super().__init__(message, status_code)
         self.errors = errors
 
@@ -89,8 +86,8 @@ class FlowValidationException(DatasiftException):
     def __init__(
         self,
         message="Invalid Flow definition",
-        errors: Optional[List[Union[ValidationAlert, ValidationMessage]]] = None,
-        warnings: Optional[List[Union[ValidationAlert, ValidationMessage]]] = None,
+        errors: list[ValidationAlert | ValidationMessage] | None = None,
+        warnings: list[ValidationAlert | ValidationMessage] | None = None,
     ):
         super().__init__(message, 400)
 
@@ -119,8 +116,8 @@ class ValidationException(DatasiftException):
     def __init__(
         self,
         message="Invalid definition",
-        errors: Optional[List[Union[ValidationAlert, ValidationMessage]]] = None,
-        warnings: Optional[List[Union[ValidationAlert, ValidationMessage]]] = None,
+        errors: list[ValidationAlert | ValidationMessage] | None = None,
+        warnings: list[ValidationAlert | ValidationMessage] | None = None,
     ):
         super().__init__(message, 400)
 

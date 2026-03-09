@@ -1,20 +1,21 @@
-from langdetect import detect_langs
-from typing import Any
-import pyarrow as pa
 from logging import Logger
+from typing import Any
 
+import pyarrow as pa
 from data_processing.utils.transform_utils import TransformUtils
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.operator_utils import OperatorUtils
+from langdetect import detect_langs
+
 from common.util.constants import (
-    OperatorConstants,
-    Metrics,
+    AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
-    AttributeDataTypes,
+    Metrics,
+    OperatorConstants,
 )
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
 
 logger: Logger = get_logger()
 
@@ -29,16 +30,12 @@ class LanguageDetect(AbstractOperator):
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-        self.doc_column_name: str = config.get(
-            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
-        )
+        self.doc_column_name: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
-        self.filter_value: bool = config.get(
-            OperatorConstants.FILTER_UNKNOWN_LANGUAGE, False
-        )
+        self.filter_value: bool = config.get(OperatorConstants.FILTER_UNKNOWN_LANGUAGE, False)
 
     def get_metadata(self) -> dict[str, Any]:
         operator_metadata = {
@@ -82,13 +79,9 @@ class LanguageDetect(AbstractOperator):
         Detects all the available language and their respective score in the document
         """
 
-        OperatorUtils.validate_columns(
-            table=table, required=[self.doc_column_name], operator_name=self.short_name
-        )
+        OperatorUtils.validate_columns(table=table, required=[self.doc_column_name], operator_name=self.short_name)
 
-        metadata: dict[str, Any] = self.create_base_metadata(
-            total_docs_count=find_doc_count(table=table)
-        )
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
 
         new_doc_content: list[Any] = table[self.doc_column_name].to_pylist()
         language_name_column: list[str] = []
@@ -97,12 +90,8 @@ class LanguageDetect(AbstractOperator):
         message: str = ""
 
         for idx, doc_content in enumerate(new_doc_content):
-            file_name_list: list[Any] = (
-                table[OperatorConstants.NAME].to_pandas().to_list()
-            )
-            file_name: Any = (
-                file_name_list[idx] if idx < len(file_name_list) else "unknown"
-            )
+            file_name_list: list[Any] = table[OperatorConstants.NAME].to_pandas().to_list()
+            file_name: Any = file_name_list[idx] if idx < len(file_name_list) else "unknown"
             try:
                 language: list[Any] = detect_langs(doc_content)
                 language_name: str
@@ -123,17 +112,13 @@ class LanguageDetect(AbstractOperator):
                         doc_name=str(file_name),
                         reason=f"Filter out based on user selection with error: {getattr(e, 'message', str(e)) if getattr(e, 'message', str(e)) else getattr(e, 'message', repr(e))}",
                     )
-                    metadata[Metrics.External.NODE_STATUS] = (
-                        ExecutionStatus.COMPLETED_WITH_ERRORS.value
-                    )
+                    metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_ERRORS.value
                     if not message:
                         message = "Documents with no language detected are removed from the flow"
                 else:
                     language_name = "UNKNOWN"
                     language_score_val: float = 0.0
-                    metadata[Metrics.External.NODE_STATUS] = (
-                        ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-                    )
+                    metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
                     logger.warning(
                         f"Exception for document {file_name}: {e}",
                         extra=self.common_log_arguments,
@@ -141,9 +126,7 @@ class LanguageDetect(AbstractOperator):
                     language_name_column.append(language_name)
                     language_score_column.append(float(language_score_val))
                     if not message:
-                        message = (
-                            "Documents with no language detected are marked as UNKNOWN"
-                        )
+                        message = "Documents with no language detected are marked as UNKNOWN"
 
         table = remove_rows(table=table, remove_row_idx=remove_row_idx)
 
@@ -163,8 +146,7 @@ class LanguageDetect(AbstractOperator):
         )
 
         metadata[Metrics.External.PROCESSED_DOCS] = (
-            metadata[Metrics.External.TOTAL_DOCS]
-            - metadata[Metrics.External.FAILED_DOCS_COUNT]
+            metadata[Metrics.External.TOTAL_DOCS] - metadata[Metrics.External.FAILED_DOCS_COUNT]
         )
         metadata[Metrics.External.PROCESSED_ROWS] = table.num_rows
 
@@ -200,9 +182,7 @@ def main() -> tuple[list[pa.Table], dict[str, Any]]:
         OperatorConstants.DOC_COLUMN_DEFAULT,
         OperatorConstants.NAME,
     ]
-    input_table: pa.Table = pa.Table.from_arrays(
-        [doc_id, content, name], names=col_names
-    )
+    input_table: pa.Table = pa.Table.from_arrays([doc_id, content, name], names=col_names)
 
     # 3. Run the operator
     table_list: list[pa.Table]

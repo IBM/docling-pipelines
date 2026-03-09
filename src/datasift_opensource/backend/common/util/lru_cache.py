@@ -1,7 +1,9 @@
 import threading
-from cachetools import TTLCache
 import time
-from typing import Any, Hashable, Optional, Iterable
+from collections.abc import Hashable, Iterable
+from typing import Any
+
+from cachetools import TTLCache
 
 from common.util.common_utils import Singleton
 from common.util.log import get_logger
@@ -27,18 +29,14 @@ class LRUCache(metaclass=Singleton):
                 if not isinstance(ttl, int) or ttl < 0:
                     raise ValueError("TTL must be a non-negative integer")
 
-                self._cache: TTLCache = TTLCache(
-                    maxsize=maxsize, ttl=ttl, timer=time.time
-                )
+                self._cache: TTLCache = TTLCache(maxsize=maxsize, ttl=ttl, timer=time.time)
 
                 self._is_initialized = True
-                logger.debug(
-                    f"Initialized {self.__class__.__name__} with size {maxsize} and TTL {ttl}"
-                )
+                logger.debug(f"Initialized {self.__class__.__name__} with size {maxsize} and TTL {ttl}")
             else:
                 logger.warning(f"Cache {self.__class__.__name__} already initialized")
 
-    def get(self, *, cache_key: Hashable) -> Optional[Any]:
+    def get(self, *, cache_key: Hashable) -> Any | None:
         if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 

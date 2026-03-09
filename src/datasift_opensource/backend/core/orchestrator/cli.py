@@ -2,14 +2,11 @@
 
 import argparse
 import sys
-from typing import Optional
 
 
-def main(args: Optional[list[str]] = None) -> int:
+def main(args: list[str] | None = None) -> int:
     """Main CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description="DataSift Orchestrator - Manage backend services"
-    )
+    parser = argparse.ArgumentParser(description="DataSift Orchestrator - Manage backend services")
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 

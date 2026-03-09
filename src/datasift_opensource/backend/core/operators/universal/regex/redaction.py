@@ -43,9 +43,7 @@ class RedactionOperator(AbstractOperator):
         - regex: The pattern or word to be masked/redacted.
         """
         super().__init__(config)
-        self.doc_column = config.get(
-            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
-        )
+        self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
         self.stats_column = config.get(STATS_COLUMN_NAME_KEY, STATS_COLUMN_NAME_DEFAULT)
         self.masking_character = config.get(
             OperatorConstants.REDACTION_MASKING_CHARACTER_KEY, DEFAULT_MASKING_CHARACTER
@@ -106,9 +104,7 @@ class RedactionOperator(AbstractOperator):
 
         if self.should_validate_field(field_value=self.pattern):
             if not self.pattern:
-                warnings.append(
-                    "Redaction pattern is empty. Operator will perform no action."
-                )
+                warnings.append("Redaction pattern is empty. Operator will perform no action.")
                 return
             try:
                 re.compile(self.pattern)
@@ -136,9 +132,7 @@ class RedactionOperator(AbstractOperator):
 
         logger.info("Running transform function.", extra=self.common_log_arguments)
         # Initialize metadata
-        metadata = self.create_base_metadata(
-            total_docs_count=find_doc_count(table=table)
-        )
+        metadata = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
         metadata["total_redactions"] = 0
 
         if self.pattern is None:
@@ -152,9 +146,7 @@ class RedactionOperator(AbstractOperator):
                 ExecutionStatus.COMPLETED_WITH_WARNINGS,
             ).value
             return [table], metadata
-        OperatorUtils.validate_columns(
-            table=table, required=[self.doc_column], operator_name=self.short_name
-        )
+        OperatorUtils.validate_columns(table=table, required=[self.doc_column], operator_name=self.short_name)
 
         logger.info(
             f"Redaction pattern/word: {self.pattern.pattern if self.pattern else None}, Masking Character: {self.masking_character or None}",
@@ -195,7 +187,6 @@ class RedactionOperator(AbstractOperator):
 
 # used for unit testing only
 def main():  # pragma: no cover
-
     # 1. Construct the operators with the required configuration and input parameters
     config = {
         "doc_column": "content",

@@ -1,20 +1,18 @@
 import gc
 import os
-from typing import Optional
+
 import psutil
 import pyarrow as pa
 
-from common.util.constants import DatasiftConstants
 from common.models.session_info import get_session_info
+from common.util.constants import DatasiftConstants
 from common.util.datasift_utils import get_current_timestamp
 from common.util.log import get_logger
 
 logger = get_logger()
 
 
-def log_elapsed_time(
-    *, start_time, operator: Optional[str] = None, actions: Optional[list] = None
-):
+def log_elapsed_time(*, start_time, operator: str | None = None, actions: list | None = None):
     if get_session_info().track_perf:
         elapsed_time = get_current_timestamp() - start_time
         log_message = operator if operator else ""
@@ -120,9 +118,7 @@ def log_memory_usage(
         logger.info(log_fields_str, extra=extra)
 
 
-def cleanup_pyarrow_buffers(
-    operator_name, phase, table, extra, logger
-):  # pragma: no cover # NOSONAR
+def cleanup_pyarrow_buffers(operator_name, phase, table, extra, logger):  # pragma: no cover # NOSONAR
     """
     Cleanup PyArrow buffers and log memory usage.
     Only performs cleanup if get_session_info().track_perf is enabled.

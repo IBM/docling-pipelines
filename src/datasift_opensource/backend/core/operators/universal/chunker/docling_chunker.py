@@ -8,20 +8,20 @@ Based on: https://docling-project.github.io/docling/concepts/chunking/
 
 import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pyarrow as pa
 
 from common.util.constants import (
-    OperatorConstants,
-    Metrics,
+    AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
-    AttributeDataTypes,
+    Metrics,
+    OperatorConstants,
 )
+from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
-from common.util.log import get_logger
 
 # Try to import TransformUtils from data-prep-toolkit-transforms
 try:
@@ -42,8 +42,8 @@ except ImportError:
 
 
 # Import Docling chunking components
-from docling_core.types.doc.document import DoclingDocument
 from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+from docling_core.types.doc.document import DoclingDocument
 
 logger: logging.Logger = get_logger()
 
@@ -63,7 +63,7 @@ class DoclingChunkerOperator(AbstractOperator):
     short_name: str = OperatorConstants.DOCLING_CHUNKER
     category: OperatorCategory = OperatorCategory.Functional
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         """
         Initialize the operator with configuration.
 
@@ -76,24 +76,18 @@ class DoclingChunkerOperator(AbstractOperator):
                 - tokenizer: Tokenizer to use for chunking (default: "sentence-transformers/all-MiniLM-L6-v2")
         """
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
-        )
-        self.chunk_size: int = config.get(
-            OperatorConstants.CHUNK_SIZE, OperatorConstants.CHUNK_SIZE_DEFAULT
-        )
+        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.chunk_size: int = config.get(OperatorConstants.CHUNK_SIZE, OperatorConstants.CHUNK_SIZE_DEFAULT)
         self.chunk_overlap: int = config.get("chunk_overlap", 128)
         self.retain_original_content: bool = config.get("retain_original_content", True)
-        self.tokenizer: str = config.get(
-            "tokenizer", "sentence-transformers/all-MiniLM-L6-v2"
-        )
-        self.common_log_arguments: Dict[str, Any] = {
+        self.tokenizer: str = config.get("tokenizer", "sentence-transformers/all-MiniLM-L6-v2")
+        self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
         # Initialize the HybridChunker
-        self.chunker: Optional[HybridChunker] = None
+        self.chunker: HybridChunker | None = None
         self._initialize_chunker()
 
     def _initialize_chunker(self) -> None:
@@ -104,16 +98,12 @@ class DoclingChunkerOperator(AbstractOperator):
                 max_tokens=self.chunk_size,
                 merge_peers=True,  # Merge chunks at the same hierarchy level
             )
-            logger.info(
-                f"Initialized HybridChunker with tokenizer: {self.tokenizer}, max_tokens: {self.chunk_size}"
-            )
+            logger.info(f"Initialized HybridChunker with tokenizer: {self.tokenizer}, max_tokens: {self.chunk_size}")
         except Exception as e:
-            logger.error(f"Failed to initialize HybridChunker: {str(e)}")
+            logger.error(f"Failed to initialize HybridChunker: {e!s}")
             raise
 
-    def _chunk_document(
-        self, docling_doc_json: str, doc_name: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def _chunk_document(self, docling_doc_json: str, doc_name: str | None = None) -> list[dict[str, Any]]:
         """
         Chunk a single document using Docling's HybridChunker.
 
@@ -136,17 +126,15 @@ class DoclingChunkerOperator(AbstractOperator):
             chunk_iter = self.chunker.chunk(dl_doc=doc)
 
             # Convert chunks to our format
-            chunks: List[Dict[str, Any]] = []
+            chunks: list[dict[str, Any]] = []
             for idx, chunk in enumerate(chunk_iter):
-                chunk_dict: Dict[str, Any] = {
+                chunk_dict: dict[str, Any] = {
                     "chunk": chunk.text,
                     "start_index": getattr(chunk, "start_index", idx * self.chunk_size),
                     "metadata": {
                         "chunk_id": idx,
                         "doc_name": doc_name,
-                        "token_count": len(
-                            chunk.text.split()
-                        ),  # Approximate token count
+                        "token_count": len(chunk.text.split()),  # Approximate token count
                     },
                 }
                 chunks.append(chunk_dict)
@@ -155,14 +143,12 @@ class DoclingChunkerOperator(AbstractOperator):
             return chunks
 
         except Exception as e:
-            logger.error(f"Error chunking document {doc_name}: {str(e)}")
-            logger.debug(f"Exception details: {type(e).__name__}: {str(e)}")
+            logger.error(f"Error chunking document {doc_name}: {e!s}")
+            logger.debug(f"Exception details: {type(e).__name__}: {e!s}")
             # If chunking fails, return empty list (no fallback since we need proper DoclingDocument)
             return []
 
-    def _create_docling_document_from_markdown(
-        self, markdown_content: str, doc_name: Optional[str] = None
-    ) -> str:
+    def _create_docling_document_from_markdown(self, markdown_content: str, doc_name: str | None = None) -> str:
         """
         Create a serialized DoclingDocument from markdown content.
         This is a fallback for when docling_document column is not available.
@@ -181,9 +167,7 @@ class DoclingChunkerOperator(AbstractOperator):
         doc: DoclingDocument = DoclingDocument(name=doc_name or "document")
 
         # Split markdown into paragraphs and add as text items
-        paragraphs: List[str] = [
-            p.strip() for p in markdown_content.split("\n\n") if p.strip()
-        ]
+        paragraphs: list[str] = [p.strip() for p in markdown_content.split("\n\n") if p.strip()]
 
         for para in paragraphs:
             if para:
@@ -193,9 +177,7 @@ class DoclingChunkerOperator(AbstractOperator):
         # Serialize to JSON
         return doc.model_dump_json()
 
-    def _simple_chunk_fallback(
-        self, content: str, doc_name: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def _simple_chunk_fallback(self, content: str, doc_name: str | None = None) -> list[dict[str, Any]]:
         """
         Fallback to simple character-based chunking if Docling chunking fails.
 
@@ -212,7 +194,7 @@ class DoclingChunkerOperator(AbstractOperator):
         chars_per_chunk: int = self.chunk_size * 4
         overlap_chars: int = self.chunk_overlap * 4
 
-        chunks: List[Dict[str, Any]] = []
+        chunks: list[dict[str, Any]] = []
         start: int = 0
         chunk_id: int = 0
 
@@ -248,7 +230,7 @@ class DoclingChunkerOperator(AbstractOperator):
         logger.info(f"Created {len(chunks)} fallback chunks for document: {doc_name}")
         return chunks
 
-    def transform(self, table: pa.Table) -> Tuple[List[pa.Table], Dict[str, Any]]:
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform the input table by chunking document content.
 
@@ -262,9 +244,7 @@ class DoclingChunkerOperator(AbstractOperator):
             Tuple of (list of transformed tables, metadata dictionary)
         """
         # Initialize metadata using base method
-        metadata: Dict[str, Any] = self.create_base_metadata(
-            total_docs_count=table.num_rows
-        )
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
         metadata[Metrics.External.TOTAL_CHUNKS] = 0
 
         if table.num_rows == 0:
@@ -279,17 +259,13 @@ class DoclingChunkerOperator(AbstractOperator):
             return [table], metadata
 
         # Process documents and create chunks
-        chunked_content_list: List[List[Dict[str, Any]]] = []
-        failed_indices: List[int] = []
+        chunked_content_list: list[list[dict[str, Any]]] = []
+        failed_indices: list[int] = []
 
         for idx in range(table.num_rows):
             try:
                 # Get document information
-                doc_name: str = (
-                    table["name"][idx].as_py()
-                    if "name" in table.column_names
-                    else f"doc_{idx}"
-                )
+                doc_name: str = table["name"][idx].as_py() if "name" in table.column_names else f"doc_{idx}"
 
                 # Get markdown content from the content column
                 content: Any = table[self.doc_column][idx].as_py()
@@ -311,15 +287,11 @@ class DoclingChunkerOperator(AbstractOperator):
 
                 # Create DoclingDocument from markdown content and chunk
                 try:
-                    docling_doc_json: str = self._create_docling_document_from_markdown(
-                        content, doc_name
-                    )
-                    chunks: List[Dict[str, Any]] = self._chunk_document(
-                        docling_doc_json, doc_name
-                    )
+                    docling_doc_json: str = self._create_docling_document_from_markdown(content, doc_name)
+                    chunks: list[dict[str, Any]] = self._chunk_document(docling_doc_json, doc_name)
                 except Exception as e:
                     logger.error(
-                        f"Error creating DoclingDocument from markdown for {doc_name}: {str(e)}",
+                        f"Error creating DoclingDocument from markdown for {doc_name}: {e!s}",
                         extra=self.common_log_arguments,
                     )
                     chunked_content_list.append([])
@@ -328,7 +300,7 @@ class DoclingChunkerOperator(AbstractOperator):
                         metadata=metadata,
                         doc_id=str(idx),
                         doc_name=doc_name,
-                        reason=f"Error creating DoclingDocument: {str(e)}",
+                        reason=f"Error creating DoclingDocument: {e!s}",
                     )
                     continue
 
@@ -348,7 +320,7 @@ class DoclingChunkerOperator(AbstractOperator):
 
             except Exception as e:
                 logger.error(
-                    f"Error processing document at index {idx}: {str(e)}",
+                    f"Error processing document at index {idx}: {e!s}",
                     extra=self.common_log_arguments,
                 )
                 chunked_content_list.append([])
@@ -358,20 +330,15 @@ class DoclingChunkerOperator(AbstractOperator):
                     if OperatorConstants.NAME in table.column_names
                     else f"doc_{idx}"
                 )
-                self.record_failed_document(
-                    metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason=str(e)
-                )
+                self.record_failed_document(metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason=str(e))
 
         # Add chunked_content column to table
         if chunked_content_list:
             # Convert list of dicts to JSON strings for PyArrow compatibility
-            chunked_content_json: List[Optional[str]] = [
-                json.dumps(chunks) if chunks else None
-                for chunks in chunked_content_list
+            chunked_content_json: list[str | None] = [
+                json.dumps(chunks) if chunks else None for chunks in chunked_content_list
             ]
-            table = TransformUtils.add_column(
-                table=table, name="chunked_content", content=chunked_content_json
-            )
+            table = TransformUtils.add_column(table=table, name="chunked_content", content=chunked_content_json)
             logger.info(
                 f"Added chunked_content column with {metadata[Metrics.External.TOTAL_CHUNKS]} total chunks",
                 extra=self.common_log_arguments,
@@ -379,10 +346,8 @@ class DoclingChunkerOperator(AbstractOperator):
 
         # Add hash column using DocIdHashOperator
         logger.info("Generating hash IDs for chunks", extra=self.common_log_arguments)
-        hash_operator: DocIdHashOperator = DocIdHashOperator(
-            {OperatorConstants.DOC_COLUMN: self.doc_column}
-        )
-        table_list: List[pa.Table]
+        hash_operator: DocIdHashOperator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: self.doc_column})
+        table_list: list[pa.Table]
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
 
@@ -402,7 +367,7 @@ class DoclingChunkerOperator(AbstractOperator):
 
         return [table], metadata
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         """
         Get metadata about the operator including features and attributes.
         Follows the structure of IngestLocalOperator.get_metadata()
@@ -410,7 +375,7 @@ class DoclingChunkerOperator(AbstractOperator):
         Returns:
             Dictionary containing operator metadata
         """
-        metadata_features: Dict[str, Dict[str, Any]] = {
+        metadata_features: dict[str, dict[str, Any]] = {
             OperatorConstants.CHUNKED_CONTENT: {
                 OperatorConstants.NAME: "Chunked Content",
                 OperatorConstants.DESCRIPTION: "Document content split into semantic chunks",
@@ -500,7 +465,7 @@ def main() -> int:
     logger.info("Step 1: Extracting document content")
     from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
 
-    extract_config: Dict[str, Any] = {
+    extract_config: dict[str, Any] = {
         "doc_column": "content",
         "extract_tables": True,
         "extract_images": True,
@@ -525,8 +490,8 @@ def main() -> int:
     )
 
     # Extract content
-    result_tables: List[pa.Table]
-    extract_metadata: Dict[str, Any]
+    result_tables: list[pa.Table]
+    extract_metadata: dict[str, Any]
     result_tables, extract_metadata = extract_operator.transform(extract_table)
     extracted_table: pa.Table = result_tables[0]
 
@@ -536,7 +501,7 @@ def main() -> int:
     # Step 2: Chunk the extracted content
     logger.info("\nStep 2: Chunking document content")
 
-    chunk_config: Dict[str, Any] = {
+    chunk_config: dict[str, Any] = {
         "doc_column": "content",
         "chunk_size": chunk_size,
         "chunk_overlap": chunk_overlap,
@@ -546,8 +511,8 @@ def main() -> int:
     chunker_operator: DoclingChunkerOperator = DoclingChunkerOperator(chunk_config)
 
     # Chunk the content
-    chunked_tables: List[pa.Table]
-    chunk_metadata: Dict[str, Any]
+    chunked_tables: list[pa.Table]
+    chunk_metadata: dict[str, Any]
     chunked_tables, chunk_metadata = chunker_operator.transform(extracted_table)
     chunked_table: pa.Table = chunked_tables[0]
 
@@ -557,15 +522,15 @@ def main() -> int:
     logger.info(f"Result columns: {chunked_table.column_names}")
 
     if "chunked_content" in chunked_table.column_names:
-        chunked_content: Optional[str] = chunked_table["chunked_content"][0].as_py()
+        chunked_content: str | None = chunked_table["chunked_content"][0].as_py()
         if chunked_content:
-            chunks: List[Dict[str, Any]] = json.loads(chunked_content)
+            chunks: list[dict[str, Any]] = json.loads(chunked_content)
             logger.info(f"\nTotal chunks created: {len(chunks)}")
             logger.info(f"First chunk preview: {chunks[0]['chunk'][:200]}...")
             logger.info(f"First chunk metadata: {chunks[0]['metadata']}")
 
     if "doc_id_hash" in chunked_table.column_names:
-        hash_id: Optional[str] = chunked_table["doc_id_hash"][0].as_py()
+        hash_id: str | None = chunked_table["doc_id_hash"][0].as_py()
         logger.info(f"Document hash: {hash_id}")
 
     return 0

@@ -1,9 +1,11 @@
 # (C) Copyright IBM Corp. 2024.
 from typing import Any
+
 import pyarrow as pa
 import pyarrow.flight
 from data_processing.data_access import DataAccess
 from data_processing.utils import TransformUtils
+
 from common.util.constants import DatasiftConstants
 from common.util.log import get_logger
 
@@ -22,9 +24,7 @@ class DataAccessFlight(DataAccess):
         url = flight_config["url"]
         self.flight_client = pa.flight.connect(url)
         logger.info("Connected to Flight server at %s", url)
-        self.output_folder = TransformUtils.clean_path(
-            flight_config[DatasiftConstants.OUTPUT_FOLDER]
-        )
+        self.output_folder = TransformUtils.clean_path(flight_config[DatasiftConstants.OUTPUT_FOLDER])
         self.checkpoint = checkpoint
         self.tables = {}
 
@@ -63,7 +63,7 @@ class DataAccessFlight(DataAccess):
             reader = self.flight_client.do_get(info.endpoints[0].ticket)
             return pa.Table.from_pandas(reader.read_pandas()), 0
 
-        except (FileNotFoundError, IOError, pa.ArrowException) as e:
+        except (OSError, FileNotFoundError, pa.ArrowException) as e:
             logger.error(f"Error reading table from {path}: {e}")
             return None
 
@@ -91,9 +91,7 @@ class DataAccessFlight(DataAccess):
         # save the table in memory for faster access
         self.tables[path] = table
 
-        writer, _ = self.flight_client.do_put(
-            pa.flight.FlightDescriptor.for_path(path=path), table.schema
-        )
+        writer, _ = self.flight_client.do_put(pa.flight.FlightDescriptor.for_path(path=path), table.schema)
         writer.write_table(table)
         writer.close()
 
@@ -101,7 +99,6 @@ class DataAccessFlight(DataAccess):
 
 
 def main():  # pragma: no cover
-
     # run the server first:
     # python3 src/utils/flight_server.py
 

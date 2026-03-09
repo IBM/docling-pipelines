@@ -1,4 +1,6 @@
-from typing import Any, Optional
+from typing import Any
+
+import pyarrow as pa
 from dpk_ededup import (
     EdedupTransform,
     HashFilter,
@@ -7,18 +9,16 @@ from dpk_ededup import (
     short_name,
 )
 
-import pyarrow as pa
-
 from common.util.constants import (
-    OperatorConstants,
     DatasiftConstants,
-    Metrics,
     ExecutionStatus,
+    Metrics,
+    OperatorConstants,
 )
+from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
-from common.util.log import get_logger
 
 FILTER_KEY: str = "filter"
 
@@ -41,12 +41,8 @@ class EdedupOperator(AbstractOperator):  # pragma: no cover
         Parameters are: {"doc_column": "content", "doc_id_column": "doc_id_hash}
         """
         super().__init__(config)
-        self.doc_column: str = config.get(
-            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
-        )
-        self.doc_id_column: str = config.get(
-            OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
-        )
+        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_id_column: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
         self.filter: HashFilter = config.get(FILTER_KEY, HashFilter({}))
         self.config.update(
             {
@@ -61,16 +57,13 @@ class EdedupOperator(AbstractOperator):  # pragma: no cover
         }
 
     def get_metadata(self) -> dict[str, Any]:
-
         return {
             OperatorConstants.CATEGORY: self.category.value,
             OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
             OperatorConstants.LABEL: "De-duplicator",
         }
 
-    def transform(
-        self, table: pa.Table, file_name: Optional[str] = None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Performs exact deduplication of contents on the ededup_input pyarrow table and generates a list of output pyarrow
         tables and metadata after removing duplicates based on central hashing. It uses Data Prep Toolkit's Exact
@@ -88,26 +81,18 @@ class EdedupOperator(AbstractOperator):  # pragma: no cover
         metadata: dict[str, Any] = {}
         try:
             if table:
-                output_tables, _metadata = ededup_transform.transform(
-                    table=table, file_name=file_name
-                )
+                output_tables, _metadata = ededup_transform.transform(table=table, file_name=file_name)
                 logger.info(
                     ">> Exact Deduplication Successful!!",
                     extra=self.common_log_arguments,
                 )
                 logger.info(f"Metadata : {_metadata}", extra=self.common_log_arguments)
-                metadata = self.create_base_metadata(
-                    total_docs_count=_metadata.get("source_documents")
-                )
-                metadata[Metrics.External.PROCESSED_DOCS] = _metadata.get(
+                metadata = self.create_base_metadata(total_docs_count=_metadata.get("source_documents"))
+                metadata[Metrics.External.PROCESSED_DOCS] = _metadata.get("result_documents")
+                metadata[Metrics.External.SKIPPED_DOCS_COUNT] = _metadata.get("source_documents") - _metadata.get(
                     "result_documents"
                 )
-                metadata[Metrics.External.SKIPPED_DOCS_COUNT] = _metadata.get(
-                    "source_documents"
-                ) - _metadata.get("result_documents")
-                metadata[Metrics.External.REMOVED_DOCUMENTS] = len(
-                    _metadata.get("removed_documents")
-                )
+                metadata[Metrics.External.REMOVED_DOCUMENTS] = len(_metadata.get("removed_documents"))
                 metadata.update(
                     OperatorUtils.find_skipped_docs(
                         input_table=table,

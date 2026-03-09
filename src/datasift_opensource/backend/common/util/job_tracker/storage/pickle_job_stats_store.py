@@ -2,12 +2,13 @@ import json
 import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from filelock import FileLock
+
 from common.util.constants import DatasiftConstants
 from common.util.iceberg_util import get_warehouse_path
-from common.util.job_tracker.model.models import NodeStatsDto, JobStatsDto
+from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.job_tracker.storage.job_stats_store import JobStatsStore
 from common.util.log import get_logger
 
@@ -18,9 +19,7 @@ def _lock_path(path: str) -> str:
     return f"{path}.lock"
 
 
-def _get_job_run_pickle_file(
-    file_path: str, file_lock_needed: bool = False
-) -> dict[str, Any] | None:
+def _get_job_run_pickle_file(file_path: str, file_lock_needed: bool = False) -> dict[str, Any] | None:
     import pickle
 
     path = Path(file_path)
@@ -37,9 +36,7 @@ def _get_job_run_pickle_file(
             return pickle.load(file)
 
 
-def _save_job_run_pickle_file(
-    data: dict[str, Any], json_data: str, file_path: str, file_lock_needed: bool = False
-):
+def _save_job_run_pickle_file(data: dict[str, Any], json_data: str, file_path: str, file_lock_needed: bool = False):
     import pickle
 
     # Ensure parent directory exists
@@ -74,9 +71,7 @@ def _construct_job_run_node_stats_pickle_file_path(job_id: str, job_run_id: str)
 
 
 def _construct_job_run_to_job_id_pickle_file_path():
-    return os.path.join(
-        get_warehouse_path(path=""), PickleJobStatsStore.JOB_RUN_TO_JOB_ID_PICKLE_FILE
-    )
+    return os.path.join(get_warehouse_path(path=""), PickleJobStatsStore.JOB_RUN_TO_JOB_ID_PICKLE_FILE)
 
 
 @lru_cache(maxsize=128)
@@ -86,9 +81,7 @@ def _get_job_id_for_job_run_cache(job_run_id: str):
         file_path=job_run_to_job_id_pickle_file_path
     )
     if job_run_id_to_job_id_map is None:
-        raise ValueError(
-            f"Do not cache: No mapping file found for job_run_id '{job_run_id}'"
-        )
+        raise ValueError(f"Do not cache: No mapping file found for job_run_id '{job_run_id}'")
     job_id = job_run_id_to_job_id_map.get(job_run_id)
 
     common_log_arguments = {
@@ -100,9 +93,7 @@ def _get_job_id_for_job_run_cache(job_run_id: str):
             f"Not found any job_run_id record in the file {job_run_to_job_id_pickle_file_path} in bucket",
             extra=common_log_arguments,
         )
-        raise ValueError(
-            f"Do not cache: No mapping file found for job_run_id '{job_run_id}'"
-        )
+        raise ValueError(f"Do not cache: No mapping file found for job_run_id '{job_run_id}'")
     logger.info(
         f"Successfully Fetched job_id for the job_run_id {job_run_id} job_id is {job_id}",
         extra=common_log_arguments,
@@ -124,7 +115,7 @@ def _get_job_id_for_job_run(job_run_id: str):
         return None
     except Exception as exc:
         logger.error(
-            f"An error occurred while getting job id: {str(exc)}",
+            f"An error occurred while getting job id: {exc!s}",
             exc_info=True,
             stack_info=True,
             extra={DatasiftConstants.JOB_RUN_ID: job_run_id},
@@ -152,9 +143,7 @@ class PickleJobStatsStore(JobStatsStore):
             DatasiftConstants.JOB_RUN_ID: job_run_id,
         }
         try:
-            job_run_to_job_id_pickle_file_path = (
-                _construct_job_run_to_job_id_pickle_file_path()
-            )
+            job_run_to_job_id_pickle_file_path = _construct_job_run_to_job_id_pickle_file_path()
             file_response: dict[str, str] | None = _get_job_run_pickle_file(
                 file_path=job_run_to_job_id_pickle_file_path
             )
@@ -183,7 +172,7 @@ class PickleJobStatsStore(JobStatsStore):
             )
         except Exception as exc:
             logger.error(
-                f"An error occurred while storing job id: {str(exc)}",
+                f"An error occurred while storing job id: {exc!s}",
                 exc_info=True,
                 stack_info=True,
                 extra=common_log_arguments,
@@ -196,12 +185,8 @@ class PickleJobStatsStore(JobStatsStore):
         }
         job_id = job_stats.job_id
         job_run_id = job_stats.job_run_id
-        job_run_pickle_file_path = _construct_job_run_job_stats_pickle_file_path(
-            job_id=job_id, job_run_id=job_run_id
-        )
-        file_response: dict[str, JobStatsDto] | None = _get_job_run_pickle_file(
-            file_path=job_run_pickle_file_path
-        )
+        job_run_pickle_file_path = _construct_job_run_job_stats_pickle_file_path(job_id=job_id, job_run_id=job_run_id)
+        file_response: dict[str, JobStatsDto] | None = _get_job_run_pickle_file(file_path=job_run_pickle_file_path)
         job_run_to_job_stats: dict[str, JobStatsDto] = dict()
 
         if merge:
@@ -211,9 +196,7 @@ class PickleJobStatsStore(JobStatsStore):
                 job_stats = JobStatsStore._roll_up_stats(old_stats, job_stats)
 
         if file_response is None:
-            logger.debug(
-                f"File {job_run_pickle_file_path} not found", extra=common_log_arguments
-            )
+            logger.debug(f"File {job_run_pickle_file_path} not found", extra=common_log_arguments)
         else:
             logger.debug(
                 f"File {job_run_pickle_file_path} successfully found. Updating job stats for job ID {job_id} and job run ID {job_run_id}.",
@@ -234,9 +217,7 @@ class PickleJobStatsStore(JobStatsStore):
         )
 
     def get_job_stats(self, job_run_id: str, cloud_client=None) -> JobStatsDto | None:
-        logger.info(
-            f"Getting job stats from Pickle job stats by job_run_id: {job_run_id}"
-        )
+        logger.info(f"Getting job stats from Pickle job stats by job_run_id: {job_run_id}")
         try:
             job_id = _get_job_id_for_job_run(job_run_id=job_run_id)
             if job_id is None:
@@ -250,54 +231,42 @@ class PickleJobStatsStore(JobStatsStore):
                     DatasiftConstants.JOB_ID: job_id,
                     DatasiftConstants.JOB_RUN_ID: job_run_id,
                 }
-                job_run_pickle_file_path = (
-                    _construct_job_run_job_stats_pickle_file_path(
-                        job_id=job_id, job_run_id=job_run_id
-                    )
+                job_run_pickle_file_path = _construct_job_run_job_stats_pickle_file_path(
+                    job_id=job_id, job_run_id=job_run_id
                 )
-                job_run_job_stats_pickle_file: dict[str, JobStatsDto] | None = (
-                    _get_job_run_pickle_file(file_path=job_run_pickle_file_path)
+                job_run_job_stats_pickle_file: dict[str, JobStatsDto] | None = _get_job_run_pickle_file(
+                    file_path=job_run_pickle_file_path
                 )
                 if job_run_job_stats_pickle_file is None:
                     return None
-                job_stats: JobStatsDto = job_run_job_stats_pickle_file.get(
-                    job_run_id, None
-                )
+                job_stats: JobStatsDto = job_run_job_stats_pickle_file.get(job_run_id, None)
                 if job_stats is None:
                     return None
                 logger.info(
                     f"JobStats for the job run id : {job_run_id} :\n {job_stats}",
                     extra=common_log_arguments,
                 )
-                return (
-                    job_stats
-                    if isinstance(job_stats, JobStatsDto)
-                    else JobStatsDto(**job_stats)
-                )
+                return job_stats if isinstance(job_stats, JobStatsDto) else JobStatsDto(**job_stats)
         except Exception as exc:
             logger.error(
-                f"An error occurred while getting the job stats: {str(exc)}",
+                f"An error occurred while getting the job stats: {exc!s}",
                 exc_info=True,
                 stack_info=True,
                 extra={DatasiftConstants.JOB_RUN_ID: job_run_id},
             )
 
-    def get_node_stats(
-        self, job_id: str, job_run_id: str
-    ) -> dict[str, NodeStatsDto] | None:
+    def get_node_stats(self, job_id: str, job_run_id: str) -> dict[str, NodeStatsDto] | None:
         common_log_arguments = {
             DatasiftConstants.JOB_ID: job_id,
             DatasiftConstants.JOB_RUN_ID: job_run_id,
         }
         try:
             # Get the Pickle file
-            job_run_node_stats_pickle_file_path = (
-                _construct_job_run_node_stats_pickle_file_path(
-                    job_id=job_id, job_run_id=job_run_id
-                )
+            job_run_node_stats_pickle_file_path = _construct_job_run_node_stats_pickle_file_path(
+                job_id=job_id, job_run_id=job_run_id
             )
-            job_run_node_stats_pickle_file: dict[str, NodeStatsDto] = (
-                _get_job_run_pickle_file(file_path=job_run_node_stats_pickle_file_path)
+            job_run_node_stats_pickle_file: dict[str, NodeStatsDto] = _get_job_run_pickle_file(
+                file_path=job_run_node_stats_pickle_file_path
             )
             if job_run_node_stats_pickle_file is None:
                 return None
@@ -305,7 +274,7 @@ class PickleJobStatsStore(JobStatsStore):
             return job_run_node_stats_pickle_file
         except Exception as exc:
             logger.error(
-                f"Error Occurred while Getting the Nodes stats for {job_run_id} from COS Buckets: {str(exc)}",
+                f"Error Occurred while Getting the Nodes stats for {job_run_id} from COS Buckets: {exc!s}",
                 exc_info=True,
                 stack_info=True,
                 extra=common_log_arguments,
@@ -319,18 +288,12 @@ class PickleJobStatsStore(JobStatsStore):
         }
         try:
             if node_stats is None or node_stats.id is None:
-                logger.info(
-                    "Invalid node stat: " + str(node_stats), extra=common_log_arguments
-                )
+                logger.info("Invalid node stat: " + str(node_stats), extra=common_log_arguments)
                 return
-            job_run_node_stats_pickle_file_path = (
-                _construct_job_run_node_stats_pickle_file_path(
-                    job_id=job_id, job_run_id=job_run_id
-                )
+            job_run_node_stats_pickle_file_path = _construct_job_run_node_stats_pickle_file_path(
+                job_id=job_id, job_run_id=job_run_id
             )
-            job_run_pickle_file = _get_job_run_pickle_file(
-                file_path=job_run_node_stats_pickle_file_path
-            )
+            job_run_pickle_file = _get_job_run_pickle_file(file_path=job_run_node_stats_pickle_file_path)
             node_id_to_node_stats: dict[str, NodeStatsDto] = dict()
             if job_run_pickle_file is None:
                 logger.debug(
@@ -345,9 +308,7 @@ class PickleJobStatsStore(JobStatsStore):
                 )
                 node_id_to_node_stats = job_run_pickle_file
             node_id_to_node_stats[node_stats.id] = (
-                node_stats.model_dump()
-                if isinstance(node_stats, NodeStatsDto)
-                else node_stats
+                node_stats.model_dump() if isinstance(node_stats, NodeStatsDto) else node_stats
             )
             json_data = json.dumps(node_id_to_node_stats)
             _save_job_run_pickle_file(
@@ -361,15 +322,13 @@ class PickleJobStatsStore(JobStatsStore):
             )
         except Exception as exc:
             logger.error(
-                f"Error Occurred while Storing the Nodes stats for {job_run_id}: {str(exc)}",
+                f"Error Occurred while Storing the Nodes stats for {job_run_id}: {exc!s}",
                 exc_info=True,
                 stack_info=True,
                 extra=common_log_arguments,
             )
 
-    def atomic_increment_fields(
-        self, *, job_run_id: str, increments: dict, updates: Optional[dict] = None
-    ):
+    def atomic_increment_fields(self, *, job_run_id: str, increments: dict, updates: dict | None = None):
         # Get current stats
         job_stats = self.get_job_stats(job_run_id=job_run_id)
         if job_stats is None:

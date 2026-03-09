@@ -1,24 +1,25 @@
 import copy
 import os
-from queue import Queue
-from typing import Any, Optional, Union
-import pyarrow as pa
+import pprint
 from datetime import datetime
+from queue import Queue
+from typing import Any
+
+import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
-from core.data_access.data_access_utils import DataAccessUtils
-from core.operators.abstract_operator import AbstractOperator
-from core.operators.operator_utils import OperatorUtils
+from common.models.session_info import get_session_info
 from common.util.constants import (
-    OperatorConstants,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
+    OperatorConstants,
 )
 from common.util.log import get_logger
 from common.util.orchestrator_utils import update_deleted_rows
-from common.models.session_info import get_session_info
-import pprint
+from core.data_access.data_access_utils import DataAccessUtils
+from core.operators.abstract_operator import AbstractOperator
+from core.operators.operator_utils import OperatorUtils
 
 logger = get_logger()
 
@@ -44,7 +45,7 @@ class AbstractOperatorExecutor:
     def execute(
         self,
         *,
-        data_access: Optional[Union[DataAccess, dict[str, Union[DataAccess, None]]]],
+        data_access: DataAccess | dict[str, DataAccess | None] | None,
         deleted_rows_list: Queue[pa.Table] = None,
     ) -> tuple[list[DataAccess], dict[str, Any]]:
         input_tables = self._get_input_tables(data_access=data_access)
@@ -69,9 +70,7 @@ class AbstractOperatorExecutor:
         data_accesses = []
         for index, table in enumerate(tables):
             data_access_factory = DataAccessFactory()
-            params_copy = self.safely_deep_copy_params(
-                params=self._params, skip_keys=[]
-            )
+            params_copy = self.safely_deep_copy_params(params=self._params, skip_keys=[])
             # Add node name + index of the branch to the output folder
             DataAccessUtils.add_node_name_to_output_folder(
                 params=params_copy, node_name=f"{params_copy['name']}_{index}"
@@ -99,7 +98,7 @@ class AbstractOperatorExecutor:
         return op.get_metadata()
 
     def _execute_impl(
-        self, tables: Optional[Union[pa.Table, dict[str, pa.Table]]]
+        self, tables: pa.Table | dict[str, pa.Table] | None
     ) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         The concrete subclasses execute the given operator identified by _operator by passing the given tables
@@ -109,8 +108,8 @@ class AbstractOperatorExecutor:
     def _get_input_tables(
         self,
         *,
-        data_access: Union[DataAccess, dict[str, Union[DataAccess, None]], None],
-    ) -> Optional[pa.Table | dict[str, pa.Table]]:
+        data_access: DataAccess | dict[str, DataAccess | None] | None,
+    ) -> pa.Table | dict[str, pa.Table] | None:
         if data_access is None:
             tables = None
         elif isinstance(data_access, DataAccess):
@@ -127,9 +126,7 @@ class AbstractOperatorExecutor:
                 tables[link_name] = table
         return tables
 
-    def set_default_node_stats(
-        self, *, tables: Optional[Union[pa.Table, dict[str, pa.Table]]]
-    ):
+    def set_default_node_stats(self, *, tables: pa.Table | dict[str, pa.Table] | None):
         """Initializes and stores the starting statistics for a node.
 
         This sets the node's status to 'RUNNING' in the job tracker and records
@@ -173,9 +170,9 @@ class AbstractOperatorExecutor:
 
         from common.util.job_tracker.tracker.job_tracker import (
             ExecutionStatus,
+            JobTracker,
             NodeStatsDto,
         )
-        from common.util.job_tracker.tracker.job_tracker import JobTracker
 
         job_stats = JobTracker().get_job(job_run_id=job_run_id)
         existing_node = job_stats.node_stats.get(node_id, {})
@@ -187,34 +184,24 @@ class AbstractOperatorExecutor:
             node_stats = existing_node.copy() if existing_node else {}
         # Update timings and status
         end_time = round(datetime.now().timestamp())
-        start_time = node_stats.get(
-            "start_time", end_time
-        )  # Default to end_time to avoid negative values
+        start_time = node_stats.get("start_time", end_time)  # Default to end_time to avoid negative values
         node_stats["end_time"] = end_time
         node_stats["time_taken"] = end_time - start_time
-        node_stats["node_status"] = metadata.get(
-            Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value
-        )
+        node_stats["node_status"] = metadata.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value)
         node_stats["col_names"] = tables[0].column_names
         # Update document lists and counts
         doc_ids_completed = OperatorUtils.get_unique_ids(tables=tables)
         node_stats["docs_completed"] = doc_ids_completed
         node_stats["docs_completed_count"] = len(doc_ids_completed)
         node_stats["failed_docs"] = [
-            doc.get("id", "")
-            for doc in metadata.get(Metrics.External.FAILED_DOCS, [])
-            if isinstance(doc, dict)
+            doc.get("id", "") for doc in metadata.get(Metrics.External.FAILED_DOCS, []) if isinstance(doc, dict)
         ]
         node_stats["skipped_docs"] = [
-            doc.get("id", "")
-            for doc in metadata.get(Metrics.External.SKIPPED_DOCS, [])
-            if isinstance(doc, dict)
+            doc.get("id", "") for doc in metadata.get(Metrics.External.SKIPPED_DOCS, []) if isinstance(doc, dict)
         ]
         if not node_stats.get("total_docs"):
             node_stats["total_docs"] = (
-                node_stats["docs_completed"]
-                + node_stats["failed_docs"]
-                + node_stats["skipped_docs"]
+                node_stats["docs_completed"] + node_stats["failed_docs"] + node_stats["skipped_docs"]
             )
         logger.info(
             f"Node '{node_id}' stats summary: "
@@ -232,9 +219,7 @@ class AbstractOperatorExecutor:
                 break
 
         # Pass the final, updated dictionary to the update function
-        JobTracker().update_node_stats(
-            job_run_id=job_run_id, node_id=node_id, node_stats=node_stats
-        )
+        JobTracker().update_node_stats(job_run_id=job_run_id, node_id=node_id, node_stats=node_stats)
         logger.info(f"Final stats for node '{node_id}' stored successfully.")
 
     @staticmethod
@@ -278,12 +263,8 @@ class AbstractOperatorExecutor:
             ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
             extra=common_log_arguments,
         )
-        application_id: str = (
-            f" ApplicationId:{os.getenv('JOB_ID')}" if os.getenv("JOB_ID") else ""
-        )
-        op_logger.info(
-            f"OrchestratorType:{str(get_session_info().orchestrator).upper()}{application_id}"
-        )
+        application_id: str = f" ApplicationId:{os.getenv('JOB_ID')}" if os.getenv("JOB_ID") else ""
+        op_logger.info(f"OrchestratorType:{str(get_session_info().orchestrator).upper()}{application_id}")
         op_logger.info("Step ID: %s", node_id, extra=common_log_arguments)
         op_logger.info(
             ">>> Starting execution: Step Name: %s, operator: %s",
@@ -291,13 +272,9 @@ class AbstractOperatorExecutor:
             short_name,
             extra=common_log_arguments,
         )
-        op_logger.info(
-            f"Invoking the `transform` method of operator: '{short_name}'...\n"
-        )
+        op_logger.info(f"Invoking the `transform` method of operator: '{short_name}'...\n")
 
-    def _log_completion(
-        self, *, op_logger, name, time_taken, result, metadata, common_log_arguments
-    ):
+    def _log_completion(self, *, op_logger, name, time_taken, result, metadata, common_log_arguments):
         op_logger.info(
             ">>> Completed execution: %s, time= %.2f seconds",
             name,
@@ -305,9 +282,7 @@ class AbstractOperatorExecutor:
             extra=common_log_arguments,
         )
         if result[0] and result[0][0]:
-            op_logger.info(
-                "Schema:%s", str(result[0][0].schema), extra=common_log_arguments
-            )
+            op_logger.info("Schema:%s", str(result[0][0].schema), extra=common_log_arguments)
         op_logger.info("Operator Metadata:\n%s", pprint.pformat(metadata, indent=2))
         op_logger.info(
             ">>> ================================================================",

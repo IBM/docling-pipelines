@@ -1,6 +1,7 @@
-from typing import List, Optional, Dict
+
 from pydantic import BaseModel, Field
-from common.util.constants import OrchestratorType, ExecutionStatus
+
+from common.util.constants import ExecutionStatus, OrchestratorType
 
 message_pattern = r"^[\x20-\x7E\n\r\t]*$"
 node_status_pattern = r"^[A-Za-z0-9 _\-.]+$"
@@ -18,9 +19,7 @@ def normalize_node_stats_for_dto(job_stats_data: dict) -> dict:
     Returns:
         The same dictionary with normalized node_stats (Pydantic handles conversion to NodeStatsDto)
     """
-    if "node_stats" in job_stats_data and isinstance(
-        job_stats_data["node_stats"], dict
-    ):
+    if "node_stats" in job_stats_data and isinstance(job_stats_data["node_stats"], dict):
         node_stats = job_stats_data["node_stats"]
         # Quick check: if first node already has 'id', assume all nodes are in new format
         if node_stats:
@@ -31,11 +30,7 @@ def normalize_node_stats_for_dto(job_stats_data: dict) -> dict:
 
         # Old format detected, normalize all nodes
         for node_data in node_stats.values():
-            if (
-                isinstance(node_data, dict)
-                and "node_id" in node_data
-                and "id" not in node_data
-            ):
+            if isinstance(node_data, dict) and "node_id" in node_data and "id" not in node_data:
                 node_data["id"] = node_data["node_id"]
     return job_stats_data
 
@@ -67,14 +62,14 @@ class JobStatsDto(BaseModel):
     total_docs: int = 0
     processed_docs: int = 0
     total_pages_processed: int = 0
-    execution_time: Optional[int] = None
+    execution_time: int | None = None
     failed_docs: int = 0
     skipped_docs: int = 0
     deleted_doc_count: int = 0
-    node_stats: Dict[str, "NodeStatsDto"] = {}
+    node_stats: dict[str, "NodeStatsDto"] = {}
     orchestrator: str = OrchestratorType.PYTHON.capitalize()
-    heartbeat_timestamp: Optional[int] = 0
-    flow_id: Optional[str] = ""
+    heartbeat_timestamp: int | None = 0
+    flow_id: str | None = ""
 
     @classmethod
     def create_running_job_stats(
@@ -164,9 +159,7 @@ class NodeStatsDto(BaseModel):
         new_instance.id = model.node_id
         return new_instance
 
-    id: str = Field(
-        title="id", description="ID of the node", min_length=36, max_length=36
-    )
+    id: str = Field(title="id", description="ID of the node", min_length=36, max_length=36)
     name: str = Field(title="name", description="Name of the node")
     node_status: str = Field(
         "Completed",
@@ -186,32 +179,30 @@ class NodeStatsDto(BaseModel):
         title="End Time of the Node Execution",
         description="Epoch timestamp (in seconds) indicating when the node execution ended.",
     )
-    time_taken: int = Field(
-        default=0, title="Time taken", description="Time taken by the node"
-    )
-    col_names: List[str] = Field(
+    time_taken: int = Field(default=0, title="Time taken", description="Time taken by the node")
+    col_names: list[str] = Field(
         default_factory=list,
         title="Column names",
         description="List of column names resulted from the node",
         min_length=0,
         max_length=100,
     )
-    total_docs: Optional[List[str]] = Field(
+    total_docs: list[str] | None = Field(
         default_factory=list,
         title="Total Documents",
         description="List of total documents processed",
     )
-    failed_docs: Optional[List[str]] = Field(
+    failed_docs: list[str] | None = Field(
         default_factory=list,
         title="Failed Documents",
         description="List of failed documents",
     )
-    skipped_docs: Optional[List[str]] = Field(
+    skipped_docs: list[str] | None = Field(
         default_factory=list,
         title="Skipped Documents",
         description="List of skipped documents",
     )
-    docs_completed: Optional[List[str]] = Field(
+    docs_completed: list[str] | None = Field(
         default_factory=list,
         title="Completed Documents",
         description="List of successfully completed documents",
@@ -221,9 +212,7 @@ class NodeStatsDto(BaseModel):
         title="Number of documents processed",
         description="Number of documents processed by the node",
     )
-    node_metadata: Optional[dict] = Field(
-        default=None, title="Node Metadata of the Operator"
-    )
+    node_metadata: dict | None = Field(default=None, title="Node Metadata of the Operator")
     # increasing the max limit of the errors field to 50000 to accommodate larger error messages,
     error: str = Field(
         default="",

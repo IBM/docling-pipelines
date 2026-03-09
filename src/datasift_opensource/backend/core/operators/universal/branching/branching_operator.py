@@ -1,27 +1,28 @@
 import re
-from typing import Any, List, Dict, Tuple, Optional, Set
+from typing import Any
+
 import pyarrow as pa
 import sqlglot
 from sqlglot import expressions as exp
 
+from common.util.constants import (
+    AttributeDataTypes,
+    MemoryLogPhases,
+    Metrics,
+    OperatorConstants,
+)
+from common.util.log import get_logger
+from common.util.operator_utils import (
+    find_doc_count,
+    validate_filter_criteria,
+    validate_link_name,
+)
+from common.util.perf_utils import log_memory_usage
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.filter.sql_filter import (
     SQLFilterOperator,
     extract_columns,
 )
-from common.util.operator_utils import (
-    validate_link_name,
-    find_doc_count,
-    validate_filter_criteria,
-)
-from common.util.log import get_logger
-from common.util.constants import (
-    OperatorConstants,
-    Metrics,
-    AttributeDataTypes,
-    MemoryLogPhases,
-)
-from common.util.perf_utils import log_memory_usage
 
 logger = get_logger()
 
@@ -36,14 +37,12 @@ class BranchingOperator(AbstractOperator):
     short_name: str = OperatorConstants.BRANCHING
     category: OperatorCategory = OperatorCategory.Functional
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-        self._config: Dict[str, Any] = config
-        self.branch_criteria: List[Dict[str, Any]] = config.get("branches", [])
+        self._config: dict[str, Any] = config
+        self.branch_criteria: list[dict[str, Any]] = config.get("branches", [])
 
-    def validate(
-        self, errors: List[str], warnings: List[str], available_features: List[str]
-    ) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         if not self.should_validate_field(field_value=self.branch_criteria):
             return
 
@@ -52,30 +51,22 @@ class BranchingOperator(AbstractOperator):
             return
 
         if len(self.branch_criteria) == 1:
-            warnings.append(
-                "Branching Operator has only one branch. Consider using a Filter Operator instead."
-            )
+            warnings.append("Branching Operator has only one branch. Consider using a Filter Operator instead.")
 
         # Check if this is unconditional branching (all branches have empty criteria_json['criteria_list'])
         is_unconditional_branching: bool = all(
             isinstance(branch.get(OperatorConstants.FILTER_CRITERIA_JSON), dict)
-            and not branch.get(OperatorConstants.FILTER_CRITERIA_JSON, {}).get(
-                "criteria_list", []
-            )
+            and not branch.get(OperatorConstants.FILTER_CRITERIA_JSON, {}).get("criteria_list", [])
             for branch in self.branch_criteria
         )
 
-        invalid_features: Set[str] = set()
-        existing_link_names: Set[str] = set()
+        invalid_features: set[str] = set()
+        existing_link_names: set[str] = set()
         for branch in self.branch_criteria:
-            logical_op: Optional[str] = branch.get("logical_operator")
-            criteria_list: List[str] = branch.get(
-                OperatorConstants.FILTER_CRITERIA_LIST, []
-            )
-            criteria_json: Optional[Dict[str, Any]] = branch.get(
-                OperatorConstants.FILTER_CRITERIA_JSON
-            )
-            link_name: Optional[str] = branch.get(OperatorConstants.LINK_NAME)
+            logical_op: str | None = branch.get("logical_operator")
+            criteria_list: list[str] = branch.get(OperatorConstants.FILTER_CRITERIA_LIST, [])
+            criteria_json: dict[str, Any] | None = branch.get(OperatorConstants.FILTER_CRITERIA_JSON)
+            link_name: str | None = branch.get(OperatorConstants.LINK_NAME)
             validate_link_name(
                 link_name=link_name,
                 existing_link_names=existing_link_names,
@@ -83,21 +74,15 @@ class BranchingOperator(AbstractOperator):
             )
 
             if logical_op and logical_op not in ["AND", "OR"]:
-                errors.append(
-                    f"Invalid logical operator '{logical_op}' in branch. Use 'AND' or 'OR'."
-                )
+                errors.append(f"Invalid logical operator '{logical_op}' in branch. Use 'AND' or 'OR'.")
 
             # Skip criteria validation for unconditional branching
             if is_unconditional_branching:
                 continue
 
             # Validate that branch has at least one valid condition for conditional branching
-            should_validate_criteria: bool = self.should_validate_field(
-                field_value=criteria_list
-            )
-            should_validate_json: bool = self.should_validate_field(
-                field_value=criteria_json
-            )
+            should_validate_criteria: bool = self.should_validate_field(field_value=criteria_list)
+            should_validate_json: bool = self.should_validate_field(field_value=criteria_json)
 
             # Only validate if both fields are not parameterized
             if should_validate_criteria and should_validate_json:
@@ -115,15 +100,13 @@ class BranchingOperator(AbstractOperator):
 
             # validate criteria JSON
             if criteria_json:
-                criteria_columns: Set[str] = extract_columns(criteria_json)
-                invalid_columns: Set[str] = criteria_columns - set(available_features)
+                criteria_columns: set[str] = extract_columns(criteria_json)
+                invalid_columns: set[str] = criteria_columns - set(available_features)
                 invalid_features.update(invalid_columns)
             # validate criteria list
             elif criteria_list:
                 for criteria in criteria_list:
-                    if (
-                        criteria and criteria.strip()
-                    ):  # Only validate non-empty criteria
+                    if criteria and criteria.strip():  # Only validate non-empty criteria
                         self.validate_expression(
                             expr=criteria,
                             available_features=available_features,
@@ -138,7 +121,7 @@ class BranchingOperator(AbstractOperator):
                 f"Invalid features in filter criteria - {', '.join(invalid_features)}. Filter criteria should use only the available features: {', '.join(available_features)}."
             )
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         return {
             OperatorConstants.SDK: True,
             OperatorConstants.CATEGORY: self.category.value,
@@ -161,14 +144,12 @@ class BranchingOperator(AbstractOperator):
         self,
         idx: int,
         filtered_table: pa.Table,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         total_docs: int,
-        skipped_docs: List[Dict[str, Any]],
-        failed_docs: List[Dict[str, Any]],
+        skipped_docs: list[dict[str, Any]],
+        failed_docs: list[dict[str, Any]],
     ) -> None:
-        branch_id: Optional[str] = self.branch_criteria[idx].get(
-            OperatorConstants.LINK_ID
-        )
+        branch_id: str | None = self.branch_criteria[idx].get(OperatorConstants.LINK_ID)
         metadata["branches"][branch_id] = {
             "result_index": idx,
             "docs_filtered": total_docs - filtered_table.num_rows,
@@ -180,9 +161,7 @@ class BranchingOperator(AbstractOperator):
         metadata[Metrics.External.SKIPPED_DOCS] = skipped_docs
         metadata[Metrics.External.FAILED_DOCS] = failed_docs
 
-    def runner(
-        self, table: pa.Table, spark_session: Optional[Any] = None
-    ) -> Tuple[List[pa.Table], Dict[str, Any]]:
+    def runner(self, table: pa.Table, spark_session: Any | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         log_memory_usage(
             operator_name=self.name,
             phase=MemoryLogPhases.TRANSFORM_COMPLETED,
@@ -192,24 +171,22 @@ class BranchingOperator(AbstractOperator):
         )
         total_docs: int = table.num_rows
 
-        metadata: Dict[str, Any] = self.create_base_metadata(
-            total_docs_count=find_doc_count(table=table)
-        )
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
         metadata["branches"] = {}
 
-        filtered_tables: List[pa.Table] = []
-        skipped_docs: List[Dict[str, Any]] = []
-        failed_docs: List[Dict[str, Any]] = []
-        processed_doc_ids: Set[str] = set()
+        filtered_tables: list[pa.Table] = []
+        skipped_docs: list[dict[str, Any]] = []
+        failed_docs: list[dict[str, Any]] = []
+        processed_doc_ids: set[str] = set()
 
         for idx, branch in enumerate(self.branch_criteria):
-            if not branch.get(
-                OperatorConstants.FILTER_CRITERIA_LIST
-            ) and not branch.get(OperatorConstants.FILTER_CRITERIA_JSON):
+            if not branch.get(OperatorConstants.FILTER_CRITERIA_LIST) and not branch.get(
+                OperatorConstants.FILTER_CRITERIA_JSON
+            ):
                 filtered_tables.append(pa.Table.from_batches(table.to_batches()))
                 # Track unique document IDs for unconditional branching
                 if OperatorConstants.ID in table.column_names:
-                    doc_ids: List[str] = table.column(OperatorConstants.ID).to_pylist()
+                    doc_ids: list[str] = table.column(OperatorConstants.ID).to_pylist()
                     processed_doc_ids.update(doc_ids)
                 self._update_metadata(
                     idx=idx,
@@ -221,16 +198,12 @@ class BranchingOperator(AbstractOperator):
                 )
                 continue
 
-            config: Dict[str, Any] = {
-                OperatorConstants.FILTER_CRITERIA_LIST: branch.get(
-                    OperatorConstants.FILTER_CRITERIA_LIST
-                ),
+            config: dict[str, Any] = {
+                OperatorConstants.FILTER_CRITERIA_LIST: branch.get(OperatorConstants.FILTER_CRITERIA_LIST),
                 OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: branch.get(
                     OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY
                 ),
-                OperatorConstants.FILTER_CRITERIA_JSON: branch.get(
-                    OperatorConstants.FILTER_CRITERIA_JSON
-                ),
+                OperatorConstants.FILTER_CRITERIA_JSON: branch.get(OperatorConstants.FILTER_CRITERIA_JSON),
             }
             filter_operator: Any
             if spark_session:
@@ -239,14 +212,12 @@ class BranchingOperator(AbstractOperator):
                 )
 
                 config |= self._config
-                filter_operator = SparkSQLFilterOperator(
-                    config=config, spark_session=spark_session
-                )
+                filter_operator = SparkSQLFilterOperator(config=config, spark_session=spark_session)
             else:
                 filter_operator = SQLFilterOperator(config=config)
 
-            branch_tables: List[pa.Table]
-            metadata_filter_transform: Optional[Dict[str, Any]]
+            branch_tables: list[pa.Table]
+            metadata_filter_transform: dict[str, Any] | None
             branch_tables, metadata_filter_transform = filter_operator.transform(table)
             filtered_table: pa.Table = branch_tables[0]
 
@@ -256,12 +227,8 @@ class BranchingOperator(AbstractOperator):
                 processed_doc_ids.update(doc_ids)
 
             if metadata_filter_transform is not None:
-                skipped_docs = self.get_skipped_doc(
-                    skipped_docs, metadata_filter_transform, idx=idx
-                )
-                failed_docs = self.get_failed_doc(
-                    failed_docs, metadata_filter_transform, idx=idx
-                )
+                skipped_docs = self.get_skipped_doc(skipped_docs, metadata_filter_transform, idx=idx)
+                failed_docs = self.get_failed_doc(failed_docs, metadata_filter_transform, idx=idx)
 
             self._update_metadata(
                 idx=idx,
@@ -289,13 +256,11 @@ class BranchingOperator(AbstractOperator):
 
     @staticmethod
     def get_skipped_doc(
-        skipped_docs: List[Dict[str, Any]],
-        metadata_filter_transform: Dict[str, Any],
+        skipped_docs: list[dict[str, Any]],
+        metadata_filter_transform: dict[str, Any],
         idx: int,
-    ) -> List[Dict[str, Any]]:
-        metadata_skipped: List[Dict[str, Any]] = metadata_filter_transform.get(
-            Metrics.External.SKIPPED_DOCS, []
-        )
+    ) -> list[dict[str, Any]]:
+        metadata_skipped: list[dict[str, Any]] = metadata_filter_transform.get(Metrics.External.SKIPPED_DOCS, [])
 
         if not skipped_docs:
             return metadata_skipped if (metadata_skipped and idx == 0) else []
@@ -303,18 +268,16 @@ class BranchingOperator(AbstractOperator):
         if not metadata_skipped:
             return []
 
-        metadata_ids: Set[str] = {doc["id"] for doc in metadata_skipped}
+        metadata_ids: set[str] = {doc["id"] for doc in metadata_skipped}
         return [doc for doc in skipped_docs if doc["id"] in metadata_ids]
 
     @staticmethod
     def get_failed_doc(
-        failed_docs: List[Dict[str, Any]],
-        metadata_filter_transform: Dict[str, Any],
+        failed_docs: list[dict[str, Any]],
+        metadata_filter_transform: dict[str, Any],
         idx: int,
-    ) -> List[Dict[str, Any]]:
-        metadata_failed: List[Dict[str, Any]] = metadata_filter_transform.get(
-            Metrics.External.FAILED_DOCS, []
-        )
+    ) -> list[dict[str, Any]]:
+        metadata_failed: list[dict[str, Any]] = metadata_filter_transform.get(Metrics.External.FAILED_DOCS, [])
 
         if not failed_docs:
             return metadata_failed if (metadata_failed and idx == 0) else []
@@ -322,23 +285,18 @@ class BranchingOperator(AbstractOperator):
         if not metadata_failed:
             return []
 
-        metadata_ids: Set[str] = {doc["id"] for doc in metadata_failed}
+        metadata_ids: set[str] = {doc["id"] for doc in metadata_failed}
         return [doc for doc in failed_docs if doc["id"] in metadata_ids]
 
-    def transform(
-        self, table: pa.Table, file_name: Optional[str] = None
-    ) -> Tuple[List[pa.Table], Dict[str, Any]]:
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         return self.runner(table=table)
 
-    def validate_expression(
-        self, *, expr: str, available_features: List[str], errors: List[str]
-    ) -> None:
-
+    def validate_expression(self, *, expr: str, available_features: list[str], errors: list[str]) -> None:
         try:
             is_valid: bool
-            columns: List[str]
+            columns: list[str]
             is_valid, columns = self.analyze_where_clause(clause_str=expr)
-            invalid_columns: Set[str] = set(columns) - set(available_features)
+            invalid_columns: set[str] = set(columns) - set(available_features)
             if not is_valid or len(invalid_columns) > 0:
                 if invalid_columns:
                     errors.append(
@@ -349,11 +307,9 @@ class BranchingOperator(AbstractOperator):
                         f"Invalid branching criteria expression: {expr}, Please use valid criteria expression"
                     )
         except Exception as exc:
-            errors.append(
-                f"Unexpected error while validating branching criteria: {expr}, Error: {str(exc)}"
-            )
+            errors.append(f"Unexpected error while validating branching criteria: {expr}, Error: {exc!s}")
 
-    def analyze_where_clause(self, *, clause_str: str) -> Tuple[bool, List[str]]:
+    def analyze_where_clause(self, *, clause_str: str) -> tuple[bool, list[str]]:
         clause_str = clause_str.strip()
         if not clause_str:
             return False, []
@@ -366,22 +322,22 @@ class BranchingOperator(AbstractOperator):
         sql: str = f"SELECT * FROM dummy_table WHERE {clause_str}"
         try:
             parsed: Any = sqlglot.parse_one(sql)
-            where: Optional[Any] = parsed.find(exp.Where)
+            where: Any | None = parsed.find(exp.Where)
             if not where:
                 return False, []
-            columns: List[str] = []
+            columns: list[str] = []
 
             for col in where.find_all(exp.Column):
                 # col.name strips table qualifiers automatically
                 columns.append(col.name)
             # Remove duplicates while preserving order
-            unique_cols: List[str] = []
+            unique_cols: list[str] = []
             for c in columns:
                 if c not in unique_cols and self._is_valid_column_name(c):
                     unique_cols.append(c)
             return True, unique_cols
         except Exception as e:
-            logger.error(f"Error while parsing sql statement: {str(e)}")
+            logger.error(f"Error while parsing sql statement: {e!s}")
             return False, []
 
     def _is_valid_column_name(self, column_name: str) -> bool:

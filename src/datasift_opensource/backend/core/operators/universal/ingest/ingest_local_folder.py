@@ -1,20 +1,21 @@
 import os
-from typing import Any, Optional
+from typing import Any
+
 import pyarrow as pa
 
-from common.util.incremental_update_util import IncrementalUpdateUtil
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from common.util.constants import (
-    OperatorConstants,
-    Metrics,
+    AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
-    AttributeDataTypes,
+    Metrics,
+    OperatorConstants,
 )
+from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.log import get_logger
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.ingest.ingest_utils import (
-    get_filter_extensions,
     filter_based_on_extension,
+    get_filter_extensions,
     is_doc_previously_processed,
 )
 
@@ -68,18 +69,10 @@ class IngestLocalOperator(AbstractOperator):
         super().__init__(config)
         self.input_folder: str = config.get(INPUT_FOLDER_NAME_KEY, "../test-data/input")
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
-        self.max_file_size: int = MB * config.get(
-            MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE
-        )
-        self.included_extensions: Optional[list[str]] = get_filter_extensions(
-            config.get(INCLUDE_FILTER_KEY, None)
-        )
-        self.excluded_extensions: Optional[list[str]] = get_filter_extensions(
-            config.get(EXCLUDE_FILTER_KEY, None)
-        )
-        self.doc_id_hash: str = config.get(
-            OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
-        )
+        self.max_file_size: int = MB * config.get(MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE)
+        self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
+        self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
+        self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
@@ -94,11 +87,9 @@ class IngestLocalOperator(AbstractOperator):
         self.store_binary_content: bool = config.get("store_binary_content", True)
 
         # Will be initialized in transform method
-        self.previously_processed_docs_dict: Optional[dict[str, Any]] = None
+        self.previously_processed_docs_dict: dict[str, Any] | None = None
 
-    def transform(
-        self, table: Optional[pa.Table]
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Operator-specific logic to convert one input Table to 0 or more output tables.
         In this case, crawl through the given folder, find all the files matchng the
@@ -109,9 +100,7 @@ class IngestLocalOperator(AbstractOperator):
         incremental_update_util: IncrementalUpdateUtil = IncrementalUpdateUtil()
         # get all previously processed doc IDs with modification time
         self.previously_processed_docs_dict = (
-            None
-            if self.force_ingest
-            else incremental_update_util.get_all_processed_docs(job_id=self.context_id)
+            None if self.force_ingest else incremental_update_util.get_all_processed_docs(job_id=self.context_id)
         )
 
         doc_data: list[dict[str, Any]]
@@ -138,9 +127,7 @@ class IngestLocalOperator(AbstractOperator):
         metadata[Metrics.External.NODE_STATUS] = node_status
         return [table], metadata
 
-    def process_files(
-        self, root_folder: str
-    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    def process_files(self, root_folder: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         data: list[dict[str, Any]] = []
         file_count: int = 0
         processed_count: int = 0
@@ -158,13 +145,9 @@ class IngestLocalOperator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
             elif files:
-                logger.info(
-                    ">>> %s/%s", root, files[0], extra=self.common_log_arguments
-                )
+                logger.info(">>> %s/%s", root, files[0], extra=self.common_log_arguments)
             elif dirs:
-                logger.info(
-                    "No files found in: %s", root, extra=self.common_log_arguments
-                )
+                logger.info("No files found in: %s", root, extra=self.common_log_arguments)
             else:
                 logger.info(
                     "No files or subdirectories found in: %s",
@@ -174,9 +157,7 @@ class IngestLocalOperator(AbstractOperator):
 
             for file in files:
                 file_count += 1
-                doc: Optional[dict[str, Any]] = self.process_file(
-                    root, file, metadata, file_count
-                )
+                doc: dict[str, Any] | None = self.process_file(root, file, metadata, file_count)
                 if doc:
                     processed_count += 1
                     data.append(doc)
@@ -187,9 +168,7 @@ class IngestLocalOperator(AbstractOperator):
 
         return data, metadata
 
-    def process_file(
-        self, root: str, file: str, metadata: dict[str, Any], file_count: int
-    ) -> Optional[dict[str, Any]]:
+    def process_file(self, root: str, file: str, metadata: dict[str, Any], file_count: int) -> dict[str, Any] | None:
         abs_path: str = os.path.join(root, file)
         stats: os.stat_result = os.stat(abs_path)
         if not self.check_constraints(
@@ -283,7 +262,7 @@ class IngestLocalOperator(AbstractOperator):
                 metadata=metadata,
                 doc_id=str(file_stats.st_ino),
                 doc_name=file_abs_path,
-                reason=f"Couldn't read the file {file_abs_path} due to {str(exc)}",
+                reason=f"Couldn't read the file {file_abs_path} due to {exc!s}",
             )
             return False
 
@@ -322,9 +301,7 @@ class IngestLocalOperator(AbstractOperator):
             )
             return False
 
-        elif filter_based_on_extension(
-            file, self.excluded_extensions, self.included_extensions
-        ):
+        elif filter_based_on_extension(file, self.excluded_extensions, self.included_extensions):
             logger.info(
                 f">>> Skipping based on Filter : {file}",
                 extra=self.common_log_arguments,
@@ -421,7 +398,6 @@ class IngestLocalOperator(AbstractOperator):
 
 # used for unit testing only
 def main() -> None:  # pragma: no cover
-
     # 1. Construct the operators with the required configuration and input parameters
     operator: IngestLocalOperator = IngestLocalOperator(
         {
@@ -433,7 +409,7 @@ def main() -> None:  # pragma: no cover
     print(operator)
 
     # 2. Create an in-memory py-arrow table, as the input
-    input_table: Optional[pa.Table] = None
+    input_table: pa.Table | None = None
 
     # 3. Run the operators
     table_list: list[pa.Table]

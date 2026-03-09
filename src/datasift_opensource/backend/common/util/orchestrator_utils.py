@@ -1,9 +1,8 @@
-import os
 import json
+import os
 import shutil
 import tempfile
 from queue import Queue
-from typing import Optional
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -15,15 +14,9 @@ from common.util.log import get_logger
 PREFECT_HOME_PREFIX = "prefect_"
 PREFECT_HOME = "PREFECT_HOME"
 PREFECT_API_DATABASE_CONNECTION_URL = "PREFECT_API_DATABASE_CONNECTION_URL"
-PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED = (
-    "PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED"
-)
-PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY = (
-    "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY"
-)
-PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS = (
-    "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS"
-)
+PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED = "PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED"
+PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY = "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY"
+PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS = "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS"
 # Set to "true" to use SQLite with persistent storage and the default Prefect home directory.
 # Allows accessing Prefect dashboard for flows review.
 PREFECT_DEBUG = "PREFECT_DEBUG"
@@ -59,9 +52,7 @@ def create_log_folders(job_id, job_run_id, type):
     log_app_location = DatasiftConstants.UDP_LOGS
 
     log_job_folder_name = job_id
-    log_job_location = os.path.join(
-        log_location_path, log_app_location, log_job_folder_name, str(job_run_id)
-    )
+    log_job_location = os.path.join(log_location_path, log_app_location, log_job_folder_name, str(job_run_id))
     os.makedirs(log_job_location, exist_ok=True)
     if type == "job":
         log_job_run_file_name = "job_stats.json"
@@ -137,7 +128,7 @@ def _safe_rmtree(path: str, prefix: str = None) -> bool:
 def align_table_schema(table: pa.Table, all_cols: dict) -> pa.Table:
     logger = get_logger()
     try:
-        for col in all_cols.keys():
+        for col in all_cols:
             if col not in table.column_names:
                 values = pa.array(pa.nulls(table.num_rows), type=all_cols[col])
                 table = table.append_column(col, values)
@@ -168,9 +159,7 @@ def combine_cumulative_deleted_rows(deleted_rows: Queue[pa.Table]) -> pa.Table:
 
         # Concatenate aligned tables
         combined = pa.concat_tables(aligned_tables, promote=True)
-        logger.info(
-            f"Combined cumulative deleted rows: {combined.num_rows} rows, {len(all_cols)} columns."
-        )
+        logger.info(f"Combined cumulative deleted rows: {combined.num_rows} rows, {len(all_cols)} columns.")
         return combined
 
     except Exception as e:
@@ -179,7 +168,7 @@ def combine_cumulative_deleted_rows(deleted_rows: Queue[pa.Table]) -> pa.Table:
 
 
 # Helper: Combine multiple tables safely
-def _combine_tables(tables: list[pa.Table], table_type: str) -> Optional[pa.Table]:
+def _combine_tables(tables: list[pa.Table], table_type: str) -> pa.Table | None:
     logger = get_logger()
     if not tables:
         return None
@@ -190,9 +179,7 @@ def _combine_tables(tables: list[pa.Table], table_type: str) -> Optional[pa.Tabl
             unique_ids = pc.count_distinct(combined[OperatorConstants.ID]).as_py()
             total_rows = combined.num_rows
             if unique_ids < total_rows:
-                logger.warning(
-                    f"{table_type} contains {total_rows - unique_ids} duplicate IDs."
-                )
+                logger.warning(f"{table_type} contains {total_rows - unique_ids} duplicate IDs.")
         return combined
     except Exception as e:
         logger.warning(f"[WARN] Failed to combine {table_type}: {e}")
@@ -200,7 +187,7 @@ def _combine_tables(tables: list[pa.Table], table_type: str) -> Optional[pa.Tabl
 
 
 def _total_rows(
-    tables: Optional[pa.Table | dict[str, pa.Table] | list[pa.Table]],
+    tables: pa.Table | dict[str, pa.Table] | list[pa.Table] | None,
 ) -> int:
     """Returns total rows from pa.Table, list, or dict of pa.Table."""
     if isinstance(tables, pa.Table):
@@ -213,7 +200,7 @@ def _total_rows(
 
 
 def update_deleted_rows(
-    prev_tables: Optional[pa.Table | dict[str, pa.Table] | list[pa.Table]],
+    prev_tables: pa.Table | dict[str, pa.Table] | list[pa.Table] | None,
     current_tables: list[pa.Table],
     skip_columns: list[str],
     op,
@@ -252,9 +239,7 @@ def update_deleted_rows(
 
     # ---- Combine previous + current ----
     if isinstance(prev_tables, dict):
-        previous_combined = _combine_tables(
-            list(prev_tables.values()), "previous tables"
-        )
+        previous_combined = _combine_tables(list(prev_tables.values()), "previous tables")
     elif isinstance(prev_tables, list):
         previous_combined = _combine_tables(prev_tables, "previous tables")
     else:
@@ -316,6 +301,4 @@ def construct_deleted_rows_table_path(*, job_id: str, job_run_id):
     # table_name = "deleted_rows_table"
     metadata_path = "/unprocessed_docs"
     parquet_file_name = "unprocessed_docs.parquet"
-    return os.path.join(
-        get_warehouse_path(path=metadata_path), job_id, job_run_id, parquet_file_name
-    )
+    return os.path.join(get_warehouse_path(path=metadata_path), job_id, job_run_id, parquet_file_name)

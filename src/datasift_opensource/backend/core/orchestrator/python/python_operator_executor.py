@@ -1,40 +1,39 @@
-import pyarrow as pa
-from typing import Any, Optional, Union
 import copy
+from typing import Any
 
+import pyarrow as pa
 from data_processing.data_access import DataAccessFactory
-from core.operators.abstract_operator import AbstractOperator
-from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
-from core.orchestrator.operator_factory import OperatorFactoryProvider
+
 from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_messages import ValidationCodeMessages
 from common.util.constants import (
-    OrchestratorType,
-    OperatorConstants,
     DatasiftConstants,
     MemoryLogPhases,
+    OperatorConstants,
+    OrchestratorType,
 )
 from common.util.log import get_logger
-from common.util.perf_utils import log_memory_usage, cleanup_pyarrow_buffers
 from common.util.operator_utils import (
+    drop_features_from_table,
     remove_internal_metrics_from_metadata,
     rename_features_and_save_original,
 )
-from common.util.operator_utils import drop_features_from_table
-from common.exceptions.error_messages import ValidationCodeMessages
+from common.util.perf_utils import cleanup_pyarrow_buffers, log_memory_usage
+from core.operators.abstract_operator import AbstractOperator
+from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
+from core.orchestrator.operator_factory import OperatorFactoryProvider
 
 logger = get_logger()
 
 
 class PythonOperatorExecutor(AbstractOperatorExecutor):
-    operator_factory = OperatorFactoryProvider.get_operator_factory(
-        orchestrator=OrchestratorType.PYTHON
-    )
+    operator_factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
 
     def __init__(self, name: str, operator: str, params: dict):
         super().__init__(name, operator, params)
 
     def _execute_impl(
-        self, tables: Optional[Union[pa.Table, dict[str, pa.Table]]]
+        self, tables: pa.Table | dict[str, pa.Table] | None
     ) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Executes the operator logic with support for pipeline branching.
@@ -85,16 +84,12 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             )
             self.set_default_node_stats(tables=tables)
             if isinstance(tables, dict):
-                logger.info(
-                    f"Invoking the transform_merge method of the {op.short_name} operator..."
-                )
+                logger.info(f"Invoking the transform_merge method of the {op.short_name} operator...")
                 result = op.transform_merge(tables)
             else:
                 result = op.transform(tables)
                 if len(op.output_features_to_drop) > 0:
-                    result[0][0] = drop_features_from_table(
-                        op.output_features_to_drop, result[0][0]
-                    )
+                    result[0][0] = drop_features_from_table(op.output_features_to_drop, result[0][0])
                 if len(op.updated_features) > 0:
                     result[0][0] = rename_features_and_save_original(
                         updated_features=op.updated_features,
@@ -130,11 +125,11 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
 
         # add transaction id in node_logs shown to user only if any error occurs.
         op_logger.error(
-            f"Error during transformation in node id: {node_id} transaction_ID: {str(get_session_info().transaction_id)}"
+            f"Error during transformation in node id: {node_id} transaction_ID: {get_session_info().transaction_id!s}"
         )
         # add trace info to console logs
         logger.error(
-            f"Error during transformation in node id: {node_id}: {str(exception)}",
+            f"Error during transformation in node id: {node_id}: {exception!s}",
             stack_info=True,
             exc_info=True,
         )
@@ -143,15 +138,12 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         operator_factory = PythonOperatorExecutor.operator_factory
         clazz = operator_factory.get_operator(operator_name=self._operator)
         if clazz is None:
-            raise DatasiftException(
-                f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}"
-            )
+            raise DatasiftException(f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}")
         return clazz(config=self._params)
 
 
 # used for unit testing only
 def main():  # pragma: no cover
-
     op_def = {
         "name": "regex",
         "operator": "regex_annotator",
@@ -162,9 +154,7 @@ def main():  # pragma: no cover
         },
     }
 
-    executor = PythonOperatorExecutor(
-        name=op_def["name"], operator=op_def["operator"], params=op_def["config"]
-    )
+    executor = PythonOperatorExecutor(name=op_def["name"], operator=op_def["operator"], params=op_def["config"])
     print("\n\n>>> Starting execution...")
     content = pa.array(
         [

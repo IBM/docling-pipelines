@@ -3,22 +3,22 @@ This module defines the JobTracker, a central Singleton class responsible for ma
 the lifecycle, state, and statistics of data processing jobs within the application.
 """
 
-import os
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any, Counter
-
 import itertools
+import os
+from collections import Counter
+from datetime import UTC, datetime
+from typing import Any
 
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.models.session_info import get_session_info, update_session_info
 from common.util.common_utils import Singleton
 from common.util.constants import (
-    DatasiftConstants,
-    Metrics,
-    OrchestratorType,
-    ExecutionStatus,
-    OperatorConstants,
     COMPLETED_JOB_STATUSES,
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+    OperatorConstants,
+    OrchestratorType,
 )
 from common.util.datasift_utils import delete_folders
 from common.util.iceberg_util import get_warehouse_path
@@ -29,9 +29,7 @@ from common.util.log import get_logger
 logger = get_logger()
 
 
-def _mark_failed_documents(
-    *, job_stats: JobStatsDto, final_docs_status: dict[str, str]
-):
+def _mark_failed_documents(*, job_stats: JobStatsDto, final_docs_status: dict[str, str]):
     """
     Marks documents as 'Failed' if they appear in any node's failed_docs list.
 
@@ -46,9 +44,7 @@ def _mark_failed_documents(
             logger.debug(f"Document {doc_id} marked as FAILED from node {node_id}")
 
 
-def _identify_ingest_and_destination_nodes(
-    *, dag_nodes: list[dict[str, Any]]
-) -> tuple[str, list[str]]:
+def _identify_ingest_and_destination_nodes(*, dag_nodes: list[dict[str, Any]]) -> tuple[str, list[str]]:
     """
     Identifies the ingest node and destination nodes in the DAG.
 
@@ -94,14 +90,10 @@ def _mark_completed_documents(
         for doc_id in node_stat.docs_completed or []:
             if doc_id not in final_docs_status:
                 final_docs_status[doc_id] = ExecutionStatus.COMPLETED.value
-                logger.debug(
-                    f"Document {doc_id} marked as COMPLETED from node {node_id}"
-                )
+                logger.debug(f"Document {doc_id} marked as COMPLETED from node {node_id}")
 
 
-def _mark_skipped_documents(
-    *, job_stats: JobStatsDto, ingest_node_id: str, final_docs_status: dict[str, str]
-):
+def _mark_skipped_documents(*, job_stats: JobStatsDto, ingest_node_id: str, final_docs_status: dict[str, str]):
     """
     Marks documents as 'Skipped' if they were part of the run but not marked as 'Failed' or 'Completed'.
 
@@ -119,9 +111,7 @@ def _mark_skipped_documents(
             logger.debug(f"Document {doc_id} marked as SKIPPED")
 
 
-def _update_job_stats_counts(
-    *, job_stats: JobStatsDto, final_docs_status: dict[str, str]
-):
+def _update_job_stats_counts(*, job_stats: JobStatsDto, final_docs_status: dict[str, str]):
     """
     Updates the processed, failed, and skipped document counts in job_stats.
 
@@ -147,9 +137,7 @@ def _log_inconsistencies(*, job_stats: JobStatsDto):
         job_stats (JobStatsDto): Job statistics object to validate.
     """
     total = job_stats.total_docs
-    sum_parts = (
-        job_stats.processed_docs + job_stats.failed_docs + job_stats.skipped_docs
-    )
+    sum_parts = job_stats.processed_docs + job_stats.failed_docs + job_stats.skipped_docs
     if total != sum_parts:
         logger.error(
             f"Total number of docs {total} does not match the sum of processed ({job_stats.processed_docs}), "
@@ -174,15 +162,13 @@ class JobTracker(metaclass=Singleton):
         next(self.next_job_id)  # Initialize the counter to start from 1.
 
         # In-memory cache for JobStatsDto objects, keyed by job_run_id.
-        self.all_jobs: Dict[str, JobStatsDto] = {}
+        self.all_jobs: dict[str, JobStatsDto] = {}
 
         # Internal mapping of a job_run_id to its active orchestrator instance.
         # This is necessary for operations like cancellation.
         self.__jobs_to_orchestrator = {}
 
-    def get_job(
-        self, job_run_id: str = None, use_local_cache: bool = False
-    ) -> Optional[JobStatsDto]:
+    def get_job(self, job_run_id: str = None, use_local_cache: bool = False) -> JobStatsDto | None:
         """
         Retrieves job statistics for a given job_run_id.
 
@@ -205,9 +191,7 @@ class JobTracker(metaclass=Singleton):
             return in_memory_job_stats
 
         job_stats_store: JobStatsStore = JobStatsStore.get_job_stats_store()
-        job_run_stats: JobStatsDto = job_stats_store.get_job_stats(
-            job_run_id=job_run_id
-        )
+        job_run_stats: JobStatsDto = job_stats_store.get_job_stats(job_run_id=job_run_id)
         if job_run_stats is None:
             return None
 
@@ -245,9 +229,7 @@ class JobTracker(metaclass=Singleton):
 
         # If the job is already marked for cancellation, finalize the process.
         if ExecutionStatus(job_stats.status) == ExecutionStatus.CANCELING:
-            self.end_job(
-                job_run_id, status=ExecutionStatus.CANCELED, message="Job run Canceled"
-            )
+            self.end_job(job_run_id, status=ExecutionStatus.CANCELED, message="Job run Canceled")
             return True
         else:
             return False
@@ -312,15 +294,11 @@ class JobTracker(metaclass=Singleton):
             updates["total_docs"] = metadata[Metrics.External.TOTAL_DOCS]
 
         if Metrics.External.TOTAL_PAGES_CONVERTED in metadata:
-            increments["total_pages_processed"] = metadata[
-                Metrics.External.TOTAL_PAGES_CONVERTED
-            ]
-            updates["execution_time"] = int(datetime.now(timezone.utc).timestamp())
+            increments["total_pages_processed"] = metadata[Metrics.External.TOTAL_PAGES_CONVERTED]
+            updates["execution_time"] = int(datetime.now(UTC).timestamp())
 
         if Metrics.External.DELETED_DOC_COUNT in metadata:
-            increments["deleted_doc_count"] = metadata[
-                Metrics.External.DELETED_DOC_COUNT
-            ]
+            increments["deleted_doc_count"] = metadata[Metrics.External.DELETED_DOC_COUNT]
 
         # Only proceed if at least one metric was updated
         if not increments and not updates:
@@ -378,9 +356,7 @@ class JobTracker(metaclass=Singleton):
             node_metadata=target_node_stats.get("node_metadata", {}),
             error=str(target_node_stats.get("error", "")),
         )
-        JobStatsStore.get_job_stats_store().store_node_stats(
-            stat.job_id, job_run_id, data
-        )
+        JobStatsStore.get_job_stats_store().store_node_stats(stat.job_id, job_run_id, data)
         logger.info(
             f"Node stats added for the job, job_run_id: {job_run_id}, node_id: {node_id}",
             extra={
@@ -398,20 +374,12 @@ class JobTracker(metaclass=Singleton):
         node_stats_path = DatasiftConstants.NODE_STATS_PATH
         stat = self.get_job(job_run_id=job_run_id)
         if not stat:
-            raise DatasiftException(
-                f"Could not find stats for job run ID: {job_run_id}", 400
-            )
+            raise DatasiftException(f"Could not find stats for job run ID: {job_run_id}", 400)
         job_id = stat.job_id
-        log_final_path = os.path.join(
-            log_location_path, log_app_location, job_id, job_run_id
-        )
+        log_final_path = os.path.join(log_location_path, log_app_location, job_id, job_run_id)
         data_job_id = os.path.join(log_location_path, job_id, job_run_id)
-        job_stats = os.path.join(
-            get_warehouse_path(path=""), jobs_stats_path, job_id, job_run_id
-        )
-        node_stats = os.path.join(
-            get_warehouse_path(path=""), node_stats_path, job_id, job_run_id
-        )
+        job_stats = os.path.join(get_warehouse_path(path=""), jobs_stats_path, job_id, job_run_id)
+        node_stats = os.path.join(get_warehouse_path(path=""), node_stats_path, job_id, job_run_id)
         del_folders = [log_final_path, data_job_id, job_stats, node_stats]
         delete_folders(paths_list=del_folders)
         return "Job run details deleted"
@@ -498,9 +466,7 @@ class JobTracker(metaclass=Singleton):
                 return persistent_store_stat
             # Handle any unexpected states.
             case _:
-                raise DatasiftException(
-                    f"Job run is in invalid status: {persistent_store_stat.status}", 400
-                )
+                raise DatasiftException(f"Job run is in invalid status: {persistent_store_stat.status}", 400)
 
         persistent_store_stat.heartbeat_timestamp = round(datetime.now().timestamp())
         persistent_store_stat.flow_id = session_info.flow_id
@@ -551,9 +517,7 @@ class JobTracker(metaclass=Singleton):
 
         self.all_jobs[job_run_id] = stat
         self.store_job_stats(stat)
-        logger.warning(
-            f"Job ended, job_run_id: {job_run_id}", extra=common_log_arguments
-        )
+        logger.warning(f"Job ended, job_run_id: {job_run_id}", extra=common_log_arguments)
 
     def is_job_run_complete(self, job_run_id: str) -> bool:
         """
@@ -568,9 +532,7 @@ class JobTracker(metaclass=Singleton):
 
         return job_stats.status in COMPLETED_JOB_STATUSES
 
-    def determine_and_update_final_documents_count(
-        self, *, job_stats: JobStatsDto, dag_nodes: list[dict[str, Any]]
-    ):
+    def determine_and_update_final_documents_count(self, *, job_stats: JobStatsDto, dag_nodes: list[dict[str, Any]]):
         """
         Determines the final status of each document in a DAG flow and updates job statistics.
 
@@ -586,15 +548,11 @@ class JobTracker(metaclass=Singleton):
             job_stats (JobStatsDto): Object containing job metadata and node-level statistics.
             dag_nodes (list[dict]): List of DAG nodes with input/output edges.
         """
-        logger.info(
-            f"Starting final document status determination for job_run_id: {job_stats.job_run_id}"
-        )
+        logger.info(f"Starting final document status determination for job_run_id: {job_stats.job_run_id}")
         final_docs_status: dict[str, str] = {}
         session_info = get_session_info()
         _mark_failed_documents(job_stats=job_stats, final_docs_status=final_docs_status)
-        ingest_node_id, destination_node_ids = _identify_ingest_and_destination_nodes(
-            dag_nodes=dag_nodes
-        )
+        ingest_node_id, destination_node_ids = _identify_ingest_and_destination_nodes(dag_nodes=dag_nodes)
         _mark_completed_documents(
             job_stats=job_stats,
             destination_node_ids=destination_node_ids,
@@ -605,14 +563,10 @@ class JobTracker(metaclass=Singleton):
             ingest_node_id=ingest_node_id,
             final_docs_status=final_docs_status,
         )
-        _update_job_stats_counts(
-            job_stats=job_stats, final_docs_status=final_docs_status
-        )
+        _update_job_stats_counts(job_stats=job_stats, final_docs_status=final_docs_status)
         job_stats.heartbeat_timestamp = round(datetime.now().timestamp())
         job_stats.flow_id = session_info.flow_id
         self.all_jobs[job_stats.job_run_id] = job_stats
         self.store_job_stats(job_stats)
         _log_inconsistencies(job_stats=job_stats)
-        logger.info(
-            f"Completed final document status update for job_run_id: {job_stats.job_run_id}"
-        )
+        logger.info(f"Completed final document status update for job_run_id: {job_stats.job_run_id}")

@@ -1,6 +1,6 @@
+from common.util.constants import OrchestratorType
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.cmdline.cmd_line_orchestrator import CommandLineOrchestrator
-from common.util.constants import OrchestratorType
 
 """
 statically defined list of available orchestrators
@@ -14,9 +14,7 @@ class OrchestratorFactory:
     """
 
     @staticmethod
-    def create_orchestrator(
-        *, orchestrator_name: str
-    ) -> AbstractOrchestrator:  # pragma: no cover
+    def create_orchestrator(*, orchestrator_name: str) -> AbstractOrchestrator:  # pragma: no cover
         """
         create an instance of the requested orchestrator
         Parameters
