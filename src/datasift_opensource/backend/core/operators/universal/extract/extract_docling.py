@@ -43,6 +43,67 @@ from docling_core.types.doc.document import PictureItem, TableItem
 logger: logging.Logger = get_logger()
 
 
+def _detect_extension_from_bytes(binary_content: bytes) -> str:
+    """
+    Detect the file extension from the magic bytes of binary content.
+
+    Used when the document name / path has no extension (e.g. a cloud URL).
+    Returns a dotted extension string such as '.pdf', '.docx', or '' if unknown.
+    """
+    if not binary_content:
+        return ''
+
+    # PDF: %PDF
+    if binary_content[:4] == b'%PDF':
+        return '.pdf'
+
+    # ZIP-based Office formats (docx, xlsx, pptx) and plain ZIP
+    if binary_content[:2] == b'PK':
+        # Inspect the central directory for known Office content-type markers
+        content_sample = binary_content[:2048]
+        if b'word/' in content_sample:
+            return '.docx'
+        if b'xl/' in content_sample:
+            return '.xlsx'
+        if b'ppt/' in content_sample:
+            return '.pptx'
+        return '.docx'  # generic ZIP-based Office fallback
+
+    # Legacy OLE2 Office formats (doc, xls, ppt)
+    if binary_content[:8] == b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1':
+        return '.doc'
+
+    # PNG
+    if binary_content[:8] == b'\x89PNG\r\n\x1a\n':
+        return '.png'
+
+    # JPEG
+    if binary_content[:3] == b'\xff\xd8\xff':
+        return '.jpg'
+
+    # GIF
+    if binary_content[:6] in (b'GIF87a', b'GIF89a'):
+        return '.gif'
+
+    # TIFF
+    if binary_content[:4] in (b'II*\x00', b'MM\x00*'):
+        return '.tiff'
+
+    # HTML
+    content_start = binary_content[:512].lstrip()
+    if content_start[:9].lower() == b'<!doctype' or content_start[:5].lower() == b'<html':
+        return '.html'
+
+    # Plain text / markdown fallback — try decoding as UTF-8
+    try:
+        binary_content[:512].decode('utf-8')
+        return '.txt'
+    except UnicodeDecodeError:
+        pass
+
+    return ''
+
+
 def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool) -> Dict[str, Any]:
     """
     Worker function for basic extraction - designed to run in parallel.
@@ -57,12 +118,16 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
         Dictionary containing extracted markdown content
     """
     logger.info(f"Processing file: {file_path}")
-    
-    # Check file extension
-    file_ext = Path(file_path).suffix.lower()
-    
+
+    # Determine the effective file extension.
+    # When file_path is a URL or has no extension (e.g. from IngestSourceOperator),
+    # fall back to magic-byte detection so Docling receives a correctly-named temp file.
+    file_suffix = Path(file_path).suffix.lower()
+    if not file_suffix:
+        file_suffix = _detect_extension_from_bytes(binary_content)
+
     # Handle .txt and .md files specially (Docling cannot process them)
-    if file_ext in ['.txt', '.md']:
+    if file_suffix in ['.txt', '.md']:
         try:
             # Decode text content
             try:
@@ -103,10 +168,10 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
                 OperatorConstants.ERROR: str(e),
                 OperatorConstants.DOC_COLUMN_DEFAULT: None
             }
-    
+
     # For non-text files, use Docling's DocumentConverter
     # Save binary content to temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp_file:
         tmp_file.write(binary_content)
         tmp_path = tmp_file.name
     
@@ -346,12 +411,16 @@ class ExtractDoclingOperator(AbstractOperator):
             Dictionary containing extracted content and DoclingDocument object
         """
         logger.info(f"Processing file: {file_path}")
-        
-        # Check file extension
-        file_ext = Path(file_path).suffix.lower()
-        
+
+        # Determine the effective file extension.
+        # When file_path is a URL or has no extension (e.g. from IngestSourceOperator),
+        # fall back to magic-byte detection so Docling receives a correctly-named temp file.
+        file_suffix = Path(file_path).suffix.lower()
+        if not file_suffix:
+            file_suffix = _detect_extension_from_bytes(binary_content)
+
         # Handle .txt files specially (Docling cannot process them)
-        if file_ext == '.txt':
+        if file_suffix == '.txt':
             try:
                 from docling_core.types.doc.document import DoclingDocument
                 from docling_core.types.doc.labels import DocItemLabel
@@ -417,9 +486,9 @@ class ExtractDoclingOperator(AbstractOperator):
                 }
         
         # For non-text files, use Docling's DocumentConverter
-        # Save binary content to temporary file
+        # Save binary content to temporary file (file_suffix already computed above)
         import tempfile
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp_file:
             tmp_file.write(binary_content)
             tmp_path = tmp_file.name
         
