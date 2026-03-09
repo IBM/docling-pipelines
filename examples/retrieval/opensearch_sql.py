@@ -15,6 +15,9 @@ from typing import Any, Dict, List, Optional, Union, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class SQLResponseFormat(Enum):
@@ -116,6 +119,9 @@ class OpenSearchSQLClient:
             >>> for row in result.to_dict_list():
             ...     print(row)
         """
+        logger.info(f"Executing SQL query: {query[:200]}...")
+        logger.debug(f"Fetch size: {fetch_size or self.config.fetch_size}")
+        
         body = {
             "query": query
         }
@@ -129,6 +135,7 @@ class OpenSearchSQLClient:
         # Add parameters for prepared statements
         if parameters:
             body["parameters"] = parameters
+            logger.debug(f"Using {len(parameters)} query parameters")
         
         try:
             response = self.client.transport.perform_request(
@@ -137,9 +144,12 @@ class OpenSearchSQLClient:
                 body=body
             )
             
-            return self._parse_response(response)
+            result = self._parse_response(response)
+            logger.info(f"SQL query returned {result.total} results")
+            return result
         
         except Exception as e:
+            logger.error(f"SQL query execution failed: {str(e)}", exc_info=True)
             return SQLQueryResult(
                 schema=[],
                 datarows=[],

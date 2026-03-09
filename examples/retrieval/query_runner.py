@@ -254,6 +254,7 @@ def main() -> None:
     )
 
     result = run_query(cfg)
+    logger.info(f"Query execution completed: ok={result.ok}, sources={len(result.sources)}")
     print(json.dumps(result.to_dict()), flush=True)
 
     if not result.ok:
