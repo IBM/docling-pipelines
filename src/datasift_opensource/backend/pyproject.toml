@@ -117,15 +117,19 @@ select = [
 ]
 # Ignore specific rules if needed
 ignore = [
-    "E501",  # Line too long (handled by formatter)
+    "UP035",  # Import from `collections.abc` instead of `typing` (keep typing imports)
 ]
 
 [tool.ruff.lint.isort]
 # Configure import sorting
+# NOTE: Ruff's isort implementation is the single source of truth for import sorting.
+# No conflicting isort configurations exist in .isort.cfg or setup.cfg files.
 known-first-party = ["datasift_opensource"]
 
 [tool.ruff.format]
-# Use double quotes for strings
+# Quote style standardization: Converting all string quotes to double quotes for consistency
+# This will automatically convert single quotes to double quotes throughout the codebase
+# Note: Raw strings (r"..."), f-strings (f"..."), and docstrings are handled correctly
 quote-style = "double"
 # Indent with spaces
 indent-style = "space"
