@@ -31,7 +31,9 @@ class _CountedTaskFuture(BaseModel):
 
 class FuturedList:
     def __init__(self, items_with_counts):
-        self.items = [_CountedTaskFuture(future, count) for future, count in items_with_counts]
+        self.items = [
+            _CountedTaskFuture(future, count) for future, count in items_with_counts
+        ]
 
     @classmethod
     def from_size(cls, size: int) -> Self:
@@ -44,7 +46,9 @@ class FuturedList:
         if 0 <= index < len(self.items):
             return self.items[index].get_future()
         else:
-            raise IndexError("Index out of range, given {index=} the list size is {len(self)}")
+            raise IndexError(
+                "Index out of range, given {index=} the list size is {len(self)}"
+            )
 
     def set_entry(self, index, future, count):
         if 0 <= index < len(self.items):

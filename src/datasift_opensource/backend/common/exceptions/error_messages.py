@@ -9,14 +9,16 @@ class ValidationMessage(BaseModel):
     this class can be used to bind together validation error message and its extra arguments for validation alert model
 
     """
+
     message: Optional[str] = None
-    message_code : Optional[str] = None
+    message_code: Optional[str] = None
 
-    model_config = ConfigDict(extra='allow')
-
+    model_config = ConfigDict(extra="allow")
 
     @classmethod
-    def create(cls, message: str, message_code: Optional[str] = None, **kwargs)-> "ValidationMessage":
+    def create(
+        cls, message: str, message_code: Optional[str] = None, **kwargs
+    ) -> "ValidationMessage":
         """
         Factory method to create a ValidationMessage with extra attributes.
 
@@ -32,32 +34,40 @@ class ValidationMessage(BaseModel):
 
 
 class ValidationCodeMessages(str, Enum):
-    MISSING_FEATURES= """Not all required features for {operator_name} operator are available - required: {missing_features},
+    MISSING_FEATURES = """Not all required features for {operator_name} operator are available - required: {missing_features},
         Missing one or more operators:  {missing_operators}, 
         Please consider adding the missing operators to ensure full functionality
         """
 
-    MISSING_COLUMNS= """Not all required columns for {operator_name} operator are present in the table - required {missing_features},
+    MISSING_COLUMNS = """Not all required columns for {operator_name} operator are present in the table - required {missing_features},
         Missing one or more operators:  {missing_operators},
         Please consider adding the missing operators to ensure full functionality """
 
-    OPERATOR_NAME_REPEATED="""Same operator name(s) are used for multiple operators, operator(s): {operators}"""
+    OPERATOR_NAME_REPEATED = """Same operator name(s) are used for multiple operators, operator(s): {operators}"""
 
     MISSING_MODEL_ID_FOR_EMBEDDINGS = """Missing model id for generating embeddings. Model ID not found in project settings or configuration."""
-    
+
     INVALID_EMBEDDINGS_MODEL_ID = """Invalid embeddings model ID '{model_id}'. This model is not available to generate embeddings. Please verify the model ID."""
-    
-    EXTRACT_OPERATOR_MISSING="""Extract operator is either missing or not connected in the flow."""
 
-    CHUNKER_OPERATOR_MISSING="""Chunker operator is either missing or not connected in the flow or is placed after the Embeddings operator."""
+    EXTRACT_OPERATOR_MISSING = (
+        """Extract operator is either missing or not connected in the flow."""
+    )
 
-    INGEST_OPERATOR_MISPLACED = """The first operator in the flow must be an "Ingest data" operator"""
+    CHUNKER_OPERATOR_MISSING = """Chunker operator is either missing or not connected in the flow or is placed after the Embeddings operator."""
 
-    GENERATE_OUTPUT_MISSING="""The last operator is not a "Generate Output" operator"""
+    INGEST_OPERATOR_MISPLACED = (
+        """The first operator in the flow must be an "Ingest data" operator"""
+    )
 
-    MULTIPLE_EXTRACTED_DETECTED = """Multiple extract operators detected. Ensure they are used correctly"""
+    GENERATE_OUTPUT_MISSING = (
+        """The last operator is not a "Generate Output" operator"""
+    )
 
-    PIPELINE_NOT_FOUND_ERROR="""Flow must have 'dag'."""
+    MULTIPLE_EXTRACTED_DETECTED = (
+        """Multiple extract operators detected. Ensure they are used correctly"""
+    )
+
+    PIPELINE_NOT_FOUND_ERROR = """Flow must have 'dag'."""
 
     DAG_PIPELINE_MISSING = """The DAG pipeline is empty or missing."""
 
@@ -69,17 +79,17 @@ class ValidationCodeMessages(str, Enum):
 
     SQL_FILTER_ID_DROP_ATTEMPTED = """ID column drop was attempted"""
 
-    SQL_FILTER_CONTENT_DROP_ATTEMPTED="""Content column drop was attempted"""
+    SQL_FILTER_CONTENT_DROP_ATTEMPTED = """Content column drop was attempted"""
 
-    SQL_FILTER_PAGES_DROP="""Pages Processed column drop was attempted"""
+    SQL_FILTER_PAGES_DROP = """Pages Processed column drop was attempted"""
 
-    SQL_FILTER_INVALID_COLUMN="""Invalid column name. Please ensure the filter_criteria has correct column names"""
+    SQL_FILTER_INVALID_COLUMN = """Invalid column name. Please ensure the filter_criteria has correct column names"""
 
-    CHUNKER_INVALID_CHUNK_TYPE="Invalid chunk_type: {chunk_type}"
+    CHUNKER_INVALID_CHUNK_TYPE = "Invalid chunk_type: {chunk_type}"
 
     CHUNKER_OPERATOR_MISPLACED = "Invalid Flow definition. Chunking operator placed after Embeddings operator. Please rearrange the chunking operator in the flow"
 
-    EMBEDDINGS_INVALID_TYPE= "Invalid embeddings type: {embeddings_type}"
+    EMBEDDINGS_INVALID_TYPE = "Invalid embeddings type: {embeddings_type}"
 
     DROPPING_MANDATORY_FEATURES = "Mandatory features drop attempted: {mandatory_features} By node: '{operator}', mandatory features cannot be dropped"
 

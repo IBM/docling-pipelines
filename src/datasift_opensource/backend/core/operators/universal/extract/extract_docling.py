@@ -15,7 +15,13 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
+from common.util.constants import (
+    OperatorConstants,
+    Metrics,
+    DatasiftConstants,
+    ExecutionStatus,
+    AttributeDataTypes,
+)
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 from common.util.log import get_logger
@@ -23,9 +29,11 @@ from common.util.log import get_logger
 # Try to import TransformUtils from data-prep-toolkit-transforms
 try:
     from data_processing.utils import TransformUtils
+
     HAS_TRANSFORM_UTILS: bool = True
 except ImportError:
     HAS_TRANSFORM_UTILS: bool = False
+
     # Fallback implementation
     class TransformUtils:
         @staticmethod
@@ -36,6 +44,7 @@ except ImportError:
             new_field: pa.Field = pa.field(name, new_column.type)
             return table.append_column(new_field, new_column)
 
+
 from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import InputFormat
 from docling_core.types.doc.document import PictureItem, TableItem
@@ -43,47 +52,49 @@ from docling_core.types.doc.document import PictureItem, TableItem
 logger: logging.Logger = get_logger()
 
 
-def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool) -> Dict[str, Any]:
+def _extract_basic_worker(
+    file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool
+) -> Dict[str, Any]:
     """
     Worker function for basic extraction - designed to run in parallel.
-    
+
     Args:
         file_path: Path to the document file
         binary_content: Binary content of the document
         extract_tables: Whether to extract tables
         extract_images: Whether to extract images
-        
+
     Returns:
         Dictionary containing extracted markdown content
     """
     logger.info(f"Processing file: {file_path}")
-    
+
     # Check file extension
     file_ext = Path(file_path).suffix.lower()
-    
+
     # Handle .txt and .md files specially (Docling cannot process them)
-    if file_ext in ['.txt', '.md']:
+    if file_ext in [".txt", ".md"]:
         try:
             # Decode text content
             try:
-                raw_text = binary_content.decode('utf-8')
+                raw_text = binary_content.decode("utf-8")
             except UnicodeDecodeError:
                 # Try other encodings if UTF-8 fails
                 try:
-                    raw_text = binary_content.decode('latin-1')
+                    raw_text = binary_content.decode("latin-1")
                 except Exception as e:
                     logger.error(f"Failed to decode text file {file_path}: {str(e)}")
                     return {
                         OperatorConstants.SUCCESS: False,
                         OperatorConstants.ERROR: f"Failed to decode text: {str(e)}",
-                        OperatorConstants.DOC_COLUMN_DEFAULT: None
+                        OperatorConstants.DOC_COLUMN_DEFAULT: None,
                     }
-            
+
             # Use the raw text as markdown (since it's already plain text)
             markdown_text = raw_text
-            
+
             logger.info(f"Completed extraction for text file: {file_path}")
-            
+
             return {
                 OperatorConstants.SUCCESS: True,
                 OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
@@ -93,56 +104,64 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
                     "table_count": 0,
                     "image_count": 0,
                     "char_count": len(markdown_text),
-                    "is_text_file": True
-                }
+                    "is_text_file": True,
+                },
             }
         except Exception as e:
             logger.error(f"Error processing text file {file_path}: {str(e)}")
             return {
                 OperatorConstants.SUCCESS: False,
                 OperatorConstants.ERROR: str(e),
-                OperatorConstants.DOC_COLUMN_DEFAULT: None
+                OperatorConstants.DOC_COLUMN_DEFAULT: None,
             }
-    
+
     # For non-text files, use Docling's DocumentConverter
     # Save binary content to temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
+    with tempfile.NamedTemporaryFile(
+        delete=False, suffix=Path(file_path).suffix
+    ) as tmp_file:
         tmp_file.write(binary_content)
         tmp_path = tmp_file.name
-    
+
     try:
         # Initialize converter (each worker gets its own instance)
         converter = DocumentConverter()
-        
+
         # Convert document
         result = converter.convert(tmp_path)
-        
+
         # Export to markdown
         markdown_text = result.document.export_to_markdown()
-        
+
         # Extract tables
         tables = []
         if extract_tables:
             for item, level in result.document.iterate_items():
                 if isinstance(item, TableItem):
                     table_df = item.export_to_dataframe()
-                    tables.append({
-                        "ref": item.self_ref,
-                        "data": table_df.to_dict() if table_df is not None else None
-                    })
-        
+                    tables.append(
+                        {
+                            "ref": item.self_ref,
+                            "data": table_df.to_dict()
+                            if table_df is not None
+                            else None,
+                        }
+                    )
+
         # Extract images
         images = []
         if extract_images:
             for item, level in result.document.iterate_items():
                 if isinstance(item, PictureItem):
-                    images.append({
-                        "ref": item.self_ref,
-                        "caption": getattr(item, 'caption', None)
-                    })
-        
+                    images.append(
+                        {
+                            "ref": item.self_ref,
+                            "caption": getattr(item, "caption", None),
+                        }
+                    )
+
         logger.info(f"Completed extraction for {file_path}")
-        
+
         return {
             OperatorConstants.SUCCESS: True,
             OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
@@ -151,15 +170,15 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
             OperatorConstants.METADATA: {
                 "table_count": len(tables),
                 "image_count": len(images),
-                "char_count": len(markdown_text)
-            }
+                "char_count": len(markdown_text),
+            },
         }
     except Exception as e:
         logger.error(f"Error extracting content from {file_path}: {str(e)}")
         return {
             OperatorConstants.SUCCESS: False,
             OperatorConstants.ERROR: str(e),
-            OperatorConstants.DOC_COLUMN_DEFAULT: None
+            OperatorConstants.DOC_COLUMN_DEFAULT: None,
         }
     finally:
         # Clean up temporary file
@@ -169,38 +188,44 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
             pass
 
 
-def _extract_with_template_worker(file_path: str, binary_content: bytes, template: dict) -> Dict[str, Any]:
+def _extract_with_template_worker(
+    file_path: str, binary_content: bytes, template: dict
+) -> Dict[str, Any]:
     """
     Worker function for template-based extraction - designed to run in parallel.
-    
+
     Args:
         file_path: Path to the document file
         binary_content: Binary content of the document
         template: Template dictionary for structured extraction
-        
+
     Returns:
         Dictionary containing extracted structured data
     """
     logger.info(f"Processing file with template: {file_path}")
-    
+
     try:
         from docling.document_extractor import DocumentExtractor
-        
+
         # Save binary content to temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=Path(file_path).suffix
+        ) as tmp_file:
             tmp_file.write(binary_content)
             tmp_path = tmp_file.name
-        
+
         try:
             # Initialize extractor (each worker gets its own instance)
-            extractor = DocumentExtractor(allowed_formats=[InputFormat.IMAGE, InputFormat.PDF])
-            
+            extractor = DocumentExtractor(
+                allowed_formats=[InputFormat.IMAGE, InputFormat.PDF]
+            )
+
             # Extract with template
             if template:
                 result = extractor.extract(source=tmp_path, template=template)
             else:
                 raise ValueError("Template is required for template-based extraction")
-            
+
             # Convert pages to proper dict format
             pages_data = []
             for page in result.pages:
@@ -208,19 +233,17 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
                     OperatorConstants.PAGE_NO: page.page_no,
                     OperatorConstants.EXTRACTED_DATA: page.extracted_data,
                     OperatorConstants.RAW_TEXT: page.raw_text,
-                    OperatorConstants.ERRORS: page.errors
+                    OperatorConstants.ERRORS: page.errors,
                 }
                 pages_data.append(page_dict)
-            
+
             logger.info(f"Saved structured results for {file_path}")
-            
+
             return {
                 OperatorConstants.SUCCESS: True,
                 OperatorConstants.DOC_COLUMN_DEFAULT: json.dumps(pages_data, indent=2),
                 OperatorConstants.STRUCTURED_DATA: pages_data,
-                OperatorConstants.METADATA: {
-                    "page_count": len(pages_data)
-                }
+                OperatorConstants.METADATA: {"page_count": len(pages_data)},
             }
         finally:
             # Clean up temporary file
@@ -228,21 +251,23 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
                 os.unlink(tmp_path)
             except:
                 pass
-                
+
     except ImportError as e:
-        logger.error("DocumentExtractor not available. Install with: pip install docling[vlm]")
+        logger.error(
+            "DocumentExtractor not available. Install with: pip install docling[vlm]"
+        )
         logger.error(f"Error: {str(e)}")
         return {
             OperatorConstants.SUCCESS: False,
             OperatorConstants.ERROR: "DocumentExtractor not available",
-            OperatorConstants.DOC_COLUMN_DEFAULT: None
+            OperatorConstants.DOC_COLUMN_DEFAULT: None,
         }
     except Exception as e:
         logger.error(f"Error extracting with template: {str(e)}")
         return {
             OperatorConstants.SUCCESS: False,
             OperatorConstants.ERROR: str(e),
-            OperatorConstants.DOC_COLUMN_DEFAULT: None
+            OperatorConstants.DOC_COLUMN_DEFAULT: None,
         }
 
 
@@ -250,18 +275,18 @@ class ExtractDoclingOperator(AbstractOperator):
     """
     Operator for extracting content from documents using Docling.
     Follows the structure of IngestLocalOperator with AbstractOperator as parent class.
-    
+
     This operator extracts content from documents using Docling's DocumentConverter
     and optionally DocumentExtractor for template-based extraction.
     """
-    
+
     short_name: str = OperatorConstants.EXTRACT_DOCLING
     category: OperatorCategory = OperatorCategory.Extract
-    
+
     def __init__(self, config: Dict[str, Any]) -> None:
         """
         Initialize the operator with configuration.
-        
+
         Args:
             config: Configuration dictionary containing:
                 - doc_column: Name of the column to store document content (default: "content")
@@ -275,51 +300,69 @@ class ExtractDoclingOperator(AbstractOperator):
                 - use_processes: Use ProcessPoolExecutor instead of ThreadPoolExecutor (default: False)
         """
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
+        )
+        self.doc_id_hash: str = config.get(
+            OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
+        )
         self.extract_tables: bool = config.get(OperatorConstants.EXTRACT_TABLES, True)
         self.extract_images: bool = config.get(OperatorConstants.EXTRACT_IMAGES, True)
         self.use_template: bool = config.get(OperatorConstants.USE_TEMPLATE, False)
-        self.template: Optional[Dict[str, Any]] = config.get(OperatorConstants.TEMPLATE, None)
-        self.expand_extracted_data: bool = config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
-        
+        self.template: Optional[Dict[str, Any]] = config.get(
+            OperatorConstants.TEMPLATE, None
+        )
+        self.expand_extracted_data: bool = config.get(
+            OperatorConstants.EXPAND_EXTRACTED_DATA, False
+        )
+
         # Parallel processing configuration
-        self.max_workers: int = config.get(OperatorConstants.MAX_WORKERS, self._get_optimal_workers())
+        self.max_workers: int = config.get(
+            OperatorConstants.MAX_WORKERS, self._get_optimal_workers()
+        )
         self.use_processes: bool = config.get(OperatorConstants.USE_PROCESSES, False)
-        
-        self.common_log_arguments: Dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
-        
+
+        self.common_log_arguments: Dict[str, Any] = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
+
         # Initialize Docling converter
         self.converter: DocumentConverter = DocumentConverter()
-        
+
         # Initialize DocumentExtractor if template extraction is enabled
         self.extractor: Optional[Any] = None
         if self.use_template and self.template:
             try:
                 from docling.document_extractor import DocumentExtractor
+
                 self.extractor = DocumentExtractor(
                     allowed_formats=[InputFormat.IMAGE, InputFormat.PDF]
                 )
             except ImportError:
-                logger.warning("DocumentExtractor not available. Install with: pip install docling[vlm]")
+                logger.warning(
+                    "DocumentExtractor not available. Install with: pip install docling[vlm]"
+                )
                 self.use_template = False
-        
-        logger.info(f"Initialized ExtractDoclingOperator with {self.max_workers} workers "
-                   f"using {'ProcessPoolExecutor' if self.use_processes else 'ThreadPoolExecutor'}")
-    
+
+        logger.info(
+            f"Initialized ExtractDoclingOperator with {self.max_workers} workers "
+            f"using {'ProcessPoolExecutor' if self.use_processes else 'ThreadPoolExecutor'}"
+        )
+
     def _get_optimal_workers(self) -> int:
         """
         Determine optimal number of workers based on system resources.
         Cross-platform compatible: Works on Linux, Windows, and macOS.
-        
+
         Returns:
             Optimal number of workers
         """
         import platform
-        
+
         cpu_count = os.cpu_count() or 4
         system = platform.system()
-        
+
         # For I/O-bound tasks (document extraction), use more workers than CPU count
         # For CPU-bound tasks (template extraction with VLM), use CPU count
         if self.use_template:
@@ -328,72 +371,78 @@ class ExtractDoclingOperator(AbstractOperator):
         else:
             # Basic extraction is more I/O-bound (file reading, PDF parsing)
             optimal = min(cpu_count * 2, 16)  # Cap at 16 to avoid excessive threads
-        
-        logger.info(f"Auto-detected optimal workers: {optimal} (CPU count: {cpu_count}, OS: {system})")
+
+        logger.info(
+            f"Auto-detected optimal workers: {optimal} (CPU count: {cpu_count}, OS: {system})"
+        )
         return optimal
-    
+
     def _extract_basic(self, file_path: str, binary_content: bytes) -> Dict[str, Any]:
         """
         Basic extraction: Convert PDF to markdown and extract tables/images.
         Handles .txt files specially since Docling cannot process them.
         Based on extract_basic from docling extraction_script.py
-        
+
         Args:
             file_path: Path to the document file
             binary_content: Binary content of the document
-            
+
         Returns:
             Dictionary containing extracted content and DoclingDocument object
         """
         logger.info(f"Processing file: {file_path}")
-        
+
         # Check file extension
         file_ext = Path(file_path).suffix.lower()
-        
+
         # Handle .txt files specially (Docling cannot process them)
-        if file_ext == '.txt':
+        if file_ext == ".txt":
             try:
                 from docling_core.types.doc.document import DoclingDocument
                 from docling_core.types.doc.labels import DocItemLabel
-                
+
                 # Decode text content
                 try:
-                    raw_text = binary_content.decode('utf-8')
+                    raw_text = binary_content.decode("utf-8")
                 except UnicodeDecodeError:
                     # Try other encodings if UTF-8 fails
                     try:
-                        raw_text = binary_content.decode('latin-1')
+                        raw_text = binary_content.decode("latin-1")
                     except Exception as e:
-                        logger.error(f"Failed to decode text file {file_path}: {str(e)}")
+                        logger.error(
+                            f"Failed to decode text file {file_path}: {str(e)}"
+                        )
                         return {
                             OperatorConstants.SUCCESS: False,
                             OperatorConstants.ERROR: f"Failed to decode text: {str(e)}",
                             OperatorConstants.DOC_COLUMN_DEFAULT: None,
-                            OperatorConstants.DOCLING_DOCUMENT: None
+                            OperatorConstants.DOCLING_DOCUMENT: None,
                         }
-                
+
                 # Create a basic DoclingDocument structure
                 doc = DoclingDocument(name=Path(file_path).name)
-                
+
                 # Split text into paragraphs and add as text items
-                paragraphs = [p.strip() for p in raw_text.split('\n\n') if p.strip()]
-                
+                paragraphs = [p.strip() for p in raw_text.split("\n\n") if p.strip()]
+
                 if not paragraphs:
                     # If no double newlines, treat each line as a paragraph
-                    paragraphs = [line.strip() for line in raw_text.split('\n') if line.strip()]
-                
+                    paragraphs = [
+                        line.strip() for line in raw_text.split("\n") if line.strip()
+                    ]
+
                 for para in paragraphs:
                     if para:
                         doc.add_text(text=para, label=DocItemLabel.PARAGRAPH)
-                
+
                 # Use the raw text as markdown (since it's already plain text)
                 markdown_text = raw_text
-                
+
                 # Serialize the DoclingDocument
                 docling_doc_json = doc.model_dump_json()
-                
+
                 logger.info(f"Completed extraction for text file: {file_path}")
-                
+
                 return {
                     OperatorConstants.SUCCESS: True,
                     OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
@@ -404,8 +453,8 @@ class ExtractDoclingOperator(AbstractOperator):
                         "table_count": 0,
                         "image_count": 0,
                         "char_count": len(markdown_text),
-                        "is_text_file": True
-                    }
+                        "is_text_file": True,
+                    },
                 }
             except Exception as e:
                 logger.error(f"Error processing text file {file_path}: {str(e)}")
@@ -413,51 +462,60 @@ class ExtractDoclingOperator(AbstractOperator):
                     OperatorConstants.SUCCESS: False,
                     OperatorConstants.ERROR: str(e),
                     OperatorConstants.DOC_COLUMN_DEFAULT: None,
-                    OperatorConstants.DOCLING_DOCUMENT: None
+                    OperatorConstants.DOCLING_DOCUMENT: None,
                 }
-        
+
         # For non-text files, use Docling's DocumentConverter
         # Save binary content to temporary file
         import tempfile
-        with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
+
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=Path(file_path).suffix
+        ) as tmp_file:
             tmp_file.write(binary_content)
             tmp_path = tmp_file.name
-        
+
         try:
             # Initialize converter
             converter = DocumentConverter()
-            
+
             # Convert document
             result = converter.convert(tmp_path)
-            
+
             # Export to markdown
             markdown_text = result.document.export_to_markdown()
-            
+
             # Extract tables
             tables = []
             for item, level in result.document.iterate_items():
                 if isinstance(item, TableItem):
                     # Export table to dataframe format
                     table_df = item.export_to_dataframe()
-                    tables.append({
-                        "ref": item.self_ref,
-                        "data": table_df.to_dict() if table_df is not None else None
-                    })
-            
+                    tables.append(
+                        {
+                            "ref": item.self_ref,
+                            "data": table_df.to_dict()
+                            if table_df is not None
+                            else None,
+                        }
+                    )
+
             # Extract images
             images = []
             for item, level in result.document.iterate_items():
                 if isinstance(item, PictureItem):
-                    images.append({
-                        "ref": item.self_ref,
-                        "caption": getattr(item, 'caption', None)
-                    })
-            
+                    images.append(
+                        {
+                            "ref": item.self_ref,
+                            "caption": getattr(item, "caption", None),
+                        }
+                    )
+
             logger.info(f"Completed extraction for {file_path}")
-            
+
             # Serialize the DoclingDocument object for storage
             docling_doc_json = result.document.model_dump_json()
-            
+
             return {
                 OperatorConstants.SUCCESS: True,
                 OperatorConstants.DOC_COLUMN_DEFAULT: markdown_text,
@@ -467,8 +525,8 @@ class ExtractDoclingOperator(AbstractOperator):
                 OperatorConstants.METADATA: {
                     "table_count": len(tables),
                     "image_count": len(images),
-                    "char_count": len(markdown_text)
-                }
+                    "char_count": len(markdown_text),
+                },
             }
         except Exception as e:
             logger.error(f"Error extracting content from {file_path}: {str(e)}")
@@ -476,52 +534,59 @@ class ExtractDoclingOperator(AbstractOperator):
                 OperatorConstants.SUCCESS: False,
                 OperatorConstants.ERROR: str(e),
                 OperatorConstants.DOC_COLUMN_DEFAULT: None,
-                OperatorConstants.DOCLING_DOCUMENT: None
+                OperatorConstants.DOCLING_DOCUMENT: None,
             }
         finally:
             # Clean up temporary file
             import os
+
             try:
                 os.unlink(tmp_path)
             except:
                 pass
-    
-    def _extract_with_template(self, file_path: str, binary_content: bytes) -> Dict[str, Any]:
+
+    def _extract_with_template(
+        self, file_path: str, binary_content: bytes
+    ) -> Dict[str, Any]:
         """
         Extract structured information using a template.
         Based on extract_with_template from docling extraction_script.py
-        
+
         Args:
             file_path: Path to the document file
             binary_content: Binary content of the document
-            
+
         Returns:
             Dictionary containing extracted structured data
         """
         logger.info(f"Processing file with template: {file_path}")
-        
+
         try:
             from docling.document_extractor import DocumentExtractor
-            
+
             # Save binary content to temporary file
             import tempfile
-            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
+
+            with tempfile.NamedTemporaryFile(
+                delete=False, suffix=Path(file_path).suffix
+            ) as tmp_file:
                 tmp_file.write(binary_content)
                 tmp_path = tmp_file.name
-            
+
             try:
                 # Initialize extractor
-                extractor = DocumentExtractor(allowed_formats=[InputFormat.IMAGE, InputFormat.PDF])
-                
+                extractor = DocumentExtractor(
+                    allowed_formats=[InputFormat.IMAGE, InputFormat.PDF]
+                )
+
                 # Extract with template (only if template is not None)
                 if self.template:
-                    result = extractor.extract(
-                        source=tmp_path,
-                        template=self.template
-                    )
+                    result = extractor.extract(source=tmp_path, template=self.template)
                 else:
-                    raise ValueError("Template is required for template-based extraction")
-                
+                    raise ValueError(
+                        "Template is required for template-based extraction"
+                    )
+
                 # Convert pages to proper dict format
                 pages_data = []
                 for page in result.pages:
@@ -529,256 +594,300 @@ class ExtractDoclingOperator(AbstractOperator):
                         OperatorConstants.PAGE_NO: page.page_no,
                         OperatorConstants.EXTRACTED_DATA: page.extracted_data,
                         OperatorConstants.RAW_TEXT: page.raw_text,
-                        OperatorConstants.ERRORS: page.errors
+                        OperatorConstants.ERRORS: page.errors,
                     }
                     pages_data.append(page_dict)
-                
+
                 logger.info(f"Saved structured results for {file_path}")
-                
+
                 return {
                     OperatorConstants.SUCCESS: True,
-                    OperatorConstants.DOC_COLUMN_DEFAULT: json.dumps(pages_data, indent=2),
+                    OperatorConstants.DOC_COLUMN_DEFAULT: json.dumps(
+                        pages_data, indent=2
+                    ),
                     OperatorConstants.STRUCTURED_DATA: pages_data,
-                    OperatorConstants.METADATA: {
-                        "page_count": len(pages_data)
-                    }
+                    OperatorConstants.METADATA: {"page_count": len(pages_data)},
                 }
             finally:
                 # Clean up temporary file
                 import os
+
                 try:
                     os.unlink(tmp_path)
                 except:
                     pass
-                    
+
         except ImportError as e:
-            logger.error("DocumentExtractor not available. Install with: pip install docling[vlm]")
+            logger.error(
+                "DocumentExtractor not available. Install with: pip install docling[vlm]"
+            )
             logger.error(f"Error: {str(e)}")
             return {
                 OperatorConstants.SUCCESS: False,
                 OperatorConstants.ERROR: "DocumentExtractor not available",
-                OperatorConstants.DOC_COLUMN_DEFAULT: None
+                OperatorConstants.DOC_COLUMN_DEFAULT: None,
             }
         except Exception as e:
             logger.error(f"Error extracting with template: {str(e)}")
             return {
                 OperatorConstants.SUCCESS: False,
                 OperatorConstants.ERROR: str(e),
-                OperatorConstants.DOC_COLUMN_DEFAULT: None
+                OperatorConstants.DOC_COLUMN_DEFAULT: None,
             }
-    
-    def _expand_extracted_data_columns(self, table: pa.Table, extracted_data_list: List[Optional[Any]]) -> pa.Table:
+
+    def _expand_extracted_data_columns(
+        self, table: pa.Table, extracted_data_list: List[Optional[Any]]
+    ) -> pa.Table:
         """
         Expand the extracted_data column into individual columns based on the template structure.
         Each key in the extracted_data becomes a separate column in the PyArrow table.
-        
+
         Args:
             table: PyArrow table to add columns to
             extracted_data_list: List of extracted data dictionaries (one per document)
-            
+
         Returns:
             PyArrow table with expanded columns
         """
         if not extracted_data_list or not any(extracted_data_list):
             logger.warning("No extracted data to expand")
             return table
-        
+
         # Collect all unique keys from all documents' extracted data
         all_keys = set()
         for data in extracted_data_list:
             if data and isinstance(data, list):
                 # Handle list of pages - collect keys from first page's extracted_data
                 for page in data:
-                    if isinstance(page, dict) and OperatorConstants.EXTRACTED_DATA in page:
+                    if (
+                        isinstance(page, dict)
+                        and OperatorConstants.EXTRACTED_DATA in page
+                    ):
                         page_data = page[OperatorConstants.EXTRACTED_DATA]
                         if isinstance(page_data, dict):
                             all_keys.update(page_data.keys())
                         break  # Only use first page to determine schema
             elif data and isinstance(data, dict):
                 all_keys.update(data.keys())
-        
+
         if not all_keys:
             logger.warning("No keys found in extracted data to expand")
             return table
-        
-        logger.info(f"Expanding extracted_data into {len(all_keys)} columns: {sorted(all_keys)}")
-        
+
+        logger.info(
+            f"Expanding extracted_data into {len(all_keys)} columns: {sorted(all_keys)}"
+        )
+
         # Create columns for each key
         for key in sorted(all_keys):
             column_values = []
-            
+
             for data in extracted_data_list:
                 value = None
-                
+
                 if data and isinstance(data, list):
                     # Handle list of pages - extract from first page
                     for page in data:
-                        if isinstance(page, dict) and OperatorConstants.EXTRACTED_DATA in page:
+                        if (
+                            isinstance(page, dict)
+                            and OperatorConstants.EXTRACTED_DATA in page
+                        ):
                             page_data = page[OperatorConstants.EXTRACTED_DATA]
                             if isinstance(page_data, dict):
                                 value = page_data.get(key)
                             break
                 elif data and isinstance(data, dict):
                     value = data.get(key)
-                
+
                 # Convert value to string for PyArrow compatibility
                 if value is not None:
                     column_values.append(str(value))
                 else:
                     column_values.append(None)
-            
+
             # Add column to table
             table = TransformUtils.add_column(
-                table=table,
-                name=f"extracted_{key}",
-                content=column_values
+                table=table, name=f"extracted_{key}", content=column_values
             )
-        
+
         return table
-    
+
     def transform(self, table: pa.Table) -> Tuple[List[pa.Table], Dict[str, Any]]:
         """
         Transform the input table by extracting content from documents.
-        
+
         Args:
             table: PyArrow table containing document information with columns:
                 - id: Document ID
                 - name: Document name/filename
                 - path: Document path (optional)
                 - binary_content: Binary content of the document (optional)
-                
+
         Returns:
             Tuple of (list of transformed tables, metadata dictionary)
         """
         # Initialize metadata using base method
         metadata = self.create_base_metadata(total_docs_count=table.num_rows)
-        
+
         if table.num_rows == 0:
             return [table], metadata
-        
+
         # Check if content already exists
         if self.doc_column in table.column_names:
-            metadata[OperatorConstants.MESSAGE] = "Content already present. Moving to next operator"
+            metadata[OperatorConstants.MESSAGE] = (
+                "Content already present. Moving to next operator"
+            )
             return [table], metadata
-        
+
         # Prepare document data for parallel processing
         doc_tasks = []
         for idx in range(table.num_rows):
             try:
-                doc_id = table[OperatorConstants.ID][idx].as_py() if OperatorConstants.ID in table.column_names else f"doc_{idx}"
-                doc_name = table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else f"document_{idx}"
-                
+                doc_id = (
+                    table[OperatorConstants.ID][idx].as_py()
+                    if OperatorConstants.ID in table.column_names
+                    else f"doc_{idx}"
+                )
+                doc_name = (
+                    table[OperatorConstants.NAME][idx].as_py()
+                    if OperatorConstants.NAME in table.column_names
+                    else f"document_{idx}"
+                )
+
                 # Get binary content
                 if OperatorConstants.BINARY_CONTENT in table.column_names:
-                    binary_content = table[OperatorConstants.BINARY_CONTENT][idx].as_py()
+                    binary_content = table[OperatorConstants.BINARY_CONTENT][
+                        idx
+                    ].as_py()
                 else:
                     if OperatorConstants.PATH in table.column_names:
                         file_path = table[OperatorConstants.PATH][idx].as_py()
-                        with open(file_path, 'rb') as f:
+                        with open(file_path, "rb") as f:
                             binary_content = f.read()
                     else:
-                        raise ValueError(f"No binary content or path available for document {doc_name}")
-                
-                doc_tasks.append({
-                    'idx': idx,
-                    'doc_id': doc_id,
-                    'doc_name': doc_name,
-                    'binary_content': binary_content
-                })
+                        raise ValueError(
+                            f"No binary content or path available for document {doc_name}"
+                        )
+
+                doc_tasks.append(
+                    {
+                        "idx": idx,
+                        "doc_id": doc_id,
+                        "doc_name": doc_name,
+                        "binary_content": binary_content,
+                    }
+                )
             except Exception as e:
                 logger.error(f"Error preparing document at index {idx}: {str(e)}")
-                doc_tasks.append({
-                    'idx': idx,
-                    'doc_id': str(idx),
-                    'doc_name': f"document_{idx}",
-                    'error': str(e)
-                })
-        
+                doc_tasks.append(
+                    {
+                        "idx": idx,
+                        "doc_id": str(idx),
+                        "doc_name": f"document_{idx}",
+                        "error": str(e),
+                    }
+                )
+
         # Process documents in parallel
         doc_contents = [None] * table.num_rows
         doc_metadata_list = [{}] * table.num_rows
         extracted_data_list = [None] * table.num_rows
         failed_indices = []
-        
+
         # Choose executor based on configuration
-        ExecutorClass = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
-        
-        logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
-        
+        ExecutorClass = (
+            ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
+        )
+
+        logger.info(
+            f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers"
+        )
+
         with ExecutorClass(max_workers=self.max_workers) as executor:
             # Submit all tasks
             future_to_task = {}
             for task in doc_tasks:
-                if 'error' in task:
+                if "error" in task:
                     # Skip tasks that had errors during preparation
-                    failed_indices.append(task['idx'])
+                    failed_indices.append(task["idx"])
                     self.record_failed_document(
                         metadata=metadata,
-                        doc_id=str(task['doc_id']),
-                        doc_name=task['doc_name'],
-                        reason=task['error']
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=task["error"],
                     )
                     continue
-                
+
                 if self.use_template:
                     future = executor.submit(
                         _extract_with_template_worker,
-                        task['doc_name'],
-                        task['binary_content'],
-                        self.template
+                        task["doc_name"],
+                        task["binary_content"],
+                        self.template,
                     )
                 else:
                     future = executor.submit(
                         _extract_basic_worker,
-                        task['doc_name'],
-                        task['binary_content'],
+                        task["doc_name"],
+                        task["binary_content"],
                         self.extract_tables,
-                        self.extract_images
+                        self.extract_images,
                     )
-                
+
                 future_to_task[future] = task
-            
+
             # Collect results as they complete
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
-                idx = task['idx']
-                
+                idx = task["idx"]
+
                 try:
                     result = future.result()
-                    
+
                     if result[OperatorConstants.SUCCESS]:
                         doc_contents[idx] = result[OperatorConstants.DOC_COLUMN_DEFAULT]
-                        doc_metadata_list[idx] = result.get(OperatorConstants.METADATA, {})
-                        
-                        if self.use_template and OperatorConstants.STRUCTURED_DATA in result:
-                            extracted_data_list[idx] = result[OperatorConstants.STRUCTURED_DATA]
-                        
+                        doc_metadata_list[idx] = result.get(
+                            OperatorConstants.METADATA, {}
+                        )
+
+                        if (
+                            self.use_template
+                            and OperatorConstants.STRUCTURED_DATA in result
+                        ):
+                            extracted_data_list[idx] = result[
+                                OperatorConstants.STRUCTURED_DATA
+                            ]
+
                         metadata[Metrics.External.PROCESSED_DOCS] += 1
                     else:
                         failed_indices.append(idx)
                         self.record_failed_document(
                             metadata=metadata,
-                            doc_id=str(task['doc_id']),
-                            doc_name=task['doc_name'],
-                            reason=result.get(OperatorConstants.ERROR, "Unknown error")
+                            doc_id=str(task["doc_id"]),
+                            doc_name=task["doc_name"],
+                            reason=result.get(OperatorConstants.ERROR, "Unknown error"),
                         )
-                        logger.error(f"Failed to extract content from {task['doc_name']}: {result.get(OperatorConstants.ERROR)}",
-                                   extra=self.common_log_arguments)
-                        
+                        logger.error(
+                            f"Failed to extract content from {task['doc_name']}: {result.get(OperatorConstants.ERROR)}",
+                            extra=self.common_log_arguments,
+                        )
+
                 except Exception as e:
                     logger.error(f"Error processing document at index {idx}: {str(e)}")
                     failed_indices.append(idx)
                     self.record_failed_document(
                         metadata=metadata,
-                        doc_id=str(task['doc_id']),
-                        doc_name=task['doc_name'],
-                        reason=str(e)
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=str(e),
                     )
-        
+
         # Add content column to table (markdown text from docling)
         if doc_contents:
-            table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
-        
+            table = TransformUtils.add_column(
+                table=table, name=self.doc_column, content=doc_contents
+            )
+
         # Add extracted_data column if template extraction was used
         if self.use_template and extracted_data_list:
             if self.expand_extracted_data:
@@ -794,60 +903,67 @@ class ExtractDoclingOperator(AbstractOperator):
                 table = TransformUtils.add_column(
                     table=table,
                     name=OperatorConstants.EXTRACTED_DATA,
-                    content=extracted_data_json
+                    content=extracted_data_json,
                 )
-                logger.info("Added extracted_data column with structured template extraction results")
-        
+                logger.info(
+                    "Added extracted_data column with structured template extraction results"
+                )
+
         # Add hash column using DocIdHashOperator (similar to extract_cpd_operator)
         logger.info("Generating hash id and adding it to table")
-        hash_operator = DocIdHashOperator({
-            OperatorConstants.DOC_COLUMN: self.doc_column,
-        })
+        hash_operator = DocIdHashOperator(
+            {
+                OperatorConstants.DOC_COLUMN: self.doc_column,
+            }
+        )
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
-        
+
         # Update metadata status
         node_status = ExecutionStatus.COMPLETED.value
         if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
             node_status = ExecutionStatus.COMPLETED_WITH_ERRORS.value
         metadata[Metrics.External.NODE_STATUS] = node_status
-        
+
         return [table], metadata
-    
+
     def get_metadata(self) -> Dict[str, Any]:
         """
         Get metadata about the operator including features and attributes.
         Follows the structure of IngestLocalOperator.get_metadata()
-        
+
         Returns:
             Dictionary containing operator metadata
         """
         metadata_features = {
-                OperatorConstants.DOC_COLUMN_DEFAULT: {
-                    OperatorConstants.NAME: "Document Content",
-                    OperatorConstants.DESCRIPTION: "The markdown content extracted from the document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                    OperatorConstants.TAGS: [OperatorConstants.MANDATORY]
-                },
-                OperatorConstants.DOC_ID_HASH_DEFAULT: {
-                    OperatorConstants.NAME: "Hash ID",
-                    OperatorConstants.DESCRIPTION: "Hash ID of the document row",
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                    OperatorConstants.IS_PRIMARY: True,
-                    OperatorConstants.TAGS: [OperatorConstants.MANDATORY, OperatorConstants.PRIMARY]
-                },
-                OperatorConstants.EXTRACTED_DATA: {
-                    OperatorConstants.NAME: "Extracted Data",
-                    OperatorConstants.DESCRIPTION: "Structured data extracted using template-based extraction",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                    OperatorConstants.TAGS: []
-                },
+            OperatorConstants.DOC_COLUMN_DEFAULT: {
+                OperatorConstants.NAME: "Document Content",
+                OperatorConstants.DESCRIPTION: "The markdown content extracted from the document",
+                OperatorConstants.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.TAGS: [OperatorConstants.MANDATORY],
+            },
+            OperatorConstants.DOC_ID_HASH_DEFAULT: {
+                OperatorConstants.NAME: "Hash ID",
+                OperatorConstants.DESCRIPTION: "Hash ID of the document row",
+                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
+                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.IS_PRIMARY: True,
+                OperatorConstants.TAGS: [
+                    OperatorConstants.MANDATORY,
+                    OperatorConstants.PRIMARY,
+                ],
+            },
+            OperatorConstants.EXTRACTED_DATA: {
+                OperatorConstants.NAME: "Extracted Data",
+                OperatorConstants.DESCRIPTION: "Structured data extracted using template-based extraction",
+                OperatorConstants.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.TAGS: [],
+            },
             self.doc_id_hash: {
                 OperatorConstants.NAME: "Hash ID",
                 OperatorConstants.DESCRIPTION: "Hash ID of the document row",
@@ -855,10 +971,13 @@ class ExtractDoclingOperator(AbstractOperator):
                 OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
                 OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
                 OperatorConstants.IS_PRIMARY: True,
-                OperatorConstants.TAGS: [OperatorConstants.MANDATORY, OperatorConstants.PRIMARY]
-            }
+                OperatorConstants.TAGS: [
+                    OperatorConstants.MANDATORY,
+                    OperatorConstants.PRIMARY,
+                ],
+            },
         }
-        
+
         return {
             OperatorConstants.CATEGORY: self.category.value,
             OperatorConstants.FEATURES: metadata_features,
@@ -869,65 +988,65 @@ class ExtractDoclingOperator(AbstractOperator):
                     OperatorConstants.DESCRIPTION: "Name of the column to store document content",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: OperatorConstants.DOC_COLUMN_DEFAULT,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING
+                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.DOC_ID_HASH: {
                     OperatorConstants.NAME: "Document ID Hash Column",
                     OperatorConstants.DESCRIPTION: "Name of the column to store document hash",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: OperatorConstants.DOC_ID_HASH_DEFAULT,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING
+                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.EXTRACT_TABLES: {
                     OperatorConstants.NAME: "Extract Tables",
                     OperatorConstants.DESCRIPTION: "Whether to extract tables from documents",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
                 },
                 OperatorConstants.EXTRACT_IMAGES: {
                     OperatorConstants.NAME: "Extract Images",
                     OperatorConstants.DESCRIPTION: "Whether to extract images from documents",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
                 },
                 OperatorConstants.USE_TEMPLATE: {
                     OperatorConstants.NAME: "Use Template",
                     OperatorConstants.DESCRIPTION: "Whether to use template-based extraction for structured data",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
                 },
                 OperatorConstants.TEMPLATE: {
                     OperatorConstants.NAME: "Extraction Template",
                     OperatorConstants.DESCRIPTION: "Template dictionary for structured extraction (required if use_template is True)",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: None,
-                    OperatorConstants.TYPE: AttributeDataTypes.JSON
+                    OperatorConstants.TYPE: AttributeDataTypes.JSON,
                 },
                 OperatorConstants.EXPAND_EXTRACTED_DATA: {
                     OperatorConstants.NAME: "Expand Extracted Data",
                     OperatorConstants.DESCRIPTION: "Whether to expand extracted_data JSON into individual columns",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
                 },
                 OperatorConstants.MAX_WORKERS: {
                     OperatorConstants.NAME: "Max Workers",
                     OperatorConstants.DESCRIPTION: "Maximum number of parallel workers (auto-detect if not specified)",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: None,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER
+                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
                 },
                 OperatorConstants.USE_PROCESSES: {
                     OperatorConstants.NAME: "Use Processes",
                     OperatorConstants.DESCRIPTION: "Use ProcessPoolExecutor instead of ThreadPoolExecutor for CPU-intensive tasks",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
-                }
-            }
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+            },
         }
 
 
@@ -938,18 +1057,18 @@ def main() -> int:
     """
     # ============ CONFIGURATION VARIABLES ============
     # Set these variables to configure the extraction
-    
+
     # Input: Path to file or directory
     input_path_str: str = "tests/fixtures/invoices/TR-INV_044_1_1.1.pdf"
 
     # Use template-based extraction (True) or basic markdown extraction (False)
     use_template: bool = False
-    
+
     # File pattern for directory processing (only used if input is a directory)
     file_pattern: str = "*.pdf"
-    
+
     # ================================================
-    
+
     # Define invoice template for structured extraction
     invoice_template: Dict[str, str] = {
         "invoice_number": "string",
@@ -961,9 +1080,9 @@ def main() -> int:
         "subtotal": "float",
         "tax": "float",
         "total": "float",
-        "grand_total": "float"
+        "grand_total": "float",
     }
-    
+
     # Initialize operator
     config: Dict[str, Any] = {
         OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
@@ -971,92 +1090,94 @@ def main() -> int:
         OperatorConstants.EXTRACT_TABLES: True,
         OperatorConstants.EXTRACT_IMAGES: True,
         OperatorConstants.USE_TEMPLATE: use_template,
-        OperatorConstants.TEMPLATE: invoice_template if use_template else None
+        OperatorConstants.TEMPLATE: invoice_template if use_template else None,
     }
-    
+
     operator: ExtractDoclingOperator = ExtractDoclingOperator(config)
-    
+
     input_path: Path = Path(input_path_str)
-    
+
     if input_path.is_file():
         logger.info(f"Processing single file: {input_path}")
-        
+
         # Read file
-        with open(input_path, 'rb') as f:
+        with open(input_path, "rb") as f:
             binary_content = f.read()
-        
+
         # Create PyArrow table
-        table = pa.table({
-            OperatorConstants.ID: [str(input_path)],
-            OperatorConstants.NAME: [input_path.name],
-            OperatorConstants.PATH: [str(input_path)],
-            OperatorConstants.BINARY_CONTENT: [binary_content]
-        })
-        
+        table = pa.table(
+            {
+                OperatorConstants.ID: [str(input_path)],
+                OperatorConstants.NAME: [input_path.name],
+                OperatorConstants.PATH: [str(input_path)],
+                OperatorConstants.BINARY_CONTENT: [binary_content],
+            }
+        )
+
         # Transform
         result_tables, metadata = operator.transform(table)
         result_table = result_tables[0]
-        
+
         # Log results
         logger.info("Extraction complete!")
         logger.info(f"Metadata: {metadata}")
         logger.info(f"Result columns: {result_table.column_names}")
-        
+
         if OperatorConstants.DOC_COLUMN_DEFAULT in result_table.column_names:
             content = result_table[OperatorConstants.DOC_COLUMN_DEFAULT][0].as_py()
             logger.info(f"Content length: {len(content) if content else 0} characters")
             if content:
                 logger.info(f"Content preview: {content[:200]}...")
-        
+
         if OperatorConstants.EXTRACTED_DATA in result_table.column_names:
             extracted_data = result_table[OperatorConstants.EXTRACTED_DATA][0].as_py()
             if extracted_data:
                 logger.info(f"Extracted data length: {len(extracted_data)} characters")
                 logger.info(f"Extracted data preview: {extracted_data[:200]}...")
-        
+
         if OperatorConstants.DOC_ID_HASH_DEFAULT in result_table.column_names:
             hash_id = result_table[OperatorConstants.DOC_ID_HASH_DEFAULT][0].as_py()
             logger.info(f"Document hash: {hash_id}")
-    
+
     elif input_path.is_dir():
         logger.info(f"Processing directory: {input_path}")
         files = list(input_path.glob(file_pattern))
-        
+
         # Process all files
         file_data = {
             OperatorConstants.ID: [],
             OperatorConstants.NAME: [],
             OperatorConstants.PATH: [],
-            OperatorConstants.BINARY_CONTENT: []
+            OperatorConstants.BINARY_CONTENT: [],
         }
-        
+
         for file_path in files:
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 binary_content = f.read()
-            
+
             file_data[OperatorConstants.ID].append(str(file_path))
             file_data[OperatorConstants.NAME].append(file_path.name)
             file_data[OperatorConstants.PATH].append(str(file_path))
             file_data[OperatorConstants.BINARY_CONTENT].append(binary_content)
-        
+
         # Create PyArrow table
         table = pa.table(file_data)
-        
+
         # Transform
         result_tables, metadata = operator.transform(table)
         result_table = result_tables[0]
-        
+
         # Log results
         logger.info(f"Processed {len(files)} files")
         logger.info(f"Metadata: {metadata}")
         logger.info(f"Result columns: {result_table.column_names}")
         logger.info(f"Processed: {metadata['processed_docs']} documents")
         logger.info(f"Failed: {metadata['failed_docs']} documents")
-    
+
     else:
         logger.error(f"Input path does not exist: {input_path}")
         return 1
-    
+
     return 0
 
 
@@ -1064,6 +1185,6 @@ if __name__ == "__main__":
     # Configure logging
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
     exit(main())

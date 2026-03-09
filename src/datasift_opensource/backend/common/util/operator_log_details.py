@@ -3,7 +3,12 @@ import os
 import datetime
 import copy
 
-from common.util.constants import DatasiftConstants, Metrics, OperatorConstants, ExecutionStatus
+from common.util.constants import (
+    DatasiftConstants,
+    Metrics,
+    OperatorConstants,
+    ExecutionStatus,
+)
 from common.util.iceberg_util import get_warehouse_path
 from common.util.job_tracker.model.models import NodeStatsDto
 
@@ -20,10 +25,10 @@ def _operator_log_split(*, value, operator_logs_combined):
     value_split = [val for val in value_split if len(val) > 0]
 
     if len(value_split) > 0 and ":" in value_split[0]:
-        #Below operator is to get nodeId from logs
+        # Below operator is to get nodeId from logs
         operator_node_id = value_split[0].split(":")[1][1:]
-        #Combine all values except the NodeID
-        combined_string = '\n '.join(value_split[1:])
+        # Combine all values except the NodeID
+        combined_string = "\n ".join(value_split[1:])
         operator_logs_combined["node_sequence"].append(operator_node_id)
         operator_logs_combined[operator_node_id] = combined_string
     return operator_logs_combined
@@ -36,17 +41,50 @@ def get_log_and_job_file_path(*, job_id, jobrun_id):
     log_job_run_file_name = "flow_execute.log"
     job_log_file_name = "job_stats.json"
     log_location_path = get_warehouse_path(path="")
-    log_final_path = os.path.join(log_location_path, log_app_location, log_job_folder_name, str(jobrun_id), log_job_run_file_name)
-    job_log_final_path = os.path.join(log_location_path, log_app_location, log_job_folder_name, str(jobrun_id), job_log_file_name)
+    log_final_path = os.path.join(
+        log_location_path,
+        log_app_location,
+        log_job_folder_name,
+        str(jobrun_id),
+        log_job_run_file_name,
+    )
+    job_log_final_path = os.path.join(
+        log_location_path,
+        log_app_location,
+        log_job_folder_name,
+        str(jobrun_id),
+        job_log_file_name,
+    )
 
-    nodes_metadata_final_path = os.path.join(log_location_path, log_job_folder_name, str(jobrun_id),OperatorConstants.NODES_METADATA_FILE)
-    aggregated_job_log_path =os.path.join(log_location_path, log_app_location, log_job_folder_name, str(jobrun_id), "flow_execute_aggregated.json")
-    return log_final_path, job_log_final_path, nodes_metadata_final_path, aggregated_job_log_path
+    nodes_metadata_final_path = os.path.join(
+        log_location_path,
+        log_job_folder_name,
+        str(jobrun_id),
+        OperatorConstants.NODES_METADATA_FILE,
+    )
+    aggregated_job_log_path = os.path.join(
+        log_location_path,
+        log_app_location,
+        log_job_folder_name,
+        str(jobrun_id),
+        "flow_execute_aggregated.json",
+    )
+    return (
+        log_final_path,
+        job_log_final_path,
+        nodes_metadata_final_path,
+        aggregated_job_log_path,
+    )
 
 
 def retrieve_operator_logs(*, job_id, jobrun_id):
-    log_final_path, job_log_final_path, nodes_metadata_final_path, aggregated_job_log_path = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
-    
+    (
+        log_final_path,
+        job_log_final_path,
+        nodes_metadata_final_path,
+        aggregated_job_log_path,
+    ) = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
+
     # # Try to get logs from database first (new pipeline branching approach)
     # from datasift_integrations.db.dal.node_level_execution_log_dal import NodeLevelExecutionLogDAL
     # dal = NodeLevelExecutionLogDAL()
@@ -64,10 +102,14 @@ def retrieve_operator_logs(*, job_id, jobrun_id):
 
     # Fall back to old sequential flow format (backward compatibility)
     if os.path.exists(log_final_path):
-        with open(log_final_path, 'r') as file:
+        with open(log_final_path, "r") as file:
             content = file.read()
-    
-    operator_logs_combined = get_logs(content=content, job_log_final_path=job_log_final_path, nodes_metadata_final_path=nodes_metadata_final_path)
+
+    operator_logs_combined = get_logs(
+        content=content,
+        job_log_final_path=job_log_final_path,
+        nodes_metadata_final_path=nodes_metadata_final_path,
+    )
     return operator_logs_combined
 
 
@@ -79,13 +121,19 @@ def read_json_if_exists(*, path):
     return None
 
 
-def _parse_sequential_log_content(log_content: str, operator_logs_combined: dict) -> dict:
+def _parse_sequential_log_content(
+    log_content: str, operator_logs_combined: dict
+) -> dict:
     """
     Parses sequential flow log content (Backward compatibility).
     """
-    content_split = log_content.split(">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    content_split = log_content.split(
+        ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    )
     for value in content_split:
-        operator_logs_combined = _operator_log_split(value=value, operator_logs_combined=operator_logs_combined)
+        operator_logs_combined = _operator_log_split(
+            value=value, operator_logs_combined=operator_logs_combined
+        )
     return operator_logs_combined
 
 
@@ -93,16 +141,25 @@ def _handle_dict_with_logs_key(content: dict, operator_logs_combined: dict) -> d
     """Handle dict with 'logs' key format (Cloud/MCSP backward compatibility)."""
     if "jobs" in content:
         operator_logs_combined["job_stats"] = content["jobs"]
-    
+
     log_content = content.get("logs", "")
     if log_content:
-        operator_logs_combined = _parse_sequential_log_content(log_content, operator_logs_combined)
+        operator_logs_combined = _parse_sequential_log_content(
+            log_content, operator_logs_combined
+        )
     return operator_logs_combined
 
 
-def _handle_string_logs(content: str, operator_logs_combined: dict, job_log_final_path: str | None, nodes_metadata_final_path: str | None) -> dict:
+def _handle_string_logs(
+    content: str,
+    operator_logs_combined: dict,
+    job_log_final_path: str | None,
+    nodes_metadata_final_path: str | None,
+) -> dict:
     """Handle string format logs (old sequential flow backward compatibility)."""
-    operator_logs_combined = _parse_sequential_log_content(content, operator_logs_combined)
+    operator_logs_combined = _parse_sequential_log_content(
+        content, operator_logs_combined
+    )
 
     # Merge additional files if present (old format)
     job_stats = read_json_if_exists(path=job_log_final_path)
@@ -112,11 +169,13 @@ def _handle_string_logs(content: str, operator_logs_combined: dict, job_log_fina
     nodes_metadata = read_json_if_exists(path=nodes_metadata_final_path)
     if nodes_metadata is not None:
         operator_logs_combined["nodes_metadata"] = nodes_metadata
-    
+
     return operator_logs_combined
 
 
-def get_logs(*, content, job_log_final_path: str = None, nodes_metadata_final_path: str = None):
+def get_logs(
+    *, content, job_log_final_path: str = None, nodes_metadata_final_path: str = None
+):
     """
     Processes log content from various sources and formats.
 
@@ -137,7 +196,7 @@ def get_logs(*, content, job_log_final_path: str = None, nodes_metadata_final_pa
     # Check if content is a dict with "logs" key (from get_non_branching_logs for Cloud/MCSP)
     if isinstance(content, dict) and "logs" in content:
         return _handle_dict_with_logs_key(content, operator_logs_combined)
-    
+
     if isinstance(content, dict) and content:
         operator_logs_combined.update(content)
         operator_logs_combined["node_sequence"] = list(content.keys())
@@ -145,8 +204,13 @@ def get_logs(*, content, job_log_final_path: str = None, nodes_metadata_final_pa
 
     # Old sequential flow format: content is a string from flow_execute.log (backward compatibility)
     if isinstance(content, str) and content:
-        return _handle_string_logs(content, operator_logs_combined, job_log_final_path, nodes_metadata_final_path)
-    
+        return _handle_string_logs(
+            content,
+            operator_logs_combined,
+            job_log_final_path,
+            nodes_metadata_final_path,
+        )
+
     return operator_logs_combined
 
 
@@ -157,7 +221,7 @@ def retrieve_node_specific_operator_logs(*, job_id, jobrun_id, node_id):
 def retrieve_operators_sequence(*, job_id: str, job_run_id: str) -> list:
     """Retrieves the sequence of operators for a given job and job run id."""
     operators_log = retrieve_operator_logs(job_id=job_id, jobrun_id=job_run_id)
-    return operators_log.get('node_sequence', [])
+    return operators_log.get("node_sequence", [])
 
 
 def _extract_document_level_errors(*, node_metadata: dict) -> list:
@@ -203,15 +267,21 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
 
         metadata = node_info.get(OperatorConstants.NODE_METADATA, {})
         if node_info.get(Metrics.External.START_TIME):
-            node_info[Metrics.External.START_TIME] = datetime.datetime.fromtimestamp(node_info[Metrics.External.START_TIME]).strftime("%Y-%m-%d %H:%M:%S")
+            node_info[Metrics.External.START_TIME] = datetime.datetime.fromtimestamp(
+                node_info[Metrics.External.START_TIME]
+            ).strftime("%Y-%m-%d %H:%M:%S")
         if node_info.get(Metrics.External.END_TIME):
-            node_info[Metrics.External.END_TIME] = datetime.datetime.fromtimestamp(node_info[Metrics.External.END_TIME]).strftime("%Y-%m-%d %H:%M:%S")
+            node_info[Metrics.External.END_TIME] = datetime.datetime.fromtimestamp(
+                node_info[Metrics.External.END_TIME]
+            ).strftime("%Y-%m-%d %H:%M:%S")
         # Extract and append document-level errors if present
         if metadata:
             errors = _extract_document_level_errors(node_metadata=metadata)
             if errors:
                 node_info.setdefault("document_level_errors", []).extend(errors)
-            node_info.pop(OperatorConstants.NODE_METADATA, None)  # Remove metadata after processing
+            node_info.pop(
+                OperatorConstants.NODE_METADATA, None
+            )  # Remove metadata after processing
 
         # Replace document ID lists with their counts
         _count_and_remove_lists(node_info=node_info, keys_to_count=keys_to_count)
@@ -222,12 +292,22 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
     return json.dumps(new_node_stats, indent=6)
 
 
-def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence:list=None) -> str:
-    job_status = job_stats.get("status").value if isinstance(job_stats.get("status"), ExecutionStatus) else job_stats.get("status")
+def format_operator_logs(
+    *, job_id: str, job_stats: dict, node_sequence: list = None
+) -> str:
+    job_status = (
+        job_stats.get("status").value
+        if isinstance(job_stats.get("status"), ExecutionStatus)
+        else job_stats.get("status")
+    )
 
     if node_sequence is None:
-        node_sequence = retrieve_operators_sequence(job_id=job_id, job_run_id=job_stats.get(DatasiftConstants.JOB_RUN_ID))
-    node_stats = format_node_stats(node_stats=job_stats.get("node_stats"), node_sequence=node_sequence)
+        node_sequence = retrieve_operators_sequence(
+            job_id=job_id, job_run_id=job_stats.get(DatasiftConstants.JOB_RUN_ID)
+        )
+    node_stats = format_node_stats(
+        node_stats=job_stats.get("node_stats"), node_sequence=node_sequence
+    )
     complete_message = f"""
 >>> The flow execution is {job_status}.
 >>> Job Statistics:
@@ -242,8 +322,8 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence:list=Non
     > Processed Docs  : {job_stats.get(Metrics.External.PROCESSED_DOCS)}
     > Failed Docs     : {job_stats.get(Metrics.External.FAILED_DOCS)}
     > Skipped Docs     : {job_stats.get(Metrics.External.SKIPPED_DOCS)}
-    > Deleted Docs    : {job_stats.get(Metrics.External.DELETED_DOC_COUNT,0)}
-    > Total Pages Processed : {job_stats.get('total_pages_processed')}
+    > Deleted Docs    : {job_stats.get(Metrics.External.DELETED_DOC_COUNT, 0)}
+    > Total Pages Processed : {job_stats.get("total_pages_processed")}
     > Node Statistics :
     {node_stats}
     >>> ===============================================================

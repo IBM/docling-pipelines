@@ -39,7 +39,7 @@ class JobStatsStore(ABC):
             ExecutionStatus.RUNNING: 8,
             ExecutionStatus.STARTING: 9,
             ExecutionStatus.QUEUED: 10,
-            ExecutionStatus.COMPLETED: 1000
+            ExecutionStatus.COMPLETED: 1000,
         }
         if status_codes[old_stat] < status_codes[new_stat]:
             return old_stat
@@ -62,12 +62,18 @@ class JobStatsStore(ABC):
             return new_stats
 
         if old_stats.job_id != new_stats.job_id:
-            logger.warning(f"Job ids not matching: {old_stats.job_id}, {new_stats.job_id}")
+            logger.warning(
+                f"Job ids not matching: {old_stats.job_id}, {new_stats.job_id}"
+            )
 
         if old_stats.job_run_id != new_stats.job_run_id:
-            logger.warning(f"Job run ids not matching: {old_stats.job_run_id}, {new_stats.job_run_id}")
+            logger.warning(
+                f"Job run ids not matching: {old_stats.job_run_id}, {new_stats.job_run_id}"
+            )
 
-        new_stats.status = JobStatsStore._merge_status(old_stats.status, new_stats.status)
+        new_stats.status = JobStatsStore._merge_status(
+            old_stats.status, new_stats.status
+        )
         new_stats.processed_docs += old_stats.processed_docs
         new_stats.skipped_docs += old_stats.skipped_docs
         new_stats.failed_docs += old_stats.failed_docs
@@ -125,10 +131,12 @@ class JobStatsStore(ABC):
         pass
 
     @abstractmethod
-    def atomic_increment_fields(self, *, job_run_id: str, increments: dict, updates: dict | None = None):
+    def atomic_increment_fields(
+        self, *, job_run_id: str, increments: dict, updates: dict | None = None
+    ):
         """
         Atomically increment numeric fields and update other fields.
-        
+
         Args:
             job_run_id: The job run ID to update
             increments: Dict mapping metric names to increment values
@@ -152,7 +160,7 @@ class JobStatsStore(ABC):
     @staticmethod
     def _is_cmd_line_mode() -> bool:
         from common.models.session_info import get_session_info, SessionInfo
-        
+
         session_info: SessionInfo = get_session_info()
         orchestrator: Any | None = session_info.orchestrator
         return orchestrator.__class__.__name__ == "CommandLineOrchestrator"

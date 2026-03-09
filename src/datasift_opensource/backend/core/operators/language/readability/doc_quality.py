@@ -16,9 +16,10 @@ DEFAULT_TEXT_LANG: str = "en"
 BAD_WORD_FILEPATH_KEY: str = "bad_word_filepath"
 BASE_PATH: str = os.path.dirname(__file__)
 BAD_WORD_FILEPATH_VALUE: str = os.path.join(BASE_PATH, "en")
-if os.getenv('RUNTIME') == 'CLOUD' and os.getenv('IS_SPARK_RUNTIME'):
+if os.getenv("RUNTIME") == "CLOUD" and os.getenv("IS_SPARK_RUNTIME"):
     BAD_WORD_FILEPATH_VALUE = BAD_WORD_FILEPATH_VALUE.replace(
-        '/datasift_core.zip/datasift_core/operators/language/readability', '')
+        "/datasift_core.zip/datasift_core/operators/language/readability", ""
+    )
 
 
 class DocQuality(DocQualityTransform, AbstractOperator):
@@ -28,17 +29,24 @@ class DocQuality(DocQualityTransform, AbstractOperator):
 
     Badwordfile is currently stored at same location as source folder.
     """
+
     short_name: str = OperatorConstants.DOC_QUALITY
     category: OperatorCategory = OperatorCategory.Quality
-    
+
     def __init__(self, config: Dict[str, Any]) -> None:
-        normalized_bad_word_filepath: str = BAD_WORD_FILEPATH_VALUE.replace('./datasift.zip', '/datasift/storage/job-assets')
+        normalized_bad_word_filepath: str = BAD_WORD_FILEPATH_VALUE.replace(
+            "./datasift.zip", "/datasift/storage/job-assets"
+        )
         config.update({BAD_WORD_FILEPATH_KEY: normalized_bad_word_filepath})
         super().__init__(config)
-        self.doc_column_name: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_column_name: str = config.get(
+            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
+        )
         self.doc_content_column: str = config.get(DOC_CONTENT_COLUMN_KEY, "content")
         self.text_lang: str = config.get(TEXT_LANG_KEY, DEFAULT_TEXT_LANG)
-        self.bad_word_filepath: str = config.get(BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath)
+        self.bad_word_filepath: str = config.get(
+            BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath
+        )
 
     def get_metadata(self) -> Dict[str, Any]:
         return {
@@ -51,71 +59,70 @@ class DocQuality(DocQualityTransform, AbstractOperator):
                     OperatorConstants.NAME: "Total Words",
                     OperatorConstants.DESCRIPTION: "The total number of words",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER
+                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "docq_mean_word_len": {
                     OperatorConstants.NAME: "Mean word length",
                     OperatorConstants.DESCRIPTION: "The mean of words' lengths",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE
+                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                "docq_symbol_to_word_ratio":{
+                "docq_symbol_to_word_ratio": {
                     OperatorConstants.NAME: "Symbol to Word Ratio",
                     OperatorConstants.DESCRIPTION: "The ratio of symbol-to-word ratio (Reference for symbols like emojis:",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE
+                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                "docq_sentence_count":{
+                "docq_sentence_count": {
                     OperatorConstants.NAME: "Sentence Count",
                     OperatorConstants.DESCRIPTION: "The number of sentences",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER
+                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
                 },
-                "docq_lorem_ipsum_ratio":{
+                "docq_lorem_ipsum_ratio": {
                     OperatorConstants.NAME: "Lorem Ipsum Ratio",
-                    OperatorConstants.DESCRIPTION:
-                        """The ratio between the number of occurrences of lorem ipsum over the text length. 
+                    OperatorConstants.DESCRIPTION: """The ratio between the number of occurrences of lorem ipsum over the text length. 
                         Lorem ipsum, or lipsum as it is sometimes known, is dummy text used in laying out print, graphic or web designs.""",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE
+                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                "docq_contain_bad_word":{
+                "docq_contain_bad_word": {
                     OperatorConstants.NAME: "Bad words present",
                     OperatorConstants.DESCRIPTION: "whether text contains bad words",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                "docq_bullet_point_ratio":{
+                "docq_bullet_point_ratio": {
                     OperatorConstants.NAME: "Bullet Point Ratio",
                     OperatorConstants.DESCRIPTION: "the ratio of lines starting with a bullet point",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE
+                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                "docq_curly_bracket_ratio":{
+                "docq_curly_bracket_ratio": {
                     OperatorConstants.NAME: "Curly Bracket Ratio",
                     OperatorConstants.DESCRIPTION: "The ratio between the number of occurrences of { or } over the text length",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE
+                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                "docq_ellipsis_line_ratio":{
+                "docq_ellipsis_line_ratio": {
                     OperatorConstants.NAME: "Ellipsis Line Ratio",
                     OperatorConstants.DESCRIPTION: "the ratio of lines ending with an ellipsis",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE
+                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                "docq_alphabet_word_ratio":{
+                "docq_alphabet_word_ratio": {
                     OperatorConstants.NAME: "Alphabet to Word Ratio",
                     OperatorConstants.DESCRIPTION: "the ratio of words having at least one alphabetic character",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE
+                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                "docq_contain_common_en_words":{
+                "docq_contain_common_en_words": {
                     OperatorConstants.NAME: "Common English Words",
                     OperatorConstants.DESCRIPTION: "whether the given text contains common English words like the, and, to, that, of, with, be, and have",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE
-                }
-            }
+                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                },
+            },
         }
 
     def get_required_features(self) -> List[str]:
@@ -132,7 +139,9 @@ class DocQuality(DocQualityTransform, AbstractOperator):
         transformed_table: pa.Table = super().transform(table)[0][0]
 
         total_docs: int = find_doc_count(table=table)
-        metadata: Dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
+        metadata: Dict[str, Any] = self.create_base_metadata(
+            total_docs_count=total_docs
+        )
         metadata[Metrics.External.PROCESSED_DOCS] = total_docs
         metadata[Metrics.External.PROCESSED_ROWS] = transformed_table.num_rows
 

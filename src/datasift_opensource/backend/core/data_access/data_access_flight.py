@@ -22,7 +22,9 @@ class DataAccessFlight(DataAccess):
         url = flight_config["url"]
         self.flight_client = pa.flight.connect(url)
         logger.info("Connected to Flight server at %s", url)
-        self.output_folder = TransformUtils.clean_path(flight_config[DatasiftConstants.OUTPUT_FOLDER])
+        self.output_folder = TransformUtils.clean_path(
+            flight_config[DatasiftConstants.OUTPUT_FOLDER]
+        )
         self.checkpoint = checkpoint
         self.tables = {}
 
@@ -48,13 +50,13 @@ class DataAccessFlight(DataAccess):
             pyarrow.Table: PyArrow table if read successfully, None otherwise.
         """
         try:
-            logger.debug('Path: %s', path)
-            
+            logger.debug("Path: %s", path)
+
             # if the table exists in memory, use it for faster access
             if self.tables.get(path):
-                logger.debug('Table found in memory')
+                logger.debug("Table found in memory")
                 return self.tables[path], 0
-            
+
             descriptor = pa.flight.FlightDescriptor.for_path(path=path)
             info = self.flight_client.get_flight_info(descriptor)
 
@@ -84,19 +86,21 @@ class DataAccessFlight(DataAccess):
                     - size (int): The size of the file (bytes).
                 If saving fails, file_info will be None.
         """
-        logger.debug('Path: %s', path)
-        
-        #save the table in memory for faster access
+        logger.debug("Path: %s", path)
+
+        # save the table in memory for faster access
         self.tables[path] = table
-        
-        writer, _ = self.flight_client.do_put(pa.flight.FlightDescriptor.for_path(path=path), table.schema)
+
+        writer, _ = self.flight_client.do_put(
+            pa.flight.FlightDescriptor.for_path(path=path), table.schema
+        )
         writer.write_table(table)
         writer.close()
 
         return table.nbytes, {}
 
 
-def main():   # pragma: no cover
+def main():  # pragma: no cover
 
     # run the server first:
     # python3 src/utils/flight_server.py
@@ -106,11 +110,11 @@ def main():   # pragma: no cover
     data_access = DataAccessFlight(url)
 
     # save a table to the flight server, using the pathname as a key
-    _, data_table = data_access.save_table('example.parquet')
+    _, data_table = data_access.save_table("example.parquet")
     print(data_table.to_pandas().keys())
 
     # get the sample table from the flight sever, pathname is the key
-    df = data_access.get_table('example.parquet')
+    df = data_access.get_table("example.parquet")
     print(df.keys())
 
     # flight list is a generator containing all tables in the server
@@ -123,7 +127,6 @@ def main():   # pragma: no cover
         print(key)
 
 
-
-# main entry point into the program; 
-if __name__ == '__main__':  # pragma: no cover
+# main entry point into the program;
+if __name__ == "__main__":  # pragma: no cover
     main()

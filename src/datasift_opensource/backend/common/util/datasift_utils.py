@@ -20,10 +20,7 @@ def get_current_timestamp():
 
 
 def add_validation_alert(
-    message: Union[str, ValidationMessage],
-    op_def: dict,
-    alerts: List,
-    **kwargs
+    message: Union[str, ValidationMessage], op_def: dict, alerts: List, **kwargs
 ):
     """
 
@@ -37,7 +34,11 @@ def add_validation_alert(
     -------
     instance of ValidationAlert model
     """
-    message_obj = message if isinstance(message, ValidationMessage) else ValidationMessage(message=message)
+    message_obj = (
+        message
+        if isinstance(message, ValidationMessage)
+        else ValidationMessage(message=message)
+    )
 
     alerts.append(
         ValidationAlert(
@@ -45,8 +46,8 @@ def add_validation_alert(
             node_id=op_def.get(OperatorConstants.ID),
             node_name=op_def.get(OperatorConstants.NAME),
             operator=op_def.get(OperatorConstants.OPERATOR),
-            **message_obj.model_dump(mode='python'),
-            **kwargs
+            **message_obj.model_dump(mode="python"),
+            **kwargs,
         )
     )
 
@@ -68,8 +69,8 @@ def delete_folders(*, paths_list):
 
 
 # Define type variables for generic function typing
-T = TypeVar('T')  # input batch type
-R = TypeVar('R')  # worker_fn return type
+T = TypeVar("T")  # input batch type
+R = TypeVar("R")  # worker_fn return type
 
 
 def _append_result(batch_result, result_extractor, results):
@@ -78,11 +79,7 @@ def _append_result(batch_result, result_extractor, results):
         return
 
     # Apply extractor if provided
-    final_result = (
-        result_extractor(batch_result)
-        if result_extractor
-        else batch_result
-    )
+    final_result = result_extractor(batch_result) if result_extractor else batch_result
 
     if not final_result:
         return
@@ -94,11 +91,11 @@ def _append_result(batch_result, result_extractor, results):
 
 
 def process_batches_in_parallel(
-        *,
-        batches: List[T],
-        worker_fn: Callable[[T], R],
-        max_workers: int = OperatorConstants.DEFAULT_MAX_THREADS,
-        result_extractor: Callable[[R], List[Any] | None] | None = None,
+    *,
+    batches: List[T],
+    worker_fn: Callable[[T], R],
+    max_workers: int = OperatorConstants.DEFAULT_MAX_THREADS,
+    result_extractor: Callable[[R], List[Any] | None] | None = None,
 ) -> List[Any]:
     """
     Run a worker function in parallel on batches and merge results.
@@ -134,53 +131,61 @@ def process_batches_in_parallel(
     return results
 
 
-def run_with_session_info(session_info: Any, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+def run_with_session_info(
+    session_info: Any, func: Callable[..., T], *args: Any, **kwargs: Any
+) -> T:
     """
     A utility function that runs a function with the given session_info in the current thread/context.
     This is particularly useful for ThreadPoolExecutor workers to ensure they have the correct session_info.
-    
+
     Args:
         session_info: The session_info object to set in the current thread/context
         func: The function to execute
         *args: Positional arguments to pass to the function
         **kwargs: Keyword arguments to pass to the function
-        
+
     Returns:
         The result of the function execution
     """
     if session_info:
         from common.models.session_info import set_session_info
+
         # Set the session_info in the current thread/context
         set_session_info(session_info)
-        
+
     # Execute the function with the provided arguments
     return func(*args, **kwargs)
 
 
-def submit_task_with_context_propagation(executor: 'ThreadPoolExecutor', func: 'Callable', *args, **kwargs):
+def submit_task_with_context_propagation(
+    executor: "ThreadPoolExecutor", func: "Callable", *args, **kwargs
+):
     """
     Submit a task to ThreadPoolExecutor with session_info context propagation.
-    
+
     This function ensures that session information is properly propagated to worker threads.
-    
+
     Args:
         executor: ThreadPoolExecutor instance to submit the task to
         func: The function to execute in the worker thread
         *args: Positional arguments to pass to the function
         **kwargs: Keyword arguments to pass to the function
-        
+
     Returns:
         Future object representing the execution of the task
-        
+
     Example:
         with ThreadPoolExecutor(max_workers=4) as executor:
             future = submit_task_with_context_propagation(executor, my_function, arg1, arg2, key=value)
             result = future.result()
     """
     from common.models.session_info import get_session_info
+
     current_session = get_session_info()
-    
-    return executor.submit(run_with_session_info, current_session, func, *args, **kwargs)
+
+    return executor.submit(
+        run_with_session_info, current_session, func, *args, **kwargs
+    )
 
 
 def should_retry_on_result(result, exception):

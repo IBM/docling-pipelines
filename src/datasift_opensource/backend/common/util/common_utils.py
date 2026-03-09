@@ -18,11 +18,18 @@ def lowercase_keys(*, input_dict: dict[str, Any]):
 
 
 def batch_list(*, input_list: list, batch_size=20):
-    return [input_list[i:i + batch_size] for i in range(0, len(input_list), batch_size)]
+    return [
+        input_list[i : i + batch_size] for i in range(0, len(input_list), batch_size)
+    ]
 
 
-def process_in_batches(*, processor: Callable[..., list | None], input_list: list, batch_size: int = 100,
-                       **kwargs) -> list:
+def process_in_batches(
+    *,
+    processor: Callable[..., list | None],
+    input_list: list,
+    batch_size: int = 100,
+    **kwargs,
+) -> list:
     """
     Processes a list of items in batches using a custom processor function.
 
@@ -51,7 +58,7 @@ def process_in_batches(*, processor: Callable[..., list | None], input_list: lis
             input_batch,
             batch_number=batch_number,
             start_index_offset=start_index_offset,
-            **kwargs
+            **kwargs,
         )
         result_responses.extend(batch_result or [])
         start_index_offset += len(input_batch)
@@ -60,7 +67,7 @@ def process_in_batches(*, processor: Callable[..., list | None], input_list: lis
 
 
 def split_text_into_chunks(*, text, min_size=3000, max_size=4000):
-    paragraphs = re.split(r'\n\s*\n', text)
+    paragraphs = re.split(r"\n\s*\n", text)
 
     chunks = []
     current_chunk = ""
@@ -159,7 +166,9 @@ def get_map_from_map(obj: Dict[str, Any], key: str) -> Dict[str, Any]:
     return val if isinstance(val, dict) else {}
 
 
-def get_truncated_text(*, text_string: str, n_chars: int = 1000, n_json_entries: int = 4):
+def get_truncated_text(
+    *, text_string: str, n_chars: int = 1000, n_json_entries: int = 4
+):
     """
     Truncates the input string based on its content:
     1. If it's plain text, returns the first `n_chars` characters.
@@ -194,15 +203,17 @@ def get_truncated_text(*, text_string: str, n_chars: int = 1000, n_json_entries:
         return text_string[:n_chars]
 
 
-def is_value_in_range(*, value: int | float, min_value: int | float, max_value: int | float) -> bool:
+def is_value_in_range(
+    *, value: int | float, min_value: int | float, max_value: int | float
+) -> bool:
     """
     Check if a value is within the specified range (inclusive).
-    
+
     Args:
         value: The value to check.
         min_value: The minimum value of the range (inclusive).
         max_value: The maximum value of the range (inclusive).
-    
+
     Returns:
         bool: True if value is within [min_value, max_value], False otherwise.
     """
@@ -213,16 +224,16 @@ def escape_query_value(value: str) -> str:
     """
     Escape special characters in a value for use in Lucene-style search queries.
     Escapes backslashes and quotes, then wraps the value in quotes.
-    
+
     Args:
         value: The value to escape
-        
+
     Returns:
         The escaped and quoted value safe for use in search queries
-        
+
     Example:
         >>> escape_query_value("Flow: Test 2024-01-01T12:00:00Z")
         '"Flow: Test 2024-01-01T12:00:00Z"'
     """
-    escaped_value = value.replace('\\', '\\\\').replace('"', '\\"')
+    escaped_value = value.replace("\\", "\\\\").replace('"', '\\"')
     return f'"{escaped_value}"'

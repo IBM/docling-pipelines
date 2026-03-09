@@ -15,9 +15,15 @@ from common.util.log import get_logger
 PREFECT_HOME_PREFIX = "prefect_"
 PREFECT_HOME = "PREFECT_HOME"
 PREFECT_API_DATABASE_CONNECTION_URL = "PREFECT_API_DATABASE_CONNECTION_URL"
-PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED = "PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED"
-PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY = "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY"
-PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS = "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS"
+PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED = (
+    "PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED"
+)
+PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY = (
+    "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY"
+)
+PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS = (
+    "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS"
+)
 # Set to "true" to use SQLite with persistent storage and the default Prefect home directory.
 # Allows accessing Prefect dashboard for flows review.
 PREFECT_DEBUG = "PREFECT_DEBUG"
@@ -25,10 +31,10 @@ PREFECT_DEBUG = "PREFECT_DEBUG"
 
 def create_node_id_to_index_map(*, flow_def: dict) -> dict:
     """
-    Return a mapping between each node ID and its corresponding index, 
+    Return a mapping between each node ID and its corresponding index,
     representing the position where it
     appears in the original JSON node sequence.
-    
+
     Args:
         flow_def: a dict holding a flow.
 
@@ -53,8 +59,9 @@ def create_log_folders(job_id, job_run_id, type):
     log_app_location = DatasiftConstants.UDP_LOGS
 
     log_job_folder_name = job_id
-    log_job_location = os.path.join(log_location_path, log_app_location, log_job_folder_name,
-                                    str(job_run_id))
+    log_job_location = os.path.join(
+        log_location_path, log_app_location, log_job_folder_name, str(job_run_id)
+    )
     os.makedirs(log_job_location, exist_ok=True)
     if type == "job":
         log_job_run_file_name = "job_stats.json"
@@ -142,7 +149,7 @@ def align_table_schema(table: pa.Table, all_cols: dict) -> pa.Table:
 
 
 # Helper: Combine and align cumulative deleted rows
-def combine_cumulative_deleted_rows(deleted_rows : Queue[pa.Table]) -> pa.Table:
+def combine_cumulative_deleted_rows(deleted_rows: Queue[pa.Table]) -> pa.Table:
     logger = get_logger()
 
     if not deleted_rows:
@@ -161,7 +168,9 @@ def combine_cumulative_deleted_rows(deleted_rows : Queue[pa.Table]) -> pa.Table:
 
         # Concatenate aligned tables
         combined = pa.concat_tables(aligned_tables, promote=True)
-        logger.info(f"Combined cumulative deleted rows: {combined.num_rows} rows, {len(all_cols)} columns.")
+        logger.info(
+            f"Combined cumulative deleted rows: {combined.num_rows} rows, {len(all_cols)} columns."
+        )
         return combined
 
     except Exception as e:
@@ -181,14 +190,18 @@ def _combine_tables(tables: list[pa.Table], table_type: str) -> Optional[pa.Tabl
             unique_ids = pc.count_distinct(combined[OperatorConstants.ID]).as_py()
             total_rows = combined.num_rows
             if unique_ids < total_rows:
-                logger.warning(f"{table_type} contains {total_rows - unique_ids} duplicate IDs.")
+                logger.warning(
+                    f"{table_type} contains {total_rows - unique_ids} duplicate IDs."
+                )
         return combined
     except Exception as e:
         logger.warning(f"[WARN] Failed to combine {table_type}: {e}")
         return None
 
 
-def _total_rows(tables:Optional[pa.Table | dict[str, pa.Table] | list[pa.Table]]) -> int:
+def _total_rows(
+    tables: Optional[pa.Table | dict[str, pa.Table] | list[pa.Table]],
+) -> int:
     """Returns total rows from pa.Table, list, or dict of pa.Table."""
     if isinstance(tables, pa.Table):
         return tables.num_rows
@@ -203,7 +216,7 @@ def update_deleted_rows(
     prev_tables: Optional[pa.Table | dict[str, pa.Table] | list[pa.Table]],
     current_tables: list[pa.Table],
     skip_columns: list[str],
-    op
+    op,
 ) -> pa.Table:
     """
     Compares previous and current PyArrow tables across steps to detect deleted rows
@@ -239,7 +252,9 @@ def update_deleted_rows(
 
     # ---- Combine previous + current ----
     if isinstance(prev_tables, dict):
-        previous_combined = _combine_tables(list(prev_tables.values()), "previous tables")
+        previous_combined = _combine_tables(
+            list(prev_tables.values()), "previous tables"
+        )
     elif isinstance(prev_tables, list):
         previous_combined = _combine_tables(prev_tables, "previous tables")
     else:
@@ -247,16 +262,26 @@ def update_deleted_rows(
 
     current_combined = _combine_tables(current_tables, "current tables")
 
-    if previous_combined is None or current_combined is None or previous_combined.num_rows == 0 or current_combined.num_rows == 0:
+    if (
+        previous_combined is None
+        or current_combined is None
+        or previous_combined.num_rows == 0
+        or current_combined.num_rows == 0
+    ):
         return pa.table({})
 
     # ---- Detect deleted rows ----
     try:
-        deleted_mask = pc.invert(pc.is_in(previous_combined[OperatorConstants.ID], value_set=current_combined[OperatorConstants.ID]))
+        deleted_mask = pc.invert(
+            pc.is_in(
+                previous_combined[OperatorConstants.ID],
+                value_set=current_combined[OperatorConstants.ID],
+            )
+        )
         deleted_rows = previous_combined.filter(deleted_mask)
     except Exception as e:
         logger.warning(f"[WARN] Error detecting deleted rows: {e}")
-        return  pa.table({})
+        return pa.table({})
 
     if deleted_rows.num_rows == 0:
         return pa.table({})
@@ -264,7 +289,7 @@ def update_deleted_rows(
     # ---- Align schema and drop heavy columns ----
     try:
         all_cols = {}
-        for tbl in [current_combined,previous_combined]:
+        for tbl in [current_combined, previous_combined]:
             for field in tbl.schema:
                 all_cols[field.name] = field.type
         deleted_rows = align_table_schema(deleted_rows, all_cols)
@@ -287,8 +312,10 @@ def update_deleted_rows(
     return pa.table({})
 
 
-def construct_deleted_rows_table_path( *, job_id: str, job_run_id ):
+def construct_deleted_rows_table_path(*, job_id: str, job_run_id):
     # table_name = "deleted_rows_table"
     metadata_path = "/unprocessed_docs"
     parquet_file_name = "unprocessed_docs.parquet"
-    return os.path.join(get_warehouse_path(path=metadata_path),job_id, job_run_id,parquet_file_name)
+    return os.path.join(
+        get_warehouse_path(path=metadata_path), job_id, job_run_id, parquet_file_name
+    )

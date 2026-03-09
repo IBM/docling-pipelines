@@ -142,14 +142,18 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
         # 1. It's not a standalone column
         # 2. It appears in >50% of columns
         # 3. There are some non-dotted columns (otherwise it's just a parent object)
-        if (potential_prefix not in col_names and
-            prefix_count > len(col_names) * 0.5 and
-            non_dotted_count > 0):
+        if (
+            potential_prefix not in col_names
+            and prefix_count > len(col_names) * 0.5
+            and non_dotted_count > 0
+        ):
             common_prefix = potential_prefix
 
     # Track which fields are NESTED type
-    nested_fields = {col_name for col_name, col_type in columns.items() if col_type == "NESTED"}
-    
+    nested_fields = {
+        col_name for col_name, col_type in columns.items() if col_type == "NESTED"
+    }
+
     # Track parent fields that should be lists (when all children share same parent)
     parent_fields = {}
     for col_name in col_names:
@@ -158,7 +162,7 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
             if parent not in parent_fields:
                 parent_fields[parent] = []
             parent_fields[parent].append(col_name)
-    
+
     # Determine which parents should be lists (when they have multiple children and aren't standalone columns)
     list_parents = set()
     for parent, children in parent_fields.items():
@@ -179,14 +183,17 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
             for i, part in enumerate(parts[:-1]):
                 if part not in current:
                     # Check if this parent field is marked as NESTED or should be a list
-                    parent_path = ".".join(parts[:i+1])
+                    parent_path = ".".join(parts[: i + 1])
                     if common_prefix:
                         full_parent_path = f"{common_prefix}.{parent_path}"
                     else:
                         full_parent_path = parent_path
-                    
-                    if (full_parent_path in nested_fields or part in nested_fields or
-                        part in list_parents):
+
+                    if (
+                        full_parent_path in nested_fields
+                        or part in nested_fields
+                        or part in list_parents
+                    ):
                         # Create a list with a single dict element
                         current[part] = [{}]
                         current = current[part][0]
@@ -572,9 +579,9 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         entities_list: list[dict[str, Any]] = [{}] * table.num_rows
 
         # Build task list
-        doc_tasks: list[tuple[int, str, str, str]] = (
-            []
-        )  # (row_idx, doc_id, doc_name, content)
+        doc_tasks: list[
+            tuple[int, str, str, str]
+        ] = []  # (row_idx, doc_id, doc_name, content)
         for row_idx in range(table.num_rows):
             row = {
                 col: table.column(col)[row_idx].as_py() for col in table.column_names

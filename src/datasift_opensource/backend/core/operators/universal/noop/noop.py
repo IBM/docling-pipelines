@@ -30,12 +30,13 @@ class NOOPOperator(AbstractOperator):
         # of NOOPTransformConfiguration class
         super().__init__(config)
         self.sleep: int = config.get("sleep_sec", 1)
-        self.common_log_arguments: dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.common_log_arguments: dict[str, Any] = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
 
     def get_metadata(self) -> dict[str, Any]:
-        return {
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()
-        }
+        return {OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()}
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -44,25 +45,35 @@ class NOOPOperator(AbstractOperator):
         This implementation makes no modifications so effectively implements a copy of the
         input parquet to the output folder, without modification.
         """
-        logger.debug(f"Transforming one table with {len(table)} rows", extra=self.common_log_arguments)
+        logger.debug(
+            f"Transforming one table with {len(table)} rows",
+            extra=self.common_log_arguments,
+        )
 
         # Calculate doc count
         total_docs_count: int = find_doc_count(table=table)
 
         # Initialize metadata
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs_count)
+        metadata: dict[str, Any] = self.create_base_metadata(
+            total_docs_count=total_docs_count
+        )
         metadata["nfiles"] = 0
         metadata["nrows"] = len(table)
 
         if self.sleep is not None:
-            logger.info(f"Sleep for {self.sleep} seconds", extra=self.common_log_arguments)
+            logger.info(
+                f"Sleep for {self.sleep} seconds", extra=self.common_log_arguments
+            )
             time.sleep(self.sleep)
             logger.info("Sleep completed - continue")
 
         # Update processed_docs count
         metadata[Metrics.External.PROCESSED_DOCS] = total_docs_count
 
-        logger.debug(f"Transformed one table with {len(table)} rows", extra=self.common_log_arguments)
+        logger.debug(
+            f"Transformed one table with {len(table)} rows",
+            extra=self.common_log_arguments,
+        )
         return [table], metadata
 
 
@@ -89,5 +100,5 @@ def main() -> None:  # pragma: no cover
 
 
 # main entry point into the program; used for unit testing only
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()

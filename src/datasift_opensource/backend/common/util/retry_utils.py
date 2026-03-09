@@ -17,19 +17,22 @@ from common.util.log import get_logger
 
 logger = get_logger()
 
-def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60, retry_logic=None):
+
+def retry_with_exponential_backoff(
+    max_retries=5, initial_delay=2, max_delay=60, retry_logic=None
+):
     """
-        Decorator for retrying a function with exponential backoff.
+    Decorator for retrying a function with exponential backoff.
 
-        Args:
-            max_retries (int): Maximum number of retry attempts.
-            initial_delay (float): Initial delay between retries in seconds.
-            max_delay (float): Maximum delay between retries in seconds.
-            retry_logic (callable): Function that takes (result, exception) and returns a tuple (should_retry: bool, error_message: str).
+    Args:
+        max_retries (int): Maximum number of retry attempts.
+        initial_delay (float): Initial delay between retries in seconds.
+        max_delay (float): Maximum delay between retries in seconds.
+        retry_logic (callable): Function that takes (result, exception) and returns a tuple (should_retry: bool, error_message: str).
 
-        Raises:
-            DatasiftException: If retry_logic requests retries on a successful call after max_retries, with the provided or default error_message.
-            Exception: The original exception if retries are exhausted due to failures.
+    Raises:
+        DatasiftException: If retry_logic requests retries on a successful call after max_retries, with the provided or default error_message.
+        Exception: The original exception if retries are exhausted due to failures.
     """
 
     def decorator(func):
@@ -54,23 +57,32 @@ def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60,
                         if isinstance(err_msg, str):
                             error_message = err_msg
                         else:
-                            logger.error("retry_logic second element must be a string. Using default error message.")
+                            logger.error(
+                                "retry_logic second element must be a string. Using default error message."
+                            )
                     else:
-                        logger.error("retry_logic must return a tuple (bool, str). Disabling retries.")
+                        logger.error(
+                            "retry_logic must return a tuple (bool, str). Disabling retries."
+                        )
 
                 if should_retry:
                     retry_count += 1
 
                     if retry_count >= max_retries:
                         if exception:
-                            logger.error(f"Failed after {max_retries} attempts: {str(exception)}")
+                            logger.error(
+                                f"Failed after {max_retries} attempts: {str(exception)}"
+                            )
                             raise exception
                         else:
                             # This is a special case where, should_retry is True but no exception occurred, and retry_count reaches max_retries
                             raise DatasiftException(
-                                f"Retry logic indicated retry on successful call after {max_retries} attempts: {error_message}")
+                                f"Retry logic indicated retry on successful call after {max_retries} attempts: {error_message}"
+                            )
 
-                    logger.info(f"Operation failed on attempt {retry_count}. Retrying in {delay:.2f} seconds...")
+                    logger.info(
+                        f"Operation failed on attempt {retry_count}. Retrying in {delay:.2f} seconds..."
+                    )
                     time.sleep(delay)
 
                     delay = min(delay * 2, max_delay)
@@ -80,7 +92,9 @@ def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60,
                     return result
 
         if retry_logic is None:
-            logger.warning("No retry logic provided. Function will not retry on failure.")
+            logger.warning(
+                "No retry logic provided. Function will not retry on failure."
+            )
         return wrapper
 
     return decorator

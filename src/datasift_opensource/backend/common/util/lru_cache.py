@@ -16,7 +16,7 @@ class LRUCache(metaclass=Singleton):
     _is_initialized: bool = False
 
     def __init__(self, maxsize: int = 128, ttl: int = 1800):
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             self._cache_lock = threading.Lock()
 
         with self._cache_lock:
@@ -27,15 +27,19 @@ class LRUCache(metaclass=Singleton):
                 if not isinstance(ttl, int) or ttl < 0:
                     raise ValueError("TTL must be a non-negative integer")
 
-                self._cache: TTLCache = TTLCache(maxsize=maxsize, ttl=ttl, timer=time.time)
+                self._cache: TTLCache = TTLCache(
+                    maxsize=maxsize, ttl=ttl, timer=time.time
+                )
 
                 self._is_initialized = True
-                logger.debug(f"Initialized {self.__class__.__name__} with size {maxsize} and TTL {ttl}")
+                logger.debug(
+                    f"Initialized {self.__class__.__name__} with size {maxsize} and TTL {ttl}"
+                )
             else:
                 logger.warning(f"Cache {self.__class__.__name__} already initialized")
 
     def get(self, *, cache_key: Hashable) -> Optional[Any]:
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 
         with self._cache_lock:
@@ -49,7 +53,7 @@ class LRUCache(metaclass=Singleton):
             return container_object
 
     def put(self, *, cache_key: Hashable, value: Any):
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 
         with self._cache_lock:
@@ -58,7 +62,7 @@ class LRUCache(metaclass=Singleton):
             logger.info(f"Current cache size: {len(self._cache)}/{self._cache.maxsize}")
 
     def remove_keys(self, *, keys: Iterable[Hashable]) -> None:
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 
         with self._cache_lock:
@@ -68,9 +72,9 @@ class LRUCache(metaclass=Singleton):
 
     def clear(self):
         """Clear all entries from the cache."""
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
-        
+
         with self._cache_lock:
             self._cache.clear()
             logger.debug(f"Cleared cache {self.__class__.__name__}")

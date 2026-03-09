@@ -16,8 +16,8 @@ logger: Any = get_logger()
 
 class IngestCSVOperator(AbstractOperator):
     """
-    Implements loading the contents of CSV files from a local folder. Recursive traversal 
-    is supported. All the CSV files should have the same and these columns are loaded as 
+    Implements loading the contents of CSV files from a local folder. Recursive traversal
+    is supported. All the CSV files should have the same and these columns are loaded as
     columns within the pyarrow table.
     """
 
@@ -42,11 +42,11 @@ class IngestCSVOperator(AbstractOperator):
         return False
 
     def get_metadata(self) -> dict[str, Any]:
-        return {
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()
-        }
+        return {OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()}
 
-    def transform(self, table: Optional[pa.Table]) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(
+        self, table: Optional[pa.Table]
+    ) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Operator-specific logic to convert one input Table to 0 or more output tables.
         In this case, crawl through the given folder, find all the CSV files, and add
@@ -57,8 +57,7 @@ class IngestCSVOperator(AbstractOperator):
 
         file_count: int = 0
         row_count: int = 0
-        for (root, dirs, files) in os.walk(self.input_folder, topdown=True):
-            
+        for root, dirs, files in os.walk(self.input_folder, topdown=True):
             content: list[dict[str, Any]] = []
             for f in files:
                 print(f)
@@ -82,10 +81,12 @@ class IngestCSVOperator(AbstractOperator):
                                 content.append(value)
 
             table = pa.Table.from_pylist(content)
-            print('\n\n', table)
+            print("\n\n", table)
 
             # Initialize metadata
-            metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=file_count)
+            metadata: dict[str, Any] = self.create_base_metadata(
+                total_docs_count=file_count
+            )
             metadata[Metrics.External.PROCESSED_DOCS] = file_count
             metadata["row_count"] = row_count
 
@@ -93,12 +94,11 @@ class IngestCSVOperator(AbstractOperator):
 
 
 # used for unit testing only
-def main() -> None:   # pragma: no cover
-    operator: IngestCSVOperator = IngestCSVOperator({
-        "input_folder": "./test/input_docs",
-        "max_rows": 1000,
-        "max_files": 100 })
-    
+def main() -> None:  # pragma: no cover
+    operator: IngestCSVOperator = IngestCSVOperator(
+        {"input_folder": "./test/input_docs", "max_rows": 1000, "max_files": 100}
+    )
+
     table_list: list[pa.Table]
     metadata: dict[str, Any]
     table_list, metadata = operator.transform(None)
@@ -113,6 +113,5 @@ def main() -> None:   # pragma: no cover
 
 
 # main entry point into the program; used for unit testing only
-if __name__ == '__main__':   # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()
-                
