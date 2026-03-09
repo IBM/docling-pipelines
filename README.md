@@ -107,12 +107,12 @@ cd ../../..  # Return to project root
 
 Start the FastAPI server with uvicorn:
 ```bash
-# Using uv (from backend directory) - recommended
+# Using uv (from backend directory)
 cd src/datasift_opensource/backend
 uv run uvicorn datasift_opensource.backend.app.main:app --reload
 
 # Or with activated venv (from project root)
-src/datasift_opensource/backend/.venv/bin/uvicorn datasift_opensource.backend.app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn datasift_opensource.backend.app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at:
@@ -124,27 +124,26 @@ The API will be available at:
 
 Run the CLI orchestrator:
 ```bash
-# Using uv (from project root)
-uv run --directory src/datasift_opensource/backend datasift-orchestrator --help
+# Using uv
+uv run datasift-orchestrator --help
 
-# Or with activated venv (from backend directory)
-cd src/datasift_opensource/backend
-.venv/bin/datasift-orchestrator --help
+# Or with activated venv
+datasift-orchestrator --help
 ```
 
 Available commands:
 ```bash
-# Execute a flow from a JSON file
-datasift-orchestrator --flow-file path/to/flow.json
+# Start a service
+datasift-orchestrator start <service-name> --config <config-file>
 
-# Execute with debug logging
-datasift-orchestrator --flow-file path/to/flow.json --log-level debug
+# Stop a service
+datasift-orchestrator stop <service-name>
 
-# List all available operators (summary)
-datasift-orchestrator --list-operators
+# Check service status
+datasift-orchestrator status [service-name]
 
-# List all available operators (verbose)
-datasift-orchestrator --list-operators --verbose
+# List all services
+datasift-orchestrator list
 ```
 
 ## Docker
