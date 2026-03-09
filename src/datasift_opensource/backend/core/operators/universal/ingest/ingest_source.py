@@ -216,7 +216,7 @@ class IngestSourceOperator(AbstractOperator):
                 try:
                     from dateutil import parser
                     modified_time = int(parser.parse(modified_time).timestamp())
-                except:
+                except Exception:
                     modified_time = 0
             
             if self.previously_processed_docs_dict and is_doc_previously_processed(

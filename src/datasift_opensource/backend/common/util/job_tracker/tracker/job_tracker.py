@@ -3,11 +3,10 @@ This module defines the JobTracker, a central Singleton class responsible for ma
 the lifecycle, state, and statistics of data processing jobs within the application.
 """
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Counter
 
 import itertools
-import time
 
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.models.session_info import get_session_info, update_session_info

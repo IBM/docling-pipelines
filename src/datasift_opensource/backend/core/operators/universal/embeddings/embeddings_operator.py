@@ -1130,7 +1130,7 @@ def main() -> int:
             print(f"\n❌ No documents found in {args.pdf}")
             print(f"   Expected path: {pdf_path.resolve()}")
             if pdf_path.is_file():
-                print(f"   Note: When passing a file, all PDFs in parent directory are scanned first")
+                print("   Note: When passing a file, all PDFs in parent directory are scanned first")
             return 1
             
         # Show sample document info

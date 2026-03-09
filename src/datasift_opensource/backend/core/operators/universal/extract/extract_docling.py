@@ -165,7 +165,7 @@ def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables:
         # Clean up temporary file
         try:
             os.unlink(tmp_path)
-        except:
+        except OSError:
             pass
 
 
@@ -226,7 +226,7 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
             # Clean up temporary file
             try:
                 os.unlink(tmp_path)
-            except:
+            except OSError:
                 pass
                 
     except ImportError as e:
@@ -483,7 +483,7 @@ class ExtractDoclingOperator(AbstractOperator):
             import os
             try:
                 os.unlink(tmp_path)
-            except:
+            except OSError:
                 pass
     
     def _extract_with_template(self, file_path: str, binary_content: bytes) -> Dict[str, Any]:
@@ -548,7 +548,7 @@ class ExtractDoclingOperator(AbstractOperator):
                 import os
                 try:
                     os.unlink(tmp_path)
-                except:
+                except OSError:
                     pass
                     
         except ImportError as e:
