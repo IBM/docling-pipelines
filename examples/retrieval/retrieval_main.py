@@ -158,6 +158,9 @@ class CompleteQuerySystem:
         Returns:
             Dictionary with final answer and metadata
         """
+        logger.info(f"Processing query: {user_question[:100]}...")
+        logger.debug(f"Query options: use_sql={use_sql}, use_hybrid={use_hybrid}")
+        
         results = {
             "user_question": user_question,
             "sql_results": [],
@@ -172,30 +175,42 @@ class CompleteQuerySystem:
             try:
                 # Generate SQL query if not provided
                 if not sql_query:
+                    logger.info("Generating SQL query from natural language")
                     sql_query = self._generate_sql_query(user_question)
                     results["sql_query"] = sql_query
+                    logger.info(f"Generated SQL: {sql_query}")
+                else:
+                    logger.info(f"Using provided SQL: {sql_query}")
 
                 # Execute SQL query
+                logger.debug("Executing SQL query against OpenSearch")
                 sql_result = self.sql_client.execute(sql_query)
 
                 if sql_result.error:
+                    logger.error(f"SQL execution error: {sql_result.error}")
                     results["errors"].append(f"SQL Error: {sql_result.error}")
                 else:
                     results["sql_results"] = sql_result.to_dict_list()
+                    logger.info(f"SQL query returned {len(results['sql_results'])} results")
 
             except Exception as e:
+                logger.error(f"SQL exception: {str(e)}", exc_info=True)
                 results["errors"].append(f"SQL Exception: {str(e)}")
 
         # Step 2: Get hybrid search results if enabled
         if use_hybrid:
             try:
+                logger.info("Executing hybrid search")
                 hybrid_results = self._execute_hybrid_search(user_question)
                 results["hybrid_results"] = hybrid_results
+                logger.info(f"Hybrid search returned {len(hybrid_results)} results")
             except Exception as e:
+                logger.error(f"Hybrid search exception: {str(e)}", exc_info=True)
                 results["errors"].append(f"Hybrid Search Exception: {str(e)}")
 
         # Step 3: Combine results and generate answer
         try:
+            logger.info("Combining results and generating answer with LLM")
             answer_result = self.result_combiner.combine_and_answer(
                 user_question=user_question,
                 sql_results=results["sql_results"],
@@ -206,14 +221,17 @@ class CompleteQuerySystem:
             if answer_result["success"]:
                 results["answer"] = answer_result["answer"]
                 results["model_used"] = answer_result["model_used"]
+                logger.info(f"Answer generated successfully using model: {answer_result['model_used']}")
             else:
-                results["errors"].append(
-                    f"Answer Generation Error: {answer_result.get('error')}"
-                )
+                error_msg = answer_result.get('error', 'Unknown error')
+                logger.error(f"Answer generation failed: {error_msg}")
+                results["errors"].append(f"Answer Generation Error: {error_msg}")
 
         except Exception as e:
+            logger.error(f"Answer generation exception: {str(e)}", exc_info=True)
             results["errors"].append(f"Answer Generation Exception: {str(e)}")
 
+        logger.info(f"Query completed with {len(results['errors'])} errors")
         return results
 
     def query_streaming(

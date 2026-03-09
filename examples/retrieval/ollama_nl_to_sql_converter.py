@@ -456,9 +456,10 @@ SQL QUERY:"""
             ) from exc
 
         full_response = ""
-        print("Generating SQL query", end="", flush=True)
+        logger.info("Generating SQL query using Ollama streaming API")
 
         try:
+            chunk_count = 0
             for line in response.iter_lines():
                 if line:
                     try:
@@ -468,22 +469,24 @@ SQL QUERY:"""
                         continue
                     if "response" in chunk:
                         full_response += chunk["response"]
-                        print(".", end="", flush=True)
+                        chunk_count += 1
                     if chunk.get("done", False):
                         break
+            logger.debug(f"Received {chunk_count} chunks from Ollama")
         except Exception as exc:  # noqa: BLE001
             raise RuntimeError(
                 f"Error reading Ollama streaming response: {exc}"
             ) from exc
-
-        print()  # New line after dots
 
         if not full_response.strip():
             raise RuntimeError(
                 f"Ollama streaming returned an empty response for model '{self.model}'."
             )
 
-        return self._clean_sql(full_response)
+        logger.debug(f"Raw Ollama response length: {len(full_response)} characters")
+        cleaned_sql = self._clean_sql(full_response)
+        logger.info(f"Generated SQL query: {cleaned_sql[:200]}...")
+        return cleaned_sql
 
 
 class OllamaPurchaseOrderQuerySystem:
