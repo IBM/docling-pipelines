@@ -1075,9 +1075,26 @@ def main() -> int:
     print("STEP 1: INGEST PDF FILES")
     print("=" * 80)
     
+    # Handle both file and directory paths
+    # IngestLocalOperator expects a directory, so if a file is passed,
+    # we need to pass its parent directory and filter by the specific filename
+    ingest_path: str
+    include_filter: str
+    if pdf_path.is_file():
+        # For a single file, ingest from parent directory
+        ingest_path = str(pdf_path.parent)
+        include_filter = "pdf"
+        print(f"  Ingesting single file: {pdf_path.name}")
+        print(f"  From directory: {ingest_path}")
+    else:
+        # For a directory, ingest all PDFs from it
+        ingest_path = args.pdf
+        include_filter = "pdf"
+        print(f"  Ingesting all PDFs from directory: {ingest_path}")
+    
     ingest_config: Dict[str, Any] = {
-        "input_folder": args.pdf,
-        "include_filter": "pdf",
+        "input_folder": ingest_path,
+        "include_filter": include_filter,
         "max_files": 10,
         "store_binary_content": True,
         "force_ingest": True  # Bypass incremental processing for demo
@@ -1090,6 +1107,20 @@ def main() -> int:
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
         ingest_table: pa.Table = ingest_tables[0]
         
+        # If a specific file was requested, filter to only that file
+        if pdf_path.is_file() and ingest_table.num_rows > 0:
+            # Resolve both paths to handle symlinks (e.g., /tmp -> /private/tmp on macOS)
+            target_path: str = str(pdf_path.resolve())
+            if "name" in ingest_table.column_names:
+                # Filter table to only include the target file
+                # Compare resolved paths to handle symlinks
+                mask: List[bool] = [
+                    str(Path(ingest_table["name"][i].as_py()).resolve()) == target_path
+                    for i in range(ingest_table.num_rows)
+                ]
+                ingest_table = ingest_table.filter(pa.array(mask))
+                print(f"  Filtered to target file: {pdf_path.name}")
+        
         print(f"✓ Ingested {ingest_table.num_rows} document(s)")
         print(f"  Columns: {ingest_table.column_names}")
         print(f"  Metadata: Processed={ingest_metadata.get('processed_docs', 0)}, "
@@ -1097,6 +1128,9 @@ def main() -> int:
         
         if ingest_table.num_rows == 0:
             print(f"\n❌ No documents found in {args.pdf}")
+            print(f"   Expected path: {pdf_path.resolve()}")
+            if pdf_path.is_file():
+                print(f"   Note: When passing a file, all PDFs in parent directory are scanned first")
             return 1
             
         # Show sample document info
@@ -1265,4 +1299,3 @@ def main() -> int:
 if __name__ == "__main__":
     import sys
     sys.exit(main())
-

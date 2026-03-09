@@ -213,7 +213,7 @@ class IngestLocalOperator(AbstractOperator):
             return False
 
         elif file_count > self.max_files:
-            logger.info("File count exceeded max files permitted", self.max_files, extra=self.common_log_arguments)
+            logger.info(f"File count exceeded max files permitted: {self.max_files}", extra=self.common_log_arguments)
             self.record_skipped_document(metadata=metadata, doc_id=str(file_stats.st_ino), doc_name=abs_path,
                                         reason="File count exceeded max files permitted")
             return False
