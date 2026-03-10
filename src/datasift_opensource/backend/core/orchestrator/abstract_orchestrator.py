@@ -2,26 +2,60 @@ import copy
 import json
 import os
 import threading
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from operator import itemgetter
 from queue import Queue
-from typing import Any, Callable, Optional, ParamSpec, TypeVar, Union
+from typing import Any, ParamSpec, TypeVar
 
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
-from core.data_access.data_access_utils import DataAccessUtils
 from common.exceptions.datasift_exceptions import (
+    DatasiftException,
+    ErrorCode,
     FlowExecutionFailedException,
     FlowValidationException,
     PrefectFlowFailed,
     ValidationAlert,
-    DatasiftException
 )
-from common.exceptions.datasift_exceptions import ErrorCode
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.models.session_info import SessionInfo, get_session_info, set_session_info
+from common.util.constants import (
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+    OperatorConstants,
+    OrchestratorType,
+    TaskType,
+)
+from common.util.datasift_utils import add_validation_alert, get_current_timestamp
+from common.util.iceberg_util import get_warehouse_path
+from common.util.incremental_update_util import IncrementalUpdateUtil
+from common.util.job_tracker.tracker.job_tracker import JobStatsDto, JobTracker
+from common.util.log import get_logger
+
+# Note that get_logs is imported for the test cases
+from common.util.operator_utils import (
+    find_doc_count_from_tables,
+    remove_internal_metrics_from_metadata,
+)
+
+# Import and call set_prefect_env_variables before importing Prefect modules
+from common.util.orchestrator_utils import (
+    clean_up_prefect_home,
+    combine_cumulative_deleted_rows,
+    construct_deleted_rows_table_path,
+    create_node_id_to_index_map,
+    set_prefect_env_variables,
+)
+from common.util.parquet_table_handler import (
+    BaseParquetTableHandler,
+    get_parquet_table_handler,
+)
+from common.util.perf_utils import log_elapsed_time
+from core.data_access.data_access_utils import DataAccessUtils
 from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
@@ -30,39 +64,7 @@ from core.orchestrator.operator_factory import (
     OperatorFactory,
     OperatorFactoryProvider,
 )
-from common.util.constants import (
-    DatasiftConstants,
-    ExecutionStatus,
-    Metrics,
-    OperatorConstants,
-    OrchestratorType,
-    TaskType
-)
-from common.util.datasift_utils import add_validation_alert, get_current_timestamp
-from common.util.iceberg_util import get_warehouse_path
-from common.util.incremental_update_util import IncrementalUpdateUtil
-from common.util.job_tracker.tracker.job_tracker import JobStatsDto
-from common.util.job_tracker.tracker.job_tracker import JobTracker
-from common.util.log import get_logger
 
-# Note that get_logs is imported for the test cases
-from common.util.operator_utils import (
-    find_doc_count_from_tables,
-    remove_internal_metrics_from_metadata,
-)
-from common.util.orchestrator_utils import (
-    clean_up_prefect_home,
-    combine_cumulative_deleted_rows,
-    construct_deleted_rows_table_path,
-    create_node_id_to_index_map,
-)
-from common.util.parquet_table_handler import (
-    BaseParquetTableHandler,
-    get_parquet_table_handler,
-)
-from common.util.perf_utils import log_elapsed_time
-# Import and call set_prefect_env_variables before importing Prefect modules
-from common.util.orchestrator_utils import set_prefect_env_variables
 set_prefect_env_variables()
 
 # Prefect imports must come after set_prefect_env_variables() call
@@ -98,18 +100,18 @@ class AbstractOrchestrator:
     def __init__(self) -> None:
         self.__canceling = False
         self.__failing = False
-        self.__job_run_id: Optional[str] = None
-        self.__job_id: Optional[str] = None
-        self.context_id: Optional[str] = None
+        self.__job_run_id: str | None = None
+        self.__job_id: str | None = None
+        self.context_id: str | None = None
         self.jobs_client = None
         self.logger = get_logger()
         self.message = ""
         # Note: test_mode env variable is set only while running cliapp test cases
         self.test_mode = os.environ.get("test_mode", "False") == "True"
         self.flow_id = get_session_info().flow_id
-        self.deleted_rows_list:Queue[pa.Table] = Queue()
+        self.deleted_rows_list: Queue[pa.Table] = Queue()
         # Global operator semaphore for micro-batching (shared across all batches)
-        self._global_operator_semaphore: Optional[threading.Semaphore] = None
+        self._global_operator_semaphore: threading.Semaphore | None = None
 
     def set_job_id(self, *, job_id):
         self.__job_id = job_id
@@ -130,16 +132,12 @@ class AbstractOrchestrator:
         """
         Executes the given flow and returns the DataAccess generated by the flow
         """
-        job_id, job_run_id = (
-            itemgetter(
-                DatasiftConstants.JOB_ID,
-                DatasiftConstants.JOB_RUN_ID
-            )(params)
-        )
+        job_id, job_run_id = itemgetter(DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID)(params)
         self.__job_id = params.get(DatasiftConstants.JOB_ID)
         self.__job_run_id = params.get(DatasiftConstants.JOB_RUN_ID)
-        global_config = flow_def.get(OperatorConstants.GLOBAL_CONFIG, {}) | params | {
-            DatasiftConstants.FLOW_DEFINITION: flow_def}
+        global_config = (
+            flow_def.get(OperatorConstants.GLOBAL_CONFIG, {}) | params | {DatasiftConstants.FLOW_DEFINITION: flow_def}
+        )
 
         if DatasiftConstants.DAG not in flow_def:
             raise FlowExecutionFailedException("Invalid flow: 'dag' not found in the flow definition")
@@ -153,7 +151,10 @@ class AbstractOrchestrator:
         data_access = data_access_factory.create_data_access()
         data_access.save_table(path="", table=pa.Table.from_arrays([], names=[]))
 
-        common_log_arguments = {DatasiftConstants.JOB_ID: self.__job_id, DatasiftConstants.JOB_RUN_ID: self.__job_run_id}
+        common_log_arguments = {
+            DatasiftConstants.JOB_ID: self.__job_id,
+            DatasiftConstants.JOB_RUN_ID: self.__job_run_id,
+        }
 
         job_tracker = JobTracker()
         if job_tracker.get_job(job_run_id=self.__job_run_id) is None:
@@ -164,13 +165,25 @@ class AbstractOrchestrator:
         job_log_final_path = self.create_log_folders_cpd(job_id=self.__job_id, type_="job")
         self.context_id = params.get(DatasiftConstants.CONTEXT_ID, self.__job_id)
         try:
-            ret_val = self.execute_flow(op_flow=op_flow, data_access=data_access, global_config=global_config,
-                                        common_log_arguments=common_log_arguments, job_log_final_path=job_log_final_path)
+            ret_val = self.execute_flow(
+                op_flow=op_flow,
+                data_access=data_access,
+                global_config=global_config,
+                common_log_arguments=common_log_arguments,
+                job_log_final_path=job_log_final_path,
+            )
             return ret_val
         finally:
             self._check_and_upload_deleted_rows()
 
-    def _process_ingest_results(self, *, output_table, deleted_docs_count: int, operator: dict, common_log_arguments: dict) -> str | None:
+    def _process_ingest_results(
+        self,
+        *,
+        output_table,
+        deleted_docs_count: int,
+        operator: dict,
+        common_log_arguments: dict,
+    ) -> str | None:
         """Process and log ingest step results."""
         if output_table.num_rows == 0 and operator[OperatorConstants.OPERATOR] != OperatorConstants.NOOP:
             message = "No documents are ingested."
@@ -180,29 +193,47 @@ class AbstractOrchestrator:
             return message
         return None
 
-    def _mark_soft_deleted_docs(self, *, incremental_update_util: IncrementalUpdateUtil, internal_metadata: dict, global_config: dict):
+    def _mark_soft_deleted_docs(
+        self,
+        *,
+        incremental_update_util: IncrementalUpdateUtil,
+        internal_metadata: dict,
+        global_config: dict,
+    ):
         """Update metadata for incremental updates."""
         doc_ids = internal_metadata.get(Metrics.Internal.ALL_DOC_IDS, [])
-        if not bool(global_config.get(DatasiftConstants.RETAIN_DELETED_DOCS, DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT)):
+        if not bool(
+            global_config.get(
+                DatasiftConstants.RETAIN_DELETED_DOCS,
+                DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT,
+            )
+        ):
             incremental_update_util.mark_soft_deleted_docs(job_id=self.context_id, doc_ids=doc_ids)
 
     def _handle_exception(self, *, e, op_def, job_log_final_path, common_log_arguments, global_config):
         self.__failing = True
         node_stats = {
-            'name': op_def['name'],
-            'node_status': ExecutionStatus.FAILED.value,
-            'error': str(e)
+            "name": op_def["name"],
+            "node_status": ExecutionStatus.FAILED.value,
+            "error": str(e),
         }
         job_tracker = JobTracker()
-        job_tracker.update_node_stats(job_run_id=self.__job_run_id, node_id=op_def[OperatorConstants.ID], node_stats=node_stats)
+        job_tracker.update_node_stats(
+            job_run_id=self.__job_run_id,
+            node_id=op_def[OperatorConstants.ID],
+            node_stats=node_stats,
+        )
         logger.error(e, stack_info=True, exc_info=True, extra=common_log_arguments)
         # if any exception occur for any operator,
         # we should add node_stats in above format in job_stats.json file
         job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
-        self.write_jobs_logs(job_stats=job_stats,
-                             job_log_final_path=job_log_final_path)
+        self.write_jobs_logs(job_stats=job_stats, job_log_final_path=job_log_final_path)
         # below logger will add failure reason in flow_execute.log
-        node_logger = self._get_node_logger(node_id=op_def[OperatorConstants.ID], node_name=op_def[OperatorConstants.NAME], global_config=global_config)
+        node_logger = self._get_node_logger(
+            node_id=op_def[OperatorConstants.ID],
+            node_name=op_def[OperatorConstants.NAME],
+            global_config=global_config,
+        )
         node_logger.error(
             ">>> Node %s failed and caused aborting the branch execution: %s transaction_ID: %s",
             op_def["name"],
@@ -214,29 +245,47 @@ class AbstractOrchestrator:
         This gets called only when you are running flow executor from local settings and not through web_flow_executor
         """
         if self.test_mode:
-            job_tracker.end_job(job_run_id=self.__job_run_id, status=ExecutionStatus.FAILED, message=str(e))
+            job_tracker.end_job(
+                job_run_id=self.__job_run_id,
+                status=ExecutionStatus.FAILED,
+                message=str(e),
+            )
             job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
             self.write_job_logs_local(job_stats=job_stats, job_log_final_path=job_log_final_path)
 
-    def _handle_active_execution(self, *, op_def, executor: AbstractOperatorExecutor, prev_data_access: dict[str, DataAccess], global_config,
-                                 start):
+    def _handle_active_execution(
+        self,
+        *,
+        op_def,
+        executor: AbstractOperatorExecutor,
+        prev_data_access: dict[str, DataAccess],
+        global_config,
+        start,
+    ):
         if executor.get_operator().short_name == OperatorConstants.DESIGN_FLOW_OUTPUT_OPERATOR:
             # save the deleted rows as this is needed for DESIGN_FLOW_OUTPUT_OPERATOR
             self._check_and_upload_deleted_rows()
 
         # LATER: based on some config, pass None to deleted_rows_list to skip tracking deleted rows
-        data_accesses, metadata = executor.execute(data_access=prev_data_access, deleted_rows_list=self.deleted_rows_list)
-        
+        data_accesses, metadata = executor.execute(
+            data_access=prev_data_access, deleted_rows_list=self.deleted_rows_list
+        )
+
         # Removing the internal metrics from the operator metadata if any to another dict
         internal_metadata = remove_internal_metrics_from_metadata(metadata=metadata)
 
         operator = executor.get_operator()
-        retain_deleted = operator.config.get(DatasiftConstants.RETAIN_DELETED_DOCS,DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT )
+        retain_deleted = operator.config.get(
+            DatasiftConstants.RETAIN_DELETED_DOCS,
+            DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT,
+        )
         force_ingest = operator.config.get(DatasiftConstants.FORCE_INGEST, False)
 
         if operator.category == OperatorCategory.Ingest and not force_ingest:
             if not retain_deleted:
-                metadata[Metrics.Internal.DELETED_FROM_LAST_RUN] = internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN, 0)
+                metadata[Metrics.Internal.DELETED_FROM_LAST_RUN] = internal_metadata.get(
+                    Metrics.Internal.DELETED_FROM_LAST_RUN, 0
+                )
             else:
                 metadata[Metrics.Internal.DELETED_FROM_LAST_RUN] = "N/A"
 
@@ -247,41 +296,60 @@ class AbstractOrchestrator:
 
         return data_accesses, tables, metadata, internal_metadata
 
-    def _handle_skipped_execution(self, *, op_def, executor: AbstractOperatorExecutor, prev_results, global_config,
-                                  start, common_log_arguments):
+    def _handle_skipped_execution(
+        self,
+        *,
+        op_def,
+        executor: AbstractOperatorExecutor,
+        prev_results,
+        global_config,
+        start,
+        common_log_arguments,
+    ):
         node_id = op_def.get(OperatorConstants.ID)
         node_name = op_def.get(OperatorConstants.NAME)
         operator_type = op_def.get(OperatorConstants.OPERATOR)
 
-        tables = prev_results.tables if isinstance(prev_results, ExecuteStepResults) else [res.tables[0] for res in prev_results.values()]
+        tables = (
+            prev_results.tables
+            if isinstance(prev_results, ExecuteStepResults)
+            else [res.tables[0] for res in prev_results.values()]
+        )
         data_accesses = executor.create_data_accesses(tables)
         end_time = get_current_timestamp()
 
         node_stats = {
-            'name': node_name,
-            'node_status': ExecutionStatus.SKIPPED.value,
-            'start_time': start,
-            'end_time': end_time,
-            'col_names': prev_results.tables[0].column_names if isinstance(prev_results, ExecuteStepResults) and len(prev_results.tables) == 1 else [],
-            "time_taken": end_time - start
+            "name": node_name,
+            "node_status": ExecutionStatus.SKIPPED.value,
+            "start_time": start,
+            "end_time": end_time,
+            "col_names": prev_results.tables[0].column_names
+            if isinstance(prev_results, ExecuteStepResults) and len(prev_results.tables) == 1
+            else [],
+            "time_taken": end_time - start,
         }
 
         op_logger = self._get_node_logger(node_id=node_id, node_name=node_name, global_config=global_config)
-        op_logger.info('>>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~', extra=common_log_arguments)
-        application_id: str = f' ApplicationId:{os.getenv("JOB_ID")}' if os.getenv('JOB_ID') else ''
-        op_logger.info(f'Orchestrator Type: {str(get_session_info().orchestrator).upper()}{application_id}')
-        op_logger.info('Step ID: %s', op_def[OperatorConstants.ID], extra=common_log_arguments)
-        op_logger.info('>>> Skipped execution for Step Name: %s, operator: %s because no input data available for processing.',
-                       node_name, operator_type, extra=common_log_arguments)
-
-        JobTracker().update_node_stats(
-            self.__job_run_id,
-            node_id=node_id,
-            node_stats=node_stats
+        op_logger.info(
+            ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+            extra=common_log_arguments,
+        )
+        application_id: str = f" ApplicationId:{os.getenv('JOB_ID')}" if os.getenv("JOB_ID") else ""
+        op_logger.info(f"Orchestrator Type: {str(get_session_info().orchestrator).upper()}{application_id}")
+        op_logger.info("Step ID: %s", op_def[OperatorConstants.ID], extra=common_log_arguments)
+        op_logger.info(
+            ">>> Skipped execution for Step Name: %s, operator: %s because no input data available for processing.",
+            node_name,
+            operator_type,
+            extra=common_log_arguments,
         )
 
-        op_logger.info('>>> ================================================================',
-                       extra=common_log_arguments)
+        JobTracker().update_node_stats(self.__job_run_id, node_id=node_id, node_stats=node_stats)
+
+        op_logger.info(
+            ">>> ================================================================",
+            extra=common_log_arguments,
+        )
 
         return data_accesses, tables
 
@@ -290,23 +358,29 @@ class AbstractOrchestrator:
             DatasiftConstants.JOB_ID: global_config.get(DatasiftConstants.JOB_ID),
             DatasiftConstants.JOB_RUN_ID: global_config.get(DatasiftConstants.JOB_RUN_ID),
             DatasiftConstants.NODE_ID: node_id,
-            OperatorConstants.NAME: node_name
+            OperatorConstants.NAME: node_name,
         }
         return get_logger(
             name=f"{DatasiftConstants.LOGGER_NAME} : NodeLogger : {node_id}",
             level="INFO",
             is_pg=True,
-            pg_params=pg_params
+            pg_params=pg_params,
         )
 
-    def _execute_step(self, *, op_def, global_config, prev_results: Union[ExecuteStepResults, dict[str, ExecuteStepResults]],
-                      deleted_docs_count):
+    def _execute_step(
+        self,
+        *,
+        op_def,
+        global_config,
+        prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
+        deleted_docs_count,
+    ):
         start = get_current_timestamp()
         executor = self.create_executor(op_def=op_def, global_config=global_config)
 
         common_log_arguments = {
             DatasiftConstants.JOB_ID: global_config.get(DatasiftConstants.JOB_ID),
-            DatasiftConstants.JOB_RUN_ID: global_config.get(DatasiftConstants.JOB_RUN_ID)
+            DatasiftConstants.JOB_RUN_ID: global_config.get(DatasiftConstants.JOB_RUN_ID),
         }
 
         if isinstance(prev_results, ExecuteStepResults):
@@ -321,12 +395,20 @@ class AbstractOrchestrator:
         internal_metadata = {}
         if skip:
             data_accesses, tables = self._handle_skipped_execution(
-                op_def=op_def, executor=executor, prev_results=prev_results, global_config=global_config,
-                start=start, common_log_arguments=common_log_arguments
+                op_def=op_def,
+                executor=executor,
+                prev_results=prev_results,
+                global_config=global_config,
+                start=start,
+                common_log_arguments=common_log_arguments,
             )
         else:
             data_accesses, tables, metadata, internal_metadata = self._handle_active_execution(
-                op_def=op_def, executor=executor, prev_data_access=prev_data_access, global_config=global_config, start=start
+                op_def=op_def,
+                executor=executor,
+                prev_data_access=prev_data_access,
+                global_config=global_config,
+                start=start,
             )
 
         processed_docs_count = find_doc_count_from_tables(tables=tables)
@@ -336,7 +418,11 @@ class AbstractOrchestrator:
         job_tracker = JobTracker()
         if internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN):
             metadata[Metrics.External.DELETED_DOC_COUNT] = internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN)
-        job_tracker.update_doc_counts(job_run_id=self.__job_run_id, metadata=metadata, operator_category=operator_category)
+        job_tracker.update_doc_counts(
+            job_run_id=self.__job_run_id,
+            metadata=metadata,
+            operator_category=operator_category,
+        )
 
         job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
         jobs_framework_state = job_stats.status
@@ -357,7 +443,13 @@ class AbstractOrchestrator:
             tables.append(table)
         return tables
 
-    def evaluate_execution_skip(self, *, executor: AbstractOperatorExecutor, tables: Optional[Union[pa.Table, list[pa.Table]]], deleted_docs_count):
+    def evaluate_execution_skip(
+        self,
+        *,
+        executor: AbstractOperatorExecutor,
+        tables: pa.Table | list[pa.Table] | None,
+        deleted_docs_count,
+    ):
         def all_tables_are_empty():
             if tables is None:
                 return True
@@ -378,9 +470,11 @@ class AbstractOrchestrator:
         if not self.deleted_rows_list.empty():
             try:
                 cumulative_deleted_rows = combine_cumulative_deleted_rows(self.deleted_rows_list)
-                deleted_rows_table_path = construct_deleted_rows_table_path(job_id=self.__job_id, job_run_id=self.__job_run_id)
+                deleted_rows_table_path = construct_deleted_rows_table_path(
+                    job_id=self.__job_id, job_run_id=self.__job_run_id
+                )
                 parquet_table_handler: BaseParquetTableHandler = get_parquet_table_handler()
-                #delete table if exists already
+                # delete table if exists already
                 parquet_table_handler.delete_file(path=deleted_rows_table_path)
                 parquet_table_handler.save_table(path=deleted_rows_table_path, table=cumulative_deleted_rows)
                 self.logger.info(f"Successfully captured {cumulative_deleted_rows.num_rows} deleted documents.")
@@ -420,8 +514,12 @@ class AbstractOrchestrator:
         log_app_location = DatasiftConstants.UDP_LOGS
 
         log_job_folder_name = job_id
-        log_job_location = os.path.join(log_location_path, log_app_location, log_job_folder_name,
-                                        str(self.__job_run_id))
+        log_job_location = os.path.join(
+            log_location_path,
+            log_app_location,
+            log_job_folder_name,
+            str(self.__job_run_id),
+        )
         os.makedirs(log_job_location, exist_ok=True)
         if type_ == "flow":
             log_job_run_file_name = "flow_execute.log"
@@ -446,28 +544,36 @@ class AbstractOrchestrator:
 
         dag = flow_def.get(DatasiftConstants.DAG, [])
         if not dag:
-            errors.append(ValidationAlert(ErrorCode.FLOW_VALIDATION_FAILED.value, message=ValidationCodeMessages.DAG_PIPELINE_MISSING.value, message_code=ValidationCodeMessages.DAG_PIPELINE_MISSING.name))
+            errors.append(
+                ValidationAlert(
+                    ErrorCode.FLOW_VALIDATION_FAILED.value,
+                    message=ValidationCodeMessages.DAG_PIPELINE_MISSING.value,
+                    message_code=ValidationCodeMessages.DAG_PIPELINE_MISSING.name,
+                )
+            )
             raise FlowValidationException(errors=errors)
 
         unnamed_operators = [node[OperatorConstants.OPERATOR] for node in dag if OperatorConstants.NAME not in node]
         if unnamed_operators:
-            warnings.append(ValidationAlert(ErrorCode.FLOW_VALIDATION_FAILED.value,
-                                            f"The following operators are missing names: {', '.join(unnamed_operators)}"))
+            warnings.append(
+                ValidationAlert(
+                    ErrorCode.FLOW_VALIDATION_FAILED.value,
+                    f"The following operators are missing names: {', '.join(unnamed_operators)}",
+                )
+            )
 
         # Operator name uniqueness check
-        operator_names = [
-                op_def[OperatorConstants.NAME]
-                for op_def in dag
-                if OperatorConstants.NAME in op_def
-            ]
+        operator_names = [op_def[OperatorConstants.NAME] for op_def in dag if OperatorConstants.NAME in op_def]
         duplicates = self.get_duplicate_node_names(nodes=operator_names)
         if duplicates:
-            errors.append(ValidationAlert(
-                ErrorCode.FLOW_VALIDATION_FAILED.value,
-                message=ValidationCodeMessages.OPERATOR_NAME_REPEATED.value.format(operators=', '.join(duplicates)),
-                message_code=ValidationCodeMessages.OPERATOR_NAME_REPEATED.name,
-                operators=duplicates
-            ))
+            errors.append(
+                ValidationAlert(
+                    ErrorCode.FLOW_VALIDATION_FAILED.value,
+                    message=ValidationCodeMessages.OPERATOR_NAME_REPEATED.value.format(operators=", ".join(duplicates)),
+                    message_code=ValidationCodeMessages.OPERATOR_NAME_REPEATED.name,
+                    operators=duplicates,
+                )
+            )
             self.logger.error(f"Duplicate operator names have been found with: {','.join(duplicates)}")
 
         validate_results = ValidateStepResults(available_features={}, errors=errors, warnings=warnings)
@@ -477,8 +583,13 @@ class AbstractOrchestrator:
         self.validate_disjoint_operators(dag=dag, validate_results=validate_results)
 
         def node_validation_task(task_name, op_def, result=None, link_name=None):
-            return self.__validate_node(op_def=op_def, global_config=global_config, validate_results=validate_results,
-                                        common_log_arguments=common_log_arguments, session_info=session_info)
+            return self.__validate_node(
+                op_def=op_def,
+                global_config=global_config,
+                validate_results=validate_results,
+                common_log_arguments=common_log_arguments,
+                session_info=session_info,
+            )
 
         validation_flow = self.build_non_execute_flow(flow_name="dag_validation_flow")
         validation_flow(TaskType.VALIDATE_FLOW, node_validation_task, dag, None)
@@ -503,47 +614,75 @@ class AbstractOrchestrator:
             return
 
         if DatasiftConstants.DAG not in flow_def:
-            raise FlowValidationException(errors=[
-                ValidationAlert(
-                    ErrorCode.FLOW_VALIDATION_FAILED.value,
-                message=ValidationCodeMessages.PIPELINE_NOT_FOUND_ERROR.value, message_code=ValidationCodeMessages.PIPELINE_NOT_FOUND_ERROR.name)
-            ])
-        self.validate_dag(flow_def=flow_def, global_config=global_config, common_log_arguments=common_log_arguments)
+            raise FlowValidationException(
+                errors=[
+                    ValidationAlert(
+                        ErrorCode.FLOW_VALIDATION_FAILED.value,
+                        message=ValidationCodeMessages.PIPELINE_NOT_FOUND_ERROR.value,
+                        message_code=ValidationCodeMessages.PIPELINE_NOT_FOUND_ERROR.name,
+                    )
+                ]
+            )
+        self.validate_dag(
+            flow_def=flow_def,
+            global_config=global_config,
+            common_log_arguments=common_log_arguments,
+        )
 
     def validate_operators(self, *, sequence: list, global_config: dict, errors: list, warnings: list):
-
         # If the first operator is not an ingest, then add an error.
-        self.validate_operator_category(op_def=sequence[0], global_config=global_config, expected_category=OperatorCategory.Ingest,
-                                        error_message=ValidationMessage(
-                                            message=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.value,
-                                            message_code=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.name), alerts=errors)
-
+        self.validate_operator_category(
+            op_def=sequence[0],
+            global_config=global_config,
+            expected_category=OperatorCategory.Ingest,
+            error_message=ValidationMessage(
+                message=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.value,
+                message_code=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.name,
+            ),
+            alerts=errors,
+        )
 
         # Get the extract operator count and throw an appropriate error if the conditions are not met.
-        extract_operator_count = self.check_duplicate_extract_operators(sequence=sequence, global_config=global_config, errors=errors)
+        extract_operator_count = self.check_duplicate_extract_operators(
+            sequence=sequence, global_config=global_config, errors=errors
+        )
 
         # Extract operator is not supported while running cliapp test cases.
         if self.test_mode is False:
             if extract_operator_count == 0:
-                add_validation_alert(message=ValidationMessage(message=ValidationCodeMessages.EXTRACT_OPERATOR_MISSING.value,
-                                                               message_code=ValidationCodeMessages.EXTRACT_OPERATOR_MISSING.name),
-                                     op_def=sequence[0], alerts=errors)
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=ValidationCodeMessages.EXTRACT_OPERATOR_MISSING.value,
+                        message_code=ValidationCodeMessages.EXTRACT_OPERATOR_MISSING.name,
+                    ),
+                    op_def=sequence[0],
+                    alerts=errors,
+                )
 
         # If the last operator is not VectorDB operator, then add a warning
         category = self.get_operator_category(op_def=sequence[-1], global_config=global_config, alerts=errors)
         if category != OperatorCategory.VectorDB:
-            add_validation_alert(message=ValidationMessage(message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
-                                                           message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name),
-                                 op_def=sequence[-1], alerts=warnings)
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
+                    message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name,
+                ),
+                op_def=sequence[-1],
+                alerts=warnings,
+            )
 
-    def validate_first_operator(self, *, dag: list, global_config: list, validate_results: ValidateStepResults):
+    def validate_first_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
         # If the first operator is not an ingest, then add an error.
-        self.validate_operator_category(op_def=dag[0], global_config=global_config,
-                                        expected_category=OperatorCategory.Ingest,
-                                        error_message=ValidationMessage(
-                                            message=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.value,
-                                            message_code=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.name),
-                                        alerts=validate_results.errors)
+        self.validate_operator_category(
+            op_def=dag[0],
+            global_config=global_config,
+            expected_category=OperatorCategory.Ingest,
+            error_message=ValidationMessage(
+                message=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.value,
+                message_code=ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.name,
+            ),
+            alerts=validate_results.errors,
+        )
 
     def validate_disjoint_operators(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain disconnected (disjoint) operators."""
@@ -556,9 +695,13 @@ class AbstractOrchestrator:
             id_to_index = {n["id"]: i for i, n in enumerate(dag)}
             index = id_to_index.get(list(components[0])[-1])
             add_validation_alert(
-                message=ValidationMessage(message=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.value,
-                                          message_code=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.name),
-                op_def=dag[index], alerts=validate_results.errors)
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.value,
+                    message_code=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.name,
+                ),
+                op_def=dag[index],
+                alerts=validate_results.errors,
+            )
 
     def _build_graph(self, dag: list) -> dict:
         """Build a directed graph representation from the DAG."""
@@ -596,7 +739,6 @@ class AbstractOrchestrator:
         return components
 
     def check_duplicate_extract_operators(self, *, sequence, global_config, errors):
-
         # Get the count of extract operators in the flow.
         extract_operator_count = 0
 
@@ -606,7 +748,14 @@ class AbstractOrchestrator:
                 extract_operator_count += 1
 
                 if extract_operator_count > 1:
-                    add_validation_alert(ValidationMessage(message="Multiple extract operators detected. Ensure they are used correctly", message_code=ValidationCodeMessages.MULTIPLE_EXTRACTED_DETECTED.name), op_def=op_def, alerts=errors)
+                    add_validation_alert(
+                        ValidationMessage(
+                            message="Multiple extract operators detected. Ensure they are used correctly",
+                            message_code=ValidationCodeMessages.MULTIPLE_EXTRACTED_DETECTED.name,
+                        ),
+                        op_def=op_def,
+                        alerts=errors,
+                    )
 
         return extract_operator_count
 
@@ -615,15 +764,29 @@ class AbstractOrchestrator:
         # op_def['config']), the value from global_config will be overwritten by the local config
         global_config = {} if global_config is None else global_config
         operator_config = op_def.get(OperatorConstants.CONFIG, {})
-        operator_config_params = global_config.get(op_def[OperatorConstants.NAME],
-                                                   global_config.get(op_def[OperatorConstants.ID],
-                                                                     global_config.get(op_def[OperatorConstants.OPERATOR], {})))
+        operator_config_params = global_config.get(
+            op_def[OperatorConstants.NAME],
+            global_config.get(
+                op_def[OperatorConstants.ID],
+                global_config.get(op_def[OperatorConstants.OPERATOR], {}),
+            ),
+        )
         operator_name = op_def[OperatorConstants.NAME]
         operator_id = op_def[OperatorConstants.ID]
         # 1. Configuration defined for the operator takes precedence over the global configuration in the flow.
         # 2. The operator configuration passed through parameters would override the operator config defined in the flow
-        config = {OperatorConstants.NAME: operator_name} | {OperatorConstants.ID: operator_id} | global_config | operator_config | operator_config_params
-        return self.create_executor_impl(name=operator_name, operator=op_def[OperatorConstants.OPERATOR], params=config)
+        config = (
+            {OperatorConstants.NAME: operator_name}
+            | {OperatorConstants.ID: operator_id}
+            | global_config
+            | operator_config
+            | operator_config_params
+        )
+        return self.create_executor_impl(
+            name=operator_name,
+            operator=op_def[OperatorConstants.OPERATOR],
+            params=config,
+        )
 
     def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:
         # The concrete subclasses needs to implement this method
@@ -633,29 +796,61 @@ class AbstractOrchestrator:
         # The concrete subclasses needs to implement this method
         pass
 
-    def validate_operator_category(self, *, op_def: dict, global_config: dict, expected_category: str, error_message: ValidationMessage, alerts: list):
+    def validate_operator_category(
+        self,
+        *,
+        op_def: dict,
+        global_config: dict,
+        expected_category: str,
+        error_message: ValidationMessage,
+        alerts: list,
+    ):
         category = self.get_operator_category(op_def=op_def, global_config=global_config, alerts=alerts)
         if category != expected_category:
             add_validation_alert(message=error_message, op_def=op_def, alerts=alerts)
 
     def get_operator_category(self, *, op_def: dict, global_config: dict, alerts: list):
         if OperatorConstants.ID not in op_def:
-            add_validation_alert(ValidationMessage(message=ValidationCodeMessages.MISSING_NODE_ID.value,
-                                                   message_code=ValidationCodeMessages.MISSING_NODE_ID.name
-                                                   ), op_def=op_def, alerts=alerts)
+            add_validation_alert(
+                ValidationMessage(
+                    message=ValidationCodeMessages.MISSING_NODE_ID.value,
+                    message_code=ValidationCodeMessages.MISSING_NODE_ID.name,
+                ),
+                op_def=op_def,
+                alerts=alerts,
+            )
         if OperatorConstants.NAME not in op_def:
-            add_validation_alert(message=ValidationMessage(message=ValidationCodeMessages.MISSING_NODE_NAME.value,message_code=ValidationCodeMessages.MISSING_NODE_NAME.name), op_def=op_def, alerts=alerts)
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.MISSING_NODE_NAME.value,
+                    message_code=ValidationCodeMessages.MISSING_NODE_NAME.name,
+                ),
+                op_def=op_def,
+                alerts=alerts,
+            )
         operator = None
         try:
             operator = self.create_executor(op_def=op_def, global_config=global_config).get_operator()
         except DatasiftException:
             errors = []
-            add_validation_alert(ValidationMessage(message=ValidationCodeMessages.GET_OPERATOR_FAILED.value,
-                                                   message_code=ValidationCodeMessages.GET_OPERATOR_FAILED.name),
-                                 op_def=op_def, alerts=errors)
+            add_validation_alert(
+                ValidationMessage(
+                    message=ValidationCodeMessages.GET_OPERATOR_FAILED.value,
+                    message_code=ValidationCodeMessages.GET_OPERATOR_FAILED.name,
+                ),
+                op_def=op_def,
+                alerts=errors,
+            )
         if operator is None:
             errors = []
-            add_validation_alert(ValidationMessage(message=ValidationCodeMessages.GET_OPERATOR_FAILED.value, message_code=ValidationCodeMessages.GET_OPERATOR_FAILED.name), op_def=op_def, alerts=errors)
+            add_validation_alert(
+                ValidationMessage(
+                    message=ValidationCodeMessages.GET_OPERATOR_FAILED.value,
+                    message_code=ValidationCodeMessages.GET_OPERATOR_FAILED.name,
+                ),
+                op_def=op_def,
+                alerts=errors,
+            )
             raise FlowValidationException(errors=errors)
         return operator.category
 
@@ -663,17 +858,38 @@ class AbstractOrchestrator:
         for message in messages:
             add_validation_alert(message=message, op_def=op_def, alerts=alerts, **kwargs)
 
-    def _inner_task(self, op_def, global_config, prev_results: Union[ExecuteStepResults, dict[str, ExecuteStepResults]],
-                    job_log_final_path, common_log_arguments, session_info: SessionInfo,
-                    deleted_docs_count, link_id=None) -> Optional[ExecuteStepResults]:
-        node_logger = self._get_node_logger(node_id=op_def[OperatorConstants.ID], node_name=op_def[OperatorConstants.NAME], global_config=global_config)
+    def _inner_task(
+        self,
+        op_def,
+        global_config,
+        prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
+        job_log_final_path,
+        common_log_arguments,
+        session_info: SessionInfo,
+        deleted_docs_count,
+        link_id=None,
+    ) -> ExecuteStepResults | None:
+        node_logger = self._get_node_logger(
+            node_id=op_def[OperatorConstants.ID],
+            node_name=op_def[OperatorConstants.NAME],
+            global_config=global_config,
+        )
         if prev_results is None:
-            node_logger.info(">>> Error detected in previous step — node %s skipped. ", op_def["name"], extra=common_log_arguments)
+            node_logger.info(
+                ">>> Error detected in previous step — node %s skipped. ",
+                op_def["name"],
+                extra=common_log_arguments,
+            )
             return None
         # exit early if the execution was cancelled or aborted.
         if self.__failing or self.__canceling:
             msg = "Cancelling" if self.__canceling else "Aborting"
-            node_logger.info(">>> %s the branch execution at node name: %s ", msg, op_def["name"], extra=common_log_arguments)
+            node_logger.info(
+                ">>> %s the branch execution at node name: %s ",
+                msg,
+                op_def["name"],
+                extra=common_log_arguments,
+            )
             return None
         set_session_info(session_info)
 
@@ -684,35 +900,62 @@ class AbstractOrchestrator:
             if link_id and prev_results.internal_metadata:
                 if len(prev_results.tables) != len(prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)):
                     raise FlowExecutionFailedException(
-                        f"Number of tables ({len(prev_results.tables)}) in previous operator output do not match branches ({len(prev_results.internal_metadata.get(Metrics.Internal.BRANCHES))}) created.")
-                result_index = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {}).get(
-                    "result_index")
+                        f"Number of tables ({len(prev_results.tables)}) in previous operator output do not match branches ({len(prev_results.internal_metadata.get(Metrics.Internal.BRANCHES))}) created."
+                    )
+                result_index = (
+                    prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {})
+                    .get(link_id, {})
+                    .get("result_index")
+                )
                 table = prev_results.tables[result_index]
                 data_access = prev_results.data_accesses[result_index]
                 internal_metadata = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
                 prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
 
             # If micro-batching enabled, acquire semaphore before executing operator
-            if operator_semaphore: # pragma: no cover
+            if operator_semaphore:  # pragma: no cover
                 operator_semaphore.acquire()
                 try:
-                    self.logger.debug(f"Operator {op_def[OperatorConstants.NAME]}: acquired semaphore slot", extra=common_log_arguments)
-                    result = self._execute_step(op_def=op_def, global_config=global_config, prev_results=prev_results,
-                                                deleted_docs_count=deleted_docs_count)
+                    self.logger.debug(
+                        f"Operator {op_def[OperatorConstants.NAME]}: acquired semaphore slot",
+                        extra=common_log_arguments,
+                    )
+                    result = self._execute_step(
+                        op_def=op_def,
+                        global_config=global_config,
+                        prev_results=prev_results,
+                        deleted_docs_count=deleted_docs_count,
+                    )
                 finally:
                     operator_semaphore.release()
-                    self.logger.debug(f"Operator {op_def[OperatorConstants.NAME]}: released semaphore slot", extra=common_log_arguments)
+                    self.logger.debug(
+                        f"Operator {op_def[OperatorConstants.NAME]}: released semaphore slot",
+                        extra=common_log_arguments,
+                    )
             else:
                 # No semaphore - execute normally
-                result = self._execute_step(op_def=op_def, global_config=global_config, prev_results=prev_results,
-                                            deleted_docs_count=deleted_docs_count)
+                result = self._execute_step(
+                    op_def=op_def,
+                    global_config=global_config,
+                    prev_results=prev_results,
+                    deleted_docs_count=deleted_docs_count,
+                )
 
             if not op_def.get(DatasiftConstants.OUTPUT_EDGES):
-                node_logger.info(">>> Branch execution completed at node name: %s ", op_def["name"], extra=common_log_arguments)
+                node_logger.info(
+                    ">>> Branch execution completed at node name: %s ",
+                    op_def["name"],
+                    extra=common_log_arguments,
+                )
             return result
         except Exception as e:
-            self._handle_exception(e=e, op_def=op_def, job_log_final_path=job_log_final_path,
-                                   common_log_arguments=common_log_arguments, global_config=global_config)
+            self._handle_exception(
+                e=e,
+                op_def=op_def,
+                job_log_final_path=job_log_final_path,
+                common_log_arguments=common_log_arguments,
+                global_config=global_config,
+            )
             # steps in output edges will exit early
             return None
 
@@ -721,8 +964,12 @@ class AbstractOrchestrator:
             parameters = task_run.parameters
             return parameters["op_def"]["name"]
 
-        return task(task_func, task_run_name=generate_task_name, retries=retries,
-                    persist_result=persist_result)
+        return task(
+            task_func,
+            task_run_name=generate_task_name,
+            retries=retries,
+            persist_result=persist_result,
+        )
 
     # Get the default values for Prefect settings
     def get_prefect_config(self):
@@ -733,7 +980,7 @@ class AbstractOrchestrator:
             "max_workers": 50,
             "log_prints": True,
             "retry_delay_seconds": 60,
-            "timeout_seconds": 60000
+            "timeout_seconds": 60000,
         }
 
     def finalize_dag_flow(self, *, op_flow, job_log_final_path, common_log_arguments):
@@ -758,7 +1005,7 @@ class AbstractOrchestrator:
         futures = [item[0] for item in destinations]
         # Wait till all tasks are finished
         for future in futures:
-            if hasattr(future, 'wait'):
+            if hasattr(future, "wait"):
                 future.wait()
 
     def wait_for_tasks_with_exceptions(self, *, destinations, task_type: TaskType):
@@ -768,24 +1015,31 @@ class AbstractOrchestrator:
             for future in futures:
                 future.result()
         except FlowValidationException as se:
-            error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{str(se)}"
+            error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{se!s}"
             logger.error(error, stack_info=True, exc_info=True)
             raise se
         except Exception as e:
-            error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{str(e)}"
+            error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{e!s}"
             logger.error(error, stack_info=True, exc_info=True)
-            raise PrefectFlowFailed(message=error,
-                error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED)
+            raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED)
 
     # ??? insert some of the parameters to self.
-    def execute_flow(self, *, op_flow, data_access, global_config, common_log_arguments, job_log_final_path):
+    def execute_flow(
+        self,
+        *,
+        op_flow,
+        data_access,
+        global_config,
+        common_log_arguments,
+        job_log_final_path,
+    ):
         """
         Build and execute a flow using Prefect with unified batching approach.
         Both batch and non-batch modes now use the same code path.
 
         Non-batch mode is implemented as a special case of batch mode with a single
         batch containing all documents (no splitting).
-	    """
+        """
 
         if JobTracker().cancel_job_run_if_cancelling(self.__job_run_id):
             self.logger.info(CANCELLED_MSG, self.__job_run_id)
@@ -797,19 +1051,33 @@ class AbstractOrchestrator:
         # UNIFIED APPROACH: Always use batching path
         # Non-batch mode will create a single batch with all documents
         return self.execute_dag_flow_with_batching(
-            op_flow=op_flow, data_access=data_access, global_config=global_config,
-            common_log_arguments=common_log_arguments, job_log_final_path=job_log_final_path)
+            op_flow=op_flow,
+            data_access=data_access,
+            global_config=global_config,
+            common_log_arguments=common_log_arguments,
+            job_log_final_path=job_log_final_path,
+        )
 
-    def inner_flow(self, op_flow, data_access, global_config, common_log_arguments, job_log_final_path):
+    def inner_flow(
+        self,
+        op_flow,
+        data_access,
+        global_config,
+        common_log_arguments,
+        job_log_final_path,
+    ):
         # In batch mode, get the ingest operator ID from global_config
         # This is needed to handle references to the excluded ingest operator
         ingest_node_id = global_config.get(DatasiftConstants.INGEST_NODE_ID)
         batch_num = global_config.get(DatasiftConstants.BATCH_NUM)
 
         # Log batch mode configuration for debugging
-        self.logger.info(f"inner_flow: batch_num={batch_num}, ingest_node_id={ingest_node_id}, op_flow_length={len(op_flow)}", extra=common_log_arguments)
+        self.logger.info(
+            f"inner_flow: batch_num={batch_num}, ingest_node_id={ingest_node_id}, op_flow_length={len(op_flow)}",
+            extra=common_log_arguments,
+        )
 
-        def get_prev_results(op_definitions, results_: FuturedList) -> Union[PrefectFuture, dict[str, PrefectFuture]]:
+        def get_prev_results(op_definitions, results_: FuturedList) -> PrefectFuture | dict[str, PrefectFuture]:
             prev_res: dict[str, PrefectFuture] = {}
 
             for prev_node in op_definitions.get(DatasiftConstants.INPUT_EDGES, []):
@@ -818,20 +1086,28 @@ class AbstractOrchestrator:
                 # Node exists in flow definition but not in node_id_to_index_map
                 # In batch mode, the ingest operator is intentionally excluded from op_flow (see line 1225)
                 # but edges still reference it. Validate whether this is the expected excluded ingest node.
-                if node_id_ref not in node_id_to_index_map: # pragma: no cover
-                    self.logger.debug(f"Node {node_id_ref} not in node_id_to_index_map. Checking: ingest_node_id={ingest_node_id}, match={node_id_ref == ingest_node_id}", extra=common_log_arguments)
+                if node_id_ref not in node_id_to_index_map:  # pragma: no cover
+                    self.logger.debug(
+                        f"Node {node_id_ref} not in node_id_to_index_map. Checking: ingest_node_id={ingest_node_id}, match={node_id_ref == ingest_node_id}",
+                        extra=common_log_arguments,
+                    )
 
                     # In unified batch/non-batch approach, ingest is always excluded from op_flow
                     # Skip this edge if it references the ingest node; we'll create synthetic result from batch data later
                     if ingest_node_id and node_id_ref == ingest_node_id:
-                        self.logger.debug(f"Skipping missing ingest node {node_id_ref} (unified batch approach)",
-                                          extra=common_log_arguments)
+                        self.logger.debug(
+                            f"Skipping missing ingest node {node_id_ref} (unified batch approach)",
+                            extra=common_log_arguments,
+                        )
                         continue
                     else:
                         # Missing node that's not ingest - this is an error
-                        self.logger.error(f"Node {node_id_ref} not found in flow. ingest_node_id={ingest_node_id}", extra=common_log_arguments)
+                        self.logger.error(
+                            f"Node {node_id_ref} not found in flow. ingest_node_id={ingest_node_id}",
+                            extra=common_log_arguments,
+                        )
                         raise FlowExecutionFailedException(f"Node {node_id_ref} not found in flow")
-                
+
                 prev_index = node_id_to_index_map[node_id_ref]
                 prev_res[prev_node.get(DatasiftConstants.LINK_NAME)] = results_.get_future(prev_index)
 
@@ -840,14 +1116,19 @@ class AbstractOrchestrator:
             # The calling code will create synthetic results from batch data
             if not prev_res and ingest_node_id:
                 return None
-                
+
             if len(prev_res) == 1:
                 return next(iter(prev_res.values()))
             return prev_res
+
         prefect_config = self.get_prefect_config()
         task_retries = prefect_config["task_retries"]
         persist_result = prefect_config["persist_result"]
-        inner_task = self.__create_execute_task(task_func=self._inner_task, retries=task_retries, persist_result=persist_result)
+        inner_task = self.__create_execute_task(
+            task_func=self._inner_task,
+            retries=task_retries,
+            persist_result=persist_result,
+        )
         session_info = get_session_info()
 
         results: FuturedList = FuturedList.from_size(len(op_flow))
@@ -871,9 +1152,15 @@ class AbstractOrchestrator:
                     prev_results = results.get_future(prev_index) if is_sequential_flow else get_prev_results(op_def, results)
 
                 future = inner_task.submit(
-                    op_def=op_def, global_config=global_config, prev_results=prev_results,
-                    job_log_final_path=job_log_final_path, common_log_arguments=common_log_arguments,
-                    session_info=session_info, deleted_docs_count=deleted_docs_count, link_id=link_id)
+                    op_def=op_def,
+                    global_config=global_config,
+                    prev_results=prev_results,
+                    job_log_final_path=job_log_final_path,
+                    common_log_arguments=common_log_arguments,
+                    session_info=session_info,
+                    deleted_docs_count=deleted_docs_count,
+                    link_id=link_id,
+                )
 
                 if is_sequential_flow:
                     destinations = [(future, op_def)]
@@ -885,26 +1172,57 @@ class AbstractOrchestrator:
                         results.set_entry(index, future, len(op_def.get(DatasiftConstants.OUTPUT_EDGES)))
                 prev_index = index
             except Exception as e:
-                self._handle_exception(e=e, op_def=op_def, job_log_final_path=job_log_final_path,
-                                       common_log_arguments=common_log_arguments, global_config=global_config)
+                self._handle_exception(
+                    e=e,
+                    op_def=op_def,
+                    job_log_final_path=job_log_final_path,
+                    common_log_arguments=common_log_arguments,
+                    global_config=global_config,
+                )
         self.wait_for_tasks(destinations=destinations)
         job_tracker = JobTracker()
         job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
         failed_doc_ids = self._collect_failed_doc_ids(job_stats=job_stats)
 
-        tables = [ destination[0].result().tables[0] for destination in destinations if hasattr(destination[0], 'result') and destination[0].result() and hasattr(destination[0].result(), 'tables')]
-        incremental_update_util.save_metadata_for_incremental_update(job_id=self.context_id, job_run_id=self.__job_run_id,
-                                                                     tables=tables, failed_doc_ids=failed_doc_ids)
+        tables = [
+            destination[0].result().tables[0]
+            for destination in destinations
+            if hasattr(destination[0], "result")
+            and destination[0].result()
+            and hasattr(destination[0].result(), "tables")
+        ]
+        incremental_update_util.save_metadata_for_incremental_update(
+            job_id=self.context_id,
+            job_run_id=self.__job_run_id,
+            tables=tables,
+            failed_doc_ids=failed_doc_ids,
+        )
 
-    def __create_main_task(self, main_task, retries=0, persist_result=False, ) -> task:
+    def __create_main_task(
+        self,
+        main_task,
+        retries=0,
+        persist_result=False,
+    ) -> task:
         def generate_task_name():
             parameters = task_run.parameters
             return parameters["task_name"]
 
-        return task(main_task, task_run_name=generate_task_name, retries=retries,
-                    persist_result=persist_result)
+        return task(
+            main_task,
+            task_run_name=generate_task_name,
+            retries=retries,
+            persist_result=persist_result,
+        )
 
-    def non_execute_inner_flow(self, task_type: TaskType, inner_task : Callable[P,R], op_flow, local_result, **kwargs):
+    def non_execute_inner_flow(
+        self,
+        task_type: TaskType,
+        inner_task: Callable[P, R],
+        op_flow,
+        local_result,
+        **kwargs,
+    ):
         """
         this method is flow builder method use this method to build flows for pre operators execution tasks
         """
@@ -923,13 +1241,13 @@ class AbstractOrchestrator:
         for op_def in op_flow:
             if stop_submission:
                 continue
-            index = node_id_to_index_map[op_def.get('id')]
+            index = node_id_to_index_map[op_def.get("id")]
             try:
-                if op_def['input_edges']:
+                if op_def["input_edges"]:
                     link_name = op_def.get(OperatorConstants.LINK_NAME)
-                    prev_futures=[]
-                    for edge in op_def['input_edges']:
-                        prev_index = node_id_to_index_map[edge['node_id_ref']]
+                    prev_futures = []
+                    for edge in op_def["input_edges"]:
+                        prev_index = node_id_to_index_map[edge["node_id_ref"]]
                         prev_future = results.get_future(prev_index)
                         prev_futures.append(prev_future)
 
@@ -949,15 +1267,18 @@ class AbstractOrchestrator:
                 else:
                     results.set_entry(index, future, len(op_def.get(DatasiftConstants.OUTPUT_EDGES)))
 
-                if kwargs.get('stop_node_id') == op_def.get(OperatorConstants.ID):
+                if kwargs.get("stop_node_id") == op_def.get(OperatorConstants.ID):
                     logger.info(
-                        f"Stop node reached: {op_def.get(OperatorConstants.NAME)} id:{op_def.get(OperatorConstants.ID)}")
-                    logger.info(f"No more tasks will be submitted, waiting for current tasks: {len(submitted_futures)} to complete")
+                        f"Stop node reached: {op_def.get(OperatorConstants.NAME)} id:{op_def.get(OperatorConstants.ID)}"
+                    )
+                    logger.info(
+                        f"No more tasks will be submitted, waiting for current tasks: {len(submitted_futures)} to complete"
+                    )
                     stop_submission = True
                     final_destination = future
 
             except Exception as e:
-                error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{str(e)}"
+                error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{e!s}"
                 logger.error(error, stack_info=True, exc_info=True)
                 raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED)
 
@@ -967,34 +1288,46 @@ class AbstractOrchestrator:
             # Note that copy of the result is passed to each task. If there is a `stop_node` exists, then the result
             # from the stop node is updated in the local_result.
             local_result.update_final_result(final_destination.result())
-            return Completed(message=f"Flow stopped after node but allowed {len(submitted_futures)} tasks to complete", name="EarlyStopped")
+            return Completed(
+                message=f"Flow stopped after node but allowed {len(submitted_futures)} tasks to complete",
+                name="EarlyStopped",
+            )
 
     # Define the flow dynamically
     def build_flow(self):
         prefect_config = self.get_prefect_config()
 
         # Wrap it into a Prefect Flow dynamically
-        return flow(name="dpk_pipeline",
-                    timeout_seconds=prefect_config["timeout_seconds"],
-                    retries=prefect_config["flow_retries"],
-                    retry_delay_seconds=prefect_config["retry_delay_seconds"],
-                    log_prints=prefect_config["log_prints"],
-                    task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"])
-                    )(self.inner_flow)
+        return flow(
+            name="dpk_pipeline",
+            timeout_seconds=prefect_config["timeout_seconds"],
+            retries=prefect_config["flow_retries"],
+            retry_delay_seconds=prefect_config["retry_delay_seconds"],
+            log_prints=prefect_config["log_prints"],
+            task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"]),
+        )(self.inner_flow)
 
     def build_non_execute_flow(self, *, flow_name=None):
         prefect_config = self.get_prefect_config()
         # Wrap it into a Prefect Flow dynamically
-        return flow(name="task_pipeline" if flow_name is None else flow_name,
-                    timeout_seconds=prefect_config["timeout_seconds"],
-                    retries=prefect_config["flow_retries"],
-                    retry_delay_seconds=prefect_config["retry_delay_seconds"],
-                    log_prints=prefect_config["log_prints"],
-                    task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"])
-                    )(self.non_execute_inner_flow)
+        return flow(
+            name="task_pipeline" if flow_name is None else flow_name,
+            timeout_seconds=prefect_config["timeout_seconds"],
+            retries=prefect_config["flow_retries"],
+            retry_delay_seconds=prefect_config["retry_delay_seconds"],
+            log_prints=prefect_config["log_prints"],
+            task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"]),
+        )(self.non_execute_inner_flow)
 
-    def execute_dag_flow_with_batching(self, *, op_flow, data_access, global_config,
-                                             common_log_arguments, job_log_final_path): # pragma: no cover
+    def execute_dag_flow_with_batching(
+        self,
+        *,
+        op_flow,
+        data_access,
+        global_config,
+        common_log_arguments,
+        job_log_final_path,
+    ):  # pragma: no cover
         """
         Execute DAG flow with unified batching approach.
         Supports both batch mode (multiple batches) and non-batch mode (single table).
@@ -1008,45 +1341,69 @@ class AbstractOrchestrator:
 
         Note: Micro-batching is only applied for Python orchestrator, not for Spark.
         """
-        self.logger.info(">>> Starting flow execution with unified batching approach",
-                         extra=common_log_arguments)
+        self.logger.info(
+            ">>> Starting flow execution with unified batching approach",
+            extra=common_log_arguments,
+        )
 
         # Get batch configuration and orchestrator type
         enable_batching = global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False)
         orchestrator_type = self.get_type()
 
         # Only read batch_size if batching is enabled
-        batch_size = global_config.get(DatasiftConstants.MICRO_BATCH_SIZE,
-                                       DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE) if enable_batching else None
+        batch_size = (
+            global_config.get(
+                DatasiftConstants.MICRO_BATCH_SIZE,
+                DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE,
+            )
+            if enable_batching
+            else None
+        )
 
         # Execute ingest operator to get initial table
         ingest_operator = op_flow[0]
         incremental_update_util = IncrementalUpdateUtil()
 
         initial_result = ExecuteStepResults([data_access], [pa.Table.from_arrays(arrays=[], names=[])], None)
-        step_results = self._execute_step(op_def=ingest_operator, global_config=global_config,
-                                          prev_results=initial_result, deleted_docs_count=0)
+        step_results = self._execute_step(
+            op_def=ingest_operator,
+            global_config=global_config,
+            prev_results=initial_result,
+            deleted_docs_count=0
+        )
 
         deleted_docs_count = step_results.internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN, 0)
-        self.message = self._process_ingest_results(output_table=step_results.tables[0],
-                                                    deleted_docs_count=deleted_docs_count, operator=ingest_operator,
-                                                    common_log_arguments=common_log_arguments)
+        self.message = self._process_ingest_results(
+            output_table=step_results.tables[0],
+            deleted_docs_count=deleted_docs_count,
+            operator=ingest_operator,
+            common_log_arguments=common_log_arguments,
+        )
 
         if global_config.get(DatasiftConstants.FORCE_INGEST):
             incremental_update_util.clear_incremental_table(job_id=self.__job_id)
         else:
-            self._mark_soft_deleted_docs(incremental_update_util=incremental_update_util,
-                                         internal_metadata=step_results.internal_metadata, global_config=global_config)
+            self._mark_soft_deleted_docs(
+                incremental_update_util=incremental_update_util,
+                internal_metadata=step_results.internal_metadata,
+                global_config=global_config,
+            )
 
         # Get the ingested table
         ingested_table = step_results.tables[0]
 
         # Check if table is empty
         if ingested_table.num_rows == 0:
-            self.logger.info(">>> No data to process - skipping flow execution", extra=common_log_arguments)
+            self.logger.info(
+                ">>> No data to process - skipping flow execution",
+                extra=common_log_arguments,
+            )
             clean_up_prefect_home()
-            return self.finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path,
-                                          common_log_arguments=common_log_arguments)
+            return self.finalize_dag_flow(
+                op_flow=op_flow,
+                job_log_final_path=job_log_final_path,
+                common_log_arguments=common_log_arguments,
+            )
 
         if enable_batching:
             # BATCH MODE: Split table into multiple batches (Python orchestrator only)
@@ -1054,8 +1411,10 @@ class AbstractOrchestrator:
             batches = self._create_batches(table=ingested_table, batch_size=batch_size)
             batch_count = len(batches)
 
-            self.logger.info(f">>> Split {ingested_table.num_rows} rows into {batch_count} batches of size {batch_size}",
-                             extra=common_log_arguments)
+            self.logger.info(
+                f">>> Split {ingested_table.num_rows} rows into {batch_count} batches of size {batch_size}",
+                extra=common_log_arguments,
+            )
 
             # Add batch_count to global_config for operators to use
             global_config[DatasiftConstants.BATCH_COUNT] = batch_count
@@ -1068,7 +1427,7 @@ class AbstractOrchestrator:
 
             self.logger.info(
                 f">>> Non-batch mode: Processing all {ingested_table.num_rows} rows in single execution",
-                extra=common_log_arguments
+                extra=common_log_arguments,
             )
 
             # NOTE: Do NOT set BATCH_COUNT or BATCH_NUM in non-batch mode
@@ -1082,18 +1441,26 @@ class AbstractOrchestrator:
         batch_flow = self._build_batching_flow()
         batch_futures = batch_flow(
             op_flow=op_flow[1:],  # Skip ingest operator
-            batches=batches, global_config=global_config,
-            common_log_arguments=common_log_arguments, job_log_final_path=job_log_final_path)
+            batches=batches,
+            global_config=global_config,
+            common_log_arguments=common_log_arguments,
+            job_log_final_path=job_log_final_path,
+        )
 
-        batch_results = self.wait_and_get_batch_results(op_flow=op_flow, global_config=global_config,
-                                                        batch_futures=batch_futures, common_log_arguments=common_log_arguments)
+        batch_results = self.wait_and_get_batch_results(
+            op_flow=op_flow,
+            global_config=global_config,
+            batch_futures=batch_futures,
+            common_log_arguments=common_log_arguments,
+        )
 
         # Merge batch results (for single batch, _merge_batch_results efficiently returns the table)
         if batch_results:
             merged_table = self._merge_batch_results(batch_results=batch_results)
             self.logger.info(
                 f">>> Merged {len(batch_results)} batch results into table with {merged_table.num_rows} rows",
-                extra=common_log_arguments)
+                extra=common_log_arguments,
+            )
 
             # Save merged results for incremental update
             job_tracker = JobTracker()
@@ -1103,14 +1470,19 @@ class AbstractOrchestrator:
                 for node_stats in job_stats.node_stats.values():
                     failed_doc_ids.extend(node_stats.get(Metrics.External.FAILED_DOCS, []))
 
-            incremental_update_util.save_metadata_for_incremental_update(job_id=self.context_id,
-                                                                         job_run_id=self.__job_run_id,
-                                                                         tables=[merged_table],
-                                                                         failed_doc_ids=failed_doc_ids)
+            incremental_update_util.save_metadata_for_incremental_update(
+                job_id=self.context_id,
+                job_run_id=self.__job_run_id,
+                tables=[merged_table],
+                failed_doc_ids=failed_doc_ids,
+            )
 
         clean_up_prefect_home()
-        return self.finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path,
-                                      common_log_arguments=common_log_arguments)
+        return self.finalize_dag_flow(
+            op_flow=op_flow,
+            job_log_final_path=job_log_final_path,
+            common_log_arguments=common_log_arguments,
+        )
 
     def wait_and_get_batch_results(self, *, op_flow, global_config, batch_futures, common_log_arguments):
         # Wait for batches with fail-fast cancellation
@@ -1123,8 +1495,10 @@ class AbstractOrchestrator:
             if cancellation_event.is_set():
                 try:
                     future.cancel()
-                    self.logger.info(f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
-                                     extra=common_log_arguments)
+                    self.logger.info(
+                        f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
+                        extra=common_log_arguments,
+                    )
                 except Exception as e:
                     self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
                 continue
@@ -1136,25 +1510,36 @@ class AbstractOrchestrator:
                 # Extract result table from batch's final operator output
                 batch_global_config = global_config.copy()
                 batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
-                result_table = self._extract_batch_result_table(batch_num=batch_num, op_flow=op_flow,
-                                                                global_config=batch_global_config)
+                result_table = self._extract_batch_result_table(
+                    batch_num=batch_num,
+                    op_flow=op_flow,
+                    global_config=batch_global_config,
+                )
                 if result_table is not None:
                     batch_results.append(result_table)
-                    self.logger.info(f"Batch {batch_num} completed with {result_table.num_rows} rows",
-                                     extra=common_log_arguments)
+                    self.logger.info(
+                        f"Batch {batch_num} completed with {result_table.num_rows} rows",
+                        extra=common_log_arguments,
+                    )
 
             except Exception as e:
                 # Batch failed - trigger cancellation
                 cancellation_event.set()
 
-                self.logger.error(f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
-                                  extra=common_log_arguments, exc_info=True)
+                self.logger.error(
+                    f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
+                    extra=common_log_arguments,
+                    exc_info=True,
+                )
 
                 # Cancel all remaining batches
-                for remaining_num, remaining_future in batch_futures[batch_num + 1:]:
+                for remaining_num, remaining_future in batch_futures[batch_num + 1 :]:
                     try:
                         remaining_future.cancel()
-                        self.logger.info(f"Cancelled batch {remaining_num}", extra=common_log_arguments)
+                        self.logger.info(
+                            f"Cancelled batch {remaining_num}",
+                            extra=common_log_arguments,
+                        )
                     except Exception as cancel_error:
                         self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
 
@@ -1169,26 +1554,30 @@ class AbstractOrchestrator:
 
         return batch_results
 
-    def _build_batching_flow(self): # pragma: no cover
+    def _build_batching_flow(self):  # pragma: no cover
         """
         Build a Prefect flow for batch processing with controlled parallelism.
-        
+
         Returns:
             Prefect flow configured for batch processing
         """
         prefect_config = self.get_prefect_config()
 
-        return flow(name="batch_pipeline", timeout_seconds=prefect_config["timeout_seconds"],
-                    retries=prefect_config["flow_retries"], retry_delay_seconds=prefect_config["retry_delay_seconds"],
-                    log_prints=prefect_config["log_prints"],
-                    task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"])
+        return flow(
+            name="batch_pipeline",
+            timeout_seconds=prefect_config["timeout_seconds"],
+            retries=prefect_config["flow_retries"],
+            retry_delay_seconds=prefect_config["retry_delay_seconds"],
+            log_prints=prefect_config["log_prints"],
+            task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"]),
         )(self.batch_inner_flow)
 
-    def batch_inner_flow(self, op_flow, batches, global_config, common_log_arguments,
-                         job_log_final_path): # pragma: no cover
+    def batch_inner_flow(
+        self, op_flow, batches, global_config, common_log_arguments, job_log_final_path
+    ):  # pragma: no cover
         """
         Process batches using Prefect sub-flows with DAG parallelism.
-        
+
         Each batch executes as an independent Prefect sub-flow (dynamic_flow) that processes
         the entire DAG with full operator-level parallelism based on dependencies.
 
@@ -1196,8 +1585,10 @@ class AbstractOrchestrator:
             List of PyArrow tables with batch results
         """
         # Initialize global operator semaphore (shared across all batches)
-        max_concurrent_operators = global_config.get(DatasiftConstants.MAX_CONCURRENT_TASKS,
-                                                     DatasiftConstants.DEFAULT_MAX_CONCURRENT_TASKS)
+        max_concurrent_operators = global_config.get(
+            DatasiftConstants.MAX_CONCURRENT_TASKS,
+            DatasiftConstants.DEFAULT_MAX_CONCURRENT_TASKS,
+        )
         self._global_operator_semaphore = threading.Semaphore(max_concurrent_operators)
 
         # Build dynamic flow once (reusable for all batches)
@@ -1206,15 +1597,21 @@ class AbstractOrchestrator:
         # Create a task wrapper for subflow execution
         def batch_cache_key_fn(context, parameters):
             """Custom cache key that excludes batch_data_access to avoid serialization errors."""
-            job_run_id = parameters.get('common_log_arguments', {}).get('job_run_id', '')
+            job_run_id = parameters.get("common_log_arguments", {}).get("job_run_id", "")
             return f"{parameters.get('batch_num')}_{job_run_id}"
-        
+
         @task(cache_key_fn=batch_cache_key_fn)
-        def execute_batch_subflow(batch_num, op_flow, global_config,
-                                  common_log_arguments, job_log_final_path, batch_data_access):
+        def execute_batch_subflow(
+            batch_num,
+            op_flow,
+            global_config,
+            common_log_arguments,
+            job_log_final_path,
+            batch_data_access,
+        ):
             """Execute a single batch as a Prefect subflow."""
             # Create batch-specific config (without semaphore - it's accessed from orchestrator instance)
-            logger.info(("Inside execute_batch_subflow()"))
+            logger.info("Inside execute_batch_subflow()")
             batch_global_config = global_config.copy()
             # Only set BATCH_NUM if micro-batching is enabled
             # In non-batch mode (ENABLE_MICRO_BATCHING=False), don't set BATCH_NUM
@@ -1223,14 +1620,14 @@ class AbstractOrchestrator:
                 batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
             # Note: Semaphore is NOT added to config to avoid pickling issues
             # It will be accessed directly from self._global_operator_semaphore in _inner_task
-            
+
             # Call flow directly (Prefect treats it as subflow)
             return dynamic_flow(
                 op_flow=op_flow,
                 data_access=batch_data_access,
                 global_config=batch_global_config,
                 common_log_arguments=common_log_arguments,
-                job_log_final_path=job_log_final_path
+                job_log_final_path=job_log_final_path,
             )
 
         # Submit all batches as tasks (which execute subflows)
@@ -1239,7 +1636,7 @@ class AbstractOrchestrator:
         for batch_num, batch_table in enumerate(batches):
             # Create batch-specific data access BEFORE submitting task
             batch_data_access = self._create_batch_data_access(batch_table=batch_table)
-            
+
             # Submit batch task
             future = execute_batch_subflow.submit(
                 batch_num=batch_num,
@@ -1247,14 +1644,14 @@ class AbstractOrchestrator:
                 global_config=global_config,
                 common_log_arguments=common_log_arguments,
                 job_log_final_path=job_log_final_path,
-                batch_data_access=batch_data_access
+                batch_data_access=batch_data_access,
             )
             batch_futures.append((batch_num, future))
 
         return batch_futures
 
     @staticmethod
-    def _create_batches(*, table: pa.Table, batch_size: int) -> list[pa.Table]: # pragma: no cover
+    def _create_batches(*, table: pa.Table, batch_size: int) -> list[pa.Table]:  # pragma: no cover
         """
         Split a PyArrow table into batches.
 
@@ -1266,35 +1663,49 @@ class AbstractOrchestrator:
             batches.append(pa.Table.from_batches([batch]))
         return batches
 
-
     @staticmethod
-    def _merge_batch_results(*, batch_results: list[pa.Table]) -> pa.Table: # pragma: no cover
+    def _merge_batch_results(*, batch_results: list[pa.Table]) -> pa.Table:  # pragma: no cover
         """
         Merge batch results into a single PyArrow table.
-            
+
         Returns:
             Single merged PyArrow table
         """
         # Filter out None results
         valid_results = [result for result in batch_results if result is not None]
-        
+
         if not valid_results:
             # Return empty table with same schema as first batch if available
             return pa.Table.from_arrays([], names=[])
-        
+
         # Concatenate all tables
         return pa.concat_tables(valid_results)
 
-    def __validate_node(self, *, op_def, global_config, validate_results: ValidateStepResults, common_log_arguments, session_info):
+    def __validate_node(
+        self,
+        *,
+        op_def,
+        global_config,
+        validate_results: ValidateStepResults,
+        common_log_arguments,
+        session_info,
+    ):
         node_id = op_def["id"]
         node_name = op_def.get("name", "")
         operator = op_def.get("operator", "")
 
-        operator_factory: OperatorFactory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
-        if self._evaluate_node_validation_skip(operator=operator,
-                                               operator_factory=operator_factory,
-                                               global_config=global_config):
-            self.logger.info(f"Skipping validating node: {node_name} ({operator})", extra=common_log_arguments)
+        operator_factory: OperatorFactory = OperatorFactoryProvider.get_operator_factory(
+            orchestrator=OrchestratorType.PYTHON
+        )
+        if self._evaluate_node_validation_skip(
+            operator=operator,
+            operator_factory=operator_factory,
+            global_config=global_config,
+        ):
+            self.logger.info(
+                f"Skipping validating node: {node_name} ({operator})",
+                extra=common_log_arguments,
+            )
             return validate_results
 
         set_session_info(session_info)
@@ -1318,17 +1729,25 @@ class AbstractOrchestrator:
 
         if not output_refs:
             # If the operator does not have any output refs and it is not VectorDB operator, then add a warning
-            category = self.get_operator_category(op_def=op_def, global_config=global_config, alerts=validate_results.errors)
+            category = self.get_operator_category(
+                op_def=op_def,
+                global_config=global_config,
+                alerts=validate_results.errors,
+            )
             if category != OperatorCategory.VectorDB:
                 warning_msg = ValidationMessage(
                     message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
                     message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name,
                     op_id=op_def.get("id"),
-                    op_name=op_def.get("name")
+                    op_name=op_def.get("name"),
                 )
                 warning_messages.append(warning_msg)
 
-        executor.validate(errors=error_messages, warnings=warning_messages, available_features=all_features)
+        executor.validate(
+            errors=error_messages,
+            warnings=warning_messages,
+            available_features=all_features,
+        )
 
         self.create_validation_alerts(op_def=op_def, messages=error_messages, alerts=validate_results.errors)
         self.create_validation_alerts(op_def=op_def, messages=warning_messages, alerts=validate_results.warnings)
@@ -1336,7 +1755,6 @@ class AbstractOrchestrator:
         self.logger.info(f"Completed validation: {node_name}", extra=common_log_arguments)
         logger.info(f"Validating node: {node_name} ({operator})", extra=common_log_arguments)
         return validate_results
-
 
     # @staticmethod
     # def _validate_parameters_in_dag_flow(*, dag, global_config, validate_results):  # pragma: no cover
@@ -1411,20 +1829,23 @@ class AbstractOrchestrator:
         duplicates = [item for item in set(nodes) if nodes.count(item) > 1]
         return duplicates
 
-
-    def _evaluate_node_validation_skip(self, operator: str, operator_factory: OperatorFactory, global_config: dict) -> bool:
-        if (DatasiftConstants.SKIP_CUSTOM_OP_VALIDATION in global_config and
-                global_config[DatasiftConstants.SKIP_CUSTOM_OP_VALIDATION] and
-                operator not in operator_factory.operators):
+    def _evaluate_node_validation_skip(
+        self, operator: str, operator_factory: OperatorFactory, global_config: dict
+    ) -> bool:
+        if (
+            DatasiftConstants.SKIP_CUSTOM_OP_VALIDATION in global_config
+            and global_config[DatasiftConstants.SKIP_CUSTOM_OP_VALIDATION]
+            and operator not in operator_factory.operators
+        ):
             return True
         return False
 
     @staticmethod
-    def _collect_failed_doc_ids(*, job_stats: Optional[JobStatsDto]) -> list[str]:
+    def _collect_failed_doc_ids(*, job_stats: JobStatsDto | None) -> list[str]:
         """Collect all failed document IDs from node stats"""
         if not job_stats:
             return []
-        
+
         failed_doc_ids: list[str] = []
         for node_stats in job_stats.node_stats.values():
             if node_stats.failed_docs:
@@ -1432,7 +1853,7 @@ class AbstractOrchestrator:
         return failed_doc_ids
 
     @staticmethod
-    def _create_batch_data_access(*, batch_table: pa.Table) -> DataAccess: # pragma: no cover
+    def _create_batch_data_access(*, batch_table: pa.Table) -> DataAccess:  # pragma: no cover
         # Create a DataAccess object for a batch table.
         data_access_factory = DataAccessFactory()
         config = {"data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}}
@@ -1441,18 +1862,20 @@ class AbstractOrchestrator:
         batch_data_access.save_table(path="", table=batch_table)
         return batch_data_access
 
-    def _extract_batch_result_table(self, *, batch_num: int, op_flow: list, global_config: dict) -> Optional[pa.Table]: # pragma: no cover
+    def _extract_batch_result_table(
+        self, *, batch_num: int, op_flow: list, global_config: dict
+    ) -> pa.Table | None:  # pragma: no cover
         """
         Extract the result table for a batch after its sub-flow completes.
-        
+
         Reads from all final operators' output locations (including all branches) for the given batch.
         Merges results from multiple final operators/branches into a single table.
-        
+
         Args:
             batch_num: Batch number
             op_flow: List of operator definitions
             global_config: Global configuration (must include batch_num)
-            
+
         Returns:
             PyArrow table with merged batch results from all final operators, or None if not found
         """
@@ -1468,7 +1891,7 @@ class AbstractOrchestrator:
         # Read from each final operator
         for final_op in final_operators:
             op_name = final_op[OperatorConstants.NAME]
-            
+
             # Try reading from each possible branch index (0, 1, 2, ...)
             branch_index = 0
             while True:
@@ -1494,7 +1917,9 @@ class AbstractOrchestrator:
 
                     if table and table.num_rows > 0:
                         all_tables.append(table)
-                        self.logger.debug(f"Extracted {table.num_rows} rows from batch {batch_num}, operator {op_name}, branch {branch_index}")
+                        self.logger.debug(
+                            f"Extracted {table.num_rows} rows from batch {batch_num}, operator {op_name}, branch {branch_index}"
+                        )
                         branch_index += 1
                     else:
                         # Empty table for this branch - stop trying more branches
@@ -1504,19 +1929,21 @@ class AbstractOrchestrator:
                     if branch_index == 0:
                         self.logger.warning(f"Could not read batch {batch_num} result from operator {op_name}: {e}")
                     break
-        
+
         # Merge all tables from all final operators and branches
         if not all_tables:
             self.logger.warning(f"No tables found for batch {batch_num}")
             return None
-        
+
         if len(all_tables) == 1:
             return all_tables[0]
-        
+
         # Concatenate all tables
         try:
             merged_table = pa.concat_tables(all_tables)
-            self.logger.debug(f"Merged {len(all_tables)} tables from batch {batch_num} into single table with {merged_table.num_rows} rows")
+            self.logger.debug(
+                f"Merged {len(all_tables)} tables from batch {batch_num} into single table with {merged_table.num_rows} rows"
+            )
             return merged_table
         except Exception as e:
             self.logger.error(f"Failed to merge tables for batch {batch_num}: {e}", exc_info=True)

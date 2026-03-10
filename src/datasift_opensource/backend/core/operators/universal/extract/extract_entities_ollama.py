@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import re
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from typing import Any, Optional
+from typing import Any
 
 import pyarrow as pa
 
@@ -95,9 +95,7 @@ def _build_schema_description(schema: dict[str, Any]) -> str:
     common_prefix = None
     if first_parts and all(part == first_parts[0] for part in first_parts):
         # Check if this prefix appears in most columns
-        prefix_count = sum(
-            1 for name in col_names if name.startswith(first_parts[0] + ".")
-        )
+        prefix_count = sum(1 for name in col_names if name.startswith(first_parts[0] + "."))
         if prefix_count > len(col_names) * 0.5:  # More than 50% have this prefix
             common_prefix = first_parts[0]
 
@@ -134,22 +132,18 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
     if first_parts and all(part == first_parts[0] for part in first_parts):
         potential_prefix = first_parts[0]
         # Check if this prefix appears in most columns AND is not itself a column
-        prefix_count = sum(
-            1 for name in col_names if name.startswith(potential_prefix + ".")
-        )
+        prefix_count = sum(1 for name in col_names if name.startswith(potential_prefix + "."))
         non_dotted_count = len([name for name in col_names if "." not in name])
         # Only use as common prefix if:
         # 1. It's not a standalone column
         # 2. It appears in >50% of columns
         # 3. There are some non-dotted columns (otherwise it's just a parent object)
-        if (potential_prefix not in col_names and
-            prefix_count > len(col_names) * 0.5 and
-            non_dotted_count > 0):
+        if potential_prefix not in col_names and prefix_count > len(col_names) * 0.5 and non_dotted_count > 0:
             common_prefix = potential_prefix
 
     # Track which fields are NESTED type
     nested_fields = {col_name for col_name, col_type in columns.items() if col_type == "NESTED"}
-    
+
     # Track parent fields that should be lists (when all children share same parent)
     parent_fields = {}
     for col_name in col_names:
@@ -158,7 +152,7 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
             if parent not in parent_fields:
                 parent_fields[parent] = []
             parent_fields[parent].append(col_name)
-    
+
     # Determine which parents should be lists (when they have multiple children and aren't standalone columns)
     list_parents = set()
     for parent, children in parent_fields.items():
@@ -179,14 +173,13 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
             for i, part in enumerate(parts[:-1]):
                 if part not in current:
                     # Check if this parent field is marked as NESTED or should be a list
-                    parent_path = ".".join(parts[:i+1])
+                    parent_path = ".".join(parts[: i + 1])
                     if common_prefix:
                         full_parent_path = f"{common_prefix}.{parent_path}"
                     else:
                         full_parent_path = parent_path
-                    
-                    if (full_parent_path in nested_fields or part in nested_fields or
-                        part in list_parents):
+
+                    if full_parent_path in nested_fields or part in nested_fields or part in list_parents:
                         # Create a list with a single dict element
                         current[part] = [{}]
                         current = current[part][0]
@@ -216,7 +209,7 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
     return template
 
 
-def _try_repair_truncated_json(raw: str) -> Optional[dict[str, Any]]:
+def _try_repair_truncated_json(raw: str) -> dict[str, Any] | None:
     """Try to repair truncated JSON by closing unclosed braces/brackets."""
     stack: list[str] = []
     in_string: bool = False
@@ -251,23 +244,19 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
     # Strip markdown fences
     if text.startswith("```"):
         lines: list[str] = text.split("\n")
-        text = "\n".join(
-            lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
-        ).strip()
+        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:]).strip()
     # Direct parse
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
     # Regex extraction of first {...} block
-    match: Optional[re.Match[str]] = re.search(r"\{.*\}", text, re.DOTALL)
+    match: re.Match[str] | None = re.search(r"\{.*\}", text, re.DOTALL)
     if match:
         try:
             return json.loads(match.group())
         except json.JSONDecodeError:
-            repaired: Optional[dict[str, Any]] = _try_repair_truncated_json(
-                match.group()
-            )
+            repaired: dict[str, Any] | None = _try_repair_truncated_json(match.group())
             if repaired is not None:
                 return repaired
     # Last-resort repair
@@ -277,9 +266,7 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
     return {}
 
 
-def _load_schema_from_file(
-    schema_file: str, table_name: str
-) -> Optional[dict[str, Any]]:
+def _load_schema_from_file(schema_file: str, table_name: str) -> dict[str, Any] | None:
     """Load a named schema from a JSON schema file."""
     try:
         with open(schema_file, encoding="utf-8") as fh:
@@ -322,9 +309,7 @@ def _extract_entities_worker(
         }
 
     try:
-        truncated_content: str = (
-            content[:max_doc_chars] if len(content) > max_doc_chars else content
-        )
+        truncated_content: str = content[:max_doc_chars] if len(content) > max_doc_chars else content
         has_schema: bool = bool(schema.get("columns"))
 
         if has_schema:
@@ -357,10 +342,8 @@ def _extract_entities_worker(
         entities: dict[str, Any] = _parse_llm_json(raw)
         return {"success": True, "entities": entities, "error": None}
 
-    except Exception as exc:  # noqa: BLE001
-        logger.error(
-            "Entity extraction failed for doc '%s' (%s): %s", doc_name, doc_id, exc
-        )
+    except Exception as exc:
+        logger.error("Entity extraction failed for doc '%s' (%s): %s", doc_name, doc_id, exc)
         return {"success": False, "entities": {}, "error": str(exc)}
 
 
@@ -407,12 +390,8 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
 
-        self.doc_column: str = config.get(
-            OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT
-        )
-        self.doc_id_hash_column: str = config.get(
-            OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
-        )
+        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_id_hash_column: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
         self.ollama_model: str = config.get("ollama_model", "granite4")
         self.output_column: str = config.get("output_column", "entities")
         self.max_doc_chars: int = int(config.get("max_doc_chars", 8000))
@@ -420,17 +399,15 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         self.max_workers: int = int(config.get(OperatorConstants.MAX_WORKERS, 4))
         _raw_expand = config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
         self.expand_entities: bool = (
-            _raw_expand
-            if isinstance(_raw_expand, bool)
-            else str(_raw_expand).lower() in ("true", "1", "yes")
+            _raw_expand if isinstance(_raw_expand, bool) else str(_raw_expand).lower() in ("true", "1", "yes")
         )
 
         # Schema: inline dict takes priority over file reference
-        self.schema: Optional[dict[str, Any]] = config.get("schema", None)
-        self.schema_file: Optional[str] = config.get("schema_file", None)
+        self.schema: dict[str, Any] | None = config.get("schema")
+        self.schema_file: str | None = config.get("schema_file")
         self.schema_table: str = config.get("schema_table", "default")
 
-        self._resolved_schema: Optional[dict[str, Any]] = None
+        self._resolved_schema: dict[str, Any] | None = None
 
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
@@ -461,9 +438,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     # Entity expansion
     # ------------------------------------------------------------------
 
-    def _expand_entities_columns(
-        self, table: pa.Table, entities_list: list
-    ) -> pa.Table:
+    def _expand_entities_columns(self, table: pa.Table, entities_list: list) -> pa.Table:
         """Expand entity dict into individual columns, one per entity key.
 
         Column values are cast to the appropriate Python type based on the
@@ -511,16 +486,10 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         # Create one column per key
         for key in sorted(all_keys):
             column_values = [
-                (
-                    _cast(key, entity[key])
-                    if (entity and isinstance(entity, dict) and key in entity)
-                    else None
-                )
+                (_cast(key, entity[key]) if (entity and isinstance(entity, dict) and key in entity) else None)
                 for entity in entities_list
             ]
-            table = TransformUtils.add_column(
-                table, name=f"entity_{key}", content=column_values
-            )
+            table = TransformUtils.add_column(table, name=f"entity_{key}", content=column_values)
 
         return table
 
@@ -541,16 +510,12 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     # Validation
     # ------------------------------------------------------------------
 
-    def validate(
-        self, errors: list[str], warnings: list[str], available_features: list[str]
-    ) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         super().validate(errors, warnings, available_features)
 
         if self.should_validate_field(field_value=self.ollama_model):
             if not self.ollama_model or not isinstance(self.ollama_model, str):
-                errors.append(
-                    "ollama_model must be a non-empty string (e.g. 'llama3', 'mistral')."
-                )
+                errors.append("ollama_model must be a non-empty string (e.g. 'llama3', 'mistral').")
 
         if self.should_validate_field(field_value=self.doc_column):
             if self.doc_column not in available_features:
@@ -564,21 +529,15 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     # ------------------------------------------------------------------
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
-        metadata: dict[str, Any] = self.create_base_metadata(
-            total_docs_count=table.num_rows
-        )
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
 
         schema: dict[str, Any] = self._get_schema()
         entities_list: list[dict[str, Any]] = [{}] * table.num_rows
 
         # Build task list
-        doc_tasks: list[tuple[int, str, str, str]] = (
-            []
-        )  # (row_idx, doc_id, doc_name, content)
+        doc_tasks: list[tuple[int, str, str, str]] = []  # (row_idx, doc_id, doc_name, content)
         for row_idx in range(table.num_rows):
-            row = {
-                col: table.column(col)[row_idx].as_py() for col in table.column_names
-            }
+            row = {col: table.column(col)[row_idx].as_py() for col in table.column_names}
             doc_id = str(row.get(OperatorConstants.ID, row_idx))
             doc_name = str(row.get(OperatorConstants.NAME, f"doc_{row_idx}"))
             content = row.get(self.doc_column) or ""
@@ -613,7 +572,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                 row_idx, doc_id, doc_name = future_to_task[future]
                 try:
                     result: dict[str, Any] = future.result()
-                except Exception as exc:  # noqa: BLE001
+                except Exception as exc:
                     self.record_failed_document(
                         metadata=metadata,
                         doc_id=doc_id,
@@ -639,12 +598,8 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                 table = self._expand_entities_columns(table, entities_list)
 
         # Add entities column - convert to JSON strings for PyArrow compatibility
-        entities_json_list: list[str] = [
-            json.dumps(entity) if entity else "{}" for entity in entities_list
-        ]
-        table = TransformUtils.add_column(
-            table=table, name=self.output_column, content=entities_json_list
-        )
+        entities_json_list: list[str] = [json.dumps(entity) if entity else "{}" for entity in entities_list]
+        table = TransformUtils.add_column(table=table, name=self.output_column, content=entities_json_list)
 
         # Ensure doc_id_hash column exists
         if self.doc_id_hash_column not in table.column_names:
@@ -660,9 +615,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
 
         # Set final node status
         if metadata.get(Metrics.External.FAILED_DOCS_COUNT, 0) > 0:
-            metadata[Metrics.External.NODE_STATUS] = (
-                ExecutionStatus.COMPLETED_WITH_ERRORS
-            )
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_ERRORS
         else:
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED
 

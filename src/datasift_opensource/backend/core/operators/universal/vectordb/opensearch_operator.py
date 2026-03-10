@@ -6,21 +6,22 @@ Supports multiple KNN engines, algorithms, incremental updates, and query capabi
 """
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
-import pyarrow as pa
-from opensearchpy import OpenSearch, RequestsHttpConnection, AWSV4SignerAuth, helpers
-import boto3
-from botocore.credentials import Credentials
+from typing import Any
 
+import boto3
+import pyarrow as pa
+from botocore.credentials import Credentials
+from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection, helpers
+
+from common.util.constants import (
+    Metrics,
+    OperatorConstants,
+)
+from common.util.log import get_logger
 from core.operators.abstract_operator import (
     AbstractOperator,
     OperatorCategory,
 )
-from common.util.constants import (
-    OperatorConstants,
-    Metrics,
-)
-from common.util.log import get_logger
 
 logger = get_logger()
 
@@ -52,8 +53,8 @@ class OpenSearchEngineTypes:
     NMSLIB: str = "nmslib"
     JVECTOR: str = "jvector"
 
-    ALL_ENGINES: List[str] = [FAISS, LUCENE, NMSLIB, JVECTOR]
-    RECOMMENDED_ENGINES: List[str] = [FAISS, LUCENE]
+    ALL_ENGINES: list[str] = [FAISS, LUCENE, NMSLIB, JVECTOR]
+    RECOMMENDED_ENGINES: list[str] = [FAISS, LUCENE]
 
 
 class OpenSearchAlgorithmTypes:
@@ -62,7 +63,7 @@ class OpenSearchAlgorithmTypes:
     HNSW: str = "hnsw"
     IVF: str = "ivf"
 
-    ALL_ALGORITHMS: List[str] = [HNSW, IVF]
+    ALL_ALGORITHMS: list[str] = [HNSW, IVF]
     DEFAULT_ALGORITHM: str = HNSW
 
 
@@ -73,12 +74,12 @@ class VectorSimilarityTypes:
     COSINE: str = "cosine"
     INNER_PRODUCT: str = "inner_product"
 
-    ALL_TYPES: List[str] = [L2, COSINE, INNER_PRODUCT]
+    ALL_TYPES: list[str] = [L2, COSINE, INNER_PRODUCT]
     DEFAULT: str = L2
 
 
 # Engine-Algorithm compatibility
-ENGINE_ALGORITHM_SUPPORT: Dict[str, List[str]] = {
+ENGINE_ALGORITHM_SUPPORT: dict[str, list[str]] = {
     OpenSearchEngineTypes.FAISS: [
         OpenSearchAlgorithmTypes.HNSW,
         OpenSearchAlgorithmTypes.IVF,
@@ -89,7 +90,7 @@ ENGINE_ALGORITHM_SUPPORT: Dict[str, List[str]] = {
 }
 
 # Default parameters for engine-algorithm combinations
-ENGINE_ALGORITHM_DEFAULT_PARAMETERS: Dict[Tuple[str, str], Dict[str, int]] = {
+ENGINE_ALGORITHM_DEFAULT_PARAMETERS: dict[tuple[str, str], dict[str, int]] = {
     (OpenSearchEngineTypes.FAISS, OpenSearchAlgorithmTypes.HNSW): {
         "ef_construction": 128,
         "m": 24,
@@ -122,7 +123,7 @@ class OpenSearchOperator(AbstractOperator):
     short_name: str = "opensearch"
     category: OperatorCategory = OperatorCategory.VectorDB
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         """
         Initialize the OpenSearch operator with configuration.
 
@@ -132,47 +133,29 @@ class OpenSearchOperator(AbstractOperator):
         super().__init__(config)
 
         # OpenSearch connection parameters
-        self.host: Optional[str] = config.get(OperatorConstants.OPENSEARCH_HOST)
+        self.host: str | None = config.get(OperatorConstants.OPENSEARCH_HOST)
         self.port: int = config.get(OperatorConstants.OPENSEARCH_PORT, 9200)
-        self.username: Optional[str] = config.get(OperatorConstants.OPENSEARCH_USERNAME)
-        self.password: Optional[str] = config.get(OperatorConstants.OPENSEARCH_PASSWORD)
+        self.username: str | None = config.get(OperatorConstants.OPENSEARCH_USERNAME)
+        self.password: str | None = config.get(OperatorConstants.OPENSEARCH_PASSWORD)
         self.use_ssl: bool = config.get(OperatorConstants.OPENSEARCH_USE_SSL, True)
-        self.verify_certs: bool = config.get(
-            OperatorConstants.OPENSEARCH_VERIFY_CERTS, True
-        )
+        self.verify_certs: bool = config.get(OperatorConstants.OPENSEARCH_VERIFY_CERTS, True)
         self.aws_auth: bool = config.get(OperatorConstants.OPENSEARCH_AWS_AUTH, False)
-        self.aws_region: Optional[str] = config.get(
-            OperatorConstants.OPENSEARCH_AWS_REGION
-        )
+        self.aws_region: str | None = config.get(OperatorConstants.OPENSEARCH_AWS_REGION)
 
         # Index configuration
-        self.index_name: Optional[str] = config.get(OperatorConstants.INDEX_NAME)
-        self.doc_id_column: str = config.get(
-            OperatorConstants.DOC_ID_COLUMN, "doc_id_hash"
-        )
+        self.index_name: str | None = config.get(OperatorConstants.INDEX_NAME)
+        self.doc_id_column: str = config.get(OperatorConstants.DOC_ID_COLUMN, "doc_id_hash")
         self.embeddings_column: str = config.get(
             OperatorConstants.EMBEDDINGS_COLUMN,
             OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT,
         )
-        self.sparse_embeddings_column: Optional[str] = config.get(
-            SPARSE_EMBEDDINGS_COLUMN_KEY
-        )
-        self.feature_mappings: Dict[str, str] = config.get(
-            OperatorConstants.FEATURE_MAPPINGS, {}
-        )
-        self.available_features: Dict[str, Any] = config.get(
-            OperatorConstants.AVAILABLE_FEATURES, {}
-        )
-        self.batch_size: int = config.get(
-            OperatorConstants.BATCH_SIZE, DEFAULT_BATCH_SIZE
-        )
+        self.sparse_embeddings_column: str | None = config.get(SPARSE_EMBEDDINGS_COLUMN_KEY)
+        self.feature_mappings: dict[str, str] = config.get(OperatorConstants.FEATURE_MAPPINGS, {})
+        self.available_features: dict[str, Any] = config.get(OperatorConstants.AVAILABLE_FEATURES, {})
+        self.batch_size: int = config.get(OperatorConstants.BATCH_SIZE, DEFAULT_BATCH_SIZE)
         self.create_index: bool = config.get(OperatorConstants.CREATE_INDEX, True)
-        self.index_settings: Optional[Dict[str, Any]] = config.get(
-            OperatorConstants.INDEX_SETTINGS
-        )
-        self.config_vector_dimension: int = config.get(
-            OperatorConstants.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION
-        )
+        self.index_settings: dict[str, Any] | None = config.get(OperatorConstants.INDEX_SETTINGS)
+        self.config_vector_dimension: int = config.get(OperatorConstants.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION)
         # This will be set to the detected dimension or fall back to config value
         self.vector_dimension: int = self.config_vector_dimension
         self.dimension_auto_detected: bool = False
@@ -181,7 +164,7 @@ class OpenSearchOperator(AbstractOperator):
         self.engine: str = config.get(ENGINE_KEY, OpenSearchEngineTypes.FAISS)
         self.algorithm: str = config.get(ALGORITHM_KEY, OpenSearchAlgorithmTypes.HNSW)
         self.space_type: str = config.get(SPACE_TYPE_KEY, VectorSimilarityTypes.L2)
-        self.engine_parameters: Dict[str, Any] = config.get(ENGINE_PARAMETERS_KEY, {})
+        self.engine_parameters: dict[str, Any] = config.get(ENGINE_PARAMETERS_KEY, {})
 
         # Validate required parameters
         if not self.host:
@@ -196,7 +179,7 @@ class OpenSearchOperator(AbstractOperator):
         self.client: OpenSearch = self._create_client()
 
         # Get OpenSearch version
-        self.os_version: Tuple[int, int, int] = self._get_opensearch_version()
+        self.os_version: tuple[int, int, int] = self._get_opensearch_version()
 
         logger.info(
             f"Initialized OpenSearch operator for index: {self.index_name} "
@@ -207,16 +190,14 @@ class OpenSearchOperator(AbstractOperator):
     def _validate_engine_algorithm(self) -> None:
         """Validate engine and algorithm compatibility"""
         if self.engine not in OpenSearchEngineTypes.ALL_ENGINES:
-            raise ValueError(
-                f"Invalid engine '{self.engine}'. Supported: {OpenSearchEngineTypes.ALL_ENGINES}"
-            )
+            raise ValueError(f"Invalid engine '{self.engine}'. Supported: {OpenSearchEngineTypes.ALL_ENGINES}")
 
         if self.algorithm not in OpenSearchAlgorithmTypes.ALL_ALGORITHMS:
             raise ValueError(
                 f"Invalid algorithm '{self.algorithm}'. Supported: {OpenSearchAlgorithmTypes.ALL_ALGORITHMS}"
             )
 
-        supported_algorithms: List[str] = ENGINE_ALGORITHM_SUPPORT.get(self.engine, [])
+        supported_algorithms: list[str] = ENGINE_ALGORITHM_SUPPORT.get(self.engine, [])
         if self.algorithm not in supported_algorithms:
             raise ValueError(
                 f"Algorithm '{self.algorithm}' not supported by engine '{self.engine}'. "
@@ -225,7 +206,7 @@ class OpenSearchOperator(AbstractOperator):
 
     def _create_client(self) -> OpenSearch:
         """Create and return an OpenSearch client with appropriate authentication"""
-        connection_params: Dict[str, Any] = {
+        connection_params: dict[str, Any] = {
             "hosts": [{"host": self.host, "port": self.port}],
             "use_ssl": self.use_ssl,
             "verify_certs": self.verify_certs,
@@ -235,22 +216,20 @@ class OpenSearchOperator(AbstractOperator):
 
         # Add authentication
         if self.aws_auth:
-            credentials: Optional[Credentials] = boto3.Session().get_credentials()
-            auth: AWSV4SignerAuth = AWSV4SignerAuth(
-                credentials, self.aws_region or "us-east-1"
-            )
+            credentials: Credentials | None = boto3.Session().get_credentials()
+            auth: AWSV4SignerAuth = AWSV4SignerAuth(credentials, self.aws_region or "us-east-1")
             connection_params["http_auth"] = auth
         elif self.username and self.password:
             connection_params["http_auth"] = (self.username, self.password)
 
         return OpenSearch(**connection_params)
 
-    def _get_opensearch_version(self) -> Tuple[int, int, int]:
+    def _get_opensearch_version(self) -> tuple[int, int, int]:
         """Get OpenSearch server version"""
         try:
-            info: Dict[str, Any] = self.client.info()
+            info: dict[str, Any] = self.client.info()
             version_string: str = info.get("version", {}).get("number", "0.0.0")
-            parts: List[str] = version_string.split(".")
+            parts: list[str] = version_string.split(".")
             return tuple(int(p) for p in parts[:3])  # type: ignore
         except Exception as e:
             logger.warning(
@@ -259,19 +238,17 @@ class OpenSearchOperator(AbstractOperator):
             )
             return (0, 0, 0)
 
-    def _get_engine_parameters(self) -> Dict[str, Any]:
+    def _get_engine_parameters(self) -> dict[str, Any]:
         """Get engine parameters, merging defaults with custom parameters"""
-        param_key: Tuple[str, str] = (self.engine, self.algorithm)
-        default_params: Dict[str, Any] = ENGINE_ALGORITHM_DEFAULT_PARAMETERS.get(
-            param_key, {}
-        ).copy()
+        param_key: tuple[str, str] = (self.engine, self.algorithm)
+        default_params: dict[str, Any] = ENGINE_ALGORITHM_DEFAULT_PARAMETERS.get(param_key, {}).copy()
 
         if self.engine_parameters:
             default_params.update(self.engine_parameters)
 
         return default_params
 
-    def _detect_vector_dimension(self, table: pa.Table) -> Optional[int]:
+    def _detect_vector_dimension(self, table: pa.Table) -> int | None:
         """
         Auto-detect vector dimension from the embeddings column in the PyArrow table.
 
@@ -353,14 +330,14 @@ class OpenSearchOperator(AbstractOperator):
 
         except Exception as e:
             logger.warning(
-                f"Error detecting vector dimension: {str(e)}",
+                f"Error detecting vector dimension: {e!s}",
                 extra=self.common_log_arguments,
             )
             return None
 
-    def _create_index_mapping(self) -> Dict[str, Any]:
+    def _create_index_mapping(self) -> dict[str, Any]:
         """Create index mapping based on available features and feature mappings"""
-        properties: Dict[str, Any] = {}
+        properties: dict[str, Any] = {}
 
         # Process each feature
         for feature_name, feature_config in self.available_features.items():
@@ -432,7 +409,7 @@ class OpenSearchOperator(AbstractOperator):
             return
 
         # Build index configuration
-        index_body: Dict[str, Any] = self._create_index_mapping()
+        index_body: dict[str, Any] = self._create_index_mapping()
 
         # Add custom settings if provided
         if self.index_settings:
@@ -458,16 +435,12 @@ class OpenSearchOperator(AbstractOperator):
     def _validate_existing_index(self) -> None:
         """Validate that existing index configuration matches requested settings"""
         try:
-            mappings: Dict[str, Any] = self.client.indices.get_mapping(
-                index=self.index_name
-            )
-            index_mappings: Dict[str, Any] = mappings.get(self.index_name, {}).get(
-                "mappings", {}
-            )
-            meta: Dict[str, Any] = index_mappings.get("_meta", {})
+            mappings: dict[str, Any] = self.client.indices.get_mapping(index=self.index_name)
+            index_mappings: dict[str, Any] = mappings.get(self.index_name, {}).get("mappings", {})
+            meta: dict[str, Any] = index_mappings.get("_meta", {})
 
-            existing_engine: Optional[str] = meta.get("engine")
-            existing_algorithm: Optional[str] = meta.get("algorithm")
+            existing_engine: str | None = meta.get("engine")
+            existing_algorithm: str | None = meta.get("algorithm")
 
             if existing_engine and existing_engine != self.engine:
                 logger.warning(
@@ -486,11 +459,11 @@ class OpenSearchOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
 
-    def _prepare_document(self, row_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _prepare_document(self, row_data: dict[str, Any]) -> dict[str, Any]:
         """Prepare a document for indexing by mapping columns to index fields"""
         import json
 
-        doc: Dict[str, Any] = {}
+        doc: dict[str, Any] = {}
 
         for feature_name, feature_config in self.available_features.items():
             if not feature_config.get("available_for_vector_db", False):
@@ -510,9 +483,7 @@ class OpenSearchOperator(AbstractOperator):
 
                 # Parse JSON strings for object/nested types
                 feature_type: str = feature_config.get("type", "text")
-                if feature_type in ("object", "nested", "json") and isinstance(
-                    value, str
-                ):
+                if feature_type in ("object", "nested", "json") and isinstance(value, str):
                     try:
                         value = json.loads(value)
                     except (json.JSONDecodeError, TypeError):
@@ -523,16 +494,14 @@ class OpenSearchOperator(AbstractOperator):
 
         return doc
 
-    def _calculate_batch_size_bytes(self, documents: List[Dict[str, Any]]) -> int:
+    def _calculate_batch_size_bytes(self, documents: list[dict[str, Any]]) -> int:
         """Calculate approximate size of documents in bytes"""
         try:
             return len(json.dumps(documents).encode("utf-8"))
-        except:
+        except Exception:
             return 0
 
-    def transform(
-        self, table: pa.Table, file_name: Optional[str] = None
-    ) -> Tuple[List[pa.Table], Dict[str, Any]]:
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform the input table by indexing documents in OpenSearch.
         Supports batch processing with size limits and detailed error tracking.
@@ -540,9 +509,7 @@ class OpenSearchOperator(AbstractOperator):
         Auto-detects vector dimension from embeddings data.
         """
         # Initialize metadata
-        metadata: Dict[str, Any] = self.create_base_metadata(
-            total_docs_count=table.num_rows
-        )
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
         metadata["number_of_batches"] = 0
 
         if table.num_rows == 0:
@@ -551,23 +518,19 @@ class OpenSearchOperator(AbstractOperator):
 
         # Validate required columns
         if self.doc_id_column not in table.column_names:
-            error_msg: str = (
-                f"Required column '{self.doc_id_column}' not found in table"
-            )
+            error_msg: str = f"Required column '{self.doc_id_column}' not found in table"
             logger.error(error_msg, extra=self.common_log_arguments)
             metadata[Metrics.External.NODE_STATUS] = "failed"
             return [table], metadata
 
         if self.embeddings_column not in table.column_names:
-            error_msg: str = (
-                f"Required column '{self.embeddings_column}' not found in table"
-            )
+            error_msg: str = f"Required column '{self.embeddings_column}' not found in table"
             logger.error(error_msg, extra=self.common_log_arguments)
             metadata[Metrics.External.NODE_STATUS] = "failed"
             return [table], metadata
 
         # Auto-detect vector dimension from embeddings data
-        detected_dimension: Optional[int] = self._detect_vector_dimension(table)
+        detected_dimension: int | None = self._detect_vector_dimension(table)
         if detected_dimension is not None:
             if detected_dimension != self.config_vector_dimension:
                 logger.info(
@@ -595,28 +558,26 @@ class OpenSearchOperator(AbstractOperator):
             try:
                 self._create_index()
             except Exception as e:
-                logger.error(
-                    f"Failed to create index: {str(e)}", extra=self.common_log_arguments
-                )
+                logger.error(f"Failed to create index: {e!s}", extra=self.common_log_arguments)
                 metadata[Metrics.External.NODE_STATUS] = "failed"
                 return [table], metadata
 
         # Prepare documents for bulk indexing with size-aware batching
-        all_actions: List[List[Dict[str, Any]]] = []
-        current_batch: List[Dict[str, Any]] = []
+        all_actions: list[list[dict[str, Any]]] = []
+        current_batch: list[dict[str, Any]] = []
         current_batch_size: int = 0
         max_batch_size_bytes: int = MAX_BATCH_SIZE_MB * 1024 * 1024
 
         for idx in range(table.num_rows):
             try:
                 # Extract row data
-                row_data: Dict[str, Any] = {}
+                row_data: dict[str, Any] = {}
                 for col_name in table.column_names:
                     value: Any = table[col_name][idx].as_py()
                     row_data[col_name] = value
 
                 # Get document ID
-                doc_id: Optional[str] = row_data.get(self.doc_id_column)
+                doc_id: str | None = row_data.get(self.doc_id_column)
                 if not doc_id:
                     logger.warning(
                         f"Missing document ID at row {idx}",
@@ -637,18 +598,12 @@ class OpenSearchOperator(AbstractOperator):
                 # The embeddings operator outputs [[emb1], [emb2], [emb3]] for chunked content
                 # where each emb is a vector like [0.1, 0.2, ..., 0.4096]
                 is_chunked: bool = False
-                if (
-                    embeddings_value
-                    and isinstance(embeddings_value, list)
-                    and len(embeddings_value) > 0
-                ):
+                if embeddings_value and isinstance(embeddings_value, list) and len(embeddings_value) > 0:
                     # Check if first element is also a list (nested structure)
                     if isinstance(embeddings_value[0], list):
                         # Further check: if the first element's first item is a number,
                         # then we have chunked embeddings [[emb1], [emb2], ...]
-                        if len(embeddings_value[0]) > 0 and isinstance(
-                            embeddings_value[0][0], (int, float)
-                        ):
+                        if len(embeddings_value[0]) > 0 and isinstance(embeddings_value[0][0], (int, float)):
                             # This is chunked embeddings - treat all cases as chunked
                             is_chunked = True
                             logger.debug(
@@ -661,7 +616,7 @@ class OpenSearchOperator(AbstractOperator):
                     # embeddings_value is [[emb1], [emb2], ...] where each emb is the actual vector
                     for chunk_idx, chunk_embedding in enumerate(embeddings_value):
                         # Create a copy of row_data for this chunk
-                        chunk_row_data: Dict[str, Any] = row_data.copy()
+                        chunk_row_data: dict[str, Any] = row_data.copy()
 
                         # chunk_embedding is already the flat embedding vector [0.1, 0.2, ..., 0.4096]
                         # Update the embeddings to be the single chunk embedding
@@ -671,9 +626,9 @@ class OpenSearchOperator(AbstractOperator):
                         chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
 
                         # Prepare document
-                        doc: Dict[str, Any] = self._prepare_document(chunk_row_data)
+                        doc: dict[str, Any] = self._prepare_document(chunk_row_data)
 
-                        action: Dict[str, Any] = {
+                        action: dict[str, Any] = {
                             "_index": self.index_name,
                             "_id": chunk_doc_id,
                             "_source": doc,
@@ -694,9 +649,9 @@ class OpenSearchOperator(AbstractOperator):
                 else:
                     # Single embedding - process as before
                     # Prepare document
-                    doc: Dict[str, Any] = self._prepare_document(row_data)
+                    doc: dict[str, Any] = self._prepare_document(row_data)
 
-                    action: Dict[str, Any] = {
+                    action: dict[str, Any] = {
                         "_index": self.index_name,
                         "_id": doc_id,
                         "_source": doc,
@@ -705,8 +660,7 @@ class OpenSearchOperator(AbstractOperator):
                     # Check batch size
                     action_size: int = self._calculate_batch_size_bytes([action])
                     if current_batch and (
-                        current_batch_size + action_size > max_batch_size_bytes
-                        or len(current_batch) >= self.batch_size
+                        current_batch_size + action_size > max_batch_size_bytes or len(current_batch) >= self.batch_size
                     ):
                         all_actions.append(current_batch)
                         current_batch = []
@@ -717,7 +671,7 @@ class OpenSearchOperator(AbstractOperator):
 
             except Exception as e:
                 logger.error(
-                    f"Error preparing document at row {idx}: {str(e)}",
+                    f"Error preparing document at row {idx}: {e!s}",
                     extra=self.common_log_arguments,
                 )
                 self.record_failed_document(
@@ -743,7 +697,7 @@ class OpenSearchOperator(AbstractOperator):
                 )
 
                 success: int
-                failed: List[Dict[str, Any]]
+                failed: list[dict[str, Any]]
                 success, failed = helpers.bulk(
                     self.client,
                     batch,
@@ -755,11 +709,9 @@ class OpenSearchOperator(AbstractOperator):
 
                 if failed:
                     for item in failed:
-                        error_info: Dict[str, Any] = item.get("index", {})
+                        error_info: dict[str, Any] = item.get("index", {})
                         doc_id: str = error_info.get("_id", "unknown")
-                        error_msg: str = error_info.get("error", {}).get(
-                            "reason", "Unknown error"
-                        )
+                        error_msg: str = error_info.get("error", {}).get("reason", "Unknown error")
                         self.record_failed_document(
                             metadata=metadata,
                             doc_id=doc_id,
@@ -769,14 +721,12 @@ class OpenSearchOperator(AbstractOperator):
 
             except Exception as e:
                 logger.error(
-                    f"Batch {batch_idx + 1} indexing failed: {str(e)}",
+                    f"Batch {batch_idx + 1} indexing failed: {e!s}",
                     extra=self.common_log_arguments,
                 )
                 for action in batch:
                     doc_id: str = action.get("_id", "unknown")
-                    self.record_failed_document(
-                        metadata=metadata, doc_id=doc_id, doc_name=doc_id, reason=str(e)
-                    )
+                    self.record_failed_document(metadata=metadata, doc_id=doc_id, doc_name=doc_id, reason=str(e))
 
         metadata[Metrics.External.PROCESSED_DOCS] = success_count
         logger.info(
@@ -788,15 +738,11 @@ class OpenSearchOperator(AbstractOperator):
         try:
             self.client.indices.refresh(index=self.index_name)
         except Exception as e:
-            logger.warning(
-                f"Failed to refresh index: {str(e)}", extra=self.common_log_arguments
-            )
+            logger.warning(f"Failed to refresh index: {e!s}", extra=self.common_log_arguments)
 
         return [table], metadata
 
-    def query_by_doc_names(
-        self, doc_names: List[str], fields: Optional[List[str]] = None
-    ) -> List[Dict[str, Any]]:
+    def query_by_doc_names(self, doc_names: list[str], fields: list[str] | None = None) -> list[dict[str, Any]]:
         """
         Query documents by their names.
 
@@ -812,7 +758,7 @@ class OpenSearchOperator(AbstractOperator):
 
         try:
             # Build query
-            query: Dict[str, Any] = {
+            query: dict[str, Any] = {
                 "query": {"terms": {"name.keyword": doc_names}},
                 "size": len(doc_names),
             }
@@ -820,20 +766,16 @@ class OpenSearchOperator(AbstractOperator):
             if fields:
                 query["_source"] = fields
 
-            response: Dict[str, Any] = self.client.search(
-                index=self.index_name, body=query
-            )
-            hits: List[Dict[str, Any]] = response.get("hits", {}).get("hits", [])
+            response: dict[str, Any] = self.client.search(index=self.index_name, body=query)
+            hits: list[dict[str, Any]] = response.get("hits", {}).get("hits", [])
 
             return [hit["_source"] for hit in hits]
 
         except Exception as e:
-            logger.error(
-                f"Error querying documents: {str(e)}", extra=self.common_log_arguments
-            )
+            logger.error(f"Error querying documents: {e!s}", extra=self.common_log_arguments)
             return []
 
-    def delete_documents_by_ids(self, doc_ids: List[str]) -> Tuple[int, int]:
+    def delete_documents_by_ids(self, doc_ids: list[str]) -> tuple[int, int]:
         """
         Delete documents by their IDs.
 
@@ -852,19 +794,16 @@ class OpenSearchOperator(AbstractOperator):
         try:
             # Process in batches
             for i in range(0, len(doc_ids), BULK_DELETE_BATCH_SIZE):
-                batch: List[str] = doc_ids[i : i + BULK_DELETE_BATCH_SIZE]
+                batch: list[str] = doc_ids[i : i + BULK_DELETE_BATCH_SIZE]
 
                 # Build bulk delete actions
-                actions: List[Dict[str, Any]] = [
-                    {"_op_type": "delete", "_index": self.index_name, "_id": doc_id}
-                    for doc_id in batch
+                actions: list[dict[str, Any]] = [
+                    {"_op_type": "delete", "_index": self.index_name, "_id": doc_id} for doc_id in batch
                 ]
 
                 success: int
-                failed: List[Dict[str, Any]]
-                success, failed = helpers.bulk(
-                    self.client, actions, raise_on_error=False, raise_on_exception=False
-                )
+                failed: list[dict[str, Any]]
+                success, failed = helpers.bulk(self.client, actions, raise_on_error=False, raise_on_exception=False)
 
                 success_count += success
                 failed_count += len(failed)
@@ -875,9 +814,7 @@ class OpenSearchOperator(AbstractOperator):
             )
 
         except Exception as e:
-            logger.error(
-                f"Error deleting documents: {str(e)}", extra=self.common_log_arguments
-            )
+            logger.error(f"Error deleting documents: {e!s}", extra=self.common_log_arguments)
             failed_count = len(doc_ids)
 
         return success_count, failed_count
@@ -885,16 +822,16 @@ class OpenSearchOperator(AbstractOperator):
     def get_document_count(self) -> int:
         """Get total document count in the index"""
         try:
-            response: Dict[str, Any] = self.client.count(index=self.index_name)
+            response: dict[str, Any] = self.client.count(index=self.index_name)
             return response.get("count", 0)
         except Exception as e:
             logger.error(
-                f"Error getting document count: {str(e)}",
+                f"Error getting document count: {e!s}",
                 extra=self.common_log_arguments,
             )
             return 0
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         """Get metadata about the operator including features and attributes"""
         return {
             "sdk": True,
@@ -1000,11 +937,11 @@ class OpenSearchOperator(AbstractOperator):
 
 def main() -> None:
     """Example usage of the OpenSearch operator"""
-    import pyarrow as pa
     import numpy as np
+    import pyarrow as pa
 
     # Example configuration
-    config: Dict[str, Any] = {
+    config: dict[str, Any] = {
         "opensearch_host": "localhost",
         "opensearch_port": 9200,
         "opensearch_username": "admin",
@@ -1048,7 +985,7 @@ def main() -> None:
     }
 
     # Create sample data
-    sample_data: Dict[str, List[Any]] = {
+    sample_data: dict[str, list[Any]] = {
         "doc_id_hash": ["doc1", "doc2", "doc3"],
         "content": [
             "This is the first document",
@@ -1069,8 +1006,8 @@ def main() -> None:
     operator: OpenSearchOperator = OpenSearchOperator(config)
 
     # Transform (index documents)
-    result_tables: List[pa.Table]
-    metadata: Dict[str, Any]
+    result_tables: list[pa.Table]
+    metadata: dict[str, Any]
     result_tables, metadata = operator.transform(table)
 
     print(f"Indexed {metadata[Metrics.External.PROCESSED_DOCS]} documents")
@@ -1079,7 +1016,7 @@ def main() -> None:
     print(f"Total documents in index: {operator.get_document_count()}")
 
     # Query example
-    docs: List[Dict[str, Any]] = operator.query_by_doc_names(["doc1", "doc2"])
+    docs: list[dict[str, Any]] = operator.query_by_doc_names(["doc1", "doc2"])
     print(f"Found {len(docs)} documents by name")
 
 

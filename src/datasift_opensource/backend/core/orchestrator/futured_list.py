@@ -1,4 +1,5 @@
 from typing import Any, Self
+
 from prefect.futures import PrefectFuture
 from pydantic import BaseModel, conint
 

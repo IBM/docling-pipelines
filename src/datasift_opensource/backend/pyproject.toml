@@ -50,6 +50,7 @@ dev = [
     "httpx==0.28.1",  # For testing FastAPI
     "detect-secrets==1.5.0",
     "pre-commit==4.5.1",
+    "ruff==0.15.5",
 ]
 aws = [
     "boto3==1.42.55",
@@ -93,6 +94,47 @@ datasift-orchestrator = "datasift_opensource.backend.orchestrator.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[tool.ruff]
+# Set the maximum line length to 120 characters
+line-length = 120
+# Target Python 3.12
+target-version = "py312"
+
+[tool.ruff.lint]
+# Enable pycodestyle (E, W), Pyflakes (F), isort (I), and other useful rules
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # Pyflakes
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "SIM",   # flake8-simplify
+    "RUF",   # Ruff-specific rules
+]
+# Ignore specific rules if needed
+ignore = [
+    "UP035",  # Import from `collections.abc` instead of `typing` (keep typing imports)
+]
+
+[tool.ruff.lint.isort]
+# Configure import sorting
+# NOTE: Ruff's isort implementation is the single source of truth for import sorting.
+# No conflicting isort configurations exist in .isort.cfg or setup.cfg files.
+known-first-party = ["datasift_opensource"]
+
+[tool.ruff.format]
+# Quote style standardization: Converting all string quotes to double quotes for consistency
+# This will automatically convert single quotes to double quotes throughout the codebase
+# Note: Raw strings (r"..."), f-strings (f"..."), and docstrings are handled correctly
+quote-style = "double"
+# Indent with spaces
+indent-style = "space"
+# Respect magic trailing commas
+skip-magic-trailing-comma = false
 
 [build-system]
 requires = ["hatchling"]
