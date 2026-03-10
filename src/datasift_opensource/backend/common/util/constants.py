@@ -183,6 +183,7 @@ class OperatorConstants:
     INGEST_TYPE = "ingest_type"
     DOC_COLUMN = "doc_column"
     DOC_COLUMN_DEFAULT = "content"
+    KVP_COLUMN = "kvp_column"
     DOC_ID_HASH = "doc_id_hash_column"
     DOC_ID_HASH_DEFAULT = "doc_id_hash"
     DISABLE_VALIDATION = "disable_validation"

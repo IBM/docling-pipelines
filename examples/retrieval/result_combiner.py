@@ -4,6 +4,7 @@ Combines SQL query results and hybrid search results, then uses Ollama to genera
 """
 
 import json
+import logging
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from opensearchpy import OpenSearch
@@ -12,6 +13,8 @@ from opensearchpy import OpenSearch
 import sys
 import os
 from ollama_client import OllamaClient, InteractionMode
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -104,6 +107,8 @@ Always prioritize accuracy and clarity in your responses."""
         Returns:
             Dictionary containing the generated answer and metadata
         """
+        logger.info(f"Combining results: {len(sql_results)} SQL results, {len(hybrid_results)} hybrid results")
+        
         # Create combined results object
         combined = CombinedResults(
             user_question=user_question,
@@ -113,11 +118,15 @@ Always prioritize accuracy and clarity in your responses."""
         )
         
         # Build prompt for LLM
+        logger.debug("Building prompt for LLM")
         prompt = self._build_prompt(combined)
+        logger.debug(f"Prompt length: {len(prompt)} characters")
         
         # Get answer from LLM
         try:
+            logger.info(f"Generating answer using Ollama model: {self.ollama_model}")
             answer = self.llm_client.run(prompt, stream=False)
+            logger.info("Answer generated successfully")
             
             return {
                 "success": True,
@@ -129,6 +138,7 @@ Always prioritize accuracy and clarity in your responses."""
                 "model_used": self.ollama_model
             }
         except Exception as e:
+            logger.error(f"Failed to generate answer: {str(e)}", exc_info=True)
             return {
                 "success": False,
                 "user_question": user_question,

@@ -17,6 +17,7 @@ PREFECT_HOME = "PREFECT_HOME"
 PREFECT_API_DATABASE_CONNECTION_URL = "PREFECT_API_DATABASE_CONNECTION_URL"
 PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED = "PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED"
 PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY = "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY"
+PREFECT_SERVER_ANALYTICS_ENABLED = "PREFECT_SERVER_ANALYTICS_ENABLED"
 PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS = "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS"
 # Set to "true" to use SQLite with persistent storage and the default Prefect home directory.
 # Allows accessing Prefect dashboard for flows review.
@@ -73,6 +74,7 @@ def write_job_logs(job_stats, job_log_final_path):
 # should be called before loading Prefect libraries
 def set_prefect_env_variables() -> None:
     os.environ[PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY] = "false"
+    os.environ[PREFECT_SERVER_ANALYTICS_ENABLED] = "false"
     os.environ[PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS] = "120"
     if not os.getenv(PREFECT_DEBUG):
         # See https://github.com/PrefectHQ/prefect/issues/10188
