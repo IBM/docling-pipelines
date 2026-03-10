@@ -293,6 +293,7 @@ class IngestSourceOperator(AbstractOperator):
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
         self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
+        self.store_binary_content: bool = config.get("store_binary_content", False)
         self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
@@ -496,15 +497,20 @@ class IngestSourceOperator(AbstractOperator):
                 "modified_time": modified_time if isinstance(modified_time, int) else 0
             }
 
-            # Download binary content so downstream ExtractDoclingOperator can process it
-            if not self.extract_content(
-                doc=doc,
-                source=source,
-                processed_doc=processed_doc,
-                metadata=metadata,
-                idx=idx,
-            ):
-                return None
+            # Store either binary content or text based on configuration
+            if self.store_binary_content:
+                # Download binary content so downstream ExtractDoclingOperator can process it
+                if not self.extract_content(
+                    doc=doc,
+                    source=source,
+                    processed_doc=processed_doc,
+                    metadata=metadata,
+                    idx=idx,
+                ):
+                    return None
+            else:
+                # Store text directly from LangChain's page_content
+                processed_doc["text"] = doc.page_content or ""
 
             logger.info(
                 f"Successfully processed document: {source}",
