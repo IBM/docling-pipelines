@@ -1,14 +1,21 @@
-from langdetect import detect_langs
-from typing import Any
-import pyarrow as pa
 from logging import Logger
+from typing import Any
 
+import pyarrow as pa
 from data_processing.utils.transform_utils import TransformUtils
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.operator_utils import OperatorUtils
-from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, AttributeDataTypes
+from langdetect import detect_langs
+
+from common.util.constants import (
+    AttributeDataTypes,
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+    OperatorConstants,
+)
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
 
 logger: Logger = get_logger()
 
@@ -17,13 +24,17 @@ class LanguageDetect(AbstractOperator):
     """
     Detects langauge and score.
     """
+
     short_name: str = OperatorConstants.LANG_DETECT
     category: OperatorCategory = OperatorCategory.Quality
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
         self.doc_column_name: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.common_log_arguments: dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.common_log_arguments: dict[str, Any] = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
         self.filter_value: bool = config.get(OperatorConstants.FILTER_UNKNOWN_LANGUAGE, False)
 
     def get_metadata(self) -> dict[str, Any]:
@@ -32,29 +43,30 @@ class LanguageDetect(AbstractOperator):
             OperatorConstants.CATEGORY: self.category.value,
             OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
             OperatorConstants.LABEL: "Language Annotator",
-            OperatorConstants.ATTRIBUTES:{
-                OperatorConstants.FILTER_UNKNOWN_LANGUAGE : {
+            OperatorConstants.ATTRIBUTES: {
+                OperatorConstants.FILTER_UNKNOWN_LANGUAGE: {
                     OperatorConstants.NAME: "Filter Unknown Language document",
                     OperatorConstants.DESCRIPTION: "Filters out all documents that have no language detected",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN}
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+                }
             },
-            OperatorConstants.FEATURES : {
+            OperatorConstants.FEATURES: {
                 OperatorConstants.LANGUAGE_NAME_COLUMN_KEY: {
                     OperatorConstants.NAME: "Language Name",
                     OperatorConstants.DESCRIPTION: "This stores the language of the document",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING
+                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY:{
+                OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY: {
                     OperatorConstants.NAME: "Language score",
                     OperatorConstants.DESCRIPTION: "Probability score of the language",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_FLOAT
-                }
-            }
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_FLOAT,
+                },
+            },
         }
 
         return operator_metadata
@@ -89,11 +101,17 @@ class LanguageDetect(AbstractOperator):
                 language_score_column.append(float(language_score))
             except Exception as e:
                 if self.filter_value:
-                    logger.error(f"Used defined error for document {file_name}: {e}", extra=self.common_log_arguments)
+                    logger.error(
+                        f"Used defined error for document {file_name}: {e}",
+                        extra=self.common_log_arguments,
+                    )
                     remove_row_idx.append(idx)
-                    self.record_failed_document(metadata=metadata, doc_id=table[OperatorConstants.ID][idx].as_py(),
-                                                doc_name=str(file_name),
-                                                reason=f"Filter out based on user selection with error: {getattr(e, 'message', str(e)) if getattr(e, 'message', str(e)) else getattr(e, 'message', repr(e))}")
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=table[OperatorConstants.ID][idx].as_py(),
+                        doc_name=str(file_name),
+                        reason=f"Filter out based on user selection with error: {getattr(e, 'message', str(e)) if getattr(e, 'message', str(e)) else getattr(e, 'message', repr(e))}",
+                    )
                     metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_ERRORS.value
                     if not message:
                         message = "Documents with no language detected are removed from the flow"
@@ -101,7 +119,10 @@ class LanguageDetect(AbstractOperator):
                     language_name = "UNKNOWN"
                     language_score_val: float = 0.0
                     metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-                    logger.warning(f"Exception for document {file_name}: {e}", extra=self.common_log_arguments)
+                    logger.warning(
+                        f"Exception for document {file_name}: {e}",
+                        extra=self.common_log_arguments,
+                    )
                     language_name_column.append(language_name)
                     language_score_column.append(float(language_score_val))
                     if not message:
@@ -109,13 +130,26 @@ class LanguageDetect(AbstractOperator):
 
         table = remove_rows(table=table, remove_row_idx=remove_row_idx)
 
-        table = TransformUtils.add_column(table=table, name=OperatorConstants.LANGUAGE_NAME_COLUMN_KEY, content=language_name_column)
-        table = TransformUtils.add_column(table=table, name=OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY,content=language_score_column)
-        logger.info("Completed Language detect transform function", extra=self.common_log_arguments)
+        table = TransformUtils.add_column(
+            table=table,
+            name=OperatorConstants.LANGUAGE_NAME_COLUMN_KEY,
+            content=language_name_column,
+        )
+        table = TransformUtils.add_column(
+            table=table,
+            name=OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY,
+            content=language_score_column,
+        )
+        logger.info(
+            "Completed Language detect transform function",
+            extra=self.common_log_arguments,
+        )
 
-        metadata[Metrics.External.PROCESSED_DOCS] = metadata[Metrics.External.TOTAL_DOCS] - metadata[Metrics.External.FAILED_DOCS_COUNT]
+        metadata[Metrics.External.PROCESSED_DOCS] = (
+            metadata[Metrics.External.TOTAL_DOCS] - metadata[Metrics.External.FAILED_DOCS_COUNT]
+        )
         metadata[Metrics.External.PROCESSED_ROWS] = table.num_rows
-        
+
         if message:
             metadata[Metrics.External.PROCESSING_MESSAGE] = message
 
@@ -125,25 +159,30 @@ class LanguageDetect(AbstractOperator):
 # Used for unit testing only
 def main() -> tuple[list[pa.Table], dict[str, Any]]:
     # 1. Construct the operator with the required configuration and input parameters
-    operator: LanguageDetect = LanguageDetect({
-        "doc_column": "content",
-        OperatorConstants.FILTER_UNKNOWN_LANGUAGE: False
-    })
+    operator: LanguageDetect = LanguageDetect(
+        {"doc_column": "content", OperatorConstants.FILTER_UNKNOWN_LANGUAGE: False}
+    )
     print(operator)
 
     # 2. Create an in-memory py-arrow table, as the input
 
-    content: pa.Array = pa.array([
-        "Contact support team via email: support@ibm.com, or the sales team sales@in.ibm.com, Content Phone Number: 08012345678 ",
-        "My personal email id is jj@acm.org, PhoneNumber is: +91 932-123-1234 and +91 9321231234, Amex Card Number: 378734493671000",
-        "",
-        "8967840594",
-        "Hello, world! Bonjour, monde! ¡Hola, mundo!"
-    ])
-    name: pa.Array = pa.array(["name1", "name2","name3", "name4", "name5"])
-    doc_id: pa.Array = pa.array(["1","2","3","4","5"])
-    col_names: list[str] = [OperatorConstants.ID, OperatorConstants.DOC_COLUMN_DEFAULT, OperatorConstants.NAME]
-    input_table: pa.Table = pa.Table.from_arrays([doc_id, content,name], names=col_names)
+    content: pa.Array = pa.array(
+        [
+            "Contact support team via email: support@ibm.com, or the sales team sales@in.ibm.com, Content Phone Number: 08012345678 ",
+            "My personal email id is jj@acm.org, PhoneNumber is: +91 932-123-1234 and +91 9321231234, Amex Card Number: 378734493671000",
+            "",
+            "8967840594",
+            "Hello, world! Bonjour, monde! ¡Hola, mundo!",
+        ]
+    )
+    name: pa.Array = pa.array(["name1", "name2", "name3", "name4", "name5"])
+    doc_id: pa.Array = pa.array(["1", "2", "3", "4", "5"])
+    col_names: list[str] = [
+        OperatorConstants.ID,
+        OperatorConstants.DOC_COLUMN_DEFAULT,
+        OperatorConstants.NAME,
+    ]
+    input_table: pa.Table = pa.Table.from_arrays([doc_id, content, name], names=col_names)
 
     # 3. Run the operator
     table_list: list[pa.Table]
@@ -157,5 +196,5 @@ def main() -> tuple[list[pa.Table], dict[str, Any]]:
 
 
 # main entry point into the program; used for unit testing only
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

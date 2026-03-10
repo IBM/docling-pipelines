@@ -2,18 +2,24 @@
 This module defines the JobTracker, a central Singleton class responsible for managing
 the lifecycle, state, and statistics of data processing jobs within the application.
 """
-import os
-from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any, Counter
 
 import itertools
-import time
+import os
+from collections import Counter
+from datetime import UTC, datetime
+from typing import Any
 
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.models.session_info import get_session_info, update_session_info
 from common.util.common_utils import Singleton
-from common.util.constants import DatasiftConstants, Metrics, OrchestratorType, ExecutionStatus, \
-    OperatorConstants, COMPLETED_JOB_STATUSES
+from common.util.constants import (
+    COMPLETED_JOB_STATUSES,
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+    OperatorConstants,
+    OrchestratorType,
+)
 from common.util.datasift_utils import delete_folders
 from common.util.iceberg_util import get_warehouse_path
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
@@ -61,8 +67,12 @@ def _identify_ingest_and_destination_nodes(*, dag_nodes: list[dict[str, Any]]) -
     return ingest_node_id, destination_node_ids
 
 
-def _mark_completed_documents(*, job_stats: JobStatsDto, destination_node_ids: list[str],
-                              final_docs_status: dict[str, str]):
+def _mark_completed_documents(
+    *,
+    job_stats: JobStatsDto,
+    destination_node_ids: list[str],
+    final_docs_status: dict[str, str],
+):
     """
     Marks documents as 'Completed' if they reach any destination node and are not already marked as 'Failed'.
 
@@ -115,7 +125,8 @@ def _update_job_stats_counts(*, job_stats: JobStatsDto, final_docs_status: dict[
     job_stats.failed_docs = final_counts.get(ExecutionStatus.FAILED.value, 0)
     job_stats.skipped_docs = final_counts.get(ExecutionStatus.SKIPPED.value, 0)
     logger.info(
-        f"Updated job stats: processed={job_stats.processed_docs}, failed={job_stats.failed_docs}, skipped={job_stats.skipped_docs}")
+        f"Updated job stats: processed={job_stats.processed_docs}, failed={job_stats.failed_docs}, skipped={job_stats.skipped_docs}"
+    )
 
 
 def _log_inconsistencies(*, job_stats: JobStatsDto):
@@ -131,7 +142,7 @@ def _log_inconsistencies(*, job_stats: JobStatsDto):
         logger.error(
             f"Total number of docs {total} does not match the sum of processed ({job_stats.processed_docs}), "
             f"skipped ({job_stats.skipped_docs}), and failed ({job_stats.failed_docs}) docs.",
-            extra={DatasiftConstants.JOB_RUN_ID: job_stats.job_run_id}
+            extra={DatasiftConstants.JOB_RUN_ID: job_stats.job_run_id},
         )
 
 
@@ -143,6 +154,7 @@ class JobTracker(metaclass=Singleton):
     updating, and persistence. It maintains an in-memory cache for active jobs and
     delegates storage to a persistent JobStatsStore.
     """
+
     def __init__(self) -> None:
         """Initializes the JobTracker."""
         # A thread-safe counter for generating unique job IDs, although not currently used.
@@ -150,14 +162,13 @@ class JobTracker(metaclass=Singleton):
         next(self.next_job_id)  # Initialize the counter to start from 1.
 
         # In-memory cache for JobStatsDto objects, keyed by job_run_id.
-        self.all_jobs: Dict[str, JobStatsDto] = {}
+        self.all_jobs: dict[str, JobStatsDto] = {}
 
         # Internal mapping of a job_run_id to its active orchestrator instance.
         # This is necessary for operations like cancellation.
         self.__jobs_to_orchestrator = {}
 
-    def get_job(self, job_run_id: str = None,
-                use_local_cache: bool = False) -> Optional[JobStatsDto]:
+    def get_job(self, job_run_id: str = None, use_local_cache: bool = False) -> JobStatsDto | None:
         """
         Retrieves job statistics for a given job_run_id.
 
@@ -169,7 +180,7 @@ class JobTracker(metaclass=Singleton):
         :return: A JobStatsDto object if found, otherwise None.
         """
         logger.info(f"Getting job stats by job_run_id: {job_run_id}")
-        
+
         if JobStatsStore._is_cmd_line_mode():
             return self.all_jobs.get(job_run_id, None)
 
@@ -185,8 +196,9 @@ class JobTracker(metaclass=Singleton):
             return None
 
         # 3. Fetch and attach the associated node statistics to the job object.
-        node_stats: dict[str, NodeStatsDto] = job_stats_store.get_node_stats(job_id=job_run_stats.job_id,
-                                                                             job_run_id=job_run_id)
+        node_stats: dict[str, NodeStatsDto] = job_stats_store.get_node_stats(
+            job_id=job_run_stats.job_id, job_run_id=job_run_id
+        )
         job_run_stats.node_stats = node_stats if node_stats is not None else {}
         update_session_info(job_id=job_run_stats.job_id)
 
@@ -222,7 +234,7 @@ class JobTracker(metaclass=Singleton):
         else:
             return False
 
-    def start_tracking_job(self, orchestrator , job_id: str, job_run_id: str):
+    def start_tracking_job(self, orchestrator, job_id: str, job_run_id: str):
         """
         Starts tracking a new job, creating its initial statistics record.
 
@@ -250,14 +262,19 @@ class JobTracker(metaclass=Singleton):
             status=ExecutionStatus.RUNNING,
             orchestrator=orchestrator_type,
             heartbeat_timestamp=round(datetime.now().timestamp()),
-            flow_id=session_info.flow_id
+            flow_id=session_info.flow_id,
         )
         # Add to the in-memory cache and persist.
         self.all_jobs[job_run_id] = stat
         self.store_job_stats(stat)
 
-        logger.info(f"Job started, job_id: {job_id}, job_run_id: {job_run_id}",
-                    extra={DatasiftConstants.JOB_ID: job_id, DatasiftConstants.JOB_RUN_ID: job_run_id})
+        logger.info(
+            f"Job started, job_id: {job_id}, job_run_id: {job_run_id}",
+            extra={
+                DatasiftConstants.JOB_ID: job_id,
+                DatasiftConstants.JOB_RUN_ID: job_run_id,
+            },
+        )
 
     def update_doc_counts(self, job_run_id, metadata, operator_category):
         """
@@ -278,7 +295,7 @@ class JobTracker(metaclass=Singleton):
 
         if Metrics.External.TOTAL_PAGES_CONVERTED in metadata:
             increments["total_pages_processed"] = metadata[Metrics.External.TOTAL_PAGES_CONVERTED]
-            updates["execution_time"] = int(datetime.now(timezone.utc).timestamp())
+            updates["execution_time"] = int(datetime.now(UTC).timestamp())
 
         if Metrics.External.DELETED_DOC_COUNT in metadata:
             increments["deleted_doc_count"] = metadata[Metrics.External.DELETED_DOC_COUNT]
@@ -292,8 +309,9 @@ class JobTracker(metaclass=Singleton):
         updates["flow_id"] = session_info.flow_id
 
         # Use atomic increment for thread-safe aggregation
-        JobStatsStore.get_job_stats_store().atomic_increment_fields(job_run_id=job_run_id, increments=increments,
-                                                                    updates=updates)
+        JobStatsStore.get_job_stats_store().atomic_increment_fields(
+            job_run_id=job_run_id, increments=increments, updates=updates
+        )
 
         # Update in-memory cache
         stat = self.get_job(job_run_id=job_run_id)
@@ -319,7 +337,7 @@ class JobTracker(metaclass=Singleton):
         else:
             base_stats = existing_node or {}
         # Merge with new stats and ensure node_id is set
-        target_node_stats = base_stats | node_stats | {'node_id': node_id}
+        target_node_stats = base_stats | node_stats | {"node_id": node_id}
 
         # Convert the raw dictionary into a structured DTO before persisting.
         data = NodeStatsDto(
@@ -336,13 +354,18 @@ class JobTracker(metaclass=Singleton):
             docs_completed=target_node_stats.get("docs_completed", []),
             docs_completed_count=int(target_node_stats.get("docs_completed_count", 0)),
             node_metadata=target_node_stats.get("node_metadata", {}),
-            error=str(target_node_stats.get("error", ""))
+            error=str(target_node_stats.get("error", "")),
         )
         JobStatsStore.get_job_stats_store().store_node_stats(stat.job_id, job_run_id, data)
-        logger.info(f"Node stats added for the job, job_run_id: {job_run_id}, node_id: {node_id}",
-                    extra={DatasiftConstants.JOB_ID: stat.job_id, DatasiftConstants.JOB_RUN_ID: job_run_id})
+        logger.info(
+            f"Node stats added for the job, job_run_id: {job_run_id}, node_id: {node_id}",
+            extra={
+                DatasiftConstants.JOB_ID: stat.job_id,
+                DatasiftConstants.JOB_RUN_ID: job_run_id,
+            },
+        )
 
-    def request_delete_job_run(self, * ,  job_run_id):
+    def request_delete_job_run(self, *, job_run_id):
         logger.info(f"Requesting Deletion for job_run_id: {job_run_id}")
 
         log_location_path = get_warehouse_path(path="")
@@ -389,10 +412,14 @@ class JobTracker(metaclass=Singleton):
         #     persistent_store_stat = JobStatsDto(job_id=job_id, job_run_id=job_run_id, status=ExecutionStatus.QUEUED)
         #     update_session_info(job_id=job_id)
 
-        common_log_arguments = {DatasiftConstants.JOB_ID: persistent_store_stat.job_id, DatasiftConstants.JOB_RUN_ID: job_run_id}
+        common_log_arguments = {
+            DatasiftConstants.JOB_ID: persistent_store_stat.job_id,
+            DatasiftConstants.JOB_RUN_ID: job_run_id,
+        }
         logger.info(
             f"Job run {job_run_id} associated with job {persistent_store_stat.job_id} is in {persistent_store_stat.status} state in persistent store",
-            extra=common_log_arguments)
+            extra=common_log_arguments,
+        )
 
         # job_run_response = jobs_client.get_job_run()
         # jobs_framework_state = job_run_response.get(OperatorConstants.ENTITY, {}).get(DatasiftConstants.JOB_RUN,
@@ -401,8 +428,13 @@ class JobTracker(metaclass=Singleton):
         # Use pattern matching to handle different job states.
         match persistent_store_stat.status:
             # These are states from which cancellation is possible.
-            case (ExecutionStatus.RUNNING.value | ExecutionStatus.STARTING.value | ExecutionStatus.PAUSED.value |
-                  ExecutionStatus.QUEUED.value | ExecutionStatus.RESUMING.value):
+            case (
+                ExecutionStatus.RUNNING.value
+                | ExecutionStatus.STARTING.value
+                | ExecutionStatus.PAUSED.value
+                | ExecutionStatus.QUEUED.value
+                | ExecutionStatus.RESUMING.value
+            ):
                 # If we have a reference to the orchestrator, ask it to cancel.
                 if job_run_id in self.__jobs_to_orchestrator:
                     orchestrator = self.__jobs_to_orchestrator[job_run_id]
@@ -413,16 +445,24 @@ class JobTracker(metaclass=Singleton):
                 # jobs_client.update_job_run_status(status=persistent_store_stat.status,
                 #                                   message=f"Cancelling job run {job_run_id}")
             # These are terminal states where cancellation is no longer possible.
-            case (ExecutionStatus.COMPLETED.value | ExecutionStatus.CANCELED.value | ExecutionStatus.CANCELING.value |
-                  ExecutionStatus.FAILED.value | ExecutionStatus.SKIPPED.value |
-                  ExecutionStatus.COMPLETED_WITH_ERRORS.value | ExecutionStatus.COMPLETED_WITH_WARNINGS.value):
+            case (
+                ExecutionStatus.COMPLETED.value
+                | ExecutionStatus.CANCELED.value
+                | ExecutionStatus.CANCELING.value
+                | ExecutionStatus.FAILED.value
+                | ExecutionStatus.SKIPPED.value
+                | ExecutionStatus.COMPLETED_WITH_ERRORS.value
+                | ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+            ):
                 # check if state in Jobs Framework is same as in persistent store
                 # if persistent_store_stat.status.value.lower() != jobs_framework_state.lower():
                 #     logger.info(f"Updating state in jobs framework from {jobs_framework_state} to {persistent_store_stat.status.value}")
                 #     jobs_client.update_job_run_status(status=persistent_store_stat.status,
                 #                                       message=f"Updating job run {job_run_id} to state {persistent_store_stat.status.value}")
-                logger.info(f"Skipping cancellation since job run is already in {persistent_store_stat.status} state",
-                            extra=common_log_arguments)
+                logger.info(
+                    f"Skipping cancellation since job run is already in {persistent_store_stat.status} state",
+                    extra=common_log_arguments,
+                )
                 return persistent_store_stat
             # Handle any unexpected states.
             case _:
@@ -433,7 +473,12 @@ class JobTracker(metaclass=Singleton):
         self.store_job_stats(persistent_store_stat)
         return persistent_store_stat
 
-    def end_job(self, job_run_id, status: ExecutionStatus = ExecutionStatus.COMPLETED, message=None):
+    def end_job(
+        self,
+        job_run_id,
+        status: ExecutionStatus = ExecutionStatus.COMPLETED,
+        message=None,
+    ):
         """
         Finalizes a job run, setting its terminal status and calculating duration.
 
@@ -451,7 +496,10 @@ class JobTracker(metaclass=Singleton):
             raise DatasiftException(f"Stats not found for job_run_id: {job_run_id}")
 
         session_info = get_session_info()
-        common_log_arguments = {DatasiftConstants.JOB_ID: stat.job_id, DatasiftConstants.JOB_RUN_ID: job_run_id}
+        common_log_arguments = {
+            DatasiftConstants.JOB_ID: stat.job_id,
+            DatasiftConstants.JOB_RUN_ID: job_run_id,
+        }
 
         # Only update status if the job is not already in a terminal state.
         if stat.status not in COMPLETED_JOB_STATUSES:
@@ -505,8 +553,16 @@ class JobTracker(metaclass=Singleton):
         session_info = get_session_info()
         _mark_failed_documents(job_stats=job_stats, final_docs_status=final_docs_status)
         ingest_node_id, destination_node_ids = _identify_ingest_and_destination_nodes(dag_nodes=dag_nodes)
-        _mark_completed_documents(job_stats=job_stats, destination_node_ids=destination_node_ids, final_docs_status=final_docs_status)
-        _mark_skipped_documents(job_stats=job_stats, ingest_node_id=ingest_node_id, final_docs_status=final_docs_status)
+        _mark_completed_documents(
+            job_stats=job_stats,
+            destination_node_ids=destination_node_ids,
+            final_docs_status=final_docs_status,
+        )
+        _mark_skipped_documents(
+            job_stats=job_stats,
+            ingest_node_id=ingest_node_id,
+            final_docs_status=final_docs_status,
+        )
         _update_job_stats_counts(job_stats=job_stats, final_docs_status=final_docs_status)
         job_stats.heartbeat_timestamp = round(datetime.now().timestamp())
         job_stats.flow_id = session_info.flow_id

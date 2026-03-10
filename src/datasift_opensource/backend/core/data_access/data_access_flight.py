@@ -1,9 +1,11 @@
 # (C) Copyright IBM Corp. 2024.
 from typing import Any
+
 import pyarrow as pa
 import pyarrow.flight
 from data_processing.data_access import DataAccess
 from data_processing.utils import TransformUtils
+
 from common.util.constants import DatasiftConstants
 from common.util.log import get_logger
 
@@ -48,20 +50,20 @@ class DataAccessFlight(DataAccess):
             pyarrow.Table: PyArrow table if read successfully, None otherwise.
         """
         try:
-            logger.debug('Path: %s', path)
-            
+            logger.debug("Path: %s", path)
+
             # if the table exists in memory, use it for faster access
             if self.tables.get(path):
-                logger.debug('Table found in memory')
+                logger.debug("Table found in memory")
                 return self.tables[path], 0
-            
+
             descriptor = pa.flight.FlightDescriptor.for_path(path=path)
             info = self.flight_client.get_flight_info(descriptor)
 
             reader = self.flight_client.do_get(info.endpoints[0].ticket)
             return pa.Table.from_pandas(reader.read_pandas()), 0
 
-        except (FileNotFoundError, IOError, pa.ArrowException) as e:
+        except (OSError, FileNotFoundError, pa.ArrowException) as e:
             logger.error(f"Error reading table from {path}: {e}")
             return None
 
@@ -84,11 +86,11 @@ class DataAccessFlight(DataAccess):
                     - size (int): The size of the file (bytes).
                 If saving fails, file_info will be None.
         """
-        logger.debug('Path: %s', path)
-        
-        #save the table in memory for faster access
+        logger.debug("Path: %s", path)
+
+        # save the table in memory for faster access
         self.tables[path] = table
-        
+
         writer, _ = self.flight_client.do_put(pa.flight.FlightDescriptor.for_path(path=path), table.schema)
         writer.write_table(table)
         writer.close()
@@ -96,8 +98,7 @@ class DataAccessFlight(DataAccess):
         return table.nbytes, {}
 
 
-def main():   # pragma: no cover
-
+def main():  # pragma: no cover
     # run the server first:
     # python3 src/utils/flight_server.py
 
@@ -106,11 +107,11 @@ def main():   # pragma: no cover
     data_access = DataAccessFlight(url)
 
     # save a table to the flight server, using the pathname as a key
-    _, data_table = data_access.save_table('example.parquet')
+    _, data_table = data_access.save_table("example.parquet")
     print(data_table.to_pandas().keys())
 
     # get the sample table from the flight sever, pathname is the key
-    df = data_access.get_table('example.parquet')
+    df = data_access.get_table("example.parquet")
     print(df.keys())
 
     # flight list is a generator containing all tables in the server
@@ -123,7 +124,6 @@ def main():   # pragma: no cover
         print(key)
 
 
-
-# main entry point into the program; 
-if __name__ == '__main__':  # pragma: no cover
+# main entry point into the program;
+if __name__ == "__main__":  # pragma: no cover
     main()

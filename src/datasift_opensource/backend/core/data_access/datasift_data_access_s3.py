@@ -1,6 +1,7 @@
 """
 DataAccess implementation for AWS S3 with session token support.
 """
+
 from typing import Any
 
 import pyarrow as pa
@@ -9,8 +10,7 @@ import pyarrow.parquet as pq
 from data_processing.data_access import DataAccess
 from data_processing.utils import TransformUtils
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.datasift_exceptions import ErrorCode
+from common.exceptions.datasift_exceptions import DatasiftException, ErrorCode
 from common.util.constants import DatasiftConstants
 from common.util.log import get_logger
 from common.util.retry_utils import retry_with_exponential_backoff
@@ -26,17 +26,17 @@ class DatasiftDataAccessS3(DataAccess):
     """
 
     def __init__(
-            self,
-            config: dict[str, str] | None = None,
-            d_sets: list[str] | None = None,
-            checkpoint: bool = False,
-            m_files: int = -1,
-            n_samples: int = -1,
-            batch_size: int = -1,
-            files_to_use: list[str] | None = None,
-            files_to_checkpoint: list[str] | None = None,
-            s3_max_retries: int = 3,
-            s3_backoff_factor: int = 2,
+        self,
+        config: dict[str, str] | None = None,
+        d_sets: list[str] | None = None,
+        checkpoint: bool = False,
+        m_files: int = -1,
+        n_samples: int = -1,
+        batch_size: int = -1,
+        files_to_use: list[str] | None = None,
+        files_to_checkpoint: list[str] | None = None,
+        s3_max_retries: int = 3,
+        s3_backoff_factor: int = 2,
     ):
         """
         Create data access class for S3 with session token support.
@@ -60,16 +60,22 @@ class DatasiftDataAccessS3(DataAccess):
             n_samples=n_samples,
             batch_size=batch_size,
             files_to_use=files_to_use if files_to_use else [".parquet"],
-            files_to_checkpoint=files_to_checkpoint if files_to_checkpoint else [".parquet"]
+            files_to_checkpoint=files_to_checkpoint if files_to_checkpoint else [".parquet"],
         )
 
         if not config:
-            raise DatasiftException("S3 configuration is required", 500,
-                                    ErrorCode.DATASIFT_DATA_ACCESS_S3_FAILED)
+            raise DatasiftException(
+                "S3 configuration is required",
+                500,
+                ErrorCode.DATASIFT_DATA_ACCESS_S3_FAILED,
+            )
 
         if not config.get("access_key") or not config.get("secret_key"):
-            raise DatasiftException("S3 credentials (access_key and secret_key) are required",500,
-                                    ErrorCode.DATASIFT_DATA_ACCESS_S3_FAILED)
+            raise DatasiftException(
+                "S3 credentials (access_key and secret_key) are required",
+                500,
+                ErrorCode.DATASIFT_DATA_ACCESS_S3_FAILED,
+            )
 
         self.input_folder = TransformUtils.clean_path(config.get("input_folder", ""))
         self.output_folder = TransformUtils.clean_path(config.get(DatasiftConstants.OUTPUT_FOLDER, ""))
@@ -107,7 +113,7 @@ class DatasiftDataAccessS3(DataAccess):
             Tuple of (PyArrow table or None if failed, number of retries)
         """
         if path in self.tables:
-            logger.debug('Table found in memory')
+            logger.debug("Table found in memory")
             return self.tables[path], 0
 
         file_content, attempts = self.get_file(path)
@@ -182,8 +188,8 @@ class DatasiftDataAccessS3(DataAccess):
         @retry_with_exponential_backoff(
             max_retries=self.s3_max_retries,
             initial_delay=self.s3_backoff_factor,
-            max_delay=self.s3_backoff_factor ** self.s3_max_retries,
-            retry_logic=retry_logic
+            max_delay=self.s3_backoff_factor**self.s3_max_retries,
+            retry_logic=retry_logic,
         )
         def _read_file():
             """Internal function to read file from S3."""
@@ -215,8 +221,8 @@ class DatasiftDataAccessS3(DataAccess):
         @retry_with_exponential_backoff(
             max_retries=self.s3_max_retries,
             initial_delay=self.s3_backoff_factor,
-            max_delay=self.s3_backoff_factor ** self.s3_max_retries,
-            retry_logic=retry_logic
+            max_delay=self.s3_backoff_factor**self.s3_max_retries,
+            retry_logic=retry_logic,
         )
         def _write_file():
             """Internal function to write file to S3."""
@@ -276,7 +282,10 @@ class DatasiftDataAccessS3(DataAccess):
             call_count[0] += 1
             if exception:
                 if isinstance(exception, OSError):
-                    return True, f"S3 {operation_name} failed (credentials, permission, or path issue): {exception}"
+                    return (
+                        True,
+                        f"S3 {operation_name} failed (credentials, permission, or path issue): {exception}",
+                    )
                 return True, f"Unexpected error while {operation_name} S3: {exception}"
             return False, ""
 
