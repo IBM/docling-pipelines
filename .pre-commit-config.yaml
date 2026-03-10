@@ -14,5 +14,22 @@ repos:
             "--output-file=../../../requirements.txt",
             "--no-dev",
             "--all-packages",
-            "--directory=src/datasift_opensource/backend"
+            "--directory=src/datasift_opensource/backend",
           ]
+
+  # Python linting and formatting
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.5
+    hooks:
+      - id: ruff-format
+        files: ^.*\.py$
+      - id: ruff
+        args: [--fix]
+        files: ^.*\.py$
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+        exclude: ^(package\.lock\.json|.*venv/.*|.*\.venv/.*|.*env/.*|.*\.env/.*)$

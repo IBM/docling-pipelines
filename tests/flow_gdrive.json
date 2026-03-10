@@ -1,8 +1,8 @@
 {
     "flow": {
-        "name": "sample flow",
-        "flow_id": "55578a6c-96b0-4f51-af8f-3aa63c575140",
-        "description": "a sample flow to demonstrate the datasift pipeline command line execution",
+        "name": "google drive ingest flow",
+        "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        "description": "a sample flow to demonstrate ingesting documents from Google Drive using the ingest_source operator",
         "storage": "in-memory",
         "execute_type": "local",
         "global_config": {
@@ -12,38 +12,49 @@
         },
         "dag": [
             {
-                "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
+                "id": "11111111-1111-1111-1111-111111111111",
                 "name": "ingest",
-                "operator": "ingest_local",
+                "operator": "ingest_source",
                 "config": {
-                    "input_folder": "./tests/fixtures/customer_support_docs",
-                    "include_filter": "txt" ,
-                    "store_binary_content": "false"
-                }
+                    "provider": "google_drive",
+                    "connection_params": {
+                        "folder_id": "<Folder ID>",
+                        "recursive": false
+                    },
+                    "credentials": {
+                        "credentials_json_path": "<Credentials path>"
+                    },
+                    "max_files": 100,
+                    "force_ingest": true
+                },
+                "input_edges": [],
+                "output_edges": [{"node_id_ref": "22222222-2222-2222-2222-222222222222"}]
             },
             {
-                "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
+                "id": "22222222-2222-2222-2222-222222222222",
                 "name": "extract",
                 "operator": "extract_docling",
                 "config": {
                     "doc_column": "content"
-                }
+                },
+                "input_edges": [{"node_id_ref": "11111111-1111-1111-1111-111111111111"}],
+                "output_edges": [{"node_id_ref": "33333333-3333-3333-3333-333333333333"}]
             },
             {
-                "id": "6101c752-523e-4a4a-84e2-81e0b2109129",
+                "id": "33333333-3333-3333-3333-333333333333",
                 "name": "chunk",
                 "operator": "docling_chunker",
                 "config": {
                     "doc_column": "content",
-                    
                     "chunk_size": 512,
                     "chunk_overlap": 128,
                     "retain_original_content": "true"
-                }
+                },
+                "input_edges": [{"node_id_ref": "22222222-2222-2222-2222-222222222222"}],
+                "output_edges": ["44444444-4444-4444-4444-444444444444"]
             },
-
             {
-                "id": "6de879bd-bbe0-4d60-998f-031f65472a02",
+                "id": "44444444-4444-4444-4444-444444444444",
                 "name": "embeddings",
                 "operator": "embeddings",
                 "config": {
@@ -52,20 +63,22 @@
                     "embeddings_column": "embeddings",
                     "overlap_ratio": 0.2,
                     "doc_column": "content"
-                }
+                },
+                "input_edges": [{"node_id_ref": "33333333-3333-3333-3333-333333333333"}],
+                "output_edges": ["55555555-5555-5555-5555-555555555555"]
             },
             {
-                "id": "87249dbf-4a1a-433a-91da-ee5fb3244284",
+                "id": "55555555-5555-5555-5555-555555555555",
                 "name": "vectordb",
                 "operator": "opensearch",
-                "config" : {
+                "config": {
                     "opensearch_host": "localhost",
                     "opensearch_port": 9200,
                     "opensearch_username": "admin",
                     "opensearch_password": "admin",
                     "opensearch_use_ssl": false,
                     "opensearch_verify_certs": false,
-                    "index_name": "datasift_documents",
+                    "index_name": "datasift_gdrive_documents",
                     "doc_id_column": "doc_id_hash",
                     "embeddings_column": "embeddings",
                     "vector_dimension": 384,
@@ -99,7 +112,9 @@
                         "content": "text",
                         "embeddings": "vector_embeddings"
                     }
-                }
+                },
+                "input_edges": [{"node_id_ref": "44444444-4444-4444-4444-444444444444"}],
+                "output_edges": []
             }
         ]
     }

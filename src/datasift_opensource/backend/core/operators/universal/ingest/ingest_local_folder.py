@@ -1,14 +1,23 @@
 import os
-from typing import Any, Optional
+from typing import Any
+
 import pyarrow as pa
 
+from common.util.constants import (
+    AttributeDataTypes,
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+    OperatorConstants,
+)
 from common.util.incremental_update_util import IncrementalUpdateUtil
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from common.util.constants import OperatorConstants, Metrics, DatasiftConstants, ExecutionStatus, \
-    AttributeDataTypes
 from common.util.log import get_logger
-from core.operators.universal.ingest.ingest_utils import get_filter_extensions, filter_based_on_extension, \
-    is_doc_previously_processed
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.universal.ingest.ingest_utils import (
+    filter_based_on_extension,
+    get_filter_extensions,
+    is_doc_previously_processed,
+)
 
 INPUT_FOLDER_NAME_KEY: str = "input_folder"
 INCLUDE_FILTER_KEY: str = "include_filter"
@@ -27,11 +36,11 @@ logger = get_logger()
 class IngestLocalOperator(AbstractOperator):
     """
     Metadata-only ingest operator for loading file metadata from a local folder.
-    
+
     This operator discovers files, collects metadata, and optionally stores binary content
     for downstream extraction operators. It does NOT extract text content - that is handled
     by specialized extraction operators like ExtractDoclingOperator.
-    
+
     Supports:
     - Recursive directory traversal
     - File filtering by extension (include/exclude)
@@ -46,7 +55,7 @@ class IngestLocalOperator(AbstractOperator):
     def __init__(self, config: dict[str, Any]) -> None:
         """
         Initialize the metadata-only ingest operator.
-        
+
         Expected parameters:
         - input_folder: Path to the folder containing documents
         - include_filter: Comma-separated list of file extensions to include
@@ -61,20 +70,26 @@ class IngestLocalOperator(AbstractOperator):
         self.input_folder: str = config.get(INPUT_FOLDER_NAME_KEY, "../test-data/input")
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
         self.max_file_size: int = MB * config.get(MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE)
-        self.included_extensions: Optional[list[str]] = get_filter_extensions(config.get(INCLUDE_FILTER_KEY, None))
-        self.excluded_extensions: Optional[list[str]] = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY, None))
+        self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
+        self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
         self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
-        self.common_log_arguments: dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.common_log_arguments: dict[str, Any] = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
         self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
-        self.retain_deleted_docs: bool = config.get(DatasiftConstants.RETAIN_DELETED_DOCS, DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT)
-        
+        self.retain_deleted_docs: bool = config.get(
+            DatasiftConstants.RETAIN_DELETED_DOCS,
+            DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT,
+        )
+
         # Metadata-only mode configuration
         self.store_binary_content: bool = config.get("store_binary_content", True)
-        
-        # Will be initialized in transform method
-        self.previously_processed_docs_dict: Optional[dict[str, Any]] = None
 
-    def transform(self, table: Optional[pa.Table]) -> tuple[list[pa.Table], dict[str, Any]]:
+        # Will be initialized in transform method
+        self.previously_processed_docs_dict: dict[str, Any] | None = None
+
+    def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Operator-specific logic to convert one input Table to 0 or more output tables.
         In this case, crawl through the given folder, find all the files matchng the
@@ -84,8 +99,9 @@ class IngestLocalOperator(AbstractOperator):
         """
         incremental_update_util: IncrementalUpdateUtil = IncrementalUpdateUtil()
         # get all previously processed doc IDs with modification time
-        self.previously_processed_docs_dict = None if self.force_ingest else incremental_update_util.get_all_processed_docs(
-            job_id=self.context_id)
+        self.previously_processed_docs_dict = (
+            None if self.force_ingest else incremental_update_util.get_all_processed_docs(job_id=self.context_id)
+        )
 
         doc_data: list[dict[str, Any]]
         metadata: dict[str, Any]
@@ -95,10 +111,10 @@ class IngestLocalOperator(AbstractOperator):
         else:
             table = pa.Table.from_pylist(doc_data)
             # TODO: Fix this, doc_data contains multiple columns
-            #temp_table = pa.Table.from_pylist(doc_data)
-            #col_names = temp_table.column_names
-            #i = 0
-            #for col in temp_table.columns:
+            # temp_table = pa.Table.from_pylist(doc_data)
+            # col_names = temp_table.column_names
+            # i = 0
+            # for col in temp_table.columns:
             #    table.append_column(field_=col_names[i], column=[col])
             #    i += 1
 
@@ -118,20 +134,30 @@ class IngestLocalOperator(AbstractOperator):
 
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=0)
-        
-        for (root, dirs, files) in os.walk(root_folder, topdown=True):
+
+        for root, dirs, files in os.walk(root_folder, topdown=True):
             if files and dirs:
-                logger.info('>>> %s/%s/%s', root, dirs[0], files[0], extra=self.common_log_arguments)
+                logger.info(
+                    ">>> %s/%s/%s",
+                    root,
+                    dirs[0],
+                    files[0],
+                    extra=self.common_log_arguments,
+                )
             elif files:
-                logger.info('>>> %s/%s', root, files[0], extra=self.common_log_arguments)
+                logger.info(">>> %s/%s", root, files[0], extra=self.common_log_arguments)
             elif dirs:
-                logger.info('No files found in: %s', root, extra=self.common_log_arguments)
+                logger.info("No files found in: %s", root, extra=self.common_log_arguments)
             else:
-                logger.info('No files or subdirectories found in: %s', root, extra=self.common_log_arguments)
+                logger.info(
+                    "No files or subdirectories found in: %s",
+                    root,
+                    extra=self.common_log_arguments,
+                )
 
             for file in files:
                 file_count += 1
-                doc: Optional[dict[str, Any]] = self.process_file(root, file, metadata, file_count)
+                doc: dict[str, Any] | None = self.process_file(root, file, metadata, file_count)
                 if doc:
                     processed_count += 1
                     data.append(doc)
@@ -139,21 +165,31 @@ class IngestLocalOperator(AbstractOperator):
         # Update total docs and processed count
         metadata[Metrics.External.TOTAL_DOCS] = file_count
         metadata[Metrics.External.PROCESSED_DOCS] = processed_count
-        
+
         return data, metadata
 
-    def process_file(self, root: str, file: str, metadata: dict[str, Any], file_count: int) -> Optional[dict[str, Any]]:
+    def process_file(self, root: str, file: str, metadata: dict[str, Any], file_count: int) -> dict[str, Any] | None:
         abs_path: str = os.path.join(root, file)
         stats: os.stat_result = os.stat(abs_path)
-        if not self.check_constraints(file=file, file_stats=stats, abs_path=abs_path, metadata=metadata,
-                                      file_count=file_count):
+        if not self.check_constraints(
+            file=file,
+            file_stats=stats,
+            abs_path=abs_path,
+            metadata=metadata,
+            file_count=file_count,
+        ):
             return None
         doc_id: str = str(stats.st_ino)
         modified_time: int = round(stats.st_mtime)
-        if is_doc_previously_processed(previously_processed_docs_dict=self.previously_processed_docs_dict,
-                                       doc_id=doc_id, modified_time=modified_time):
-            logger.info(f">>> Skipping ingesting already processed document : {doc_id}",
-                        extra=self.common_log_arguments)
+        if is_doc_previously_processed(
+            previously_processed_docs_dict=self.previously_processed_docs_dict,
+            doc_id=doc_id,
+            modified_time=modified_time,
+        ):
+            logger.info(
+                f">>> Skipping ingesting already processed document : {doc_id}",
+                extra=self.common_log_arguments,
+            )
             return None
 
         doc: dict[str, Any] = {
@@ -161,112 +197,175 @@ class IngestLocalOperator(AbstractOperator):
             "name": abs_path,
             "size": stats.st_size,
             "created_time": round(stats.st_ctime),
-            "modified_time": modified_time
+            "modified_time": modified_time,
         }
 
-        if self.extract_content(file=file, file_stats=stats, file_abs_path=abs_path, doc=doc, metadata=metadata):
+        if self.extract_content(
+            file=file,
+            file_stats=stats,
+            file_abs_path=abs_path,
+            doc=doc,
+            metadata=metadata,
+        ):
             return doc
         return None
 
-    def extract_content(self, file: str, file_stats: os.stat_result, file_abs_path: str, doc: dict[str, Any], metadata: dict[str, Any]) -> bool:
+    def extract_content(
+        self,
+        file: str,
+        file_stats: os.stat_result,
+        file_abs_path: str,
+        doc: dict[str, Any],
+        metadata: dict[str, Any],
+    ) -> bool:
         """
         Store file metadata and optionally binary content for downstream extraction.
-        
+
         This method does NOT extract text content - it prepares files for downstream
         extraction operators by storing:
         - File path (always)
         - Binary content (if store_binary_content is True)
-        
+
         Args:
             file: Filename
             file_stats: File statistics from os.stat()
             file_abs_path: Absolute path to the file
             doc: Document dictionary to populate
             metadata: Metadata dictionary for tracking
-            
+
         Returns:
             bool: True if successful, False otherwise
         """
-        logger.info(f"Storing metadata for downstream extraction: {file_abs_path}", extra=self.common_log_arguments)
+        logger.info(
+            f"Storing metadata for downstream extraction: {file_abs_path}",
+            extra=self.common_log_arguments,
+        )
         try:
             # Always store the path
-            doc['path'] = file_abs_path
-            
+            doc["path"] = file_abs_path
+
             # Optionally store binary content
             if self.store_binary_content:
-                with open(file_abs_path, 'rb') as f:
-                    doc['binary_content'] = f.read()
-                logger.info(f"Stored binary content ({len(doc['binary_content'])} bytes) for: {file_abs_path}",
-                           extra=self.common_log_arguments)
+                with open(file_abs_path, "rb") as f:
+                    doc["binary_content"] = f.read()
+                logger.info(
+                    f"Stored binary content ({len(doc['binary_content'])} bytes) for: {file_abs_path}",
+                    extra=self.common_log_arguments,
+                )
             return True
         except Exception as exc:
-            logger.error(f"An error occurred while reading file: {file_abs_path}", extra=self.common_log_arguments)
-            self.record_failed_document(metadata=metadata, doc_id=str(file_stats.st_ino), doc_name=file_abs_path,
-                                       reason=f"Couldn't read the file {file_abs_path} due to {str(exc)}")
+            logger.error(
+                f"An error occurred while reading file: {file_abs_path}",
+                extra=self.common_log_arguments,
+            )
+            self.record_failed_document(
+                metadata=metadata,
+                doc_id=str(file_stats.st_ino),
+                doc_name=file_abs_path,
+                reason=f"Couldn't read the file {file_abs_path} due to {exc!s}",
+            )
             return False
-            
-    def check_constraints(self, file: str, file_stats: os.stat_result, abs_path: str, metadata: dict[str, Any], file_count: int) -> bool:
+
+    def check_constraints(
+        self,
+        file: str,
+        file_stats: os.stat_result,
+        abs_path: str,
+        metadata: dict[str, Any],
+        file_count: int,
+    ) -> bool:
         if file_stats.st_size >= self.max_file_size:
-            logger.warn("File size exceeded max permitted size %s", file_stats.st_size, extra=self.common_log_arguments)
-            self.record_skipped_document(metadata=metadata, doc_id=str(file_stats.st_ino), doc_name=abs_path,
-                                        reason=f"File Size exceeded max permitted size for the file {abs_path} with the file size {file_stats.st_size}")
+            logger.warn(
+                "File size exceeded max permitted size %s",
+                file_stats.st_size,
+                extra=self.common_log_arguments,
+            )
+            self.record_skipped_document(
+                metadata=metadata,
+                doc_id=str(file_stats.st_ino),
+                doc_name=abs_path,
+                reason=f"File Size exceeded max permitted size for the file {abs_path} with the file size {file_stats.st_size}",
+            )
             return False
 
         elif file_count > self.max_files:
-            logger.info("File count exceeded max files permitted: %s", self.max_files, extra=self.common_log_arguments)
-            self.record_skipped_document(metadata=metadata, doc_id=str(file_stats.st_ino), doc_name=abs_path,
-                                        reason="File count exceeded max files permitted")
+            logger.info(
+                f"File count exceeded max files permitted: {self.max_files}",
+                extra=self.common_log_arguments,
+            )
+            self.record_skipped_document(
+                metadata=metadata,
+                doc_id=str(file_stats.st_ino),
+                doc_name=abs_path,
+                reason="File count exceeded max files permitted",
+            )
             return False
 
         elif filter_based_on_extension(file, self.excluded_extensions, self.included_extensions):
-            logger.info(f">>> Skipping based on Filter : {file}", extra=self.common_log_arguments)
-            self.record_skipped_document(metadata=metadata, doc_id=str(file_stats.st_ino), doc_name=abs_path,
-                                        reason=f"Skipping the file {abs_path} due to the extension filter. The file has the extension {file.split('.')[-1]}.")
+            logger.info(
+                f">>> Skipping based on Filter : {file}",
+                extra=self.common_log_arguments,
+            )
+            self.record_skipped_document(
+                metadata=metadata,
+                doc_id=str(file_stats.st_ino),
+                doc_name=abs_path,
+                reason=f"Skipping the file {abs_path} due to the extension filter. The file has the extension {file.split('.')[-1]}.",
+            )
             return False
         else:
             return True
-            
+
     def get_metadata(self) -> dict[str, Any]:
         """
         Get metadata about the operator including features and attributes.
-        
+
         Returns operator metadata for the metadata-only ingest mode.
         """
         metadata_features = {}
-        
+
         # Metadata-only mode features
-        metadata_features.update({
-            "path": {
-                OperatorConstants.NAME: "File Path",
-                OperatorConstants.DESCRIPTION: "The absolute path to the document file",
-                OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING
-            }
-        })
-        
-        if self.store_binary_content:
-            metadata_features.update({
-                "binary_content": {
-                    OperatorConstants.NAME: "Binary Content",
-                    OperatorConstants.DESCRIPTION: "The binary content of the document for downstream extraction",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: False,
+        metadata_features.update(
+            {
+                "path": {
+                    OperatorConstants.NAME: "File Path",
+                    OperatorConstants.DESCRIPTION: "The absolute path to the document file",
+                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
                 }
-            })
-        
-        metadata_features.update({
-            self.doc_id_hash: {
-                OperatorConstants.NAME: "Hash ID",
-                OperatorConstants.DESCRIPTION: "Hash ID of the row",
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                OperatorConstants.IS_PRIMARY: True,
-                OperatorConstants.TAGS: [OperatorConstants.MANDATORY, OperatorConstants.PRIMARY]
             }
-        })
-        
+        )
+
+        if self.store_binary_content:
+            metadata_features.update(
+                {
+                    "binary_content": {
+                        OperatorConstants.NAME: "Binary Content",
+                        OperatorConstants.DESCRIPTION: "The binary content of the document for downstream extraction",
+                        OperatorConstants.AVAILABLE_FOR_FILTER: False,
+                        OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
+                        OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                    }
+                }
+            )
+
+        metadata_features.update(
+            {
+                self.doc_id_hash: {
+                    OperatorConstants.NAME: "Hash ID",
+                    OperatorConstants.DESCRIPTION: "Hash ID of the row",
+                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                    OperatorConstants.IS_PRIMARY: True,
+                    OperatorConstants.TAGS: [
+                        OperatorConstants.MANDATORY,
+                        OperatorConstants.PRIMARY,
+                    ],
+                }
+            }
+        )
+
         return {
             OperatorConstants.CATEGORY: self.category.value,
             OperatorConstants.FEATURES: metadata_features,
@@ -277,39 +376,41 @@ class IngestLocalOperator(AbstractOperator):
                     OperatorConstants.DESCRIPTION: "If the document is larger than the given max file size, then it will be skipped",
                     OperatorConstants.DEFAULT: 100,
                     OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER
+                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
                 },
                 OperatorConstants.INCLUDE_FILTER_KEY: {
                     OperatorConstants.NAME: "Include File Type",
                     OperatorConstants.DESCRIPTION: "File types to be included (comma-separated extensions)",
                     OperatorConstants.DEFAULT: "pdf,docx,pptx,txt,md",
                     OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST
+                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
                 },
                 "store_binary_content": {
                     OperatorConstants.NAME: "Store Binary Content",
                     OperatorConstants.DESCRIPTION: "Whether to store binary content for downstream extraction",
                     OperatorConstants.DEFAULT: True,
                     OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN
-                }
-            }
+                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+            },
         }
 
 
 # used for unit testing only
-def main() -> None:   # pragma: no cover
-    
+def main() -> None:  # pragma: no cover
     # 1. Construct the operators with the required configuration and input parameters
-    operator: IngestLocalOperator = IngestLocalOperator({
-        "doc_column": "content",
-        "input_folder": "cliapp/test/input_docs",
-        "include_filter": "pdf,txt" })
+    operator: IngestLocalOperator = IngestLocalOperator(
+        {
+            "doc_column": "content",
+            "input_folder": "cliapp/test/input_docs",
+            "include_filter": "pdf,txt",
+        }
+    )
     print(operator)
 
     # 2. Create an in-memory py-arrow table, as the input
-    input_table: Optional[pa.Table] = None
-    
+    input_table: pa.Table | None = None
+
     # 3. Run the operators
     table_list: list[pa.Table]
     metadata: dict[str, Any]
@@ -322,9 +423,10 @@ def main() -> None:   # pragma: no cover
     table: pa.Table = table_list[0]
     # print(f"\noutput table: {table}")  # too much content
     print(f"output metadata : {metadata}")
-    if table_list[0].num_rows: # avoid printing if table is empty
+    if table_list[0].num_rows:  # avoid printing if table is empty
         print("Found docs: ", table["name"], table["size"])
 
+
 # main entry point into the program; used for unit testing only
-if __name__ == '__main__':   # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()

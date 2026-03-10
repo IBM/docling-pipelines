@@ -1,11 +1,14 @@
 import os
 from abc import ABC, abstractmethod
+
 import pyarrow as pa
-import pyarrow.parquet as pq
 import pyarrow.compute as pc
+import pyarrow.parquet as pq
 from filelock import FileLock
+
 from common.util.constants import DatasiftConstants
 from common.util.log import get_logger
+
 LOCK_TIMEOUT: float = 20
 
 
@@ -112,8 +115,7 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
         lock = FileLock(_lock_path(path=path), timeout=LOCK_TIMEOUT)
         with lock:
             if not os.path.exists(path):
-                self.logger.error(
-                    f"Table not found from: {path}")
+                self.logger.error(f"Table not found from: {path}")
                 return None
             table = pq.read_table(path, columns=columns, filters=filters)
             return table
@@ -146,14 +148,15 @@ def get_parquet_table_handler() -> BaseParquetTableHandler:
     return CpdParquetTableHandler()
 
 
-def main():   # pragma: no cover
-    table : pa.Table = CpdParquetTableHandler().read_table(path="")
+def main():  # pragma: no cover
+    table: pa.Table = CpdParquetTableHandler().read_table(path="")
     from tabulate import tabulate
+
     print("Incremental Table : \n " + tabulate(table.to_pandas(), headers="keys", tablefmt="pretty"))
     print(table.schema)
     print(table.num_rows)
 
 
 # main entry point into the program; used for unit testing only
-if __name__ == '__main__':   # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()

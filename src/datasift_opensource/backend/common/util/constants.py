@@ -1,10 +1,11 @@
-import os
 from enum import Enum
 from typing import TypedDict
 
 
 class DatasiftConstants:
     # Defines constants that are used across Datasift service
+    INPUT_EDGES = "input_edges"
+    OUTPUT_EDGES = "output_edges"
     INPUT = "input"
     LOGGER_NAME = "DATASIFT"
     SESSION_INFO = "session_info"
@@ -108,15 +109,11 @@ class Metrics:
         BRANCHES = "branches"
 
     # Metrics that require atomic aggregation to prevent race conditions
-    AGGREGATION_METRICS = frozenset(
-        {External.TOTAL_PAGES_CONVERTED, External.DELETED_DOC_COUNT}
-    )
+    AGGREGATION_METRICS = frozenset({External.TOTAL_PAGES_CONVERTED, External.DELETED_DOC_COUNT})
 
 
 # Internal metrics used in multiple places so making it as a global variable
-internal_metrics = {
-    value for name, value in vars(Metrics.Internal).items() if not name.startswith("__")
-}
+internal_metrics = {value for name, value in vars(Metrics.Internal).items() if not name.startswith("__")}
 
 
 class TaskType(Enum):

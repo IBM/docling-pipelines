@@ -10,22 +10,26 @@
 # limitations under the License.
 ################################################################################
 
+import json
 import logging
 import os
 import sys
-import json
 
-from common.util.constants import DatasiftConstants  #, Environments
+from common.util.constants import DatasiftConstants  # , Environments
 
 HEALTH_API_SUFFIX = "/health"
 
 
-class ConditionalFormatter(logging.Formatter): # pragma: no cover
-
-    fields_to_be_included = [DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID, DatasiftConstants.TRACK_PERF]
+class ConditionalFormatter(logging.Formatter):  # pragma: no cover
+    fields_to_be_included = [
+        DatasiftConstants.JOB_ID,
+        DatasiftConstants.JOB_RUN_ID,
+        DatasiftConstants.TRACK_PERF,
+    ]
 
     def format(self, record):
         from common.models.session_info import get_session_info
+
         session_info = get_session_info()
         log_dict = {
             "time": self.formatTime(record, self.datefmt),
@@ -34,16 +38,16 @@ class ConditionalFormatter(logging.Formatter): # pragma: no cover
             "transaction_ID": session_info.transaction_id,
             "message": record.getMessage() if record.getMessage() else record.msg,
             "saveServiceCopy": "false",
-            "appname": "datasift-api"
+            "appname": "datasift-api",
         }
 
         # Include exc_info if it is present.
         if record.exc_info:
-            log_dict.update({'exc_info': self.formatException(record.exc_info)})
+            log_dict.update({"exc_info": self.formatException(record.exc_info)})
 
         # Include stack_info if it is present.
         if record.stack_info:
-            log_dict.update({'stack_info': record.stack_info})
+            log_dict.update({"stack_info": record.stack_info})
 
         # check for optional field if present in the record dictionary then include in the log dictionary.
         for field in ConditionalFormatter.fields_to_be_included:
@@ -55,13 +59,13 @@ class ConditionalFormatter(logging.Formatter): # pragma: no cover
             log_dict["message"] = f"{record.getMessage()} at {record.pathname}:{record.lineno}"
 
         # The below changes are specific for Local Environment.
-        if 'exc_info' in log_dict:
-            log_dict['exc_info'] = log_dict['exc_info'].splitlines()
-        if 'stack_info' in log_dict:
-            log_dict['stack_info'] = log_dict['stack_info'].splitlines()
+        if "exc_info" in log_dict:
+            log_dict["exc_info"] = log_dict["exc_info"].splitlines()
+        if "stack_info" in log_dict:
+            log_dict["stack_info"] = log_dict["stack_info"].splitlines()
 
         # if the record has exc_info or stack_info then indent the message so that the stack_info visible on console is in formatted option.
-        if any(key in log_dict for key in ['exc_info', 'stack_info']):
+        if any(key in log_dict for key in ["exc_info", "stack_info"]):
             return json.dumps(log_dict, indent=2)
 
         return json.dumps(log_dict)
@@ -80,12 +84,14 @@ def get_log_level(name: str = None):
     return level_name
 
 
-def get_logger(name: str = DatasiftConstants.LOGGER_NAME,
-               level: [int, str] = None,
-               file: str = None,
-               *,
-               is_pg: bool = False,
-               pg_params: dict = None) -> logging.Logger:
+def get_logger(
+    name: str = DatasiftConstants.LOGGER_NAME,
+    level: [int, str] = None,
+    file: str = None,
+    *,
+    is_pg: bool = False,
+    pg_params: dict = None,
+) -> logging.Logger:
     """
     Returns a logger configured with stdout, file output, and optional Postgres handler.
 
@@ -116,38 +122,38 @@ def get_logger(name: str = DatasiftConstants.LOGGER_NAME,
 
     # Use JSON format only if explicitly enabled via environment variable
     use_json_format: bool = os.environ.get("DS_LOG_JSON", "False") == "True"
-    
+
     # --- Console & file handlers (only add once) ---
     if not any(isinstance(h, logging.StreamHandler) for h in logger.handlers):
         # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
         timefmt = "%H:%M:%S"
-        
+
         if use_json_format:
             # Use JSON format when explicitly enabled
             console_format = ConditionalFormatter(datefmt=timefmt)
         else:
             # Use normal logging format by default
             console_format = logging.Formatter(
-                fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                datefmt=timefmt
+                fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt=timefmt,
             )
-        
+
         console_handler.setFormatter(console_format)
         logger.addHandler(console_handler)
 
         # Optional file handler
         if file:
             file_handler = logging.FileHandler(file)
-            
+
             if use_json_format:
                 file_log_format = ConditionalFormatter(datefmt=timefmt)
             else:
                 file_log_format = logging.Formatter(
-                    fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    datefmt=timefmt
+                    fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                    datefmt=timefmt,
                 )
-            
+
             file_handler.setFormatter(file_log_format)
             logger.addHandler(file_handler)
 

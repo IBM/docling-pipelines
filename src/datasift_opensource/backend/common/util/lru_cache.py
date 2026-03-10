@@ -1,7 +1,9 @@
 import threading
-from cachetools import TTLCache
 import time
-from typing import Any, Hashable, Optional, Iterable
+from collections.abc import Hashable, Iterable
+from typing import Any
+
+from cachetools import TTLCache
 
 from common.util.common_utils import Singleton
 from common.util.log import get_logger
@@ -16,7 +18,7 @@ class LRUCache(metaclass=Singleton):
     _is_initialized: bool = False
 
     def __init__(self, maxsize: int = 128, ttl: int = 1800):
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             self._cache_lock = threading.Lock()
 
         with self._cache_lock:
@@ -34,8 +36,8 @@ class LRUCache(metaclass=Singleton):
             else:
                 logger.warning(f"Cache {self.__class__.__name__} already initialized")
 
-    def get(self, *, cache_key: Hashable) -> Optional[Any]:
-        if not getattr(self, '_cache_lock', None):
+    def get(self, *, cache_key: Hashable) -> Any | None:
+        if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 
         with self._cache_lock:
@@ -49,7 +51,7 @@ class LRUCache(metaclass=Singleton):
             return container_object
 
     def put(self, *, cache_key: Hashable, value: Any):
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 
         with self._cache_lock:
@@ -58,7 +60,7 @@ class LRUCache(metaclass=Singleton):
             logger.info(f"Current cache size: {len(self._cache)}/{self._cache.maxsize}")
 
     def remove_keys(self, *, keys: Iterable[Hashable]) -> None:
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
 
         with self._cache_lock:
@@ -68,9 +70,9 @@ class LRUCache(metaclass=Singleton):
 
     def clear(self):
         """Clear all entries from the cache."""
-        if not getattr(self, '_cache_lock', None):
+        if not getattr(self, "_cache_lock", None):
             raise RuntimeError(CACHE_NOT_INITIALIZED_ERROR)
-        
+
         with self._cache_lock:
             self._cache.clear()
             logger.debug(f"Cleared cache {self.__class__.__name__}")

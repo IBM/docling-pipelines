@@ -1,9 +1,8 @@
-import os
 import json
+import os
 import shutil
 import tempfile
 from queue import Queue
-from typing import Optional
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -17,6 +16,7 @@ PREFECT_HOME = "PREFECT_HOME"
 PREFECT_API_DATABASE_CONNECTION_URL = "PREFECT_API_DATABASE_CONNECTION_URL"
 PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED = "PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED"
 PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY = "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY"
+PREFECT_SERVER_ANALYTICS_ENABLED = "PREFECT_SERVER_ANALYTICS_ENABLED"
 PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS = "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS"
 # Set to "true" to use SQLite with persistent storage and the default Prefect home directory.
 # Allows accessing Prefect dashboard for flows review.
@@ -25,10 +25,10 @@ PREFECT_DEBUG = "PREFECT_DEBUG"
 
 def create_node_id_to_index_map(*, flow_def: dict) -> dict:
     """
-    Return a mapping between each node ID and its corresponding index, 
+    Return a mapping between each node ID and its corresponding index,
     representing the position where it
     appears in the original JSON node sequence.
-    
+
     Args:
         flow_def: a dict holding a flow.
 
@@ -53,8 +53,7 @@ def create_log_folders(job_id, job_run_id, type):
     log_app_location = DatasiftConstants.UDP_LOGS
 
     log_job_folder_name = job_id
-    log_job_location = os.path.join(log_location_path, log_app_location, log_job_folder_name,
-                                    str(job_run_id))
+    log_job_location = os.path.join(log_location_path, log_app_location, log_job_folder_name, str(job_run_id))
     os.makedirs(log_job_location, exist_ok=True)
     if type == "job":
         log_job_run_file_name = "job_stats.json"
@@ -73,6 +72,7 @@ def write_job_logs(job_stats, job_log_final_path):
 # should be called before loading Prefect libraries
 def set_prefect_env_variables() -> None:
     os.environ[PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY] = "false"
+    os.environ[PREFECT_SERVER_ANALYTICS_ENABLED] = "false"
     os.environ[PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS] = "120"
     if not os.getenv(PREFECT_DEBUG):
         # See https://github.com/PrefectHQ/prefect/issues/10188
@@ -130,7 +130,7 @@ def _safe_rmtree(path: str, prefix: str = None) -> bool:
 def align_table_schema(table: pa.Table, all_cols: dict) -> pa.Table:
     logger = get_logger()
     try:
-        for col in all_cols.keys():
+        for col in all_cols:
             if col not in table.column_names:
                 values = pa.array(pa.nulls(table.num_rows), type=all_cols[col])
                 table = table.append_column(col, values)
@@ -142,7 +142,7 @@ def align_table_schema(table: pa.Table, all_cols: dict) -> pa.Table:
 
 
 # Helper: Combine and align cumulative deleted rows
-def combine_cumulative_deleted_rows(deleted_rows : Queue[pa.Table]) -> pa.Table:
+def combine_cumulative_deleted_rows(deleted_rows: Queue[pa.Table]) -> pa.Table:
     logger = get_logger()
 
     if not deleted_rows:
@@ -170,7 +170,7 @@ def combine_cumulative_deleted_rows(deleted_rows : Queue[pa.Table]) -> pa.Table:
 
 
 # Helper: Combine multiple tables safely
-def _combine_tables(tables: list[pa.Table], table_type: str) -> Optional[pa.Table]:
+def _combine_tables(tables: list[pa.Table], table_type: str) -> pa.Table | None:
     logger = get_logger()
     if not tables:
         return None
@@ -188,7 +188,9 @@ def _combine_tables(tables: list[pa.Table], table_type: str) -> Optional[pa.Tabl
         return None
 
 
-def _total_rows(tables:Optional[pa.Table | dict[str, pa.Table] | list[pa.Table]]) -> int:
+def _total_rows(
+    tables: pa.Table | dict[str, pa.Table] | list[pa.Table] | None,
+) -> int:
     """Returns total rows from pa.Table, list, or dict of pa.Table."""
     if isinstance(tables, pa.Table):
         return tables.num_rows
@@ -200,10 +202,10 @@ def _total_rows(tables:Optional[pa.Table | dict[str, pa.Table] | list[pa.Table]]
 
 
 def update_deleted_rows(
-    prev_tables: Optional[pa.Table | dict[str, pa.Table] | list[pa.Table]],
+    prev_tables: pa.Table | dict[str, pa.Table] | list[pa.Table] | None,
     current_tables: list[pa.Table],
     skip_columns: list[str],
-    op
+    op,
 ) -> pa.Table:
     """
     Compares previous and current PyArrow tables across steps to detect deleted rows
@@ -247,16 +249,26 @@ def update_deleted_rows(
 
     current_combined = _combine_tables(current_tables, "current tables")
 
-    if previous_combined is None or current_combined is None or previous_combined.num_rows == 0 or current_combined.num_rows == 0:
+    if (
+        previous_combined is None
+        or current_combined is None
+        or previous_combined.num_rows == 0
+        or current_combined.num_rows == 0
+    ):
         return pa.table({})
 
     # ---- Detect deleted rows ----
     try:
-        deleted_mask = pc.invert(pc.is_in(previous_combined[OperatorConstants.ID], value_set=current_combined[OperatorConstants.ID]))
+        deleted_mask = pc.invert(
+            pc.is_in(
+                previous_combined[OperatorConstants.ID],
+                value_set=current_combined[OperatorConstants.ID],
+            )
+        )
         deleted_rows = previous_combined.filter(deleted_mask)
     except Exception as e:
         logger.warning(f"[WARN] Error detecting deleted rows: {e}")
-        return  pa.table({})
+        return pa.table({})
 
     if deleted_rows.num_rows == 0:
         return pa.table({})
@@ -264,7 +276,7 @@ def update_deleted_rows(
     # ---- Align schema and drop heavy columns ----
     try:
         all_cols = {}
-        for tbl in [current_combined,previous_combined]:
+        for tbl in [current_combined, previous_combined]:
             for field in tbl.schema:
                 all_cols[field.name] = field.type
         deleted_rows = align_table_schema(deleted_rows, all_cols)
@@ -287,8 +299,8 @@ def update_deleted_rows(
     return pa.table({})
 
 
-def construct_deleted_rows_table_path( *, job_id: str, job_run_id ):
+def construct_deleted_rows_table_path(*, job_id: str, job_run_id):
     # table_name = "deleted_rows_table"
     metadata_path = "/unprocessed_docs"
     parquet_file_name = "unprocessed_docs.parquet"
-    return os.path.join(get_warehouse_path(path=metadata_path),job_id, job_run_id,parquet_file_name)
+    return os.path.join(get_warehouse_path(path=metadata_path), job_id, job_run_id, parquet_file_name)

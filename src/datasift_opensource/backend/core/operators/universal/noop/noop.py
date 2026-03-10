@@ -1,12 +1,13 @@
-from typing import Any
-import pyarrow as pa
 import time
 from logging import Logger
+from typing import Any
 
-from core.operators.abstract_operator import OperatorCategory, AbstractOperator
+import pyarrow as pa
+
 from common.util.constants import DatasiftConstants, Metrics, OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 logger: Logger = get_logger()
 
@@ -30,12 +31,13 @@ class NOOPOperator(AbstractOperator):
         # of NOOPTransformConfiguration class
         super().__init__(config)
         self.sleep: int = config.get("sleep_sec", 1)
-        self.common_log_arguments: dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.common_log_arguments: dict[str, Any] = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
 
     def get_metadata(self) -> dict[str, Any]:
-        return {
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()
-        }
+        return {OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()}
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -44,7 +46,10 @@ class NOOPOperator(AbstractOperator):
         This implementation makes no modifications so effectively implements a copy of the
         input parquet to the output folder, without modification.
         """
-        logger.debug(f"Transforming one table with {len(table)} rows", extra=self.common_log_arguments)
+        logger.debug(
+            f"Transforming one table with {len(table)} rows",
+            extra=self.common_log_arguments,
+        )
 
         # Calculate doc count
         total_docs_count: int = find_doc_count(table=table)
@@ -62,13 +67,15 @@ class NOOPOperator(AbstractOperator):
         # Update processed_docs count
         metadata[Metrics.External.PROCESSED_DOCS] = total_docs_count
 
-        logger.debug(f"Transformed one table with {len(table)} rows", extra=self.common_log_arguments)
+        logger.debug(
+            f"Transformed one table with {len(table)} rows",
+            extra=self.common_log_arguments,
+        )
         return [table], metadata
 
 
 # used for unit testing only
 def main() -> None:  # pragma: no cover
-
     # 1. Construct the operators with the required configuration and input parameters
     operator: NOOPOperator = NOOPOperator({"sleep_sec": 1})
     print(operator)
@@ -89,5 +96,5 @@ def main() -> None:  # pragma: no cover
 
 
 # main entry point into the program; used for unit testing only
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()

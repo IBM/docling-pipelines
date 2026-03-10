@@ -4,7 +4,7 @@ Loads configuration from .env file or environment variables.
 """
 
 import os
-from typing import Optional
+
 from dotenv import load_dotenv
 
 # Load .env file from project root
@@ -28,9 +28,7 @@ def get_opensearch_config() -> dict:
         "opensearch_host": os.getenv("OPENSEARCH_HOST", "localhost"),
         "opensearch_port": int(os.getenv("OPENSEARCH_PORT", "9200")),
         "opensearch_use_ssl": str_to_bool(os.getenv("OPENSEARCH_USE_SSL", "false")),
-        "opensearch_verify_certs": str_to_bool(
-            os.getenv("OPENSEARCH_VERIFY_CERTS", "false")
-        ),
+        "opensearch_verify_certs": str_to_bool(os.getenv("OPENSEARCH_VERIFY_CERTS", "false")),
         # Authentication
         "opensearch_username": os.getenv("OPENSEARCH_USERNAME"),
         "opensearch_password": os.getenv("OPENSEARCH_PASSWORD"),
@@ -55,7 +53,7 @@ def get_opensearch_config() -> dict:
     return {k: v for k, v in config.items() if v is not None}
 
 
-def get_env_var(key: str, default: Optional[str] = None) -> Optional[str]:
+def get_env_var(key: str, default: str | None = None) -> str | None:
     """
     Get environment variable value.
 
