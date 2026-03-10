@@ -242,8 +242,8 @@ def _validate_feature(upd: dict, idx: int):
     if not isinstance(upd, dict):
         _raise_value_error(f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}")
 
-    old_name = upd.get(OperatorConstants.OLD_FEATURE, None)
-    new_name = upd.get(OperatorConstants.NEW_FEATURE, None)
+    old_name = upd.get(OperatorConstants.OLD_FEATURE)
+    new_name = upd.get(OperatorConstants.NEW_FEATURE)
 
     if old_name is None or new_name is None:
         error = f"Each mapping dict must contain 'old_feature' and 'new_feature'. Got: {upd}"

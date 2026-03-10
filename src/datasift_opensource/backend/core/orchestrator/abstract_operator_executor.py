@@ -97,9 +97,7 @@ class AbstractOperatorExecutor:
         op = self.get_operator()
         return op.get_metadata()
 
-    def _execute_impl(
-        self, tables: pa.Table | dict[str, pa.Table] | None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+    def _execute_impl(self, tables: pa.Table | dict[str, pa.Table] | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         The concrete subclasses execute the given operator identified by _operator by passing the given tables
         """

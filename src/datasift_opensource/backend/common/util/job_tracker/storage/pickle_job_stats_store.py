@@ -28,9 +28,8 @@ def _get_job_run_pickle_file(file_path: str, file_lock_needed: bool = False) -> 
         return None
     logger.debug(f"File {file_path} successfully found.")
     if file_lock_needed:
-        with FileLock(_lock_path(file_path)):
-            with open(file_path, "rb") as file:
-                return pickle.load(file)
+        with FileLock(_lock_path(file_path)), open(file_path, "rb") as file:
+            return pickle.load(file)
     else:
         with open(file_path, "rb") as file:
             return pickle.load(file)
@@ -42,9 +41,8 @@ def _save_job_run_pickle_file(data: dict[str, Any], json_data: str, file_path: s
     # Ensure parent directory exists
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
     if file_lock_needed:
-        with FileLock(_lock_path(file_path)):
-            with open(file_path, "wb") as file:
-                pickle.dump(data, file)
+        with FileLock(_lock_path(file_path)), open(file_path, "wb") as file:
+            pickle.dump(data, file)
     else:
         with open(file_path, "wb") as file:
             pickle.dump(data, file)

@@ -152,8 +152,7 @@ class EmbeddingsOperator(AbstractOperator):
         }
 
         logger.info(
-            f"Initialized EmbeddingsOperator with provider: {self.embeddings_type}, "
-            f"model: {self.embeddings_model_id}",
+            f"Initialized EmbeddingsOperator with provider: {self.embeddings_type}, model: {self.embeddings_model_id}",
             extra=self.common_log_arguments,
         )
 
@@ -178,7 +177,7 @@ class EmbeddingsOperator(AbstractOperator):
                 errors.append(f"embeddings_type must be a string, got {type(self.embeddings_type)}")
             elif self.embeddings_type not in SUPPORTED_EMBEDDINGS_TYPES:
                 errors.append(
-                    f"embeddings_type must be one of {SUPPORTED_EMBEDDINGS_TYPES}, " f"got '{self.embeddings_type}'"
+                    f"embeddings_type must be one of {SUPPORTED_EMBEDDINGS_TYPES}, got '{self.embeddings_type}'"
                 )
 
         # Validate overlap ratio
@@ -297,8 +296,7 @@ class EmbeddingsOperator(AbstractOperator):
             return self._create_embeddings_openai(text, model_name, overlap_ratio)
         else:
             raise DatasiftException(
-                f"Unsupported embeddings_type: {self.embeddings_type}. "
-                f"Supported types: {SUPPORTED_EMBEDDINGS_TYPES}"
+                f"Unsupported embeddings_type: {self.embeddings_type}. Supported types: {SUPPORTED_EMBEDDINGS_TYPES}"
             )
 
     def _create_embeddings_ollama(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
@@ -419,7 +417,7 @@ class EmbeddingsOperator(AbstractOperator):
             DatasiftException: Currently raises as not yet implemented
         """
         raise DatasiftException(
-            "OpenAI embeddings provider is not yet implemented. " "This is a placeholder for future extension."
+            "OpenAI embeddings provider is not yet implemented. This is a placeholder for future extension."
         )
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
@@ -434,8 +432,7 @@ class EmbeddingsOperator(AbstractOperator):
             tuple: (list of output tables, metadata dictionary)
         """
         logger.info(
-            f"Starting embeddings generation with provider: {self.embeddings_type}, "
-            f"model: {self.embeddings_model_id}",
+            f"Starting embeddings generation with provider: {self.embeddings_type}, model: {self.embeddings_model_id}",
             extra=self.common_log_arguments,
         )
 

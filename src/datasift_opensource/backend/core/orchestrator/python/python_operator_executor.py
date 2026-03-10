@@ -32,9 +32,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
     def __init__(self, name: str, operator: str, params: dict):
         super().__init__(name, operator, params)
 
-    def _execute_impl(
-        self, tables: pa.Table | dict[str, pa.Table] | None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+    def _execute_impl(self, tables: pa.Table | dict[str, pa.Table] | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Executes the operator logic with support for pipeline branching.
         Uses Postgres-backed logger if pipeline branching is enabled.

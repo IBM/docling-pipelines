@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 from common.util.constants import ExecutionStatus, OrchestratorType

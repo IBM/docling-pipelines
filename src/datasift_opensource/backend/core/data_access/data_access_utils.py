@@ -27,7 +27,7 @@ class DataAccessUtils:
     @staticmethod
     def add_node_name_to_output_folder(*, params: dict, node_name):
         node_name = re.sub(r"\W+", "_", node_name)
-        storage_type = params.get(DataAccessConstants.DATA_STORAGE_TYPE, None)
+        storage_type = params.get(DataAccessConstants.DATA_STORAGE_TYPE)
         config = params.get(data_access_config_key_map.get(storage_type))
         if config:
             output_folder = config.get(DatasiftConstants.OUTPUT_FOLDER)

@@ -49,7 +49,7 @@ class RedactionOperator(AbstractOperator):
             OperatorConstants.REDACTION_MASKING_CHARACTER_KEY, DEFAULT_MASKING_CHARACTER
         )
 
-        regex = config.get(OperatorConstants.REDACTION_REGEX_KEY, None)
+        regex = config.get(OperatorConstants.REDACTION_REGEX_KEY)
         if regex and len(regex):
             try:
                 regex = re.compile(regex)
