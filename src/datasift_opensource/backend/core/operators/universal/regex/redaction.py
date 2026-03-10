@@ -45,9 +45,11 @@ class RedactionOperator(AbstractOperator):
         super().__init__(config)
         self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
         self.stats_column = config.get(STATS_COLUMN_NAME_KEY, STATS_COLUMN_NAME_DEFAULT)
-        self.masking_character = config.get(OperatorConstants.REDACTION_MASKING_CHARACTER_KEY, DEFAULT_MASKING_CHARACTER)
+        self.masking_character = config.get(
+            OperatorConstants.REDACTION_MASKING_CHARACTER_KEY, DEFAULT_MASKING_CHARACTER
+        )
 
-        regex = config.get(OperatorConstants.REDACTION_REGEX_KEY, None)
+        regex = config.get(OperatorConstants.REDACTION_REGEX_KEY)
         if regex and len(regex):
             try:
                 regex = re.compile(regex)
@@ -58,7 +60,10 @@ class RedactionOperator(AbstractOperator):
         else:
             self.pattern = None
 
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.common_log_arguments = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
 
     def get_metadata(self):
         operator_metadata = {
@@ -71,7 +76,7 @@ class RedactionOperator(AbstractOperator):
                     OperatorConstants.NAME: "Redaction Count",
                     OperatorConstants.DESCRIPTION: "Number of matches found and redacted from the document",
                     OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER
+                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
                 }
             },
             OperatorConstants.ATTRIBUTES: {
@@ -80,16 +85,16 @@ class RedactionOperator(AbstractOperator):
                     OperatorConstants.DESCRIPTION: "The pattern or word to be masked/redacted.",
                     OperatorConstants.REQUIRED: True,
                     OperatorConstants.DEFAULT: None,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING
+                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.REDACTION_MASKING_CHARACTER_KEY: {
                     OperatorConstants.NAME: "Masking Character",
                     OperatorConstants.DESCRIPTION: "Single length masking character chosen by user.",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.DEFAULT: DEFAULT_MASKING_CHARACTER,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING
-                }
-            }
+                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                },
+            },
         }
 
         return operator_metadata
@@ -113,7 +118,7 @@ class RedactionOperator(AbstractOperator):
         if not matches:
             return content
 
-        pattern = re.compile(r'|'.join(map(re.escape, matches)), re.IGNORECASE)
+        pattern = re.compile(r"|".join(map(re.escape, matches)), re.IGNORECASE)
 
         return pattern.sub(lambda m: self.masking_character * len(m.group()), content)
 
@@ -131,14 +136,22 @@ class RedactionOperator(AbstractOperator):
         metadata["total_redactions"] = 0
 
         if self.pattern is None:
-            logger.warning("No word or regex pattern provided for redaction, skipping redaction", extra=self.common_log_arguments)
+            logger.warning(
+                "No word or regex pattern provided for redaction, skipping redaction",
+                extra=self.common_log_arguments,
+            )
             metadata[Metrics.External.PROCESSED_DOCS] = find_doc_count(table=table)
             metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS).value
+                metadata[Metrics.External.NODE_STATUS],
+                ExecutionStatus.COMPLETED_WITH_WARNINGS,
+            ).value
             return [table], metadata
         OperatorUtils.validate_columns(table=table, required=[self.doc_column], operator_name=self.short_name)
 
-        logger.info(f"Redaction pattern/word: {self.pattern.pattern if self.pattern else None}, Masking Character: {self.masking_character or None}", extra=self.common_log_arguments)
+        logger.info(
+            f"Redaction pattern/word: {self.pattern.pattern if self.pattern else None}, Masking Character: {self.masking_character or None}",
+            extra=self.common_log_arguments,
+        )
         docs = table[self.doc_column]
         redacted_rows = 0
         total_redactions = 0
@@ -149,7 +162,10 @@ class RedactionOperator(AbstractOperator):
             matches = self.pattern.findall(content)
             redacted_content = self.redact(matches, content)
             updated_content_column[n] = redacted_content
-            logger.info(f"Redaction completed for doc {table['name'][n]}", extra=self.common_log_arguments)
+            logger.info(
+                f"Redaction completed for doc {table['name'][n]}",
+                extra=self.common_log_arguments,
+            )
             if len(matches) > 0:
                 redacted_rows += 1
                 total_redactions += len(matches)
@@ -171,7 +187,6 @@ class RedactionOperator(AbstractOperator):
 
 # used for unit testing only
 def main():  # pragma: no cover
-
     # 1. Construct the operators with the required configuration and input parameters
     config = {
         "doc_column": "content",
@@ -179,19 +194,21 @@ def main():  # pragma: no cover
         "stats_column": "redaction_stats",
         "redaction_masking_character": "X",
         # "redaction_regex": "John",
-        "redaction_regex": r"(?!000|.+0{4})(?:\d{9}|\d{3}-\d{2}-\d{4})"
+        "redaction_regex": r"(?!000|.+0{4})(?:\d{9}|\d{3}-\d{2}-\d{4})",
     }
     operator = RedactionOperator(config=config)
     print(operator)
 
     # 2. Create an in-memory py-arrow table, as the input
-    content = pa.array([
-        "Joe Doe: 123456854",
-        "John Smith: 213254000 Andrew John",
-        "Mary Paul: 213250000 -> Invalid SSN",
-        "John Paul: 213250000",
-        "32530 Paul: 20 -> Invalid SSN"
-    ])
+    content = pa.array(
+        [
+            "Joe Doe: 123456854",
+            "John Smith: 213254000 Andrew John",
+            "Mary Paul: 213250000 -> Invalid SSN",
+            "John Paul: 213250000",
+            "32530 Paul: 20 -> Invalid SSN",
+        ]
+    )
     names = [11, 22, 33, 44, 55]
     input_table = pa.Table.from_arrays([content, names], names=["content", "name"])
 
@@ -208,7 +225,7 @@ def main():  # pragma: no cover
 
 
 # main entry point into the program; used for unit testing only
-if __name__ == '__main__':  # pragma: no cover
+if __name__ == "__main__":  # pragma: no cover
     main()
 
 # Made with Bob

@@ -1,6 +1,6 @@
 import hashlib
-from typing import Any, Optional
 from logging import Logger
+from typing import Any
 
 import pyarrow as pa
 
@@ -11,7 +11,8 @@ from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # Try to import DocIDTransform from dpk_doc_id
 try:
-    from dpk_doc_id import DocIDTransform, hash_column_name_key, doc_column_name_key
+    from dpk_doc_id import DocIDTransform, doc_column_name_key, hash_column_name_key
+
     HAS_DOC_ID_TRANSFORM: bool = True
 except ImportError:
     HAS_DOC_ID_TRANSFORM: bool = False
@@ -22,9 +23,11 @@ except ImportError:
 # Try to import TransformUtils from data-prep-toolkit-transforms
 try:
     from data_processing.utils import TransformUtils
+
     HAS_TRANSFORM_UTILS: bool = True
 except ImportError:
     HAS_TRANSFORM_UTILS: bool = False
+
     # Fallback implementation
     class TransformUtils:
         @staticmethod
@@ -33,6 +36,7 @@ except ImportError:
             new_column: pa.Array = pa.array(content)
             new_field: pa.Field = pa.field(name, new_column.type)
             return table.append_column(new_field, new_column)
+
 
 logger: Logger = get_logger()
 
@@ -69,14 +73,12 @@ class DocIdHashOperator(AbstractOperator):
 
         # Initialize DocIDTransform if available
         if HAS_DOC_ID_TRANSFORM and DocIDTransform is not None:
-            self._doc_id_transform: Optional[Any] = DocIDTransform(config)
+            self._doc_id_transform: Any | None = DocIDTransform(config)
         else:
-            self._doc_id_transform: Optional[Any] = None
+            self._doc_id_transform: Any | None = None
 
     def get_metadata(self) -> dict[str, Any]:
-        return {
-            OperatorConstants.IS_OPERATOR_AVAILABLE: False
-        }
+        return {OperatorConstants.IS_OPERATOR_AVAILABLE: False}
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -109,7 +111,7 @@ class DocIdHashOperator(AbstractOperator):
             else:
                 logger.warning(
                     f"Column '{self.doc_column}' not found in table. Generating hash IDs from row index.",
-                    extra=self.common_log_arguments
+                    extra=self.common_log_arguments,
                 )
                 for idx in range(table.num_rows):
                     hash_id: str = hashlib.sha256(str(idx).encode("utf-8")).hexdigest()

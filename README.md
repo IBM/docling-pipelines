@@ -245,6 +245,42 @@ This means the backend folder is treated as the package root, not `datasift_open
 
 ### Code Quality
 
+#### Pre-commit Hooks
+
+This project uses pre-commit hooks to automatically check and format code before commits. The hooks include:
+- **Ruff**: Python linting and formatting
+- **detect-secrets**: Prevent committing secrets
+- **uv-export**: Keep requirements.txt in sync with pyproject.toml
+
+**Setup pre-commit hooks:**
+```bash
+# Install pre-commit hooks (one-time setup)
+cd src/datasift_opensource/backend
+uv run pre-commit install
+```
+
+**Run hooks manually:**
+```bash
+# Run on all files
+uv run pre-commit run --all-files
+
+# Run on staged files only
+uv run pre-commit run
+
+# Run specific hook
+uv run pre-commit run ruff --all-files
+uv run pre-commit run ruff-format --all-files
+```
+
+**Update hook versions:**
+```bash
+uv run pre-commit autoupdate
+```
+
+Once installed, the hooks will automatically run on `git commit`. If any hook fails, the commit will be blocked until issues are fixed.
+
+#### Manual Code Quality Tools
+
 Format code with black:
 ```bash
 uv run black .
@@ -258,6 +294,18 @@ uv run flake8 .
 Type checking with mypy:
 ```bash
 uv run mypy .
+```
+
+Run Ruff manually:
+```bash
+# Check for issues
+uv run ruff check .
+
+# Fix issues automatically
+uv run ruff check --fix .
+
+# Format code
+uv run ruff format .
 ```
 
 ## API Development

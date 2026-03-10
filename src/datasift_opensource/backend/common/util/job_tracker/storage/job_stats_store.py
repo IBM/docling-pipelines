@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
+
 from common.util.constants import ExecutionStatus
+from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.log import get_logger
 
 logger = get_logger()
@@ -39,7 +40,7 @@ class JobStatsStore(ABC):
             ExecutionStatus.RUNNING: 8,
             ExecutionStatus.STARTING: 9,
             ExecutionStatus.QUEUED: 10,
-            ExecutionStatus.COMPLETED: 1000
+            ExecutionStatus.COMPLETED: 1000,
         }
         if status_codes[old_stat] < status_codes[new_stat]:
             return old_stat
@@ -128,7 +129,7 @@ class JobStatsStore(ABC):
     def atomic_increment_fields(self, *, job_run_id: str, increments: dict, updates: dict | None = None):
         """
         Atomically increment numeric fields and update other fields.
-        
+
         Args:
             job_run_id: The job run ID to update
             increments: Dict mapping metric names to increment values
@@ -151,8 +152,8 @@ class JobStatsStore(ABC):
 
     @staticmethod
     def _is_cmd_line_mode() -> bool:
-        from common.models.session_info import get_session_info, SessionInfo
-        
+        from common.models.session_info import SessionInfo, get_session_info
+
         session_info: SessionInfo = get_session_info()
         orchestrator: Any | None = session_info.orchestrator
         return orchestrator.__class__.__name__ == "CommandLineOrchestrator"
