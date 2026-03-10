@@ -201,7 +201,10 @@ class ChatState(rx.State):
         #    return
 
         # Get the index name from file_state (extracted from flow JSON)
-        index_name = file_state.datasift_index or "datasift_documents"
+        project_root = Path(__file__).parents[6]
+        from .file_state import get_index_name_from_flow
+        static_index_name = get_index_name_from_flow(project_root)
+        index_name = file_state.datasift_index or static_index_name
 
         # 4. Run query in a thread pool — keeps the event loop free
         try:

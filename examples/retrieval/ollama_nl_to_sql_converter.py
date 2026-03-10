@@ -299,7 +299,7 @@ DATABASE SCHEMA:
 {schema_str}
 
 IMPORTANT RULES:
-1. Table name in the FROM clause MUST be '{self.index_name}' (the actual OpenSearch index name)
+1. Table name in the FROM clause MUST be '{self.index_name}', (the actual OpenSearch index name). Do not use double quotes around the table name
 2. Use nested field notation with dots (e.g., vendor.name, customer.address.city)
 3. OpenSearch SQL supports standard SQL syntax
 4. Use appropriate aggregations: COUNT, SUM, AVG, MAX, MIN
