@@ -58,10 +58,10 @@ def _identify_ingest_and_destination_nodes(*, dag_nodes: list[dict[str, Any]]) -
     ingest_node_id = None
     destination_node_ids = []
     for node in dag_nodes:
-        if not node["input_edges"]:
+        if not node.get(DatasiftConstants.INPUT_EDGES):
             ingest_node_id = node[OperatorConstants.ID]
             logger.debug(f"Ingest node identified: {ingest_node_id}")
-        if not node["output_edges"]:
+        if not node.get(DatasiftConstants.OUTPUT_EDGES):
             destination_node_ids.append(node[OperatorConstants.ID])
             logger.debug(f"Destination node identified: {node[OperatorConstants.ID]}")
     return ingest_node_id, destination_node_ids

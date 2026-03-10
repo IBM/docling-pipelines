@@ -19,9 +19,7 @@
                     "input_folder": "./tests/fixtures/customer_support_docs",
                     "include_filter": "txt" ,
                     "store_binary_content": "false"
-                },
-                "input_edges": [],
-                "output_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}]
+                }
             },
             {
                 "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
@@ -29,9 +27,7 @@
                 "operator": "extract_docling",
                 "config": {
                     "doc_column": "content"
-                },
-                "input_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"}],
-                "output_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}]
+                }
             },
             {
                 "id": "6101c752-523e-4a4a-84e2-81e0b2109129",
@@ -43,9 +39,7 @@
                     "chunk_size": 512,
                     "chunk_overlap": 128,
                     "retain_original_content": "true"
-                },
-                "input_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}],
-                "output_edges": ["6de879bd-bbe0-4d60-998f-031f65472a02"]
+                }
             },
 
             {
@@ -58,9 +52,7 @@
                     "embeddings_column": "embeddings",
                     "overlap_ratio": 0.2,
                     "doc_column": "content"
-                },
-                "input_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}],
-                "output_edges": ["87249dbf-4a1a-433a-91da-ee5fb3244284"]
+                }
             },
             {
                 "id": "87249dbf-4a1a-433a-91da-ee5fb3244284",
@@ -107,9 +99,7 @@
                         "content": "text",
                         "embeddings": "vector_embeddings"
                     }
-                },
-                "input_edges": [{"node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"}],
-                "output_edges": []
+                }
             }
         ]
     }
