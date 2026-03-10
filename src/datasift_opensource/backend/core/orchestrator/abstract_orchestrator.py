@@ -564,7 +564,7 @@ class AbstractOrchestrator:
         """Build a directed graph representation from the DAG."""
         graph = {n["id"]: [] for n in dag}
         for node in dag:
-            for edge in node.get("output_edges", []):
+            for edge in node.get(DatasiftConstants.OUTPUT_EDGES, []):
                 graph[node["id"]].append(edge["node_id_ref"])
         return graph
 
@@ -707,7 +707,7 @@ class AbstractOrchestrator:
                 result = self._execute_step(op_def=op_def, global_config=global_config, prev_results=prev_results,
                                             deleted_docs_count=deleted_docs_count)
 
-            if not op_def["output_edges"]:
+            if not op_def.get(DatasiftConstants.OUTPUT_EDGES):
                 node_logger.info(">>> Branch execution completed at node name: %s ", op_def["name"], extra=common_log_arguments)
             return result
         except Exception as e:
@@ -811,16 +811,15 @@ class AbstractOrchestrator:
 
         def get_prev_results(op_definitions, results_: FuturedList) -> Union[PrefectFuture, dict[str, PrefectFuture]]:
             prev_res: dict[str, PrefectFuture] = {}
-            is_batch_mode = batch_num is not None
 
-            for prev_node in op_definitions["input_edges"]:
+            for prev_node in op_definitions.get(DatasiftConstants.INPUT_EDGES, []):
                 node_id_ref = prev_node["node_id_ref"]
 
                 # Node exists in flow definition but not in node_id_to_index_map
                 # In batch mode, the ingest operator is intentionally excluded from op_flow (see line 1225)
                 # but edges still reference it. Validate whether this is the expected excluded ingest node.
                 if node_id_ref not in node_id_to_index_map: # pragma: no cover
-                    self.logger.debug(f"Node {node_id_ref} not in node_id_to_index_map. Checking: is_batch_mode={is_batch_mode}, ingest_node_id={ingest_node_id}, match={node_id_ref == ingest_node_id}", extra=common_log_arguments)
+                    self.logger.debug(f"Node {node_id_ref} not in node_id_to_index_map. Checking: ingest_node_id={ingest_node_id}, match={node_id_ref == ingest_node_id}", extra=common_log_arguments)
 
                     # In unified batch/non-batch approach, ingest is always excluded from op_flow
                     # Skip this edge if it references the ingest node; we'll create synthetic result from batch data later
@@ -830,7 +829,7 @@ class AbstractOrchestrator:
                         continue
                     else:
                         # Missing node that's not ingest - this is an error
-                        self.logger.error(f"Node {node_id_ref} not found in flow. is_batch_mode={is_batch_mode}, ingest_node_id={ingest_node_id}", extra=common_log_arguments)
+                        self.logger.error(f"Node {node_id_ref} not found in flow. ingest_node_id={ingest_node_id}", extra=common_log_arguments)
                         raise FlowExecutionFailedException(f"Node {node_id_ref} not found in flow")
                 
                 prev_index = node_id_to_index_map[node_id_ref]
@@ -857,28 +856,34 @@ class AbstractOrchestrator:
         deleted_docs_count = 0
         incremental_update_util = IncrementalUpdateUtil()
 
+        is_sequential_flow = False if op_flow[0].get(DatasiftConstants.INPUT_EDGES) or op_flow[0].get(DatasiftConstants.OUTPUT_EDGES) else True
+        prev_index = None
+
         for op_def in op_flow:
             index = node_id_to_index_map[op_def[OperatorConstants.ID]]
             try:
-                # In batch mode, ingest is already done - all operators have input_edges or use batch data
                 link_id = op_def.get(OperatorConstants.LINK_ID, None)
-                prev_results = get_prev_results(op_def, results) if op_def["input_edges"] else None
-
-                # In batch mode: if prev_results is None (first operator after ingest), create synthetic result from batch data
-                if prev_results is None:  # pragma: no cover
-                    # Batch mode: ingest was excluded, create synthetic result from batch data
+                if prev_index is None:
+                    #  if prev_results is None (first operator after ingest), create synthetic result from batch data
                     batch_table = data_access.get_table("")[0]
                     prev_results = ExecuteStepResults([data_access], [batch_table], {})
+                else:
+                    prev_results = results.get_future(prev_index) if is_sequential_flow else get_prev_results(op_def, results)
 
                 future = inner_task.submit(
                     op_def=op_def, global_config=global_config, prev_results=prev_results,
                     job_log_final_path=job_log_final_path, common_log_arguments=common_log_arguments,
                     session_info=session_info, deleted_docs_count=deleted_docs_count, link_id=link_id)
 
-                if not op_def["output_edges"]:
-                    destinations.append((future, op_def))
+                if is_sequential_flow:
+                    destinations = [(future, op_def)]
+                    results.set_entry(index, future, 1)
                 else:
-                    results.set_entry(index, future, len(op_def["output_edges"]))
+                    if not op_def.get(DatasiftConstants.OUTPUT_EDGES):
+                        destinations.append((future, op_def))
+                    else:
+                        results.set_entry(index, future, len(op_def.get(DatasiftConstants.OUTPUT_EDGES)))
+                prev_index = index
             except Exception as e:
                 self._handle_exception(e=e, op_def=op_def, job_log_final_path=job_log_final_path,
                                        common_log_arguments=common_log_arguments, global_config=global_config)
@@ -939,10 +944,10 @@ class AbstractOrchestrator:
                     future = main_task.submit(op_def[OperatorConstants.NAME], op_def, result, None)
                 submitted_futures.append((future, op_def))
 
-                if not op_def["output_edges"]:
+                if not op_def.get(DatasiftConstants.OUTPUT_EDGES):
                     destinations.append((future, op_def))
                 else:
-                    results.set_entry(index, future, len(op_def["output_edges"]))
+                    results.set_entry(index, future, len(op_def.get(DatasiftConstants.OUTPUT_EDGES)))
 
                 if kwargs.get('stop_node_id') == op_def.get(OperatorConstants.ID):
                     logger.info(
@@ -1043,16 +1048,7 @@ class AbstractOrchestrator:
             return self.finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path,
                                           common_log_arguments=common_log_arguments)
 
-        # ============================================================
-        # CONDITIONAL BATCH CREATION
-        # Note: Micro-batching is only applied for Python orchestrator
-        # ============================================================
-        should_create_batches = (
-                enable_batching and  # Feature flag enabled
-                orchestrator_type != OrchestratorType.SPARK  # Not Spark orchestrator
-        )
-
-        if should_create_batches:
+        if enable_batching:
             # BATCH MODE: Split table into multiple batches (Python orchestrator only)
             # batch_size is guaranteed to have a value here (either from config or default)
             batches = self._create_batches(table=ingested_table, batch_size=batch_size)
@@ -1304,9 +1300,9 @@ class AbstractOrchestrator:
         set_session_info(session_info)
         self.logger.info(f"Validating node: {node_name} ({operator})", extra=common_log_arguments)
 
-        input_refs = op_def.get("input_edges", [])  # list of dicts with node_id_ref
+        input_refs = op_def.get(DatasiftConstants.INPUT_EDGES, [])  # list of dicts with node_id_ref
         prev_node_ids = [ref.get("node_id_ref") for ref in input_refs if "node_id_ref" in ref]
-        output_refs = op_def.get("output_edges", [])
+        output_refs = op_def.get(DatasiftConstants.OUTPUT_EDGES, [])
 
         available_features = set()
         for parent_id in prev_node_ids:
@@ -1461,7 +1457,7 @@ class AbstractOrchestrator:
             PyArrow table with merged batch results from all final operators, or None if not found
         """
         # Find final operators (those with no output_edges)
-        final_operators = [op for op in op_flow if not op.get("output_edges")]
+        final_operators = [op for op in op_flow if not op.get(DatasiftConstants.OUTPUT_EDGES)]
 
         if not final_operators:
             self.logger.warning(f"No final operators found in DAG for batch {batch_num}")

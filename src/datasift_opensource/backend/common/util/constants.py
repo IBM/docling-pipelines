@@ -5,6 +5,8 @@ from typing import TypedDict
 
 class DatasiftConstants:
     # Defines constants that are used across Datasift service
+    INPUT_EDGES = "input_edges"
+    OUTPUT_EDGES = "output_edges"
     INPUT = "input"
     LOGGER_NAME = "DATASIFT"
     SESSION_INFO = "session_info"
