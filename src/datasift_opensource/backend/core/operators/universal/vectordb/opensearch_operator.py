@@ -498,7 +498,7 @@ class OpenSearchOperator(AbstractOperator):
         """Calculate approximate size of documents in bytes"""
         try:
             return len(json.dumps(documents).encode("utf-8"))
-        except:
+        except Exception:
             return 0
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:

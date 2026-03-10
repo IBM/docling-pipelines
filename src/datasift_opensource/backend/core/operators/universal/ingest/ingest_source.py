@@ -5,7 +5,11 @@ import hashlib
 import importlib
 import io
 import json
+import os
+import tempfile
 import boto3
+from typing import Any, Optional, Dict, List, Tuple, Union, Iterator
+import hashlib
 import pyarrow as pa
 
 # Import standard LangChain loaders
@@ -15,7 +19,7 @@ from langchain_community.document_loaders import (
     S3FileLoader,
     SharePointLoader,
 )
-from langchain_core.document_loaders.base import BaseLoader
+from langchain_google_community import GoogleDriveLoader
 from langchain_core.documents import Document
 from langchain_core.document_loaders import BaseLoader
 
@@ -221,7 +225,6 @@ class MicrosoftGraphLoader(BaseLoader):
     def load(self) -> List[Document]:
         return list(self.lazy_load())
 
-
 from common.util.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -328,15 +331,26 @@ class IngestSourceOperator(AbstractOperator):
         else:
             # Create empty table with expected schema (matches IngestLocalOperator output)
             output_table = pa.Table.from_pydict(
-                {"text": [], "metadata": [], "source_id": [], "id": [], "name": [], "modified_time": []},
-                schema=pa.schema([
-                    ('text', pa.string()),
-                    ('metadata', pa.string()),
-                    ('source_id', pa.string()),
-                    ('id', pa.string()),
-                    ('name', pa.string()),
-                    ('modified_time', pa.int64())
-                ])
+                {
+                    "id": [],
+                    "name": [],
+                    "metadata": [],
+                    "source_id": [],
+                    "path": [],
+                    "binary_content": [],
+                    "modified_time": []
+                },
+                schema=pa.schema(
+                    [
+                        ("id", pa.string()),
+                        ("name", pa.string()),
+                        ("metadata", pa.string()),
+                        ("source_id", pa.string()),
+                        ("path", pa.string()),
+                        ("binary_content", pa.binary()),
+                        ("modified_time", pa.int64())
+                    ]
+                ),
             )
 
         # Update metadata
@@ -452,7 +466,7 @@ class IngestSourceOperator(AbstractOperator):
                     from dateutil import parser
 
                     modified_time = int(parser.parse(modified_time).timestamp())
-                except:
+                except Exception:
                     modified_time = 0
 
             if self.previously_processed_docs_dict and is_doc_previously_processed(

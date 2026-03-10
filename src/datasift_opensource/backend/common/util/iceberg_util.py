@@ -1,8 +1,6 @@
 from pathlib import Path
 
-from common.util.log import get_logger
 
-logger = get_logger()
 DEFAULT_WAREHOUSE_FOLDER = "./data"
 
 
