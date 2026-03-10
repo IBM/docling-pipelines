@@ -90,7 +90,7 @@ all-cloud = [
 
 [project.scripts]
 datasift-api = "datasift_opensource.backend.app.main:app"
-datasift-orchestrator = "core.orchestrator.cmdline.cmd_line_orchestrator:main"
+datasift-orchestrator = "datasift_opensource.backend.orchestrator.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

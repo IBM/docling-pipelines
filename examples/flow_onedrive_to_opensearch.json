@@ -18,12 +18,12 @@
                 "config": {
                     "provider": "onedrive",
                     "connection_params": {
-                        "drive_id": "b!TyD7d666v0WjgkmT_7eUx3Bn8_n-vS5Lsy1TB-TPtDgcrs1nyK5BS5Wmzz-VTv1q"
+                        "drive_id": "insert_drive_id_here"
                     },
                     "credentials": {
-                        "client_id": "a10321ae-a4a2-45b0-8521-fc31df993a92",
-                        "client_secret": "iu98Q~mT7.7RsevxhCf_N0p5SWX.q49OgQH29chw",
-                        "tenant_id": "5026bd25-722a-46f0-9a21-245d84612840"
+                        "client_id": "insert_client_id_here",
+                        "client_secret": "insert_client_secret_here",
+                        "tenant_id": "insert_tenant_id_here"
                     },
                     "include_filter": "pdf,docx,txt,pptx",
                     "max_files": 100,
