@@ -10,7 +10,7 @@ from common.util.log import get_logger
 from common.exceptions.datasift_exceptions import ValidationAlert
 from common.exceptions.datasift_exceptions import ErrorCode
 from common.exceptions.error_messages import ValidationMessage
-from common.util.constants import OperatorConstants #, RetryConstants, Environments, BucketTypes, \
+from common.util.constants import OperatorConstants
 
 logger = get_logger()
 

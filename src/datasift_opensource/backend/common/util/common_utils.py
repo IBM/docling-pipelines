@@ -1,6 +1,4 @@
-import base64
 import json
-import os
 import re
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional
@@ -15,28 +13,8 @@ class Singleton(type):
         return cls._instances[cls]
 
 
-def lowercase_dict(*, input_dict: dict[str, str]):
-    return {key.lower(): value.lower() for key, value in input_dict.items()}
-
-
 def lowercase_keys(*, input_dict: dict[str, Any]):
     return {key.lower(): value for key, value in input_dict.items()}
-
-
-def encode_dict_to_base64(*, data):
-    """Encodes a dictionary to base64.
-
-    Args:
-        data (dict): The dictionary to encode.
-
-    Returns:
-        str: The base64 encoded string representation of the dictionary.
-    """
-    json_string = json.dumps(data)
-    json_bytes = json_string.encode('utf-8')
-    base64_bytes = base64.b64encode(json_bytes)
-    base64_string = base64_bytes.decode('utf-8')
-    return base64_string
 
 
 def batch_list(*, input_list: list, batch_size=20):
@@ -79,10 +57,6 @@ def process_in_batches(*, processor: Callable[..., list | None], input_list: lis
         start_index_offset += len(input_batch)
 
     return result_responses
-
-
-def get_environment_variable_value(*, env_var_name: str = None):
-    return os.getenv(env_var_name)
 
 
 def split_text_into_chunks(*, text, min_size=3000, max_size=4000):

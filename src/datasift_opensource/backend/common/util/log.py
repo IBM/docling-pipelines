@@ -96,7 +96,6 @@ def get_logger(name: str = DatasiftConstants.LOGGER_NAME,
         is_pg: Enable Postgres logging if True.
         pg_params: Dict containing:
             {
-                "project_id": str,
                 "job_id": str,
                 "job_run_id": str,
                 "node_id": str,

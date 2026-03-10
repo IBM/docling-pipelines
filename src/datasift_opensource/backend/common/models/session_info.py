@@ -8,13 +8,12 @@ class SessionInfo:
     """ A class to store the attributes that do not change and needed in multiple places while executing the request """
     
     def __init__(self, orchestrator=None, job_id=None, job_run_id=None, flow_id=None, transaction_id=None,
-                 use_presto: bool=False, track_perf: Optional[Any]=False, application=None): # NOSONAR
+                 track_perf: Optional[Any] = False, application=None):  # NOSONAR
         self.orchestrator = orchestrator
         self.job_id = job_id
         self.job_run_id = job_run_id
         self.flow_id = flow_id
         self.transaction_id = transaction_id
-        self.use_presto: bool = use_presto
         self.track_perf = track_perf
         self.application = application
 
@@ -27,11 +26,9 @@ session_info_var: ContextVar[Optional[SessionInfo]] = ContextVar("session_info",
 
 def create_session_info(orchestrator=None, job_id=None, job_run_id=None, flow_id=None,
                         transaction_id=DatasiftConstants.DEFAULT_TRANSACTION_ID,
-                        use_presto: bool=False, entitlements: Optional[dict] = None,
                         track_perf: Optional[Any]=False): # NOSONAR
     session_info = SessionInfo(orchestrator=orchestrator, job_id=job_id, job_run_id=job_run_id, flow_id=flow_id,
-                               transaction_id=transaction_id,
-                               use_presto=use_presto, track_perf=track_perf)
+                               transaction_id=transaction_id, track_perf=track_perf)
     session_info_var.set(session_info)
     return session_info
 

@@ -127,6 +127,7 @@ class JobStatsDto(BaseModel):
             flow_id=model.flow_id
         )
 
+
 class NodeStatsDto(BaseModel):
 
     @classmethod

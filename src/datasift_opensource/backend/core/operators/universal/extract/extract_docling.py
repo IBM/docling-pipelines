@@ -10,7 +10,7 @@ import logging
 import os
 import tempfile
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional, Tuple
 from pathlib import Path
 
 import pyarrow as pa
@@ -23,24 +23,24 @@ from common.util.log import get_logger
 # Try to import TransformUtils from data-prep-toolkit-transforms
 try:
     from data_processing.utils import TransformUtils
-    HAS_TRANSFORM_UTILS = True
+    HAS_TRANSFORM_UTILS: bool = True
 except ImportError:
-    HAS_TRANSFORM_UTILS = False
+    HAS_TRANSFORM_UTILS: bool = False
     # Fallback implementation
     class TransformUtils:
         @staticmethod
-        def add_column(table: pa.Table, name: str, content: list) -> pa.Table:
+        def add_column(table: pa.Table, name: str, content: List[Any]) -> pa.Table:
             """Add a column to a PyArrow table."""
             # Infer the type from the content
-            new_column = pa.array(content)
-            new_field = pa.field(name, new_column.type)
+            new_column: pa.Array = pa.array(content)
+            new_field: pa.Field = pa.field(name, new_column.type)
             return table.append_column(new_field, new_column)
 
 from docling.document_converter import DocumentConverter
 from docling.datamodel.base_models import InputFormat
 from docling_core.types.doc.document import PictureItem, TableItem
 
-logger = get_logger()
+logger: logging.Logger = get_logger()
 
 
 def _extract_basic_worker(file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool) -> Dict[str, Any]:
@@ -255,10 +255,10 @@ class ExtractDoclingOperator(AbstractOperator):
     and optionally DocumentExtractor for template-based extraction.
     """
     
-    short_name = OperatorConstants.EXTRACT_DOCLING
-    category = OperatorCategory.Extract
+    short_name: str = OperatorConstants.EXTRACT_DOCLING
+    category: OperatorCategory = OperatorCategory.Extract
     
-    def __init__(self, config: dict[str, Any]):
+    def __init__(self, config: Dict[str, Any]) -> None:
         """
         Initialize the operator with configuration.
         
@@ -275,25 +275,25 @@ class ExtractDoclingOperator(AbstractOperator):
                 - use_processes: Use ProcessPoolExecutor instead of ThreadPoolExecutor (default: False)
         """
         super().__init__(config)
-        self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.doc_id_hash = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
-        self.extract_tables = config.get(OperatorConstants.EXTRACT_TABLES, True)
-        self.extract_images = config.get(OperatorConstants.EXTRACT_IMAGES, True)
-        self.use_template = config.get(OperatorConstants.USE_TEMPLATE, False)
-        self.template = config.get(OperatorConstants.TEMPLATE, None)
-        self.expand_extracted_data = config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
+        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.extract_tables: bool = config.get(OperatorConstants.EXTRACT_TABLES, True)
+        self.extract_images: bool = config.get(OperatorConstants.EXTRACT_IMAGES, True)
+        self.use_template: bool = config.get(OperatorConstants.USE_TEMPLATE, False)
+        self.template: Optional[Dict[str, Any]] = config.get(OperatorConstants.TEMPLATE, None)
+        self.expand_extracted_data: bool = config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
         
         # Parallel processing configuration
-        self.max_workers = config.get(OperatorConstants.MAX_WORKERS, self._get_optimal_workers())
-        self.use_processes = config.get(OperatorConstants.USE_PROCESSES, False)
+        self.max_workers: int = config.get(OperatorConstants.MAX_WORKERS, self._get_optimal_workers())
+        self.use_processes: bool = config.get(OperatorConstants.USE_PROCESSES, False)
         
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.common_log_arguments: Dict[str, Any] = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
         
         # Initialize Docling converter
-        self.converter = DocumentConverter()
+        self.converter: DocumentConverter = DocumentConverter()
         
         # Initialize DocumentExtractor if template extraction is enabled
-        self.extractor = None
+        self.extractor: Optional[Any] = None
         if self.use_template and self.template:
             try:
                 from docling.document_extractor import DocumentExtractor
@@ -567,7 +567,7 @@ class ExtractDoclingOperator(AbstractOperator):
                 OperatorConstants.DOC_COLUMN_DEFAULT: None
             }
     
-    def _expand_extracted_data_columns(self, table: pa.Table, extracted_data_list: list) -> pa.Table:
+    def _expand_extracted_data_columns(self, table: pa.Table, extracted_data_list: List[Optional[Any]]) -> pa.Table:
         """
         Expand the extracted_data column into individual columns based on the template structure.
         Each key in the extracted_data becomes a separate column in the PyArrow table.
@@ -636,7 +636,7 @@ class ExtractDoclingOperator(AbstractOperator):
         
         return table
     
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table) -> Tuple[List[pa.Table], Dict[str, Any]]:
         """
         Transform the input table by extracting content from documents.
         
@@ -814,7 +814,7 @@ class ExtractDoclingOperator(AbstractOperator):
         
         return [table], metadata
     
-    def get_metadata(self):
+    def get_metadata(self) -> Dict[str, Any]:
         """
         Get metadata about the operator including features and attributes.
         Follows the structure of IngestLocalOperator.get_metadata()
@@ -931,7 +931,7 @@ class ExtractDoclingOperator(AbstractOperator):
         }
 
 
-def main():
+def main() -> int:
     """
     Main function to test the extract_docling_operator.
     Configure the variables below to test different extraction scenarios.
@@ -940,18 +940,18 @@ def main():
     # Set these variables to configure the extraction
     
     # Input: Path to file or directory
-    input_path_str = "tests/fixtures/invoices/TR-INV_044_1_1.1.pdf"
+    input_path_str: str = "tests/fixtures/invoices/TR-INV_044_1_1.1.pdf"
 
     # Use template-based extraction (True) or basic markdown extraction (False)
-    use_template = False
+    use_template: bool = False
     
     # File pattern for directory processing (only used if input is a directory)
-    file_pattern = "*.pdf"
+    file_pattern: str = "*.pdf"
     
     # ================================================
     
     # Define invoice template for structured extraction
-    invoice_template = {
+    invoice_template: Dict[str, str] = {
         "invoice_number": "string",
         "invoice_date": "string",
         "payment_due": "string",
@@ -965,7 +965,7 @@ def main():
     }
     
     # Initialize operator
-    config = {
+    config: Dict[str, Any] = {
         OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
         OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT,
         OperatorConstants.EXTRACT_TABLES: True,
@@ -974,9 +974,9 @@ def main():
         OperatorConstants.TEMPLATE: invoice_template if use_template else None
     }
     
-    operator = ExtractDoclingOperator(config)
+    operator: ExtractDoclingOperator = ExtractDoclingOperator(config)
     
-    input_path = Path(input_path_str)
+    input_path: Path = Path(input_path_str)
     
     if input_path.is_file():
         logger.info(f"Processing single file: {input_path}")
