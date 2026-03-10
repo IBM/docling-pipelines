@@ -101,7 +101,7 @@ cd ../../..  # Return to project root
 
 ## Running the Application
 
-### FastAPI Server (TBD)
+### FastAPI Server
 
 Start the FastAPI server with uvicorn:
 ```bash

@@ -71,7 +71,7 @@ google-drive = [
     "langchain-google-community==3.0.5",
 ]
 microsoft = [
-    "O365==2.1.9",  # For SharePoint and OneDrive
+    "o365==2.1.9",  # For SharePoint and OneDrive
     "langchain-community==0.4.1",
 ]
 all-cloud = [
