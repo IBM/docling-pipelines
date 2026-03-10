@@ -278,6 +278,9 @@ class OperatorConstants:
     HAP_REDACTION_KEY = "hap_redaction"
     PII_FIELD_NAME = "pii"
     HAP_FIELD_NAME = "hap"
+    DEFAULT_REDACTION_VALUE = False
+    DEFAULT_REDACTION_CHARACTER_VALUE = "*"
+    PARTIAL_INGEST = "partial_ingest"
     REGEX_KEY = "regex"
     SDK = "sdk"
     DELETED = "deleted"
