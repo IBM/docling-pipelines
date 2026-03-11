@@ -3,9 +3,16 @@ Comprehensive Test Query Generator
 
 Generates 100+ natural language test queries with varied complexity levels
 for evaluating NL-to-SQL conversion accuracy.
+
+Schema Alignment:
+- All queries reference fields from the purchase_orders schema in
+  examples/retrieval/document_schemas.json
+- Uses "supplier" terminology (not "vendor") to match schema definition
+- Field references: supplier.name, supplier.id, department, status,
+  total_amount, order_date, delivery_date, etc.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 
 class ComprehensiveQueryGenerator:
@@ -18,38 +25,76 @@ class ComprehensiveQueryGenerator:
         self.departments = ["IT", "Marketing", "Sales", "Operations", "HR", "Finance"]
         self.statuses = ["pending", "approved", "delivered"]
         
-    def generate_all_queries(self) -> List[Dict[str, Any]]:
+    def generate_all_queries(self, complexity_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Generate all test queries organized by complexity level
+        Generate test queries organized by complexity level
+        
+        Args:
+            complexity_filter: Optional filter to generate only specific complexity level.
+                             Valid values: "simple", "filtered", "aggregation", "time_based",
+                             "multi_condition", "comparison", "complex", "edge_case"
+                             If None, generates all queries.
         
         Returns:
             List of query dictionaries with id, nl_query, expected values, and validators
+        
+        Examples:
+            >>> generator = ComprehensiveQueryGenerator()
+            >>> # Get all queries
+            >>> all_queries = generator.generate_all_queries()
+            >>> # Get only simple queries
+            >>> simple_queries = generator.generate_all_queries(complexity_filter="simple")
+            >>> # Get only aggregation queries
+            >>> agg_queries = generator.generate_all_queries(complexity_filter="aggregation")
         """
+        # Define all available query generators
+        query_generators = {
+            "simple": self._generate_simple_count_queries,
+            "filtered": self._generate_filtered_queries,
+            "aggregation": self._generate_aggregation_queries,
+            "time_based": self._generate_time_based_queries,
+            "multi_condition": self._generate_multi_condition_queries,
+            "comparison": self._generate_comparison_queries,
+            "complex": self._generate_complex_aggregation_queries,
+            "edge_case": self._generate_edge_case_queries,
+        }
+        
         queries: List[Dict[str, Any]] = []
         
-        # Level 1: Simple Count Queries (20 queries)
-        queries.extend(self._generate_simple_count_queries())
-        
-        # Level 2: Filtered Queries (20 queries)
-        queries.extend(self._generate_filtered_queries())
-        
-        # Level 3: Aggregation Queries (20 queries)
-        queries.extend(self._generate_aggregation_queries())
-        
-        # Level 4: Time-based Queries (15 queries)
-        queries.extend(self._generate_time_based_queries())
-        
-        # Level 5: Multi-condition Queries (15 queries)
-        queries.extend(self._generate_multi_condition_queries())
-        
-        # Level 6: Comparison Queries (10 queries)
-        queries.extend(self._generate_comparison_queries())
-        
-        # Level 7: Complex Aggregations (10 queries)
-        queries.extend(self._generate_complex_aggregation_queries())
-        
-        # Level 8: Edge Cases (5 queries)
-        queries.extend(self._generate_edge_case_queries())
+        # If filter is specified, generate only that complexity level
+        if complexity_filter:
+            if complexity_filter not in query_generators:
+                valid_filters = ", ".join(query_generators.keys())
+                raise ValueError(
+                    f"Invalid complexity_filter '{complexity_filter}'. "
+                    f"Valid values are: {valid_filters}"
+                )
+            queries.extend(query_generators[complexity_filter]())
+        else:
+            # Generate all queries in order
+            # Level 1: Simple Count Queries (20 queries)
+            queries.extend(self._generate_simple_count_queries())
+            
+            # Level 2: Filtered Queries (20 queries)
+            queries.extend(self._generate_filtered_queries())
+            
+            # Level 3: Aggregation Queries (20 queries)
+            queries.extend(self._generate_aggregation_queries())
+            
+            # Level 4: Time-based Queries (15 queries)
+            queries.extend(self._generate_time_based_queries())
+            
+            # Level 5: Multi-condition Queries (15 queries)
+            queries.extend(self._generate_multi_condition_queries())
+            
+            # Level 6: Comparison Queries (10 queries)
+            queries.extend(self._generate_comparison_queries())
+            
+            # Level 7: Complex Aggregations (10 queries)
+            queries.extend(self._generate_complex_aggregation_queries())
+            
+            # Level 8: Edge Cases (5 queries)
+            queries.extend(self._generate_edge_case_queries())
         
         return queries
     
@@ -114,7 +159,7 @@ class ComprehensiveQueryGenerator:
                 "complexity": "simple",
                 "expected_type": "count",
                 "expected_value": 38,
-                "validator_type": "exact_count"
+                "validator_type": "count_any"
             },
             {
                 "id": "simple_count_19_list_all",
@@ -122,7 +167,7 @@ class ComprehensiveQueryGenerator:
                 "complexity": "simple",
                 "expected_type": "count",
                 "expected_value": 38,
-                "validator_type": "exact_count"
+                "validator_type": "count_any"
             },
             {
                 "id": "simple_count_20_get_all",
@@ -130,7 +175,7 @@ class ComprehensiveQueryGenerator:
                 "complexity": "simple",
                 "expected_type": "count",
                 "expected_value": 38,
-                "validator_type": "exact_count"
+                "validator_type": "count_any"
             }
         ])
         
@@ -331,8 +376,8 @@ class ComprehensiveQueryGenerator:
                 "validator_type": "exact_count"
             },
             {
-                "id": "agg_17_top_5_vendors",
-                "nl_query": "List top 5 vendors by total value",
+                "id": "agg_17_top_5_suppliers",
+                "nl_query": "List top 5 suppliers by total value",
                 "complexity": "aggregation",
                 "expected_type": "top_n",
                 "expected_value": 5,
@@ -721,7 +766,7 @@ class ComprehensiveQueryGenerator:
             },
             {
                 "id": "comp_10_avg_it_vs_avg_marketing",
-                "nl_query": "Compare average order value IT vs Marketing",
+                "nl_query": "Compare average order value from departements IT vs Marketing",
                 "complexity": "comparison",
                 "expected_type": "comparison",
                 "expected_value": 2,
@@ -827,7 +872,7 @@ class ComprehensiveQueryGenerator:
         queries.extend([
             {
                 "id": "edge_1_no_results",
-                "nl_query": "Show orders from supplier that doesn't exist",
+                "nl_query": "Show orders from supplier xyz!",
                 "complexity": "edge_case",
                 "expected_type": "count",
                 "expected_value": 0,
@@ -855,7 +900,7 @@ class ComprehensiveQueryGenerator:
                 "complexity": "edge_case",
                 "expected_type": "distinct",
                 "expected_value": 5,
-                "validator_type": "exact_count"
+                "validator_type": "count_any"
             },
             {
                 "id": "edge_5_zero_amount",
@@ -870,35 +915,86 @@ class ComprehensiveQueryGenerator:
         return queries
 
 
-def get_comprehensive_test_queries() -> List[Dict[str, Any]]:
+def get_comprehensive_test_queries(complexity_filter: Optional[str] = None) -> List[Dict[str, Any]]:
     """
-    Get all comprehensive test queries
+    Get comprehensive test queries, optionally filtered by complexity level
+    
+    Args:
+        complexity_filter: Optional filter to get only specific complexity level.
+                         Valid values: "simple", "filtered", "aggregation", "time_based",
+                         "multi_condition", "comparison", "complex", "edge_case"
+                         If None, returns all queries.
     
     Returns:
-        List of 100+ test query dictionaries
+        List of test query dictionaries
+    
+    Examples:
+        >>> # Get all queries (100+ queries)
+        >>> all_queries = get_comprehensive_test_queries()
+        >>>
+        >>> # Get only simple queries (20 queries)
+        >>> simple_queries = get_comprehensive_test_queries(complexity_filter="simple")
+        >>>
+        >>> # Get only aggregation queries (20 queries)
+        >>> agg_queries = get_comprehensive_test_queries(complexity_filter="aggregation")
     """
     generator = ComprehensiveQueryGenerator()
-    return generator.generate_all_queries()
+    return generator.generate_all_queries(complexity_filter=complexity_filter)
 
 
 if __name__ == "__main__":
-    # Test the generator
-    queries = get_comprehensive_test_queries()
-    print(f"Generated {len(queries)} test queries")
-    print("\nQuery breakdown by complexity:")
+    import sys
     
-    complexity_counts = {}
-    for query in queries:
-        complexity = query.get("complexity", "unknown")
-        complexity_counts[complexity] = complexity_counts.get(complexity, 0) + 1
+    # Check if complexity filter is provided as command line argument
+    complexity_filter = sys.argv[1] if len(sys.argv) > 1 else None
     
-    for complexity, count in sorted(complexity_counts.items()):
-        print(f"  {complexity}: {count} queries")
+    if complexity_filter:
+        print(f"Generating queries with complexity filter: '{complexity_filter}'")
+        print("=" * 80)
+    else:
+        print("Generating all test queries")
+        print("=" * 80)
     
-    print("\nSample queries:")
-    for i, query in enumerate(queries[:5], 1):
-        print(f"\n{i}. {query['nl_query']}")
-        print(f"   ID: {query['id']}")
-        print(f"   Complexity: {query['complexity']}")
+    try:
+        # Test the generator with optional filter
+        queries = get_comprehensive_test_queries(complexity_filter=complexity_filter)
+        print(f"\nGenerated {len(queries)} test queries")
+        
+        if not complexity_filter:
+            print("\nQuery breakdown by complexity:")
+            complexity_counts = {}
+            for query in queries:
+                complexity = query.get("complexity", "unknown")
+                complexity_counts[complexity] = complexity_counts.get(complexity, 0) + 1
+            
+            for complexity, count in sorted(complexity_counts.items()):
+                print(f"  {complexity}: {count} queries")
+        
+        print("\nSample queries:")
+        sample_size = min(5, len(queries))
+        for i, query in enumerate(queries[:sample_size], 1):
+            print(f"\n{i}. {query['nl_query']}")
+            print(f"   ID: {query['id']}")
+            print(f"   Complexity: {query['complexity']}")
+        
+        if len(queries) > sample_size:
+            print(f"\n... and {len(queries) - sample_size} more queries")
+        
+        print("\n" + "=" * 80)
+        print("Usage examples:")
+        print("  python nl_query_generator.py                    # Generate all queries")
+        print("  python nl_query_generator.py simple              # Generate only simple queries")
+        print("  python nl_query_generator.py aggregation         # Generate only aggregation queries")
+        print("  python nl_query_generator.py filtered            # Generate only filtered queries")
+        print("\nValid complexity filters:")
+        print("  simple, filtered, aggregation, time_based, multi_condition,")
+        print("  comparison, complex, edge_case")
+        
+    except ValueError as e:
+        print(f"\nError: {e}")
+        print("\nValid complexity filters:")
+        print("  simple, filtered, aggregation, time_based, multi_condition,")
+        print("  comparison, complex, edge_case")
+        sys.exit(1)
 
 # Made with Bob

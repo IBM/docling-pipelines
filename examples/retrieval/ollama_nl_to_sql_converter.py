@@ -305,7 +305,8 @@ IMPORTANT RULES:
 4. Use appropriate aggregations: COUNT, SUM, AVG, MAX, MIN
 5. Always include ORDER BY for better results
 6. For date comparisons, use DATE_SUB(NOW(), INTERVAL X DAY) or specific dates
-7. Return ONLY the SQL query without any explanation or markdown formatting
+7. Do not use sub-querues unless absollutely necessary
+8. Return ONLY the SQL query without any explanation or markdown formatting
 
 NATURAL LANGUAGE QUESTION:
 {natural_language_query}
