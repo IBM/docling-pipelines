@@ -94,7 +94,7 @@ def _run_query_sync(query: str, index_name: str) -> dict[str, Any]:
 
     # Log stderr (query_runner logs at WARNING level to stderr)
     if proc.stderr.strip():
-        logger.debug("[query_runner stderr] %s", proc.stderr.strip())
+        logger.info("[query_runner stderr] %s", proc.stderr.strip())
 
     stdout = proc.stdout.strip()
     if not stdout:
