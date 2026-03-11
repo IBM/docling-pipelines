@@ -62,7 +62,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../../examples/re
 
 from ollama_nl_to_sql_converter import OllamaNLToSQLConverter  # type: ignore
 from opensearch_sql import OpenSearchSQLClient  # type: ignore
-from test_query_generator import get_comprehensive_test_queries  # type: ignore
+from nl_query_generator import get_comprehensive_test_queries  # type: ignore
 
 
 class DeterministicPurchaseOrderGenerator:
