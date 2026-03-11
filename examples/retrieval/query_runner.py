@@ -233,7 +233,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     logging.basicConfig(
-        level=logging.WARNING,
+        level=logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
         stream=sys.stderr,
     )
