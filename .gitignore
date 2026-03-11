@@ -46,6 +46,7 @@ data/
 
 # Bob AI Assistant
 .bob/
+!.bob/agents.md
 
 # OS
 .DS_Store
