@@ -1,0 +1,111 @@
+{
+    "flow": {
+        "name": "S3 to OpenSearch Pipeline",
+        "flow_id": "s3-flow-001-0000-0000-000000000003",
+        "description": "Ingest documents from AWS S3 bucket, chunk text, generate embeddings using Ollama, and store in OpenSearch. Requires Ollama running locally with the specified model.",
+        "storage": "in-memory",
+        "execute_type": "local",
+        "global_config": {
+            "doc_column": "text",
+            "disable_validation": "true",
+            "force_ingest": true
+        },
+        "dag": [
+            {
+                "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+                "name": "ingest_s3",
+                "operator": "ingest_local_s3",
+                "config": {
+                    "aws_access_id": "insert_aws_access_id",
+                    "aws_access_secret": "insert_aws_access_secret",
+                    "aws_bucket_name": "insert_aws_bucket_name",
+                    "include_filter": "pdf,docx,txt,pptx",
+                    "max_files": 5,
+                    "max_file_size": 100,
+                    "force_ingest": true
+                },
+                "input_edges": [],
+                "output_edges": [{"node_id_ref": "c3d4e5f6-a7b8-9012-cdef-123456789012"}]
+            },
+            {
+                "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+                "name": "chunk",
+                "operator": "chunker",
+                "config": {
+                    "doc_column": "text",
+                    "chunk_size": 512,
+                    "chunk_overlap": 128
+                },
+                "input_edges": [{"node_id_ref": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}],
+                "output_edges": [{"node_id_ref": "d4e5f6a7-b8c9-0123-defa-234567890123"}]
+            },
+            {
+                "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+                "name": "embeddings",
+                "operator": "embeddings",
+                "config": {
+                    "embeddings_type": "ollama",
+                    "embeddings_model_id": "nomic-embed-text",
+                    "doc_column": "text",
+                    "embeddings_column": "embeddings"
+                },
+                "input_edges": [{"node_id_ref": "c3d4e5f6-a7b8-9012-cdef-123456789012"}],
+                "output_edges": [{"node_id_ref": "e5f6a7b8-c9d0-1234-efab-345678901234"}]
+            },
+            {
+                "id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+                "name": "store_opensearch",
+                "operator": "opensearch",
+                "config": {
+                    "opensearch_host": "9.30.97.49",
+                    "opensearch_port": 9200,
+                    "opensearch_username": "admin",
+                    "opensearch_password": "8P@ssw0rd12@",
+                    "opensearch_use_ssl": true,
+                    "opensearch_verify_certs": false,
+                    "index_name": "s3_documents",
+                    "doc_id_column": "doc_id_hash",
+                    "embeddings_column": "embeddings",
+                    "vector_dimension": 768,
+                    "engine": "faiss",
+                    "algorithm": "hnsw",
+                    "space_type": "l2",
+                    "create_index": "true",
+                    "available_features": {
+                        "doc_id_hash": {
+                            "name": "Document ID Hash",
+                            "available_for_vector_db": true,
+                            "mandatory_for_vector_db": true,
+                            "type": "string",
+                            "is_primary": true
+                        },
+                        "text": {
+                            "name": "Content",
+                            "available_for_vector_db": true,
+                            "type": "string"
+                        },
+                        "source_id": {
+                            "name": "Source Path",
+                            "available_for_vector_db": true,
+                            "type": "string"
+                        },
+                        "embeddings": {
+                            "name": "Embeddings",
+                            "available_for_vector_db": true,
+                            "mandatory_for_vector_db": true,
+                            "type": "vector"
+                        }
+                    },
+                    "feature_mappings": {
+                        "doc_id_hash": "pk",
+                        "text": "text",
+                        "source_id": "source_id",
+                        "embeddings": "vector_embeddings"
+                    }
+                },
+                "input_edges": [{"node_id_ref": "d4e5f6a7-b8c9-0123-defa-234567890123"}],
+                "output_edges": []
+            }
+        ]
+    }
+}
