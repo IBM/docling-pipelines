@@ -7,7 +7,7 @@ import pyarrow as pa
 import threading
 import time
 
-from src.datasift_opensource.backend.common.util.constants import (
+from src.datasift_opensource.backend.common.constants.constants import (
     OperatorConstants,
     Metrics,
 )
@@ -82,11 +82,11 @@ class TestLanguageDetectFastText:
             in metadata[OperatorConstants.ATTRIBUTES]
         )
         assert (
-            OperatorConstants.LANGUAGE_NAME_COLUMN_KEY
+            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
             in metadata[OperatorConstants.FEATURES]
         )
         assert (
-            OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY
+            OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
             in metadata[OperatorConstants.FEATURES]
         )
 
@@ -105,10 +105,10 @@ class TestLanguageDetectFastText:
 
             # Check that language columns were added
             assert (
-                OperatorConstants.LANGUAGE_NAME_COLUMN_KEY in result_table.column_names
+                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in result_table.column_names
             )
             assert (
-                OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY in result_table.column_names
+                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY in result_table.column_names
             )
 
             # Check that all rows were processed
@@ -120,7 +120,7 @@ class TestLanguageDetectFastText:
 
             # Verify language codes are detected (should be ISO 639-1 codes)
             languages = result_table[
-                OperatorConstants.LANGUAGE_NAME_COLUMN_KEY
+                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
             ].to_pylist()
             assert all(isinstance(lang, str) for lang in languages)
             assert all(
@@ -129,7 +129,7 @@ class TestLanguageDetectFastText:
 
             # Verify confidence scores are between 0 and 1
             scores = result_table[
-                OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY
+                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
             ].to_pylist()
             assert all(isinstance(score, float) for score in scores)
             assert all(0.0 <= score <= 1.0 for score in scores)
@@ -149,10 +149,10 @@ class TestLanguageDetectFastText:
             names = result_table[OperatorConstants.NAME].to_pylist()
             uzbek_idx = names.index("uzbek.txt")
 
-            detected_lang = result_table[OperatorConstants.LANGUAGE_NAME_COLUMN_KEY][
+            detected_lang = result_table[OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY][
                 uzbek_idx
             ].as_py()
-            confidence = result_table[OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY][
+            confidence = result_table[OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY][
                 uzbek_idx
             ].as_py()
 

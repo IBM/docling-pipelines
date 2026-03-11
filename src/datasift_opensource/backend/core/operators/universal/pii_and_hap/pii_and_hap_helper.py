@@ -13,7 +13,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import OperatorConstants
+from common.constants.constants import OperatorConstants
 from common.util.log import get_logger
 
 
@@ -32,8 +32,8 @@ logger = get_logger(__name__)
 
 # Constants
 DEFAULT_REDACTIONS = [
-    OperatorConstants.PII_FIELD_NAME,
-    OperatorConstants.HAP_FIELD_NAME,
+    OperatorConstants.PIIHAP.PII_FIELD_NAME,
+    OperatorConstants.PIIHAP.HAP_FIELD_NAME,
 ]
 
 DEFAULT_PII_TO_COLUMN_MAPPING = {
@@ -72,9 +72,9 @@ def get_fields_to_redact(expected_redactions: set[str] | list[str], pii_list: li
     fields_to_redact = []
 
     for expected_redaction in expected_redactions:
-        if expected_redaction == OperatorConstants.HAP_FIELD_NAME:
+        if expected_redaction == OperatorConstants.PIIHAP.HAP_FIELD_NAME:
             fields_to_redact.append(METADATA_HAP_FIELD_NAME)
-        elif expected_redaction == OperatorConstants.PII_FIELD_NAME:
+        elif expected_redaction == OperatorConstants.PIIHAP.PII_FIELD_NAME:
             fields_to_redact.extend(pii_list if pii_list else DEFAULT_PII_TYPES_OF_CONCERN)
 
     return fields_to_redact
@@ -100,7 +100,7 @@ def initialize_table_columns(
         metadata[field] = 0
 
         if field == METADATA_HAP_FIELD_NAME:
-            table_columns[OperatorConstants.HAP_FIELD_NAME] = []
+            table_columns[OperatorConstants.PIIHAP.HAP_FIELD_NAME] = []
         elif field in DEFAULT_PII_TO_COLUMN_MAPPING:
             table_column_name = DEFAULT_PII_TO_COLUMN_MAPPING.get(field, "")
             if not table_column_name:
@@ -189,8 +189,8 @@ def update_table(
     if METADATA_HAP_FIELD_NAME in fields_to_redact:
         table = TransformUtils.add_column(
             table=table,
-            name=OperatorConstants.HAP_FIELD_NAME,
-            content=table_columns[OperatorConstants.HAP_FIELD_NAME],
+            name=OperatorConstants.PIIHAP.HAP_FIELD_NAME,
+            content=table_columns[OperatorConstants.PIIHAP.HAP_FIELD_NAME],
         )
 
     return table
@@ -211,13 +211,13 @@ class GuardRailsPIIAndHAPExtractor:
         Args:
             config: Configuration dictionary
         """
-        self.doc_column_name = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.expected_redactions = config.get(OperatorConstants.EXPECTED_REDACTIONS, DEFAULT_REDACTIONS)
-        self.pii_list = config.get(OperatorConstants.PII_LIST, DEFAULT_PII_TYPES_OF_CONCERN)
-        self.redaction = config.get(OperatorConstants.REDACTION_KEY, False)
-        self.redaction_character = config.get(OperatorConstants.REDACTION_CHARACTER_KEY, "*")
-        self.hap_redaction = config.get(OperatorConstants.HAP_REDACTION_KEY, False)
-        self.hap_redaction_character = config.get(OperatorConstants.HAP_REDACTION_CHARACTER_KEY, "*")
+        self.doc_column_name = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.expected_redactions = config.get(OperatorConstants.PIIHAP.EXPECTED_REDACTIONS, DEFAULT_REDACTIONS)
+        self.pii_list = config.get(OperatorConstants.PIIHAP.PII_LIST, DEFAULT_PII_TYPES_OF_CONCERN)
+        self.redaction = config.get(OperatorConstants.PIIHAP.REDACTION_KEY, False)
+        self.redaction_character = config.get(OperatorConstants.PIIHAP.REDACTION_CHARACTER_KEY, "*")
+        self.hap_redaction = config.get(OperatorConstants.PIIHAP.HAP_REDACTION_KEY, False)
+        self.hap_redaction_character = config.get(OperatorConstants.PIIHAP.HAP_REDACTION_CHARACTER_KEY, "*")
         self.display_pii = config.get(DISPLAY_PII_KEY, False)
 
     def redact(self, content: Any, item: dict[str, Any], detected_type: str) -> str:
@@ -396,7 +396,7 @@ class GuardRailsPIIAndHAPExtractor:
 
         if detected_field == METADATA_HAP_FIELD_NAME:
             # Always store counts for HAP, regardless of redaction setting
-            columns_to_add[OperatorConstants.HAP_FIELD_NAME] += 1
+            columns_to_add[OperatorConstants.PIIHAP.HAP_FIELD_NAME] += 1
         else:
             column_name = DEFAULT_PII_TO_COLUMN_MAPPING[detected_field]
             columns_to_add[column_name] += 1
@@ -428,6 +428,6 @@ class GuardRailsPIIAndHAPExtractor:
 
         if METADATA_HAP_FIELD_NAME in fields_to_redact:
             # Always initialize as counter for HAP
-            columns_to_add[OperatorConstants.HAP_FIELD_NAME] = 0
+            columns_to_add[OperatorConstants.PIIHAP.HAP_FIELD_NAME] = 0
 
         return columns_to_add

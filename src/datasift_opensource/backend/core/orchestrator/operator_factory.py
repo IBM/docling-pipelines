@@ -2,7 +2,7 @@ import importlib
 import inspect
 import pkgutil
 
-from common.util.constants import OperatorConstants, OrchestratorType
+from common.constants.constants import OperatorConstants, OrchestratorType
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator
 
@@ -13,7 +13,7 @@ class OperatorFactoryProvider:
     operator_factories = {}
 
     @staticmethod
-    def get_operator_factory(*, orchestrator: str, package_names: list = OperatorConstants.ALL_OPERATORS_PATH):
+    def get_operator_factory(*, orchestrator: str, package_names: list = OperatorConstants.Misc.ALL_OPERATORS_PATH):
         key = orchestrator + "_" + "_".join(package_names)
         logger.debug(f"000_Spark_Logger operator_factory_key:{key}")
         if key in OperatorFactoryProvider.operator_factories:
@@ -23,7 +23,7 @@ class OperatorFactoryProvider:
         return operator_factory
 
     @staticmethod
-    def refresh_operator_factory(*, orchestrator: str, package_names: list = OperatorConstants.ALL_OPERATORS_PATH):
+    def refresh_operator_factory(*, orchestrator: str, package_names: list = OperatorConstants.Misc.ALL_OPERATORS_PATH):
         """
         Refreshes the operator factory by reloading the operator classes dynamically.
         """
@@ -47,7 +47,7 @@ class OperatorFactory:
     def __init__(
         self,
         orchestrator: str,
-        package_names: list = OperatorConstants.ALL_OPERATORS_PATH,
+        package_names: list = OperatorConstants.Misc.ALL_OPERATORS_PATH,
     ):
         """
         Initialize the factory with the given package names for the given orchestrator.

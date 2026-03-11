@@ -30,7 +30,7 @@ except ImportError:
 
 
 from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
@@ -110,7 +110,7 @@ class EmbeddingsOperator(AbstractOperator):
     4. Update metadata and documentation
     """
 
-    short_name: str = OperatorConstants.EMBEDDINGS
+    short_name: str = OperatorConstants.Operators.EMBEDDINGS
     category: OperatorCategory = OperatorCategory.Functional
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -132,15 +132,15 @@ class EmbeddingsOperator(AbstractOperator):
         self.embeddings_type: str = config.get(EMBEDDINGS_TYPE_KEY, EMBEDDINGS_TYPE_DEFAULT)
 
         # Model configuration
-        self.embeddings_model_id: str = config.get(OperatorConstants.EMBEDDINGS_MODEL_ID, "granite4")
+        self.embeddings_model_id: str = config.get(OperatorConstants.Config.EMBEDDINGS_MODEL_ID, "granite4")
 
         # Column names
         self.embeddings_column: str = config.get(
-            OperatorConstants.EMBEDDINGS_COLUMN,
-            OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT,
+            OperatorConstants.Columns.EMBEDDINGS_COLUMN,
+            OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
         )
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.doc_id_hash_column: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.doc_id_hash_column: str = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
 
         # Chunking configuration
         self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, OVERLAP_RATIO_DEFAULT)
@@ -200,60 +200,60 @@ class EmbeddingsOperator(AbstractOperator):
             dict: Operator metadata including features and attributes
         """
         return {
-            OperatorConstants.SDK: True,
-            OperatorConstants.CATEGORY: OperatorCategory.Functional.value,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: True,
-            OperatorConstants.LABEL: "Embeddings",
-            OperatorConstants.DESCRIPTION: "Generate vector embeddings using various providers (Ollama, OpenAI, etc.)",
-            OperatorConstants.FEATURES: {
-                OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT: {
-                    OperatorConstants.NAME: "Embeddings",
-                    OperatorConstants.DESCRIPTION: "Vector embeddings generated from document content",
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_VECTOR,
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: OperatorCategory.Functional.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+            OperatorConstants.Misc.LABEL: "Embeddings",
+            OperatorConstants.Config.DESCRIPTION: "Generate vector embeddings using various providers (Ollama, OpenAI, etc.)",
+            OperatorConstants.Config.FEATURES: {
+                OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT: {
+                    OperatorConstants.Misc.NAME: "Embeddings",
+                    OperatorConstants.Config.DESCRIPTION: "Vector embeddings generated from document content",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.TYPE_VECTOR,
                 },
-                OperatorConstants.DOC_ID_HASH_DEFAULT: {
-                    OperatorConstants.NAME: "Document ID Hash",
-                    OperatorConstants.DESCRIPTION: "Unique hash identifier for the document",
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TAGS: [
-                        OperatorConstants.MANDATORY,
-                        OperatorConstants.INTERNAL_FEATURE,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
+                    OperatorConstants.Misc.NAME: "Document ID Hash",
+                    OperatorConstants.Config.DESCRIPTION: "Unique hash identifier for the document",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TAGS: [
+                        OperatorConstants.Misc.MANDATORY,
+                        OperatorConstants.Misc.INTERNAL_FEATURE,
                     ],
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 },
             },
-            OperatorConstants.ATTRIBUTES: {
+            OperatorConstants.Config.ATTRIBUTES: {
                 EMBEDDINGS_TYPE_KEY: {
-                    OperatorConstants.NAME: "Embeddings Provider",
-                    OperatorConstants.DESCRIPTION: f"Embedding provider to use ({', '.join(SUPPORTED_EMBEDDINGS_TYPES)})",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.DEFAULT: EMBEDDINGS_TYPE_DEFAULT,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.NAME: "Embeddings Provider",
+                    OperatorConstants.Config.DESCRIPTION: f"Embedding provider to use ({', '.join(SUPPORTED_EMBEDDINGS_TYPES)})",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: EMBEDDINGS_TYPE_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.EMBEDDINGS_MODEL_ID: {
-                    OperatorConstants.NAME: "Embeddings Model",
-                    OperatorConstants.DESCRIPTION: "Model name for the selected provider",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.DEFAULT: "llama2",
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.Config.EMBEDDINGS_MODEL_ID: {
+                    OperatorConstants.Misc.NAME: "Embeddings Model",
+                    OperatorConstants.Config.DESCRIPTION: "Model name for the selected provider",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: "llama2",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.EMBEDDINGS_COLUMN: {
-                    OperatorConstants.NAME: "Embeddings Column",
-                    OperatorConstants.DESCRIPTION: "Name of the output column for embeddings",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.Columns.EMBEDDINGS_COLUMN: {
+                    OperatorConstants.Misc.NAME: "Embeddings Column",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the output column for embeddings",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OVERLAP_RATIO_KEY: {
-                    OperatorConstants.NAME: "Overlap Ratio",
-                    OperatorConstants.DESCRIPTION: "Overlap ratio for chunking long text (0.0 to 0.5)",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OVERLAP_RATIO_DEFAULT,
-                    OperatorConstants.MIN_VALUE: OVERLAP_RATIO_MIN,
-                    OperatorConstants.MAX_VALUE: OVERLAP_RATIO_MAX,
-                    OperatorConstants.TYPE: AttributeDataTypes.FLOAT,
+                    OperatorConstants.Misc.NAME: "Overlap Ratio",
+                    OperatorConstants.Config.DESCRIPTION: "Overlap ratio for chunking long text (0.0 to 0.5)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OVERLAP_RATIO_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: OVERLAP_RATIO_MIN,
+                    OperatorConstants.Filtering.MAX_VALUE: OVERLAP_RATIO_MAX,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
             },
         }
@@ -444,8 +444,8 @@ class EmbeddingsOperator(AbstractOperator):
             try:
                 doc_id_op: DocIdHashOperator = DocIdHashOperator(
                     config={
-                        OperatorConstants.DOC_COLUMN: self.doc_column,
-                        OperatorConstants.DOC_ID_HASH: self.doc_id_hash_column,
+                        OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
+                        OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
                     }
                 )
                 result_tables: list[pa.Table]
@@ -464,8 +464,8 @@ class EmbeddingsOperator(AbstractOperator):
                         else f"doc_{idx}"
                     )
                     doc_name: str | Any = (
-                        table[OperatorConstants.NAME][idx].as_py()
-                        if OperatorConstants.NAME in table.column_names
+                        table[OperatorConstants.Misc.NAME][idx].as_py()
+                        if OperatorConstants.Misc.NAME in table.column_names
                         else str(doc_id)
                     )
                     self.record_failed_document(
@@ -491,7 +491,7 @@ class EmbeddingsOperator(AbstractOperator):
 
         for idx, doc in enumerate(input_docs):
             doc_id: Any = doc.get(OperatorConstants.ID, f"doc_{idx}")
-            doc_name: Any = doc.get(OperatorConstants.NAME, doc_id)
+            doc_name: Any = doc.get(OperatorConstants.Misc.NAME, doc_id)
 
             try:
                 # Get content to embed
@@ -534,7 +534,7 @@ class EmbeddingsOperator(AbstractOperator):
                     for chunk in chunked_content:
                         if isinstance(chunk, dict):
                             # Chunk is a dictionary with 'chunk' key
-                            chunk_text: str = chunk.get(OperatorConstants.CHUNK, "")
+                            chunk_text: str = chunk.get(OperatorConstants.Columns.CHUNK, "")
                             if chunk_text:
                                 texts.append(chunk_text)
                         elif isinstance(chunk, str):

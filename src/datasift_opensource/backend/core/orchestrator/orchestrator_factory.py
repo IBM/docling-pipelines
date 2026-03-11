@@ -1,4 +1,4 @@
-from common.util.constants import OrchestratorType
+from common.constants.constants import OrchestratorType
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.cmdline.cmd_line_orchestrator import CommandLineOrchestrator
 

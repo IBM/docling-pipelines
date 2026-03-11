@@ -33,7 +33,8 @@ from core.operators.universal.extract.extract_entities_ollama import (
     _parse_llm_json,
     _try_repair_truncated_json,
 )
-from common.util.constants import ExecutionStatus, Metrics, OperatorConstants
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import ExecutionStatus, Metrics
 
 
 # ---------------------------------------------------------------------------

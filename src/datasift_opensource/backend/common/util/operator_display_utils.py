@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from common.util.constants import OperatorConstants
+from common.constants.constants import OperatorConstants
 from common.util.operator_metadata import OperatorMetadata
 
 

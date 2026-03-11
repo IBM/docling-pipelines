@@ -13,10 +13,8 @@ import pyarrow as pa
 from botocore.credentials import Credentials
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection, helpers
 
-from common.util.constants import (
-    Metrics,
-    OperatorConstants,
-)
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics
 from common.util.log import get_logger
 from core.operators.abstract_operator import (
     AbstractOperator,
@@ -133,29 +131,29 @@ class OpenSearchOperator(AbstractOperator):
         super().__init__(config)
 
         # OpenSearch connection parameters
-        self.host: str | None = config.get(OperatorConstants.OPENSEARCH_HOST)
-        self.port: int = config.get(OperatorConstants.OPENSEARCH_PORT, 9200)
-        self.username: str | None = config.get(OperatorConstants.OPENSEARCH_USERNAME)
-        self.password: str | None = config.get(OperatorConstants.OPENSEARCH_PASSWORD)
-        self.use_ssl: bool = config.get(OperatorConstants.OPENSEARCH_USE_SSL, True)
-        self.verify_certs: bool = config.get(OperatorConstants.OPENSEARCH_VERIFY_CERTS, True)
-        self.aws_auth: bool = config.get(OperatorConstants.OPENSEARCH_AWS_AUTH, False)
-        self.aws_region: str | None = config.get(OperatorConstants.OPENSEARCH_AWS_REGION)
+        self.host: str | None = config.get(OperatorConstants.VectorDB.OPENSEARCH_HOST)
+        self.port: int = config.get(OperatorConstants.VectorDB.OPENSEARCH_PORT, 9200)
+        self.username: str | None = config.get(OperatorConstants.VectorDB.OPENSEARCH_USERNAME)
+        self.password: str | None = config.get(OperatorConstants.VectorDB.OPENSEARCH_PASSWORD)
+        self.use_ssl: bool = config.get(OperatorConstants.VectorDB.OPENSEARCH_USE_SSL, True)
+        self.verify_certs: bool = config.get(OperatorConstants.VectorDB.OPENSEARCH_VERIFY_CERTS, True)
+        self.aws_auth: bool = config.get(OperatorConstants.VectorDB.OPENSEARCH_AWS_AUTH, False)
+        self.aws_region: str | None = config.get(OperatorConstants.VectorDB.OPENSEARCH_AWS_REGION)
 
         # Index configuration
-        self.index_name: str | None = config.get(OperatorConstants.INDEX_NAME)
-        self.doc_id_column: str = config.get(OperatorConstants.DOC_ID_COLUMN, "doc_id_hash")
+        self.index_name: str | None = config.get(OperatorConstants.VectorDB.INDEX_NAME)
+        self.doc_id_column: str = config.get(OperatorConstants.Columns.DOC_ID_COLUMN, "doc_id_hash")
         self.embeddings_column: str = config.get(
-            OperatorConstants.EMBEDDINGS_COLUMN,
-            OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT,
+            OperatorConstants.Columns.EMBEDDINGS_COLUMN,
+            OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
         )
         self.sparse_embeddings_column: str | None = config.get(SPARSE_EMBEDDINGS_COLUMN_KEY)
-        self.feature_mappings: dict[str, str] = config.get(OperatorConstants.FEATURE_MAPPINGS, {})
-        self.available_features: dict[str, Any] = config.get(OperatorConstants.AVAILABLE_FEATURES, {})
-        self.batch_size: int = config.get(OperatorConstants.BATCH_SIZE, DEFAULT_BATCH_SIZE)
-        self.create_index: bool = config.get(OperatorConstants.CREATE_INDEX, True)
-        self.index_settings: dict[str, Any] | None = config.get(OperatorConstants.INDEX_SETTINGS)
-        self.config_vector_dimension: int = config.get(OperatorConstants.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION)
+        self.feature_mappings: dict[str, str] = config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
+        self.available_features: dict[str, Any] = config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+        self.batch_size: int = config.get(OperatorConstants.Config.BATCH_SIZE, DEFAULT_BATCH_SIZE)
+        self.create_index: bool = config.get(OperatorConstants.VectorDB.CREATE_INDEX, True)
+        self.index_settings: dict[str, Any] | None = config.get(OperatorConstants.VectorDB.INDEX_SETTINGS)
+        self.config_vector_dimension: int = config.get(OperatorConstants.VectorDB.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION)
         # This will be set to the detected dimension or fall back to config value
         self.vector_dimension: int = self.config_vector_dimension
         self.dimension_auto_detected: bool = False

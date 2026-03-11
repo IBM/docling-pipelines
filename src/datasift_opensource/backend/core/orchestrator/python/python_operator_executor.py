@@ -6,7 +6,7 @@ from data_processing.data_access import DataAccessFactory
 
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages
-from common.util.constants import (
+from common.constants.constants import (
     DatasiftConstants,
     MemoryLogPhases,
     OperatorConstants,

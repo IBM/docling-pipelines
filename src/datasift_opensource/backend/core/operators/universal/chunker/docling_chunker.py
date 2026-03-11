@@ -12,7 +12,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
@@ -60,7 +60,7 @@ class DoclingChunkerOperator(AbstractOperator):
     Reference: https://docling-project.github.io/docling/concepts/chunking/
     """
 
-    short_name: str = OperatorConstants.DOCLING_CHUNKER
+    short_name: str = OperatorConstants.Operators.DOCLING_CHUNKER
     category: OperatorCategory = OperatorCategory.Functional
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -76,8 +76,8 @@ class DoclingChunkerOperator(AbstractOperator):
                 - tokenizer: Tokenizer to use for chunking (default: "sentence-transformers/all-MiniLM-L6-v2")
         """
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.chunk_size: int = config.get(OperatorConstants.CHUNK_SIZE, OperatorConstants.CHUNK_SIZE_DEFAULT)
+        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.chunk_size: int = config.get(OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT)
         self.chunk_overlap: int = config.get("chunk_overlap", 128)
         self.retain_original_content: bool = config.get("retain_original_content", True)
         self.tokenizer: str = config.get("tokenizer", "sentence-transformers/all-MiniLM-L6-v2")
@@ -254,7 +254,7 @@ class DoclingChunkerOperator(AbstractOperator):
         if self.doc_column not in table.column_names:
             error_msg: str = f"'{self.doc_column}' column not found in table"
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
-            metadata[OperatorConstants.ERROR] = error_msg
+            metadata[OperatorConstants.Extraction.ERROR] = error_msg
             logger.error(error_msg, extra=self.common_log_arguments)
             return [table], metadata
 
@@ -326,8 +326,8 @@ class DoclingChunkerOperator(AbstractOperator):
                 chunked_content_list.append([])
                 failed_indices.append(idx)
                 doc_name = (
-                    table[OperatorConstants.NAME][idx].as_py()
-                    if OperatorConstants.NAME in table.column_names
+                    table[OperatorConstants.Misc.NAME][idx].as_py()
+                    if OperatorConstants.Misc.NAME in table.column_names
                     else f"doc_{idx}"
                 )
                 self.record_failed_document(metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason=str(e))
@@ -346,7 +346,7 @@ class DoclingChunkerOperator(AbstractOperator):
 
         # Add hash column using DocIdHashOperator
         logger.info("Generating hash IDs for chunks", extra=self.common_log_arguments)
-        hash_operator: DocIdHashOperator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: self.doc_column})
+        hash_operator: DocIdHashOperator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: self.doc_column})
         table_list: list[pa.Table]
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
@@ -377,70 +377,70 @@ class DoclingChunkerOperator(AbstractOperator):
         """
         metadata_features: dict[str, dict[str, Any]] = {
             OperatorConstants.CHUNKED_CONTENT: {
-                OperatorConstants.NAME: "Chunked Content",
-                OperatorConstants.DESCRIPTION: "Document content split into semantic chunks",
-                OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                OperatorConstants.TAGS: [OperatorConstants.MANDATORY],
+                OperatorConstants.Misc.NAME: "Chunked Content",
+                OperatorConstants.Config.DESCRIPTION: "Document content split into semantic chunks",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
             },
             self.doc_id_hash: {
-                OperatorConstants.NAME: "Hash ID",
-                OperatorConstants.DESCRIPTION: "Hash ID of the document chunk",
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                OperatorConstants.IS_PRIMARY: True,
-                OperatorConstants.TAGS: [
-                    OperatorConstants.MANDATORY,
-                    OperatorConstants.PRIMARY,
+                OperatorConstants.Misc.NAME: "Hash ID",
+                OperatorConstants.Config.DESCRIPTION: "Hash ID of the document chunk",
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.IS_PRIMARY: True,
+                OperatorConstants.Misc.TAGS: [
+                    OperatorConstants.Misc.MANDATORY,
+                    OperatorConstants.Misc.PRIMARY,
                 ],
             },
         }
 
         return {
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.FEATURES: metadata_features,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.ATTRIBUTES: {
-                OperatorConstants.DOC_COLUMN: {
-                    OperatorConstants.NAME: "Document Column",
-                    OperatorConstants.DESCRIPTION: "Name of the column containing document content",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OperatorConstants.DOC_COLUMN_DEFAULT,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Config.FEATURES: metadata_features,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.Columns.DOC_COLUMN: {
+                    OperatorConstants.Misc.NAME: "Document Column",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the column containing document content",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.CHUNK_SIZE: {
-                    OperatorConstants.NAME: "Chunk Size",
-                    OperatorConstants.DESCRIPTION: "Target size for chunks in tokens",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OperatorConstants.CHUNK_SIZE_DEFAULT,
-                    OperatorConstants.MIN_VALUE: 100,
-                    OperatorConstants.MAX_VALUE: 2048,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                OperatorConstants.Processing.CHUNK_SIZE: {
+                    OperatorConstants.Misc.NAME: "Chunk Size",
+                    OperatorConstants.Config.DESCRIPTION: "Target size for chunks in tokens",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Processing.CHUNK_SIZE_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: 100,
+                    OperatorConstants.Filtering.MAX_VALUE: 2048,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "chunk_overlap": {
-                    OperatorConstants.NAME: "Chunk Overlap",
-                    OperatorConstants.DESCRIPTION: "Number of overlapping tokens between consecutive chunks",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: 128,
-                    OperatorConstants.MIN_VALUE: 0,
-                    OperatorConstants.MAX_VALUE: 512,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "Chunk Overlap",
+                    OperatorConstants.Config.DESCRIPTION: "Number of overlapping tokens between consecutive chunks",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 128,
+                    OperatorConstants.Filtering.MIN_VALUE: 0,
+                    OperatorConstants.Filtering.MAX_VALUE: 512,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "retain_original_content": {
-                    OperatorConstants.NAME: "Retain Original Content",
-                    OperatorConstants.DESCRIPTION: "Whether to keep the original content column after chunking",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+                    OperatorConstants.Misc.NAME: "Retain Original Content",
+                    OperatorConstants.Config.DESCRIPTION: "Whether to keep the original content column after chunking",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
                 "tokenizer": {
-                    OperatorConstants.NAME: "Tokenizer",
-                    OperatorConstants.DESCRIPTION: "Tokenizer model to use for chunking",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: "sentence-transformers/all-MiniLM-L6-v2",
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.NAME: "Tokenizer",
+                    OperatorConstants.Config.DESCRIPTION: "Tokenizer model to use for chunking",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "sentence-transformers/all-MiniLM-L6-v2",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
             },
         }

@@ -24,7 +24,7 @@ import pytest
 backend_dir = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
 sys.path.insert(0, str(backend_dir))
 
-from common.util.constants import OperatorConstants  # noqa: E402
+from common.constants.operator_constants import OperatorConstants  # noqa: E402
 from core.operators.universal.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
     PIIAndHAPAnnotator,
 )

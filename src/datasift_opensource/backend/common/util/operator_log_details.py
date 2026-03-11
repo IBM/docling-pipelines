@@ -3,7 +3,7 @@ import datetime
 import json
 import os
 
-from common.util.constants import (
+from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,

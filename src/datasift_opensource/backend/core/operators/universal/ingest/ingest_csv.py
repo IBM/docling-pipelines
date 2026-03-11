@@ -4,7 +4,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import Metrics, OperatorConstants
+from common.constants.constants import Metrics, OperatorConstants
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 

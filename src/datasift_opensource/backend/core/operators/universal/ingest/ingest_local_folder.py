@@ -3,7 +3,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
@@ -49,7 +49,7 @@ class IngestLocalOperator(AbstractOperator):
     - Binary content storage for downstream extraction
     """
 
-    short_name = OperatorConstants.INGEST_LOCAL
+    short_name = OperatorConstants.Operators.INGEST_LOCAL
     category = OperatorCategory.Ingest
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -357,10 +357,10 @@ class IngestLocalOperator(AbstractOperator):
                     OperatorConstants.DESCRIPTION: "Hash ID of the row",
                     OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
                     OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                    OperatorConstants.IS_PRIMARY: True,
-                    OperatorConstants.TAGS: [
-                        OperatorConstants.MANDATORY,
-                        OperatorConstants.PRIMARY,
+                    OperatorConstants.Misc.IS_PRIMARY: True,
+                    OperatorConstants.Misc.TAGS: [
+                        OperatorConstants.Misc.MANDATORY,
+                        OperatorConstants.Misc.PRIMARY,
                     ],
                 }
             }
@@ -371,25 +371,25 @@ class IngestLocalOperator(AbstractOperator):
             OperatorConstants.FEATURES: metadata_features,
             OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
             OperatorConstants.ATTRIBUTES: {
-                OperatorConstants.MAX_FILE_SIZE: {
+                OperatorConstants.Config.MAX_FILE_SIZE: {
                     OperatorConstants.NAME: "Max File Size",
                     OperatorConstants.DESCRIPTION: "If the document is larger than the given max file size, then it will be skipped",
-                    OperatorConstants.DEFAULT: 100,
-                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 100,
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
                 },
-                OperatorConstants.INCLUDE_FILTER_KEY: {
+                OperatorConstants.Filtering.INCLUDE_FILTER_KEY: {
                     OperatorConstants.NAME: "Include File Type",
                     OperatorConstants.DESCRIPTION: "File types to be included (comma-separated extensions)",
-                    OperatorConstants.DEFAULT: "pdf,docx,pptx,txt,md",
-                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "pdf,docx,pptx,txt,md",
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.TYPE: AttributeDataTypes.LIST,
                 },
                 "store_binary_content": {
                     OperatorConstants.NAME: "Store Binary Content",
                     OperatorConstants.DESCRIPTION: "Whether to store binary content for downstream extraction",
-                    OperatorConstants.DEFAULT: True,
-                    OperatorConstants.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
                 },
             },

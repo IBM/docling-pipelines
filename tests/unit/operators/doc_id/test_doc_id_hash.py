@@ -16,7 +16,8 @@ sys.path.insert(0, str(backend_dir))
 import pyarrow as pa
 
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
-from common.util.constants import OperatorConstants, Metrics
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics
 
 
 # ---------------------------------------------------------------------------

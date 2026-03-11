@@ -6,7 +6,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.util.constants import DatasiftConstants, OperatorConstants
+from common.constants.constants import DatasiftConstants, OperatorConstants
 from common.util.iceberg_util import get_warehouse_path
 from common.util.log import get_logger
 from common.util.parquet_table_handler import (
@@ -40,7 +40,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
         """
         ids_to_delete = self._get_ids_to_delete(input_table=table, result_table=result_table)
         self.delete_docs_for_ids(doc_ids=ids_to_delete, job_id=job_id)
-        return set(table[OperatorConstants.ID].to_pylist()) if table.num_rows != 0 else set()
+        return set(table[OperatorConstants.Misc.ID].to_pylist()) if table.num_rows != 0 else set()
 
     def save_metadata_for_incremental_update(
         self, *, job_id, job_run_id, tables: list[pa.Table], failed_doc_ids: list = None
@@ -97,7 +97,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
         """Concatenates the 2 tables that have same schema.
         If same document exists in both the tables, it retains the doc from table1."""
         # First delete the rows that are processed in this execution
-        ids_to_delete = list(table1.column(OperatorConstants.ID).to_pylist())
+        ids_to_delete = list(table1.column(OperatorConstants.Misc.ID).to_pylist())
         filtered_table2 = self.filter_rows(table=table2, ids_to_delete=ids_to_delete)
 
         # Add the metadata of processed documents in this execution
@@ -106,7 +106,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
     def filter_rows(self, *, table, ids_to_delete):
         if not table or not ids_to_delete:
             return table
-        column = table.column(OperatorConstants.ID)
+        column = table.column(OperatorConstants.Misc.ID)
         mask = pc.is_in(column, value_set=pa.array(ids_to_delete))
         inverted_mask = pc.invert(mask)
         return table.filter(mask=inverted_mask)
@@ -130,13 +130,13 @@ class IncrementalUpdateUtil:  # pragma: no cover
         table_path = self.construct_table_path(job_id=job_id)
         try:
             logger.debug(f"Retrieving processed documents for the job id {job_id}")
-            filters = [(OperatorConstants.DELETED, "=", False)]
-            columns = [OperatorConstants.ID, OperatorConstants.MODIFIED_TIME]
+            filters = [(OperatorConstants.Misc.DELETED, "=", False)]
+            columns = [OperatorConstants.Misc.ID, OperatorConstants.Metadata.MODIFIED_TIME]
             table: pa.Table | None = self._get_table(path=table_path, filters=filters, columns=columns)
             if not table:
                 return {}
             df = table.to_pandas()
-            return dict(zip(df[OperatorConstants.ID], df[OperatorConstants.MODIFIED_TIME], strict=False))
+            return dict(zip(df[OperatorConstants.Misc.ID], df[OperatorConstants.Metadata.MODIFIED_TIME], strict=False))
         except Exception as exc:
             raise FlowExecutionFailedException(
                 f"Failed to retrieved process document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
@@ -231,7 +231,7 @@ class IncrementalUpdateUtil:  # pragma: no cover
                 logger.info(f"Deleting rows with doc_ids for job_id={job_id} from table at {table_path}")
 
                 doc_ids_set = pa.array(doc_ids)
-                delete_filter_fn = lambda table: pc.is_in(table[OperatorConstants.ID], value_set=doc_ids_set)  # noqa: E731
+                delete_filter_fn = lambda table: pc.is_in(table[OperatorConstants.Misc.ID], value_set=doc_ids_set)  # noqa: E731
                 self.parquet_table_handler.delete_rows(path=table_path, delete_filter_fn=delete_filter_fn)
                 logger.info(f"Successfully deleted rows with doc_ids for job_id={job_id} from table at {table_path}")
         except Exception as exc:
@@ -276,9 +276,9 @@ class IncrementalUpdateUtil:  # pragma: no cover
             pyarrow.Table: The modified table with additional columns.
         """
         columns = [
-            OperatorConstants.ID,
-            OperatorConstants.NAME,
-            OperatorConstants.MODIFIED_TIME,
+            OperatorConstants.Misc.ID,
+            OperatorConstants.Misc.NAME,
+            OperatorConstants.Metadata.MODIFIED_TIME,
         ]
         total_rows = table.num_rows
         table_to_save = table.select(columns)
@@ -290,19 +290,19 @@ class IncrementalUpdateUtil:  # pragma: no cover
         table_to_save = table_to_save.append_column(DatasiftConstants.JOB_RUN_ID, job_run_id_column)
 
         deleted_column = pa.array([False] * total_rows)
-        table_to_save = table_to_save.append_column(OperatorConstants.DELETED, deleted_column)
+        table_to_save = table_to_save.append_column(OperatorConstants.Misc.DELETED, deleted_column)
 
         return table_to_save
 
     def _remove_columns_from_saved_table(self, *, table: pa.Table):
         """If the saved table has redundant columns, they will be removed."""
         columns = [
-            OperatorConstants.ID,
-            OperatorConstants.NAME,
-            OperatorConstants.MODIFIED_TIME,
+            OperatorConstants.Misc.ID,
+            OperatorConstants.Misc.NAME,
+            OperatorConstants.Metadata.MODIFIED_TIME,
             DatasiftConstants.JOB_ID,
             DatasiftConstants.JOB_RUN_ID,
-            OperatorConstants.DELETED,
+            OperatorConstants.Misc.DELETED,
         ]
         return table.select(columns)
 
@@ -322,8 +322,8 @@ class IncrementalUpdateUtil:  # pragma: no cover
             return soft_deleted_ids
 
         for row in table.to_pylist():
-            if row.get(OperatorConstants.DELETED):
-                soft_deleted_ids.add(row[OperatorConstants.ID])
+            if row.get(OperatorConstants.Misc.DELETED):
+                soft_deleted_ids.add(row[OperatorConstants.Misc.ID])
 
         return soft_deleted_ids
 
@@ -338,8 +338,8 @@ class IncrementalUpdateUtil:  # pragma: no cover
         Returns:
             list: Document IDs to delete.
         """
-        input_doc_ids = set(input_table[OperatorConstants.ID].to_pylist()) if input_table.num_rows != 0 else set()
-        output_doc_ids = set(result_table[OperatorConstants.ID].to_pylist()) if result_table.num_rows != 0 else set()
+        input_doc_ids = set(input_table[OperatorConstants.Misc.ID].to_pylist()) if input_table.num_rows != 0 else set()
+        output_doc_ids = set(result_table[OperatorConstants.Misc.ID].to_pylist()) if result_table.num_rows != 0 else set()
 
         ids_to_delete = list(input_doc_ids - output_doc_ids)
 
@@ -356,15 +356,15 @@ class IncrementalUpdateUtil:  # pragma: no cover
                 return None, doc_ids_set
 
             for row in table.to_pylist():
-                if row.get(OperatorConstants.ID):
-                    db_doc_ids_set.add(row[OperatorConstants.ID])
+                if row.get(OperatorConstants.Misc.ID):
+                    db_doc_ids_set.add(row[OperatorConstants.Misc.ID])
 
             df = table.to_pandas()
             doc_ids_to_delete = db_doc_ids_set - doc_ids_set
             if doc_ids_to_delete:
                 df.loc[
-                    df[OperatorConstants.ID].isin(list(doc_ids_to_delete)),
-                    OperatorConstants.DELETED,
+                    df[OperatorConstants.Misc.ID].isin(list(doc_ids_to_delete)),
+                    OperatorConstants.Misc.DELETED,
                 ] = True
             updated_table = pa.Table.from_pandas(df)
 

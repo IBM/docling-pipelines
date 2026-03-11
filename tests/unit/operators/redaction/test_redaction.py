@@ -2,7 +2,8 @@ import pyarrow as pa
 import pytest
 
 from core.operators.universal.regex.redaction import RedactionOperator
-from common.util.constants import OperatorConstants, Metrics
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics
 
 
 class TestRedactionOperator:

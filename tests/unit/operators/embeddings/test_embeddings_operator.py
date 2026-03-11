@@ -36,11 +36,8 @@ from core.operators.universal.embeddings.embeddings_operator import (
     SUPPORTED_EMBEDDINGS_TYPES,
     EMBEDDINGS_TYPE_DEFAULT,
 )
-from common.util.constants import (
-    Metrics,
-    OperatorConstants,
-    ExecutionStatus,
-)
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics, ExecutionStatus
 
 
 # Test Fixtures
@@ -231,19 +228,19 @@ class TestEmbeddingsOperatorMetadata:
         attributes = metadata[OperatorConstants.ATTRIBUTES]
         
         assert "embeddings_type" in attributes
-        assert OperatorConstants.EMBEDDINGS_MODEL_ID in attributes
-        assert OperatorConstants.EMBEDDINGS_COLUMN in attributes
+        assert OperatorConstants.Config.EMBEDDINGS_MODEL_ID in attributes
+        assert OperatorConstants.Columns.EMBEDDINGS_COLUMN in attributes
         assert "overlap_ratio" in attributes
         
         # Check embeddings_type attribute details
         embeddings_type_attr = attributes["embeddings_type"]
-        assert embeddings_type_attr[OperatorConstants.DEFAULT] == EMBEDDINGS_TYPE_DEFAULT
+        assert embeddings_type_attr[OperatorConstants.Config.DEFAULT] == EMBEDDINGS_TYPE_DEFAULT
         
         # Check overlap_ratio attribute details
         overlap_attr = attributes["overlap_ratio"]
-        assert overlap_attr[OperatorConstants.DEFAULT] == OVERLAP_RATIO_DEFAULT
-        assert overlap_attr[OperatorConstants.MIN_VALUE] == OVERLAP_RATIO_MIN
-        assert overlap_attr[OperatorConstants.MAX_VALUE] == OVERLAP_RATIO_MAX
+        assert overlap_attr[OperatorConstants.Config.DEFAULT] == OVERLAP_RATIO_DEFAULT
+        assert overlap_attr[OperatorConstants.Filtering.MIN_VALUE] == OVERLAP_RATIO_MIN
+        assert overlap_attr[OperatorConstants.Filtering.MAX_VALUE] == OVERLAP_RATIO_MAX
 
     def test_metadata_label_is_generic(self, sample_config):
         """Test that metadata label is generic (not provider-specific)."""

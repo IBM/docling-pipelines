@@ -18,7 +18,8 @@ sys.path.insert(0, str(backend_dir))
 import pyarrow as pa
 
 from core.operators.universal.branching.branching_operator import BranchingOperator
-from common.util.constants import OperatorConstants, Metrics, OrchestratorType
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics, OrchestratorType
 
 
 # ---------------------------------------------------------------------------
@@ -47,14 +48,14 @@ def make_branch(link_id: str, link_name: str, criteria_list=None, criteria_json=
     Pass neither criteria_list nor criteria_json for unconditional branching.
     """
     branch = {
-        OperatorConstants.LINK_ID: link_id,
-        OperatorConstants.LINK_NAME: link_name,
-        OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: logical_operator,
+        OperatorConstants.Misc.LINK_ID: link_id,
+        OperatorConstants.Misc.LINK_NAME: link_name,
+        OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: logical_operator,
     }
     if criteria_list is not None:
-        branch[OperatorConstants.FILTER_CRITERIA_LIST] = criteria_list
+        branch[OperatorConstants.Filtering.FILTER_CRITERIA_LIST] = criteria_list
     if criteria_json is not None:
-        branch[OperatorConstants.FILTER_CRITERIA_JSON] = criteria_json
+        branch[OperatorConstants.Filtering.FILTER_CRITERIA_JSON] = criteria_json
     return branch
 
 
@@ -77,12 +78,12 @@ class TestOperatorFactoryRegistration:
     def test_branching_operator_registered_in_python_factory(self):
         """
         OperatorFactory for the Python orchestrator must contain BranchingOperator
-        under the key OperatorConstants.BRANCHING ('branching').
+        under the key OperatorConstants.Operators.BRANCHING ('branching').
         """
         from core.orchestrator.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
-        operator_class = factory.get_operator(operator_name=OperatorConstants.BRANCHING)
+        operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)
 
         assert operator_class is not None, (
             f"BranchingOperator was not registered in OperatorFactory. "
@@ -102,7 +103,7 @@ class TestOperatorFactoryRegistration:
         from core.orchestrator.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
-        operator_class = factory.get_operator(operator_name=OperatorConstants.BRANCHING)
+        operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)
 
         assert operator_class is not None
         assert operator_class.__name__ == "BranchingOperator", (
@@ -117,7 +118,7 @@ class TestOperatorFactoryRegistration:
         from core.orchestrator.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
-        operator_class = factory.get_operator(operator_name=OperatorConstants.BRANCHING)
+        operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)
 
         assert operator_class is not None
         instance = operator_class({"branches": []})
@@ -130,8 +131,8 @@ class TestOperatorFactoryRegistration:
 
 class TestShortName:
     def test_short_name_equals_branching_constant(self):
-        """BranchingOperator.short_name == OperatorConstants.BRANCHING."""
-        assert BranchingOperator.short_name == OperatorConstants.BRANCHING
+        """BranchingOperator.short_name == OperatorConstants.Operators.BRANCHING."""
+        assert BranchingOperator.short_name == OperatorConstants.Operators.BRANCHING
 
     def test_short_name_value_is_branching_string(self):
         """BranchingOperator.short_name is the string 'branching'."""
@@ -734,9 +735,9 @@ class TestValidate:
         """validate() adds an error when a branch is missing its link_id."""
         branches = [
             {
-                OperatorConstants.LINK_NAME: "no_id_branch",
-                OperatorConstants.FILTER_CRITERIA_LIST: ["score > 3"],
-                OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: "AND",
+                OperatorConstants.Misc.LINK_NAME: "no_id_branch",
+                OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"],
+                OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: "AND",
                 # No LINK_ID
             },
             make_branch(link_id="b2", link_name="other",
@@ -754,10 +755,10 @@ class TestValidate:
         """validate() adds an error for an invalid logical operator."""
         branches = [
             {
-                OperatorConstants.LINK_ID: "b1",
-                OperatorConstants.LINK_NAME: "bad_op",
+                OperatorConstants.Misc.LINK_ID: "b1",
+                OperatorConstants.Misc.LINK_NAME: "bad_op",
                 "logical_operator": "XOR",  # invalid
-                OperatorConstants.FILTER_CRITERIA_LIST: ["score > 3"],
+                OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"],
             },
             make_branch(link_id="b2", link_name="other",
                         criteria_list=["score <= 3"]),

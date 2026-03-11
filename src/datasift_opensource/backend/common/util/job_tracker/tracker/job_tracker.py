@@ -12,7 +12,7 @@ from typing import Any
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.models.session_info import get_session_info, update_session_info
 from common.util.common_utils import Singleton
-from common.util.constants import (
+from common.constants.constants import (
     COMPLETED_JOB_STATUSES,
     DatasiftConstants,
     ExecutionStatus,

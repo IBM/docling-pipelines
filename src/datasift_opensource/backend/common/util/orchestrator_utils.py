@@ -7,7 +7,7 @@ from queue import Queue
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from common.util.constants import DatasiftConstants, OperatorConstants
+from common.constants.constants import DatasiftConstants, OperatorConstants
 from common.util.iceberg_util import get_warehouse_path
 from common.util.log import get_logger
 

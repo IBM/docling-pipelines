@@ -225,7 +225,7 @@ class MicrosoftGraphLoader(BaseLoader):
     def load(self) -> List[Document]:
         return list(self.lazy_load())
 
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,

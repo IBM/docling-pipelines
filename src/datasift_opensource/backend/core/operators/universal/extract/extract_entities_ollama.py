@@ -17,7 +17,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
@@ -380,7 +380,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         }
     """
 
-    short_name: str = OperatorConstants.EXTRACT_ENTITIES_OLLAMA
+    short_name: str = OperatorConstants.Operators.EXTRACT_ENTITIES_OLLAMA
     category: OperatorCategory = OperatorCategory.Extract
 
     # ------------------------------------------------------------------
@@ -390,14 +390,14 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
 
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.doc_id_hash_column: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.doc_id_hash_column: str = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
         self.ollama_model: str = config.get("ollama_model", "granite4")
         self.output_column: str = config.get("output_column", "entities")
         self.max_doc_chars: int = int(config.get("max_doc_chars", 8000))
         self.temperature: float = float(config.get("temperature", 0.0))
-        self.max_workers: int = int(config.get(OperatorConstants.MAX_WORKERS, 4))
-        _raw_expand = config.get(OperatorConstants.EXPAND_EXTRACTED_DATA, False)
+        self.max_workers: int = int(config.get(OperatorConstants.Config.MAX_WORKERS, 4))
+        _raw_expand = config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False)
         self.expand_entities: bool = (
             _raw_expand if isinstance(_raw_expand, bool) else str(_raw_expand).lower() in ("true", "1", "yes")
         )
@@ -538,8 +538,8 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         doc_tasks: list[tuple[int, str, str, str]] = []  # (row_idx, doc_id, doc_name, content)
         for row_idx in range(table.num_rows):
             row = {col: table.column(col)[row_idx].as_py() for col in table.column_names}
-            doc_id = str(row.get(OperatorConstants.ID, row_idx))
-            doc_name = str(row.get(OperatorConstants.NAME, f"doc_{row_idx}"))
+            doc_id = str(row.get(OperatorConstants.Columns.ID, row_idx))
+            doc_name = str(row.get(OperatorConstants.Columns.NAME, f"doc_{row_idx}"))
             content = row.get(self.doc_column) or ""
 
             if not content:
@@ -605,8 +605,8 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
         if self.doc_id_hash_column not in table.column_names:
             doc_id_hash_op: DocIdHashOperator = DocIdHashOperator(
                 {
-                    OperatorConstants.DOC_COLUMN: self.doc_column,
-                    OperatorConstants.DOC_ID_HASH: self.doc_id_hash_column,
+                    OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
+                    OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
                 }
             )
             result_tables: list[pa.Table]
@@ -627,109 +627,109 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
 
     def get_metadata(self) -> dict[str, Any]:
         return {
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.SDK: True,
-            OperatorConstants.LABEL: "Entity Extraction (Ollama)",
-            OperatorConstants.DESCRIPTION: (
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.LABEL: "Entity Extraction (Ollama)",
+            OperatorConstants.Config.DESCRIPTION: (
                 "Extracts structured entities from document text using a locally running "
                 "Ollama LLM, guided by a user-provided JSON schema template."
             ),
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.FEATURES: {
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Config.FEATURES: {
                 self.output_column: {
-                    OperatorConstants.NAME: "Entities",
-                    OperatorConstants.DESCRIPTION: "JSON string of extracted entities matching the provided schema.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
-                    OperatorConstants.TAGS: [],
+                    OperatorConstants.Misc.NAME: "Entities",
+                    OperatorConstants.Config.DESCRIPTION: "JSON string of extracted entities matching the provided schema.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.TAGS: [],
                 },
-                OperatorConstants.DOC_ID_HASH_DEFAULT: {
-                    OperatorConstants.NAME: "Document ID Hash",
-                    OperatorConstants.DESCRIPTION: "Unique hash identifier for the document.",
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.MANDATORY_FOR_VECTOR_DB: True,
-                    OperatorConstants.IS_PRIMARY: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
-                    OperatorConstants.TAGS: [
-                        OperatorConstants.MANDATORY,
-                        OperatorConstants.PRIMARY,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
+                    OperatorConstants.Misc.NAME: "Document ID Hash",
+                    OperatorConstants.Config.DESCRIPTION: "Unique hash identifier for the document.",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.IS_PRIMARY: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.TAGS: [
+                        OperatorConstants.Misc.MANDATORY,
+                        OperatorConstants.Misc.PRIMARY,
                     ],
                 },
             },
-            OperatorConstants.ATTRIBUTES: {
+            OperatorConstants.Config.ATTRIBUTES: {
                 "ollama_model": {
-                    OperatorConstants.NAME: "Ollama Model",
-                    OperatorConstants.DESCRIPTION: "Name of the Ollama model to use (e.g. 'granite4', 'mistral').",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.DEFAULT: "granite4",
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.NAME: "Ollama Model",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the Ollama model to use (e.g. 'granite4', 'mistral').",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: "granite4",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 "schema": {
-                    OperatorConstants.NAME: "Schema (inline)",
-                    OperatorConstants.DESCRIPTION: "Inline schema dict with 'columns' key mapping field names to types.",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: None,
-                    OperatorConstants.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Misc.NAME: "Schema (inline)",
+                    OperatorConstants.Config.DESCRIPTION: "Inline schema dict with 'columns' key mapping field names to types.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 "schema_file": {
-                    OperatorConstants.NAME: "Schema File",
-                    OperatorConstants.DESCRIPTION: "Path to a JSON file containing schema definitions.",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: None,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.NAME: "Schema File",
+                    OperatorConstants.Config.DESCRIPTION: "Path to a JSON file containing schema definitions.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 "schema_table": {
-                    OperatorConstants.NAME: "Schema Table Name",
-                    OperatorConstants.DESCRIPTION: "Name of the schema table to use from the schema file.",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: "default",
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.NAME: "Schema Table Name",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the schema table to use from the schema file.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "default",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 "max_doc_chars": {
-                    OperatorConstants.NAME: "Max Document Characters",
-                    OperatorConstants.DESCRIPTION: "Maximum number of characters to send to the LLM per document.",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: 8000,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "Max Document Characters",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum number of characters to send to the LLM per document.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 8000,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "temperature": {
-                    OperatorConstants.NAME: "Temperature",
-                    OperatorConstants.DESCRIPTION: "LLM sampling temperature (0.0 = deterministic).",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: 0.0,
-                    OperatorConstants.TYPE: AttributeDataTypes.FLOAT,
+                    OperatorConstants.Misc.NAME: "Temperature",
+                    OperatorConstants.Config.DESCRIPTION: "LLM sampling temperature (0.0 = deterministic).",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 0.0,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
-                OperatorConstants.DOC_COLUMN: {
-                    OperatorConstants.NAME: "Document Column",
-                    OperatorConstants.DESCRIPTION: "Name of the column containing document text.",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OperatorConstants.DOC_COLUMN_DEFAULT,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.Columns.DOC_COLUMN: {
+                    OperatorConstants.Misc.NAME: "Document Column",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the column containing document text.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.MAX_WORKERS: {
-                    OperatorConstants.NAME: "Max Workers",
-                    OperatorConstants.DESCRIPTION: "Number of parallel threads for entity extraction.",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: 4,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                OperatorConstants.Config.MAX_WORKERS: {
+                    OperatorConstants.Misc.NAME: "Max Workers",
+                    OperatorConstants.Config.DESCRIPTION: "Number of parallel threads for entity extraction.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 4,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "output_column": {
-                    OperatorConstants.NAME: "Output Column",
-                    OperatorConstants.DESCRIPTION: "Name of the output column that stores the extracted entities JSON string.",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OperatorConstants.ENTITIES,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.NAME: "Output Column",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the output column that stores the extracted entities JSON string.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Misc.ENTITIES,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.EXPAND_EXTRACTED_DATA: {
-                    OperatorConstants.NAME: "Expand Extracted Data",
-                    OperatorConstants.DESCRIPTION: (
+                OperatorConstants.Config.EXPAND_EXTRACTED_DATA: {
+                    OperatorConstants.Misc.NAME: "Expand Extracted Data",
+                    OperatorConstants.Config.DESCRIPTION: (
                         "When True, expands the extracted entities JSON into individual columns "
                         "(one per entity key, named 'entity_{key}')."
                     ),
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
             },
         }

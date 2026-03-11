@@ -9,7 +9,7 @@ from dpk_readability.common import (
 )
 from dpk_readability.transform import ReadabilityTransform
 
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     Metrics,
@@ -63,7 +63,7 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config=config)
         self.contents_column_name: str = config.get(
-            contents_column_name_cli_param, OperatorConstants.DOC_COLUMN_DEFAULT
+            contents_column_name_cli_param, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
         )
         self.score_list: list[str] = config.get(score_list_cli_param, score_list_default)
         if isinstance(self.score_list, str):
@@ -75,105 +75,105 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
 
     def get_metadata(self) -> dict[str, Any]:
         return {
-            OperatorConstants.SDK: True,
-            OperatorConstants.CATEGORY: ReadabilityOperator.category.value,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: ReadabilityOperator.is_available(),
-            OperatorConstants.LABEL: "Readability Operator",
-            OperatorConstants.FEATURES: {
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: ReadabilityOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ReadabilityOperator.is_available(),
+            OperatorConstants.Misc.LABEL: "Readability Operator",
+            OperatorConstants.Config.FEATURES: {
                 FLESCH_EASE: {
-                    OperatorConstants.NAME: "Flesch Reading Ease",
-                    OperatorConstants.DESCRIPTION: "Rates text on a 0–100 scale where higher scores mean easier reading.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Flesch Reading Ease",
+                    OperatorConstants.Config.DESCRIPTION: "Rates text on a 0–100 scale where higher scores mean easier reading.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 FLESCH_KINCAID: {
-                    OperatorConstants.NAME: "Flesch Kincaid Grade",
-                    OperatorConstants.DESCRIPTION: "Estimates the U.S. school grade level needed to understand the text.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Flesch Kincaid Grade",
+                    OperatorConstants.Config.DESCRIPTION: "Estimates the U.S. school grade level needed to understand the text.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 GUNNING_FOG: {
-                    OperatorConstants.NAME: "Gunning Fog",
-                    OperatorConstants.DESCRIPTION: "Estimates the grade level needed based on long sentences and difficult words.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Gunning Fog",
+                    OperatorConstants.Config.DESCRIPTION: "Estimates the grade level needed based on long sentences and difficult words.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 SMOG_INDEX: {
-                    OperatorConstants.NAME: "Smog Index",
-                    OperatorConstants.DESCRIPTION: "Shows the grade level needed, based mainly on how many hard words the text has.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Smog Index",
+                    OperatorConstants.Config.DESCRIPTION: "Shows the grade level needed, based mainly on how many hard words the text has.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 COLEMAN_LIAU_INDEX: {
-                    OperatorConstants.NAME: "Coleman Liau Index",
-                    OperatorConstants.DESCRIPTION: "Estimates reading grade level using letter counts instead of syllables.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Coleman Liau Index",
+                    OperatorConstants.Config.DESCRIPTION: "Estimates reading grade level using letter counts instead of syllables.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 AUTOMATED_READABILITY_INDEX: {
-                    OperatorConstants.NAME: "Automated Readability Index",
-                    OperatorConstants.DESCRIPTION: "Gives the school grade level needed using characters per word and words per sentence.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Automated Readability Index",
+                    OperatorConstants.Config.DESCRIPTION: "Gives the school grade level needed using characters per word and words per sentence.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 DALE_CHALL_READABILITY_SCORE: {
-                    OperatorConstants.NAME: "Dale Chall Readability Score",
-                    OperatorConstants.DESCRIPTION: "Estimates the grade level by checking how many uncommon words are used.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Dale Chall Readability Score",
+                    OperatorConstants.Config.DESCRIPTION: "Estimates the grade level by checking how many uncommon words are used.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 DIFFICULT_WORDS: {
-                    OperatorConstants.NAME: "Difficult Words",
-                    OperatorConstants.DESCRIPTION: "Returns the count of words that are not commonly used, which make the text harder for readers.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Difficult Words",
+                    OperatorConstants.Config.DESCRIPTION: "Returns the count of words that are not commonly used, which make the text harder for readers.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 LINSEAR_WRITE_FORMULA: {
-                    OperatorConstants.NAME: "Linsear Write Formula",
-                    OperatorConstants.DESCRIPTION: "Computes grade level based on easy vs. hard words and sentence length.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Linsear Write Formula",
+                    OperatorConstants.Config.DESCRIPTION: "Computes grade level based on easy vs. hard words and sentence length.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 TEXT_STANDARD: {
-                    OperatorConstants.NAME: "Text Standard",
-                    OperatorConstants.DESCRIPTION: "Provides an overall grade-level estimate by combining multiple readability formulas.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Text Standard",
+                    OperatorConstants.Config.DESCRIPTION: "Provides an overall grade-level estimate by combining multiple readability formulas.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 SPACHE_READABILITY: {
-                    OperatorConstants.NAME: "Spache Readability",
-                    OperatorConstants.DESCRIPTION: "Estimates reading grade level for texts aimed at young children up to 4th grade.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Spache Readability",
+                    OperatorConstants.Config.DESCRIPTION: "Estimates reading grade level for texts aimed at young children up to 4th grade.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 MCALPINE_EFLAW: {
-                    OperatorConstants.NAME: "Mcalpine Eflaw",
-                    OperatorConstants.DESCRIPTION: "Rates readability for learners of English, focusing on short 'miniwords' and sentence length.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Mcalpine Eflaw",
+                    OperatorConstants.Config.DESCRIPTION: "Rates readability for learners of English, focusing on short 'miniwords' and sentence length.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
                 READING_TIME: {
-                    OperatorConstants.NAME: "Reading Time",
-                    OperatorConstants.DESCRIPTION: "The reading time of the given text. Assumes 14.69ms per character.",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.DOUBLE,
+                    OperatorConstants.Misc.NAME: "Reading Time",
+                    OperatorConstants.Config.DESCRIPTION: "The reading time of the given text. Assumes 14.69ms per character.",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
             },
-            OperatorConstants.ATTRIBUTES: {
+            OperatorConstants.Config.ATTRIBUTES: {
                 "readability_score_list": {
-                    OperatorConstants.NAME: "Readability Scores",
-                    OperatorConstants.DESCRIPTION: "Select which readability scores to compute for your documents.",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.DEFAULT: DEFAULT_READABILITY_SCORES,
-                    OperatorConstants.VALID_VALUES: DEFAULT_READABILITY_SCORES,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Misc.NAME: "Readability Scores",
+                    OperatorConstants.Config.DESCRIPTION: "Select which readability scores to compute for your documents.",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_READABILITY_SCORES,
+                    OperatorConstants.Config.VALID_VALUES: DEFAULT_READABILITY_SCORES,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 }
             },
         }
 
     @staticmethod
     def get_static_required_features() -> list[str]:
-        return [OperatorConstants.DOC_COLUMN_DEFAULT]
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def get_required_features(self) -> list[str]:
         return [self.contents_column_name]

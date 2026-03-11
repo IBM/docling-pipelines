@@ -3,7 +3,7 @@ from typing import Any
 import boto3
 import pyarrow as pa
 
-from common.util.constants import DatasiftConstants, Metrics, OperatorConstants
+from common.constants.constants import DatasiftConstants, Metrics, OperatorConstants
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.ingest.ingest_utils import (

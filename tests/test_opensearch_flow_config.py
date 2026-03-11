@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from uuid import UUID
 
-from common.util.constants import OperatorConstants
+from common.constants.operator_constants import OperatorConstants
 
 
 class TestOpenSearchFlow(unittest.TestCase):

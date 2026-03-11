@@ -3,12 +3,12 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import (
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
@@ -31,7 +31,7 @@ class RedactionOperator(AbstractOperator):
     row is stored within a column specified by "stats_column".
     """
 
-    short_name = OperatorConstants.REDACTION
+    short_name = OperatorConstants.Operators.REDACTION
     category = OperatorCategory.Quality
 
     def __init__(self, config: dict[str, Any]):
@@ -43,13 +43,13 @@ class RedactionOperator(AbstractOperator):
         - regex: The pattern or word to be masked/redacted.
         """
         super().__init__(config)
-        self.doc_column = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_column = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
         self.stats_column = config.get(STATS_COLUMN_NAME_KEY, STATS_COLUMN_NAME_DEFAULT)
         self.masking_character = config.get(
-            OperatorConstants.REDACTION_MASKING_CHARACTER_KEY, DEFAULT_MASKING_CHARACTER
+            OperatorConstants.PIIHAP.REDACTION_MASKING_CHARACTER_KEY, DEFAULT_MASKING_CHARACTER
         )
 
-        regex = config.get(OperatorConstants.REDACTION_REGEX_KEY)
+        regex = config.get(OperatorConstants.PIIHAP.REDACTION_REGEX_KEY)
         if regex and len(regex):
             try:
                 regex = re.compile(regex)
@@ -67,32 +67,32 @@ class RedactionOperator(AbstractOperator):
 
     def get_metadata(self):
         operator_metadata = {
-            OperatorConstants.SDK: True,
-            OperatorConstants.CATEGORY: RedactionOperator.category.value,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: RedactionOperator.is_available(),
-            OperatorConstants.LABEL: "Redaction",
-            OperatorConstants.FEATURES: {
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: RedactionOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: RedactionOperator.is_available(),
+            OperatorConstants.Misc.LABEL: "Redaction",
+            OperatorConstants.Config.FEATURES: {
                 STATS_COLUMN_NAME_DEFAULT: {
-                    OperatorConstants.NAME: "Redaction Count",
-                    OperatorConstants.DESCRIPTION: "Number of matches found and redacted from the document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "Redaction Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of matches found and redacted from the document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 }
             },
-            OperatorConstants.ATTRIBUTES: {
-                OperatorConstants.REDACTION_REGEX_KEY: {
-                    OperatorConstants.NAME: "Redaction key",
-                    OperatorConstants.DESCRIPTION: "The pattern or word to be masked/redacted.",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.DEFAULT: None,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.PIIHAP.REDACTION_REGEX_KEY: {
+                    OperatorConstants.Misc.NAME: "Redaction key",
+                    OperatorConstants.Config.DESCRIPTION: "The pattern or word to be masked/redacted.",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.REDACTION_MASKING_CHARACTER_KEY: {
-                    OperatorConstants.NAME: "Masking Character",
-                    OperatorConstants.DESCRIPTION: "Single length masking character chosen by user.",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: DEFAULT_MASKING_CHARACTER,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.PIIHAP.REDACTION_MASKING_CHARACTER_KEY: {
+                    OperatorConstants.Misc.NAME: "Masking Character",
+                    OperatorConstants.Config.DESCRIPTION: "Single length masking character chosen by user.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_MASKING_CHARACTER,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
             },
         }

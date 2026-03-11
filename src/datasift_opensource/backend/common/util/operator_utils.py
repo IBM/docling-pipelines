@@ -12,7 +12,7 @@ from common.exceptions.datasift_exceptions import (
     ValidationAlert,
 )
 from common.exceptions.error_messages import ValidationCodeMessages
-from common.util.constants import OperatorConstants, internal_metrics
+from common.constants.constants import OperatorConstants, internal_metrics
 from common.util.log import get_logger
 
 hash_functions = hashlib.sha3_512

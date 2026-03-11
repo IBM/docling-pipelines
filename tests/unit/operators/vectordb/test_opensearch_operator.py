@@ -18,7 +18,7 @@ from core.operators.universal.vectordb.opensearch_operator import (
     ENGINE_PARAMETERS_KEY,
     SPARSE_EMBEDDINGS_COLUMN_KEY,
 )
-from common.util.constants import OperatorConstants
+from common.constants.operator_constants import OperatorConstants
 from common.util.env_config import get_opensearch_config
 
 

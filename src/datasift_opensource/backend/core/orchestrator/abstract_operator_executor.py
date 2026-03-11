@@ -9,7 +9,7 @@ import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
 from common.models.session_info import get_session_info
-from common.util.constants import (
+from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
@@ -56,8 +56,8 @@ class AbstractOperatorExecutor:
                 current_tables=out_tables,
                 op=self.get_operator(),
                 skip_columns=[
-                    OperatorConstants.KVP_COLUMN,
-                    OperatorConstants.DOC_COLUMN,
+                    OperatorConstants.Columns.KVP_COLUMN,
+                    OperatorConstants.Columns.DOC_COLUMN,
                 ],
             )
             if deleted_rows.num_rows > 0:

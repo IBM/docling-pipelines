@@ -5,7 +5,8 @@ import tempfile
 from unittest.mock import patch, MagicMock
 
 from core.orchestrator.cmdline.cmd_line_orchestrator import run_command_line_executor, load_flow_definition
-from common.util.constants import DatasiftConstants, OperatorConstants
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import DatasiftConstants
 from common.exceptions.datasift_exceptions import FlowValidationException
 
 
@@ -24,7 +25,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9500",
                     "name": "ingest",
-                    OperatorConstants.OPERATOR: OperatorConstants.INGEST_LOCAL,
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
                     "config": {
                         "input_folder": "tests/fixtures/customer_support_docs",
                         "include_filter": "txt"},
@@ -35,7 +36,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9501",
                     "name": "Sleep",
-                    OperatorConstants.OPERATOR: OperatorConstants.NOOP,
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.NOOP,
                     "config": {"sleep_sec": 2},
                     "input_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500"}],
                     "output_edges": []
@@ -50,7 +51,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         Test loading a flow definition from a file
         """
         from core.orchestrator.cmdline.cmd_line_orchestrator import load_flow_definition
-        filepath = "tests/flow_local.json"
+        filepath = "../../../tests/flow_local.json"
 
         flow_def = load_flow_definition(file_path=filepath)
         assert flow_def is not None
@@ -122,7 +123,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                 {
                     "id": "test-id",
                     "name": "test-operator",
-                    OperatorConstants.OPERATOR: "test-operator",
+                    OperatorConstants.Misc.OPERATOR: "test-operator",
                     "config": {}
                 }
             ]

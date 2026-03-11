@@ -5,11 +5,11 @@ import pyarrow as pa
 import sqlglot
 from sqlglot import expressions as exp
 
-from common.util.constants import (
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import (
     AttributeDataTypes,
     MemoryLogPhases,
     Metrics,
-    OperatorConstants,
 )
 from common.util.log import get_logger
 from common.util.operator_utils import (
@@ -34,7 +34,7 @@ class BranchingOperator(AbstractOperator):
     based on given conditions and logical operators.
     """
 
-    short_name: str = OperatorConstants.BRANCHING
+    short_name: str = OperatorConstants.Operators.BRANCHING
     category: OperatorCategory = OperatorCategory.Functional
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -55,8 +55,8 @@ class BranchingOperator(AbstractOperator):
 
         # Check if this is unconditional branching (all branches have empty criteria_json['criteria_list'])
         is_unconditional_branching: bool = all(
-            isinstance(branch.get(OperatorConstants.FILTER_CRITERIA_JSON), dict)
-            and not branch.get(OperatorConstants.FILTER_CRITERIA_JSON, {}).get("criteria_list", [])
+            isinstance(branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON), dict)
+            and not branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON, {}).get("criteria_list", [])
             for branch in self.branch_criteria
         )
 
@@ -64,9 +64,9 @@ class BranchingOperator(AbstractOperator):
         existing_link_names: set[str] = set()
         for branch in self.branch_criteria:
             logical_op: str | None = branch.get("logical_operator")
-            criteria_list: list[str] = branch.get(OperatorConstants.FILTER_CRITERIA_LIST, [])
-            criteria_json: dict[str, Any] | None = branch.get(OperatorConstants.FILTER_CRITERIA_JSON)
-            link_name: str | None = branch.get(OperatorConstants.LINK_NAME)
+            criteria_list: list[str] = branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST, [])
+            criteria_json: dict[str, Any] | None = branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON)
+            link_name: str | None = branch.get(OperatorConstants.Misc.LINK_NAME)
             validate_link_name(
                 link_name=link_name,
                 existing_link_names=existing_link_names,
@@ -113,7 +113,7 @@ class BranchingOperator(AbstractOperator):
                             errors=errors,
                         )
 
-            if not branch.get(OperatorConstants.LINK_ID):
+            if not branch.get(OperatorConstants.Misc.LINK_ID):
                 errors.append("Branch Id is missing in the branch parameters.")
 
         if invalid_features:
@@ -123,19 +123,19 @@ class BranchingOperator(AbstractOperator):
 
     def get_metadata(self) -> dict[str, Any]:
         return {
-            OperatorConstants.SDK: True,
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.LABEL: "Branching Operator",
-            OperatorConstants.ATTRIBUTES: {
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.LABEL: "Branching Operator",
+            OperatorConstants.Config.ATTRIBUTES: {
                 "branch_criteria": {
-                    OperatorConstants.NAME: "Branches",
-                    OperatorConstants.DESCRIPTION: (
+                    OperatorConstants.Misc.NAME: "Branches",
+                    OperatorConstants.Config.DESCRIPTION: (
                         "A list of branch configurations. Each branch includes a set of filter conditions, "
                         "a logical operator (AND/OR) to combine them, and features to drop from the resulting table."
                     ),
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 }
             },
         }
@@ -149,7 +149,7 @@ class BranchingOperator(AbstractOperator):
         skipped_docs: list[dict[str, Any]],
         failed_docs: list[dict[str, Any]],
     ) -> None:
-        branch_id: str | None = self.branch_criteria[idx].get(OperatorConstants.LINK_ID)
+        branch_id: str | None = self.branch_criteria[idx].get(OperatorConstants.Misc.LINK_ID)
         metadata["branches"][branch_id] = {
             "result_index": idx,
             "docs_filtered": total_docs - filtered_table.num_rows,
@@ -180,13 +180,13 @@ class BranchingOperator(AbstractOperator):
         processed_doc_ids: set[str] = set()
 
         for idx, branch in enumerate(self.branch_criteria):
-            if not branch.get(OperatorConstants.FILTER_CRITERIA_LIST) and not branch.get(
-                OperatorConstants.FILTER_CRITERIA_JSON
+            if not branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST) and not branch.get(
+                OperatorConstants.Filtering.FILTER_CRITERIA_JSON
             ):
                 filtered_tables.append(pa.Table.from_batches(table.to_batches()))
                 # Track unique document IDs for unconditional branching
-                if OperatorConstants.ID in table.column_names:
-                    doc_ids: list[str] = table.column(OperatorConstants.ID).to_pylist()
+                if OperatorConstants.Misc.ID in table.column_names:
+                    doc_ids: list[str] = table.column(OperatorConstants.Misc.ID).to_pylist()
                     processed_doc_ids.update(doc_ids)
                 self._update_metadata(
                     idx=idx,
@@ -199,11 +199,11 @@ class BranchingOperator(AbstractOperator):
                 continue
 
             config: dict[str, Any] = {
-                OperatorConstants.FILTER_CRITERIA_LIST: branch.get(OperatorConstants.FILTER_CRITERIA_LIST),
-                OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: branch.get(
-                    OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY
+                OperatorConstants.Filtering.FILTER_CRITERIA_LIST: branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST),
+                OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: branch.get(
+                    OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY
                 ),
-                OperatorConstants.FILTER_CRITERIA_JSON: branch.get(OperatorConstants.FILTER_CRITERIA_JSON),
+                OperatorConstants.Filtering.FILTER_CRITERIA_JSON: branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON),
             }
             filter_operator: Any
             if spark_session:
@@ -222,8 +222,8 @@ class BranchingOperator(AbstractOperator):
             filtered_table: pa.Table = branch_tables[0]
 
             # Track unique document IDs for conditional branching
-            if OperatorConstants.ID in filtered_table.column_names:
-                doc_ids = filtered_table.column(OperatorConstants.ID).to_pylist()
+            if OperatorConstants.Misc.ID in filtered_table.column_names:
+                doc_ids = filtered_table.column(OperatorConstants.Misc.ID).to_pylist()
                 processed_doc_ids.update(doc_ids)
 
             if metadata_filter_transform is not None:

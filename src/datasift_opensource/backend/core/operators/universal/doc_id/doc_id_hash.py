@@ -4,7 +4,8 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import Metrics, OperatorConstants
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -52,7 +53,7 @@ class DocIdHashOperator(AbstractOperator):
     DoclingChunkerOperator, EmbeddingsOperator) to generate document hash IDs.
     """
 
-    short_name: str = OperatorConstants.DOC_ID_OPERATOR
+    short_name: str = OperatorConstants.Operators.DOC_ID_OPERATOR
     category: OperatorCategory = OperatorCategory.Functional
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -65,11 +66,11 @@ class DocIdHashOperator(AbstractOperator):
                 - doc_id_hash_column: Name of the output hash column (default: "doc_id_hash")
         """
         # Set the hash column name and doc column name in config for DocIDTransform
-        config[hash_column_name_key] = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
-        config[doc_column_name_key] = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        config[hash_column_name_key] = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
+        config[doc_column_name_key] = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.hash_column: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.hash_column: str = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
 
         # Initialize DocIDTransform if available
         if HAS_DOC_ID_TRANSFORM and DocIDTransform is not None:
@@ -78,7 +79,7 @@ class DocIdHashOperator(AbstractOperator):
             self._doc_id_transform: Any | None = None
 
     def get_metadata(self) -> dict[str, Any]:
-        return {OperatorConstants.IS_OPERATOR_AVAILABLE: False}
+        return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False}
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """

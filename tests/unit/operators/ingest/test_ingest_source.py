@@ -271,9 +271,9 @@ class TestGetLoader:
             scopes=['https://www.googleapis.com/auth/drive.readonly']
         )
     
-    @patch('core.operators.universal.ingest.ingest_source.SharePointLoader')
-    def test_get_loader_sharepoint(self, mock_sp_loader):
-        """Test _get_loader returns SharePointLoader for SharePoint provider."""
+    @patch('core.operators.universal.ingest.ingest_source.MicrosoftGraphLoader')
+    def test_get_loader_sharepoint(self, mock_ms_loader):
+        """Test _get_loader returns MicrosoftGraphLoader for SharePoint provider."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
         
         config = {
@@ -290,11 +290,11 @@ class TestGetLoader:
         operator = IngestSourceOperator(config)
         loader = operator._get_loader()
         
-        mock_sp_loader.assert_called_once()
+        mock_ms_loader.assert_called_once()
     
-    @patch('core.operators.universal.ingest.ingest_source.OneDriveLoader')
-    def test_get_loader_onedrive(self, mock_od_loader):
-        """Test _get_loader returns OneDriveLoader for OneDrive provider."""
+    @patch('core.operators.universal.ingest.ingest_source.MicrosoftGraphLoader')
+    def test_get_loader_onedrive(self, mock_ms_loader):
+        """Test _get_loader returns MicrosoftGraphLoader for OneDrive provider."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
         
         config = {
@@ -312,7 +312,7 @@ class TestGetLoader:
         operator = IngestSourceOperator(config)
         loader = operator._get_loader()
         
-        mock_od_loader.assert_called_once()
+        mock_ms_loader.assert_called_once()
     
     @patch('importlib.import_module')
     def test_get_loader_custom(self, mock_import):
@@ -755,13 +755,14 @@ class TestTransform:
         result_table = result_tables[0]
         schema = result_table.schema
         
-        # Verify schema - now includes id and name fields
-        assert len(schema) == 5
+        # Verify schema - now includes id, name, and modified_time fields
+        assert len(schema) == 6
         assert schema.field('text').type == pa.string()
         assert schema.field('metadata').type == pa.string()
         assert schema.field('source_id').type == pa.string()
         assert schema.field('id').type == pa.string()
         assert schema.field('name').type == pa.string()
+        assert schema.field('modified_time').type == pa.int64()
     
     @patch('common.util.incremental_update_util.IncrementalUpdateUtil')
     @patch('core.operators.universal.ingest.ingest_source.GoogleDriveLoader')

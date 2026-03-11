@@ -1,7 +1,8 @@
 import unittest
 import pyarrow as pa
 from core.operators.universal.readability.readability import ReadabilityOperator, DEFAULT_READABILITY_SCORES
-from common.util.constants import Metrics, OperatorConstants
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics
 
 
 class TestReadabilityOperator(unittest.TestCase):

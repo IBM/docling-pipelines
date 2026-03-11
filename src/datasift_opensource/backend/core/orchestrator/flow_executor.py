@@ -12,7 +12,7 @@ from common.exceptions.datasift_exceptions import (
     ValidationAlertEncoder,
 )
 from common.models.session_info import get_session_info
-from common.util.constants import DatasiftConstants, OrchestratorType
+from common.constants.constants import DatasiftConstants, OrchestratorType
 from common.util.log import get_logger
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.orchestrator_factory import OrchestratorFactory

@@ -16,7 +16,7 @@ from pathlib import Path
 from core.operators.universal.vectordb.opensearch_operator import (
     OpenSearchOperator,
 )
-from common.util.constants import OperatorConstants
+from common.constants.operator_constants import OperatorConstants
 
 
 def is_docker_available():

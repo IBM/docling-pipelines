@@ -3,12 +3,12 @@ from typing import Any
 
 from data_processing.transform import AbstractTableTransform
 
-from common.util.constants import (
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import (
     DatasiftConstants,
     DocsStructure,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
 from common.util.log import get_logger
 from core.operators.operator_utils import OperatorUtils
@@ -31,8 +31,8 @@ class AbstractOperator(AbstractTableTransform):
 
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
-        self.name = config.get(OperatorConstants.NAME)
-        self.id = config.get(OperatorConstants.ID)
+        self.name = config.get(OperatorConstants.Misc.NAME)
+        self.id = config.get(OperatorConstants.Misc.ID)
         self.job_id = config.get(DatasiftConstants.JOB_ID)
         self.job_run_id = config.get(DatasiftConstants.JOB_RUN_ID)
         self.context_id = config.get(DatasiftConstants.CONTEXT_ID, self.job_id)
