@@ -30,7 +30,9 @@ class LanguageDetect(AbstractOperator):
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-        self.doc_column_name: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.doc_column_name: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,

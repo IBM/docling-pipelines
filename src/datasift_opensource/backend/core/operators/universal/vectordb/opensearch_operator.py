@@ -13,8 +13,8 @@ import pyarrow as pa
 from botocore.credentials import Credentials
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection, helpers
 
-from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from core.operators.abstract_operator import (
     AbstractOperator,
@@ -153,7 +153,9 @@ class OpenSearchOperator(AbstractOperator):
         self.batch_size: int = config.get(OperatorConstants.Config.BATCH_SIZE, DEFAULT_BATCH_SIZE)
         self.create_index: bool = config.get(OperatorConstants.VectorDB.CREATE_INDEX, True)
         self.index_settings: dict[str, Any] | None = config.get(OperatorConstants.VectorDB.INDEX_SETTINGS)
-        self.config_vector_dimension: int = config.get(OperatorConstants.VectorDB.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION)
+        self.config_vector_dimension: int = config.get(
+            OperatorConstants.VectorDB.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION
+        )
         # This will be set to the detected dimension or fall back to config value
         self.vector_dimension: int = self.config_vector_dimension
         self.dimension_auto_detected: bool = False

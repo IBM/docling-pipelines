@@ -1,7 +1,8 @@
 from collections import defaultdict
 
+from common.constants.constants import OrchestratorType
+from common.constants.operator_constants import OperatorConstants
 from common.models.session_info import get_session_info
-from common.constants.constants import OperatorConstants, OrchestratorType
 from common.util.log import get_logger
 from core.orchestrator.operator_factory import OperatorFactoryProvider
 

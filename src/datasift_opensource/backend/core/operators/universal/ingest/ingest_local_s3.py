@@ -3,7 +3,8 @@ from typing import Any
 import boto3
 import pyarrow as pa
 
-from common.constants.constants import DatasiftConstants, Metrics, OperatorConstants
+from common.constants.constants import DatasiftConstants, Metrics
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.ingest.ingest_utils import (
@@ -55,7 +56,7 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
         self.max_file_size: int = MB * config.get(MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE)
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
         self.include_folder: str | None = config.get(INCLUDE_FOLDER_KEY)
 
         self.aws_access_id: str | None = config.get(AWS_ACCESS_ID_KEY)

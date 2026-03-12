@@ -4,7 +4,8 @@ from typing import Any
 import pyarrow as pa
 from dpk_doc_quality.transform import DocQualityTransform
 
-from common.constants.constants import AttributeDataTypes, Metrics, OperatorConstants
+from common.constants.constants import AttributeDataTypes, Metrics
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -39,7 +40,9 @@ class DocQuality(DocQualityTransform, AbstractOperator):
         )
         config.update({BAD_WORD_FILEPATH_KEY: normalized_bad_word_filepath})
         super().__init__(config)
-        self.doc_column_name: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.doc_column_name: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         self.doc_content_column: str = config.get(DOC_CONTENT_COLUMN_KEY, "content")
         self.text_lang: str = config.get(TEXT_LANG_KEY, DEFAULT_TEXT_LANG)
         self.bad_word_filepath: str = config.get(BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath)

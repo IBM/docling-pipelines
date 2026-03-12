@@ -2,7 +2,8 @@ import importlib
 import inspect
 import pkgutil
 
-from common.constants.constants import OperatorConstants, OrchestratorType
+from common.constants.constants import OrchestratorType
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator
 

@@ -576,7 +576,7 @@ def test_configuration_validation():
                 "model_name": "granite4",
             }
         )
-        assert operator.doc_column_name == OperatorConstants.DOC_COLUMN_DEFAULT
+        assert operator.doc_column_name == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
     except Exception as e:
         pytest.fail(f"Unexpected exception with default doc_column: {str(e)}")
 

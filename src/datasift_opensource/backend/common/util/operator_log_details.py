@@ -273,7 +273,7 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
         _count_and_remove_lists(node_info=node_info, keys_to_count=keys_to_count)
 
         # Append formatted node info using its name as key
-        new_node_stats.append({node_info.get(OperatorConstants.NAME): node_info})
+        new_node_stats.append({node_info.get(OperatorConstants.Columns.NAME): node_info})
 
     return json.dumps(new_node_stats, indent=6)
 

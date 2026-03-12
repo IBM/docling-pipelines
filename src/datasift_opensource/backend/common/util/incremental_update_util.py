@@ -5,8 +5,9 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.compute as pc
 
+from common.constants.constants import DatasiftConstants
+from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.constants.constants import DatasiftConstants, OperatorConstants
 from common.util.iceberg_util import get_warehouse_path
 from common.util.log import get_logger
 from common.util.parquet_table_handler import (
@@ -339,7 +340,9 @@ class IncrementalUpdateUtil:  # pragma: no cover
             list: Document IDs to delete.
         """
         input_doc_ids = set(input_table[OperatorConstants.Misc.ID].to_pylist()) if input_table.num_rows != 0 else set()
-        output_doc_ids = set(result_table[OperatorConstants.Misc.ID].to_pylist()) if result_table.num_rows != 0 else set()
+        output_doc_ids = (
+            set(result_table[OperatorConstants.Misc.ID].to_pylist()) if result_table.num_rows != 0 else set()
+        )
 
         ids_to_delete = list(input_doc_ids - output_doc_ids)
 

@@ -17,8 +17,8 @@ from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
@@ -76,8 +76,12 @@ class DoclingChunkerOperator(AbstractOperator):
                 - tokenizer: Tokenizer to use for chunking (default: "sentence-transformers/all-MiniLM-L6-v2")
         """
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-        self.chunk_size: int = config.get(OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
+        self.chunk_size: int = config.get(
+            OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT
+        )
         self.chunk_overlap: int = config.get("chunk_overlap", 128)
         self.retain_original_content: bool = config.get("retain_original_content", True)
         self.tokenizer: str = config.get("tokenizer", "sentence-transformers/all-MiniLM-L6-v2")
@@ -376,7 +380,7 @@ class DoclingChunkerOperator(AbstractOperator):
             Dictionary containing operator metadata
         """
         metadata_features: dict[str, dict[str, Any]] = {
-            OperatorConstants.CHUNKED_CONTENT: {
+            OperatorConstants.Columns.CHUNKED_CONTENT: {
                 OperatorConstants.Misc.NAME: "Chunked Content",
                 OperatorConstants.Config.DESCRIPTION: "Document content split into semantic chunks",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,

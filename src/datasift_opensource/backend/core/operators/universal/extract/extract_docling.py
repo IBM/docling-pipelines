@@ -15,7 +15,13 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.constants.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics, OperatorConstants
+from common.constants.constants import (
+    AttributeDataTypes,
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+)
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
@@ -337,8 +343,12 @@ class ExtractDoclingOperator(AbstractOperator):
                 - use_processes: Use ProcessPoolExecutor instead of ThreadPoolExecutor (default: False)
         """
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-        self.doc_id_hash: str = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
+        self.doc_id_hash: str = config.get(
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
         self.extract_tables: bool = config.get(OperatorConstants.Config.EXTRACT_TABLES, True)
         self.extract_images: bool = config.get(OperatorConstants.Config.EXTRACT_IMAGES, True)
         self.use_template: bool = config.get(OperatorConstants.Config.USE_TEMPLATE, False)

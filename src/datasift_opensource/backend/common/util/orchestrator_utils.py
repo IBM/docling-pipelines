@@ -7,7 +7,8 @@ from queue import Queue
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from common.constants.constants import DatasiftConstants, OperatorConstants
+from common.constants.constants import DatasiftConstants
+from common.constants.operator_constants import OperatorConstants
 from common.util.iceberg_util import get_warehouse_path
 from common.util.log import get_logger
 
@@ -177,8 +178,8 @@ def _combine_tables(tables: list[pa.Table], table_type: str) -> pa.Table | None:
     try:
         combined = pa.concat_tables(tables, promote=True)
         # Warn if duplicate IDs
-        if OperatorConstants.ID in combined.column_names:
-            unique_ids = pc.count_distinct(combined[OperatorConstants.ID]).as_py()
+        if OperatorConstants.Columns.ID in combined.column_names:
+            unique_ids = pc.count_distinct(combined[OperatorConstants.Columns.ID]).as_py()
             total_rows = combined.num_rows
             if unique_ids < total_rows:
                 logger.warning(f"{table_type} contains {total_rows - unique_ids} duplicate IDs.")
@@ -261,8 +262,8 @@ def update_deleted_rows(
     try:
         deleted_mask = pc.invert(
             pc.is_in(
-                previous_combined[OperatorConstants.ID],
-                value_set=current_combined[OperatorConstants.ID],
+                previous_combined[OperatorConstants.Columns.ID],
+                value_set=current_combined[OperatorConstants.Columns.ID],
             )
         )
         deleted_rows = previous_combined.filter(deleted_mask)

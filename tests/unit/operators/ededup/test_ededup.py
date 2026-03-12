@@ -1,6 +1,5 @@
 import os
 import unittest
-import uuid
 
 import pyarrow as pa
 from typing import Tuple
@@ -13,11 +12,13 @@ from dpk_ededup import (
     doc_column_name_key,
     int_column_name_key,
 )
+
 # from dpk_ededup.transform_python import EdedupTransform
 # from datasift_core.operators.universal.ededup.ededup import EdedupOperator
 from core.operators.universal.ededup.ededup import EdedupOperator
 from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics
+
 
 class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
     """
@@ -27,35 +28,57 @@ class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
 
     def get_test_transform_fixtures(self) -> list[Tuple]:
         # Use the correct path relative to the test file location
-        basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../fixtures"))
+        basedir = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "../../../fixtures")
+        )
         input_dir = os.path.join(basedir, "ededup_input")
         expected_dir = os.path.join(basedir, "ededup_expected")
-        
+
         # Create directories if they don't exist
         os.makedirs(input_dir, exist_ok=True)
         os.makedirs(expected_dir, exist_ok=True)
-        
+
         input_tables = get_tables_in_folder(input_dir)
         expected_tables = get_tables_in_folder(expected_dir)
-        
+
         # Ensure fixture files are present — fail fast with a clear message if not
         assert len(input_tables) > 0, f"No input parquet files found in {input_dir}"
-        assert len(expected_tables) > 0, f"No expected parquet files found in {expected_dir}"
-        expected_metadata_list = [{"result_documents": 3, "source_documents": 5, 'removed_documents': ['c86996cf20920d0955a38580abb650b00d0e1df5f7bd98646669561fd89c1627', '3e4d6c6c89dd166c88d79a6cbe3d90c8db2c9847fca19893409ec29434643c3d']}, {}]  # pragma: allowlist secret
+        assert len(expected_tables) > 0, (
+            f"No expected parquet files found in {expected_dir}"
+        )
+        expected_metadata_list = [
+            {
+                "result_documents": 3,
+                "source_documents": 5,
+                "removed_documents": [
+                    "c86996cf20920d0955a38580abb650b00d0e1df5f7bd98646669561fd89c1627",
+                    "3e4d6c6c89dd166c88d79a6cbe3d90c8db2c9847fca19893409ec29434643c3d",
+                ],
+            },
+            {},
+        ]  # pragma: allowlist secret
         # Expected metadata should be produced for each transform call plus a final flush
-        assert len(expected_metadata_list) == len(input_tables) + 1, f"Expected metadata list length ({len(expected_metadata_list)}) does not match number of input tables plus flush ({len(input_tables)+1})"
-        config = {doc_column_name_key: "contents", int_column_name_key: "document_id", "filter": HashFilter({})}
+        assert len(expected_metadata_list) == len(input_tables) + 1, (
+            f"Expected metadata list length ({len(expected_metadata_list)}) does not match number of input tables plus flush ({len(input_tables) + 1})"
+        )
+        config = {
+            doc_column_name_key: "contents",
+            int_column_name_key: "document_id",
+            "filter": HashFilter({}),
+        }
         return [
-            (EdedupTransform(config), input_tables, expected_tables, expected_metadata_list),
+            (
+                EdedupTransform(config),
+                input_tables,
+                expected_tables,
+                expected_metadata_list,
+            ),
         ]
 
 
 class TestDatasiftEdedupOperator(unittest.TestCase):
     def test_init(self):
-        config = {
-            "doc_column": "content",
-            "doc_id_hash_column": "doc_id_hash"
-        }
+        config = {"doc_column": "content", "doc_id_hash_column": "doc_id_hash"}
         operator = EdedupOperator(config)
         self.assertIsNotNone(operator, "Ededup Operator is not None")
 
@@ -66,18 +89,20 @@ class TestDatasiftEdedupOperator(unittest.TestCase):
         name = ["Doc 1", "Doc 2", "Doc 3"]
 
         data = {
-            OperatorConstants.ID: doc_id_hash,
-            OperatorConstants.DOC_COLUMN_DEFAULT: content,
-            OperatorConstants.DOC_ID_HASH_DEFAULT: doc_id_hash,
-            OperatorConstants.NAME: name
+            OperatorConstants.Columns.ID: doc_id_hash,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
+            OperatorConstants.Columns.NAME: name,
         }
         input_table = pa.table(data)
 
         # 2. Using the output of local ingest into the ededup_input for the edudep transform
-        ededup_operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        ededup_operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         # 3. Create Expected MetaData
         expected_metadata = {
@@ -87,20 +112,21 @@ class TestDatasiftEdedupOperator(unittest.TestCase):
             Metrics.External.FAILED_DOCS: [],
             Metrics.External.SKIPPED_DOCS: [
                 {
-                    'id': '102',
-                    'name': 'Doc 2',
-                    'reason': 'This document was identified as a duplicate and removed.'
+                    "id": "102",
+                    "name": "Doc 2",
+                    "reason": "This document was identified as a duplicate and removed.",
                 }
             ],
             Metrics.External.SKIPPED_DOCS_COUNT: 1,
-            Metrics.External.REMOVED_DOCUMENTS : 1,
-            Metrics.External.NODE_STATUS: 'Completed'
+            Metrics.External.REMOVED_DOCUMENTS: 1,
+            Metrics.External.NODE_STATUS: "Completed",
         }
 
         _, metadata = ededup_operator.transform(input_table)
 
         # 4. Perform Assertions
         assert metadata == expected_metadata
+
 
 def test_operator_metadata():
     """Test that operator returns correct metadata"""
@@ -114,7 +140,9 @@ def test_operator_metadata():
         "label": "De-duplicator",
     }
 
-    assert operator_metadata == expected_operator_metadata, "Ededup Operator metadata mismatch"
+    assert operator_metadata == expected_operator_metadata, (
+        "Ededup Operator metadata mismatch"
+    )
 
 
 class TestEdedupOperatorEdgeCases(unittest.TestCase):
@@ -124,17 +152,19 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         """Test deduplication with an empty table"""
         # Create empty table with correct schema
         data = {
-            OperatorConstants.ID: [],
-            OperatorConstants.DOC_COLUMN_DEFAULT: [],
-            OperatorConstants.DOC_ID_HASH_DEFAULT: [],
-            OperatorConstants.NAME: []
+            OperatorConstants.Columns.ID: [],
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: [],
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: [],
+            OperatorConstants.Columns.NAME: [],
         }
         empty_table = pa.table(data)
 
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         result_tables, metadata = operator.transform(empty_table)
 
@@ -150,17 +180,19 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         name = [f"Doc {i}" for i in range(1, 5)]
 
         data = {
-            OperatorConstants.ID: doc_id_hash,
-            OperatorConstants.DOC_COLUMN_DEFAULT: content,
-            OperatorConstants.DOC_ID_HASH_DEFAULT: doc_id_hash,
-            OperatorConstants.NAME: name
+            OperatorConstants.Columns.ID: doc_id_hash,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
+            OperatorConstants.Columns.NAME: name,
         }
         input_table = pa.table(data)
 
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         result_tables, metadata = operator.transform(input_table)
 
@@ -178,17 +210,19 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         name = [f"Doc {i}" for i in range(1, 6)]
 
         data = {
-            OperatorConstants.ID: doc_id_hash,
-            OperatorConstants.DOC_COLUMN_DEFAULT: content,
-            OperatorConstants.DOC_ID_HASH_DEFAULT: doc_id_hash,
-            OperatorConstants.NAME: name
+            OperatorConstants.Columns.ID: doc_id_hash,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
+            OperatorConstants.Columns.NAME: name,
         }
         input_table = pa.table(data)
 
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         result_tables, metadata = operator.transform(input_table)
 
@@ -201,10 +235,12 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
 
     def test_none_table(self):
         """Test handling of None table input"""
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         result_tables, metadata = operator.transform(None)
 
@@ -221,17 +257,19 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         name = ["Name 1", "Name 2", "Name 3"]
 
         data = {
-            OperatorConstants.ID: doc_id_hash,
+            OperatorConstants.Columns.ID: doc_id_hash,
             custom_doc_col: content,
             custom_hash_col: doc_id_hash,
-            OperatorConstants.NAME: name
+            OperatorConstants.Columns.NAME: name,
         }
         input_table = pa.table(data)
 
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: custom_doc_col,
-            OperatorConstants.DOC_ID_HASH: custom_hash_col
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: custom_doc_col,
+                OperatorConstants.Columns.DOC_ID_HASH: custom_hash_col,
+            }
+        )
 
         result_tables, metadata = operator.transform(input_table)
 
@@ -247,17 +285,19 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         name = ["Name 1", "Name 2"]
 
         data = {
-            OperatorConstants.ID: doc_id_hash,
-            OperatorConstants.DOC_COLUMN_DEFAULT: content,
-            OperatorConstants.DOC_ID_HASH_DEFAULT: doc_id_hash,
-            OperatorConstants.NAME: name
+            OperatorConstants.Columns.ID: doc_id_hash,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
+            OperatorConstants.Columns.NAME: name,
         }
         input_table = pa.table(data)
 
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         result_tables, metadata = operator.transform(input_table)
         result_table = result_tables[0]
@@ -274,17 +314,19 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         name = ["Name 1", "Name 2", "Name 3"]
 
         data = {
-            OperatorConstants.ID: doc_id_hash,
-            OperatorConstants.DOC_COLUMN_DEFAULT: content,
-            OperatorConstants.DOC_ID_HASH_DEFAULT: doc_id_hash,
-            OperatorConstants.NAME: name
+            OperatorConstants.Columns.ID: doc_id_hash,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
+            OperatorConstants.Columns.NAME: name,
         }
         input_table = pa.table(data)
 
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         _, metadata = operator.transform(input_table)
 
@@ -297,7 +339,7 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
             Metrics.External.SKIPPED_DOCS_COUNT,
             Metrics.External.SKIPPED_DOCS,
             Metrics.External.REMOVED_DOCUMENTS,
-            Metrics.External.NODE_STATUS
+            Metrics.External.NODE_STATUS,
         ]
 
         for field in required_fields:
@@ -310,17 +352,19 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         name = ["Doc 1"]
 
         data = {
-            OperatorConstants.ID: doc_id_hash,
-            OperatorConstants.DOC_COLUMN_DEFAULT: content,
-            OperatorConstants.DOC_ID_HASH_DEFAULT: doc_id_hash,
-            OperatorConstants.NAME: name
+            OperatorConstants.Columns.ID: doc_id_hash,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
+            OperatorConstants.Columns.NAME: name,
         }
         input_table = pa.table(data)
 
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         result_tables, metadata = operator.transform(input_table)
 
@@ -337,17 +381,19 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
         name = [f"Name {i}" for i in range(1, 6)]
 
         data = {
-            OperatorConstants.ID: doc_id_hash,
-            OperatorConstants.DOC_COLUMN_DEFAULT: content,
-            OperatorConstants.DOC_ID_HASH_DEFAULT: doc_id_hash,
-            OperatorConstants.NAME: name
+            OperatorConstants.Columns.ID: doc_id_hash,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
+            OperatorConstants.Columns.NAME: name,
         }
         input_table = pa.table(data)
 
-        operator = EdedupOperator({
-            OperatorConstants.DOC_COLUMN: OperatorConstants.DOC_COLUMN_DEFAULT,
-            OperatorConstants.DOC_ID_HASH: OperatorConstants.DOC_ID_HASH_DEFAULT
-        })
+        operator = EdedupOperator(
+            {
+                OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+            }
+        )
 
         result_tables, metadata = operator.transform(input_table)
 

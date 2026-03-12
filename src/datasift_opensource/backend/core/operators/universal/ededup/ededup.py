@@ -9,12 +9,12 @@ from dpk_ededup import (
     short_name,
 )
 
-from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -41,8 +41,12 @@ class EdedupOperator(AbstractOperator):  # pragma: no cover
         Parameters are: {"doc_column": "content", "doc_id_column": "doc_id_hash}
         """
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-        self.doc_id_column: str = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
+        self.doc_id_column: str = config.get(
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
         self.filter: HashFilter = config.get(FILTER_KEY, HashFilter({}))
         self.config.update(
             {

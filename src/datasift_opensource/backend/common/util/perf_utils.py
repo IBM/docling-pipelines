@@ -4,8 +4,8 @@ import os
 import psutil
 import pyarrow as pa
 
-from common.models.session_info import get_session_info
 from common.constants.constants import DatasiftConstants
+from common.models.session_info import get_session_info
 from common.util.datasift_utils import get_current_timestamp
 from common.util.log import get_logger
 

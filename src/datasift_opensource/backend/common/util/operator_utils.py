@@ -7,12 +7,13 @@ import pyarrow as pa
 from charset_normalizer import from_bytes
 from pyarrow import Table
 
+from common.constants.constants import internal_metrics
+from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import (
     FlowValidationException,
     ValidationAlert,
 )
 from common.exceptions.error_messages import ValidationCodeMessages
-from common.constants.constants import OperatorConstants, internal_metrics
 from common.util.log import get_logger
 
 hash_functions = hashlib.sha3_512
@@ -34,7 +35,7 @@ def remove_all_rows(*, table: pa.Table, remove_row_id: list):
     input_dict = table.to_pydict()
 
     remove_idx = []
-    for idx, doc_id in enumerate(input_dict[OperatorConstants.ID]):
+    for idx, doc_id in enumerate(input_dict[OperatorConstants.Columns.ID]):
         if doc_id in remove_row_id:
             remove_idx.append(idx)
 
@@ -48,8 +49,8 @@ def find_doc_count(*, table: pa.Table) -> int:
         return 0
     if table.num_rows == 0:
         return 0
-    if OperatorConstants.NAME in table.column_names:
-        return len(table[OperatorConstants.NAME].unique())
+    if OperatorConstants.Columns.NAME in table.column_names:
+        return len(table[OperatorConstants.Columns.NAME].unique())
 
     return table.num_rows
 
@@ -58,7 +59,7 @@ def find_doc_count_from_tables(*, tables: list[pa.Table]) -> int:
     doc_names = set()
     for table in tables:
         if table.num_rows > 0:
-            doc_names.update(table[OperatorConstants.NAME].unique())
+            doc_names.update(table[OperatorConstants.Columns.NAME].unique())
     return len(doc_names)
 
 

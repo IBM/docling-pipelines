@@ -4,8 +4,8 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -66,11 +66,19 @@ class DocIdHashOperator(AbstractOperator):
                 - doc_id_hash_column: Name of the output hash column (default: "doc_id_hash")
         """
         # Set the hash column name and doc column name in config for DocIDTransform
-        config[hash_column_name_key] = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
-        config[doc_column_name_key] = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        config[hash_column_name_key] = config.get(
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
+        config[doc_column_name_key] = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-        self.hash_column: str = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
+        self.hash_column: str = config.get(
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
 
         # Initialize DocIDTransform if available
         if HAS_DOC_ID_TRANSFORM and DocIDTransform is not None:

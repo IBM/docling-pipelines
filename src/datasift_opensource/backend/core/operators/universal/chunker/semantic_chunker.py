@@ -5,9 +5,6 @@ import pyarrow as pa
 from data_processing.utils import TransformUtils
 from langchain_core.documents import Document
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from common.util.common_utils import is_value_in_range
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -15,6 +12,9 @@ from common.constants.constants import (
     Metrics,
     OperatorConstants,
 )
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
+from common.util.common_utils import is_value_in_range
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -51,9 +51,13 @@ class SemanticChunkerOperator(AbstractOperator):
         - name of the column that has doc content
         """
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         self.chunk_type: str = config.get(CHUNK_TYPE_KEY, CHUNK_TYPE_DEFAULT)
-        self.chunk_size: int = config.get(OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT)
+        self.chunk_size: int = config.get(
+            OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT
+        )
         self.chunk_overlap: int = config.get(CHUNK_OVERLAP_KEY, CHUNK_OVERLAP_DEFAULT)
         self.retain_original_content: bool = config.get(RETAIN_ORIGINAL_CONTENT_KEY, RETAIN_ORIGINAL_CONTENT_DEFAULT)
         self.common_log_arguments: dict[str, Any] = {
@@ -90,7 +94,7 @@ class SemanticChunkerOperator(AbstractOperator):
                     ],
                     OperatorConstants.Misc.TYPE: OperatorConstants.TYPE_INT64,
                 },
-                OperatorConstants.CHUNKED_CONTENT: {
+                OperatorConstants.Columns.CHUNKED_CONTENT: {
                     OperatorConstants.Misc.NAME: "Chunked Content",
                     OperatorConstants.Config.DESCRIPTION: "Content containing segmented portions of larger text data.",
                     OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
@@ -254,7 +258,7 @@ class SemanticChunkerOperator(AbstractOperator):
         if chunked_content_column:
             table = TransformUtils.add_column(
                 table=table,
-                name=OperatorConstants.CHUNKED_CONTENT,
+                name=OperatorConstants.Columns.CHUNKED_CONTENT,
                 content=chunked_content_column,
             )
 

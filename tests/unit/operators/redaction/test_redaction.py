@@ -1,5 +1,4 @@
 import pyarrow as pa
-import pytest
 
 from core.operators.universal.regex.redaction import RedactionOperator
 from common.constants.operator_constants import OperatorConstants
@@ -15,18 +14,18 @@ class TestRedactionOperator:
             "doc_column": "content",
             "stats_column": "redaction_stats",
             "redaction_masking_character": "X",
-            "redaction_regex": "John"
+            "redaction_regex": "John",
         }
         operator = RedactionOperator(config=config)
 
-        content = pa.array([
-            "John Doe is here",
-            "Mary Smith is there",
-            "John and John again"
-        ])
+        content = pa.array(
+            ["John Doe is here", "Mary Smith is there", "John and John again"]
+        )
         names = pa.array(["doc1", "doc2", "doc3"])
         ids = pa.array([1, 2, 3])
-        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
+        input_table = pa.Table.from_arrays(
+            [ids, names, content], names=["id", "name", "content"]
+        )
 
         table_list, metadata = operator.transform(input_table)
 
@@ -46,7 +45,9 @@ class TestRedactionOperator:
         assert stats[2] == 2
 
         # Check metadata
-        assert metadata[Metrics.External.PROCESSED_DOCS] == 2  # Only docs with redactions
+        assert (
+            metadata[Metrics.External.PROCESSED_DOCS] == 2
+        )  # Only docs with redactions
         assert metadata["total_redactions"] == 3
 
     def test_redaction_with_regex_pattern(self):
@@ -55,18 +56,18 @@ class TestRedactionOperator:
             "doc_column": "content",
             "stats_column": "redaction_stats",
             "redaction_masking_character": "*",
-            "redaction_regex": r"\d{3}-\d{2}-\d{4}"
+            "redaction_regex": r"\d{3}-\d{2}-\d{4}",
         }
         operator = RedactionOperator(config=config)
 
-        content = pa.array([
-            "SSN: 123-45-6789",
-            "No SSN here",
-            "Multiple: 111-22-3333 and 444-55-6666"
-        ])
+        content = pa.array(
+            ["SSN: 123-45-6789", "No SSN here", "Multiple: 111-22-3333 and 444-55-6666"]
+        )
         names = pa.array(["doc1", "doc2", "doc3"])
         ids = pa.array([1, 2, 3])
-        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
+        input_table = pa.Table.from_arrays(
+            [ids, names, content], names=["id", "name", "content"]
+        )
 
         table_list, metadata = operator.transform(input_table)
 
@@ -84,16 +85,15 @@ class TestRedactionOperator:
 
     def test_redaction_with_no_pattern(self):
         """Test operator behavior when no pattern is provided"""
-        config = {
-            "doc_column": "content",
-            "stats_column": "redaction_stats"
-        }
+        config = {"doc_column": "content", "stats_column": "redaction_stats"}
         operator = RedactionOperator(config=config)
 
         content = pa.array(["Some content"])
         names = pa.array(["doc1"])
         ids = pa.array([1])
-        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
+        input_table = pa.Table.from_arrays(
+            [ids, names, content], names=["id", "name", "content"]
+        )
 
         table_list, metadata = operator.transform(input_table)
 
@@ -108,14 +108,16 @@ class TestRedactionOperator:
             "doc_column": "content",
             "stats_column": "redaction_stats",
             "redaction_masking_character": "#",
-            "redaction_regex": "secret"
+            "redaction_regex": "secret",
         }
         operator = RedactionOperator(config=config)
 
         content = pa.array(["This is a secret message"])
         names = pa.array(["doc1"])
         ids = pa.array([1])
-        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
+        input_table = pa.Table.from_arrays(
+            [ids, names, content], names=["id", "name", "content"]
+        )
 
         table_list, metadata = operator.transform(input_table)
 
@@ -125,25 +127,19 @@ class TestRedactionOperator:
 
     def test_get_metadata(self):
         """Test get_metadata returns correct structure"""
-        config = {
-            "doc_column": "content",
-            "redaction_regex": "test"
-        }
+        config = {"doc_column": "content", "redaction_regex": "test"}
         operator = RedactionOperator(config=config)
         metadata = operator.get_metadata()
 
-        assert OperatorConstants.CATEGORY in metadata
-        assert OperatorConstants.LABEL in metadata
-        assert metadata[OperatorConstants.LABEL] == "Redaction"
-        assert OperatorConstants.FEATURES in metadata
-        assert OperatorConstants.ATTRIBUTES in metadata
+        assert OperatorConstants.Misc.CATEGORY in metadata
+        assert OperatorConstants.Misc.LABEL in metadata
+        assert metadata[OperatorConstants.Misc.LABEL] == "Redaction"
+        assert OperatorConstants.Config.FEATURES in metadata
+        assert OperatorConstants.Config.ATTRIBUTES in metadata
 
     def test_get_required_features(self):
         """Test get_required_features returns doc_column"""
-        config = {
-            "doc_column": "my_content",
-            "redaction_regex": "test"
-        }
+        config = {"doc_column": "my_content", "redaction_regex": "test"}
         operator = RedactionOperator(config=config)
         required = operator.get_required_features()
 
@@ -151,10 +147,7 @@ class TestRedactionOperator:
 
     def test_validate_with_empty_pattern(self):
         """Test validation warns when pattern is empty"""
-        config = {
-            "doc_column": "content",
-            "redaction_regex": ""
-        }
+        config = {"doc_column": "content", "redaction_regex": ""}
         operator = RedactionOperator(config=config)
 
         errors = []
@@ -165,5 +158,6 @@ class TestRedactionOperator:
 
         assert len(warnings) == 1
         assert "empty" in warnings[0].lower()
+
 
 # Made with Bob

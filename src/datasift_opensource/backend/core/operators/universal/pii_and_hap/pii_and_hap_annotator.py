@@ -17,14 +17,14 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.common_utils import split_text_into_chunks
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.util.common_utils import split_text_into_chunks
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -373,7 +373,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
         for field in fields_to_redact:
             if field == METADATA_HAP_FIELD_NAME:
-                table_columns[OperatorConstants.PIIHAP.HAP_FIELD_NAME].append(columns_to_add[OperatorConstants.PIIHAP.HAP_FIELD_NAME])
+                table_columns[OperatorConstants.PIIHAP.HAP_FIELD_NAME].append(
+                    columns_to_add[OperatorConstants.PIIHAP.HAP_FIELD_NAME]
+                )
             else:
                 column_name = DEFAULT_PII_TO_COLUMN_MAPPING.get(field)
                 if not column_name:

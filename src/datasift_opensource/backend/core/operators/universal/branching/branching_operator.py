@@ -5,12 +5,12 @@ import pyarrow as pa
 import sqlglot
 from sqlglot import expressions as exp
 
-from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import (
     AttributeDataTypes,
     MemoryLogPhases,
     Metrics,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import (
     find_doc_count,
@@ -199,11 +199,15 @@ class BranchingOperator(AbstractOperator):
                 continue
 
             config: dict[str, Any] = {
-                OperatorConstants.Filtering.FILTER_CRITERIA_LIST: branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST),
+                OperatorConstants.Filtering.FILTER_CRITERIA_LIST: branch.get(
+                    OperatorConstants.Filtering.FILTER_CRITERIA_LIST
+                ),
                 OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: branch.get(
                     OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY
                 ),
-                OperatorConstants.Filtering.FILTER_CRITERIA_JSON: branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON),
+                OperatorConstants.Filtering.FILTER_CRITERIA_JSON: branch.get(
+                    OperatorConstants.Filtering.FILTER_CRITERIA_JSON
+                ),
             }
             filter_operator: Any
             if spark_session:

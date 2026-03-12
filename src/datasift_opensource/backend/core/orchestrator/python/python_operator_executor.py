@@ -4,14 +4,14 @@ from typing import Any
 import pyarrow as pa
 from data_processing.data_access import DataAccessFactory
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.error_messages import ValidationCodeMessages
 from common.constants.constants import (
     DatasiftConstants,
     MemoryLogPhases,
-    OperatorConstants,
     OrchestratorType,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_messages import ValidationCodeMessages
 from common.util.log import get_logger
 from common.util.operator_utils import (
     drop_features_from_table,
@@ -40,7 +40,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         """
         op = self.get_operator()
         op_config = op.config
-        node_id = op_config.get(OperatorConstants.ID)
+        node_id = op_config.get(OperatorConstants.Columns.ID)
         if not isinstance(tables, dict):
             log_memory_usage(
                 operator_name=op.name,
@@ -57,7 +57,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             DatasiftConstants.JOB_ID: op_config.get(DatasiftConstants.JOB_ID),
             DatasiftConstants.JOB_RUN_ID: op_config.get(DatasiftConstants.JOB_RUN_ID),
             DatasiftConstants.NODE_ID: node_id,
-            OperatorConstants.NAME: op_config.get(OperatorConstants.NAME),
+            OperatorConstants.Columns.NAME: op_config.get(OperatorConstants.Columns.NAME),
         }
 
         common_log_arguments = {

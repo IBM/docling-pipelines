@@ -16,8 +16,8 @@ from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -42,7 +42,9 @@ class LanguageDetectFastText(AbstractOperator):
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-        self.doc_column_name: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.doc_column_name: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
@@ -186,7 +188,7 @@ class LanguageDetectFastText(AbstractOperator):
                     remove_row_idx.append(idx)
                     self.record_failed_document(
                         metadata=metadata,
-                        doc_id=table[OperatorConstants.ID][idx].as_py(),
+                        doc_id=table[OperatorConstants.Columns.ID][idx].as_py(),
                         doc_name=str(file_name),
                         reason=f"Filter out based on user selection with error: {getattr(e, 'message', str(e)) if getattr(e, 'message', str(e)) else getattr(e, 'message', repr(e))}",
                     )
@@ -311,9 +313,9 @@ def main() -> tuple[list[pa.Table], dict[str, Any]]:
     )
     doc_id: pa.Array = pa.array([str(i) for i in range(1, 21)])
     col_names: list[str] = [
-        OperatorConstants.ID,
-        OperatorConstants.DOC_COLUMN_DEFAULT,
-        OperatorConstants.NAME,
+        OperatorConstants.Columns.ID,
+        OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+        OperatorConstants.Columns.NAME,
     ]
     input_table: pa.Table = pa.Table.from_arrays([doc_id, content, name], names=col_names)
     print(f"   Created table with {input_table.num_rows} rows")

@@ -8,13 +8,13 @@ from typing import Any
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
-from common.models.session_info import get_session_info
 from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.models.session_info import get_session_info
 from common.util.log import get_logger
 from common.util.orchestrator_utils import update_deleted_rows
 from core.data_access.data_access_utils import DataAccessUtils
@@ -35,7 +35,7 @@ class AbstractOperatorExecutor:
         """
         self._name = name
         self._operator = operator
-        self._params = params | {OperatorConstants.NAME: name}
+        self._params = params | {OperatorConstants.Columns.NAME: name}
         DataAccessUtils.add_intermediate_storage_config(
             config=self._params,
             job_id=self._params.get(DatasiftConstants.JOB_ID),
@@ -133,7 +133,7 @@ class AbstractOperatorExecutor:
         Args:
             tables: The input PyArrow table for a regular node, or a list of PyArrow tables for a merge node
         """
-        node_id = self._params[OperatorConstants.ID]
+        node_id = self._params[OperatorConstants.Columns.ID]
         logger.info(f"Initializing stats for node '{self._name}' (ID: {node_id}).")
 
         from common.util.job_tracker.tracker.job_tracker import JobTracker
@@ -162,7 +162,7 @@ class AbstractOperatorExecutor:
             metadata: A dictionary containing additional metrics like lists of
                       failed and skipped documents.
         """
-        node_id = self._params[OperatorConstants.ID]
+        node_id = self._params[OperatorConstants.Columns.ID]
         job_run_id = self._params[DatasiftConstants.JOB_RUN_ID]
         logger.info(f"Updating final stats for node '{node_id}'.")
 

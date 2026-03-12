@@ -13,8 +13,8 @@ from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory

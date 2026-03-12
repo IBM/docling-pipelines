@@ -6,15 +6,15 @@ from typing import Any
 import duckdb
 import pyarrow as pa
 
-from common.constants.operator_constants import OperatorConstants
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.error_codes import ErrorCode
-from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.constants.constants import (
     AttributeDataTypes,
     ExecutionStatus,
     Metrics,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_codes import ErrorCode
+from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, validate_filter_criteria
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -69,7 +69,9 @@ class SQLFilterOperator(AbstractOperator):
         """
 
         super().__init__(config)
-        self.filter_criteria: list[str] = config.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT)
+        self.filter_criteria: list[str] = config.get(
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT
+        )
         self.logical_operator: str = config.get(
             OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY,
             FILTER_LOGICAL_OPERATOR_DEFAULT,

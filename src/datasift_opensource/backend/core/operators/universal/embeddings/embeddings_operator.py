@@ -29,14 +29,14 @@ except ImportError:
             return table.append_column(new_field, new_column)
 
 
-from common.exceptions.datasift_exceptions import DatasiftException
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.exceptions.datasift_exceptions import DatasiftException
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -139,8 +139,12 @@ class EmbeddingsOperator(AbstractOperator):
             OperatorConstants.Columns.EMBEDDINGS_COLUMN,
             OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
         )
-        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-        self.doc_id_hash_column: str = config.get(OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
+        self.doc_id_hash_column: str = config.get(
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
 
         # Chunking configuration
         self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, OVERLAP_RATIO_DEFAULT)
@@ -211,7 +215,7 @@ class EmbeddingsOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Vector embeddings generated from document content",
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                     OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
-                    OperatorConstants.Misc.TYPE: OperatorConstants.TYPE_VECTOR,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_VECTOR,
                 },
                 OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
                     OperatorConstants.Misc.NAME: "Document ID Hash",
@@ -459,8 +463,8 @@ class EmbeddingsOperator(AbstractOperator):
                 # Mark all documents as failed
                 for idx in range(table.num_rows):
                     doc_id: str | Any = (
-                        table[OperatorConstants.ID][idx].as_py()
-                        if OperatorConstants.ID in table.column_names
+                        table[OperatorConstants.Columns.ID][idx].as_py()
+                        if OperatorConstants.Columns.ID in table.column_names
                         else f"doc_{idx}"
                     )
                     doc_name: str | Any = (
@@ -487,17 +491,17 @@ class EmbeddingsOperator(AbstractOperator):
         remove_row_idx: list[int] = []
 
         # Check if we have chunked content
-        has_chunked_content: bool = OperatorConstants.CHUNKED_CONTENT in table.column_names
+        has_chunked_content: bool = OperatorConstants.Columns.CHUNKED_CONTENT in table.column_names
 
         for idx, doc in enumerate(input_docs):
-            doc_id: Any = doc.get(OperatorConstants.ID, f"doc_{idx}")
+            doc_id: Any = doc.get(OperatorConstants.Columns.ID, f"doc_{idx}")
             doc_name: Any = doc.get(OperatorConstants.Misc.NAME, doc_id)
 
             try:
                 # Get content to embed
                 if has_chunked_content:
                     # Process chunked content
-                    chunked_content_raw: Any = doc.get(OperatorConstants.CHUNKED_CONTENT, [])
+                    chunked_content_raw: Any = doc.get(OperatorConstants.Columns.CHUNKED_CONTENT, [])
                     if not chunked_content_raw:
                         raise DatasiftException("Chunked content is empty")
 

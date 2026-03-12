@@ -5,9 +5,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, TypeVar
 
+from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import ErrorCode, ValidationAlert
 from common.exceptions.error_messages import ValidationMessage
-from common.constants.constants import OperatorConstants
 from common.util.log import get_logger
 
 logger = get_logger()

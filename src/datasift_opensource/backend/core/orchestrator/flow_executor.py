@@ -7,12 +7,12 @@ import tracemalloc
 
 from data_processing.data_access import DataAccess
 
+from common.constants.constants import DatasiftConstants, OrchestratorType
 from common.exceptions.datasift_exceptions import (
     FlowValidationException,
     ValidationAlertEncoder,
 )
 from common.models.session_info import get_session_info
-from common.constants.constants import DatasiftConstants, OrchestratorType
 from common.util.log import get_logger
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.orchestrator_factory import OrchestratorFactory

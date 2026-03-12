@@ -13,7 +13,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.constants.constants import OperatorConstants
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 
 
@@ -211,7 +211,9 @@ class GuardRailsPIIAndHAPExtractor:
         Args:
             config: Configuration dictionary
         """
-        self.doc_column_name = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.doc_column_name = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         self.expected_redactions = config.get(OperatorConstants.PIIHAP.EXPECTED_REDACTIONS, DEFAULT_REDACTIONS)
         self.pii_list = config.get(OperatorConstants.PIIHAP.PII_LIST, DEFAULT_PII_TYPES_OF_CONCERN)
         self.redaction = config.get(OperatorConstants.PIIHAP.REDACTION_KEY, False)

@@ -8,8 +8,10 @@ import threading
 import time
 
 from src.datasift_opensource.backend.common.constants.constants import (
-    OperatorConstants,
     Metrics,
+)
+from src.datasift_opensource.backend.common.constants.operator_constants import (
+    OperatorConstants,
 )
 from src.datasift_opensource.backend.core.operators.language.language_id.lang_id_fasttext import (
     LanguageDetectFastText,
@@ -27,7 +29,7 @@ class TestLanguageDetectFastText:
         """Provide sample configuration for the operator"""
         return {
             "doc_column": "content",
-            OperatorConstants.FILTER_UNKNOWN_LANGUAGE: False,
+            OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: False,
         }
 
     @pytest.fixture
@@ -57,7 +59,11 @@ class TestLanguageDetectFastText:
 
         return pa.Table.from_arrays(
             [doc_ids, content, names],
-            names=[OperatorConstants.ID, "content", OperatorConstants.NAME],
+            names=[
+                OperatorConstants.Columns.ID,
+                "content",
+                OperatorConstants.Columns.NAME,
+            ],
         )
 
     def test_operator_initialization(self, sample_config):
@@ -76,18 +82,18 @@ class TestLanguageDetectFastText:
         operator = LanguageDetectFastText(sample_config)
         metadata = operator.get_metadata()
 
-        assert metadata[OperatorConstants.LABEL] == "Language Annotator (FastText)"
+        assert metadata[OperatorConstants.Misc.LABEL] == "Language Annotator (FastText)"
         assert (
-            OperatorConstants.FILTER_UNKNOWN_LANGUAGE
-            in metadata[OperatorConstants.ATTRIBUTES]
+            OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE
+            in metadata[OperatorConstants.Config.ATTRIBUTES]
         )
         assert (
             OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-            in metadata[OperatorConstants.FEATURES]
+            in metadata[OperatorConstants.Config.FEATURES]
         )
         assert (
             OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
-            in metadata[OperatorConstants.FEATURES]
+            in metadata[OperatorConstants.Config.FEATURES]
         )
 
         # Cleanup
@@ -105,10 +111,12 @@ class TestLanguageDetectFastText:
 
             # Check that language columns were added
             assert (
-                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in result_table.column_names
+                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
+                in result_table.column_names
             )
             assert (
-                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY in result_table.column_names
+                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
+                in result_table.column_names
             )
 
             # Check that all rows were processed
@@ -146,15 +154,15 @@ class TestLanguageDetectFastText:
             result_table = result_tables[0]
 
             # Find the Uzbek text row
-            names = result_table[OperatorConstants.NAME].to_pylist()
+            names = result_table[OperatorConstants.Columns.NAME].to_pylist()
             uzbek_idx = names.index("uzbek.txt")
 
-            detected_lang = result_table[OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY][
-                uzbek_idx
-            ].as_py()
-            confidence = result_table[OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY][
-                uzbek_idx
-            ].as_py()
+            detected_lang = result_table[
+                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
+            ][uzbek_idx].as_py()
+            confidence = result_table[
+                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
+            ][uzbek_idx].as_py()
 
             # Uzbek should be detected (uz is the ISO 639-1 code)
             # Note: Depending on the model, it might detect as 'uz' or similar
@@ -169,7 +177,7 @@ class TestLanguageDetectFastText:
         """Test filtering of documents with unknown language"""
         config = {
             "doc_column": "content",
-            OperatorConstants.FILTER_UNKNOWN_LANGUAGE: True,
+            OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: True,
         }
 
         # Create table with some empty/invalid content
@@ -186,7 +194,11 @@ class TestLanguageDetectFastText:
 
         table = pa.Table.from_arrays(
             [doc_ids, content, names],
-            names=[OperatorConstants.ID, "content", OperatorConstants.NAME],
+            names=[
+                OperatorConstants.Columns.ID,
+                "content",
+                OperatorConstants.Columns.NAME,
+            ],
         )
 
         operator = LanguageDetectFastText(config)
@@ -250,7 +262,11 @@ class TestLanguageDetectFastText:
         """Test handling of empty table"""
         empty_table = pa.Table.from_arrays(
             [pa.array([]), pa.array([]), pa.array([])],
-            names=[OperatorConstants.ID, "content", OperatorConstants.NAME],
+            names=[
+                OperatorConstants.Columns.ID,
+                "content",
+                OperatorConstants.Columns.NAME,
+            ],
         )
 
         operator = LanguageDetectFastText(sample_config)

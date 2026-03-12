@@ -3,13 +3,13 @@ from typing import Any
 
 from data_processing.transform import AbstractTableTransform
 
-from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import (
     DatasiftConstants,
     DocsStructure,
     ExecutionStatus,
     Metrics,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from core.operators.operator_utils import OperatorUtils
 
