@@ -4,7 +4,7 @@ This directory contains a comprehensive test program for evaluating natural lang
 
 ## Overview
 
-The `test_nl_to_sql_queries.py` program tests the complete NL-to-SQL pipeline with **100+ test queries** across 8 complexity levels:
+The `nl_to_sql.py` program tests the complete NL-to-SQL pipeline with **100+ test queries** across 8 complexity levels:
 
 1. **Data Setup**: Inserts deterministic purchase orders into OpenSearch
 2. **NL to SQL Conversion**: Uses Ollama to convert natural language queries to SQL
@@ -88,13 +88,13 @@ pip install opensearch-py requests
 Run with default settings (localhost OpenSearch, granite4 model):
 
 ```bash
-python tests/integration/opensearch/test_nl_to_sql_queries.py
+python tests/integration/opensearch/nl_to_sql.py
 ```
 
 ### With Custom Settings
 
 ```bash
-python tests/integration/opensearch/test_nl_to_sql_queries.py \
+python tests/integration/opensearch/nl_to_sql.py \
   --host localhost \
   --port 9200 \
   --username admin \
@@ -106,19 +106,19 @@ python tests/integration/opensearch/test_nl_to_sql_queries.py \
 ### Skip Data Insertion (Use Existing Data)
 
 ```bash
-python tests/integration/opensearch/test_nl_to_sql_queries.py --skip-insert
+python tests/integration/opensearch/nl_to_sql.py --skip-insert
 ```
 
 ### Force Recreate Index
 
 ```bash
-python tests/integration/opensearch/test_nl_to_sql_queries.py --force
+python tests/integration/opensearch/nl_to_sql.py --force
 ```
 
 ### Save Results to JSON
 
 ```bash
-python tests/integration/opensearch/test_nl_to_sql_queries.py --output results.json
+python tests/integration/opensearch/nl_to_sql.py --output results.json
 ```
 
 ## Command Line Options
@@ -277,18 +277,6 @@ Result Validator
 Pass/Fail + Metrics
 ```
 
-## Comparison with test_purchase_order_queries.py
-
-| Feature | test_purchase_order_queries.py | test_nl_to_sql_queries.py |
-|---------|-------------------------------|---------------------------|
-| Query Input | Direct OpenSearch DSL | Natural Language |
-| Conversion | None | Ollama NL-to-SQL |
-| Query Language | Python/DSL | SQL via OpenSearch plugin |
-| LLM Required | No | Yes (Ollama) |
-| Test Count | 18 queries | 100+ queries |
-| Complexity Levels | Single level | 8 levels |
-| Test Focus | Query accuracy | NL-to-SQL + Query accuracy |
-| Validator Types | Fixed | Flexible (6 types) |
 
 ## Troubleshooting
 

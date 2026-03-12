@@ -37,14 +37,17 @@ Query Complexity Distribution:
 Usage
 =====
 -- Run all 115 test queries:
-python tests/integration/opensearch/test_nl_to_sql_queries.py
+python tests/integration/opensearch/nl_to_sql.py
 
 
 -- Run with specific model:
-python tests/integration/opensearch/test_nl_to_sql_queries.py --ollama-model llama3
+python tests/integration/opensearch/nl_to_sql.py --ollama-model llama3
 
 -- Save results:
-python tests/integration/opensearch/test_nl_to_sql_queries.py --output results.json
+python tests/integration/opensearch/nl_to_sql.py --output results.json
+
+-- Run only the edge case tests:
+python tests/integration/opensearch/nl_to_sql.py --test-filter edge_case
 
 
 ## Success Criteria
