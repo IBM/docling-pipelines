@@ -104,18 +104,16 @@ timestamps {
             }
           }
           stage('Tag repo'){
-            steps {
-              script {
-                withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '27403a9f-356a-41ad-a55d-d101b2c615cb', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {
-                  sh '''
-                    git config credential.username $GIT_USERNAME
-                    git config credential.helper '!f() { echo password=$GIT_PASSWORD; }; f'
-                  '''
-                  sh '''
-                    git tag ${VERSION}
-                    git push ${GIT_URL} --tags
-                  '''
-                }
+            script {
+              withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '27403a9f-356a-41ad-a55d-d101b2c615cb', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {
+                sh '''
+                  git config credential.username $GIT_USERNAME
+                  git config credential.helper '!f() { echo password=$GIT_PASSWORD; }; f'
+                '''
+                sh '''
+                  git tag ${VERSION}
+                  git push ${GIT_URL} --tags
+                '''
               }
             }
           }
