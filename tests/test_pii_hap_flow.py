@@ -3,12 +3,9 @@
 
 import json
 import os
-import sys
 from pathlib import Path
 
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root / "src" / "datasift_opensource" / "backend"))
+# Path setup is now automatic via conftest.py
 
 from core.orchestrator.cmdline.cmd_line_orchestrator import run_command_line_executor
 
@@ -21,7 +18,7 @@ def test_pii_hap_with_ollama():
     os.environ["DATA_FOLDER"] = "/tmp/datasift_test"
 
     # Load the flow definition
-    flow_file = project_root / "tests" / "flow_pii_hap_example.json"
+    flow_file = Path(__file__).parent / "flow_pii_hap_example.json"
 
     with open(flow_file, "r") as f:
         flow_config = json.load(f)
@@ -33,7 +30,7 @@ def test_pii_hap_with_ollama():
     print("=" * 80)
     print(f"\nFlow: {flow_def['name']}")
     print(f"Description: {flow_def['description']}")
-    print(f"\nNodes in flow:")
+    print("\nNodes in flow:")
     for node in flow_def["dag"]:
         print(f"  - {node['name']} ({node['operator']})")
     print("\n" + "=" * 80)

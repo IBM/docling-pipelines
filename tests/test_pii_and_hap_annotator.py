@@ -13,16 +13,11 @@ Tests verify the same output format as the enterprise version, including:
 - Column naming conventions
 """
 
-import sys
-from pathlib import Path
 from unittest.mock import patch
 
 import pyarrow as pa
 import pytest
 
-# Add backend to path before importing project modules
-backend_dir = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
-sys.path.insert(0, str(backend_dir))
 
 from common.util.constants import OperatorConstants  # noqa: E402
 from core.operators.universal.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
