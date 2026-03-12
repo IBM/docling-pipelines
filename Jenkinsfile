@@ -17,7 +17,6 @@ timestamps {
   def cfCredentialsId = '32d2a4d4-4a4e-4e21-a564-a292818604db'
   def cloudantCredentialsId = '70926b0c-ed2a-4895-9506-5a5dc78b559b'
   def datasiftwduCredentialsId = 'datasift_wdu_creds'
-  def datasiftwducp4dCredentialsId = 'datasift_wdu_creds_cp4d'
   def datasifttwinpypiCredentialsId = 'pypi-creds'
   def jenkinsCredentialsId = 'd89ad365-9ac7-41b6-966d-578b07ae9242'
   def dataconnCredentialsId = 'efe499cb-0bf7-41ff-8a21-eec440e16153'
@@ -104,7 +103,6 @@ timestamps {
         script {
           withCredentials([
             usernamePassword(credentialsId: datasiftwduCredentialsId, usernameVariable: 'ARTIFACTORY_USERNAME', passwordVariable: 'ARTIFACTORY_API_KEY'),
-            usernamePassword(credentialsId: datasiftwducp4dCredentialsId, usernameVariable: 'TEST_CP4D_USERNAME', passwordVariable: 'TEST_CP4D_PASSWORD'),
             usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')
           ]) {
             sh """
