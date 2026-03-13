@@ -460,10 +460,14 @@ class EmbeddingsOperator(AbstractOperator):
             tuple: (doc_id, doc_name) as strings
         """
         doc_id: str = (
-            table[OperatorConstants.ID][idx].as_py() if OperatorConstants.ID in table.column_names else f"doc_{idx}"
+            table[OperatorConstants.Columns.ID][idx].as_py()
+            if OperatorConstants.Columns.ID in table.column_names
+            else f"doc_{idx}"
         )
         doc_name: str = (
-            table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else str(doc_id)
+            table[OperatorConstants.Columns.NAME][idx].as_py()
+            if OperatorConstants.Columns.NAME in table.column_names
+            else str(doc_id)
         )
         return str(doc_id), str(doc_name)
 
@@ -482,7 +486,7 @@ class EmbeddingsOperator(AbstractOperator):
         Raises:
             DatasiftException: If chunked content is invalid or empty
         """
-        chunked_content_raw: str | list[Any] = table[OperatorConstants.CHUNKED_CONTENT][idx].as_py()
+        chunked_content_raw: str | list[Any] = table[OperatorConstants.Columns.CHUNKED_CONTENT][idx].as_py()
         if not chunked_content_raw:
             raise DatasiftException("Chunked content is empty")
 
@@ -517,7 +521,7 @@ class EmbeddingsOperator(AbstractOperator):
         for chunk in chunked_content:
             if isinstance(chunk, dict):
                 # Chunk is a dictionary with 'chunk' key
-                chunk_text: str = chunk.get(OperatorConstants.CHUNK, "")
+                chunk_text: str = chunk.get(OperatorConstants.Columns.CHUNK, "")
                 if chunk_text:
                     texts.append(chunk_text)
             elif isinstance(chunk, str):

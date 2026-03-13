@@ -1612,6 +1612,8 @@ class AbstractOrchestrator:
         batch_futures = []
 
         for batch_num, batch_table in enumerate(batches):
+            batch_data_access = self._create_batch_data_access(batch_table=batch_table)
+
             # Submit batch task
             future = execute_batch_subflow.submit(
                 batch_num=batch_num,
@@ -1619,7 +1621,7 @@ class AbstractOrchestrator:
                 global_config=global_config,
                 common_log_arguments=common_log_arguments,
                 job_log_final_path=job_log_final_path,
-                batch_data_access=None,  # Batch data access removed as per PR #100
+                batch_data_access=batch_data_access,
             )
             batch_futures.append((batch_num, future))
 
