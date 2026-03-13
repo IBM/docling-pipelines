@@ -30,7 +30,7 @@ dependencies = [
     "tabulate==0.9.0",
     "toml==0.10.2",
     "pillow==12.1.1",
-    "mlx==0.30.6",
+    "mlx==0.30.6; sys_platform == 'darwin'",
     "orjson==3.11.7",
     "textstat==0.7.11",
     "polars==1.32.3",
@@ -96,6 +96,10 @@ datasift-orchestrator = "datasift_opensource.backend.orchestrator.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[tool.uv]
+# Ensure uv resolves dependencies for Linux x86_64 environments (Jenkins CI)
+required-environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
 
 [tool.ruff]
 # Set the maximum line length to 120 characters
