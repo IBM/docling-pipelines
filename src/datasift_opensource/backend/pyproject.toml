@@ -19,6 +19,7 @@ dependencies = [
     "filelock==3.20.3",
     "ibm-cos-sdk==2.14.3",
     "langdetect==1.0.9",
+    "fasttext-wheel==0.9.2",
     "langchain==1.2.10",
     "langchain-core==1.2.14",
     "pandas==2.3.3",
@@ -45,6 +46,7 @@ dev = [
     "pytest-cov==7.0.0",
     "pytest-mock==3.15.1",
     "black==26.1.0",
+    "faker==40.8.0",
     "flake8==7.3.0",
     "mypy==1.19.1",
     "httpx==0.28.1",  # For testing FastAPI
@@ -118,6 +120,8 @@ select = [
 # Ignore specific rules if needed
 ignore = [
     "UP035",  # Import from `collections.abc` instead of `typing` (keep typing imports)
+    "E501",   # Line too long (let formatter handle line length)
+    "SIM",    # flake8-simplify - ignore all simplification suggestions (nested structures, etc.)
 ]
 
 [tool.ruff.lint.isort]
