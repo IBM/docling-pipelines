@@ -10,16 +10,10 @@ Run these tests separately when you want to verify real LLM behavior:
 For fast, consistent unit tests, use test_pii_and_hap_annotator.py instead.
 """
 
-import sys
-from pathlib import Path
-
 import pyarrow as pa
 import pytest
 import requests
 
-# Add backend to path before importing project modules
-backend_dir = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
-sys.path.insert(0, str(backend_dir))
 
 from core.operators.universal.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
     PIIAndHAPAnnotator,

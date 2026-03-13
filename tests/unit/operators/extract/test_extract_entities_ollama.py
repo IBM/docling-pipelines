@@ -13,18 +13,12 @@ Tests cover:
 """
 
 import json
-import sys
 import tempfile
-import unittest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
 
-# Add the backend directory to the Python path
-backend_dir = Path(__file__).parent.parent.parent.parent.parent / "src" / "datasift_opensource" / "backend"
-sys.path.insert(0, str(backend_dir))
 
 from core.operators.universal.extract.extract_entities_ollama import (
     ExtractEntitiesOllamaOperator,
@@ -224,6 +218,7 @@ class TestExtractEntitiesOllamaOperatorInit:
 
     def test_category(self):
         from core.operators.abstract_operator import OperatorCategory
+
         op = ExtractEntitiesOllamaOperator({})
         assert op.category == OperatorCategory.Extract
 
@@ -265,10 +260,14 @@ class TestExtractEntitiesBasic:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
 
     @patch("ollama.chat")
-    def test_extract_entities_multiple_docs(self, mock_chat, basic_config, multi_row_table):
+    def test_extract_entities_multiple_docs(
+        self, mock_chat, basic_config, multi_row_table
+    ):
         """Test extraction across multiple documents."""
         mock_chat.return_value = {
-            "message": {"content": '{"vendor_name": "Test Corp", "invoice_date": "2024-01-01", "total_amount": 100.0}'}
+            "message": {
+                "content": '{"vendor_name": "Test Corp", "invoice_date": "2024-01-01", "total_amount": 100.0}'
+            }
         }
 
         op = ExtractEntitiesOllamaOperator(basic_config)
@@ -306,7 +305,9 @@ class TestExtractEntitiesWithSchemaFile:
         }
 
         mock_chat.return_value = {
-            "message": {"content": '{"vendor_name": "Acme", "invoice_date": "2024-01-15", "total_amount": 1500.0}'}
+            "message": {
+                "content": '{"vendor_name": "Acme", "invoice_date": "2024-01-15", "total_amount": 1500.0}'
+            }
         }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
@@ -346,7 +347,9 @@ class TestExtractEntitiesWithSchemaFile:
 
     def test_schema_table_not_found_in_file(self):
         """When schema table name doesn't match, operator should use empty schema."""
-        schema_data = {"schemas": [{"table": "other_table", "columns": {"field": "STRING"}}]}
+        schema_data = {
+            "schemas": [{"table": "other_table", "columns": {"field": "STRING"}}]
+        }
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(schema_data, f)
@@ -409,7 +412,9 @@ class TestExtractEntitiesEmptyContent:
 
 class TestExtractEntitiesOllamaFailure:
     @patch("ollama.chat")
-    def test_extract_entities_ollama_failure(self, mock_chat, basic_config, sample_table):
+    def test_extract_entities_ollama_failure(
+        self, mock_chat, basic_config, sample_table
+    ):
         """When ollama.chat raises, document should be recorded as failed."""
         mock_chat.side_effect = Exception("Connection refused to Ollama")
 
@@ -418,10 +423,15 @@ class TestExtractEntitiesOllamaFailure:
 
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert metadata[Metrics.External.PROCESSED_DOCS] == 0
-        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS
+        assert (
+            metadata[Metrics.External.NODE_STATUS]
+            == ExecutionStatus.COMPLETED_WITH_ERRORS
+        )
 
     @patch("ollama.chat")
-    def test_partial_failure_continues_processing(self, mock_chat, basic_config, multi_row_table):
+    def test_partial_failure_continues_processing(
+        self, mock_chat, basic_config, multi_row_table
+    ):
         """When one doc fails, others should still be processed."""
         call_count = [0]
 
@@ -429,7 +439,11 @@ class TestExtractEntitiesOllamaFailure:
             call_count[0] += 1
             if call_count[0] == 2:
                 raise Exception("Timeout on second document")
-            return {"message": {"content": '{"vendor_name": "Test", "invoice_date": "2024-01-01", "total_amount": 0}'}}
+            return {
+                "message": {
+                    "content": '{"vendor_name": "Test", "invoice_date": "2024-01-01", "total_amount": 0}'
+                }
+            }
 
         mock_chat.side_effect = mock_response
 
@@ -439,13 +453,20 @@ class TestExtractEntitiesOllamaFailure:
         # 2 should succeed, 1 should fail
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert metadata[Metrics.External.PROCESSED_DOCS] == 2
-        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS
+        assert (
+            metadata[Metrics.External.NODE_STATUS]
+            == ExecutionStatus.COMPLETED_WITH_ERRORS
+        )
 
     @patch("ollama.chat")
-    def test_node_status_completed_on_success(self, mock_chat, basic_config, sample_table):
+    def test_node_status_completed_on_success(
+        self, mock_chat, basic_config, sample_table
+    ):
         """When all docs succeed, node_status should be COMPLETED."""
         mock_chat.return_value = {
-            "message": {"content": '{"vendor_name": "Acme", "invoice_date": "2024-01-15", "total_amount": 100}'}
+            "message": {
+                "content": '{"vendor_name": "Acme", "invoice_date": "2024-01-15", "total_amount": 100}'
+            }
         }
 
         op = ExtractEntitiesOllamaOperator(basic_config)
@@ -462,10 +483,14 @@ class TestExtractEntitiesOllamaFailure:
 
 class TestExtractEntitiesDocIdHash:
     @patch("ollama.chat")
-    def test_extract_entities_adds_doc_id_hash(self, mock_chat, basic_config, sample_table):
+    def test_extract_entities_adds_doc_id_hash(
+        self, mock_chat, basic_config, sample_table
+    ):
         """When doc_id_hash column is absent, it should be added by the operator."""
         mock_chat.return_value = {
-            "message": {"content": '{"vendor_name": "Acme", "invoice_date": "2024-01-15", "total_amount": 100}'}
+            "message": {
+                "content": '{"vendor_name": "Acme", "invoice_date": "2024-01-15", "total_amount": 100}'
+            }
         }
 
         # Confirm input table does NOT have doc_id_hash
@@ -481,7 +506,9 @@ class TestExtractEntitiesDocIdHash:
     def test_existing_doc_id_hash_preserved(self, mock_chat, basic_config):
         """When doc_id_hash column already exists, it should not be overwritten."""
         mock_chat.return_value = {
-            "message": {"content": '{"vendor_name": "Acme", "invoice_date": "2024-01-15", "total_amount": 100}'}
+            "message": {
+                "content": '{"vendor_name": "Acme", "invoice_date": "2024-01-15", "total_amount": 100}'
+            }
         }
 
         data = {
@@ -498,7 +525,9 @@ class TestExtractEntitiesDocIdHash:
         result_table = result_tables[0]
         assert OperatorConstants.DOC_ID_HASH_DEFAULT in result_table.column_names
         # The existing hash should be preserved (not regenerated)
-        hash_value = result_table.column(OperatorConstants.DOC_ID_HASH_DEFAULT)[0].as_py()
+        hash_value = result_table.column(OperatorConstants.DOC_ID_HASH_DEFAULT)[
+            0
+        ].as_py()
         assert hash_value == "existing-hash-abc123"
 
 
@@ -540,7 +569,7 @@ class TestExtractEntitiesGetMetadata:
         op = ExtractEntitiesOllamaOperator(basic_config)
         metadata = op.get_metadata()
         attributes = metadata[OperatorConstants.ATTRIBUTES]
-        print('~~ attributes=', attributes)
+        print("~~ attributes=", attributes)
 
         assert "ollama_model" in attributes
         assert "schema" in attributes

@@ -72,7 +72,48 @@ timestamps {
             usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')
           ]) {
             sh """
-              echo "TBD"
+              # Setup Python environment
+              sudo rm -rf /usr/local/bin/python*
+              sudo rm -rf /usr/bin/python*
+              mkdir -p ~/miniconda3
+              wget -q -c https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
+              bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
+              rm -rf ~/miniconda3/miniconda.sh
+              export PATH=\${HOME}/miniconda3/bin:\$PATH
+              eval "\$(conda shell.bash hook)"
+              
+              # Create conda environment with Python 3.12
+              conda create -n datasift_py312 python=3.12 -y
+              conda activate datasift_py312
+              
+              # Install pip and uv
+              wget https://bootstrap.pypa.io/get-pip.py
+              python3 get-pip.py
+              python3 -m pip install --upgrade pip
+              rm -f ./get-pip.py*
+              pip install uv
+              
+              # Install system dependencies
+              sudo apt-get update
+              sudo apt-get install -y software-properties-common python3-dev gcc
+              
+              # Navigate to backend directory and install dependencies
+              cd src/datasift_opensource/backend
+              uv sync --extra dev
+              
+              # Activate virtual environment and run tests from project root
+              source .venv/bin/activate
+              cd ../../..
+              
+              # Run unit tests with coverage
+              pytest -m unit -v --cov=src --cov-report=xml:coverage.xml --cov-report=term
+              
+              # Generate coverage report
+              coverage report -m
+              
+              # Display coverage summary
+              echo "Unit test coverage report generated"
+              coverage report
             """
           }
         }

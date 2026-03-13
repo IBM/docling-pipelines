@@ -6,8 +6,17 @@ Requires .env file with OpenSearch connection details
 
 import sys
 from pathlib import Path
+import pyarrow as pa
+import numpy as np
 
-sys.path.insert(0, "src")
+from core.operators.universal.vectordb.opensearch_operator import (
+    OpenSearchOperator,
+    OpenSearchEngineTypes,
+    OpenSearchAlgorithmTypes,
+    VectorSimilarityTypes,
+)
+from common.util.env_config import get_opensearch_config
+
 
 # Check if .env file exists
 env_file = Path(".env")
@@ -18,22 +27,12 @@ if not env_file.exists():
     print("\n   Skipping advanced integration tests...")
     sys.exit(0)
 
-import pyarrow as pa
-import numpy as np
-from core.operators.universal.vectordb.opensearch_operator import (
-    OpenSearchOperator,
-    OpenSearchEngineTypes,
-    OpenSearchAlgorithmTypes,
-    VectorSimilarityTypes,
-)
-from common.util.env_config import get_opensearch_config
-
 
 def print_section(title):
     """Print a formatted section header"""
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print(f"{title}")
-    print(f"{'='*80}\n")
+    print(f"{'=' * 80}\n")
 
 
 def create_sample_data(num_docs=5, vector_dim=128):
@@ -109,7 +108,7 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
 
             # Cleanup
             operator.client.indices.delete(index=config["index_name"])
-            print(f"  ✅ Cleaned up index")
+            print("  ✅ Cleaned up index")
 
             return True, "Success"
         else:
@@ -164,7 +163,7 @@ def test_all_engines():
 
     passed = sum(1 for _, s, _ in results if s)
     total = len(results)
-    print(f"\nTotal: {passed}/{total} passed ({passed/total*100:.1f}%)")
+    print(f"\nTotal: {passed}/{total} passed ({passed / total * 100:.1f}%)")
 
     return results
 
@@ -260,12 +259,12 @@ def test_schema_evolution():
 
         # Step 3: Verify total count
         count = operator2.get_document_count()
-        print(f"\nStep 3: Verifying total documents")
+        print("\nStep 3: Verifying total documents")
         print(f"  ✅ Total documents in index: {count}")
 
         # Cleanup
         operator2.client.indices.delete(index=base_config["index_name"])
-        print(f"  ✅ Cleaned up index")
+        print("  ✅ Cleaned up index")
 
         return True
 
@@ -396,7 +395,7 @@ def test_error_handling():
 
         if metadata["total_docs_count"] == 0 and metadata["processed_docs"] == 0:
             tests.append(("Empty table", True, "Handled gracefully"))
-            print(f"  ✅ Correctly handled empty table")
+            print("  ✅ Correctly handled empty table")
         else:
             tests.append(("Empty table", False, f"Wrong metadata: {metadata}"))
 
@@ -412,7 +411,7 @@ def test_error_handling():
 
     passed = sum(1 for _, s, _ in tests if s)
     total = len(tests)
-    print(f"\nTotal: {passed}/{total} passed ({passed/total*100:.1f}%)")
+    print(f"\nTotal: {passed}/{total} passed ({passed / total * 100:.1f}%)")
 
     return tests
 
@@ -443,18 +442,18 @@ def main():
         error_total = len(error_results)
 
         print(
-            f"Engine Tests:        {engine_passed}/{engine_total} passed ({engine_passed/engine_total*100:.1f}%)"
+            f"Engine Tests:        {engine_passed}/{engine_total} passed ({engine_passed / engine_total * 100:.1f}%)"
         )
         print(f"Schema Evolution:    {'✅ PASS' if schema_success else '❌ FAIL'}")
         print(
-            f"Error Handling:      {error_passed}/{error_total} passed ({error_passed/error_total*100:.1f}%)"
+            f"Error Handling:      {error_passed}/{error_total} passed ({error_passed / error_total * 100:.1f}%)"
         )
 
         total_passed = engine_passed + (1 if schema_success else 0) + error_passed
         total_tests = engine_total + 1 + error_total
 
         print(
-            f"\nOverall:             {total_passed}/{total_tests} passed ({total_passed/total_tests*100:.1f}%)"
+            f"\nOverall:             {total_passed}/{total_tests} passed ({total_passed / total_tests * 100:.1f}%)"
         )
 
         return 0 if total_passed == total_tests else 1
@@ -469,4 +468,3 @@ def main():
 
 if __name__ == "__main__":
     exit(main())
-
