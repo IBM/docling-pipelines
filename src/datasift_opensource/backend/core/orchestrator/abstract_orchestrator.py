@@ -55,7 +55,6 @@ from common.util.parquet_table_handler import (
     get_parquet_table_handler,
 )
 from common.util.perf_utils import log_elapsed_time
-from core.data_access.data_access_utils import DataAccessUtils
 from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
@@ -1137,7 +1136,11 @@ class AbstractOrchestrator:
         deleted_docs_count = 0
         incremental_update_util = IncrementalUpdateUtil()
 
-        is_sequential_flow = False if op_flow[0].get(DatasiftConstants.INPUT_EDGES) or op_flow[0].get(DatasiftConstants.OUTPUT_EDGES) else True
+        is_sequential_flow = (
+            False
+            if op_flow[0].get(DatasiftConstants.INPUT_EDGES) or op_flow[0].get(DatasiftConstants.OUTPUT_EDGES)
+            else True
+        )
         prev_index = None
 
         for op_def in op_flow:
@@ -1149,7 +1152,9 @@ class AbstractOrchestrator:
                     batch_table = data_access.get_table("")[0]
                     prev_results = ExecuteStepResults([data_access], [batch_table], {})
                 else:
-                    prev_results = results.get_future(prev_index) if is_sequential_flow else get_prev_results(op_def, results)
+                    prev_results = (
+                        results.get_future(prev_index) if is_sequential_flow else get_prev_results(op_def, results)
+                    )
 
                 future = inner_task.submit(
                     op_def=op_def,
@@ -1366,10 +1371,7 @@ class AbstractOrchestrator:
 
         initial_result = ExecuteStepResults([data_access], [pa.Table.from_arrays(arrays=[], names=[])], None)
         step_results = self._execute_step(
-            op_def=ingest_operator,
-            global_config=global_config,
-            prev_results=initial_result,
-            deleted_docs_count=0
+            op_def=ingest_operator, global_config=global_config, prev_results=initial_result, deleted_docs_count=0
         )
 
         deleted_docs_count = step_results.internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN, 0)
@@ -1447,35 +1449,13 @@ class AbstractOrchestrator:
             job_log_final_path=job_log_final_path,
         )
 
-        batch_results = self.wait_and_get_batch_results(
-            op_flow=op_flow,
-            global_config=global_config,
+        # Wait for all sub-flows to complete
+        # Note: Metadata is saved incrementally by each sub-flow in inner_flow() at line 1194
+        # so we don't need to merge and save results here
+        self.wait_for_sub_flows(
             batch_futures=batch_futures,
             common_log_arguments=common_log_arguments,
         )
-
-        # Merge batch results (for single batch, _merge_batch_results efficiently returns the table)
-        if batch_results:
-            merged_table = self._merge_batch_results(batch_results=batch_results)
-            self.logger.info(
-                f">>> Merged {len(batch_results)} batch results into table with {merged_table.num_rows} rows",
-                extra=common_log_arguments,
-            )
-
-            # Save merged results for incremental update
-            job_tracker = JobTracker()
-            job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
-            failed_doc_ids = []
-            if job_stats and job_stats.node_stats:
-                for node_stats in job_stats.node_stats.values():
-                    failed_doc_ids.extend(node_stats.get(Metrics.External.FAILED_DOCS, []))
-
-            incremental_update_util.save_metadata_for_incremental_update(
-                job_id=self.context_id,
-                job_run_id=self.__job_run_id,
-                tables=[merged_table],
-                failed_doc_ids=failed_doc_ids,
-            )
 
         clean_up_prefect_home()
         return self.finalize_dag_flow(
@@ -1484,9 +1464,14 @@ class AbstractOrchestrator:
             common_log_arguments=common_log_arguments,
         )
 
-    def wait_and_get_batch_results(self, *, op_flow, global_config, batch_futures, common_log_arguments):
-        # Wait for batches with fail-fast cancellation
-        batch_results = []
+    def wait_for_sub_flows(self, *, batch_futures, common_log_arguments):
+        """
+        Wait for all sub-flows (batches) to complete with fail-fast cancellation.
+
+        Note: This method does not return batch results to avoid loading all PyArrow tables
+        into memory, which could cause OOM errors. Each sub-flow saves its metadata
+        incrementally via save_metadata_for_incremental_update() in inner_flow().
+        """
         failed_batch = None
         cancellation_event = threading.Event()
 
@@ -1506,21 +1491,10 @@ class AbstractOrchestrator:
             try:
                 # Wait for this batch to complete
                 future.result()
-
-                # Extract result table from batch's final operator output
-                batch_global_config = global_config.copy()
-                batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
-                result_table = self._extract_batch_result_table(
-                    batch_num=batch_num,
-                    op_flow=op_flow,
-                    global_config=batch_global_config,
+                self.logger.info(
+                    f"Batch {batch_num} completed successfully",
+                    extra=common_log_arguments,
                 )
-                if result_table is not None:
-                    batch_results.append(result_table)
-                    self.logger.info(
-                        f"Batch {batch_num} completed with {result_table.num_rows} rows",
-                        extra=common_log_arguments,
-                    )
 
             except Exception as e:
                 # Batch failed - trigger cancellation
@@ -1551,8 +1525,6 @@ class AbstractOrchestrator:
 
         # Clean up semaphore
         self._global_operator_semaphore = None
-
-        return batch_results
 
     def _build_batching_flow(self):  # pragma: no cover
         """
@@ -1662,24 +1634,6 @@ class AbstractOrchestrator:
         for batch in table.to_batches(max_chunksize=batch_size):
             batches.append(pa.Table.from_batches([batch]))
         return batches
-
-    @staticmethod
-    def _merge_batch_results(*, batch_results: list[pa.Table]) -> pa.Table:  # pragma: no cover
-        """
-        Merge batch results into a single PyArrow table.
-
-        Returns:
-            Single merged PyArrow table
-        """
-        # Filter out None results
-        valid_results = [result for result in batch_results if result is not None]
-
-        if not valid_results:
-            # Return empty table with same schema as first batch if available
-            return pa.Table.from_arrays([], names=[])
-
-        # Concatenate all tables
-        return pa.concat_tables(valid_results)
 
     def __validate_node(
         self,
@@ -1861,91 +1815,3 @@ class AbstractOrchestrator:
         batch_data_access = data_access_factory.create_data_access()
         batch_data_access.save_table(path="", table=batch_table)
         return batch_data_access
-
-    def _extract_batch_result_table(
-        self, *, batch_num: int, op_flow: list, global_config: dict
-    ) -> pa.Table | None:  # pragma: no cover
-        """
-        Extract the result table for a batch after its sub-flow completes.
-
-        Reads from all final operators' output locations (including all branches) for the given batch.
-        Merges results from multiple final operators/branches into a single table.
-
-        Args:
-            batch_num: Batch number
-            op_flow: List of operator definitions
-            global_config: Global configuration (must include batch_num)
-
-        Returns:
-            PyArrow table with merged batch results from all final operators, or None if not found
-        """
-        # Find final operators (those with no output_edges)
-        final_operators = [op for op in op_flow if not op.get(DatasiftConstants.OUTPUT_EDGES)]
-
-        if not final_operators:
-            self.logger.warning(f"No final operators found in DAG for batch {batch_num}")
-            return None
-
-        all_tables = []
-
-        # Read from each final operator
-        for final_op in final_operators:
-            op_name = final_op[OperatorConstants.NAME]
-
-            # Try reading from each possible branch index (0, 1, 2, ...)
-            branch_index = 0
-            while True:
-                try:
-                    # Construct path based on whether micro-batching is enabled
-                    # Batch mode: <output_folder>/<node_name>_<branch_index>/<batch_num>/output.parquet
-                    # Non-batch mode: <output_folder>/<node_name>_<branch_index>/output.parquet
-                    params = global_config.copy()
-                    # Only add BATCH_NUM if micro-batching is enabled
-                    if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
-                        params[DatasiftConstants.BATCH_NUM] = batch_num
-
-                    node_name_with_branch = f"{op_name}_{branch_index}"
-                    DataAccessUtils.add_node_name_to_output_folder(params=params, node_name=node_name_with_branch)
-
-                    data_access_factory = DataAccessFactory()
-                    data_access_factory.apply_input_params(params)
-                    result_data_access = data_access_factory.create_data_access()
-
-                    output_path = AbstractOperatorExecutor.get_output_file_path(data_access=result_data_access)
-
-                    table, _ = result_data_access.get_table(path=output_path)
-
-                    if table and table.num_rows > 0:
-                        all_tables.append(table)
-                        self.logger.debug(
-                            f"Extracted {table.num_rows} rows from batch {batch_num}, operator {op_name}, branch {branch_index}"
-                        )
-                        branch_index += 1
-                    else:
-                        # Empty table for this branch - stop trying more branches
-                        break
-
-                except Exception as e:
-                    if branch_index == 0:
-                        self.logger.warning(f"Could not read batch {batch_num} result from operator {op_name}: {e}")
-                    break
-
-        # Merge all tables from all final operators and branches
-        if not all_tables:
-            self.logger.warning(f"No tables found for batch {batch_num}")
-            return None
-
-        if len(all_tables) == 1:
-            return all_tables[0]
-
-        # Concatenate all tables
-        try:
-            merged_table = pa.concat_tables(all_tables)
-            self.logger.debug(
-                f"Merged {len(all_tables)} tables from batch {batch_num} into single table with {merged_table.num_rows} rows"
-            )
-            return merged_table
-        except Exception as e:
-            self.logger.error(f"Failed to merge tables for batch {batch_num}: {e}", exc_info=True)
-            # Return first table as fallback
-            return all_tables[0]
