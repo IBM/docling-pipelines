@@ -1455,35 +1455,13 @@ class AbstractOrchestrator:
             job_log_final_path=job_log_final_path,
         )
 
-        batch_results = self.wait_and_get_batch_results(
-            op_flow=op_flow,
-            global_config=global_config,
+        # Wait for all sub-flows to complete
+        # Note: Metadata is saved incrementally by each sub-flow in inner_flow() at line 1194
+        # so we don't need to merge and save results here
+        self.wait_for_sub_flows(
             batch_futures=batch_futures,
             common_log_arguments=common_log_arguments,
         )
-
-        # Merge batch results (for single batch, _merge_batch_results efficiently returns the table)
-        if batch_results:
-            merged_table = self._merge_batch_results(batch_results=batch_results)
-            self.logger.info(
-                f">>> Merged {len(batch_results)} batch results into table with {merged_table.num_rows} rows",
-                extra=common_log_arguments,
-            )
-
-            # Save merged results for incremental update
-            job_tracker = JobTracker()
-            job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
-            failed_doc_ids = []
-            if job_stats and job_stats.node_stats:
-                for node_stats in job_stats.node_stats.values():
-                    failed_doc_ids.extend(node_stats.get(Metrics.External.FAILED_DOCS, []))
-
-            incremental_update_util.save_metadata_for_incremental_update(
-                job_id=self.context_id,
-                job_run_id=self.__job_run_id,
-                tables=[merged_table],
-                failed_doc_ids=failed_doc_ids,
-            )
 
         clean_up_prefect_home()
         return self.finalize_dag_flow(
@@ -1492,9 +1470,14 @@ class AbstractOrchestrator:
             common_log_arguments=common_log_arguments,
         )
 
-    def wait_and_get_batch_results(self, *, op_flow, global_config, batch_futures, common_log_arguments):
-        # Wait for batches with fail-fast cancellation
-        batch_results = []
+    def wait_for_sub_flows(self, *, batch_futures, common_log_arguments):
+        """
+        Wait for all sub-flows (batches) to complete with fail-fast cancellation.
+
+        Note: This method does not return batch results to avoid loading all PyArrow tables
+        into memory, which could cause OOM errors. Each sub-flow saves its metadata
+        incrementally via save_metadata_for_incremental_update() in inner_flow().
+        """
         failed_batch = None
         cancellation_event = threading.Event()
 
@@ -1514,9 +1497,8 @@ class AbstractOrchestrator:
             try:
                 # Wait for this batch to complete
                 future.result()
-
                 self.logger.info(
-                    f"Batch {batch_num} completed",
+                    f"Batch {batch_num} completed successfully",
                     extra=common_log_arguments,
                 )
 
@@ -1549,8 +1531,6 @@ class AbstractOrchestrator:
 
         # Clean up semaphore
         self._global_operator_semaphore = None
-
-        return batch_results
 
     def _build_batching_flow(self):  # pragma: no cover
         """
@@ -1657,24 +1637,6 @@ class AbstractOrchestrator:
         for batch in table.to_batches(max_chunksize=batch_size):
             batches.append(pa.Table.from_batches([batch]))
         return batches
-
-    @staticmethod
-    def _merge_batch_results(*, batch_results: list[pa.Table]) -> pa.Table:  # pragma: no cover
-        """
-        Merge batch results into a single PyArrow table.
-
-        Returns:
-            Single merged PyArrow table
-        """
-        # Filter out None results
-        valid_results = [result for result in batch_results if result is not None]
-
-        if not valid_results:
-            # Return empty table with same schema as first batch if available
-            return pa.Table.from_arrays([], names=[])
-
-        # Concatenate all tables
-        return pa.concat_tables(valid_results)
 
     def __validate_node(
         self,
@@ -1848,3 +1810,13 @@ class AbstractOrchestrator:
             if node_stats.failed_docs:
                 failed_doc_ids.extend(node_stats.failed_docs)
         return failed_doc_ids
+
+    @staticmethod
+    def _create_batch_data_access(*, batch_table: pa.Table) -> DataAccess:  # pragma: no cover
+        # Create a DataAccess object for a batch table.
+        data_access_factory = DataAccessFactory()
+        config = {"data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}}
+        data_access_factory.apply_input_params(config)
+        batch_data_access = data_access_factory.create_data_access()
+        batch_data_access.save_table(path="", table=batch_table)
+        return batch_data_access

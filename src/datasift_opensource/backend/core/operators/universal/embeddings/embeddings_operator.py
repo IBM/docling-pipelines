@@ -6,6 +6,7 @@ It supports multiple providers (Ollama, OpenAI, etc.) and handles chunking of lo
 """
 
 import json
+from enum import Enum
 from typing import Any
 
 import numpy as np
@@ -29,6 +30,11 @@ except ImportError:
             return table.append_column(new_field, new_column)
 
 
+from common.clients.ollama_client import (
+    DEFAULT_TOKEN_LIMIT,
+    OLLAMA_MODEL_TOKEN_LIMITS,
+    OllamaClient,
+)
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -45,35 +51,21 @@ from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 
 logger = get_logger()
 
-# Supported embeddings providers
-SUPPORTED_EMBEDDINGS_TYPES: list[str] = ["ollama", "openai"]
 
-# Ollama model token limits (approximate)
-OLLAMA_MODEL_TOKEN_LIMITS: dict[str, int] = {
-    "llama2": 4096,
-    "llama3": 8192,
-    "llama3.1": 128000,
-    "llama3.2": 128000,
-    "mistral": 8192,
-    "mixtral": 32768,
-    "codellama": 16384,
-    "phi": 2048,
-    "gemma": 8192,
-    "qwen": 32768,
-    "deepseek-coder": 16384,
-    "neural-chat": 4096,
-    "starling-lm": 8192,
-    "vicuna": 4096,
-    "orca-mini": 4096,
-    "wizard-vicuna": 4096,
-    "nous-hermes": 4096,
-    "openhermes": 8192,
-    "granite3.2:2b": 128000,
-    "granite3.2:8b": 128000,
-}
+class EmbeddingsProvider(Enum):
+    """
+    Supported embeddings providers.
 
-# Default token limit for unknown models
-DEFAULT_TOKEN_LIMIT: int = 4096
+    This enum defines the available embedding providers that can be used
+    for generating vector embeddings from text content.
+    """
+
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+
+
+# Supported embeddings providers (for backward compatibility)
+SUPPORTED_EMBEDDINGS_TYPES: list[str] = [provider.value for provider in EmbeddingsProvider]
 
 # Overlap ratio for chunking
 OVERLAP_RATIO_KEY: str = "overlap_ratio"
@@ -155,10 +147,44 @@ class EmbeddingsOperator(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
+        # Initialize embedding client
+        self.embedding_client: OllamaClient = self._initialize_embedding_client()
+
         logger.info(
             f"Initialized EmbeddingsOperator with provider: {self.embeddings_type}, model: {self.embeddings_model_id}",
             extra=self.common_log_arguments,
         )
+
+    def _initialize_embedding_client(self) -> OllamaClient:
+        """
+        Initialize the appropriate embedding client based on embeddings_type.
+
+        This method creates and returns the appropriate client (OllamaClient, OpenAIClient, etc.)
+        based on the configured embeddings_type. The client is stored as self.embedding_client
+        for reuse across multiple embedding operations.
+
+        Returns:
+            The initialized embedding client for the configured provider
+
+        Raises:
+            DatasiftException: If the provider is unsupported or client initialization fails
+        """
+        try:
+            if self.embeddings_type == EmbeddingsProvider.OLLAMA.value:
+                return OllamaClient(model=self.embeddings_model_id, validate_model=True)
+            elif self.embeddings_type == EmbeddingsProvider.OPENAI.value:
+                # Placeholder for OpenAI client initialization
+                # TODO: Implement OpenAI client when available
+                raise DatasiftException("OpenAI embeddings provider is not yet implemented")
+            else:
+                raise DatasiftException(
+                    f"Unsupported embeddings_type: {self.embeddings_type}. "
+                    f"Supported types: {SUPPORTED_EMBEDDINGS_TYPES}"
+                )
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to initialize embedding client for provider '{self.embeddings_type}': {e!s}"
+            ) from e
 
     def get_required_features(self) -> list[str]:
         """Return list of required input features."""
@@ -294,16 +320,16 @@ class EmbeddingsOperator(AbstractOperator):
         Raises:
             DatasiftException: If embedding generation fails or provider is unsupported
         """
-        if self.embeddings_type == "ollama":
-            return self._create_embeddings_ollama(text, model_name, overlap_ratio)
-        elif self.embeddings_type == "openai":
+        if self.embeddings_type == EmbeddingsProvider.OLLAMA.value:
+            return self._generate_embeddings_ollama(text, model_name, overlap_ratio)
+        elif self.embeddings_type == EmbeddingsProvider.OPENAI.value:
             return self._create_embeddings_openai(text, model_name, overlap_ratio)
         else:
             raise DatasiftException(
                 f"Unsupported embeddings_type: {self.embeddings_type}. Supported types: {SUPPORTED_EMBEDDINGS_TYPES}"
             )
 
-    def _create_embeddings_ollama(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
+    def _generate_embeddings_ollama(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
         """
         Generate embeddings for text using Ollama.
 
@@ -321,10 +347,8 @@ class EmbeddingsOperator(AbstractOperator):
         Raises:
             DatasiftException: If embedding generation fails
         """
-        try:
-            import ollama
-        except ImportError:
-            raise DatasiftException("ollama package not installed. Install it with: pip install ollama")
+        # Use the pre-initialized embedding client
+        ollama_client: OllamaClient = self.embedding_client
 
         embeddings: list[list[float]] = []
         token_limit: int = OLLAMA_MODEL_TOKEN_LIMITS.get(model_name, DEFAULT_TOKEN_LIMIT)
@@ -353,15 +377,15 @@ class EmbeddingsOperator(AbstractOperator):
             if len(text_item) <= char_limit:
                 # Text fits in one chunk
                 try:
-                    response = ollama.embeddings(model=model_name, prompt=text_item)
-                    embeddings.append(response["embedding"])
+                    embedding: list[float] = ollama_client.generate_embeddings(text_item)
+                    embeddings.append(embedding)
                 except Exception as e:
                     logger.error(
                         f"Failed to generate embedding: {e!s}",
                         exc_info=True,
                         extra=self.common_log_arguments,
                     )
-                    raise DatasiftException(f"Ollama embedding generation failed: {e!s}")
+                    raise DatasiftException(f"Ollama embedding generation failed: {e!s}") from e
             else:
                 # Text needs chunking
                 logger.debug(
@@ -386,15 +410,15 @@ class EmbeddingsOperator(AbstractOperator):
                 chunk_embeddings: list[list[float]] = []
                 for i, chunk in enumerate(chunks):
                     try:
-                        response = ollama.embeddings(model=model_name, prompt=chunk)
-                        chunk_embeddings.append(response["embedding"])
+                        embedding = ollama_client.generate_embeddings(chunk)
+                        chunk_embeddings.append(embedding)
                     except Exception as e:
                         logger.error(
                             f"Failed to generate embedding for chunk {i + 1}/{len(chunks)}: {e!s}",
                             exc_info=True,
                             extra=self.common_log_arguments,
                         )
-                        raise DatasiftException(f"Ollama embedding generation failed for chunk {i + 1}: {e!s}")
+                        raise DatasiftException(f"Ollama embedding generation failed for chunk {i + 1}: {e!s}") from e
 
                 # Average the chunk embeddings
                 avg_embedding: list[float] = np.mean(chunk_embeddings, axis=0).tolist()
@@ -423,6 +447,176 @@ class EmbeddingsOperator(AbstractOperator):
         raise DatasiftException(
             "OpenAI embeddings provider is not yet implemented. This is a placeholder for future extension."
         )
+
+    def _get_doc_identifiers(self, table: pa.Table, idx: int) -> tuple[str, str]:
+        """
+        Get document ID and name from table at given index.
+
+        Args:
+            table: PyArrow table containing documents
+            idx: Row index
+
+        Returns:
+            tuple: (doc_id, doc_name) as strings
+        """
+        doc_id: str = (
+            table[OperatorConstants.ID][idx].as_py() if OperatorConstants.ID in table.column_names else f"doc_{idx}"
+        )
+        doc_name: str = (
+            table[OperatorConstants.NAME][idx].as_py() if OperatorConstants.NAME in table.column_names else str(doc_id)
+        )
+        return str(doc_id), str(doc_name)
+
+    def _parse_chunked_content(self, table: pa.Table, idx: int, doc_name: str) -> list[str]:
+        """
+        Parse and extract text from chunked content.
+
+        Args:
+            table: PyArrow table containing documents
+            idx: Row index
+            doc_name: Document name for logging
+
+        Returns:
+            List of text strings from chunks
+
+        Raises:
+            DatasiftException: If chunked content is invalid or empty
+        """
+        chunked_content_raw: str | list[Any] = table[OperatorConstants.CHUNKED_CONTENT][idx].as_py()
+        if not chunked_content_raw:
+            raise DatasiftException("Chunked content is empty")
+
+        # Parse chunked_content - it can be a JSON string or a list
+        chunked_content: list[Any] = []
+        if isinstance(chunked_content_raw, str):
+            # Parse JSON string from DoclingChunkerOperator
+            try:
+                chunked_content = json.loads(chunked_content_raw)
+                logger.debug(
+                    f"Parsed chunked_content from JSON string for document: {doc_name}",
+                    extra=self.common_log_arguments,
+                )
+            except json.JSONDecodeError as e:
+                logger.error(
+                    f"Failed to parse chunked_content JSON for document {doc_name}: {e!s}",
+                    extra=self.common_log_arguments,
+                )
+                raise DatasiftException(f"Invalid chunked_content JSON format: {e!s}") from e
+        elif isinstance(chunked_content_raw, list):
+            # Already a list
+            chunked_content = chunked_content_raw
+            logger.debug(
+                f"Using chunked_content as list for document: {doc_name}",
+                extra=self.common_log_arguments,
+            )
+        else:
+            raise DatasiftException(f"Unexpected chunked_content type: {type(chunked_content_raw).__name__}")
+
+        # Extract text from chunks - handle both dict and string formats
+        texts: list[str] = []
+        for chunk in chunked_content:
+            if isinstance(chunk, dict):
+                # Chunk is a dictionary with 'chunk' key
+                chunk_text: str = chunk.get(OperatorConstants.CHUNK, "")
+                if chunk_text:
+                    texts.append(chunk_text)
+            elif isinstance(chunk, str):
+                # Chunk is already a string
+                if chunk:
+                    texts.append(chunk)
+            else:
+                logger.warning(
+                    f"Skipping chunk with unexpected type: {type(chunk).__name__}",
+                    extra=self.common_log_arguments,
+                )
+
+        if not texts:
+            raise DatasiftException("No valid text chunks found after parsing")
+
+        logger.debug(
+            f"Processing {len(texts)} chunks for document: {doc_name}",
+            extra=self.common_log_arguments,
+        )
+        return texts
+
+    def _get_full_document_content(self, table: pa.Table, idx: int) -> list[str]:
+        """
+        Extract full document content as a single-item list.
+
+        Args:
+            table: PyArrow table containing documents
+            idx: Row index
+
+        Returns:
+            List containing single document content string
+
+        Raises:
+            DatasiftException: If content is missing or empty
+        """
+        content: str = table[self.doc_column][idx].as_py()
+        if not content:
+            raise DatasiftException(f"Document content column '{self.doc_column}' is empty or missing")
+        return [content]
+
+    def _handle_doc_hash_generation_failure(
+        self, table: pa.Table, error: Exception, metadata: dict[str, Any]
+    ) -> tuple[pa.Table, dict[str, Any]]:
+        """
+        Handle failure in document hash generation by marking all docs as failed.
+
+        Args:
+            table: PyArrow table containing documents
+            error: The exception that occurred
+            metadata: Metadata dictionary to update
+
+        Returns:
+            tuple: (empty table slice, updated metadata)
+        """
+        logger.error(
+            f"Failed to generate document hashes: {error!s}",
+            extra=self.common_log_arguments,
+        )
+
+        # Mark all documents as failed
+        for idx in range(table.num_rows):
+            doc_id, doc_name = self._get_doc_identifiers(table, idx)
+            self.record_failed_document(
+                metadata=metadata,
+                doc_id=doc_id,
+                doc_name=doc_name,
+                reason=str(error),
+            )
+
+        metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+            metadata[Metrics.External.NODE_STATUS],
+            ExecutionStatus.COMPLETED_WITH_ERRORS,
+        )
+        return [table.slice(0, 0)], metadata
+
+    def _update_doc_hash_column(self, table: pa.Table, doc_id_hashes: list[str]) -> pa.Table:
+        """
+        Update or add document hash column to table.
+
+        Args:
+            table: PyArrow table to update
+            doc_id_hashes: List of document hashes
+
+        Returns:
+            Updated PyArrow table with hash column
+        """
+        if not doc_id_hashes:
+            return table
+
+        if self.doc_id_hash_column in table.column_names:
+            table = table.drop_columns([self.doc_id_hash_column])
+
+        table = TransformUtils.add_column(table=table, name=self.doc_id_hash_column, content=doc_id_hashes)
+
+        logger.info(
+            f"Added document hash column '{self.doc_id_hash_column}' to table",
+            extra=self.common_log_arguments,
+        )
+        return table
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -456,36 +650,9 @@ class EmbeddingsOperator(AbstractOperator):
                 result_tables, _ = doc_id_op.transform(table)
                 table = result_tables[0]
             except Exception as e:
-                logger.error(
-                    f"Failed to generate document hashes: {e!s}",
-                    extra=self.common_log_arguments,
-                )
-                # Mark all documents as failed
-                for idx in range(table.num_rows):
-                    doc_id: str | Any = (
-                        table[OperatorConstants.Columns.ID][idx].as_py()
-                        if OperatorConstants.Columns.ID in table.column_names
-                        else f"doc_{idx}"
-                    )
-                    doc_name: str | Any = (
-                        table[OperatorConstants.Misc.NAME][idx].as_py()
-                        if OperatorConstants.Misc.NAME in table.column_names
-                        else str(doc_id)
-                    )
-                    self.record_failed_document(
-                        metadata=metadata,
-                        doc_id=str(doc_id),
-                        doc_name=str(doc_name),
-                        reason=str(e),
-                    )
-                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                    metadata[Metrics.External.NODE_STATUS],
-                    ExecutionStatus.COMPLETED_WITH_ERRORS,
-                )
-                return [table.slice(0, 0)], metadata
+                return self._handle_doc_hash_generation_failure(table, e, metadata)
 
-        # Convert table to list for processing
-        input_docs: list[dict[str, Any]] = table.to_pylist()
+        # Initialize result containers
         embeddings_list: list[list[float] | list[list[float]]] = []
         doc_id_hashes: list[str] = []
         remove_row_idx: list[int] = []
@@ -493,77 +660,16 @@ class EmbeddingsOperator(AbstractOperator):
         # Check if we have chunked content
         has_chunked_content: bool = OperatorConstants.Columns.CHUNKED_CONTENT in table.column_names
 
-        for idx, doc in enumerate(input_docs):
-            doc_id: Any = doc.get(OperatorConstants.Columns.ID, f"doc_{idx}")
-            doc_name: Any = doc.get(OperatorConstants.Misc.NAME, doc_id)
+        # Process each document using PyArrow columnar access
+        for idx in range(table.num_rows):
+            doc_id, doc_name = self._get_doc_identifiers(table, idx)
 
             try:
-                # Get content to embed
+                # Get content to embed using helper methods
                 if has_chunked_content:
-                    # Process chunked content
-                    chunked_content_raw: Any = doc.get(OperatorConstants.Columns.CHUNKED_CONTENT, [])
-                    if not chunked_content_raw:
-                        raise DatasiftException("Chunked content is empty")
-
-                    # Parse chunked_content - it can be a JSON string or a list
-                    chunked_content: list[Any] = []
-                    if isinstance(chunked_content_raw, str):
-                        # Parse JSON string from DoclingChunkerOperator
-                        try:
-                            chunked_content = json.loads(chunked_content_raw)
-                            logger.debug(
-                                f"Parsed chunked_content from JSON string for document: {doc_name}",
-                                extra=self.common_log_arguments,
-                            )
-                        except json.JSONDecodeError as e:
-                            logger.error(
-                                f"Failed to parse chunked_content JSON for document {doc_name}: {e!s}",
-                                extra=self.common_log_arguments,
-                            )
-                            raise DatasiftException(f"Invalid chunked_content JSON format: {e!s}")
-                    elif isinstance(chunked_content_raw, list):
-                        # Already a list
-                        chunked_content = chunked_content_raw
-                        logger.debug(
-                            f"Using chunked_content as list for document: {doc_name}",
-                            extra=self.common_log_arguments,
-                        )
-                    else:
-                        raise DatasiftException(
-                            f"Unexpected chunked_content type: {type(chunked_content_raw).__name__}"
-                        )
-
-                    # Extract text from chunks - handle both dict and string formats
-                    texts: list[str] = []
-                    for chunk in chunked_content:
-                        if isinstance(chunk, dict):
-                            # Chunk is a dictionary with 'chunk' key
-                            chunk_text: str = chunk.get(OperatorConstants.Columns.CHUNK, "")
-                            if chunk_text:
-                                texts.append(chunk_text)
-                        elif isinstance(chunk, str):
-                            # Chunk is already a string
-                            if chunk:
-                                texts.append(chunk)
-                        else:
-                            logger.warning(
-                                f"Skipping chunk with unexpected type: {type(chunk).__name__}",
-                                extra=self.common_log_arguments,
-                            )
-
-                    if not texts:
-                        raise DatasiftException("No valid text chunks found after parsing")
-
-                    logger.debug(
-                        f"Processing {len(texts)} chunks for document: {doc_name}",
-                        extra=self.common_log_arguments,
-                    )
+                    texts = self._parse_chunked_content(table, idx, doc_name)
                 else:
-                    # Process full document content
-                    content: Any = doc.get(self.doc_column)
-                    if not content:
-                        raise DatasiftException(f"Document content column '{self.doc_column}' is empty or missing")
-                    texts = [content]
+                    texts = self._get_full_document_content(table, idx)
 
                 # Generate embeddings using configured provider
                 doc_embeddings: list[list[float]] = self._create_embeddings(
@@ -579,7 +685,7 @@ class EmbeddingsOperator(AbstractOperator):
                     embeddings_list.append(doc_embeddings[0])
 
                 # Retrieve document hash (guaranteed to exist after DocIdHashOperator)
-                doc_hash: str = doc.get(self.doc_id_hash_column, "")
+                doc_hash: str = table[self.doc_id_hash_column][idx].as_py()
                 doc_id_hashes.append(doc_hash)
                 metadata[Metrics.External.PROCESSED_DOCS] += 1
 
@@ -621,17 +727,8 @@ class EmbeddingsOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
 
-        # Add or update document hash column
-        if doc_id_hashes:
-            if self.doc_id_hash_column in table.column_names:
-                # Drop existing column and add new one
-                table = table.drop_columns([self.doc_id_hash_column])
-
-            table = TransformUtils.add_column(table=table, name=self.doc_id_hash_column, content=doc_id_hashes)
-            logger.info(
-                f"Added document hash column '{self.doc_id_hash_column}' to table",
-                extra=self.common_log_arguments,
-            )
+        # Add or update document hash column using helper method
+        table = self._update_doc_hash_column(table, doc_id_hashes)
 
         logger.info(
             f"Embeddings generation completed. Processed: {metadata[Metrics.External.PROCESSED_DOCS]}, "
@@ -640,178 +737,6 @@ class EmbeddingsOperator(AbstractOperator):
         )
 
         return [table], metadata
-
-
-def check_ollama_installed() -> bool:
-    """
-    Check if Ollama is installed on the system.
-
-    Returns:
-        bool: True if Ollama is installed, False otherwise
-    """
-    import subprocess
-
-    try:
-        # Try to run 'ollama --version' command
-        result: subprocess.CompletedProcess[str] = subprocess.run(
-            ["ollama", "--version"], capture_output=True, text=True, timeout=5
-        )
-        return result.returncode == 0
-    except (subprocess.TimeoutExpired, FileNotFoundError, Exception):
-        return False
-
-
-def check_ollama_running() -> bool:
-    """
-    Check if Ollama server is running.
-
-    Returns:
-        bool: True if Ollama server is accessible, False otherwise
-    """
-    try:
-        import ollama
-
-        # Try to list models - this will fail if server is not running
-        ollama.list()
-        return True
-    except Exception:
-        return False
-
-
-def start_ollama_server() -> bool:
-    """
-    Start Ollama server in background.
-
-    Returns:
-        bool: True if server started successfully, False otherwise
-    """
-    import platform
-    import subprocess
-    import time
-
-    try:
-        system: str = platform.system()
-
-        if system == "Windows":
-            # Windows: Start in background using START command
-            subprocess.Popen(
-                ["cmd", "/c", "start", "/B", "ollama", "serve"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
-            )
-        else:
-            # macOS/Linux: Start in background using nohup
-            subprocess.Popen(
-                ["nohup", "ollama", "serve"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                preexec_fn=lambda: None,
-            )
-
-        # Wait for server to start (max 10 seconds)
-        print("⏳ Starting Ollama server...")
-        for i in range(10):
-            time.sleep(1)
-            if check_ollama_running():
-                print("✓ Ollama server started successfully")
-                return True
-            print(f"   Waiting... ({i + 1}/10)")
-
-        print("⚠ Ollama server may not have started properly")
-        return False
-
-    except Exception as e:
-        logger.error(f"Failed to start Ollama server: {e}")
-        return False
-
-
-def check_model_available(model_name: str) -> bool:
-    """
-    Check if a model is already pulled in Ollama.
-
-    Args:
-        model_name: Name of the model to check
-
-    Returns:
-        bool: True if model is available, False otherwise
-    """
-    try:
-        import ollama
-
-        models: Any = ollama.list()
-
-        # Check if model exists in the list
-        if hasattr(models, "models"):
-            model_list: Any = models.models
-        elif isinstance(models, dict) and "models" in models:
-            model_list = models["models"]
-        else:
-            model_list = models
-
-        for model in model_list:
-            # Handle both dict and object formats
-            if isinstance(model, dict):
-                name: str = model.get("name", "")
-            else:
-                name = getattr(model, "model", "")
-
-            # Check if model name matches (handle version tags)
-            if name.startswith(model_name) or name.split(":")[0] == model_name:
-                return True
-
-        return False
-
-    except Exception as e:
-        logger.error(f"Failed to check model availability: {e}")
-        return False
-
-
-def pull_ollama_model(model_name: str) -> bool:
-    """
-    Pull an Ollama model.
-
-    Args:
-        model_name: Name of the model to pull
-
-    Returns:
-        bool: True if model pulled successfully, False otherwise
-    """
-    import subprocess
-
-    try:
-        print(f"⏳ Pulling model '{model_name}'... (this may take several minutes)")
-        print("   Progress:")
-
-        # Use subprocess to show real-time progress
-        process: subprocess.Popen[str] = subprocess.Popen(
-            ["ollama", "pull", model_name],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
-
-        # Stream output
-        if process.stdout:
-            for line in process.stdout:
-                line = line.strip()
-            if line:
-                print(f"   {line}")
-
-        process.wait()
-
-        if process.returncode == 0:
-            print(f"✓ Model '{model_name}' pulled successfully")
-            return True
-        else:
-            print(f"✗ Failed to pull model '{model_name}'")
-            return False
-
-    except Exception as e:
-        logger.error(f"Failed to pull model: {e}")
-        print(f"✗ Error pulling model: {e}")
-        return False
 
 
 def main() -> int:
@@ -844,7 +769,6 @@ def main() -> int:
         python embeddings_operator.py --no-auto-pull
     """
     import argparse
-    import platform
     from pathlib import Path
 
     # Calculate project root directory dynamically
@@ -896,81 +820,21 @@ def main() -> int:
         print("OLLAMA SETUP CHECK")
         print("=" * 80)
 
-        # Step 1: Check if Ollama is installed
-        print("\n1. Checking if Ollama is installed...")
-        if not check_ollama_installed():
-            print("✗ Ollama is not installed")
+        # Check Ollama readiness with auto-remediation
+        print("\nChecking Ollama prerequisites...")
+        auto_pull = not args.no_auto_pull
+        success, message = OllamaClient.ensure_ready(model_name=args.model, auto_start=True, auto_pull=auto_pull)
+
+        if not success:
+            print(f"\n✗ {message}")
             print("\n" + "=" * 80)
-            print("INSTALLATION INSTRUCTIONS")
+            print("SETUP REQUIRED")
             print("=" * 80)
-            system: str = platform.system()
-            if system == "Darwin":  # macOS
-                print("macOS:")
-                print("  brew install ollama")
-                print("\nOr download from: https://ollama.ai/download")
-            elif system == "Linux":
-                print("Linux:")
-                print("  curl -fsSL https://ollama.ai/install.sh | sh")
-            elif system == "Windows":
-                print("Windows:")
-                print("  Download installer from: https://ollama.ai/download")
-            else:
-                print(f"Visit https://ollama.ai/download for {system} installation")
+            print("Please follow the instructions above to set up Ollama.")
             print("=" * 80)
             return 1
-        print("✓ Ollama is installed")
 
-        # Step 2: Check if Ollama server is running
-        print("\n2. Checking if Ollama server is running...")
-        if not check_ollama_running():
-            print("✗ Ollama server is not running")
-            print("   Attempting to start Ollama server...")
-
-            if not start_ollama_server():
-                print("\n" + "=" * 80)
-                print("TROUBLESHOOTING")
-                print("=" * 80)
-                print("Failed to start Ollama server automatically.")
-                print("\nPlease start it manually:")
-                print("  ollama serve")
-                print("\nThen run this script again.")
-                print("=" * 80)
-                return 1
-        else:
-            print("✓ Ollama server is running")
-
-        # Step 3: Check if model is available
-        print(f"\n3. Checking if model '{args.model}' is available...")
-        if not check_model_available(args.model):
-            print(f"✗ Model '{args.model}' is not available")
-
-            if args.no_auto_pull:
-                print("\n" + "=" * 80)
-                print("MODEL NOT FOUND")
-                print("=" * 80)
-                print(f"Model '{args.model}' is not available and auto-pull is disabled.")
-                print("\nPlease pull the model manually:")
-                print(f"  ollama pull {args.model}")
-                print("\nThen run this script again.")
-                print("=" * 80)
-                return 1
-
-            print(f"   Attempting to pull model '{args.model}'...")
-            if not pull_ollama_model(args.model):
-                print("\n" + "=" * 80)
-                print("MODEL PULL FAILED")
-                print("=" * 80)
-                print(f"Failed to pull model '{args.model}' automatically.")
-                print("\nPlease pull it manually:")
-                print(f"  ollama pull {args.model}")
-                print("\nAvailable models: llama2, llama3, mistral, mixtral, codellama, etc.")
-                print("See: https://ollama.ai/library")
-                print("=" * 80)
-                return 1
-        else:
-            print(f"✓ Model '{args.model}' is available")
-
-        print("\n✓ All Ollama prerequisites are met!")
+        print(f"✓ {message}")
     else:
         # Manual setup mode - just check if everything is ready
         print("=" * 80)
@@ -1286,7 +1150,7 @@ def main() -> int:
     print(f"✓ Embeddings: {embeddings_metadata.get('processed_docs', 0)} documents")
     print("=" * 80)
     print("\n✓ Pipeline completed successfully!")
-    print(f"\nFinal table shape: {embeddings_table.num_rows} rows × {len(embeddings_table.column_names)} columns")
+    print(f"\nFinal table shape: {embeddings_table.num_rows} rows x {len(embeddings_table.column_names)} columns")
     print(f"Final columns: {embeddings_table.column_names}")
 
     return 0
