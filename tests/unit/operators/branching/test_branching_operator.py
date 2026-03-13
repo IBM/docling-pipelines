@@ -7,9 +7,8 @@ Also includes a regression test verifying that BranchingOperator is correctly
 registered by OperatorFactory (the primary bug that was previously fixed).
 """
 
-import sys
 import pytest
-from pathlib import Path
+
 
 # Add the backend directory to the Python path
 backend_dir = (

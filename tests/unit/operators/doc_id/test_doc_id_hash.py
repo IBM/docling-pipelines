@@ -4,10 +4,8 @@ Unit tests for DocIdHashOperator.
 Tests hashing document content using SHA-256 and adding a doc_id_hash column.
 """
 
-import sys
 import hashlib
 import pytest
-from pathlib import Path
 
 # Add the backend directory to the Python path
 backend_dir = (
@@ -210,6 +208,7 @@ def test_all_hashes_unique_for_unique_content():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
+
     hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     assert len(set(hashes)) == len(hashes), (
         "All hashes should be unique for unique content"
@@ -241,6 +240,7 @@ def test_custom_doc_column():
             "text": ["Custom column content A.", "Custom column content B."],
         }
     )
+
     operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "text"})
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
@@ -344,6 +344,7 @@ def test_existing_doc_id_hash_column_new_hash_added():
             "doc_id_hash": ["old_hash_1", "old_hash_2"],
         }
     )
+
     operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "content"})
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
@@ -366,6 +367,7 @@ def test_empty_table_returns_empty_table_with_hash_column():
             "content": pa.array([], type=pa.string()),
         }
     )
+
     operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "content"})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
@@ -384,6 +386,7 @@ def test_empty_table_metadata():
             "content": pa.array([], type=pa.string()),
         }
     )
+
     operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "content"})
     _, metadata = operator.transform(table)
 

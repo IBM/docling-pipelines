@@ -4,9 +4,8 @@ Unit tests for SQLFilterOperator.
 Tests filtering rows from a PyArrow table using SQL WHERE clause criteria.
 """
 
-import sys
 import pytest
-from pathlib import Path
+
 
 # Add the backend directory to the Python path
 backend_dir = (
@@ -96,6 +95,7 @@ def test_basic_filter_less_than_or_equal():
     """Filter rows where word_count <= 150."""
     table = make_table()
     operator = make_operator(
+
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["word_count <= 150"]}
     )
     result_tables, metadata = operator.transform(table)
@@ -115,6 +115,7 @@ def test_and_logical_operator():
     table = make_table()
     operator = make_operator(
         {
+
             OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [
                 "score > 2",
                 "language = 'en'",
@@ -817,6 +818,7 @@ def test_filter_with_single_row_table_no_match():
             "word_count": [10],
         }
     )
+
     operator = make_operator(
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]}
     )

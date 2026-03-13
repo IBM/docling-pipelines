@@ -13,13 +13,14 @@ Tests cover:
 """
 
 import json
-import sys
 import tempfile
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
+
 
 # Add the backend directory to the Python path
 backend_dir = (
@@ -29,6 +30,7 @@ backend_dir = (
     / "backend"
 )
 sys.path.insert(0, str(backend_dir))
+
 
 from core.operators.universal.extract.extract_entities_ollama import (
     ExtractEntitiesOllamaOperator,
@@ -543,6 +545,7 @@ class TestExtractEntitiesDocIdHash:
             OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result_table.column_names
         )
         # The existing hash should be preserved (not regenerated)
+
         hash_value = result_table.column(OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)[
             0
         ].as_py()
@@ -586,7 +589,9 @@ class TestExtractEntitiesGetMetadata:
         """Attributes should include all configurable parameters."""
         op = ExtractEntitiesOllamaOperator(basic_config)
         metadata = op.get_metadata()
+
         attributes = metadata[OperatorConstants.Config.ATTRIBUTES]
+
         print("~~ attributes=", attributes)
 
         assert "ollama_model" in attributes

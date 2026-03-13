@@ -166,11 +166,8 @@ class OpenSearchOperator(AbstractOperator):
         self.space_type: str = config.get(SPACE_TYPE_KEY, VectorSimilarityTypes.L2)
         self.engine_parameters: dict[str, Any] = config.get(ENGINE_PARAMETERS_KEY, {})
 
-        # Validate required parameters
-        if not self.host:
-            raise ValueError("opensearch_host is required")
-        if not self.index_name:
-            raise ValueError("index_name is required")
+        # Validate input parameters
+        self._validate_input_parameters()
 
         # Validate engine and algorithm compatibility
         self._validate_engine_algorithm()
@@ -186,6 +183,64 @@ class OpenSearchOperator(AbstractOperator):
             f"(engine: {self.engine}, algorithm: {self.algorithm}, version: {self.os_version})",
             extra=self.common_log_arguments,
         )
+
+    def _validate_input_parameters(self) -> None:
+        """
+        Validate input parameters for the OpenSearch operator.
+        
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
+        # Validate required parameters
+        if not self.host:
+            raise ValueError("opensearch_host is required")
+        if not isinstance(self.host, str) or not self.host.strip():
+            raise ValueError("opensearch_host must be a non-empty string")
+        
+        if not self.index_name:
+            raise ValueError("index_name is required")
+        if not isinstance(self.index_name, str) or not self.index_name.strip():
+            raise ValueError("index_name must be a non-empty string")
+        
+        # Validate port
+        if not isinstance(self.port, int):
+            raise ValueError("opensearch_port must be an integer")
+        if self.port < 1 or self.port > 65535:
+            raise ValueError("opensearch_port must be between 1 and 65535")
+        
+        # Validate batch size
+        if not isinstance(self.batch_size, int):
+            raise ValueError("batch_size must be an integer")
+        if self.batch_size < 1:
+            raise ValueError("batch_size must be greater than 0")
+        
+        # Validate vector dimension
+        if not isinstance(self.config_vector_dimension, int):
+            raise ValueError("vector_dimension must be an integer")
+        if self.config_vector_dimension < 1:
+            raise ValueError("vector_dimension must be greater than 0")
+        
+        # Validate AWS auth configuration
+        if self.aws_auth and not self.aws_region:
+            raise ValueError("aws_region is required when aws_auth is enabled")
+        
+        # Validate engine
+        if self.engine not in OpenSearchEngineTypes.ALL_ENGINES:
+            raise ValueError(
+                f"Invalid engine '{self.engine}'. Must be one of: {', '.join(OpenSearchEngineTypes.ALL_ENGINES)}"
+            )
+        
+        # Validate algorithm
+        if self.algorithm not in OpenSearchAlgorithmTypes.ALL_ALGORITHMS:
+            raise ValueError(
+                f"Invalid algorithm '{self.algorithm}'. Must be one of: {', '.join(OpenSearchAlgorithmTypes.ALL_ALGORITHMS)}"
+            )
+        
+        # Validate space type
+        if self.space_type not in VectorSimilarityTypes.ALL_TYPES:
+            raise ValueError(
+                f"Invalid space_type '{self.space_type}'. Must be one of: {', '.join(VectorSimilarityTypes.ALL_TYPES)}"
+            )
 
     def _validate_engine_algorithm(self) -> None:
         """Validate engine and algorithm compatibility"""

@@ -4,7 +4,6 @@ Unit tests for IngestSourceOperator.
 Tests the operator with various providers and configurations using mocks.
 """
 
-import sys
 import json
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -18,6 +17,7 @@ backend_dir = (
     / "backend"
 )
 sys.path.insert(0, str(backend_dir))
+
 
 import pyarrow as pa
 from langchain_core.documents import Document
@@ -59,8 +59,8 @@ class TestIngestSourceOperatorInitialization:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
@@ -83,8 +83,8 @@ class TestIngestSourceOperatorInitialization:
                 "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
             },
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
@@ -128,7 +128,8 @@ class TestIngestSourceOperatorInitialization:
             "connection_params": {"document_library_id": "test-library-id"},
             "credentials": {
                 "client_id": "test-client-id",
-                "client_secret": "test-client-secret",
+                "client_secret": "test-client-secret",  # pragma: allowlist secret
+
             },
         }
 
@@ -149,7 +150,7 @@ class TestIngestSourceOperatorInitialization:
             },
             "credentials": {
                 "client_id": "test-client-id",
-                "client_secret": "test-client-secret",
+                "client_secret": "test-client-secret",  # pragma: allowlist secret
             },
         }
 
@@ -170,6 +171,7 @@ class TestIngestSourceOperatorInitialization:
                 "custom_param": "value",
             },
             "credentials": {"api_key": "test-api-key"},
+            "credentials": {"api_key": "test-api-key"},  # pragma: allowlist secret
         }
 
         operator = IngestSourceOperator(config)
@@ -193,19 +195,20 @@ class TestGetLoader:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
         operator = IngestSourceOperator(config)
-        loader = operator._get_loader()
+
+        _loader = operator._get_loader()  # noqa: F841
 
         mock_s3_loader.assert_called_once_with(
             bucket="test-bucket",
             prefix="test-prefix/",
             aws_access_key_id="test-access-key",
-            aws_secret_access_key="test-secret-key",
+            aws_secret_access_key="test-secret-key",  # pragma: allowlist secret
         )
 
     @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
@@ -221,19 +224,19 @@ class TestGetLoader:
                 "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
             },
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
         operator = IngestSourceOperator(config)
-        loader = operator._get_loader()
+        _loader = operator._get_loader()  # noqa: F841
 
         mock_s3_loader.assert_called_once_with(
             bucket="test-bucket",
             prefix="test-prefix/",
             aws_access_key_id="test-access-key",
-            aws_secret_access_key="test-secret-key",
+            aws_secret_access_key="test-secret-key",  # pragma: allowlist secret
             endpoint_url="https://s3.us-south.cloud-object-storage.appdomain.cloud",
         )
 
@@ -259,7 +262,7 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
-        loader = operator._get_loader()
+        _loader = operator._get_loader()  # noqa: F841
 
         mock_makedirs.assert_called_once()
         mock_gdrive_loader.assert_called_once_with(
@@ -270,9 +273,9 @@ class TestGetLoader:
             scopes=["https://www.googleapis.com/auth/drive.readonly"],
         )
 
-    @patch("core.operators.universal.ingest.ingest_source.MicrosoftGraphLoader")
-    def test_get_loader_sharepoint(self, mock_ms_loader):
-        """Test _get_loader returns MicrosoftGraphLoader for SharePoint provider."""
+    @patch("core.operators.universal.ingest.ingest_source.SharePointLoader")
+    def test_get_loader_sharepoint(self, mock_sp_loader):
+        """Test _get_loader returns SharePointLoader for SharePoint provider."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
 
         config = {
@@ -280,18 +283,18 @@ class TestGetLoader:
             "connection_params": {"document_library_id": "test-library-id"},
             "credentials": {
                 "client_id": "test-client-id",
-                "client_secret": "test-client-secret",
+                "client_secret": "test-client-secret",  # pragma: allowlist secret
             },
         }
 
         operator = IngestSourceOperator(config)
-        loader = operator._get_loader()
+        _loader = operator._get_loader()  # noqa: F841
 
-        mock_ms_loader.assert_called_once()
+        mock_sp_loader.assert_called_once()
 
-    @patch("core.operators.universal.ingest.ingest_source.MicrosoftGraphLoader")
-    def test_get_loader_onedrive(self, mock_ms_loader):
-        """Test _get_loader returns MicrosoftGraphLoader for OneDrive provider."""
+    @patch("core.operators.universal.ingest.ingest_source.OneDriveLoader")
+    def test_get_loader_onedrive(self, mock_od_loader):
+        """Test _get_loader returns OneDriveLoader for OneDrive provider."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
 
         config = {
@@ -302,14 +305,14 @@ class TestGetLoader:
             },
             "credentials": {
                 "client_id": "test-client-id",
-                "client_secret": "test-client-secret",
+                "client_secret": "test-client-secret",  # pragma: allowlist secret
             },
         }
 
         operator = IngestSourceOperator(config)
-        loader = operator._get_loader()
+        _loader = operator._get_loader()  # noqa: F841
 
-        mock_ms_loader.assert_called_once()
+        mock_od_loader.assert_called_once()
 
     @patch("importlib.import_module")
     def test_get_loader_custom(self, mock_import):
@@ -328,11 +331,11 @@ class TestGetLoader:
                 "loader_class_path": "my_package.loaders.CustomLoader",
                 "custom_param": "value",
             },
-            "credentials": {"api_key": "test-api-key"},
+            "credentials": {"api_key": "test-api-key"},  # pragma: allowlist secret
         }
 
         operator = IngestSourceOperator(config)
-        loader = operator._get_loader()
+        _loader = operator._get_loader()  # noqa: F841
 
         mock_import.assert_called_once_with("my_package.loaders")
         mock_loader_class.assert_called_once()
@@ -398,8 +401,8 @@ class TestGetS3FileKeys:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
@@ -437,8 +440,8 @@ class TestGetS3FileKeys:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": ""},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
@@ -475,8 +478,8 @@ class TestGetS3FileKeys:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": ""},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
@@ -510,13 +513,13 @@ class TestGetS3FileKeys:
                 "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
             },
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
         operator = IngestSourceOperator(config)
-        file_keys = operator._get_s3_file_keys()
+        _file_keys = operator._get_s3_file_keys()  # noqa: F841
 
         # Verify boto3 client was called with endpoint_url
         mock_boto_client.assert_called_once()
@@ -543,8 +546,8 @@ class TestGetS3FileKeys:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": ""},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
         }
 
@@ -579,8 +582,8 @@ class TestTransform:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
@@ -645,8 +648,8 @@ class TestTransform:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
@@ -685,8 +688,8 @@ class TestTransform:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
@@ -724,8 +727,8 @@ class TestTransform:
             "provider": "s3",
             "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
             "credentials": {
-                "access_key": "test-access-key",
-                "secret_key": "test-secret-key",
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
@@ -818,7 +821,10 @@ class TestTransform:
             config = {
                 "provider": "s3",
                 "connection_params": {"bucket": "test-bucket", "prefix": ""},
-                "credentials": {"access_key": "key", "secret_key": "secret"},
+                "credentials": {
+                    "access_key": "key",
+                    "secret_key": "secret",  # pragma: allowlist secret
+                },  # pragma: allowlist secret
                 "job_id": "test-job-123",
                 "job_run_id": "test-run-456",
             }
@@ -867,8 +873,8 @@ class TestIntegrationScenarios:
             "provider": "s3",
             "connection_params": {"bucket": "my-bucket", "prefix": "invoices/"},
             "credentials": {
-                "access_key": "AKIAIOSFODNN7EXAMPLE",
-                "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+                "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",

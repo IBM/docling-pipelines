@@ -14,12 +14,14 @@ Tests cover:
 - Multi-provider support structure
 """
 
+
 import sys
 from pathlib import Path
 from unittest.mock import patch
 import pytest
 import pyarrow as pa
 import numpy as np
+
 
 # Add the backend directory to the Python path
 backend_dir = (
@@ -29,6 +31,7 @@ backend_dir = (
     / "backend"
 )
 sys.path.insert(0, str(backend_dir))
+
 
 from core.operators.universal.embeddings.embeddings_operator import (
     EmbeddingsOperator,
@@ -218,6 +221,7 @@ class TestEmbeddingsOperatorMetadata:
         """Test metadata includes correct features."""
         operator = EmbeddingsOperator(sample_config)
         metadata = operator.get_metadata()
+
         features = metadata[OperatorConstants.Config.FEATURES]
 
         assert OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT in features
@@ -242,6 +246,7 @@ class TestEmbeddingsOperatorMetadata:
         """Test metadata includes correct attributes."""
         operator = EmbeddingsOperator(sample_config)
         metadata = operator.get_metadata()
+
         attributes = metadata[OperatorConstants.Config.ATTRIBUTES]
 
         assert "embeddings_type" in attributes
@@ -252,6 +257,7 @@ class TestEmbeddingsOperatorMetadata:
         # Check embeddings_type attribute details
         embeddings_type_attr = attributes["embeddings_type"]
         assert (
+
             embeddings_type_attr[OperatorConstants.Config.DEFAULT]
             == EMBEDDINGS_TYPE_DEFAULT
         )

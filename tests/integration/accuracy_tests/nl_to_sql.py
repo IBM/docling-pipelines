@@ -5,8 +5,15 @@ This script evaluates the accuracy of natural language to SQL conversion using O
 then executes the generated SQL queries against OpenSearch and compares results with
 expected outcomes.
 
+Schema Alignment:
+- Uses purchase_orders schema from examples/retrieval/document_schemas.json
+- All fields match the schema definition including nested structures
+- Supplier fields: supplier.name, supplier.id, supplier.contact
+- Shipping address: shipping_address.street, city, state, zip, country
+- Items array: items.item_id, description, quantity, unit_price, total
+
 The test flow:
-1. Insert deterministic purchase orders into OpenSearch
+1. Insert deterministic purchase orders into OpenSearch (aligned with schema)
 2. For each natural language query:
    - Convert NL to SQL using Ollama
    - Execute the SQL query against OpenSearch
@@ -30,14 +37,17 @@ Query Complexity Distribution:
 Usage
 =====
 -- Run all 115 test queries:
-python tests/integration/opensearch/test_nl_to_sql_queries.py
+python tests/integration/opensearch/nl_to_sql.py
 
 
 -- Run with specific model:
-python tests/integration/opensearch/test_nl_to_sql_queries.py --ollama-model llama3
+python tests/integration/opensearch/nl_to_sql.py --ollama-model llama3
 
 -- Save results:
-python tests/integration/opensearch/test_nl_to_sql_queries.py --output results.json
+python tests/integration/opensearch/nl_to_sql.py --output results.json
+
+-- Run only the edge case tests:
+python tests/integration/opensearch/nl_to_sql.py --test-filter edge_case
 
 
 ## Success Criteria
@@ -66,7 +76,12 @@ from nl_query_generator import get_comprehensive_test_queries  # type: ignore
 
 
 class DeterministicPurchaseOrderGenerator:
-    """Generate deterministic purchase orders for testing query accuracy"""
+    """
+    Generate deterministic purchase orders for testing query accuracy.
+    
+    All generated purchase orders strictly comply with the schema defined in
+    examples/retrieval/document_schemas.json for the 'purchase_orders' table.
+    """
     
     def __init__(self):
         """Initialize the generator with predefined test data"""
@@ -239,7 +254,85 @@ class DeterministicPurchaseOrderGenerator:
         ]
         orders.extend(this_week_pending)
         
+        # Validate all orders comply with schema
+        self._validate_schema_compliance(orders)
+        
         return orders
+    
+    def _validate_schema_compliance(self, orders: List[Dict[str, Any]]) -> None:
+        """
+        Validate that all generated orders comply with the purchase_orders schema.
+        
+        Checks for required fields as defined in examples/retrieval/document_schemas.json
+        
+        Args:
+            orders: List of purchase order dictionaries to validate
+            
+        Raises:
+            ValueError: If any order is missing required fields or has invalid structure
+        """
+        required_fields = [
+            "po_number", "order_date", "department", "total_amount",
+            "currency", "status", "delivery_date", "approved_by",
+            "payment_terms", "notes"
+        ]
+        
+        required_nested_fields = {
+            "supplier": ["name", "id", "contact"],
+            "shipping_address": ["street", "city", "state", "zip", "country"],
+        }
+        
+        required_item_fields = ["item_id", "description", "quantity", "unit_price", "total"]
+        
+        for idx, order in enumerate(orders):
+            # Check top-level required fields
+            for field in required_fields:
+                if field not in order:
+                    raise ValueError(
+                        f"Order {idx} (PO: {order.get('po_number', 'unknown')}) "
+                        f"missing required field: {field}"
+                    )
+            
+            # Check nested supplier fields
+            if "supplier" not in order:
+                raise ValueError(f"Order {idx} missing 'supplier' object")
+            for field in required_nested_fields["supplier"]:
+                if field not in order["supplier"]:
+                    raise ValueError(
+                        f"Order {idx} supplier missing required field: {field}"
+                    )
+            
+            # Check nested shipping_address fields
+            if "shipping_address" not in order:
+                raise ValueError(f"Order {idx} missing 'shipping_address' object")
+            for field in required_nested_fields["shipping_address"]:
+                if field not in order["shipping_address"]:
+                    raise ValueError(
+                        f"Order {idx} shipping_address missing required field: {field}"
+                    )
+            
+            # Check items array
+            if "items" not in order or not isinstance(order["items"], list):
+                raise ValueError(f"Order {idx} missing or invalid 'items' array")
+            if len(order["items"]) == 0:
+                raise ValueError(f"Order {idx} has empty 'items' array")
+            
+            for item_idx, item in enumerate(order["items"]):
+                for field in required_item_fields:
+                    if field not in item:
+                        raise ValueError(
+                            f"Order {idx} item {item_idx} missing required field: {field}"
+                        )
+            
+            # Validate status values (as per schema)
+            valid_statuses = ["pending", "approved", "delivered", "cancelled"]
+            if order["status"] not in valid_statuses:
+                raise ValueError(
+                    f"Order {idx} has invalid status: {order['status']}. "
+                    f"Must be one of: {valid_statuses}"
+                )
+        
+        print(f"✓ Schema validation passed: All {len(orders)} orders comply with purchase_orders schema")
     
     def _create_order(
         self,
@@ -251,7 +344,50 @@ class DeterministicPurchaseOrderGenerator:
         order_date: datetime,
         delivery_date: Optional[datetime] = None
     ) -> Dict[str, Any]:
-        """Create a single purchase order with specified parameters"""
+        """
+        Create a single purchase order with specified parameters.
+        
+        This method generates purchase orders that strictly align with the schema
+        defined in examples/retrieval/document_schemas.json for the 'purchase_orders' table.
+        
+        Schema Compliance:
+        - po_number: VARCHAR - Purchase order number
+        - order_date: TIMESTAMP - When order was placed
+        - supplier.name: VARCHAR - Supplier company name
+        - supplier.id: VARCHAR - Supplier ID
+        - supplier.contact: VARCHAR - Supplier contact email
+        - department: VARCHAR - Department that placed order
+        - total_amount: DOUBLE - Total order amount in dollars
+        - currency: VARCHAR - Currency code (USD, EUR, INR, etc.)
+        - status: VARCHAR - Order status (pending, approved, delivered, cancelled)
+        - delivery_date: TIMESTAMP - Expected/actual delivery date
+        - approved_by: VARCHAR - Email of approver
+        - shipping_address.street: VARCHAR - Delivery street address
+        - shipping_address.city: VARCHAR - Delivery city
+        - shipping_address.state: VARCHAR - Delivery state
+        - shipping_address.zip: VARCHAR - Delivery zip code
+        - shipping_address.country: VARCHAR - Delivery country
+        - items: NESTED - Array of order items
+        - items.item_id: VARCHAR - Item ID
+        - items.description: VARCHAR - Item description
+        - items.quantity: INTEGER - Quantity ordered
+        - items.unit_price: DOUBLE - Price per unit
+        - items.total: DOUBLE - Total for this item
+        - payment_terms: TEXT - Payment terms and conditions
+        - notes: TEXT - Additional notes
+        
+        Args:
+            po_number: Purchase order number
+            supplier: Dictionary with 'name' and 'id' keys
+            department: Department name
+            total_amount: Total order amount
+            status: Order status (pending, approved, delivered, cancelled)
+            order_date: Date order was placed
+            delivery_date: Expected delivery date (defaults to 14 days after order_date)
+            
+        Returns:
+            Dictionary representing a complete purchase order aligned with schema
+        """
         if delivery_date is None:
             delivery_date = order_date + timedelta(days=14)
         
@@ -329,7 +465,7 @@ class NLToSQLQueryEvaluator:
             print(f"   Make sure Ollama is running and model '{ollama_model}' is available.")
             print(f"   Run: ollama pull {ollama_model}\n")
     
-    def evaluate_all_queries(self) -> Dict[str, Any]:
+    def evaluate_all_queries(self, complexity_filter: Optional[str] = None) -> Dict[str, Any]:
         """
         Evaluate all test queries and return accuracy results
         
@@ -339,7 +475,7 @@ class NLToSQLQueryEvaluator:
         results = {}
         
         # Get comprehensive test queries (100+ queries)
-        test_queries = get_comprehensive_test_queries()
+        test_queries = get_comprehensive_test_queries(complexity_filter=complexity_filter)
         
         print(f"\nLoaded {len(test_queries)} test queries")
         print(f"{'='*80}\n")
@@ -396,7 +532,7 @@ class NLToSQLQueryEvaluator:
         try:
             # Step 1: Convert NL to SQL using Ollama
             sql_query = self.nl_converter.convert_to_sql(nl_query)
-            print(f"  Generated SQL: {sql_query[:150]}...")
+            print(f"  Generated SQL: {sql_query}")
             
             # Step 2: Execute SQL query
             sql_result = self.sql_client.execute(sql_query)
@@ -435,10 +571,45 @@ class NLToSQLQueryEvaluator:
             }
     
     def _validate_count(self, result, expected_count: int) -> Tuple[bool, int]:
-        """Validate that result count matches expected"""
-        actual_count = result.total
+        """
+        Validate that result count matches expected.
+        
+        For COUNT(*) queries, the result contains a single row with the count value,
+        not multiple rows. We need to extract the count value from the result data.
+        """
+        print('~~~~', result)
+        
+        if not result.datarows or len(result.datarows) == 0:
+            if expected_count == 0:
+                return (True, 0)    
+            return (False, 0)
+        
+        first_row = result.datarows[0]
+        
+        # Try list/tuple format first
+        if isinstance(first_row, (list, tuple)) and len(first_row) > 0:
+            actual_count = int(first_row[0])
+        else:
+            # Try dict format
+            row_dict = result.to_dict_list()[0] if result.to_dict_list() else {}
+            if row_dict:
+                # Get the first value (should be the count)
+                actual_count = int(list(row_dict.values())[0])
+            else:
+                return (False, 0)
+        
         return (actual_count == expected_count, actual_count)
     
+
+    def _validate_row_count(self, result, expected_count: int) -> Tuple[bool, int]:
+        """Validate the number of rows in the result"""
+        if not result.datarows or len(result.datarows) == 0:
+            return (False, 0)
+
+        actual_count: int = len(result.datarows)
+        return (actual_count == expected_count, actual_count)
+
+
     def _validate_top_supplier(self, result, expected_supplier: str, expected_count: int) -> Tuple[bool, str]:
         """Validate top supplier by order count"""
         if not result.datarows:
@@ -465,29 +636,29 @@ class NLToSQLQueryEvaluator:
         passed = supplier_name == expected_supplier and order_count == expected_count
         return (passed, f"{supplier_name} with {order_count} orders")
     
-    def _validate_top_vendor_by_value(self, result, expected_vendor: str) -> Tuple[bool, str]:
-        """Validate top vendor by total value"""
+    def _validate_top_supplier_by_value(self, result, expected_supplier: str) -> Tuple[bool, str]:
+        """Validate top supplier by total value (aligned with schema: supplier.name)"""
         if not result.datarows:
             return (False, "No results")
         
         top_row = result.to_dict_list()[0]
-        vendor_name = (
-            top_row.get("supplier.name") or 
-            top_row.get("supplier_name") or 
+        supplier_name = (
+            top_row.get("supplier.name") or
+            top_row.get("supplier_name") or
             top_row.get("name") or
             str(list(top_row.values())[0])
         )
         
-        passed = vendor_name == expected_vendor
-        return (passed, f"Top vendor: {vendor_name}")
+        passed = supplier_name == expected_supplier
+        return (passed, f"Top supplier: {supplier_name}")
     
     def _validate_department_aggregation(self, result, expected_count: int) -> Tuple[bool, int]:
         """Validate department aggregation results"""
         actual_count = len(result.datarows)
         return (actual_count == expected_count, actual_count)
     
-    def _validate_vendor_aggregation(self, result, expected_count: int) -> Tuple[bool, int]:
-        """Validate vendor aggregation results"""
+    def _validate_supplier_aggregation(self, result, expected_count: int) -> Tuple[bool, int]:
+        """Validate supplier aggregation results (aligned with schema: supplier.name)"""
         actual_count = len(result.datarows)
         return (actual_count == expected_count, actual_count)
     
@@ -503,23 +674,60 @@ class NLToSQLQueryEvaluator:
     
     def _validate_has_result(self, result) -> Tuple[bool, str]:
         """Validate that query has at least one result"""
+        print('\n~~~~', result)
         has_result = result.total > 0 or len(result.datarows) > 0
         return (has_result, f"{result.total} results")
     
     def _validate_group_count(self, result, expected_groups: int) -> Tuple[bool, int]:
-        """Validate number of groups in aggregation"""
-        actual_groups = len(result.datarows)
-        # Allow some flexibility in group counts
-        passed = actual_groups >= expected_groups * 0.8  # 80% threshold
+        """
+        Validate number of groups in aggregation.
+        
+        For GROUP BY queries, the number of result rows equals the number of groups.
+        """
+        # For GROUP BY queries, count the number of result rows
+        print('\n~~~~', result)
+        if result.datarows and len(result.datarows) > 0:
+            actual_groups = len(result.datarows)
+        elif hasattr(result, 'aggregations') and result.aggregations:
+            # Handle alternative aggregation format
+            actual_groups = len(result.aggregations)
+        else:
+            # Fallback to total
+            actual_groups = result.total
+        
+        # Allow some flexibility (80% threshold)
+        passed = actual_groups >= expected_groups * 0.8
         return (passed, actual_groups)
     
     def _validate_exact_value(self, result, expected_value: Any) -> Tuple[bool, Any]:
-        """Validate exact value match"""
-        if not result.datarows:
+        """
+        Validate exact value match.
+        
+        For aggregation queries (MIN, MAX, SUM, AVG), extract the aggregated value.
+        """
+        if not result.datarows or len(result.datarows) == 0:
             return (False, "No results")
         
-        first_row = result.to_dict_list()[0]
-        actual_value = list(first_row.values())[0] if first_row else None
+        first_row = result.datarows[0]
+        
+        # Handle different result formats
+        if isinstance(first_row, (list, tuple)) and len(first_row) > 0:
+            actual_value = first_row[0]
+        else:
+            # Try dict format
+            row_dict = result.to_dict_list()[0] if result.to_dict_list() else {}
+            actual_value = list(row_dict.values())[0] if row_dict else None
+        
+        # Convert to appropriate type for comparison
+        if actual_value is not None and expected_value is not None:
+            try:
+                if isinstance(expected_value, int):
+                    actual_value = int(float(actual_value))
+                elif isinstance(expected_value, float):
+                    actual_value = float(actual_value)
+            except (ValueError, TypeError):
+                pass
+        
         passed = actual_value == expected_value
         return (passed, actual_value)
     
@@ -546,7 +754,8 @@ class NLToSQLQueryTester:
         password: Optional[str] = None,
         index_name: str = "test_nl_to_sql_purchase_orders",
         ollama_host: str = "http://localhost:11434",
-        ollama_model: str = "granite4"
+        ollama_model: str = "granite4",
+        complexity_filter: str|None = None
     ):
         """Initialize the tester"""
         auth = None
@@ -569,6 +778,8 @@ class NLToSQLQueryTester:
             ollama_host=ollama_host,
             ollama_model=ollama_model
         )
+
+        self.complexity_filter = complexity_filter
     
     def setup_test_data(self, force: bool = False):
         """Insert test purchase orders into OpenSearch"""
@@ -625,7 +836,7 @@ class NLToSQLQueryTester:
         print("RUNNING NL TO SQL QUERY ACCURACY TESTS")
         print("=" * 80)
         
-        results = self.evaluator.evaluate_all_queries()
+        results = self.evaluator.evaluate_all_queries(complexity_filter = self.complexity_filter)
         
         # Calculate summary statistics
         total_tests = len(results)
@@ -741,6 +952,13 @@ def main():
         "--output",
         help="Output results to JSON file"
     )
+
+    parser.add_argument(
+        "--test-filter",
+        help=""" Optional filter to generate only specific complexity level.
+                 Valid values: "simple", "filtered", "aggregation", "time_based",
+                "multi_condition", "comparison", "complex", "edge_case" """
+    )
     
     args = parser.parse_args()
     
@@ -752,7 +970,8 @@ def main():
         password=args.password,
         index_name=args.index,
         ollama_host=args.ollama_host,
-        ollama_model=args.ollama_model
+        ollama_model=args.ollama_model,
+        complexity_filter=args.test_filter
     )
     
     # Setup test data
