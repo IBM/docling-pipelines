@@ -50,7 +50,7 @@ class QueryConfig:
     """All parameters needed to run a single query."""
 
     query: str
-    index: str = "datasift_documents"
+    index: str = "invoices_entities_test"
     model: str = "granite4"
     opensearch_host: str = "localhost"
     opensearch_port: int = 9200
@@ -110,8 +110,8 @@ def _get_system(cfg: QueryConfig) -> CompleteQuerySystem:
             ollama_model=cfg.model,
             index_name=cfg.index,
             schema_name=cfg.schema,  # None → auto-inferred from index_name
-
         )
+        
     return _system_cache[cache_key]
 
 
@@ -205,13 +205,13 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Run a hybrid-search query against OpenSearch and answer with Ollama.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument("--query", required=True, help="Natural language question")
+    p.add_argument("--query", default="List the invoices", help="Natural language question")
     p.add_argument("--host", default="localhost", help="OpenSearch host")
     p.add_argument("--port", type=int, default=9200, help="OpenSearch port")
     p.add_argument("--username", default="admin", help="OpenSearch username")
     p.add_argument("--password", default="MyStrongPass123!", help="OpenSearch password")
     p.add_argument(
-        "--index", default="datasift_documents", help="OpenSearch index name"
+        "--index", default="invoices_entities_test", help="OpenSearch index name"
     )
     p.add_argument("--model", default="granite4", help="Ollama model name")
     p.add_argument(
@@ -219,7 +219,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--schema",
-        default=None,
+        default="purchase_orders",
         help=(
             "Schema table name for SQL generation (e.g. 'invoices', 'purchase_orders'). "
             "Inferred automatically from --index when omitted."
@@ -233,7 +233,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     logging.basicConfig(
-        level=logging.WARNING,
+        level=logging.INFO,
         format="%(levelname)s %(name)s: %(message)s",
         stream=sys.stderr,
     )

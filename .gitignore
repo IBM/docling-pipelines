@@ -43,8 +43,12 @@ data/
 *.parquet.lock
 *.pkl
 
+# Downloaded models
+src/datasift_opensource/backend/models/
+
 # Bob AI Assistant
 .bob/
+!.bob/agents.md
 
 # OS
 .DS_Store

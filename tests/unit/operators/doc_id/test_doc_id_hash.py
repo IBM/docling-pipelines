@@ -4,14 +4,9 @@ Unit tests for DocIdHashOperator.
 Tests hashing document content using SHA-256 and adding a doc_id_hash column.
 """
 
-import sys
 import hashlib
 import pytest
-from pathlib import Path
 
-# Add the backend directory to the Python path
-backend_dir = Path(__file__).parent.parent.parent.parent.parent / "src" / "datasift_opensource" / "backend"
-sys.path.insert(0, str(backend_dir))
 
 import pyarrow as pa
 
@@ -70,6 +65,7 @@ def sha256_hex(text: str) -> str:
 # 1. Basic hashing
 # ---------------------------------------------------------------------------
 
+
 def test_basic_hashing_adds_doc_id_hash_column():
     """Operator adds a 'doc_id_hash' column to the output table."""
     table = make_table()
@@ -108,6 +104,7 @@ def test_basic_hashing_row_count_unchanged():
 # 2. Hash format — 64-character hex string (SHA-256)
 # ---------------------------------------------------------------------------
 
+
 def test_hash_is_64_char_hex_string():
     """Each hash value is a 64-character hexadecimal string."""
     table = make_table()
@@ -138,6 +135,7 @@ def test_hash_is_lowercase_hex():
 # ---------------------------------------------------------------------------
 # 3. Deterministic — same content always produces the same hash
 # ---------------------------------------------------------------------------
+
 
 def test_hash_is_deterministic():
     """Same content always produces the same hash across two operator runs."""
@@ -177,6 +175,7 @@ def test_hash_matches_expected_sha256():
 # 4. Different content → different hash
 # ---------------------------------------------------------------------------
 
+
 def test_different_content_produces_different_hashes():
     """Two rows with different content get different hashes."""
     contents = [
@@ -201,7 +200,9 @@ def test_all_hashes_unique_for_unique_content():
     result = result_tables[0]
 
     hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
-    assert len(set(hashes)) == len(hashes), "All hashes should be unique for unique content"
+    assert len(set(hashes)) == len(hashes), (
+        "All hashes should be unique for unique content"
+    )
 
 
 def test_identical_content_produces_same_hash():
@@ -220,12 +221,15 @@ def test_identical_content_produces_same_hash():
 # 5. Custom doc_column
 # ---------------------------------------------------------------------------
 
+
 def test_custom_doc_column():
     """Operator respects doc_column config param."""
-    table = pa.table({
-        "id": ["1", "2"],
-        "text": ["Custom column content A.", "Custom column content B."],
-    })
+    table = pa.table(
+        {
+            "id": ["1", "2"],
+            "text": ["Custom column content A.", "Custom column content B."],
+        }
+    )
     operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: "text"})
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
@@ -257,15 +261,18 @@ def test_custom_hash_column_name():
 # 6. Missing doc_column — raises exception when dpk_doc_id is available
 # ---------------------------------------------------------------------------
 
+
 def test_missing_doc_column_raises_exception():
     """
     When the configured doc_column doesn't exist in the table,
     dpk_doc_id.DocIDTransform raises an Exception (column validation failure).
     """
-    table = pa.table({
-        "id": ["1", "2", "3"],
-        "other_column": ["a", "b", "c"],
-    })
+    table = pa.table(
+        {
+            "id": ["1", "2", "3"],
+            "other_column": ["a", "b", "c"],
+        }
+    )
     # doc_column is "content" but table only has "other_column"
     operator = make_operator()
     with pytest.raises(Exception, match="Not all required columns are present"):
@@ -275,6 +282,7 @@ def test_missing_doc_column_raises_exception():
 # ---------------------------------------------------------------------------
 # 7. get_metadata()
 # ---------------------------------------------------------------------------
+
 
 def test_get_metadata_is_operator_available_false():
     """get_metadata() returns IS_OPERATOR_AVAILABLE: False (internal operator)."""
@@ -297,6 +305,7 @@ def test_get_metadata_returns_dict():
 # 8. short_name
 # ---------------------------------------------------------------------------
 
+
 def test_short_name_matches_doc_id_operator_constant():
     """short_name matches OperatorConstants.DOC_ID_OPERATOR."""
     assert DocIdHashOperator.short_name == OperatorConstants.DOC_ID_OPERATOR
@@ -311,16 +320,19 @@ def test_short_name_value():
 # 9. Existing doc_id_hash column
 # ---------------------------------------------------------------------------
 
+
 def test_existing_doc_id_hash_column_new_hash_added():
     """
     If doc_id_hash already exists in the table, dpk_doc_id appends a new
     doc_id_hash column. The output table has the hash column and correct row count.
     """
-    table = pa.table({
-        "id": ["1", "2"],
-        "content": ["Content A", "Content B"],
-        "doc_id_hash": ["old_hash_1", "old_hash_2"],
-    })
+    table = pa.table(
+        {
+            "id": ["1", "2"],
+            "content": ["Content A", "Content B"],
+            "doc_id_hash": ["old_hash_1", "old_hash_2"],
+        }
+    )
     operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: "content"})
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
@@ -334,12 +346,15 @@ def test_existing_doc_id_hash_column_new_hash_added():
 # 10. Empty table
 # ---------------------------------------------------------------------------
 
+
 def test_empty_table_returns_empty_table_with_hash_column():
     """Operator handles an empty table gracefully."""
-    table = pa.table({
-        "id": pa.array([], type=pa.string()),
-        "content": pa.array([], type=pa.string()),
-    })
+    table = pa.table(
+        {
+            "id": pa.array([], type=pa.string()),
+            "content": pa.array([], type=pa.string()),
+        }
+    )
     operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: "content"})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
@@ -352,10 +367,12 @@ def test_empty_table_returns_empty_table_with_hash_column():
 
 def test_empty_table_metadata():
     """Operator metadata for empty table has zero processed docs."""
-    table = pa.table({
-        "id": pa.array([], type=pa.string()),
-        "content": pa.array([], type=pa.string()),
-    })
+    table = pa.table(
+        {
+            "id": pa.array([], type=pa.string()),
+            "content": pa.array([], type=pa.string()),
+        }
+    )
     operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: "content"})
     _, metadata = operator.transform(table)
 
@@ -366,6 +383,7 @@ def test_empty_table_metadata():
 # ---------------------------------------------------------------------------
 # 11. Metadata structure
 # ---------------------------------------------------------------------------
+
 
 def test_transform_metadata_contains_total_docs():
     """transform() metadata contains total_docs_count."""
@@ -400,6 +418,7 @@ def test_transform_metadata_contains_hashed_rows():
 # ---------------------------------------------------------------------------
 # 12. Edge cases
 # ---------------------------------------------------------------------------
+
 
 def test_empty_string_content_hashed():
     """Empty string content is hashed (not skipped)."""
@@ -477,4 +496,3 @@ def test_operator_init_with_custom_config():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

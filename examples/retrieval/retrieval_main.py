@@ -159,7 +159,7 @@ class CompleteQuerySystem:
             Dictionary with final answer and metadata
         """
         logger.info(f"Processing query: {user_question[:100]}...")
-        logger.debug(f"Query options: use_sql={use_sql}, use_hybrid={use_hybrid}")
+        logger.info(f"Query options: use_sql={use_sql}, use_hybrid={use_hybrid}")
         
         results = {
             "user_question": user_question,
@@ -393,12 +393,12 @@ def example_simple_query():
         opensearch_host="localhost",
         opensearch_port=9200,
         ollama_host="http://localhost:11434",
-        ollama_model="llama3",
-        index_name="test_documents",
+        ollama_model="granite4",
+        index_name="invoices_entities_test",
     )
 
     # User question
-    question = "What are the most viewed documents about technology?"
+    question = "List the available invoices"
 
     print(f"Question: {question}\n")
 
@@ -431,12 +431,12 @@ def example_streaming_query():
         opensearch_host="localhost",
         opensearch_port=9200,
         ollama_host="http://localhost:11434",
-        ollama_model="llama3",
-        index_name="test_documents",
+        ollama_model="granite4",
+        index_name="invoices_entities_test",
     )
 
     # User question
-    question = "Show me recent articles about artificial intelligence"
+    question = "Show me top 5 invoices"
 
     print(f"Question: {question}\n")
     print("Answer (streaming):\n")

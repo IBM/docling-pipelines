@@ -94,7 +94,7 @@ def _run_query_sync(query: str, index_name: str) -> dict[str, Any]:
 
     # Log stderr (query_runner logs at WARNING level to stderr)
     if proc.stderr.strip():
-        logger.debug("[query_runner stderr] %s", proc.stderr.strip())
+        logger.info("[query_runner stderr] %s", proc.stderr.strip())
 
     stdout = proc.stdout.strip()
     if not stdout:
@@ -201,7 +201,10 @@ class ChatState(rx.State):
         #    return
 
         # Get the index name from file_state (extracted from flow JSON)
-        index_name = file_state.datasift_index or "datasift_documents"
+        project_root = Path(__file__).parents[6]
+        from .file_state import get_index_name_from_flow
+        static_index_name = get_index_name_from_flow(project_root)
+        index_name = file_state.datasift_index or static_index_name
 
         # 4. Run query in a thread pool — keeps the event loop free
         try:

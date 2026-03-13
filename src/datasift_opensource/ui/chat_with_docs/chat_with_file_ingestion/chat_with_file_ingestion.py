@@ -1,9 +1,17 @@
+import logging
 import reflex as rx
 from chat_with_file_ingestion.components.chat import chat_interface
 from chat_with_file_ingestion.components.sidebar import document_sidebar, log_tearsheet
 from chat_with_file_ingestion.states.theme_state import ThemeState
 from chat_with_file_ingestion.states.file_state import FileUploadState, LogPollerState
 from chat_with_file_ingestion.states.chat_state import ChatState
+
+# Configure logging to show INFO level logs in the console
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%H:%M:%S'
+)
 
 
 def index() -> rx.Component:

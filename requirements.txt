@@ -143,11 +143,7 @@ exceptiongroup==1.3.1
 faker==40.5.1
     # via polyfactory
 fastapi==0.128.8
-    # via
-    #   datasift-opensource
-    #   gradio
-    #   mlx-vlm
-    #   prefect
+fasttext-wheel==0.9.2
 ffmpy==1.0.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
     # via gradio
 filelock==3.20.3
@@ -504,10 +500,7 @@ psutil==7.2.2
     #   accelerate
     #   data-prep-toolkit
 pyarrow==17.0.0
-    # via
-    #   data-prep-toolkit
-    #   datasets
-    #   datasift-opensource
+pybind11==3.0.2
 pyclipper==1.4.0
     # via rapidocr
 pycparser==3.0 ; (implementation_name != 'PyPy' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy') or (implementation_name != 'PyPy' and platform_machine == 'arm64' and sys_platform == 'darwin') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin')
