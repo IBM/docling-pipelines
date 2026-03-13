@@ -304,7 +304,7 @@ IMPORTANT RULES:
 3. OpenSearch SQL supports standard SQL syntax
 4. Use appropriate aggregations: COUNT, SUM, AVG, MAX, MIN
 5. Always include ORDER BY for better results
-6. For date conversion, use day(), month(), year() functions. For time conversion, use hour(), minute(), seconf() functions
+6. For date conversion, use day(), month(), year() functions. For time conversion, use hour(), minute(), second() functions
 7. For date comparisons, use DATE_SUB(NOW(), INTERVAL X DAY) or specific dates
 8. Do not use sub-querues unless absollutely necessary
 9. Return ONLY the SQL query without any explanation or markdown formatting
