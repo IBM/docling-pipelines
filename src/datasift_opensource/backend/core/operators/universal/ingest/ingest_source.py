@@ -1,16 +1,13 @@
-from fileinput import filename
-import os
-import tempfile
-from typing import Any, Iterator, List
 import hashlib
 import importlib
 import io
 import json
+import logging
 import os
 import tempfile
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+
 import boto3
-from typing import Any, Optional, Dict, List, Tuple, Union, Iterator
-import hashlib
 import pyarrow as pa
 
 # Import standard LangChain loaders
@@ -23,6 +20,9 @@ from langchain_community.document_loaders import (
 from langchain_google_community import GoogleDriveLoader
 from langchain_core.documents import Document
 from langchain_core.document_loaders import BaseLoader
+
+# Suppress pdfminer logging
+logging.getLogger('pdfminer').setLevel(logging.ERROR)
 
 class MicrosoftGraphLoader(BaseLoader):
     """
@@ -738,7 +738,7 @@ class IngestSourceOperator(AbstractOperator):
 
     def _get_s3_file_keys(self) -> list[str]:
         """
-        Get list of S3 file keys, filtering out directories and hidden files.
+        Get list of S3 file keys, filtering out directories, hidden files, and applying include/exclude filters.
         """
         bucket: str = self.connection_params.get("bucket")
         prefix: str = self.connection_params.get("prefix", "")
@@ -779,6 +779,10 @@ class IngestSourceOperator(AbstractOperator):
                 if obj.get("Size", 0) == 0:
                     continue
 
+                # Apply include/exclude extension filters
+                if filter_based_on_extension(key, self.excluded_extensions, self.included_extensions):
+                    continue
+
                 file_keys.append(key)
 
         return file_keys
@@ -790,6 +794,10 @@ class IngestSourceOperator(AbstractOperator):
         """
         # Get S3 file keys using existing method (already filters hidden files)
         file_keys: list[str] = self._get_s3_file_keys()
+        
+        # Apply max_files limit to file keys
+        if self.max_files > 0:
+            file_keys = file_keys[:self.max_files]
         
         # Setup client config
         client_config: dict[str, Any] = {}
@@ -818,6 +826,7 @@ class IngestSourceOperator(AbstractOperator):
                 continue
         
         return documents
+
 
     def _get_loader(self) -> BaseLoader:
         """
