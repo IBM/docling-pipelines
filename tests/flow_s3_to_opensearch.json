@@ -26,7 +26,7 @@
                             "prefix": ""
                         },
                         "include_filter": "pdf,docx,txt,pptx",
-                        "max_files": 5,
+                        "max_files": 15,
                         "force_ingest": true
                     }
 ,
