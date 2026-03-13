@@ -300,13 +300,14 @@ DATABASE SCHEMA:
 
 IMPORTANT RULES:
 1. Table name in the FROM clause MUST be '{self.index_name}', (the actual OpenSearch index name). Do not use double quotes around the table name
-2. Use nested field notation with dots (e.g., vendor.name, customer.address.city)
+2. Use nested field notation with dots (e.g., supplier.name, customer.address.city)
 3. OpenSearch SQL supports standard SQL syntax
 4. Use appropriate aggregations: COUNT, SUM, AVG, MAX, MIN
 5. Always include ORDER BY for better results
-6. For date comparisons, use DATE_SUB(NOW(), INTERVAL X DAY) or specific dates
-7. Do not use sub-querues unless absollutely necessary
-8. Return ONLY the SQL query without any explanation or markdown formatting
+6. For date conversion, use day(), month(), year() functions. For time conversion, use hour(), minute(), seconf() functions
+7. For date comparisons, use DATE_SUB(NOW(), INTERVAL X DAY) or specific dates
+8. Do not use sub-querues unless absollutely necessary
+9. Return ONLY the SQL query without any explanation or markdown formatting
 
 NATURAL LANGUAGE QUESTION:
 {natural_language_query}
