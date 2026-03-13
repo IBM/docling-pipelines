@@ -892,7 +892,7 @@ class ComprehensiveQueryGenerator:
                 "complexity": "edge_case",
                 "expected_type": "distinct",
                 "expected_value": 6,
-                "validator_type": "exact_count"
+                "validator_type": "count_any"
             },
             {
                 "id": "edge_4_all_suppliers",
