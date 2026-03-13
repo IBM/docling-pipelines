@@ -6,7 +6,7 @@ from typing import Any
 
 from filelock import FileLock
 
-from common.util.constants import DatasiftConstants
+from common.constants.constants import DatasiftConstants
 from common.util.iceberg_util import get_warehouse_path
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.job_tracker.storage.job_stats_store import JobStatsStore

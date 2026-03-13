@@ -14,10 +14,22 @@ Tests cover:
 
 import json
 import tempfile
+
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
+
+
+# Add the backend directory to the Python path
+backend_dir = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "src"
+    / "datasift_opensource"
+    / "backend"
+)
+sys.path.insert(0, str(backend_dir))
 
 
 from core.operators.universal.extract.extract_entities_ollama import (
@@ -27,7 +39,8 @@ from core.operators.universal.extract.extract_entities_ollama import (
     _parse_llm_json,
     _try_repair_truncated_json,
 )
-from common.util.constants import ExecutionStatus, Metrics, OperatorConstants
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import ExecutionStatus, Metrics
 
 
 # ---------------------------------------------------------------------------
@@ -198,8 +211,8 @@ class TestExtractEntitiesOllamaOperatorInit:
     def test_default_values(self):
         config = {}
         op = ExtractEntitiesOllamaOperator(config)
-        assert op.doc_column == OperatorConstants.DOC_COLUMN_DEFAULT
-        assert op.doc_id_hash_column == OperatorConstants.DOC_ID_HASH_DEFAULT
+        assert op.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        assert op.doc_id_hash_column == OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         assert op.ollama_model == "granite4"
         assert op.output_column == "entities"
         assert op.max_doc_chars == 8000
@@ -214,7 +227,7 @@ class TestExtractEntitiesOllamaOperatorInit:
 
     def test_short_name(self):
         op = ExtractEntitiesOllamaOperator({})
-        assert op.short_name == OperatorConstants.EXTRACT_ENTITIES_OLLAMA
+        assert op.short_name == OperatorConstants.Operators.EXTRACT_ENTITIES_OLLAMA
 
     def test_category(self):
         from core.operators.abstract_operator import OperatorCategory
@@ -494,13 +507,18 @@ class TestExtractEntitiesDocIdHash:
         }
 
         # Confirm input table does NOT have doc_id_hash
-        assert OperatorConstants.DOC_ID_HASH_DEFAULT not in sample_table.column_names
+        assert (
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+            not in sample_table.column_names
+        )
 
         op = ExtractEntitiesOllamaOperator(basic_config)
         result_tables, metadata = op.transform(sample_table)
 
         result_table = result_tables[0]
-        assert OperatorConstants.DOC_ID_HASH_DEFAULT in result_table.column_names
+        assert (
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result_table.column_names
+        )
 
     @patch("ollama.chat")
     def test_existing_doc_id_hash_preserved(self, mock_chat, basic_config):
@@ -515,7 +533,7 @@ class TestExtractEntitiesDocIdHash:
             "id": ["doc-001"],
             "name": ["invoice.pdf"],
             "content": ["Invoice from Acme Corp"],
-            OperatorConstants.DOC_ID_HASH_DEFAULT: ["existing-hash-abc123"],
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: ["existing-hash-abc123"],
         }
         table = pa.table(data)
 
@@ -523,9 +541,12 @@ class TestExtractEntitiesDocIdHash:
         result_tables, metadata = op.transform(table)
 
         result_table = result_tables[0]
-        assert OperatorConstants.DOC_ID_HASH_DEFAULT in result_table.column_names
+        assert (
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result_table.column_names
+        )
         # The existing hash should be preserved (not regenerated)
-        hash_value = result_table.column(OperatorConstants.DOC_ID_HASH_DEFAULT)[
+
+        hash_value = result_table.column(OperatorConstants.Columns.DOC_ID_HASH_DEFAULT)[
             0
         ].as_py()
         assert hash_value == "existing-hash-abc123"
@@ -542,33 +563,35 @@ class TestExtractEntitiesGetMetadata:
         op = ExtractEntitiesOllamaOperator(basic_config)
         metadata = op.get_metadata()
 
-        assert OperatorConstants.CATEGORY in metadata
-        assert OperatorConstants.FEATURES in metadata
-        assert OperatorConstants.ATTRIBUTES in metadata
-        assert OperatorConstants.IS_OPERATOR_AVAILABLE in metadata
-        assert OperatorConstants.LABEL in metadata
-        assert OperatorConstants.DESCRIPTION in metadata
+        assert OperatorConstants.Misc.CATEGORY in metadata
+        assert OperatorConstants.Config.FEATURES in metadata
+        assert OperatorConstants.Config.ATTRIBUTES in metadata
+        assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in metadata
+        assert OperatorConstants.Misc.LABEL in metadata
+        assert OperatorConstants.Config.DESCRIPTION in metadata
 
     def test_get_metadata_category(self, basic_config):
         """Category should be 'Extract'."""
         op = ExtractEntitiesOllamaOperator(basic_config)
         metadata = op.get_metadata()
-        assert metadata[OperatorConstants.CATEGORY] == "Extract"
+        assert metadata[OperatorConstants.Misc.CATEGORY] == "Extract"
 
     def test_get_metadata_features(self, basic_config):
         """Features should include output_column and doc_id_hash."""
         op = ExtractEntitiesOllamaOperator(basic_config)
         metadata = op.get_metadata()
-        features = metadata[OperatorConstants.FEATURES]
+        features = metadata[OperatorConstants.Config.FEATURES]
 
         assert "entities" in features
-        assert OperatorConstants.DOC_ID_HASH_DEFAULT in features
+        assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in features
 
     def test_get_metadata_attributes(self, basic_config):
         """Attributes should include all configurable parameters."""
         op = ExtractEntitiesOllamaOperator(basic_config)
         metadata = op.get_metadata()
-        attributes = metadata[OperatorConstants.ATTRIBUTES]
+
+        attributes = metadata[OperatorConstants.Config.ATTRIBUTES]
+
         print("~~ attributes=", attributes)
 
         assert "ollama_model" in attributes
@@ -578,14 +601,14 @@ class TestExtractEntitiesGetMetadata:
         assert "output_column" in attributes
         assert "max_doc_chars" in attributes
         assert "temperature" in attributes
-        assert OperatorConstants.DOC_COLUMN in attributes
-        assert OperatorConstants.MAX_WORKERS in attributes
+        assert OperatorConstants.Columns.DOC_COLUMN in attributes
+        assert OperatorConstants.Config.MAX_WORKERS in attributes
 
     def test_get_metadata_sdk_flag(self, basic_config):
         """SDK flag should be True."""
         op = ExtractEntitiesOllamaOperator(basic_config)
         metadata = op.get_metadata()
-        assert metadata[OperatorConstants.SDK] is True
+        assert metadata[OperatorConstants.Misc.SDK] is True
 
 
 # ---------------------------------------------------------------------------

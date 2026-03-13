@@ -41,11 +41,8 @@ from core.operators.universal.embeddings.embeddings_operator import (  # noqa: E
     OVERLAP_RATIO_MAX,
     EMBEDDINGS_TYPE_DEFAULT,
 )
-from common.util.constants import (  # noqa: E402
-    Metrics,
-    OperatorConstants,
-    ExecutionStatus,
-)
+from common.constants.constants import Metrics, ExecutionStatus  # noqa: E402
+from common.constants.operator_constants import OperatorConstants  # noqa: E402
 
 
 # Test Fixtures
@@ -167,9 +164,14 @@ class TestEmbeddingsOperatorInitialization:
 
         assert operator.embeddings_type == EMBEDDINGS_TYPE_DEFAULT
         assert operator.embeddings_model_id == "mistral"
-        assert operator.embeddings_column == OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT
-        assert operator.doc_column == OperatorConstants.DOC_COLUMN_DEFAULT
-        assert operator.doc_id_hash_column == OperatorConstants.DOC_ID_HASH_DEFAULT
+        assert (
+            operator.embeddings_column
+            == OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
+        )
+        assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        assert (
+            operator.doc_id_hash_column == OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
         assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
 
     @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
@@ -195,7 +197,6 @@ class TestEmbeddingsOperatorInitialization:
 
         assert "not yet implemented" in str(exc_info.value).lower()
 
-
     def test_get_required_features(self, sample_config):
         """Test get_required_features returns correct list."""
         operator = EmbeddingsOperator(sample_config)
@@ -214,59 +215,69 @@ class TestEmbeddingsOperatorMetadata:
         metadata = operator.get_metadata()
 
         assert isinstance(metadata, dict)
-        assert OperatorConstants.CATEGORY in metadata
-        assert OperatorConstants.FEATURES in metadata
-        assert OperatorConstants.ATTRIBUTES in metadata
-        assert OperatorConstants.IS_OPERATOR_AVAILABLE in metadata
-        assert metadata[OperatorConstants.IS_OPERATOR_AVAILABLE] is True
+        assert OperatorConstants.Misc.CATEGORY in metadata
+        assert OperatorConstants.Config.FEATURES in metadata
+        assert OperatorConstants.Config.ATTRIBUTES in metadata
+        assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in metadata
+        assert metadata[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is True
 
     def test_get_metadata_features(self, sample_config):
         """Test metadata includes correct features."""
         operator = EmbeddingsOperator(sample_config)
         metadata = operator.get_metadata()
-        features = metadata[OperatorConstants.FEATURES]
 
-        assert OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT in features
-        assert OperatorConstants.DOC_ID_HASH_DEFAULT in features
+        features = metadata[OperatorConstants.Config.FEATURES]
+
+        assert OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT in features
+        assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in features
 
         # Check embeddings feature details
-        embeddings_feature = features[OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT]
-        assert embeddings_feature[OperatorConstants.AVAILABLE_FOR_VECTOR_DB] is True
-        assert embeddings_feature[OperatorConstants.MANDATORY_FOR_VECTOR_DB] is True
+        embeddings_feature = features[
+            OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
+        ]
         assert (
-            embeddings_feature[OperatorConstants.TYPE] == OperatorConstants.TYPE_VECTOR
+            embeddings_feature[OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB] is True
+        )
+        assert (
+            embeddings_feature[OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB] is True
+        )
+        assert (
+            embeddings_feature[OperatorConstants.Misc.TYPE]
+            == OperatorConstants.Types.TYPE_VECTOR
         )
 
     def test_get_metadata_attributes(self, sample_config):
         """Test metadata includes correct attributes."""
         operator = EmbeddingsOperator(sample_config)
         metadata = operator.get_metadata()
-        attributes = metadata[OperatorConstants.ATTRIBUTES]
+
+        attributes = metadata[OperatorConstants.Config.ATTRIBUTES]
 
         assert "embeddings_type" in attributes
-        assert OperatorConstants.EMBEDDINGS_MODEL_ID in attributes
-        assert OperatorConstants.EMBEDDINGS_COLUMN in attributes
+        assert OperatorConstants.Config.EMBEDDINGS_MODEL_ID in attributes
+        assert OperatorConstants.Columns.EMBEDDINGS_COLUMN in attributes
         assert "overlap_ratio" in attributes
 
         # Check embeddings_type attribute details
         embeddings_type_attr = attributes["embeddings_type"]
         assert (
-            embeddings_type_attr[OperatorConstants.DEFAULT] == EMBEDDINGS_TYPE_DEFAULT
+            embeddings_type_attr[OperatorConstants.Config.DEFAULT]
+            == EMBEDDINGS_TYPE_DEFAULT
         )
 
         # Check overlap_ratio attribute details
         overlap_attr = attributes["overlap_ratio"]
-        assert overlap_attr[OperatorConstants.DEFAULT] == OVERLAP_RATIO_DEFAULT
-        assert overlap_attr[OperatorConstants.MIN_VALUE] == OVERLAP_RATIO_MIN
-        assert overlap_attr[OperatorConstants.MAX_VALUE] == OVERLAP_RATIO_MAX
+        assert overlap_attr[OperatorConstants.Config.DEFAULT] == OVERLAP_RATIO_DEFAULT
+        assert overlap_attr[OperatorConstants.Filtering.MIN_VALUE] == OVERLAP_RATIO_MIN
+        assert overlap_attr[OperatorConstants.Filtering.MAX_VALUE] == OVERLAP_RATIO_MAX
 
     def test_metadata_label_is_generic(self, sample_config):
         """Test that metadata label is generic (not provider-specific)."""
         operator = EmbeddingsOperator(sample_config)
         metadata = operator.get_metadata()
 
-        assert metadata[OperatorConstants.LABEL] == "Embeddings"
-        assert "Ollama" not in metadata[OperatorConstants.LABEL]
+        assert metadata[OperatorConstants.Misc.LABEL] == "Embeddings"
+        assert "Ollama" not in metadata[OperatorConstants.Misc.LABEL]
 
 
 class TestEmbeddingsOperatorValidation:
@@ -307,7 +318,6 @@ class TestEmbeddingsOperatorValidation:
         # Non-string type should raise exception during initialization
         with pytest.raises(Exception):
             EmbeddingsOperator(config)
-
 
     def test_validate_invalid_overlap_ratio_type(self):
         """Test validation with invalid overlap_ratio type."""
@@ -632,7 +642,6 @@ class TestEmbeddingsGeneration:
             or "failed to initialize" in str(exc_info.value).lower()
         )
 
-
     def test_create_embeddings_openai_not_implemented(self):
         """Test that OpenAI provider raises not implemented error during initialization."""
         config = {
@@ -645,7 +654,6 @@ class TestEmbeddingsGeneration:
             EmbeddingsOperator(config)
 
         assert "not yet implemented" in str(exc_info.value).lower()
-
 
 
 # Document Hash Tests
@@ -1058,7 +1066,6 @@ class TestEmbeddingsOperatorIntegration:
 
                 # Should process successfully with appropriate chunking
                 assert metadata[Metrics.External.PROCESSED_DOCS] == 1
-
 
     @patch("ollama.embeddings")
     def test_mixed_success_and_failure_documents(self, mock_embeddings, sample_config):

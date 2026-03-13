@@ -9,17 +9,17 @@ from collections import Counter
 from datetime import UTC, datetime
 from typing import Any
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.models.session_info import get_session_info, update_session_info
-from common.util.common_utils import Singleton
-from common.util.constants import (
+from common.constants.constants import (
     COMPLETED_JOB_STATUSES,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
     OrchestratorType,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.models.session_info import get_session_info, update_session_info
+from common.util.common_utils import Singleton
 from common.util.datasift_utils import delete_folders
 from common.util.iceberg_util import get_warehouse_path
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
@@ -59,11 +59,11 @@ def _identify_ingest_and_destination_nodes(*, dag_nodes: list[dict[str, Any]]) -
     destination_node_ids = []
     for node in dag_nodes:
         if not node.get(DatasiftConstants.INPUT_EDGES):
-            ingest_node_id = node[OperatorConstants.ID]
+            ingest_node_id = node[OperatorConstants.Columns.ID]
             logger.debug(f"Ingest node identified: {ingest_node_id}")
         if not node.get(DatasiftConstants.OUTPUT_EDGES):
-            destination_node_ids.append(node[OperatorConstants.ID])
-            logger.debug(f"Destination node identified: {node[OperatorConstants.ID]}")
+            destination_node_ids.append(node[OperatorConstants.Columns.ID])
+            logger.debug(f"Destination node identified: {node[OperatorConstants.Columns.ID]}")
     return ingest_node_id, destination_node_ids
 
 

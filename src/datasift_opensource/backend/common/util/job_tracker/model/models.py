@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 
-from common.util.constants import ExecutionStatus, OrchestratorType
+from common.constants.constants import ExecutionStatus, OrchestratorType
 
 message_pattern = r"^[\x20-\x7E\n\r\t]*$"
 node_status_pattern = r"^[A-Za-z0-9 _\-.]+$"

@@ -9,8 +9,9 @@ from typing import Any
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
+from common.constants.constants import DatasiftConstants, OrchestratorType
+from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.util.constants import DatasiftConstants, OperatorConstants, OrchestratorType
 from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.log import get_logger
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
@@ -38,7 +39,9 @@ class CommandLineOrchestrator(AbstractOrchestrator):
         self.set_job_id(job_id=params.get(DatasiftConstants.JOB_ID))
         self.set_job_run_id(job_run_id=params.get(DatasiftConstants.JOB_RUN_ID))
         global_config = (
-            flow_def.get(OperatorConstants.GLOBAL_CONFIG, {}) | params | {DatasiftConstants.FLOW_DEFINITION: flow_def}
+            flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
+            | params
+            | {DatasiftConstants.FLOW_DEFINITION: flow_def}
         )
 
         if DatasiftConstants.DAG not in flow_def:
@@ -79,7 +82,7 @@ class CommandLineOrchestrator(AbstractOrchestrator):
 
 
 def run_command_line_executor(flow_def: dict) -> None:
-    from common.util.constants import DatasiftConstants
+    from common.constants.constants import DatasiftConstants
     from core.orchestrator.flow_executor import FlowExecutor
     from core.orchestrator.orchestrator_factory import OrchestratorFactory
 

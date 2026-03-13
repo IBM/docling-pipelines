@@ -1,6 +1,6 @@
 import re
 
-from common.util.constants import DatasiftConstants
+from common.constants.constants import DatasiftConstants
 from common.util.iceberg_util import get_warehouse_path
 
 

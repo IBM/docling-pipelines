@@ -6,15 +6,15 @@ from typing import Any
 import duckdb
 import pyarrow as pa
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.error_codes import ErrorCode
-from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_codes import ErrorCode
+from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, validate_filter_criteria
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -57,7 +57,7 @@ class SQLFilterOperator(AbstractOperator):
     satisfy a set of filtering criteria
     """
 
-    short_name: str = OperatorConstants.SQL_FILTER
+    short_name: str = OperatorConstants.Operators.SQL_FILTER
     category: OperatorCategory = OperatorCategory.Quality
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -69,17 +69,19 @@ class SQLFilterOperator(AbstractOperator):
         """
 
         super().__init__(config)
-        self.filter_criteria: list[str] = config.get(OperatorConstants.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT)
+        self.filter_criteria: list[str] = config.get(
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST, FILTER_CRITERIA_DEFAULT
+        )
         self.logical_operator: str = config.get(
-            OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY,
+            OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY,
             FILTER_LOGICAL_OPERATOR_DEFAULT,
         )
         self.features_to_drop: list[str] = config.get(
-            OperatorConstants.FILTER_FEATURES_TO_DROP_KEY,
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY,
             FILTER_FEATURES_TO_DROP_DEFAULT,
         )
         self.columns_to_drop: list[str] = self.features_to_drop
-        self.filter_criteria_json: dict[str, Any] | None = config.get(OperatorConstants.FILTER_CRITERIA_JSON)
+        self.filter_criteria_json: dict[str, Any] | None = config.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON)
 
     def validate(
         self,
@@ -109,9 +111,9 @@ class SQLFilterOperator(AbstractOperator):
         # Validate features to drop
         if self.should_validate_field(field_value=self.features_to_drop):
             protected_features = {
-                OperatorConstants.ID: ValidationCodeMessages.SQL_FILTER_ID_DROP_ATTEMPTED,
-                OperatorConstants.DOC_COLUMN_DEFAULT: ValidationCodeMessages.SQL_FILTER_CONTENT_DROP_ATTEMPTED,
-                OperatorConstants.PAGES_PROCESSED_COLUMN: ValidationCodeMessages.SQL_FILTER_PAGES_DROP,
+                OperatorConstants.Misc.ID: ValidationCodeMessages.SQL_FILTER_ID_DROP_ATTEMPTED,
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: ValidationCodeMessages.SQL_FILTER_CONTENT_DROP_ATTEMPTED,
+                OperatorConstants.Columns.PAGES_PROCESSED_COLUMN: ValidationCodeMessages.SQL_FILTER_PAGES_DROP,
             }
 
             for feature, error_msg in protected_features.items():
@@ -308,38 +310,38 @@ class SQLFilterOperator(AbstractOperator):
 
     def get_metadata(self) -> dict[str, Any]:
         return {
-            OperatorConstants.IS_OPERATOR_AVAILABLE: True,
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.LABEL: "Annotation Filter",
-            OperatorConstants.ATTRIBUTES: {
-                OperatorConstants.FILTER_CRITERIA_LIST: {
-                    OperatorConstants.NAME: "Filter Criteria (List)",
-                    OperatorConstants.DESCRIPTION: "Add different Filter criteria as part of the WHERE clause",
-                    OperatorConstants.DEFAULT: FILTER_CRITERIA_DEFAULT,
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.LABEL: "Annotation Filter",
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.Filtering.FILTER_CRITERIA_LIST: {
+                    OperatorConstants.Misc.NAME: "Filter Criteria (List)",
+                    OperatorConstants.Config.DESCRIPTION: "Add different Filter criteria as part of the WHERE clause",
+                    OperatorConstants.Config.DEFAULT: FILTER_CRITERIA_DEFAULT,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
-                OperatorConstants.FILTER_CRITERIA_JSON: {
-                    OperatorConstants.NAME: "Filter Criteria (String/Json)",
-                    OperatorConstants.DESCRIPTION: "Add different Filter criteria as part of the WHERE clause in JSON format",
-                    OperatorConstants.DEFAULT: None,
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.JSON,
+                OperatorConstants.Filtering.FILTER_CRITERIA_JSON: {
+                    OperatorConstants.Misc.NAME: "Filter Criteria (String/Json)",
+                    OperatorConstants.Config.DESCRIPTION: "Add different Filter criteria as part of the WHERE clause in JSON format",
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
-                OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: {
-                    OperatorConstants.NAME: "Logical Operator",
-                    OperatorConstants.DESCRIPTION: "Select the logical Operator for WHERE clause: OR or AND",
-                    OperatorConstants.DEFAULT: FILTER_LOGICAL_OPERATOR_DEFAULT,
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.VALID_VALUES: VALID_FILTER_LOGICAL_OPERATORS,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: {
+                    OperatorConstants.Misc.NAME: "Logical Operator",
+                    OperatorConstants.Config.DESCRIPTION: "Select the logical Operator for WHERE clause: OR or AND",
+                    OperatorConstants.Config.DEFAULT: FILTER_LOGICAL_OPERATOR_DEFAULT,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.VALID_VALUES: VALID_FILTER_LOGICAL_OPERATORS,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.FILTER_FEATURES_TO_DROP_KEY: {
-                    OperatorConstants.NAME: "Features to drop",
-                    OperatorConstants.DESCRIPTION: "Declare the features which need to be dropped",
-                    OperatorConstants.DEFAULT: FILTER_FEATURES_TO_DROP_DEFAULT,
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: {
+                    OperatorConstants.Misc.NAME: "Features to drop",
+                    OperatorConstants.Config.DESCRIPTION: "Declare the features which need to be dropped",
+                    OperatorConstants.Config.DEFAULT: FILTER_FEATURES_TO_DROP_DEFAULT,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
             },
         }

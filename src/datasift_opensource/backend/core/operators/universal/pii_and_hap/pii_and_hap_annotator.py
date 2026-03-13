@@ -17,14 +17,14 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.common_utils import split_text_into_chunks
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.util.common_utils import split_text_into_chunks
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -111,54 +111,54 @@ class PIIAndHAPAnnotator(AbstractOperator):
             # Document column
             (
                 "doc_column_name",
-                OperatorConstants.DOC_COLUMN,
-                OperatorConstants.DOC_COLUMN_DEFAULT,
+                OperatorConstants.Columns.DOC_COLUMN,
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
             ),
             # Detection configuration
             ("detection_type", PII_DETECTION_TYPE, PII_DETECTION_TYPE_DEFAULT),
-            ("model_name", OperatorConstants.MODEL_NAME, "granite4"),
+            ("model_name", OperatorConstants.Config.MODEL_NAME, "granite4"),
             # Redaction configuration
             (
                 "redaction",
-                OperatorConstants.REDACTION_KEY,
-                OperatorConstants.DEFAULT_REDACTION_VALUE,
+                OperatorConstants.PIIHAP.REDACTION_KEY,
+                OperatorConstants.PIIHAP.DEFAULT_REDACTION_VALUE,
             ),
             (
                 "redaction_character",
-                OperatorConstants.REDACTION_CHARACTER_KEY,
-                OperatorConstants.DEFAULT_REDACTION_CHARACTER_VALUE,
+                OperatorConstants.PIIHAP.REDACTION_CHARACTER_KEY,
+                OperatorConstants.PIIHAP.DEFAULT_REDACTION_CHARACTER_VALUE,
             ),
             (
                 "hap_redaction",
-                OperatorConstants.HAP_REDACTION_KEY,
-                OperatorConstants.DEFAULT_REDACTION_VALUE,
+                OperatorConstants.PIIHAP.HAP_REDACTION_KEY,
+                OperatorConstants.PIIHAP.DEFAULT_REDACTION_VALUE,
             ),
             (
                 "hap_redaction_character",
-                OperatorConstants.HAP_REDACTION_CHARACTER_KEY,
-                OperatorConstants.DEFAULT_REDACTION_CHARACTER_VALUE,
+                OperatorConstants.PIIHAP.HAP_REDACTION_CHARACTER_KEY,
+                OperatorConstants.PIIHAP.DEFAULT_REDACTION_CHARACTER_VALUE,
             ),
             # Thresholds
             (
                 "pii_threshold",
-                OperatorConstants.PII_THRESHOLD_KEY,
+                OperatorConstants.PIIHAP.PII_THRESHOLD_KEY,
                 DEFAULT_PII_THRESHOLD_VALUE,
             ),
             (
                 "hap_threshold",
-                OperatorConstants.HAP_THRESHOLD_KEY,
+                OperatorConstants.PIIHAP.HAP_THRESHOLD_KEY,
                 DEFAULT_HAP_THRESHOLD_VALUE,
             ),
             # PII types and redactions
             ("display_pii", DISPLAY_PII_KEY, False),
-            ("pii_list", OperatorConstants.PII_LIST, DEFAULT_PII_TYPES_OF_CONCERN),
+            ("pii_list", OperatorConstants.PIIHAP.PII_LIST, DEFAULT_PII_TYPES_OF_CONCERN),
             (
                 "expected_redactions",
-                OperatorConstants.EXPECTED_REDACTIONS,
+                OperatorConstants.PIIHAP.EXPECTED_REDACTIONS,
                 DEFAULT_REDACTIONS,
             ),
             # Processing configuration
-            ("partial_ingest", OperatorConstants.PARTIAL_INGEST, False),
+            ("partial_ingest", OperatorConstants.Config.PARTIAL_INGEST, False),
             ("batch_size", BATCH_SIZE_KEY, DEFAULT_BATCH_SIZE),
             # Chunking configuration - configurable for performance tuning
             ("min_chunk_size", MIN_CHUNK_SIZE_KEY, DEFAULT_MIN_CHUNK_SIZE_IN_KB),
@@ -201,148 +201,148 @@ class PIIAndHAPAnnotator(AbstractOperator):
     def get_metadata(self) -> dict[str, Any]:
         """Return operator metadata for SDK."""
         return {
-            OperatorConstants.SDK: True,
-            OperatorConstants.CATEGORY: PIIAndHAPAnnotator.category.value,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: PIIAndHAPAnnotator.is_available(),
-            OperatorConstants.LABEL: "PII and HAP Annotator",
-            OperatorConstants.FEATURES: {
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: PIIAndHAPAnnotator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: PIIAndHAPAnnotator.is_available(),
+            OperatorConstants.Misc.LABEL: "PII and HAP Annotator",
+            OperatorConstants.Config.FEATURES: {
                 "pii_bank_account": {
-                    OperatorConstants.NAME: "Bank Account Count",
-                    OperatorConstants.DESCRIPTION: "Number of Bank Accounts found in document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "Bank Account Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Bank Accounts found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "pii_credit_card": {
-                    OperatorConstants.NAME: "Credit Card Count",
-                    OperatorConstants.DESCRIPTION: "Number of Credit Cards found in document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "Credit Card Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Credit Cards found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "pii_email_address": {
-                    OperatorConstants.NAME: "Email Address Count",
-                    OperatorConstants.DESCRIPTION: "Number of Email Addresses found in document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "Email Address Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Email Addresses found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "pii_ip_address": {
-                    OperatorConstants.NAME: "IP Address Count",
-                    OperatorConstants.DESCRIPTION: "Number of IP Addresses found in document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "IP Address Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of IP Addresses found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "pii_phone_number": {
-                    OperatorConstants.NAME: "Phone Number Count",
-                    OperatorConstants.DESCRIPTION: "Number of Phone Numbers found in document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "Phone Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Phone Numbers found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "pii_ssn_details": {
-                    OperatorConstants.NAME: "SSN Details Count",
-                    OperatorConstants.DESCRIPTION: "Number of SSNs found in document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "SSN Details Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of SSNs found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 "hap": {
-                    OperatorConstants.NAME: "HAP Count",
-                    OperatorConstants.DESCRIPTION: "Number of HAP instances found in document",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "HAP Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of HAP instances found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
             },
-            OperatorConstants.ATTRIBUTES: {
-                OperatorConstants.EXPECTED_REDACTIONS: {
-                    OperatorConstants.NAME: "Expected Redactions",
-                    OperatorConstants.DESCRIPTION: "List of redactions to perform",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: [r.upper() for r in DEFAULT_REDACTIONS],
-                    OperatorConstants.VALID_VALUES: [r.upper() for r in DEFAULT_REDACTIONS],
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.PIIHAP.EXPECTED_REDACTIONS: {
+                    OperatorConstants.Misc.NAME: "Expected Redactions",
+                    OperatorConstants.Config.DESCRIPTION: "List of redactions to perform",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: [r.upper() for r in DEFAULT_REDACTIONS],
+                    OperatorConstants.Config.VALID_VALUES: [r.upper() for r in DEFAULT_REDACTIONS],
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
-                OperatorConstants.PII_LIST: {
-                    OperatorConstants.NAME: "PII List",
-                    OperatorConstants.DESCRIPTION: "List of PII fields to detect/redact",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: DEFAULT_PII_TYPES_OF_CONCERN,
-                    OperatorConstants.VALID_VALUES: DEFAULT_PII_TYPES_OF_CONCERN,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                OperatorConstants.PIIHAP.PII_LIST: {
+                    OperatorConstants.Misc.NAME: "PII List",
+                    OperatorConstants.Config.DESCRIPTION: "List of PII fields to detect/redact",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_PII_TYPES_OF_CONCERN,
+                    OperatorConstants.Config.VALID_VALUES: DEFAULT_PII_TYPES_OF_CONCERN,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
-                OperatorConstants.REDACTION_KEY: {
-                    OperatorConstants.NAME: "PII Redaction",
-                    OperatorConstants.DESCRIPTION: "Enable PII redaction",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.DEFAULT: OperatorConstants.DEFAULT_REDACTION_VALUE,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+                OperatorConstants.PIIHAP.REDACTION_KEY: {
+                    OperatorConstants.Misc.NAME: "PII Redaction",
+                    OperatorConstants.Config.DESCRIPTION: "Enable PII redaction",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.PIIHAP.DEFAULT_REDACTION_VALUE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                OperatorConstants.REDACTION_CHARACTER_KEY: {
-                    OperatorConstants.NAME: "PII Masking Character",
-                    OperatorConstants.DESCRIPTION: "Character to use for masking PII",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OperatorConstants.DEFAULT_REDACTION_CHARACTER_VALUE,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.PIIHAP.REDACTION_CHARACTER_KEY: {
+                    OperatorConstants.Misc.NAME: "PII Masking Character",
+                    OperatorConstants.Config.DESCRIPTION: "Character to use for masking PII",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.PIIHAP.DEFAULT_REDACTION_CHARACTER_VALUE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.HAP_REDACTION_KEY: {
-                    OperatorConstants.NAME: "HAP Redaction",
-                    OperatorConstants.DESCRIPTION: "Enable HAP redaction",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.DEFAULT: OperatorConstants.DEFAULT_REDACTION_VALUE,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+                OperatorConstants.PIIHAP.HAP_REDACTION_KEY: {
+                    OperatorConstants.Misc.NAME: "HAP Redaction",
+                    OperatorConstants.Config.DESCRIPTION: "Enable HAP redaction",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.PIIHAP.DEFAULT_REDACTION_VALUE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                OperatorConstants.HAP_REDACTION_CHARACTER_KEY: {
-                    OperatorConstants.NAME: "HAP Masking Character",
-                    OperatorConstants.DESCRIPTION: "Character to use for masking HAP",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OperatorConstants.DEFAULT_REDACTION_CHARACTER_VALUE,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.PIIHAP.HAP_REDACTION_CHARACTER_KEY: {
+                    OperatorConstants.Misc.NAME: "HAP Masking Character",
+                    OperatorConstants.Config.DESCRIPTION: "Character to use for masking HAP",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.PIIHAP.DEFAULT_REDACTION_CHARACTER_VALUE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.PII_THRESHOLD_KEY: {
-                    OperatorConstants.NAME: "PII Threshold",
-                    OperatorConstants.DESCRIPTION: "Confidence threshold for PII detection (0.0-1.0)",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: DEFAULT_PII_THRESHOLD_VALUE,
-                    OperatorConstants.MIN_VALUE: 0.0,
-                    OperatorConstants.MAX_VALUE: 1.0,
-                    OperatorConstants.TYPE: AttributeDataTypes.FLOAT,
+                OperatorConstants.PIIHAP.PII_THRESHOLD_KEY: {
+                    OperatorConstants.Misc.NAME: "PII Threshold",
+                    OperatorConstants.Config.DESCRIPTION: "Confidence threshold for PII detection (0.0-1.0)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_PII_THRESHOLD_VALUE,
+                    OperatorConstants.Filtering.MIN_VALUE: 0.0,
+                    OperatorConstants.Filtering.MAX_VALUE: 1.0,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
-                OperatorConstants.HAP_THRESHOLD_KEY: {
-                    OperatorConstants.NAME: "HAP Threshold",
-                    OperatorConstants.DESCRIPTION: "Confidence threshold for HAP detection (0.0-1.0)",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: DEFAULT_HAP_THRESHOLD_VALUE,
-                    OperatorConstants.MIN_VALUE: 0.0,
-                    OperatorConstants.MAX_VALUE: 1.0,
-                    OperatorConstants.TYPE: AttributeDataTypes.FLOAT,
+                OperatorConstants.PIIHAP.HAP_THRESHOLD_KEY: {
+                    OperatorConstants.Misc.NAME: "HAP Threshold",
+                    OperatorConstants.Config.DESCRIPTION: "Confidence threshold for HAP detection (0.0-1.0)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_HAP_THRESHOLD_VALUE,
+                    OperatorConstants.Filtering.MIN_VALUE: 0.0,
+                    OperatorConstants.Filtering.MAX_VALUE: 1.0,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
                 PII_DETECTION_TYPE: {
-                    OperatorConstants.NAME: "Detection Type",
-                    OperatorConstants.DESCRIPTION: "Backend to use (ollama or openai)",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: PII_DETECTION_TYPE_DEFAULT,
-                    OperatorConstants.VALID_VALUES: [
+                    OperatorConstants.Misc.NAME: "Detection Type",
+                    OperatorConstants.Config.DESCRIPTION: "Backend to use (ollama or openai)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: PII_DETECTION_TYPE_DEFAULT,
+                    OperatorConstants.Config.VALID_VALUES: [
                         PII_DETECTION_TYPE_OLLAMA,
                         PII_DETECTION_TYPE_OPENAI,
                     ],
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.MODEL_NAME: {
-                    OperatorConstants.NAME: "Model Name",
-                    OperatorConstants.DESCRIPTION: "Name of the model to use",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: "granite4",
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.Config.MODEL_NAME: {
+                    OperatorConstants.Misc.NAME: "Model Name",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the model to use",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "granite4",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 "openai_base_url": {
-                    OperatorConstants.NAME: "OpenAI Base URL",
-                    OperatorConstants.DESCRIPTION: "Base URL for OpenAI-compatible API",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: None,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.NAME: "OpenAI Base URL",
+                    OperatorConstants.Config.DESCRIPTION: "Base URL for OpenAI-compatible API",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
             },
         }
 
     @staticmethod
     def get_static_required_features() -> list[str]:
-        return [OperatorConstants.DOC_COLUMN_DEFAULT]
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def get_required_features(self) -> list[str]:
         return [self.doc_column_name]
@@ -351,10 +351,10 @@ class PIIAndHAPAnnotator(AbstractOperator):
         """Build request payload for detection API."""
         contents = doc_contents if isinstance(doc_contents, str) else doc_contents.as_py()
         payload = {"input": contents, "detectors": {}}
-        if OperatorConstants.PII_FIELD_NAME in self.expected_redactions:
-            payload["detectors"][OperatorConstants.PII_FIELD_NAME] = {"threshold": self.pii_threshold}
-        if OperatorConstants.HAP_FIELD_NAME in self.expected_redactions:
-            payload["detectors"][OperatorConstants.HAP_FIELD_NAME] = {"threshold": self.hap_threshold}
+        if OperatorConstants.PIIHAP.PII_FIELD_NAME in self.expected_redactions:
+            payload["detectors"][OperatorConstants.PIIHAP.PII_FIELD_NAME] = {"threshold": self.pii_threshold}
+        if OperatorConstants.PIIHAP.HAP_FIELD_NAME in self.expected_redactions:
+            payload["detectors"][OperatorConstants.PIIHAP.HAP_FIELD_NAME] = {"threshold": self.hap_threshold}
         return payload
 
     def populate_table_columns(
@@ -373,7 +373,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
         for field in fields_to_redact:
             if field == METADATA_HAP_FIELD_NAME:
-                table_columns[OperatorConstants.HAP_FIELD_NAME].append(columns_to_add[OperatorConstants.HAP_FIELD_NAME])
+                table_columns[OperatorConstants.PIIHAP.HAP_FIELD_NAME].append(
+                    columns_to_add[OperatorConstants.PIIHAP.HAP_FIELD_NAME]
+                )
             else:
                 column_name = DEFAULT_PII_TO_COLUMN_MAPPING.get(field)
                 if not column_name:
@@ -510,8 +512,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     f"PII and HAP detection failed with error: {e}",
                     extra=self.common_log_arguments,
                 )
-                file_name = table[OperatorConstants.NAME].to_pandas().to_list()[doc_info["idx"]]
-                _id = table[OperatorConstants.ID].to_pandas().to_list()[doc_info["idx"]]
+                file_name = table[OperatorConstants.Misc.NAME].to_pandas().to_list()[doc_info["idx"]]
+                _id = table[OperatorConstants.Columns.ID].to_pandas().to_list()[doc_info["idx"]]
                 logger.error(
                     f"PII and HAP extraction failed. {file_name} is removed",
                     extra=self.common_log_arguments,
@@ -570,8 +572,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     f"PII and HAP detection failed with error: {exc}",
                     extra=self.common_log_arguments,
                 )
-                file_name = table[OperatorConstants.NAME].to_pandas().to_list()[doc_info["idx"]]
-                _id = table[OperatorConstants.ID].to_pandas().to_list()[doc_info["idx"]]
+                file_name = table[OperatorConstants.Misc.NAME].to_pandas().to_list()[doc_info["idx"]]
+                _id = table[OperatorConstants.Columns.ID].to_pandas().to_list()[doc_info["idx"]]
                 logger.error(
                     f"PII and HAP extraction failed. {file_name} is removed",
                     extra=self.common_log_arguments,

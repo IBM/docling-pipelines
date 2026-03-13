@@ -12,6 +12,14 @@ from typing import Any, ParamSpec, TypeVar
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
+from common.constants.constants import (
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+    OrchestratorType,
+    TaskType,
+)
+from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import (
     DatasiftException,
     ErrorCode,
@@ -22,14 +30,6 @@ from common.exceptions.datasift_exceptions import (
 )
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.models.session_info import SessionInfo, get_session_info, set_session_info
-from common.util.constants import (
-    DatasiftConstants,
-    ExecutionStatus,
-    Metrics,
-    OperatorConstants,
-    OrchestratorType,
-    TaskType,
-)
 from common.util.datasift_utils import add_validation_alert, get_current_timestamp
 from common.util.iceberg_util import get_warehouse_path
 from common.util.incremental_update_util import IncrementalUpdateUtil
@@ -135,7 +135,9 @@ class AbstractOrchestrator:
         self.__job_id = params.get(DatasiftConstants.JOB_ID)
         self.__job_run_id = params.get(DatasiftConstants.JOB_RUN_ID)
         global_config = (
-            flow_def.get(OperatorConstants.GLOBAL_CONFIG, {}) | params | {DatasiftConstants.FLOW_DEFINITION: flow_def}
+            flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
+            | params
+            | {DatasiftConstants.FLOW_DEFINITION: flow_def}
         )
 
         if DatasiftConstants.DAG not in flow_def:
@@ -184,7 +186,7 @@ class AbstractOrchestrator:
         common_log_arguments: dict,
     ) -> str | None:
         """Process and log ingest step results."""
-        if output_table.num_rows == 0 and operator[OperatorConstants.OPERATOR] != OperatorConstants.NOOP:
+        if output_table.num_rows == 0 and operator[OperatorConstants.Misc.OPERATOR] != OperatorConstants.Operators.NOOP:
             message = "No documents are ingested."
             if deleted_docs_count > 0:
                 message += f" But {deleted_docs_count} document{'s' if deleted_docs_count != 1 else ''} {'were' if deleted_docs_count != 1 else 'was'} removed."
@@ -219,7 +221,7 @@ class AbstractOrchestrator:
         job_tracker = JobTracker()
         job_tracker.update_node_stats(
             job_run_id=self.__job_run_id,
-            node_id=op_def[OperatorConstants.ID],
+            node_id=op_def[OperatorConstants.Columns.ID],
             node_stats=node_stats,
         )
         logger.error(e, stack_info=True, exc_info=True, extra=common_log_arguments)
@@ -229,8 +231,8 @@ class AbstractOrchestrator:
         self.write_jobs_logs(job_stats=job_stats, job_log_final_path=job_log_final_path)
         # below logger will add failure reason in flow_execute.log
         node_logger = self._get_node_logger(
-            node_id=op_def[OperatorConstants.ID],
-            node_name=op_def[OperatorConstants.NAME],
+            node_id=op_def[OperatorConstants.Columns.ID],
+            node_name=op_def[OperatorConstants.Columns.NAME],
             global_config=global_config,
         )
         node_logger.error(
@@ -261,7 +263,7 @@ class AbstractOrchestrator:
         global_config,
         start,
     ):
-        if executor.get_operator().short_name == OperatorConstants.DESIGN_FLOW_OUTPUT_OPERATOR:
+        if executor.get_operator().short_name == OperatorConstants.Operators.DESIGN_FLOW_OUTPUT_OPERATOR:
             # save the deleted rows as this is needed for DESIGN_FLOW_OUTPUT_OPERATOR
             self._check_and_upload_deleted_rows()
 
@@ -305,9 +307,9 @@ class AbstractOrchestrator:
         start,
         common_log_arguments,
     ):
-        node_id = op_def.get(OperatorConstants.ID)
-        node_name = op_def.get(OperatorConstants.NAME)
-        operator_type = op_def.get(OperatorConstants.OPERATOR)
+        node_id = op_def.get(OperatorConstants.Columns.ID)
+        node_name = op_def.get(OperatorConstants.Columns.NAME)
+        operator_type = op_def.get(OperatorConstants.Misc.OPERATOR)
 
         tables = (
             prev_results.tables
@@ -335,7 +337,7 @@ class AbstractOrchestrator:
         )
         application_id: str = f" ApplicationId:{os.getenv('JOB_ID')}" if os.getenv("JOB_ID") else ""
         op_logger.info(f"Orchestrator Type: {str(get_session_info().orchestrator).upper()}{application_id}")
-        op_logger.info("Step ID: %s", op_def[OperatorConstants.ID], extra=common_log_arguments)
+        op_logger.info("Step ID: %s", op_def[OperatorConstants.Columns.ID], extra=common_log_arguments)
         op_logger.info(
             ">>> Skipped execution for Step Name: %s, operator: %s because no input data available for processing.",
             node_name,
@@ -357,7 +359,7 @@ class AbstractOrchestrator:
             DatasiftConstants.JOB_ID: global_config.get(DatasiftConstants.JOB_ID),
             DatasiftConstants.JOB_RUN_ID: global_config.get(DatasiftConstants.JOB_RUN_ID),
             DatasiftConstants.NODE_ID: node_id,
-            OperatorConstants.NAME: node_name,
+            OperatorConstants.Columns.NAME: node_name,
         }
         return get_logger(
             name=f"{DatasiftConstants.LOGGER_NAME} : NodeLogger : {node_id}",
@@ -428,7 +430,7 @@ class AbstractOrchestrator:
 
         if jobs_framework_state == ExecutionStatus.CANCELING:
             self.__canceling = True
-        log_elapsed_time(start_time=start, operator=op_def[OperatorConstants.OPERATOR])
+        log_elapsed_time(start_time=start, operator=op_def[OperatorConstants.Misc.OPERATOR])
 
         return ExecuteStepResults(data_accesses, tables, internal_metadata)
 
@@ -552,7 +554,9 @@ class AbstractOrchestrator:
             )
             raise FlowValidationException(errors=errors)
 
-        unnamed_operators = [node[OperatorConstants.OPERATOR] for node in dag if OperatorConstants.NAME not in node]
+        unnamed_operators = [
+            node[OperatorConstants.Misc.OPERATOR] for node in dag if OperatorConstants.Misc.NAME not in node
+        ]
         if unnamed_operators:
             warnings.append(
                 ValidationAlert(
@@ -562,7 +566,9 @@ class AbstractOrchestrator:
             )
 
         # Operator name uniqueness check
-        operator_names = [op_def[OperatorConstants.NAME] for op_def in dag if OperatorConstants.NAME in op_def]
+        operator_names = [
+            op_def[OperatorConstants.Columns.NAME] for op_def in dag if OperatorConstants.Columns.NAME in op_def
+        ]
         duplicates = self.get_duplicate_node_names(nodes=operator_names)
         if duplicates:
             errors.append(
@@ -601,7 +607,7 @@ class AbstractOrchestrator:
             raise FlowValidationException(errors=validate_results.errors, warnings=validate_results.warnings)
 
     def validate(self, *, flow_def: dict, params: dict):
-        global_config = flow_def.get(OperatorConstants.GLOBAL_CONFIG, {}) | params
+        global_config = flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {}) | params
 
         common_log_arguments = {
             DatasiftConstants.JOB_ID: global_config.get(DatasiftConstants.JOB_ID),
@@ -609,7 +615,7 @@ class AbstractOrchestrator:
         }
 
         # Skip validation if explicitly disabled
-        if global_config.get(OperatorConstants.DISABLE_VALIDATION, False):
+        if global_config.get(OperatorConstants.Config.DISABLE_VALIDATION, False):
             return
 
         if DatasiftConstants.DAG not in flow_def:
@@ -762,28 +768,28 @@ class AbstractOrchestrator:
         # note: In the union of 2 dictionaries below, if an element exists in both global config and local config (
         # op_def['config']), the value from global_config will be overwritten by the local config
         global_config = {} if global_config is None else global_config
-        operator_config = op_def.get(OperatorConstants.CONFIG, {})
+        operator_config = op_def.get(OperatorConstants.Config.CONFIG, {})
         operator_config_params = global_config.get(
-            op_def[OperatorConstants.NAME],
+            op_def[OperatorConstants.Columns.NAME],
             global_config.get(
-                op_def[OperatorConstants.ID],
-                global_config.get(op_def[OperatorConstants.OPERATOR], {}),
+                op_def[OperatorConstants.Columns.ID],
+                global_config.get(op_def[OperatorConstants.Misc.OPERATOR], {}),
             ),
         )
-        operator_name = op_def[OperatorConstants.NAME]
-        operator_id = op_def[OperatorConstants.ID]
+        operator_name = op_def[OperatorConstants.Columns.NAME]
+        operator_id = op_def[OperatorConstants.Columns.ID]
         # 1. Configuration defined for the operator takes precedence over the global configuration in the flow.
         # 2. The operator configuration passed through parameters would override the operator config defined in the flow
         config = (
-            {OperatorConstants.NAME: operator_name}
-            | {OperatorConstants.ID: operator_id}
+            {OperatorConstants.Columns.NAME: operator_name}
+            | {OperatorConstants.Columns.ID: operator_id}
             | global_config
             | operator_config
             | operator_config_params
         )
         return self.create_executor_impl(
             name=operator_name,
-            operator=op_def[OperatorConstants.OPERATOR],
+            operator=op_def[OperatorConstants.Misc.OPERATOR],
             params=config,
         )
 
@@ -809,7 +815,7 @@ class AbstractOrchestrator:
             add_validation_alert(message=error_message, op_def=op_def, alerts=alerts)
 
     def get_operator_category(self, *, op_def: dict, global_config: dict, alerts: list):
-        if OperatorConstants.ID not in op_def:
+        if OperatorConstants.Columns.ID not in op_def:
             add_validation_alert(
                 ValidationMessage(
                     message=ValidationCodeMessages.MISSING_NODE_ID.value,
@@ -818,7 +824,7 @@ class AbstractOrchestrator:
                 op_def=op_def,
                 alerts=alerts,
             )
-        if OperatorConstants.NAME not in op_def:
+        if OperatorConstants.Columns.NAME not in op_def:
             add_validation_alert(
                 message=ValidationMessage(
                     message=ValidationCodeMessages.MISSING_NODE_NAME.value,
@@ -869,8 +875,8 @@ class AbstractOrchestrator:
         link_id=None,
     ) -> ExecuteStepResults | None:
         node_logger = self._get_node_logger(
-            node_id=op_def[OperatorConstants.ID],
-            node_name=op_def[OperatorConstants.NAME],
+            node_id=op_def[OperatorConstants.Columns.ID],
+            node_name=op_def[OperatorConstants.Columns.NAME],
             global_config=global_config,
         )
         if prev_results is None:
@@ -916,7 +922,7 @@ class AbstractOrchestrator:
                 operator_semaphore.acquire()
                 try:
                     self.logger.debug(
-                        f"Operator {op_def[OperatorConstants.NAME]}: acquired semaphore slot",
+                        f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
                         extra=common_log_arguments,
                     )
                     result = self._execute_step(
@@ -928,7 +934,7 @@ class AbstractOrchestrator:
                 finally:
                     operator_semaphore.release()
                     self.logger.debug(
-                        f"Operator {op_def[OperatorConstants.NAME]}: released semaphore slot",
+                        f"Operator {op_def[OperatorConstants.Columns.NAME]}: released semaphore slot",
                         extra=common_log_arguments,
                     )
             else:
@@ -1144,9 +1150,9 @@ class AbstractOrchestrator:
         prev_index = None
 
         for op_def in op_flow:
-            index = node_id_to_index_map[op_def[OperatorConstants.ID]]
+            index = node_id_to_index_map[op_def[OperatorConstants.Columns.ID]]
             try:
-                link_id = op_def.get(OperatorConstants.LINK_ID, None)
+                link_id = op_def.get(OperatorConstants.Misc.LINK_ID, None)
                 if prev_index is None:
                     #  if prev_results is None (first operator after ingest), create synthetic result from batch data
                     batch_table = data_access.get_table("")[0]
@@ -1249,7 +1255,7 @@ class AbstractOrchestrator:
             index = node_id_to_index_map[op_def.get("id")]
             try:
                 if op_def["input_edges"]:
-                    link_name = op_def.get(OperatorConstants.LINK_NAME)
+                    link_name = op_def.get(OperatorConstants.Misc.LINK_NAME)
                     prev_futures = []
                     for edge in op_def["input_edges"]:
                         prev_index = node_id_to_index_map[edge["node_id_ref"]]
@@ -1261,10 +1267,10 @@ class AbstractOrchestrator:
                     else:
                         prev_results = prev_futures
 
-                    future = main_task.submit(op_def[OperatorConstants.NAME], op_def, prev_results, link_name)
+                    future = main_task.submit(op_def[OperatorConstants.Columns.NAME], op_def, prev_results, link_name)
 
                 else:
-                    future = main_task.submit(op_def[OperatorConstants.NAME], op_def, result, None)
+                    future = main_task.submit(op_def[OperatorConstants.Columns.NAME], op_def, result, None)
                 submitted_futures.append((future, op_def))
 
                 if not op_def.get(DatasiftConstants.OUTPUT_EDGES):
@@ -1272,9 +1278,9 @@ class AbstractOrchestrator:
                 else:
                     results.set_entry(index, future, len(op_def.get(DatasiftConstants.OUTPUT_EDGES)))
 
-                if kwargs.get("stop_node_id") == op_def.get(OperatorConstants.ID):
+                if kwargs.get("stop_node_id") == op_def.get(OperatorConstants.Columns.ID):
                     logger.info(
-                        f"Stop node reached: {op_def.get(OperatorConstants.NAME)} id:{op_def.get(OperatorConstants.ID)}"
+                        f"Stop node reached: {op_def.get(OperatorConstants.Columns.NAME)} id:{op_def.get(OperatorConstants.Columns.ID)}"
                     )
                     logger.info(
                         f"No more tasks will be submitted, waiting for current tasks: {len(submitted_futures)} to complete"
@@ -1436,7 +1442,7 @@ class AbstractOrchestrator:
             # This ensures output paths don't include batch number subdirectories
 
         # Store ingest node ID for batch processing (needed to handle references to excluded ingest operator)
-        ingest_node_id = op_flow[0].get(OperatorConstants.ID) if op_flow else None
+        ingest_node_id = op_flow[0].get(OperatorConstants.Columns.ID) if op_flow else None
         global_config[DatasiftConstants.INGEST_NODE_ID] = ingest_node_id
 
         # Build and execute batch flow (works for both single and multiple batches)
@@ -1606,9 +1612,6 @@ class AbstractOrchestrator:
         batch_futures = []
 
         for batch_num, batch_table in enumerate(batches):
-            # Create batch-specific data access BEFORE submitting task
-            batch_data_access = self._create_batch_data_access(batch_table=batch_table)
-
             # Submit batch task
             future = execute_batch_subflow.submit(
                 batch_num=batch_num,
@@ -1616,7 +1619,7 @@ class AbstractOrchestrator:
                 global_config=global_config,
                 common_log_arguments=common_log_arguments,
                 job_log_final_path=job_log_final_path,
-                batch_data_access=batch_data_access,
+                batch_data_access=None,  # Batch data access removed as per PR #100
             )
             batch_futures.append((batch_num, future))
 
@@ -1674,7 +1677,9 @@ class AbstractOrchestrator:
             available_features.update(validate_results.available_features.get(parent_id, []))
 
         executor = self.create_executor(op_def=op_def, global_config=global_config)
-        new_features = set(op_def.get(OperatorConstants.CONFIG, {}).get(OperatorConstants.INPUT_FEATURES, {}).keys())
+        new_features = set(
+            op_def.get(OperatorConstants.Config.CONFIG, {}).get(OperatorConstants.Config.INPUT_FEATURES, {}).keys()
+        )
 
         all_features = list(available_features.union(new_features))
         validate_results.available_features[node_id] = all_features

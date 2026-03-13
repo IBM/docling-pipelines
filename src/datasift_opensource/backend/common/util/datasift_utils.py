@@ -5,9 +5,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, TypeVar
 
+from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import ErrorCode, ValidationAlert
 from common.exceptions.error_messages import ValidationMessage
-from common.util.constants import OperatorConstants
 from common.util.log import get_logger
 
 logger = get_logger()
@@ -35,9 +35,9 @@ def add_validation_alert(message: str | ValidationMessage, op_def: dict, alerts:
     alerts.append(
         ValidationAlert(
             code=ErrorCode.FLOW_VALIDATION_FAILED.value,
-            node_id=op_def.get(OperatorConstants.ID),
-            node_name=op_def.get(OperatorConstants.NAME),
-            operator=op_def.get(OperatorConstants.OPERATOR),
+            node_id=op_def.get(OperatorConstants.Misc.ID),
+            node_name=op_def.get(OperatorConstants.Misc.NAME),
+            operator=op_def.get(OperatorConstants.Misc.OPERATOR),
             **message_obj.model_dump(mode="python"),
             **kwargs,
         )
@@ -86,7 +86,7 @@ def process_batches_in_parallel(
     *,
     batches: list[T],
     worker_fn: Callable[[T], R],
-    max_workers: int = OperatorConstants.DEFAULT_MAX_THREADS,
+    max_workers: int = OperatorConstants.Misc.DEFAULT_MAX_THREADS,
     result_extractor: Callable[[R], list[Any] | None] | None = None,
 ) -> list[Any]:
     """

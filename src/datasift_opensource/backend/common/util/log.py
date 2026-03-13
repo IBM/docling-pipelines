@@ -15,7 +15,7 @@ import logging
 import os
 import sys
 
-from common.util.constants import DatasiftConstants  # , Environments
+from common.constants.constants import DatasiftConstants  # , Environments
 
 HEALTH_API_SUFFIX = "/health"
 

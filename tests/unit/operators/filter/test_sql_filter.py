@@ -7,6 +7,15 @@ Tests filtering rows from a PyArrow table using SQL WHERE clause criteria.
 import pytest
 
 
+# Add the backend directory to the Python path
+backend_dir = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "src"
+    / "datasift_opensource"
+    / "backend"
+)
+sys.path.insert(0, str(backend_dir))
+
 import pyarrow as pa
 
 from core.operators.universal.filter.sql_filter import (
@@ -18,7 +27,8 @@ from core.operators.universal.filter.sql_filter import (
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
 )
-from common.util.constants import OperatorConstants, Metrics
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics
 from common.exceptions.datasift_exceptions import DatasiftException
 
 
@@ -56,7 +66,9 @@ def make_operator(config: dict) -> SQLFilterOperator:
 def test_basic_filter_greater_than():
     """Filter rows where score > 5 keeps only rows with score 6, 8, 10."""
     table = make_table()
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 5"]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -69,7 +81,7 @@ def test_basic_filter_equals():
     """Filter rows where language = 'en'."""
     table = make_table()
     operator = make_operator(
-        {OperatorConstants.FILTER_CRITERIA_LIST: ["language = 'en'"]}
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["language = 'en'"]}
     )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
@@ -83,7 +95,8 @@ def test_basic_filter_less_than_or_equal():
     """Filter rows where word_count <= 150."""
     table = make_table()
     operator = make_operator(
-        {OperatorConstants.FILTER_CRITERIA_LIST: ["word_count <= 150"]}
+
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["word_count <= 150"]}
     )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
@@ -102,8 +115,12 @@ def test_and_logical_operator():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: ["score > 2", "language = 'en'"],
-            OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_AND,
+
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [
+                "score > 2",
+                "language = 'en'",
+            ],
+            OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_AND,
         }
     )
     result_tables, metadata = operator.transform(table)
@@ -121,8 +138,11 @@ def test_and_logical_operator_no_match():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: ["score > 8", "score < 2"],
-            OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_AND,
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [
+                "score > 8",
+                "score < 2",
+            ],
+            OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_AND,
         }
     )
     result_tables, metadata = operator.transform(table)
@@ -141,11 +161,11 @@ def test_or_logical_operator():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: [
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [
                 "language = 'fr'",
                 "language = 'de'",
             ],
-            OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_OR,
+            OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_OR,
         }
     )
     result_tables, metadata = operator.transform(table)
@@ -161,8 +181,11 @@ def test_or_logical_operator_broader_match():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: ["score < 3", "score > 8"],
-            OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_OR,
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [
+                "score < 3",
+                "score > 8",
+            ],
+            OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY: FILTER_LOGICAL_OPERATOR_OR,
         }
     )
     result_tables, metadata = operator.transform(table)
@@ -185,7 +208,9 @@ def test_filter_criteria_json_simple():
         "operator": ">",
         "value": 5,
     }
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_JSON: criteria_json})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
+    )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -203,7 +228,9 @@ def test_filter_criteria_json_nested_and():
             {"variable": "language", "operator": "=", "value": "en"},
         ],
     }
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_JSON: criteria_json})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
+    )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -224,7 +251,9 @@ def test_filter_criteria_json_nested_or():
             {"variable": "language", "operator": "=", "value": "de"},
         ],
     }
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_JSON: criteria_json})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
+    )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -243,8 +272,8 @@ def test_features_to_drop_removes_column():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: ["score > 0"],
-            OperatorConstants.FILTER_FEATURES_TO_DROP_KEY: ["language"],
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: ["language"],
         }
     )
     result_tables, metadata = operator.transform(table)
@@ -260,8 +289,11 @@ def test_features_to_drop_multiple_columns():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: ["score > 0"],
-            OperatorConstants.FILTER_FEATURES_TO_DROP_KEY: ["language", "word_count"],
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [
+                "language",
+                "word_count",
+            ],
         }
     )
     result_tables, metadata = operator.transform(table)
@@ -277,7 +309,7 @@ def test_features_to_drop_without_filter():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_FEATURES_TO_DROP_KEY: ["language"],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: ["language"],
         }
     )
     result_tables, metadata = operator.transform(table)
@@ -295,7 +327,9 @@ def test_features_to_drop_without_filter():
 def test_filter_returns_empty_table():
     """Filter that matches no rows returns an empty table."""
     table = make_table()
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 9999"]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 9999"]}
+    )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -312,7 +346,9 @@ def test_filter_returns_empty_table():
 def test_filter_all_rows_pass():
     """Filter that matches all rows returns the full table."""
     table = make_table()
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 0"]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]}
+    )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -338,7 +374,9 @@ def test_validate_rejects_drop_of_id_column():
     """Dropping the protected 'id' column should add a validation error."""
     operator = make_operator(
         {
-            OperatorConstants.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.ID],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [
+                OperatorConstants.Columns.ID
+            ],
         }
     )
     errors = []
@@ -353,8 +391,8 @@ def test_validate_rejects_drop_of_content_column():
     """Dropping the protected 'content' column should add a validation error."""
     operator = make_operator(
         {
-            OperatorConstants.FILTER_FEATURES_TO_DROP_KEY: [
-                OperatorConstants.DOC_COLUMN_DEFAULT
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT
             ],
         }
     )
@@ -370,8 +408,8 @@ def test_validate_rejects_drop_of_pages_processed_column():
     """Dropping the protected 'pages_processed' column should add a validation error."""
     operator = make_operator(
         {
-            OperatorConstants.FILTER_FEATURES_TO_DROP_KEY: [
-                OperatorConstants.PAGES_PROCESSED_COLUMN
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [
+                OperatorConstants.Columns.PAGES_PROCESSED_COLUMN
             ],
         }
     )
@@ -400,7 +438,7 @@ def test_validate_rejects_filter_on_nonexistent_column():
     """Filtering on a non-existent column should add a validation error."""
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: ["nonexistent_col > 5"],
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["nonexistent_col > 5"],
         }
     )
     errors = []
@@ -433,7 +471,7 @@ def test_invalid_column_in_transform_returns_original_table():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: ["nonexistent_col > 5"],
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["nonexistent_col > 5"],
         }
     )
     result_tables, metadata = operator.transform(table)
@@ -453,7 +491,7 @@ def test_get_metadata_is_operator_available():
     operator = make_operator({})
     meta = operator.get_metadata()
 
-    assert meta[OperatorConstants.IS_OPERATOR_AVAILABLE] is True
+    assert meta[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is True
 
 
 def test_get_metadata_structure():
@@ -461,22 +499,22 @@ def test_get_metadata_structure():
     operator = make_operator({})
     meta = operator.get_metadata()
 
-    assert OperatorConstants.CATEGORY in meta
-    assert OperatorConstants.LABEL in meta
-    assert OperatorConstants.ATTRIBUTES in meta
-    assert meta[OperatorConstants.LABEL] == "Annotation Filter"
+    assert OperatorConstants.Misc.CATEGORY in meta
+    assert OperatorConstants.Misc.LABEL in meta
+    assert OperatorConstants.Config.ATTRIBUTES in meta
+    assert meta[OperatorConstants.Misc.LABEL] == "Annotation Filter"
 
 
 def test_get_metadata_attributes_keys():
     """get_metadata() attributes contain all expected operator parameters."""
     operator = make_operator({})
     meta = operator.get_metadata()
-    attrs = meta[OperatorConstants.ATTRIBUTES]
+    attrs = meta[OperatorConstants.Config.ATTRIBUTES]
 
-    assert OperatorConstants.FILTER_CRITERIA_LIST in attrs
-    assert OperatorConstants.FILTER_CRITERIA_JSON in attrs
-    assert OperatorConstants.FILTER_LOGICAL_OPERATOR_KEY in attrs
-    assert OperatorConstants.FILTER_FEATURES_TO_DROP_KEY in attrs
+    assert OperatorConstants.Filtering.FILTER_CRITERIA_LIST in attrs
+    assert OperatorConstants.Filtering.FILTER_CRITERIA_JSON in attrs
+    assert OperatorConstants.Filtering.FILTER_LOGICAL_OPERATOR_KEY in attrs
+    assert OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY in attrs
 
 
 # ---------------------------------------------------------------------------
@@ -685,7 +723,9 @@ class TestJsonToSqlWhere:
 def test_transform_metadata_contains_processed_docs():
     """transform() metadata contains processed_docs key."""
     table = make_table()
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 0"]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]}
+    )
     _, metadata = operator.transform(table)
 
     assert Metrics.External.PROCESSED_DOCS in metadata
@@ -695,7 +735,9 @@ def test_transform_metadata_contains_processed_docs():
 def test_transform_metadata_contains_total_docs():
     """transform() metadata contains total_docs_count key."""
     table = make_table()
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 0"]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]}
+    )
     _, metadata = operator.transform(table)
 
     assert Metrics.External.TOTAL_DOCS in metadata
@@ -705,7 +747,9 @@ def test_transform_metadata_contains_total_docs():
 def test_transform_metadata_docs_after_filter():
     """transform() metadata contains docs_after_filter key."""
     table = make_table()
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 5"]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
     _, metadata = operator.transform(table)
 
     assert "docs_after_filter" in metadata
@@ -716,7 +760,9 @@ def test_transform_metadata_filter_stats_per_criterion():
     """transform() metadata contains per-criterion filter stats."""
     table = make_table()
     criterion = "score > 5"
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: [criterion]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [criterion]}
+    )
     _, metadata = operator.transform(table)
 
     key = f"docs_filtered_out_by '{criterion}'"
@@ -730,8 +776,8 @@ def test_transform_metadata_filter_stats_per_criterion():
 
 
 def test_short_name():
-    """short_name matches OperatorConstants.SQL_FILTER."""
-    assert SQLFilterOperator.short_name == OperatorConstants.SQL_FILTER
+    """short_name matches OperatorConstants.Operators.SQL_FILTER."""
+    assert SQLFilterOperator.short_name == OperatorConstants.Operators.SQL_FILTER
 
 
 # ---------------------------------------------------------------------------
@@ -751,7 +797,9 @@ def test_filter_with_single_row_table():
             "word_count": [10],
         }
     )
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 3"]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]}
+    )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -770,7 +818,10 @@ def test_filter_with_single_row_table_no_match():
             "word_count": [10],
         }
     )
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 3"]})
+
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]}
+    )
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -780,7 +831,9 @@ def test_filter_with_single_row_table_no_match():
 def test_filter_preserves_column_names():
     """Filtered table preserves all column names from input."""
     table = make_table()
-    operator = make_operator({OperatorConstants.FILTER_CRITERIA_LIST: ["score > 5"]})
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
@@ -792,8 +845,8 @@ def test_filter_and_drop_combined():
     table = make_table()
     operator = make_operator(
         {
-            OperatorConstants.FILTER_CRITERIA_LIST: ["score > 5"],
-            OperatorConstants.FILTER_FEATURES_TO_DROP_KEY: ["language"],
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: ["language"],
         }
     )
     result_tables, _ = operator.transform(table)

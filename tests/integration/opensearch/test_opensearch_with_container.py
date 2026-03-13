@@ -5,7 +5,6 @@ This test suite automatically starts and stops OpenSearch using docker-compose.
 It requires Docker and docker-compose to be installed and running.
 """
 
-import os
 import time
 import subprocess
 import pytest
@@ -16,7 +15,7 @@ from pathlib import Path
 from core.operators.universal.vectordb.opensearch_operator import (
     OpenSearchOperator,
 )
-from common.util.constants import OperatorConstants
+from common.constants.operator_constants import OperatorConstants
 
 
 def is_docker_available():
@@ -352,4 +351,3 @@ class TestDockerAvailability:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
-
