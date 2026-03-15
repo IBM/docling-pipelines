@@ -87,11 +87,13 @@ timestamps {
               conda activate datasift_py312
               
               # Install pip and uv
-              wget https://bootstrap.pypa.io/get-pip.py
-              python3 get-pip.py
-              python3 -m pip install --upgrade pip
-              rm -f ./get-pip.py*
-              pip install uv
+              #wget https://bootstrap.pypa.io/get-pip.py
+              #python3 get-pip.py
+              #python3 -m pip install --upgrade pip
+              #rm -f ./get-pip.py*
+              #pip install uv
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              
               
               # Install system dependencies
               sudo apt-get update
@@ -102,7 +104,7 @@ timestamps {
               uv sync --extra dev
               
               # Activate virtual environment and run tests from project root
-              # source .venv/bin/activate
+              . .venv/bin/activate
               ls -la
               cd ../../..
               ls -la
