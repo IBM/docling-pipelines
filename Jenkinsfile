@@ -102,9 +102,10 @@ timestamps {
               uv sync --extra dev
               
               # Activate virtual environment and run tests from project root
-              source .venv/bin/activate
+              # source .venv/bin/activate
+              ls -la
               cd ../../..
-              
+              ls -la
               # Run unit tests with coverage
               pytest -m unit -v --cov=src --cov-report=xml:coverage.xml --cov-report=term
               
