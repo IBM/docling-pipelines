@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import TypedDict
 
 # Import OperatorConstants for re-export
@@ -104,6 +104,7 @@ class Metrics:
         CHUNKS_PROCESSED = "chunks_processed"
         CHUNKS_FAILED = "chunks_failed"
         CHUNKS_SKIPPED_EXISTING = "chunks_skipped_existing"
+        ERROR = "error"
 
     class Internal:
         DELETED_FROM_LAST_RUN = "deleted_from_last_run"
@@ -184,7 +185,7 @@ class DataSourceType:
     IBM_COS = "IBM Cloud Object Storage"
 
 
-class ExecutionStatus(str, Enum):
+class ExecutionStatus(StrEnum):
     QUEUED = "Queued"
     STARTING = "Starting"
     RUNNING = "Running"
@@ -218,7 +219,7 @@ active_states = [
 ]
 
 
-class ValidationStatus(str, Enum):
+class ValidationStatus(StrEnum):
     FAILED = "FAILED"
     SUCCEEDED = "SUCCEEDED"
     SUCCEEDED_WITH_WARNINGS = "SUCCEEDED_WITH_WARNINGS"
@@ -250,7 +251,7 @@ class LLMConstants:
     Includes model names and catalog types.
     """
 
-    class Models(str, Enum):
+    class Models(StrEnum):
         """Supported LLM model names"""
 
         OPENAI = "openai"

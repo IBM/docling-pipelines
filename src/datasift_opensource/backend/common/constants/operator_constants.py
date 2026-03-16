@@ -50,8 +50,11 @@ class OperatorConstants:
         DOCLING_CHUNKER: Final[str] = "docling_chunker"
         DOC_ID_OPERATOR: Final[str] = "doc_id_hash"
         DOC_QUALITY: Final[str] = "doc_quality"
+        EDEDUP: Final[str] = "ededup"
         LANG_DETECT: Final[str] = "lang_detect"
+        LANG_DETECT_FASTTEXT: Final[str] = "lang_detect_fasttext"
         MERGE: Final[str] = "merge"
+        ML_ENRICHMENT: Final[str] = "ml_enrichment"
         READABILITY: Final[str] = "readability"
         REDACTION: Final[str] = "redaction"
         REGEX_ANNOTATOR: Final[str] = "regex_annotator"
@@ -109,6 +112,14 @@ class OperatorConstants:
         # Language Detection Columns
         LANGUAGE_NAME_COLUMN_KEY: Final[str] = "lang_name"
         LANGUAGE_SCORE_COLUMN_KEY: Final[str] = "lang_score"
+
+        # ML Enrichment Columns
+        LANG_COLUMN = "lang_column"
+        OUTPUT_COLUMN_PREFIX = "output_column_prefix"
+        NEWLINE_NORMALIZED_COLUMN_NAME = "newline_normalized_column_name"
+        ERROR_COLUMN_NAME = "error_column_name"
+        CONTENT_COLUMN_NAME = "content_column_name"
+        LANG_COLUMN_NAME = "lang_column_name"
 
         # Merge and Join Columns
         COLUMN_LIST: Final[str] = "column_list"
@@ -459,7 +470,7 @@ class OperatorConstants:
         MAX_CONCURRENT_DELETIONS: Final[int] = 10
 
         # Operator Paths
-        ALL_OPERATORS_PATH: Final[list[str]] = ["core.operators.universal"]
+        ALL_OPERATORS_PATH: Final[list[str]] = ["core.operators.universal", "core.operators.language"]
 
 
 # Made with Bob
