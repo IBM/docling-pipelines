@@ -108,6 +108,8 @@ timestamps {
               ls -la
               cd ../../..
               ls -la
+              export PYTHONPATH=./src/datasift_opensource/backend:./tests
+              cp .env.example .env
               # Run unit tests with coverage
               pytest -m unit -v --cov=src --cov-report=xml:coverage.xml --cov-report=term
               
