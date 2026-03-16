@@ -2,8 +2,10 @@ import hashlib
 import importlib
 import io
 import json
+import logging
 import os
-from typing import Any, Iterator
+import tempfile
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 import boto3
 import pyarrow as pa
@@ -16,6 +18,9 @@ from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 from langchain_google_community import GoogleDriveLoader
 
+
+# Suppress pdfminer logging
+logging.getLogger('pdfminer').setLevel(logging.ERROR)
 
 class MicrosoftGraphLoader(BaseLoader):
     """
@@ -307,6 +312,7 @@ class IngestSourceOperator(AbstractOperator):
         - credentials: Authentication credentials
         - max_files: Maximum number of files to ingest
         - include_filter: Comma-separated list of file extensions to include
+        - ignore_hidden_files: Skip files starting with '.' (default: True)
         - exclude_filter: Comma-separated list of file extensions to exclude
         - force_ingest: Force re-ingestion of previously processed documents
         """
@@ -319,9 +325,8 @@ class IngestSourceOperator(AbstractOperator):
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
         self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
         self.store_binary_content: bool = config.get("store_binary_content", False)
-        self.doc_id_hash: str = config.get(
-            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
-        )
+        self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.ignore_hidden_files: bool = config.get("ignore_hidden_files", True)
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
@@ -411,14 +416,18 @@ class IngestSourceOperator(AbstractOperator):
         processed_count: int = 0
 
         try:
-            loader: BaseLoader = self._get_loader()
             logger.info(
                 f"Loading documents from {self.provider}",
                 extra=self.common_log_arguments,
             )
 
-            # Load documents
-            documents: list[Document] = loader.load()
+            # Special handling for S3 to filter hidden files before loading
+            if self.provider in ["s3", "ibm_cos"]:
+                documents: list[Document] = self._load_s3_documents()
+            else:
+                loader: BaseLoader = self._get_loader()
+                documents: list[Document] = loader.load()
+
             logger.info(
                 f"Loaded {len(documents)} documents from {self.provider}",
                 extra=self.common_log_arguments,
@@ -758,7 +767,7 @@ class IngestSourceOperator(AbstractOperator):
 
     def _get_s3_file_keys(self) -> list[str]:
         """
-        Get list of S3 file keys, filtering out directories and hidden files.
+        Get list of S3 file keys, filtering out directories, hidden files, and applying include/exclude filters.
         """
         bucket: str = self.connection_params.get("bucket")
         prefix: str = self.connection_params.get("prefix", "")
@@ -799,9 +808,54 @@ class IngestSourceOperator(AbstractOperator):
                 if obj.get("Size", 0) == 0:
                     continue
 
+                # Apply include/exclude extension filters
+                if filter_based_on_extension(key, self.excluded_extensions, self.included_extensions):
+                    continue
+
                 file_keys.append(key)
 
         return file_keys
+
+    def _load_s3_documents(self) -> list[Document]:
+        """
+        Load S3 documents with hidden file filtering.
+        Uses S3FileLoader to load each file individually, avoiding temp directory issues.
+        """
+        # Get S3 file keys using existing method (already filters hidden files)
+        file_keys: list[str] = self._get_s3_file_keys()
+        
+        # Apply max_files limit to file keys
+        if self.max_files > 0:
+            file_keys = file_keys[:self.max_files]
+        
+        # Setup client config
+        client_config: dict[str, Any] = {}
+        if self.provider == "ibm_cos":
+            client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
+        
+        # Load each file individually
+        documents: list[Document] = []
+        bucket: str = self.connection_params.get("bucket")
+        
+        for key in file_keys:
+            try:
+                loader = S3FileLoader(
+                    bucket=bucket,
+                    key=key,
+                    aws_access_key_id=self.credentials.get("access_key"),
+                    aws_secret_access_key=self.credentials.get("secret_key"),
+                    **client_config
+                )
+                documents.extend(loader.load())
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load {key}: {e!s}",
+                    extra=self.common_log_arguments,
+                )
+                continue
+        
+        return documents
+
 
     def _get_loader(self) -> BaseLoader:
         """

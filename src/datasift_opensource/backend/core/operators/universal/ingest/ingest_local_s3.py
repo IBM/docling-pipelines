@@ -70,7 +70,7 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
 
     @staticmethod
     def is_available() -> bool:
-        return False
+        return True
 
     def get_metadata(self) -> dict[str, Any]:
         return {OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()}
@@ -178,8 +178,22 @@ class IngestS3Operator(AbstractOperator):  # pragma: no cover
         if len(binary_content) == 0:
             return {}, None
 
-        content: str = ""
+        # Decode binary content to string (assuming UTF-8 encoding for text files)
+        try:
+            content: str = binary_content.decode('utf-8')
+        except UnicodeDecodeError:
+            # If not UTF-8, try latin-1 as fallback
+            try:
+                content = binary_content.decode('latin-1')
+            except Exception:
+                logger.warning(f"Could not decode file {file_name}, skipping", extra=self.common_log_arguments)
+                return {}, None
 
+        # Add required fields for compatibility with other operators
+        metadata["id"] = file_name
+        metadata["name"] = file_name.split('/')[-1]  # Extract filename from path
+        metadata["source_id"] = file_name
+        metadata["modified_time"] = int(obj["LastModified"].timestamp())  # Required for incremental updates
         metadata["file-name"] = file_name
         metadata["etag"] = headers["etag"]
         metadata["last-modified"] = headers["last-modified"]
