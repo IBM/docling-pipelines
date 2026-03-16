@@ -6,7 +6,6 @@ from dpk_ededup import (
     HashFilter,
     doc_column_name_key,
     int_column_name_key,
-    short_name,
 )
 
 from common.constants.constants import (
@@ -32,7 +31,7 @@ class EdedupOperator(AbstractOperator):  # pragma: no cover
     proceeding with other subsequent operators. This will save time and processing power to a great extent.
     """
 
-    short_name: str = short_name
+    short_name: str = OperatorConstants.Operators.EDEDUP
     category: OperatorCategory = OperatorCategory.Quality
 
     def __init__(self, config: dict[str, Any]) -> None:

@@ -37,7 +37,7 @@ class LanguageDetectFastText(AbstractOperator):
     - Configurable filtering of unknown languages
     """
 
-    short_name: str = "lang_detect_fasttext"
+    short_name: str = OperatorConstants.Operators.LANG_DETECT_FASTTEXT
     category: OperatorCategory = OperatorCategory.Quality
 
     def __init__(self, config: dict[str, Any]) -> None:
