@@ -78,11 +78,93 @@ Rules:
 # ---------------------------------------------------------------------------
 
 
-def _build_schema_description(schema: dict[str, Any]) -> str:
-    """Convert schema columns dict to human-readable description.
+def _build_schema_description_from_fields(fields: list[dict[str, Any]], indent: int = 0) -> str:
+    """Build rich schema description from fields array format.
+    
+    Args:
+        fields: List of field definitions with name, description, examples, etc.
+        indent: Current indentation level for nested fields
+    
+    Returns:
+        Human-readable schema description with examples
+    """
+    lines: list[str] = []
+    prefix = "  " * indent
+    
+    for field in fields:
+        name = field.get("name", "")
+        description = field.get("description", "")
+        examples = field.get("examples", [])
+        nested_fields = field.get("fields", [])
+        
+        # Build field line with description
+        if description:
+            line = f"{prefix}- {name}: {description}"
+        else:
+            line = f"{prefix}- {name}"
+        
+        # Add examples if available
+        if examples:
+            if len(examples) == 1:
+                line += f" (e.g., '{examples[0]}')"
+            else:
+                examples_str = "', '".join(str(ex) for ex in examples[:3])  # Show up to 3 examples
+                line += f" (e.g., '{examples_str}')"
+        
+        lines.append(line)
+        
+        # Recursively handle nested fields
+        if nested_fields:
+            lines.append(f"{prefix}  Contains:")
+            lines.append(_build_schema_description_from_fields(nested_fields, indent + 2))
+    
+    return "\n".join(lines)
 
+
+def _build_json_template_from_fields(fields: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build JSON template from fields array format.
+    
+    Args:
+        fields: List of field definitions
+    
+    Returns:
+        Nested dictionary template matching the schema structure
+    """
+    template: dict[str, Any] = {}
+    
+    for field in fields:
+        name = field.get("name", "")
+        nested_fields = field.get("fields", [])
+        
+        if nested_fields:
+            # This is a nested object or array
+            nested_template = _build_json_template_from_fields(nested_fields)
+            # Check if it's an array type (like line_items)
+            if "array" in field.get("description", "").lower() or "list" in field.get("description", "").lower():
+                template[name] = [nested_template]
+            else:
+                template[name] = nested_template
+        else:
+            # Leaf field - set to None as placeholder
+            template[name] = None
+    
+    return template
+
+
+def _build_schema_description(schema: dict[str, Any]) -> str:
+    """Convert schema to human-readable description.
+    
+    Supports both formats:
+    - New format: 'fields' array with rich metadata
+    - Old format: 'columns' dict with dot-notation
+    
     Strips common prefix from column names to avoid double-nesting.
     """
+    # Check for new 'fields' format first
+    if "fields" in schema:
+        return _build_schema_description_from_fields(schema["fields"])
+    
+    # Fall back to old 'columns' format
     columns = schema.get("columns", {})
     if not columns:
         return ""
@@ -112,11 +194,20 @@ def _build_schema_description(schema: dict[str, Any]) -> str:
 
 def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
     """Build skeleton JSON template matching schema structure.
+    
+    Supports both formats:
+    - New format: 'fields' array with rich metadata
+    - Old format: 'columns' dict with dot-notation
 
     Handles nested paths by building a hierarchical structure.
     If all columns start with the same prefix (e.g., 'invoice_entities.'),
     that prefix is stripped to avoid double-nesting.
     """
+    # Check for new 'fields' format first
+    if "fields" in schema:
+        return _build_json_template_from_fields(schema["fields"])
+    
+    # Fall back to old 'columns' format
     columns = schema.get("columns", {})
     if not columns:
         return {}
@@ -267,12 +358,25 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
 
 
 def _load_schema_from_file(schema_file: str, table_name: str) -> dict[str, Any] | None:
-    """Load a named schema from a JSON schema file."""
+    """Load a named schema from a JSON schema file.
+    
+    Supports two formats:
+    1. New format: Root-level 'fields' array (ignores table_name)
+    2. Old format: 'schemas' array with 'table' property
+    """
     try:
         with open(schema_file, encoding="utf-8") as fh:
             data: dict[str, Any] = json.load(fh)
+        
+        # Check for new 'fields' format at root level
+        if "fields" in data:
+            logger.info("Loaded schema with 'fields' format from '%s'", schema_file)
+            return data
+        
+        # Fall back to old 'schemas' array format
         for schema in data.get("schemas", []):
             if schema.get("table") == table_name:
+                logger.info("Loaded schema table '%s' from '%s'", table_name, schema_file)
                 return schema
         logger.warning("Schema table '%s' not found in '%s'", table_name, schema_file)
     except (OSError, json.JSONDecodeError) as exc:
@@ -310,7 +414,8 @@ def _extract_entities_worker(
 
     try:
         truncated_content: str = content[:max_doc_chars] if len(content) > max_doc_chars else content
-        has_schema: bool = bool(schema.get("columns"))
+        # Check for both schema formats: new 'fields' array or old 'columns' dict
+        has_schema: bool = bool(schema.get("fields") or schema.get("columns"))
 
         if has_schema:
             schema_desc: str = _build_schema_description(schema)
@@ -330,6 +435,15 @@ def _extract_entities_worker(
                 f"Document text:\n{truncated_content}"
             )
 
+        # Log the prompts being sent to LLM
+        logger.info("=" * 80)
+        logger.info("LLM PROMPT for document '%s' (ID: %s)", doc_name, doc_id)
+        logger.info("-" * 80)
+        logger.info("SYSTEM PROMPT:\n%s", system_prompt)
+        logger.info("-" * 80)
+        logger.info("USER PROMPT:\n%s", user_prompt)
+        logger.info("=" * 80)
+
         response: dict[str, Any] = ollama.chat(
             model=ollama_model,
             messages=[
@@ -340,6 +454,14 @@ def _extract_entities_worker(
         )
         raw: str = response["message"]["content"]
         entities: dict[str, Any] = _parse_llm_json(raw)
+        
+        # Log the extracted entities
+        logger.info("=" * 80)
+        logger.info("EXTRACTED ENTITIES for document '%s' (ID: %s)", doc_name, doc_id)
+        logger.info("-" * 80)
+        logger.info("%s", json.dumps(entities, indent=2, ensure_ascii=False))
+        logger.info("=" * 80)
+        
         return {"success": True, "entities": entities, "error": None}
 
     except Exception as exc:
