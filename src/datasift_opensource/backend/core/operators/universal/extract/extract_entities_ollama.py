@@ -667,6 +667,10 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             doc_id = str(row.get(OperatorConstants.Columns.ID, row_idx))
             doc_name = str(row.get(OperatorConstants.Columns.NAME, f"doc_{row_idx}"))
             content = row.get(self.doc_column) or ""
+            
+            # Log content preview for debugging
+            content_preview = content[:200] if content else "(empty)"
+            logger.info(f"Document '{doc_name}' (ID: {doc_id}) content preview: {content_preview}...")
 
             if not content:
                 self.record_skipped_document(
