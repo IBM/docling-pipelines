@@ -12,14 +12,12 @@ import pyarrow as pa
 
 # Import standard LangChain loaders
 from langchain_community.document_loaders import (
-    OneDriveLoader,
     S3DirectoryLoader,
-    S3FileLoader,
-    SharePointLoader,
 )
-from langchain_google_community import GoogleDriveLoader
-from langchain_core.documents import Document
 from langchain_core.document_loaders import BaseLoader
+from langchain_core.documents import Document
+from langchain_google_community import GoogleDriveLoader
+
 
 # Suppress pdfminer logging
 logging.getLogger('pdfminer').setLevel(logging.ERROR)
@@ -34,9 +32,33 @@ class MicrosoftGraphLoader(BaseLoader):
     """
 
     # Supported text-extractable file extensions
-    TEXT_EXTENSIONS = {'.txt', '.md', '.csv', '.json', '.xml', '.html', '.htm', '.py',
-                       '.js', '.ts', '.java', '.c', '.cpp', '.cs', '.go', '.rb', '.php',
-                       '.yaml', '.yml', '.toml', '.ini', '.cfg', '.log', '.rst', '.tex'}
+    TEXT_EXTENSIONS = {
+        ".txt",
+        ".md",
+        ".csv",
+        ".json",
+        ".xml",
+        ".html",
+        ".htm",
+        ".py",
+        ".js",
+        ".ts",
+        ".java",
+        ".c",
+        ".cpp",
+        ".cs",
+        ".go",
+        ".rb",
+        ".php",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".log",
+        ".rst",
+        ".tex",
+    }
 
     def __init__(
         self,
@@ -65,55 +87,56 @@ class MicrosoftGraphLoader(BaseLoader):
             raise ImportError("msal package not found. Install with: pip install msal")
         app = msal.ConfidentialClientApplication(
             self.client_id,
-            authority=f'https://login.microsoftonline.com/{self.tenant_id}',
+            authority=f"https://login.microsoftonline.com/{self.tenant_id}",
             client_credential=self.client_secret,
         )
-        result = app.acquire_token_for_client(scopes=['https://graph.microsoft.com/.default'])
-        if 'access_token' not in result:
+        result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+        if "access_token" not in result:
             raise ValueError(
-                f"Failed to acquire Microsoft Graph token: {result.get('error')} - "
-                f"{result.get('error_description')}"
+                f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
             )
-        self._token = result['access_token']
+        self._token = result["access_token"]
         return self._token
 
-    def _list_files(self, folder_item_id: str = None) -> List[dict]:
+    def _list_files(self, folder_item_id: str = None) -> list[dict]:
         """Recursively list all files in the drive (or a specific folder)."""
         import requests
+
         token = self._get_token()
-        headers = {'Authorization': f'Bearer {token}'}
+        headers = {"Authorization": f"Bearer {token}"}
 
         if folder_item_id:
-            url = f'https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{folder_item_id}/children'
+            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{folder_item_id}/children"
         else:
-            url = f'https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children'
+            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children"
 
         files = []
         while url:
             r = requests.get(url, headers=headers)
             r.raise_for_status()
             data = r.json()
-            for item in data.get('value', []):
-                if 'folder' in item:
+            for item in data.get("value", []):
+                if "folder" in item:
                     if self.recursive:
-                        files.extend(self._list_files(folder_item_id=item['id']))
+                        files.extend(self._list_files(folder_item_id=item["id"]))
                 else:
                     files.append(item)
-            url = data.get('@odata.nextLink')
+            url = data.get("@odata.nextLink")
         return files
 
     def _download_file(self, item: dict) -> bytes:
         """Download file content from Graph API."""
         import requests
+
         token = self._get_token()
-        headers = {'Authorization': f'Bearer {token}'}
-        download_url = item.get('@microsoft.graph.downloadUrl')
+        headers = {"Authorization": f"Bearer {token}"}
+        download_url = item.get("@microsoft.graph.downloadUrl")
         if not download_url:
             # Fallback: get download URL via API
             r = requests.get(
-                f'https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{item["id"]}/content',
+                f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{item['id']}/content",
                 headers=headers,
-                allow_redirects=True
+                allow_redirects=True,
             )
             r.raise_for_status()
             return r.content
@@ -123,55 +146,63 @@ class MicrosoftGraphLoader(BaseLoader):
 
     def _extract_text(self, item: dict, content: bytes) -> str:
         """Extract text from file content based on file extension."""
-        name = item.get('name', '')
+        name = item.get("name", "")
         ext = os.path.splitext(name)[1].lower()
 
         if ext in self.TEXT_EXTENSIONS:
             try:
-                return content.decode('utf-8', errors='replace')
+                return content.decode("utf-8", errors="replace")
             except Exception:
-                return content.decode('latin-1', errors='replace')
+                return content.decode("latin-1", errors="replace")
 
-        if ext == '.pdf':
+        if ext == ".pdf":
             try:
                 import io
+
                 import pypdf
+
                 reader = pypdf.PdfReader(io.BytesIO(content))
-                return '\n'.join(page.extract_text() or '' for page in reader.pages)
+                return "\n".join(page.extract_text() or "" for page in reader.pages)
             except ImportError:
                 pass
             try:
-                import pdfminer.high_level as pdfminer
                 import io
+
+                import pdfminer.high_level as pdfminer
+
                 return pdfminer.extract_text(io.BytesIO(content))
             except ImportError:
                 pass
 
-        if ext in ('.docx', '.doc'):
+        if ext in (".docx", ".doc"):
             try:
                 import io
+
                 import docx
+
                 doc = docx.Document(io.BytesIO(content))
-                return '\n'.join(p.text for p in doc.paragraphs)
+                return "\n".join(p.text for p in doc.paragraphs)
             except ImportError:
                 pass
 
-        if ext in ('.xlsx', '.xls'):
+        if ext in (".xlsx", ".xls"):
             try:
                 import io
+
                 import openpyxl
+
                 wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
                 rows = []
                 for sheet in wb.worksheets:
                     for row in sheet.iter_rows(values_only=True):
-                        rows.append('\t'.join(str(c) if c is not None else '' for c in row))
-                return '\n'.join(rows)
+                        rows.append("\t".join(str(c) if c is not None else "" for c in row))
+                return "\n".join(rows)
             except ImportError:
                 pass
 
         # Fallback: try UTF-8 decode
         try:
-            return content.decode('utf-8', errors='replace')
+            return content.decode("utf-8", errors="replace")
         except Exception:
             return f"[Binary file: {name}]"
 
@@ -181,20 +212,17 @@ class MicrosoftGraphLoader(BaseLoader):
         folder_item_id = None
         if self.folder_path:
             import requests
+
             token = self._get_token()
-            headers = {'Authorization': f'Bearer {token}'}
+            headers = {"Authorization": f"Bearer {token}"}
             # Normalize path
-            path = self.folder_path.strip('/')
-            r = requests.get(
-                f'https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}',
-                headers=headers
-            )
+            path = self.folder_path.strip("/")
+            r = requests.get(f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}", headers=headers)
             if r.status_code == 200:
-                folder_item_id = r.json().get('id')
+                folder_item_id = r.json().get("id")
             else:
                 raise ValueError(
-                    f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': "
-                    f"{r.status_code} {r.text}"
+                    f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {r.status_code} {r.text}"
                 )
 
         files = self._list_files(folder_item_id=folder_item_id)
@@ -203,36 +231,37 @@ class MicrosoftGraphLoader(BaseLoader):
                 content_bytes = self._download_file(item)
                 text = self._extract_text(item, content_bytes)
                 metadata = {
-                    'source': item.get('name', ''),
-                    'drive_id': self.drive_id,
-                    'item_id': item.get('id', ''),
-                    'size': item.get('size', 0),
-                    'last_modified': item.get('lastModifiedDateTime', ''),
-                    'web_url': item.get('webUrl', ''),
-                    'mime_type': item.get('file', {}).get('mimeType', ''),
+                    "source": item.get("name", ""),
+                    "drive_id": self.drive_id,
+                    "item_id": item.get("id", ""),
+                    "size": item.get("size", 0),
+                    "last_modified": item.get("lastModifiedDateTime", ""),
+                    "web_url": item.get("webUrl", ""),
+                    "mime_type": item.get("file", {}).get("mimeType", ""),
                 }
                 yield Document(page_content=text, metadata=metadata)
             except Exception as e:
                 yield Document(
-                    page_content='',
+                    page_content="",
                     metadata={
-                        'source': item.get('name', ''),
-                        'error': str(e),
-                        'drive_id': self.drive_id,
-                        'item_id': item.get('id', ''),
-                    }
+                        "source": item.get("name", ""),
+                        "error": str(e),
+                        "drive_id": self.drive_id,
+                        "item_id": item.get("id", ""),
+                    },
                 )
 
-    def load(self) -> List[Document]:
+    def load(self) -> list[Document]:
         return list(self.lazy_load())
 
-from common.util.constants import (
+
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -342,7 +371,7 @@ class IngestSourceOperator(AbstractOperator):
                     "source_id": [],
                     "path": [],
                     "binary_content": [],
-                    "modified_time": []
+                    "modified_time": [],
                 },
                 schema=pa.schema(
                     [
@@ -352,7 +381,7 @@ class IngestSourceOperator(AbstractOperator):
                         ("source_id", pa.string()),
                         ("path", pa.string()),
                         ("binary_content", pa.binary()),
-                        ("modified_time", pa.int64())
+                        ("modified_time", pa.int64()),
                     ]
                 ),
             )
@@ -501,7 +530,7 @@ class IngestSourceOperator(AbstractOperator):
                 "modified_time": modified_time,
                 "metadata": json.dumps(doc.metadata),
                 "source_id": source,
-                "modified_time": modified_time if isinstance(modified_time, int) else 0
+                "modified_time": modified_time if isinstance(modified_time, int) else 0,
             }
 
             # Store either binary content or text based on configuration
@@ -849,28 +878,28 @@ class IngestSourceOperator(AbstractOperator):
             )
 
         # 2. Microsoft SharePoint
-        elif self.provider == 'sharepoint':
+        elif self.provider == "sharepoint":
             # Use custom MicrosoftGraphLoader which supports app-only (client credentials) auth.
             # LangChain's SharePointLoader calls /me/drives/ which requires delegated user auth.
             return MicrosoftGraphLoader(
-                drive_id=self.connection_params.get('document_library_id'),
-                client_id=self.credentials.get('client_id'),
-                client_secret=self.credentials.get('client_secret'),
-                tenant_id=self.credentials.get('tenant_id'),
-                folder_path=self.connection_params.get('folder_path'),
-                recursive=self.connection_params.get('recursive', True),
+                drive_id=self.connection_params.get("document_library_id"),
+                client_id=self.credentials.get("client_id"),
+                client_secret=self.credentials.get("client_secret"),
+                tenant_id=self.credentials.get("tenant_id"),
+                folder_path=self.connection_params.get("folder_path"),
+                recursive=self.connection_params.get("recursive", True),
             )
 
         # 3. Microsoft OneDrive
-        elif self.provider == 'onedrive':
+        elif self.provider == "onedrive":
             # Use custom MicrosoftGraphLoader which supports app-only (client credentials) auth.
             return MicrosoftGraphLoader(
-                drive_id=self.connection_params.get('drive_id'),
-                client_id=self.credentials.get('client_id'),
-                client_secret=self.credentials.get('client_secret'),
-                tenant_id=self.credentials.get('tenant_id'),
-                folder_path=self.connection_params.get('folder_path'),
-                recursive=self.connection_params.get('recursive', True),
+                drive_id=self.connection_params.get("drive_id"),
+                client_id=self.credentials.get("client_id"),
+                client_secret=self.credentials.get("client_secret"),
+                tenant_id=self.credentials.get("tenant_id"),
+                folder_path=self.connection_params.get("folder_path"),
+                recursive=self.connection_params.get("recursive", True),
             )
 
         # 4. Google Drive
@@ -925,35 +954,35 @@ class IngestSourceOperator(AbstractOperator):
         """
         metadata_features: dict[str, dict[str, Any]] = {
             "path": {
-                OperatorConstants.NAME: "Source Path",
+                OperatorConstants.Columns.NAME: "Source Path",
                 OperatorConstants.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
                 OperatorConstants.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
             },
             "binary_content": {
-                OperatorConstants.NAME: "Binary Content",
+                OperatorConstants.Columns.NAME: "Binary Content",
                 OperatorConstants.DESCRIPTION: "The raw binary content of the document for downstream extraction operators",
                 OperatorConstants.AVAILABLE_FOR_FILTER: False,
                 OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
             },
             "metadata": {
-                OperatorConstants.NAME: "Document Metadata",
+                OperatorConstants.Columns.NAME: "Document Metadata",
                 OperatorConstants.DESCRIPTION: "JSON-serialized metadata from the source document",
                 OperatorConstants.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
             },
             "source_id": {
-                OperatorConstants.NAME: "Source ID",
+                OperatorConstants.Columns.NAME: "Source ID",
                 OperatorConstants.DESCRIPTION: "The source identifier (file path, URL, etc.)",
                 OperatorConstants.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
             },
             self.doc_id_hash: {
-                OperatorConstants.NAME: "Hash ID",
+                OperatorConstants.Columns.NAME: "Hash ID",
                 OperatorConstants.DESCRIPTION: "Hash ID of the document",
                 OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
                 OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
@@ -971,38 +1000,38 @@ class IngestSourceOperator(AbstractOperator):
             OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
             OperatorConstants.ATTRIBUTES: {
                 PROVIDER_KEY: {
-                    OperatorConstants.NAME: "Provider",
+                    OperatorConstants.Columns.NAME: "Provider",
                     OperatorConstants.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
                     OperatorConstants.REQUIRED: True,
                     OperatorConstants.TYPE: AttributeDataTypes.STRING,
                 },
                 CONNECTION_PARAMS_KEY: {
-                    OperatorConstants.NAME: "Connection Parameters",
+                    OperatorConstants.Columns.NAME: "Connection Parameters",
                     OperatorConstants.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
                     OperatorConstants.REQUIRED: True,
                     OperatorConstants.TYPE: AttributeDataTypes.JSON,
                 },
                 CREDENTIALS_KEY: {
-                    OperatorConstants.NAME: "Credentials",
+                    OperatorConstants.Columns.NAME: "Credentials",
                     OperatorConstants.DESCRIPTION: "Authentication credentials for the provider",
                     OperatorConstants.REQUIRED: True,
                     OperatorConstants.TYPE: AttributeDataTypes.JSON,
                 },
                 MAX_FILES_KEY: {
-                    OperatorConstants.NAME: "Max Files",
+                    OperatorConstants.Columns.NAME: "Max Files",
                     OperatorConstants.DESCRIPTION: "Maximum number of files to ingest",
                     OperatorConstants.DEFAULT: MAX_FILES_DEFAULT_VALUE,
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
                 },
                 INCLUDE_FILTER_KEY: {
-                    OperatorConstants.NAME: "Include File Type",
+                    OperatorConstants.Columns.NAME: "Include File Type",
                     OperatorConstants.DESCRIPTION: "File types to be included (comma-separated extensions)",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.TYPE: AttributeDataTypes.LIST,
                 },
                 EXCLUDE_FILTER_KEY: {
-                    OperatorConstants.NAME: "Exclude File Type",
+                    OperatorConstants.Columns.NAME: "Exclude File Type",
                     OperatorConstants.DESCRIPTION: "File types to be excluded (comma-separated extensions)",
                     OperatorConstants.REQUIRED: False,
                     OperatorConstants.TYPE: AttributeDataTypes.LIST,

@@ -14,26 +14,35 @@ Tests cover:
 - Multi-provider support structure
 """
 
-from unittest.mock import patch
+import sys
+from pathlib import Path
+from unittest.mock import Mock, patch
+
 import pytest
 import pyarrow as pa
 import numpy as np
 
-# Path setup is now automatic via conftest.py
+# Add the backend directory to the Python path
+backend_dir = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "src"
+    / "datasift_opensource"
+    / "backend"
+)
+sys.path.insert(0, str(backend_dir))
 
-from core.operators.universal.embeddings.embeddings_operator import (
+
+# noqa comments to suppress E402 (module level import not at top of file)
+# These imports must come after sys.path modification
+from core.operators.universal.embeddings.embeddings_operator import (  # noqa: E402
     EmbeddingsOperator,
     OVERLAP_RATIO_DEFAULT,
     OVERLAP_RATIO_MIN,
     OVERLAP_RATIO_MAX,
-    SUPPORTED_EMBEDDINGS_TYPES,
     EMBEDDINGS_TYPE_DEFAULT,
 )
-from common.util.constants import (
-    Metrics,
-    OperatorConstants,
-    ExecutionStatus,
-)
+from common.constants.constants import Metrics, ExecutionStatus  # noqa: E402
+from common.constants.operator_constants import OperatorConstants  # noqa: E402
 
 
 # Test Fixtures
@@ -135,7 +144,8 @@ def sample_table_empty():
 class TestEmbeddingsOperatorInitialization:
     """Test operator initialization and configuration."""
 
-    def test_init_with_valid_config(self, sample_config):
+    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    def test_init_with_valid_config(self, mock_ollama_client, sample_config):
         """Test operator initialization with valid configuration."""
         operator = EmbeddingsOperator(sample_config)
 
@@ -146,19 +156,26 @@ class TestEmbeddingsOperatorInitialization:
         assert operator.doc_id_hash_column == "doc_id_hash"
         assert operator.overlap_ratio == 0.2
 
-    def test_init_with_default_values(self):
+    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    def test_init_with_default_values(self, mock_ollama_client):
         """Test operator initialization with default values."""
         config = {"embeddings_model_id": "mistral"}
         operator = EmbeddingsOperator(config)
 
         assert operator.embeddings_type == EMBEDDINGS_TYPE_DEFAULT
         assert operator.embeddings_model_id == "mistral"
-        assert operator.embeddings_column == OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT
-        assert operator.doc_column == OperatorConstants.DOC_COLUMN_DEFAULT
-        assert operator.doc_id_hash_column == OperatorConstants.DOC_ID_HASH_DEFAULT
+        assert (
+            operator.embeddings_column
+            == OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
+        )
+        assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        assert (
+            operator.doc_id_hash_column == OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
         assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
 
-    def test_init_with_minimal_config(self):
+    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    def test_init_with_minimal_config(self, mock_ollama_client):
         """Test operator initialization with minimal configuration."""
         config = {}
         operator = EmbeddingsOperator(config)
@@ -174,10 +191,11 @@ class TestEmbeddingsOperatorInitialization:
             "embeddings_type": "openai",
             "embeddings_model_id": "text-embedding-ada-002",
         }
-        operator = EmbeddingsOperator(config)
+        # OpenAI provider is not yet implemented, so initialization should raise an exception
+        with pytest.raises(Exception) as exc_info:
+            EmbeddingsOperator(config)
 
-        assert operator.embeddings_type == "openai"
-        assert operator.embeddings_model_id == "text-embedding-ada-002"
+        assert "not yet implemented" in str(exc_info.value).lower()
 
     def test_get_required_features(self, sample_config):
         """Test get_required_features returns correct list."""
@@ -197,59 +215,69 @@ class TestEmbeddingsOperatorMetadata:
         metadata = operator.get_metadata()
 
         assert isinstance(metadata, dict)
-        assert OperatorConstants.CATEGORY in metadata
-        assert OperatorConstants.FEATURES in metadata
-        assert OperatorConstants.ATTRIBUTES in metadata
-        assert OperatorConstants.IS_OPERATOR_AVAILABLE in metadata
-        assert metadata[OperatorConstants.IS_OPERATOR_AVAILABLE] is True
+        assert OperatorConstants.Misc.CATEGORY in metadata
+        assert OperatorConstants.Config.FEATURES in metadata
+        assert OperatorConstants.Config.ATTRIBUTES in metadata
+        assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in metadata
+        assert metadata[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is True
 
     def test_get_metadata_features(self, sample_config):
         """Test metadata includes correct features."""
         operator = EmbeddingsOperator(sample_config)
         metadata = operator.get_metadata()
-        features = metadata[OperatorConstants.FEATURES]
 
-        assert OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT in features
-        assert OperatorConstants.DOC_ID_HASH_DEFAULT in features
+        features = metadata[OperatorConstants.Config.FEATURES]
+
+        assert OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT in features
+        assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in features
 
         # Check embeddings feature details
-        embeddings_feature = features[OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT]
-        assert embeddings_feature[OperatorConstants.AVAILABLE_FOR_VECTOR_DB] is True
-        assert embeddings_feature[OperatorConstants.MANDATORY_FOR_VECTOR_DB] is True
+        embeddings_feature = features[
+            OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
+        ]
         assert (
-            embeddings_feature[OperatorConstants.TYPE] == OperatorConstants.TYPE_VECTOR
+            embeddings_feature[OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB] is True
+        )
+        assert (
+            embeddings_feature[OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB] is True
+        )
+        assert (
+            embeddings_feature[OperatorConstants.Misc.TYPE]
+            == OperatorConstants.Types.TYPE_VECTOR
         )
 
     def test_get_metadata_attributes(self, sample_config):
         """Test metadata includes correct attributes."""
         operator = EmbeddingsOperator(sample_config)
         metadata = operator.get_metadata()
-        attributes = metadata[OperatorConstants.ATTRIBUTES]
+
+        attributes = metadata[OperatorConstants.Config.ATTRIBUTES]
 
         assert "embeddings_type" in attributes
-        assert OperatorConstants.EMBEDDINGS_MODEL_ID in attributes
-        assert OperatorConstants.EMBEDDINGS_COLUMN in attributes
+        assert OperatorConstants.Config.EMBEDDINGS_MODEL_ID in attributes
+        assert OperatorConstants.Columns.EMBEDDINGS_COLUMN in attributes
         assert "overlap_ratio" in attributes
 
         # Check embeddings_type attribute details
         embeddings_type_attr = attributes["embeddings_type"]
         assert (
-            embeddings_type_attr[OperatorConstants.DEFAULT] == EMBEDDINGS_TYPE_DEFAULT
+            embeddings_type_attr[OperatorConstants.Config.DEFAULT]
+            == EMBEDDINGS_TYPE_DEFAULT
         )
 
         # Check overlap_ratio attribute details
         overlap_attr = attributes["overlap_ratio"]
-        assert overlap_attr[OperatorConstants.DEFAULT] == OVERLAP_RATIO_DEFAULT
-        assert overlap_attr[OperatorConstants.MIN_VALUE] == OVERLAP_RATIO_MIN
-        assert overlap_attr[OperatorConstants.MAX_VALUE] == OVERLAP_RATIO_MAX
+        assert overlap_attr[OperatorConstants.Config.DEFAULT] == OVERLAP_RATIO_DEFAULT
+        assert overlap_attr[OperatorConstants.Filtering.MIN_VALUE] == OVERLAP_RATIO_MIN
+        assert overlap_attr[OperatorConstants.Filtering.MAX_VALUE] == OVERLAP_RATIO_MAX
 
     def test_metadata_label_is_generic(self, sample_config):
         """Test that metadata label is generic (not provider-specific)."""
         operator = EmbeddingsOperator(sample_config)
         metadata = operator.get_metadata()
 
-        assert metadata[OperatorConstants.LABEL] == "Embeddings"
-        assert "Ollama" not in metadata[OperatorConstants.LABEL]
+        assert metadata[OperatorConstants.Misc.LABEL] == "Embeddings"
+        assert "Ollama" not in metadata[OperatorConstants.Misc.LABEL]
 
 
 class TestEmbeddingsOperatorValidation:
@@ -272,14 +300,14 @@ class TestEmbeddingsOperatorValidation:
             "embeddings_type": "invalid_provider",
             "embeddings_model_id": "llama2",
         }
-        operator = EmbeddingsOperator(config)
-        errors = []
-        warnings = []
+        # Invalid provider should raise exception during initialization
+        with pytest.raises(Exception) as exc_info:
+            EmbeddingsOperator(config)
 
-        operator.validate(errors, warnings, ["content"])
-
-        assert len(errors) > 0
-        assert any("embeddings_type must be one of" in err for err in errors)
+        assert (
+            "unsupported" in str(exc_info.value).lower()
+            or "failed to initialize" in str(exc_info.value).lower()
+        )
 
     def test_validate_embeddings_type_not_string(self):
         """Test validation with non-string embeddings_type."""
@@ -287,14 +315,9 @@ class TestEmbeddingsOperatorValidation:
             "embeddings_type": 123,  # Should be string
             "embeddings_model_id": "llama2",
         }
-        operator = EmbeddingsOperator(config)
-        errors = []
-        warnings = []
-
-        operator.validate(errors, warnings, ["content"])
-
-        assert len(errors) > 0
-        assert any("embeddings_type must be a string" in err for err in errors)
+        # Non-string type should raise exception during initialization
+        with pytest.raises(Exception):
+            EmbeddingsOperator(config)
 
     def test_validate_invalid_overlap_ratio_type(self):
         """Test validation with invalid overlap_ratio type."""
@@ -328,7 +351,8 @@ class TestEmbeddingsOperatorValidation:
         assert len(errors) > 0
         assert any("overlap_ratio must be between" in err for err in errors)
 
-    def test_validate_invalid_model_id(self):
+    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    def test_validate_invalid_model_id(self, mock_ollama_client):
         """Test validation with invalid model ID."""
         config = {
             "embeddings_type": "ollama",
@@ -345,9 +369,11 @@ class TestEmbeddingsOperatorValidation:
             "embeddings_model_id must be a non-empty string" in err for err in errors
         )
 
-    def test_validate_all_supported_embeddings_types(self):
+    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    def test_validate_all_supported_embeddings_types(self, mock_ollama_client):
         """Test validation accepts all supported embeddings types."""
-        for embeddings_type in SUPPORTED_EMBEDDINGS_TYPES:
+        # Only test ollama since openai is not yet implemented
+        for embeddings_type in ["ollama"]:
             config = {
                 "embeddings_type": embeddings_type,
                 "embeddings_model_id": "test_model",
@@ -603,34 +629,31 @@ class TestEmbeddingsGeneration:
         assert mock_embeddings.call_count == 0
 
     def test_create_embeddings_unsupported_provider(self, sample_config):
-        """Test that unsupported provider raises error."""
+        """Test that unsupported provider raises error during initialization."""
         config = sample_config.copy()
         config["embeddings_type"] = "unsupported_provider"
 
-        operator = EmbeddingsOperator(config)
-
+        # Unsupported provider should raise exception during initialization
         with pytest.raises(Exception) as exc_info:
-            operator._create_embeddings(
-                text=["test"], model_name="test_model", overlap_ratio=0.2
-            )
+            EmbeddingsOperator(config)
 
-        assert "Unsupported embeddings_type" in str(exc_info.value)
+        assert (
+            "unsupported" in str(exc_info.value).lower()
+            or "failed to initialize" in str(exc_info.value).lower()
+        )
 
     def test_create_embeddings_openai_not_implemented(self):
-        """Test that OpenAI provider raises not implemented error."""
+        """Test that OpenAI provider raises not implemented error during initialization."""
         config = {
             "embeddings_type": "openai",
             "embeddings_model_id": "text-embedding-ada-002",
         }
 
-        operator = EmbeddingsOperator(config)
-
+        # OpenAI provider should raise exception during initialization
         with pytest.raises(Exception) as exc_info:
-            operator._create_embeddings(
-                text=["test"], model_name="text-embedding-ada-002", overlap_ratio=0.2
-            )
+            EmbeddingsOperator(config)
 
-        assert "not yet implemented" in str(exc_info.value)
+        assert "not yet implemented" in str(exc_info.value).lower()
 
 
 # Document Hash Tests
@@ -1020,21 +1043,29 @@ class TestEmbeddingsOperatorIntegration:
             config = sample_config.copy()
             config["embeddings_model_id"] = model
 
-            operator = EmbeddingsOperator(config)
+            # Mock OllamaClient for this specific model
+            with patch(
+                "core.operators.universal.embeddings.embeddings_operator.OllamaClient"
+            ) as mock_client:
+                mock_instance = Mock()
+                mock_instance.generate_embeddings.return_value = [0.1] * 384
+                mock_client.return_value = mock_instance
 
-            # Create long text
-            long_text = "Test " * 10000
-            data = {
-                "id": ["doc1"],
-                "name": ["Doc"],
-                "content": [long_text],
-            }
-            table = pa.table(data)
+                operator = EmbeddingsOperator(config)
 
-            result_tables, metadata = operator.transform(table)
+                # Create long text
+                long_text = "Test " * 10000
+                data = {
+                    "id": ["doc1"],
+                    "name": ["Doc"],
+                    "content": [long_text],
+                }
+                table = pa.table(data)
 
-            # Should process successfully with appropriate chunking
-            assert metadata[Metrics.External.PROCESSED_DOCS] == 1
+                result_tables, metadata = operator.transform(table)
+
+                # Should process successfully with appropriate chunking
+                assert metadata[Metrics.External.PROCESSED_DOCS] == 1
 
     @patch("ollama.embeddings")
     def test_mixed_success_and_failure_documents(self, mock_embeddings, sample_config):

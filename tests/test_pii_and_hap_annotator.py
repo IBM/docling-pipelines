@@ -19,7 +19,7 @@ import pyarrow as pa
 import pytest
 
 
-from common.util.constants import OperatorConstants  # noqa: E402
+from common.constants.operator_constants import OperatorConstants  # noqa: E402
 from core.operators.universal.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
     PIIAndHAPAnnotator,
 )
@@ -571,7 +571,7 @@ def test_configuration_validation():
                 "model_name": "granite4",
             }
         )
-        assert operator.doc_column_name == OperatorConstants.DOC_COLUMN_DEFAULT
+        assert operator.doc_column_name == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
     except Exception as e:
         pytest.fail(f"Unexpected exception with default doc_column: {str(e)}")
 

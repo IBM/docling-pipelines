@@ -5,15 +5,15 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from common.util.constants import (
+from common.constants.constants import (
     DatasiftConstants,
     DocsStructure,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
+from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.job_tracker.model.models import normalize_node_stats_for_dto
 from common.util.job_tracker.tracker.job_tracker import NodeStatsDto
 from common.util.log import get_logger
@@ -128,27 +128,27 @@ class OperatorUtils:
 
         logger = get_logger()
 
-        metadata_file_path = f"{job_id}/{job_run_id}/{OperatorConstants.NODES_METADATA_FILE}"
+        metadata_file_path = f"{job_id}/{job_run_id}/{OperatorConstants.Config.NODES_METADATA_FILE}"
 
         op_node_metadata = {
-            OperatorConstants.ID: operator[OperatorConstants.ID],
-            OperatorConstants.OPERATOR: operator[OperatorConstants.NAME],
-            OperatorConstants.NODE_METADATA: node_metadata,
+            OperatorConstants.Misc.ID: operator[OperatorConstants.Misc.ID],
+            OperatorConstants.Misc.OPERATOR: operator[OperatorConstants.Misc.NAME],
+            OperatorConstants.Config.NODE_METADATA: node_metadata,
         }
 
         try:
             from common.util.job_tracker.tracker.job_tracker import JobTracker
 
-            node_stats = {OperatorConstants.NODE_METADATA: op_node_metadata}
+            node_stats = {OperatorConstants.Config.NODE_METADATA: op_node_metadata}
             JobTracker().update_node_stats(
                 job_run_id=job_run_id,
-                node_id=operator[OperatorConstants.ID],
+                node_id=operator[OperatorConstants.Misc.ID],
                 node_stats=node_stats,
             )
 
         except Exception as e:
             logger.error(
-                f"An error occurred while storing {operator[OperatorConstants.NAME]} metadata to {metadata_file_path} file: {e!s}",
+                f"An error occurred while storing {operator[OperatorConstants.Misc.NAME]} metadata to {metadata_file_path} file: {e!s}",
                 exc_info=True,
                 stack_info=True,
                 extra=common_log_arguments,
@@ -164,12 +164,12 @@ class OperatorUtils:
         mandatory_for_vector_db=False,
     ):
         return {
-            OperatorConstants.NAME: name,
-            OperatorConstants.DESCRIPTION: description,
-            OperatorConstants.TYPE: type,
-            OperatorConstants.AVAILABLE_FOR_FILTER: available_for_filter,
-            OperatorConstants.AVAILABLE_FOR_VECTOR_DB: available_for_vector_db,
-            OperatorConstants.MANDATORY_FOR_VECTOR_DB: mandatory_for_vector_db,
+            OperatorConstants.Misc.NAME: name,
+            OperatorConstants.Config.DESCRIPTION: description,
+            OperatorConstants.Misc.TYPE: type,
+            OperatorConstants.Config.AVAILABLE_FOR_FILTER: available_for_filter,
+            OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: available_for_vector_db,
+            OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: mandatory_for_vector_db,
         }
 
     @staticmethod
@@ -190,11 +190,11 @@ class OperatorUtils:
             - 'skipped_docs_count': The integer count of skipped items.
         """
         # 1. Get the set of IDs from the output table for fast lookup.
-        output_ids_set = set(output_table.column(OperatorConstants.ID).to_pylist())
+        output_ids_set = set(output_table.column(OperatorConstants.Misc.ID).to_pylist())
 
         # 2. Get the ID and Name columns from the input table.
-        input_ids = input_table.column(OperatorConstants.ID).to_pylist()
-        input_names = input_table.column(OperatorConstants.NAME).to_pylist()
+        input_ids = input_table.column(OperatorConstants.Misc.ID).to_pylist()
+        input_names = input_table.column(OperatorConstants.Misc.NAME).to_pylist()
 
         # 3. Iterate through the input data and build the list of skipped docs.
         skipped_docs_list: list[DocsStructure] = []
@@ -262,7 +262,7 @@ class OperatorUtils:
     @staticmethod
     def get_unique_ids(
         tables: pa.Table | list[pa.Table] | dict[str, pa.Table] | None,
-        id_col=OperatorConstants.ID,
+        id_col=OperatorConstants.Misc.ID,
     ):
         # wrap single table as list
         if isinstance(tables, pa.Table):

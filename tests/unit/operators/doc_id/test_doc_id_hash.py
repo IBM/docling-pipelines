@@ -7,11 +7,20 @@ Tests hashing document content using SHA-256 and adding a doc_id_hash column.
 import hashlib
 import pytest
 
+# Add the backend directory to the Python path
+backend_dir = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "src"
+    / "datasift_opensource"
+    / "backend"
+)
+sys.path.insert(0, str(backend_dir))
 
 import pyarrow as pa
 
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
-from common.util.constants import OperatorConstants, Metrics
+from common.constants.operator_constants import OperatorConstants
+from common.constants.constants import Metrics
 
 
 # ---------------------------------------------------------------------------
@@ -50,7 +59,7 @@ def make_operator(config=None) -> DocIdHashOperator:
     Create a DocIdHashOperator.
     Always sets DOC_COLUMN to DOC_COL so DocIDTransform finds the column.
     """
-    base = {OperatorConstants.DOC_COLUMN: DOC_COL}
+    base = {OperatorConstants.Columns.DOC_COLUMN: DOC_COL}
     if config:
         base.update(config)
     return DocIdHashOperator(base)
@@ -73,8 +82,8 @@ def test_basic_hashing_adds_doc_id_hash_column():
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
-    assert OperatorConstants.DOC_ID_HASH_DEFAULT in result.column_names, (
-        f"Expected '{OperatorConstants.DOC_ID_HASH_DEFAULT}' column in output, "
+    assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result.column_names, (
+        f"Expected '{OperatorConstants.Columns.DOC_ID_HASH_DEFAULT}' column in output, "
         f"got columns: {result.column_names}"
     )
 
@@ -112,7 +121,7 @@ def test_hash_is_64_char_hex_string():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     for h in hashes:
         assert isinstance(h, str), f"Hash should be a string, got {type(h)}"
         assert len(h) == 64, f"SHA-256 hash should be 64 chars, got {len(h)}: {h}"
@@ -127,7 +136,7 @@ def test_hash_is_lowercase_hex():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     for h in hashes:
         assert h == h.lower(), f"Hash should be lowercase, got: {h}"
 
@@ -146,8 +155,8 @@ def test_hash_is_deterministic():
     result1, _ = operator1.transform(table)
     result2, _ = operator2.transform(table)
 
-    hashes1 = result1[0][OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
-    hashes2 = result2[0][OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes1 = result1[0][OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes2 = result2[0][OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
 
     assert hashes1 == hashes2, "Hashes should be identical for the same content"
 
@@ -163,7 +172,7 @@ def test_hash_matches_expected_sha256():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     for i, content in enumerate(contents):
         expected = sha256_hex(content)
         assert hashes[i] == expected, (
@@ -187,7 +196,7 @@ def test_different_content_produces_different_hashes():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     assert hashes[0] != hashes[1], "Different content should produce different hashes"
 
 
@@ -199,7 +208,8 @@ def test_all_hashes_unique_for_unique_content():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     assert len(set(hashes)) == len(hashes), (
         "All hashes should be unique for unique content"
     )
@@ -213,7 +223,7 @@ def test_identical_content_produces_same_hash():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     assert hashes[0] == hashes[1], "Identical content should produce the same hash"
 
 
@@ -230,14 +240,15 @@ def test_custom_doc_column():
             "text": ["Custom column content A.", "Custom column content B."],
         }
     )
-    operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: "text"})
+
+    operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "text"})
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    assert OperatorConstants.DOC_ID_HASH_DEFAULT in result.column_names
+    assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result.column_names
 
     # Verify hashes match SHA-256 of the 'text' column values
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     texts = table["text"].to_pylist()
     for i, text in enumerate(texts):
         expected = sha256_hex(text)
@@ -248,7 +259,7 @@ def test_custom_hash_column_name():
     """Operator respects doc_id_hash_column config param for output column name."""
     table = make_table()
     custom_hash_col = "my_custom_hash"
-    operator = make_operator({OperatorConstants.DOC_ID_HASH: custom_hash_col})
+    operator = make_operator({OperatorConstants.Columns.DOC_ID_HASH: custom_hash_col})
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
@@ -289,8 +300,8 @@ def test_get_metadata_is_operator_available_false():
     operator = make_operator()
     meta = operator.get_metadata()
 
-    assert OperatorConstants.IS_OPERATOR_AVAILABLE in meta
-    assert meta[OperatorConstants.IS_OPERATOR_AVAILABLE] is False
+    assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in meta
+    assert meta[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is False
 
 
 def test_get_metadata_returns_dict():
@@ -307,8 +318,8 @@ def test_get_metadata_returns_dict():
 
 
 def test_short_name_matches_doc_id_operator_constant():
-    """short_name matches OperatorConstants.DOC_ID_OPERATOR."""
-    assert DocIdHashOperator.short_name == OperatorConstants.DOC_ID_OPERATOR
+    """short_name matches OperatorConstants.Operators.DOC_ID_OPERATOR."""
+    assert DocIdHashOperator.short_name == OperatorConstants.Operators.DOC_ID_OPERATOR
 
 
 def test_short_name_value():
@@ -333,12 +344,13 @@ def test_existing_doc_id_hash_column_new_hash_added():
             "doc_id_hash": ["old_hash_1", "old_hash_2"],
         }
     )
-    operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: "content"})
+
+    operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "content"})
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
     # The result should have the hash column
-    assert OperatorConstants.DOC_ID_HASH_DEFAULT in result.column_names
+    assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result.column_names
     assert result.num_rows == 2
 
 
@@ -355,14 +367,15 @@ def test_empty_table_returns_empty_table_with_hash_column():
             "content": pa.array([], type=pa.string()),
         }
     )
-    operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: "content"})
+
+    operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "content"})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
     # Should return a table (possibly empty) with the hash column
     assert result is not None
     assert result.num_rows == 0
-    assert OperatorConstants.DOC_ID_HASH_DEFAULT in result.column_names
+    assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result.column_names
 
 
 def test_empty_table_metadata():
@@ -373,7 +386,8 @@ def test_empty_table_metadata():
             "content": pa.array([], type=pa.string()),
         }
     )
-    operator = DocIdHashOperator({OperatorConstants.DOC_COLUMN: "content"})
+
+    operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "content"})
     _, metadata = operator.transform(table)
 
     assert metadata[Metrics.External.TOTAL_DOCS] == 0
@@ -427,7 +441,7 @@ def test_empty_string_content_hashed():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     assert len(hashes) == 1
     assert isinstance(hashes[0], str)
     assert len(hashes[0]) == 64
@@ -444,7 +458,7 @@ def test_unicode_content_hashed():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     for i, content in enumerate(contents):
         expected = sha256_hex(content)
         assert hashes[i] == expected, f"Unicode hash mismatch at row {i}"
@@ -458,7 +472,7 @@ def test_single_row_table():
     result = result_tables[0]
 
     assert result.num_rows == 1
-    assert OperatorConstants.DOC_ID_HASH_DEFAULT in result.column_names
+    assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result.column_names
     assert metadata[Metrics.External.PROCESSED_DOCS] == 1
 
 
@@ -470,7 +484,7 @@ def test_large_content_hashed():
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
-    hashes = result[OperatorConstants.DOC_ID_HASH_DEFAULT].to_pylist()
+    hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     assert len(hashes[0]) == 64
     assert hashes[0] == sha256_hex(large_content)
 
@@ -479,15 +493,15 @@ def test_operator_init_with_empty_config():
     """Operator initializes successfully with an empty config dict."""
     operator = DocIdHashOperator({})
     assert operator is not None
-    assert operator.doc_column == OperatorConstants.DOC_COLUMN_DEFAULT
-    assert operator.hash_column == OperatorConstants.DOC_ID_HASH_DEFAULT
+    assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+    assert operator.hash_column == OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
 
 
 def test_operator_init_with_custom_config():
     """Operator initializes with custom doc_column and hash_column."""
     config = {
-        OperatorConstants.DOC_COLUMN: "my_text",
-        OperatorConstants.DOC_ID_HASH: "my_hash",
+        OperatorConstants.Columns.DOC_COLUMN: "my_text",
+        OperatorConstants.Columns.DOC_ID_HASH: "my_hash",
     }
     operator = DocIdHashOperator(config)
     assert operator.doc_column == "my_text"

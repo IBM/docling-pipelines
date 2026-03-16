@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from common.util.constants import OperatorConstants
+from common.constants.operator_constants import OperatorConstants
 from common.util.operator_metadata import OperatorMetadata
 
 
@@ -39,7 +39,7 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
         if features:
             lines.append(f"\nOutput Features ({len(features)}):")
             for feature_name, feature_info in sorted(features.items()):
-                name = feature_info.get(OperatorConstants.NAME, feature_name)
+                name = feature_info.get(OperatorConstants.Columns.NAME, feature_name)
                 desc = feature_info.get(OperatorConstants.DESCRIPTION, "No description")
                 feature_type = feature_info.get(OperatorConstants.TYPE, "unknown")
 
@@ -66,7 +66,7 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
         if attributes:
             lines.append(f"\nConfiguration Parameters ({len(attributes)}):")
             for attr_name, attr_info in sorted(attributes.items()):
-                name = attr_info.get(OperatorConstants.NAME, attr_name)
+                name = attr_info.get(OperatorConstants.Columns.NAME, attr_name)
                 desc = attr_info.get(OperatorConstants.DESCRIPTION, "No description")
                 required = attr_info.get(OperatorConstants.REQUIRED, False)
                 default = attr_info.get(OperatorConstants.DEFAULT, None)

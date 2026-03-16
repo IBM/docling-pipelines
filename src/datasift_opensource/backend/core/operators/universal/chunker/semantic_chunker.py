@@ -5,16 +5,16 @@ import pyarrow as pa
 from data_processing.utils import TransformUtils
 from langchain_core.documents import Document
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from common.util.common_utils import is_value_in_range
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
     OperatorConstants,
 )
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
+from common.util.common_utils import is_value_in_range
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -41,7 +41,7 @@ class SemanticChunkerOperator(AbstractOperator):
     Chunks the text based on semantic similarity.
     """
 
-    short_name: str = OperatorConstants.CHUNKER
+    short_name: str = OperatorConstants.Operators.CHUNKER
     category: OperatorCategory = OperatorCategory.Functional
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -51,9 +51,13 @@ class SemanticChunkerOperator(AbstractOperator):
         - name of the column that has doc content
         """
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         self.chunk_type: str = config.get(CHUNK_TYPE_KEY, CHUNK_TYPE_DEFAULT)
-        self.chunk_size: int = config.get(OperatorConstants.CHUNK_SIZE, OperatorConstants.CHUNK_SIZE_DEFAULT)
+        self.chunk_size: int = config.get(
+            OperatorConstants.Processing.CHUNK_SIZE, OperatorConstants.Processing.CHUNK_SIZE_DEFAULT
+        )
         self.chunk_overlap: int = config.get(CHUNK_OVERLAP_KEY, CHUNK_OVERLAP_DEFAULT)
         self.retain_original_content: bool = config.get(RETAIN_ORIGINAL_CONTENT_KEY, RETAIN_ORIGINAL_CONTENT_DEFAULT)
         self.common_log_arguments: dict[str, Any] = {
@@ -65,64 +69,64 @@ class SemanticChunkerOperator(AbstractOperator):
 
     def get_metadata(self) -> dict[str, Any]:
         operator_metadata = {
-            OperatorConstants.SDK: True,
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.LABEL: "Chunking",
-            OperatorConstants.FEATURES: {
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.LABEL: "Chunking",
+            OperatorConstants.Config.FEATURES: {
                 OperatorConstants.CHUNK_SEQUENCE_NUMBER: {
-                    OperatorConstants.NAME: "Chunk Sequence number",
-                    OperatorConstants.DESCRIPTION: "Sequential chunk number for each text chunk, representing its position within a larger document",
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TAGS: [
-                        OperatorConstants.MANDATORY,
+                    OperatorConstants.Misc.NAME: "Chunk Sequence number",
+                    OperatorConstants.Config.DESCRIPTION: "Sequential chunk number for each text chunk, representing its position within a larger document",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TAGS: [
+                        OperatorConstants.Misc.MANDATORY,
                         OperatorConstants.INTERNAL_FEATURE,
                     ],
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_INT64,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.TYPE_INT64,
                 },
                 OperatorConstants.START_INDEX: {
-                    OperatorConstants.NAME: "Start Index",
-                    OperatorConstants.DESCRIPTION: "Chunk starting token position in the source document",
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TAGS: [
-                        OperatorConstants.MANDATORY,
+                    OperatorConstants.Misc.NAME: "Start Index",
+                    OperatorConstants.Config.DESCRIPTION: "Chunk starting token position in the source document",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TAGS: [
+                        OperatorConstants.Misc.MANDATORY,
                         OperatorConstants.INTERNAL_FEATURE,
                     ],
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_INT64,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.TYPE_INT64,
                 },
-                OperatorConstants.CHUNKED_CONTENT: {
-                    OperatorConstants.NAME: "Chunked Content",
-                    OperatorConstants.DESCRIPTION: "Content containing segmented portions of larger text data.",
-                    OperatorConstants.TAGS: [OperatorConstants.MANDATORY],
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                OperatorConstants.Columns.CHUNKED_CONTENT: {
+                    OperatorConstants.Misc.NAME: "Chunked Content",
+                    OperatorConstants.Config.DESCRIPTION: "Content containing segmented portions of larger text data.",
+                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
             },
-            OperatorConstants.ATTRIBUTES: {
+            OperatorConstants.Config.ATTRIBUTES: {
                 CHUNK_TYPE_KEY: {
-                    OperatorConstants.NAME: "Chunk Type",
-                    OperatorConstants.DESCRIPTION: "Type of Chunker model being used",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.DEFAULT: CHUNK_TYPE_DEFAULT,
-                    OperatorConstants.VALID_VALUES: VALID_CHUNK_TYPES,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.NAME: "Chunk Type",
+                    OperatorConstants.Config.DESCRIPTION: "Type of Chunker model being used",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: CHUNK_TYPE_DEFAULT,
+                    OperatorConstants.Config.VALID_VALUES: VALID_CHUNK_TYPES,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.CHUNK_SIZE: {
-                    OperatorConstants.NAME: "Chunk Size",
-                    OperatorConstants.DESCRIPTION: "Chunk Size defined by user",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: OperatorConstants.CHUNK_SIZE_DEFAULT,
-                    OperatorConstants.MIN_VALUE: CHUNK_MIN_SIZE,
-                    OperatorConstants.MAX_VALUE: CHUNK_MAX_SIZE,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                OperatorConstants.Processing.CHUNK_SIZE: {
+                    OperatorConstants.Misc.NAME: "Chunk Size",
+                    OperatorConstants.Config.DESCRIPTION: "Chunk Size defined by user",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Processing.CHUNK_SIZE_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: CHUNK_MIN_SIZE,
+                    OperatorConstants.Filtering.MAX_VALUE: CHUNK_MAX_SIZE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 CHUNK_OVERLAP_KEY: {
-                    OperatorConstants.NAME: "Chunk Overlap",
-                    OperatorConstants.DESCRIPTION: "If consecutive chunks share overlapping portions to retain context across boundaries",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: CHUNK_OVERLAP_DEFAULT,
-                    OperatorConstants.MIN_VALUE: CHUNK_OVERLAP_MIN_SIZE,
-                    OperatorConstants.MAX_VALUE: CHUNK_OVERLAP_MAX_SIZE,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Misc.NAME: "Chunk Overlap",
+                    OperatorConstants.Config.DESCRIPTION: "If consecutive chunks share overlapping portions to retain context across boundaries",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: CHUNK_OVERLAP_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: CHUNK_OVERLAP_MIN_SIZE,
+                    OperatorConstants.Filtering.MAX_VALUE: CHUNK_OVERLAP_MAX_SIZE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
             },
         }
@@ -169,7 +173,7 @@ class SemanticChunkerOperator(AbstractOperator):
 
     def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
         super().validate(errors, warnings, available_features)
-        if OperatorConstants.EMBEDDINGS_COLUMN_DEFAULT in available_features:
+        if OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT in available_features:
             errors.append(
                 ValidationMessage.create(
                     message=ValidationCodeMessages.CHUNKER_OPERATOR_MISPLACED.value,
@@ -209,7 +213,7 @@ class SemanticChunkerOperator(AbstractOperator):
         for idx, doc in enumerate(input_doc_data):
             try:
                 logger.debug(
-                    f"Creating chunks for the document {doc.get(OperatorConstants.NAME, doc.get(OperatorConstants.ID))} with {self.chunk_type.lower()} chunk type",
+                    f"Creating chunks for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} with {self.chunk_type.lower()} chunk type",
                     extra=self.common_log_arguments,
                 )
                 content: str = doc[self.doc_column]
@@ -220,15 +224,15 @@ class SemanticChunkerOperator(AbstractOperator):
                 chunks: list[Document] = self._split_text(content)
             except Exception as exc:
                 logger.error(
-                    f"An error occurred while creating chunking for the document {doc.get(OperatorConstants.NAME, doc.get(OperatorConstants.ID))} : \n {exc!s}",
+                    f"An error occurred while creating chunking for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} : \n {exc!s}",
                     exc_info=True,
                     stack_info=True,
                 )
                 self.record_failed_document(
                     metadata=metadata,
-                    doc_id=doc.get(OperatorConstants.ID),
-                    doc_name=doc.get(OperatorConstants.NAME),
-                    reason=f"Failed to create a data chunk for the document '{doc.get(OperatorConstants.NAME)}' due to the following error: {getattr(exc, 'message', str(exc)) if getattr(exc, 'message', str(exc)) else getattr(exc, 'message', repr(exc))}",
+                    doc_id=doc.get(OperatorConstants.Columns.ID),
+                    doc_name=doc.get(OperatorConstants.Misc.NAME),
+                    reason=f"Failed to create a data chunk for the document '{doc.get(OperatorConstants.Misc.NAME)}' due to the following error: {getattr(exc, 'message', str(exc)) if getattr(exc, 'message', str(exc)) else getattr(exc, 'message', repr(exc))}",
                 )
                 metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
                     metadata[Metrics.External.NODE_STATUS],
@@ -240,7 +244,7 @@ class SemanticChunkerOperator(AbstractOperator):
             for chunk in chunks:
                 chunked_content.append(
                     {
-                        OperatorConstants.CHUNK: chunk.page_content,
+                        OperatorConstants.Columns.CHUNK: chunk.page_content,
                         OperatorConstants.START_INDEX: chunk.metadata.get(OperatorConstants.START_INDEX, 0)
                         if chunk.metadata
                         else 0,
@@ -254,7 +258,7 @@ class SemanticChunkerOperator(AbstractOperator):
         if chunked_content_column:
             table = TransformUtils.add_column(
                 table=table,
-                name=OperatorConstants.CHUNKED_CONTENT,
+                name=OperatorConstants.Columns.CHUNKED_CONTENT,
                 content=chunked_content_column,
             )
 

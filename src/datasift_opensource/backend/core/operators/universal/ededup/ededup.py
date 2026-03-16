@@ -9,12 +9,12 @@ from dpk_ededup import (
     short_name,
 )
 
-from common.util.constants import (
+from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -41,8 +41,12 @@ class EdedupOperator(AbstractOperator):  # pragma: no cover
         Parameters are: {"doc_column": "content", "doc_id_column": "doc_id_hash}
         """
         super().__init__(config)
-        self.doc_column: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
-        self.doc_id_column: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
+        self.doc_id_column: str = config.get(
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
         self.filter: HashFilter = config.get(FILTER_KEY, HashFilter({}))
         self.config.update(
             {
@@ -58,9 +62,9 @@ class EdedupOperator(AbstractOperator):  # pragma: no cover
 
     def get_metadata(self) -> dict[str, Any]:
         return {
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.LABEL: "De-duplicator",
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.LABEL: "De-duplicator",
         }
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
@@ -131,10 +135,10 @@ def main() -> None:  # pragma: no cover
     name: list[str] = ["Doc 1", "Doc 2", "Doc 3"]
 
     data: dict[str, list[str]] = {
-        OperatorConstants.DOC_COLUMN_DEFAULT: content,
-        OperatorConstants.DOC_ID_HASH_DEFAULT: doc_id_hash,
-        OperatorConstants.ID: id,
-        OperatorConstants.NAME: name,
+        OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
+        OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
+        OperatorConstants.Misc.ID: id,
+        OperatorConstants.Misc.NAME: name,
     }
 
     input_table: pa.Table = pa.table(data)

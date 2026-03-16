@@ -3,13 +3,13 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -49,7 +49,7 @@ class IngestLocalOperator(AbstractOperator):
     - Binary content storage for downstream extraction
     """
 
-    short_name = OperatorConstants.INGEST_LOCAL
+    short_name = OperatorConstants.Operators.INGEST_LOCAL
     category = OperatorCategory.Ingest
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -72,7 +72,9 @@ class IngestLocalOperator(AbstractOperator):
         self.max_file_size: int = MB * config.get(MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE)
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
-        self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.doc_id_hash: str = config.get(
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
@@ -363,11 +365,11 @@ class IngestLocalOperator(AbstractOperator):
         metadata_features.update(
             {
                 "path": {
-                    OperatorConstants.NAME: "File Path",
-                    OperatorConstants.DESCRIPTION: "The absolute path to the document file",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                    OperatorConstants.Columns.NAME: "File Path",
+                    OperatorConstants.Config.DESCRIPTION: "The absolute path to the document file",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 }
             }
         )
@@ -376,11 +378,11 @@ class IngestLocalOperator(AbstractOperator):
             metadata_features.update(
                 {
                     "binary_content": {
-                        OperatorConstants.NAME: "Binary Content",
-                        OperatorConstants.DESCRIPTION: "The binary content of the document for downstream extraction",
-                        OperatorConstants.AVAILABLE_FOR_FILTER: False,
-                        OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                        OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                        OperatorConstants.Columns.NAME: "Binary Content",
+                        OperatorConstants.Config.DESCRIPTION: "The binary content of the document for downstream extraction",
+                        OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
+                        OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                        OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                     }
                 }
             )
@@ -388,44 +390,44 @@ class IngestLocalOperator(AbstractOperator):
         metadata_features.update(
             {
                 self.doc_id_hash: {
-                    OperatorConstants.NAME: "Hash ID",
-                    OperatorConstants.DESCRIPTION: "Hash ID of the row",
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                    OperatorConstants.IS_PRIMARY: True,
-                    OperatorConstants.TAGS: [
-                        OperatorConstants.MANDATORY,
-                        OperatorConstants.PRIMARY,
+                    OperatorConstants.Columns.NAME: "Hash ID",
+                    OperatorConstants.Config.DESCRIPTION: "Hash ID of the row",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                    OperatorConstants.Misc.IS_PRIMARY: True,
+                    OperatorConstants.Misc.TAGS: [
+                        OperatorConstants.Misc.MANDATORY,
+                        OperatorConstants.Misc.PRIMARY,
                     ],
                 }
             }
         )
 
         return {
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.FEATURES: metadata_features,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.ATTRIBUTES: {
-                OperatorConstants.MAX_FILE_SIZE: {
-                    OperatorConstants.NAME: "Max File Size",
-                    OperatorConstants.DESCRIPTION: "If the document is larger than the given max file size, then it will be skipped",
-                    OperatorConstants.DEFAULT: 100,
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Config.FEATURES: metadata_features,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.Config.MAX_FILE_SIZE: {
+                    OperatorConstants.Columns.NAME: "Max File Size",
+                    OperatorConstants.Config.DESCRIPTION: "If the document is larger than the given max file size, then it will be skipped",
+                    OperatorConstants.Config.DEFAULT: 100,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
-                OperatorConstants.INCLUDE_FILTER_KEY: {
-                    OperatorConstants.NAME: "Include File Type",
-                    OperatorConstants.DESCRIPTION: "File types to be included (comma-separated extensions)",
-                    OperatorConstants.DEFAULT: "pdf,docx,pptx,txt,md",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                OperatorConstants.Filtering.INCLUDE_FILTER_KEY: {
+                    OperatorConstants.Columns.NAME: "Include File Type",
+                    OperatorConstants.Config.DESCRIPTION: "File types to be included (comma-separated extensions)",
+                    OperatorConstants.Config.DEFAULT: "pdf,docx,pptx,txt,md",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
                 "store_binary_content": {
-                    OperatorConstants.NAME: "Store Binary Content",
-                    OperatorConstants.DESCRIPTION: "Whether to store binary content for downstream extraction",
-                    OperatorConstants.DEFAULT: True,
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+                    OperatorConstants.Columns.NAME: "Store Binary Content",
+                    OperatorConstants.Config.DESCRIPTION: "Whether to store binary content for downstream extraction",
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
             },
         }

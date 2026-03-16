@@ -4,7 +4,8 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.util.constants import DatasiftConstants, Metrics, OperatorConstants
+from common.constants.constants import DatasiftConstants, Metrics
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -17,7 +18,7 @@ class NOOPOperator(AbstractOperator):
     Implements a simple copy of a pyarrow Table.
     """
 
-    short_name: str = OperatorConstants.NOOP
+    short_name: str = OperatorConstants.Operators.NOOP
     category: OperatorCategory = OperatorCategory.Functional
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -37,7 +38,7 @@ class NOOPOperator(AbstractOperator):
         }
 
     def get_metadata(self) -> dict[str, Any]:
-        return {OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available()}
+        return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available()}
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """
