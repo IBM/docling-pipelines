@@ -3,7 +3,9 @@ Pytest configuration and fixtures for datasift-opensource tests.
 """
 
 import pytest
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -58,6 +60,28 @@ def tests_dir():
 def test_data_dir(tests_dir):
     """Return the path to test fixtures directory."""
     return tests_dir / "fixtures"
+
+
+@pytest.fixture(scope="session")
+def temp_test_dir():
+    """Create a temporary directory with test files from fixtures"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create test files
+        test_dir = Path(tmpdir)
+
+        # Create a text file
+        txt_file = test_dir / "test.txt"
+        txt_file.write_text("This is a test text file.")
+
+        # Copy a sample PDF from fixtures instead of creating hardcoded content
+        fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "invoices"
+        if fixtures_dir.exists():
+            sample_pdfs = list(fixtures_dir.glob("*.pdf"))
+            if sample_pdfs:
+                # Copy the first PDF to temp directory
+                shutil.copy(sample_pdfs[0], test_dir / "test.pdf")
+
+        yield str(test_dir)
 
 
 @pytest.fixture(scope="session")
