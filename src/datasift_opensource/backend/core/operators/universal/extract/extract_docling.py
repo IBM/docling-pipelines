@@ -14,6 +14,9 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
+from docling.datamodel.base_models import InputFormat
+from docling.document_converter import DocumentConverter
+from docling_core.types.doc.document import PictureItem, TableItem
 
 from common.constants.constants import (
     AttributeDataTypes,
@@ -23,31 +26,11 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
+
+# Import TransformUtils from centralized location
+from common.util.transform_utils import TransformUtils
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
-
-# Try to import TransformUtils from data-prep-toolkit-transforms
-try:
-    from data_processing.utils import TransformUtils
-
-    HAS_TRANSFORM_UTILS: bool = True
-except ImportError:
-    HAS_TRANSFORM_UTILS: bool = False
-
-    # Fallback implementation
-    class TransformUtils:
-        @staticmethod
-        def add_column(table: pa.Table, name: str, content: list[Any]) -> pa.Table:
-            """Add a column to a PyArrow table."""
-            # Infer the type from the content
-            new_column: pa.Array = pa.array(content)
-            new_field: pa.Field = pa.field(name, new_column.type)
-            return table.append_column(new_field, new_column)
-
-
-from docling.datamodel.base_models import InputFormat
-from docling.document_converter import DocumentConverter
-from docling_core.types.doc.document import PictureItem, TableItem
 
 logger: logging.Logger = get_logger()
 
