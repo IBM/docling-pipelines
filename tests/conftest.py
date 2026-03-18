@@ -155,6 +155,43 @@ def empty_pyarrow_table():
 
 
 # ============================================================================
+# Test Data Fixtures
+# ============================================================================
+
+
+@pytest.fixture
+def sample_pdf_files(fixtures_invoices_dir):
+    """
+    Return a list of sample PDF files from fixtures.
+    Skips test if no PDF files are found.
+    """
+    if not fixtures_invoices_dir.exists():
+        pytest.skip(f"Fixtures directory not found: {fixtures_invoices_dir}")
+
+    pdf_files = list(fixtures_invoices_dir.glob("*.pdf"))
+    if not pdf_files:
+        pytest.skip(f"No PDF files found in {fixtures_invoices_dir}")
+
+    return pdf_files
+
+
+@pytest.fixture
+def sample_text_files(fixtures_customer_support_dir):
+    """
+    Return a list of sample text files from fixtures.
+    Skips test if no text files are found.
+    """
+    if not fixtures_customer_support_dir.exists():
+        pytest.skip(f"Fixtures directory not found: {fixtures_customer_support_dir}")
+
+    text_files = list(fixtures_customer_support_dir.glob("*.txt"))
+    if not text_files:
+        pytest.skip(f"No text files found in {fixtures_customer_support_dir}")
+
+    return text_files
+
+
+# ============================================================================
 # Mock Fixtures
 # ============================================================================
 
