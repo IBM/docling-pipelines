@@ -49,7 +49,7 @@ timestamps {
   if (env.BUILD_URL.contains("hyc-wkc-devops-jenkins.swg-devops.com")) {
     nodeName = "taas_image_with_docker"
   } else {
-    nodeName = "kube_pod_slave"
+    nodeName = "kube_ui"
   }
   
   node(nodeName) {
@@ -69,7 +69,7 @@ timestamps {
       stage('Pytest') {
         script {
           withCredentials([
-            usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')
+            usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
           ]) {
             sh """
               # Setup Python environment
@@ -86,12 +86,9 @@ timestamps {
               conda create -n datasift_py312 python=3.12 -y
               conda activate datasift_py312
               
-              # Install pip and uv
-              wget https://bootstrap.pypa.io/get-pip.py
-              python3 get-pip.py
-              python3 -m pip install --upgrade pip
-              rm -f ./get-pip.py*
-              pip install uv
+              # Install uv
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              
               
               # Install system dependencies
               sudo apt-get update
@@ -99,12 +96,14 @@ timestamps {
               
               # Navigate to backend directory and install dependencies
               cd src/datasift_opensource/backend
-              uv sync --extra dev
+              uv sync --all-groups --all-extras
               
               # Activate virtual environment and run tests from project root
-              source .venv/bin/activate
+              . .venv/bin/activate
               cd ../../..
-              
+              ls -la
+              export PYTHONPATH=./src/datasift_opensource/backend:./tests
+              cp .env.example .env
               # Run unit tests with coverage
               pytest -m unit -v --cov=src --cov-report=xml:coverage.xml --cov-report=term
               
@@ -136,7 +135,7 @@ timestamps {
           stage('Publish') {
             script {
               withCredentials([
-                usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')
+                usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD') // pragma: allowlist secret
               ]) {
                 sh """
                   echo "TBD"
@@ -146,7 +145,7 @@ timestamps {
           }
           stage('Tag repo'){
             script {
-              withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '27403a9f-356a-41ad-a55d-d101b2c615cb', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {
+              withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: '27403a9f-356a-41ad-a55d-d101b2c615cb', usernameVariable: 'GIT_USERNAME', passwordVariable: 'GIT_PASSWORD']]) {  // pragma: allowlist secret
                 sh '''
                   git config credential.username $GIT_USERNAME
                   git config credential.helper '!f() { echo password=$GIT_PASSWORD; }; f'
