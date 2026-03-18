@@ -3,7 +3,9 @@ Pytest configuration and fixtures for datasift-opensource tests.
 """
 
 import pytest
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -61,6 +63,28 @@ def test_data_dir(tests_dir):
 
 
 @pytest.fixture(scope="session")
+def temp_test_dir():
+    """Create a temporary directory with test files from fixtures"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Create test files
+        test_dir = Path(tmpdir)
+
+        # Create a text file
+        txt_file = test_dir / "test.txt"
+        txt_file.write_text("This is a test text file.")
+
+        # Copy a sample PDF from fixtures instead of creating hardcoded content
+        fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "invoices"
+        if fixtures_dir.exists():
+            sample_pdfs = list(fixtures_dir.glob("*.pdf"))
+            if sample_pdfs:
+                # Copy the first PDF to temp directory
+                shutil.copy(sample_pdfs[0], test_dir / "test.pdf")
+
+        yield str(test_dir)
+
+
+@pytest.fixture(scope="session")
 def fixtures_invoices_dir(test_data_dir):
     """Return path to invoice fixtures."""
     return test_data_dir / "invoices"
@@ -70,6 +94,18 @@ def fixtures_invoices_dir(test_data_dir):
 def fixtures_customer_support_dir(test_data_dir):
     """Return path to customer support fixtures."""
     return test_data_dir / "customer_support_docs"
+
+
+@pytest.fixture(scope="session")
+def sample_pdf_files(fixtures_invoices_dir):
+    """
+    Return a list of sample PDF files from the invoices fixtures directory.
+    Skips the test if no PDF files are found.
+    """
+    pdf_files = list(fixtures_invoices_dir.glob("*.pdf"))
+    if not pdf_files:
+        pytest.skip(f"No PDF files found in {fixtures_invoices_dir}")
+    return pdf_files
 
 
 @pytest.fixture(scope="session")

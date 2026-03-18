@@ -7,15 +7,6 @@ Tests hashing document content using SHA-256 and adding a doc_id_hash column.
 import hashlib
 import pytest
 
-# Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "src"
-    / "datasift_opensource"
-    / "backend"
-)
-sys.path.insert(0, str(backend_dir))
-
 import pyarrow as pa
 
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
@@ -207,7 +198,6 @@ def test_all_hashes_unique_for_unique_content():
     operator = make_operator()
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
-
 
     hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     assert len(set(hashes)) == len(hashes), (
