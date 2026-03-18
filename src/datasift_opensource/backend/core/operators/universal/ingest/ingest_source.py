@@ -34,10 +34,6 @@ from core.operators.universal.ingest.ingest_utils import (
     is_doc_previously_processed,
 )
 
-# Suppress pdfminer logging
-logging.getLogger("pdfminer").setLevel(logging.ERROR)
-
-
 class MicrosoftGraphLoader(BaseLoader):
     """
     Custom LangChain-compatible loader for Microsoft SharePoint and OneDrive
