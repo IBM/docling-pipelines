@@ -4,25 +4,39 @@ import io
 import json
 import logging
 import os
-import tempfile
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Iterator
 
 import boto3
 import pyarrow as pa
 
 # Import standard LangChain loaders
 from langchain_community.document_loaders import (
-    OneDriveLoader,
     S3DirectoryLoader,
     S3FileLoader,
-    SharePointLoader,
 )
-from langchain_google_community import GoogleDriveLoader
-from langchain_core.documents import Document
 from langchain_core.document_loaders import BaseLoader
+from langchain_core.documents import Document
+from langchain_google_community import GoogleDriveLoader
+
+from common.util.constants import (
+    AttributeDataTypes,
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+    OperatorConstants,
+)
+from common.util.incremental_update_util import IncrementalUpdateUtil
+from common.util.log import get_logger
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.universal.ingest.ingest_utils import (
+    filter_based_on_extension,
+    get_filter_extensions,
+    is_doc_previously_processed,
+)
 
 # Suppress pdfminer logging
-logging.getLogger('pdfminer').setLevel(logging.ERROR)
+logging.getLogger("pdfminer").setLevel(logging.ERROR)
+
 
 class MicrosoftGraphLoader(BaseLoader):
     """
@@ -34,9 +48,33 @@ class MicrosoftGraphLoader(BaseLoader):
     """
 
     # Supported text-extractable file extensions
-    TEXT_EXTENSIONS = {'.txt', '.md', '.csv', '.json', '.xml', '.html', '.htm', '.py',
-                       '.js', '.ts', '.java', '.c', '.cpp', '.cs', '.go', '.rb', '.php',
-                       '.yaml', '.yml', '.toml', '.ini', '.cfg', '.log', '.rst', '.tex'}
+    TEXT_EXTENSIONS: ClassVar[set[str]] = {
+        ".txt",
+        ".md",
+        ".csv",
+        ".json",
+        ".xml",
+        ".html",
+        ".htm",
+        ".py",
+        ".js",
+        ".ts",
+        ".java",
+        ".c",
+        ".cpp",
+        ".cs",
+        ".go",
+        ".rb",
+        ".php",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".ini",
+        ".cfg",
+        ".log",
+        ".rst",
+        ".tex",
+    }
 
     def __init__(
         self,
@@ -44,7 +82,7 @@ class MicrosoftGraphLoader(BaseLoader):
         client_id: str,
         client_secret: str,
         tenant_id: str,
-        folder_path: str = None,
+        folder_path: str | None = None,
         recursive: bool = True,
     ):
         self.drive_id = drive_id
@@ -62,58 +100,59 @@ class MicrosoftGraphLoader(BaseLoader):
         try:
             import msal
         except ImportError:
-            raise ImportError("msal package not found. Install with: pip install msal")
+            raise ImportError("msal package not found. Install with: pip install msal") from None
         app = msal.ConfidentialClientApplication(
             self.client_id,
-            authority=f'https://login.microsoftonline.com/{self.tenant_id}',
+            authority=f"https://login.microsoftonline.com/{self.tenant_id}",
             client_credential=self.client_secret,
         )
-        result = app.acquire_token_for_client(scopes=['https://graph.microsoft.com/.default'])
-        if 'access_token' not in result:
+        result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+        if "access_token" not in result:
             raise ValueError(
-                f"Failed to acquire Microsoft Graph token: {result.get('error')} - "
-                f"{result.get('error_description')}"
+                f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
             )
-        self._token = result['access_token']
+        self._token = result["access_token"]
         return self._token
 
-    def _list_files(self, folder_item_id: str = None) -> List[dict]:
+    def _list_files(self, folder_item_id: str | None = None) -> list[dict]:
         """Recursively list all files in the drive (or a specific folder)."""
         import requests
+
         token = self._get_token()
-        headers = {'Authorization': f'Bearer {token}'}
+        headers = {"Authorization": f"Bearer {token}"}
 
         if folder_item_id:
-            url = f'https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{folder_item_id}/children'
+            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{folder_item_id}/children"
         else:
-            url = f'https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children'
+            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children"
 
         files = []
         while url:
             r = requests.get(url, headers=headers)
             r.raise_for_status()
             data = r.json()
-            for item in data.get('value', []):
-                if 'folder' in item:
+            for item in data.get("value", []):
+                if "folder" in item:
                     if self.recursive:
-                        files.extend(self._list_files(folder_item_id=item['id']))
+                        files.extend(self._list_files(folder_item_id=item["id"]))
                 else:
                     files.append(item)
-            url = data.get('@odata.nextLink')
+            url = data.get("@odata.nextLink")
         return files
 
     def _download_file(self, item: dict) -> bytes:
         """Download file content from Graph API."""
         import requests
+
         token = self._get_token()
-        headers = {'Authorization': f'Bearer {token}'}
-        download_url = item.get('@microsoft.graph.downloadUrl')
+        headers = {"Authorization": f"Bearer {token}"}
+        download_url = item.get("@microsoft.graph.downloadUrl")
         if not download_url:
             # Fallback: get download URL via API
             r = requests.get(
-                f'https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{item["id"]}/content',
+                f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{item['id']}/content",
                 headers=headers,
-                allow_redirects=True
+                allow_redirects=True,
             )
             r.raise_for_status()
             return r.content
@@ -121,59 +160,6 @@ class MicrosoftGraphLoader(BaseLoader):
         r.raise_for_status()
         return r.content
 
-    def _extract_text(self, item: dict, content: bytes) -> str:
-        """Extract text from file content based on file extension."""
-        name = item.get('name', '')
-        ext = os.path.splitext(name)[1].lower()
-
-        if ext in self.TEXT_EXTENSIONS:
-            try:
-                return content.decode('utf-8', errors='replace')
-            except Exception:
-                return content.decode('latin-1', errors='replace')
-
-        if ext == '.pdf':
-            try:
-                import io
-                import pypdf
-                reader = pypdf.PdfReader(io.BytesIO(content))
-                return '\n'.join(page.extract_text() or '' for page in reader.pages)
-            except ImportError:
-                pass
-            try:
-                import pdfminer.high_level as pdfminer
-                import io
-                return pdfminer.extract_text(io.BytesIO(content))
-            except ImportError:
-                pass
-
-        if ext in ('.docx', '.doc'):
-            try:
-                import io
-                import docx
-                doc = docx.Document(io.BytesIO(content))
-                return '\n'.join(p.text for p in doc.paragraphs)
-            except ImportError:
-                pass
-
-        if ext in ('.xlsx', '.xls'):
-            try:
-                import io
-                import openpyxl
-                wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-                rows = []
-                for sheet in wb.worksheets:
-                    for row in sheet.iter_rows(values_only=True):
-                        rows.append('\t'.join(str(c) if c is not None else '' for c in row))
-                return '\n'.join(rows)
-            except ImportError:
-                pass
-
-        # Fallback: try UTF-8 decode
-        try:
-            return content.decode('utf-8', errors='replace')
-        except Exception:
-            return f"[Binary file: {name}]"
 
     def lazy_load(self) -> Iterator[Document]:
         """Lazily load documents from the Microsoft Graph API drive."""
@@ -181,66 +167,49 @@ class MicrosoftGraphLoader(BaseLoader):
         folder_item_id = None
         if self.folder_path:
             import requests
+
             token = self._get_token()
-            headers = {'Authorization': f'Bearer {token}'}
+            headers = {"Authorization": f"Bearer {token}"}
             # Normalize path
-            path = self.folder_path.strip('/')
-            r = requests.get(
-                f'https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}',
-                headers=headers
-            )
+            path = self.folder_path.strip("/")
+            r = requests.get(f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}", headers=headers)
             if r.status_code == 200:
-                folder_item_id = r.json().get('id')
+                folder_item_id = r.json().get("id")
             else:
                 raise ValueError(
-                    f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': "
-                    f"{r.status_code} {r.text}"
+                    f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {r.status_code} {r.text}"
                 )
 
         files = self._list_files(folder_item_id=folder_item_id)
         for item in files:
             try:
-                content_bytes = self._download_file(item)
-                text = self._extract_text(item, content_bytes)
+                content_bytes: bytes = self._download_file(item)
                 metadata = {
-                    'source': item.get('name', ''),
-                    'drive_id': self.drive_id,
-                    'item_id': item.get('id', ''),
-                    'size': item.get('size', 0),
-                    'last_modified': item.get('lastModifiedDateTime', ''),
-                    'web_url': item.get('webUrl', ''),
-                    'mime_type': item.get('file', {}).get('mimeType', ''),
+                    "source": item.get("name", ""),
+                    "drive_id": self.drive_id,
+                    "item_id": item.get("id", ""),
+                    "size": item.get("size", 0),
+                    "last_modified": item.get("lastModifiedDateTime", ""),
+                    "web_url": item.get("webUrl", ""),
+                    "mime_type": item.get("file", {}).get("mimeType", ""),
                 }
-                yield Document(page_content=text, metadata=metadata)
+                # Return Document with empty page_content since we only need binary content
+                # The binary will be downloaded separately in extract_content()
+                yield Document(page_content="", metadata=metadata)
             except Exception as e:
                 yield Document(
-                    page_content='',
+                    page_content="",
                     metadata={
-                        'source': item.get('name', ''),
-                        'error': str(e),
-                        'drive_id': self.drive_id,
-                        'item_id': item.get('id', ''),
-                    }
+                        "source": item.get("name", ""),
+                        "error": str(e),
+                        "drive_id": self.drive_id,
+                        "item_id": item.get("id", ""),
+                    },
                 )
 
-    def load(self) -> List[Document]:
+    def load(self) -> list[Document]:
         return list(self.lazy_load())
 
-from common.util.constants import (
-    AttributeDataTypes,
-    DatasiftConstants,
-    ExecutionStatus,
-    Metrics,
-    OperatorConstants,
-)
-from common.util.incremental_update_util import IncrementalUpdateUtil
-from common.util.log import get_logger
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.universal.ingest.ingest_utils import (
-    filter_based_on_extension,
-    get_filter_extensions,
-    is_doc_previously_processed,
-)
 
 # Configuration keys
 PROVIDER_KEY: str = "provider"
@@ -295,8 +264,9 @@ class IngestSourceOperator(AbstractOperator):
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
         self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
-        self.store_binary_content: bool = config.get("store_binary_content", False)
-        self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.doc_id_hash: str = config.get(
+            OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
+        )
         self.ignore_hidden_files: bool = config.get("ignore_hidden_files", True)
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
@@ -342,7 +312,7 @@ class IngestSourceOperator(AbstractOperator):
                     "source_id": [],
                     "path": [],
                     "binary_content": [],
-                    "modified_time": []
+                    "modified_time": [],
                 },
                 schema=pa.schema(
                     [
@@ -352,7 +322,7 @@ class IngestSourceOperator(AbstractOperator):
                         ("source_id", pa.string()),
                         ("path", pa.string()),
                         ("binary_content", pa.binary()),
-                        ("modified_time", pa.int64())
+                        ("modified_time", pa.int64()),
                     ]
                 ),
             )
@@ -498,26 +468,20 @@ class IngestSourceOperator(AbstractOperator):
             processed_doc: dict[str, Any] = {
                 "id": doc_id,
                 "name": source,
-                "modified_time": modified_time,
                 "metadata": json.dumps(doc.metadata),
                 "source_id": source,
-                "modified_time": modified_time if isinstance(modified_time, int) else 0
+                "modified_time": modified_time if isinstance(modified_time, int) else 0,
             }
 
-            # Store either binary content or text based on configuration
-            if self.store_binary_content:
-                # Download binary content so downstream ExtractDoclingOperator can process it
-                if not self.extract_content(
-                    doc=doc,
-                    source=source,
-                    processed_doc=processed_doc,
-                    metadata=metadata,
-                    idx=idx,
-                ):
-                    return None
-            else:
-                # Store text directly from LangChain's page_content
-                processed_doc["text"] = doc.page_content or ""
+            # Download binary content so downstream ExtractDoclingOperator can process it
+            if not self.extract_content(
+                doc=doc,
+                source=source,
+                processed_doc=processed_doc,
+                metadata=metadata,
+                idx=idx,
+            ):
+                return None
 
             logger.info(
                 f"Successfully processed document: {source}",
@@ -681,6 +645,57 @@ class IngestSourceOperator(AbstractOperator):
                         )
 
             # ------------------------------------------------------------------ #
+            # OneDrive / SharePoint                                               #
+            # ------------------------------------------------------------------ #
+            elif self.provider in ("onedrive", "sharepoint"):
+                item_id = doc.metadata.get("item_id")
+                if item_id:
+                    try:
+                        import requests
+
+                        # Get access token
+                        token_url = f"https://login.microsoftonline.com/{self.credentials.get('tenant_id')}/oauth2/v2.0/token"
+                        token_data = {
+                            "client_id": self.credentials.get("client_id"),
+                            "client_secret": self.credentials.get("client_secret"),
+                            "scope": "https://graph.microsoft.com/.default",
+                            "grant_type": "client_credentials",
+                        }
+                        token_response = requests.post(token_url, data=token_data)
+                        token_response.raise_for_status()
+                        access_token = token_response.json()["access_token"]
+
+                        # Download file content
+                        headers = {"Authorization": f"Bearer {access_token}"}
+                        
+                        # Try to get download URL from metadata first
+                        download_url = doc.metadata.get("download_url")
+                        if download_url:
+                            response = requests.get(download_url)
+                        else:
+                            # Fallback: construct download URL using drive_id and item_id
+                            drive_id = doc.metadata.get("drive_id") or self.connection_params.get("drive_id") or self.connection_params.get("document_library_id")
+                            
+                            # Both OneDrive and SharePoint can use the drives API endpoint
+                            download_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/content"
+                            
+                            response = requests.get(download_url, headers=headers, allow_redirects=True)
+                        
+                        response.raise_for_status()
+                        onedrive_bytes: bytes = response.content
+                        logger.info(
+                            f"Downloaded {len(onedrive_bytes)} bytes from {self.provider} for: {source}",
+                            extra=self.common_log_arguments,
+                        )
+                        binary_content = onedrive_bytes
+                    except Exception as onedrive_err:
+                        logger.warning(
+                            f"Could not download binary from {self.provider} for {source}: {onedrive_err}. "
+                            "Falling back to page_content text.",
+                            extra=self.common_log_arguments,
+                        )
+
+            # ------------------------------------------------------------------ #
             # Amazon S3 / IBM COS                                                 #
             # ------------------------------------------------------------------ #
             elif self.provider in ("s3", "ibm_cos"):
@@ -794,20 +809,20 @@ class IngestSourceOperator(AbstractOperator):
         """
         # Get S3 file keys using existing method (already filters hidden files)
         file_keys: list[str] = self._get_s3_file_keys()
-        
+
         # Apply max_files limit to file keys
         if self.max_files > 0:
-            file_keys = file_keys[:self.max_files]
-        
+            file_keys = file_keys[: self.max_files]
+
         # Setup client config
         client_config: dict[str, Any] = {}
         if self.provider == "ibm_cos":
             client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
-        
+
         # Load each file individually
         documents: list[Document] = []
         bucket: str = self.connection_params.get("bucket")
-        
+
         for key in file_keys:
             try:
                 loader = S3FileLoader(
@@ -815,7 +830,7 @@ class IngestSourceOperator(AbstractOperator):
                     key=key,
                     aws_access_key_id=self.credentials.get("access_key"),
                     aws_secret_access_key=self.credentials.get("secret_key"),
-                    **client_config
+                    **client_config,
                 )
                 documents.extend(loader.load())
             except Exception as e:
@@ -824,9 +839,8 @@ class IngestSourceOperator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
                 continue
-        
-        return documents
 
+        return documents
 
     def _get_loader(self) -> BaseLoader:
         """
@@ -849,28 +863,28 @@ class IngestSourceOperator(AbstractOperator):
             )
 
         # 2. Microsoft SharePoint
-        elif self.provider == 'sharepoint':
+        elif self.provider == "sharepoint":
             # Use custom MicrosoftGraphLoader which supports app-only (client credentials) auth.
             # LangChain's SharePointLoader calls /me/drives/ which requires delegated user auth.
             return MicrosoftGraphLoader(
-                drive_id=self.connection_params.get('document_library_id'),
-                client_id=self.credentials.get('client_id'),
-                client_secret=self.credentials.get('client_secret'),
-                tenant_id=self.credentials.get('tenant_id'),
-                folder_path=self.connection_params.get('folder_path'),
-                recursive=self.connection_params.get('recursive', True),
+                drive_id=self.connection_params.get("document_library_id"),
+                client_id=self.credentials.get("client_id"),
+                client_secret=self.credentials.get("client_secret"),
+                tenant_id=self.credentials.get("tenant_id"),
+                folder_path=self.connection_params.get("folder_path"),
+                recursive=self.connection_params.get("recursive", True),
             )
 
         # 3. Microsoft OneDrive
-        elif self.provider == 'onedrive':
+        elif self.provider == "onedrive":
             # Use custom MicrosoftGraphLoader which supports app-only (client credentials) auth.
             return MicrosoftGraphLoader(
-                drive_id=self.connection_params.get('drive_id'),
-                client_id=self.credentials.get('client_id'),
-                client_secret=self.credentials.get('client_secret'),
-                tenant_id=self.credentials.get('tenant_id'),
-                folder_path=self.connection_params.get('folder_path'),
-                recursive=self.connection_params.get('recursive', True),
+                drive_id=self.connection_params.get("drive_id"),
+                client_id=self.credentials.get("client_id"),
+                client_secret=self.credentials.get("client_secret"),
+                tenant_id=self.credentials.get("tenant_id"),
+                folder_path=self.connection_params.get("folder_path"),
+                recursive=self.connection_params.get("recursive", True),
             )
 
         # 4. Google Drive
@@ -908,11 +922,11 @@ class IngestSourceOperator(AbstractOperator):
             class_name: str
             module_name, class_name = loader_path.rsplit(".", 1)
             module: Any = importlib.import_module(module_name)
-            LoaderClass: Any = getattr(module, class_name)
+            loader_class: Any = getattr(module, class_name)
 
             # Initialize with merged params and credentials
             init_kwargs: dict[str, Any] = {**self.connection_params, **self.credentials}
-            return LoaderClass(**init_kwargs)
+            return loader_class(**init_kwargs)
 
         else:
             raise ValueError(f"Provider '{self.provider}' is not supported.")
@@ -1063,7 +1077,7 @@ def main() -> None:  # pragma: no cover
         result_table: pa.Table = output_tables[0]
         print("\nTable Schema:")
         print(result_table.schema)
-        print(f"\nTable Shape: {result_table.num_rows} rows × {result_table.num_columns} columns")
+        print(f"\nTable Shape: {result_table.num_rows} rows x {result_table.num_columns} columns")
 
         if result_table.num_rows > 0:
             print(f"\nFirst {min(5, result_table.num_rows)} rows:")

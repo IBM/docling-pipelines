@@ -30,6 +30,19 @@
                     "force_ingest": true
                 },
                 "input_edges": [],
+                "output_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz"}]
+            },
+            {
+                "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz",
+                "name": "extract_text",
+                "operator": "extract_docling",
+                "config": {
+                    "doc_column": "content",
+                    "extract_tables": true,
+                    "extract_images": true,
+                    "max_workers": 4
+                },
+                "input_edges": [{"node_id_ref":"a1b2c3d4-e5f6-7890-abcd-ef1234567890"}],
                 "output_edges": [{"node_id_ref": "c3d4e5f6-a7b8-9012-cdef-123456789012"}]
             },
             {
@@ -37,11 +50,11 @@
                 "name": "chunk",
                 "operator": "chunker",
                 "config": {
-                    "doc_column": "text",
+                    "doc_column": "content",
                     "chunk_size": 512,
                     "chunk_overlap": 128
                 },
-                "input_edges": [{"node_id_ref": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}],
+                "input_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz"}],
                 "output_edges": [{"node_id_ref": "d4e5f6a7-b8c9-0123-defa-234567890123"}]
             },
             {
@@ -51,7 +64,7 @@
                 "config": {
                     "embeddings_type": "ollama",
                     "embeddings_model_id": "nomic-embed-text",
-                    "doc_column": "text",
+                    "doc_column": "content",
                     "embeddings_column": "embeddings"
                 },
                 "input_edges": [{"node_id_ref": "c3d4e5f6-a7b8-9012-cdef-123456789012"}],
@@ -84,7 +97,7 @@
                             "type": "string",
                             "is_primary": true
                         },
-                        "text": {
+                        "content": {
                             "name": "Content",
                             "available_for_vector_db": true,
                             "type": "string"
@@ -103,7 +116,7 @@
                     },
                     "feature_mappings": {
                         "doc_id_hash": "pk",
-                        "text": "text",
+                        "content": "text",
                         "source_id": "source_id",
                         "embeddings": "vector_embeddings"
                     }

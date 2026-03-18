@@ -2,7 +2,7 @@
     "flow": {
         "name": "OneDrive to OpenSearch Pipeline",
         "flow_id": "onedrive-flow-001-0000-0000-000000000001",
-        "description": "Ingest documents from Microsoft OneDrive, chunk text, generate embeddings using Ollama, and store in OpenSearch. The ingest_source operator extracts text via LangChain (no extract_docling needed). Requires Ollama running locally with the specified model.",
+        "description": "Ingest documents from Microsoft OneDrive, chunk text, generate embeddings using Ollama, and store in OpenSearch. The ingest_source operator extracts text. Requires Ollama running locally with the specified model.",
         "storage": "in-memory",
         "execute_type": "local",
         "global_config": {
@@ -30,6 +30,19 @@
                     "force_ingest": true
                 },
                 "input_edges": [],
+                "output_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz"}]
+            },
+            {
+                "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz",
+                "name": "extract_text",
+                "operator": "extract_docling",
+                "config": {
+                    "doc_column": "content",
+                    "extract_tables": true,
+                    "extract_images": true,
+                    "max_workers": 4
+                },
+                "input_edges": [{"node_id_ref":"30953cfb-a3a2-4688-9aea-ff9fff10f7bd"}],
                 "output_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}]
             },
             {
@@ -37,11 +50,11 @@
                 "name": "chunk",
                 "operator": "chunker",
                 "config": {
-                    "doc_column": "text",
+                    "doc_column": "content",
                     "chunk_size": 512,
                     "chunk_overlap": 128
                 },
-                "input_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"}],
+                "input_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz"}],
                 "output_edges": [{"node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"}]
             },
             {
@@ -51,7 +64,7 @@
                 "config": {
                     "embeddings_type": "ollama",
                     "embeddings_model_id": "nomic-embed-text",
-                    "doc_column": "text",
+                    "doc_column": "content",
                     "embeddings_column": "embeddings"
                 },
                 "input_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}],
@@ -84,7 +97,7 @@
                             "type": "string",
                             "is_primary": true
                         },
-                        "text": {
+                        "content": {
                             "name": "Content",
                             "available_for_vector_db": true,
                             "type": "string"
@@ -103,7 +116,7 @@
                     },
                     "feature_mappings": {
                         "doc_id_hash": "pk",
-                        "text": "text",
+                        "content": "text",
                         "source_id": "source_id",
                         "embeddings": "vector_embeddings"
                     }
