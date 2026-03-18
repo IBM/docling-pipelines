@@ -170,7 +170,7 @@ def test_extract_docling_with_template(sample_pdf_files):
         "Total docs should match input rows"
     )
 
-
+@pytest.mark.skip(reason="Running into OOM on Jenkins")
 def test_extract_docling_with_expand_extracted_data():
     """Test the ExtractDoclingOperator with expand_extracted_data flag."""
     import pyarrow as pa
