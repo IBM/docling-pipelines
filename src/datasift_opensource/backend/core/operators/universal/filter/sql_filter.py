@@ -164,16 +164,57 @@ class SQLFilterOperator(AbstractOperator):
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
 
-        filtered_table: list[pa.Table] = self._dpk_transform(table=table, metadata=metadata)
-        if not metadata.get(Metrics.External.SKIPPED_DOCS_COUNT):
-            metadata.update(
-                OperatorUtils.find_skipped_docs(
-                    input_table=table,
-                    output_table=filtered_table[0],
-                    reason="Document Filtered out based on the specified filter criteria.",
+        try:
+            filtered_table: list[pa.Table] = self._dpk_transform(table=table, metadata=metadata)
+            if not metadata.get(Metrics.External.SKIPPED_DOCS_COUNT):
+                metadata.update(
+                    OperatorUtils.find_skipped_docs(
+                        input_table=table,
+                        output_table=filtered_table[0],
+                        reason="Document Filtered out based on the specified filter criteria.",
+                    )
                 )
+            return filtered_table, metadata
+        except DatasiftException as e:
+            # Record the error in metadata and return original table
+            error_msg = str(e)
+            logger.error(
+                f"SQL filter operation failed: {error_msg}",
+                extra=self.common_log_arguments,
             )
-        return filtered_table, metadata
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+            metadata[OperatorConstants.Extraction.ERROR] = error_msg
+            # Mark all documents as failed since filter couldn't be applied
+            for idx in range(table.num_rows):
+                doc_id = str(idx)
+                doc_name = table["name"][idx].as_py() if "name" in table.column_names else f"doc_{idx}"
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=doc_id,
+                    doc_name=doc_name,
+                    reason=error_msg,
+                )
+            return [table], metadata
+        except Exception as e:
+            # Handle unexpected errors
+            logger.error(
+                f"Unexpected error in SQL filter operation: {e!s}",
+                exc_info=True,
+                extra=self.common_log_arguments,
+            )
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+            metadata[OperatorConstants.Extraction.ERROR] = str(e)
+            # Mark all documents as failed
+            for idx in range(table.num_rows):
+                doc_id = str(idx)
+                doc_name = table["name"][idx].as_py() if "name" in table.column_names else f"doc_{idx}"
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=doc_id,
+                    doc_name=doc_name,
+                    reason=str(e),
+                )
+            return [table], metadata
 
     def _dpk_transform(self, table: pa.Table, metadata: dict[str, Any]) -> list[pa.Table]:
         """
@@ -375,8 +416,8 @@ def convert_operator(op: str) -> str:
         )
     try:
         return _OPERATOR_MAP[op.lower()]
-    except KeyError:
-        raise DatasiftException(f"Unknown operator: {op}", error_code=ErrorCode.SQL_FILTER_ERROR)
+    except KeyError as e:
+        raise DatasiftException(f"Unknown operator: {op}", error_code=ErrorCode.SQL_FILTER_ERROR) from e
 
 
 def format_value(value: Any) -> str:
@@ -504,7 +545,7 @@ def process_criteria_group(group: dict[str, Any]) -> str:
                     message=f"Skipping invalid condition: {criterion}. {e}",
                     status_code=400,
                     error_code=ErrorCode.SQL_FILTER_ERROR,
-                )
+                ) from e
 
     if not processed_criteria:
         return ""
@@ -524,7 +565,7 @@ def json_to_sql_where(where_json: dict[str, Any] | None) -> str:
             message=f"Error processing WHERE clause: {e}",
             status_code=400,
             error_code=ErrorCode.SQL_FILTER_ERROR,
-        )
+        ) from e
 
     if not where_clause.strip():
         return ""
