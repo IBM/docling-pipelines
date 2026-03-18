@@ -76,6 +76,7 @@ def test_extract_docling_basic(sample_pdf_files):
 
 
 @pytest.mark.unit
+@pytest.mark.skip(reason="Need to download the model for this test to run")
 def test_extract_docling_with_template(sample_pdf_files):
     """Test the ExtractDoclingOperator with template extraction."""
     import pyarrow as pa
