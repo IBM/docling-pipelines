@@ -17,7 +17,6 @@ from langchain_community.document_loaders import (
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 from langchain_google_community import GoogleDriveLoader
-
 from common.util.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -155,7 +154,6 @@ class MicrosoftGraphLoader(BaseLoader):
         r = requests.get(download_url)
         r.raise_for_status()
         return r.content
-
 
     def lazy_load(self) -> Iterator[Document]:
         """Lazily load documents from the Microsoft Graph API drive."""
@@ -935,87 +933,87 @@ class IngestSourceOperator(AbstractOperator):
         """
         metadata_features: dict[str, dict[str, Any]] = {
             "path": {
-                OperatorConstants.NAME: "Source Path",
-                OperatorConstants.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
-                OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.Columns.NAME: "Source Path",
+                OperatorConstants.Config.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             "binary_content": {
-                OperatorConstants.NAME: "Binary Content",
-                OperatorConstants.DESCRIPTION: "The raw binary content of the document for downstream extraction operators",
-                OperatorConstants.AVAILABLE_FOR_FILTER: False,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.Columns.NAME: "Binary Content",
+                OperatorConstants.Config.DESCRIPTION: "The raw binary content of the document for downstream extraction operators",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             "metadata": {
-                OperatorConstants.NAME: "Document Metadata",
-                OperatorConstants.DESCRIPTION: "JSON-serialized metadata from the source document",
-                OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.Columns.NAME: "Document Metadata",
+                OperatorConstants.Config.DESCRIPTION: "JSON-serialized metadata from the source document",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             "source_id": {
-                OperatorConstants.NAME: "Source ID",
-                OperatorConstants.DESCRIPTION: "The source identifier (file path, URL, etc.)",
-                OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.Columns.NAME: "Source ID",
+                OperatorConstants.Config.DESCRIPTION: "The source identifier (file path, URL, etc.)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             self.doc_id_hash: {
-                OperatorConstants.NAME: "Hash ID",
-                OperatorConstants.DESCRIPTION: "Hash ID of the document",
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                OperatorConstants.IS_PRIMARY: True,
-                OperatorConstants.TAGS: [
-                    OperatorConstants.MANDATORY,
-                    OperatorConstants.PRIMARY,
+                OperatorConstants.Columns.NAME: "Hash ID",
+                OperatorConstants.Config.DESCRIPTION: "Hash ID of the document",
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.IS_PRIMARY: True,
+                OperatorConstants.Misc.TAGS: [
+                    OperatorConstants.Misc.MANDATORY,
+                    OperatorConstants.Misc.PRIMARY,
                 ],
             },
         }
 
         return {
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.FEATURES: metadata_features,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.ATTRIBUTES: {
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Config.FEATURES: metadata_features,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Config.ATTRIBUTES: {
                 PROVIDER_KEY: {
-                    OperatorConstants.NAME: "Provider",
-                    OperatorConstants.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Columns.NAME: "Provider",
+                    OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 CONNECTION_PARAMS_KEY: {
-                    OperatorConstants.NAME: "Connection Parameters",
-                    OperatorConstants.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Columns.NAME: "Connection Parameters",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 CREDENTIALS_KEY: {
-                    OperatorConstants.NAME: "Credentials",
-                    OperatorConstants.DESCRIPTION: "Authentication credentials for the provider",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Columns.NAME: "Credentials",
+                    OperatorConstants.Config.DESCRIPTION: "Authentication credentials for the provider",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 MAX_FILES_KEY: {
-                    OperatorConstants.NAME: "Max Files",
-                    OperatorConstants.DESCRIPTION: "Maximum number of files to ingest",
-                    OperatorConstants.DEFAULT: MAX_FILES_DEFAULT_VALUE,
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Columns.NAME: "Max Files",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum number of files to ingest",
+                    OperatorConstants.Config.DEFAULT: MAX_FILES_DEFAULT_VALUE,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 INCLUDE_FILTER_KEY: {
-                    OperatorConstants.NAME: "Include File Type",
-                    OperatorConstants.DESCRIPTION: "File types to be included (comma-separated extensions)",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Columns.NAME: "Include File Type",
+                    OperatorConstants.Config.DESCRIPTION: "File types to be included (comma-separated extensions)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
                 EXCLUDE_FILTER_KEY: {
-                    OperatorConstants.NAME: "Exclude File Type",
-                    OperatorConstants.DESCRIPTION: "File types to be excluded (comma-separated extensions)",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Columns.NAME: "Exclude File Type",
+                    OperatorConstants.Config.DESCRIPTION: "File types to be excluded (comma-separated extensions)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
             },
         }

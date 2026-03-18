@@ -11,13 +11,13 @@ from typing import Any
 import pyarrow as pa
 from data_processing.utils.transform_utils import TransformUtils
 
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -37,17 +37,19 @@ class LanguageDetectFastText(AbstractOperator):
     - Configurable filtering of unknown languages
     """
 
-    short_name: str = "lang_detect_fasttext"
+    short_name: str = OperatorConstants.Operators.LANG_DETECT_FASTTEXT
     category: OperatorCategory = OperatorCategory.Quality
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-        self.doc_column_name: str = config.get(OperatorConstants.DOC_COLUMN, OperatorConstants.DOC_COLUMN_DEFAULT)
+        self.doc_column_name: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
-        self.filter_value: bool = config.get(OperatorConstants.FILTER_UNKNOWN_LANGUAGE, False)
+        self.filter_value: bool = config.get(OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE, False)
 
         # Initialize model manager and acquire model
         self.model_manager = FastTextModelManager()
@@ -81,33 +83,33 @@ class LanguageDetectFastText(AbstractOperator):
 
     def get_metadata(self) -> dict[str, Any]:
         operator_metadata = {
-            OperatorConstants.SDK: True,
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.LABEL: "Language Annotator (FastText)",
-            OperatorConstants.DESCRIPTION: "Detects document language using FastText model (176+ languages)",
-            OperatorConstants.ATTRIBUTES: {
-                OperatorConstants.FILTER_UNKNOWN_LANGUAGE: {
-                    OperatorConstants.NAME: "Filter Unknown Language document",
-                    OperatorConstants.DESCRIPTION: "Filters out all documents that have no language detected",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.DEFAULT: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.BOOLEAN,
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.LABEL: "Language Annotator (FastText)",
+            OperatorConstants.Config.DESCRIPTION: "Detects document language using FastText model (176+ languages)",
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: {
+                    OperatorConstants.Misc.NAME: "Filter Unknown Language document",
+                    OperatorConstants.Config.DESCRIPTION: "Filters out all documents that have no language detected",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
             },
-            OperatorConstants.FEATURES: {
-                OperatorConstants.LANGUAGE_NAME_COLUMN_KEY: {
-                    OperatorConstants.NAME: "Language Name",
-                    OperatorConstants.DESCRIPTION: "This stores the language of the document (ISO 639-1 code)",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+            OperatorConstants.Config.FEATURES: {
+                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY: {
+                    OperatorConstants.Misc.NAME: "Language Name",
+                    OperatorConstants.Config.DESCRIPTION: "This stores the language of the document (ISO 639-1 code)",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY: {
-                    OperatorConstants.NAME: "Language score",
-                    OperatorConstants.DESCRIPTION: "Probability score of the language detection",
-                    OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.TYPE: OperatorConstants.TYPE_FLOAT,
+                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY: {
+                    OperatorConstants.Misc.NAME: "Language score",
+                    OperatorConstants.Config.DESCRIPTION: "Probability score of the language detection",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_FLOAT,
                 },
             },
         }
@@ -162,7 +164,7 @@ class LanguageDetectFastText(AbstractOperator):
         fasttext_success_count = 0
 
         for idx, doc_content in enumerate(new_doc_content):
-            file_name_list: list[Any] = table[OperatorConstants.NAME].to_pandas().to_list()
+            file_name_list: list[Any] = table[OperatorConstants.Misc.NAME].to_pandas().to_list()
             file_name: Any = file_name_list[idx] if idx < len(file_name_list) else "unknown"
 
             language_name: str = "UNKNOWN"
@@ -186,7 +188,7 @@ class LanguageDetectFastText(AbstractOperator):
                     remove_row_idx.append(idx)
                     self.record_failed_document(
                         metadata=metadata,
-                        doc_id=table[OperatorConstants.ID][idx].as_py(),
+                        doc_id=table[OperatorConstants.Columns.ID][idx].as_py(),
                         doc_name=str(file_name),
                         reason=f"Filter out based on user selection with error: {getattr(e, 'message', str(e)) if getattr(e, 'message', str(e)) else getattr(e, 'message', repr(e))}",
                     )
@@ -216,12 +218,12 @@ class LanguageDetectFastText(AbstractOperator):
 
         table = TransformUtils.add_column(
             table=table,
-            name=OperatorConstants.LANGUAGE_NAME_COLUMN_KEY,
+            name=OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY,
             content=language_name_column,
         )
         table = TransformUtils.add_column(
             table=table,
-            name=OperatorConstants.LANGUAGE_SCORE_COLUMN_KEY,
+            name=OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY,
             content=language_score_column,
         )
 
@@ -252,7 +254,7 @@ def main() -> tuple[list[pa.Table], dict[str, Any]]:
     operator: LanguageDetectFastText = LanguageDetectFastText(
         {
             "doc_column": "content",
-            OperatorConstants.FILTER_UNKNOWN_LANGUAGE: False,
+            OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: False,
         }
     )
     print(f"   Operator initialized: {operator.short_name}")
@@ -311,9 +313,9 @@ def main() -> tuple[list[pa.Table], dict[str, Any]]:
     )
     doc_id: pa.Array = pa.array([str(i) for i in range(1, 21)])
     col_names: list[str] = [
-        OperatorConstants.ID,
-        OperatorConstants.DOC_COLUMN_DEFAULT,
-        OperatorConstants.NAME,
+        OperatorConstants.Columns.ID,
+        OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+        OperatorConstants.Columns.NAME,
     ]
     input_table: pa.Table = pa.Table.from_arrays([doc_id, content, name], names=col_names)
     print(f"   Created table with {input_table.num_rows} rows")

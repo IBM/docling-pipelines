@@ -5,8 +5,18 @@ Tests the operator with various providers and configurations using mocks.
 """
 
 import json
+from pathlib import Path
 from unittest.mock import Mock, patch
 import pytest
+
+# Add the backend directory to the Python path
+backend_dir = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "src"
+    / "datasift_opensource"
+    / "backend"
+)
+sys.path.insert(0, str(backend_dir))
 
 
 import pyarrow as pa
@@ -119,6 +129,7 @@ class TestIngestSourceOperatorInitialization:
             "credentials": {
                 "client_id": "test-client-id",
                 "client_secret": "test-client-secret",  # pragma: allowlist secret
+
             },
         }
 
@@ -159,6 +170,7 @@ class TestIngestSourceOperatorInitialization:
                 "loader_class_path": "my_package.loaders.CustomLoader",
                 "custom_param": "value",
             },
+            "credentials": {"api_key": "test-api-key"},
             "credentials": {"api_key": "test-api-key"},  # pragma: allowlist secret
         }
 
@@ -189,6 +201,7 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
+
         _loader = operator._get_loader()  # noqa: F841
 
         mock_s3_loader.assert_called_once_with(
@@ -727,13 +740,14 @@ class TestTransform:
         result_table = result_tables[0]
         schema = result_table.schema
 
-        # Verify schema - now includes id and name fields
-        assert len(schema) == 5
+        # Verify schema - now includes id, name, and modified_time fields
+        assert len(schema) == 6
         assert schema.field("text").type == pa.string()
         assert schema.field("metadata").type == pa.string()
         assert schema.field("source_id").type == pa.string()
         assert schema.field("id").type == pa.string()
         assert schema.field("name").type == pa.string()
+        assert schema.field("modified_time").type == pa.int64()
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
     @patch("core.operators.universal.ingest.ingest_source.GoogleDriveLoader")

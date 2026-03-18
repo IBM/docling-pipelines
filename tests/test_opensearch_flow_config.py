@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from uuid import UUID
 
-from common.util.constants import OperatorConstants
+from common.constants.operator_constants import OperatorConstants
 
 
 class TestOpenSearchFlow(unittest.TestCase):
@@ -57,11 +57,11 @@ class TestOpenSearchFlow(unittest.TestCase):
         # Verify OpenSearch configuration keys
         config = self.opensearch_node["config"]
         required_keys = [
-            OperatorConstants.OPENSEARCH_HOST,
-            OperatorConstants.OPENSEARCH_PORT,
-            OperatorConstants.INDEX_NAME,
-            OperatorConstants.DOC_ID_COLUMN,
-            OperatorConstants.EMBEDDINGS_COLUMN,
+            OperatorConstants.VectorDB.OPENSEARCH_HOST,
+            OperatorConstants.VectorDB.OPENSEARCH_PORT,
+            OperatorConstants.VectorDB.INDEX_NAME,
+            OperatorConstants.Columns.DOC_ID_COLUMN,
+            OperatorConstants.Columns.EMBEDDINGS_COLUMN,
         ]
         for key in required_keys:
             self.assertIn(key, config, f"Missing required key: {key}")
@@ -120,8 +120,8 @@ class TestOpenSearchFlow(unittest.TestCase):
         config = self.opensearch_node["config"]
 
         # Check available_features
-        self.assertIn(OperatorConstants.AVAILABLE_FEATURES, config)
-        features = config[OperatorConstants.AVAILABLE_FEATURES]
+        self.assertIn(OperatorConstants.Config.AVAILABLE_FEATURES, config)
+        features = config[OperatorConstants.Config.AVAILABLE_FEATURES]
 
         # Verify required features (including chunking-related features)
         required_features = [
@@ -139,8 +139,8 @@ class TestOpenSearchFlow(unittest.TestCase):
             self.assertIn("type", features[feature])
 
         # Check feature_mappings
-        self.assertIn(OperatorConstants.FEATURE_MAPPINGS, config)
-        mappings = config[OperatorConstants.FEATURE_MAPPINGS]
+        self.assertIn(OperatorConstants.Config.FEATURE_MAPPINGS, config)
+        mappings = config[OperatorConstants.Config.FEATURE_MAPPINGS]
 
         # Verify mappings exist for key features
         self.assertIn("id", mappings)
@@ -176,13 +176,15 @@ class TestOpenSearchFlow(unittest.TestCase):
         config = self.opensearch_node["config"]
 
         # Verify authentication settings
-        self.assertIn(OperatorConstants.OPENSEARCH_USERNAME, config)
-        self.assertIn(OperatorConstants.OPENSEARCH_PASSWORD, config)
-        self.assertEqual(config[OperatorConstants.OPENSEARCH_USERNAME], "admin")
+        self.assertIn(OperatorConstants.VectorDB.OPENSEARCH_USERNAME, config)
+        self.assertIn(OperatorConstants.VectorDB.OPENSEARCH_PASSWORD, config)
+        self.assertEqual(
+            config[OperatorConstants.VectorDB.OPENSEARCH_USERNAME], "admin"
+        )
 
         # Verify SSL settings
-        self.assertIn(OperatorConstants.OPENSEARCH_USE_SSL, config)
-        self.assertIn(OperatorConstants.OPENSEARCH_VERIFY_CERTS, config)
+        self.assertIn(OperatorConstants.VectorDB.OPENSEARCH_USE_SSL, config)
+        self.assertIn(OperatorConstants.VectorDB.OPENSEARCH_VERIFY_CERTS, config)
 
     def test_node_ids_are_valid_uuids(self):
         """Test that all node IDs are valid UUIDs"""
@@ -208,13 +210,15 @@ class TestOpenSearchFlow(unittest.TestCase):
         # The doc_id_hash operator creates a 'doc_id_hash' column
         # OpenSearch should reference this column
         self.assertEqual(
-            config[OperatorConstants.DOC_ID_COLUMN],
+            config[OperatorConstants.Columns.DOC_ID_COLUMN],
             "doc_id_hash",
             "OpenSearch should reference 'doc_id_hash' column created by doc_id_hash operator",
         )
 
         # Embeddings column should be specified (created by embeddings operator)
-        self.assertEqual(config[OperatorConstants.EMBEDDINGS_COLUMN], "embeddings")
+        self.assertEqual(
+            config[OperatorConstants.Columns.EMBEDDINGS_COLUMN], "embeddings"
+        )
 
     def test_flow_storage_and_execution_type(self):
         """Test flow storage and execution configuration"""
@@ -226,13 +230,16 @@ class TestOpenSearchFlow(unittest.TestCase):
         config = self.opensearch_node["config"]
 
         # Verify index name
-        self.assertEqual(config[OperatorConstants.INDEX_NAME], "datasift_test_index")
+        self.assertEqual(
+            config[OperatorConstants.VectorDB.INDEX_NAME], "datasift_test_index"
+        )
 
         # Verify connection details
-        self.assertEqual(config[OperatorConstants.OPENSEARCH_HOST], "localhost")
-        self.assertEqual(config[OperatorConstants.OPENSEARCH_PORT], 9200)
+        self.assertEqual(
+            config[OperatorConstants.VectorDB.OPENSEARCH_HOST], "localhost"
+        )
+        self.assertEqual(config[OperatorConstants.VectorDB.OPENSEARCH_PORT], 9200)
 
 
 if __name__ == "__main__":
     unittest.main()
-
