@@ -132,13 +132,6 @@ def remove_internal_metrics_from_metadata(metadata) -> dict:
     return internal_metadata
 
 
-def load_transform(name: str, func_code: str):
-    """Compile transform code string into a Python function."""
-    namespace = {}
-    exec(func_code, namespace)
-    return namespace[name]
-
-
 def import_transforms_code_from_file(transforms_path: Path) -> dict[str, any]:
     transforms_code = {}
 
