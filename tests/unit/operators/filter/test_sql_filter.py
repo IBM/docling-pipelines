@@ -5,17 +5,6 @@ Tests filtering rows from a PyArrow table using SQL WHERE clause criteria.
 """
 
 import pytest
-
-
-# Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "src"
-    / "datasift_opensource"
-    / "backend"
-)
-sys.path.insert(0, str(backend_dir))
-
 import pyarrow as pa
 
 from core.operators.universal.filter.sql_filter import (
@@ -95,7 +84,6 @@ def test_basic_filter_less_than_or_equal():
     """Filter rows where word_count <= 150."""
     table = make_table()
     operator = make_operator(
-
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["word_count <= 150"]}
     )
     result_tables, metadata = operator.transform(table)
@@ -115,7 +103,6 @@ def test_and_logical_operator():
     table = make_table()
     operator = make_operator(
         {
-
             OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [
                 "score > 2",
                 "language = 'en'",
