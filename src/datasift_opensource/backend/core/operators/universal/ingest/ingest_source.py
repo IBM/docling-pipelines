@@ -17,13 +17,13 @@ from langchain_community.document_loaders import (
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 from langchain_google_community import GoogleDriveLoader
-from common.util.constants import (
+from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -32,6 +32,16 @@ from core.operators.universal.ingest.ingest_utils import (
     get_filter_extensions,
     is_doc_previously_processed,
 )
+
+# Microsoft Graph API Constants
+MICROSOFT_LOGIN_URL = "https://login.microsoftonline.com"
+MICROSOFT_GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
+MICROSOFT_GRAPH_SCOPE = "https://graph.microsoft.com/.default"
+MICROSOFT_OAUTH_TOKEN_PATH = "/oauth2/v2.0/token"
+
+# Google Drive API Constants
+GOOGLE_DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
+
 
 class MicrosoftGraphLoader(BaseLoader):
     """
@@ -44,31 +54,22 @@ class MicrosoftGraphLoader(BaseLoader):
 
     # Supported text-extractable file extensions
     TEXT_EXTENSIONS: ClassVar[set[str]] = {
-        ".txt",
-        ".md",
-        ".csv",
-        ".json",
-        ".xml",
-        ".html",
-        ".htm",
-        ".py",
-        ".js",
-        ".ts",
-        ".java",
-        ".c",
-        ".cpp",
-        ".cs",
-        ".go",
-        ".rb",
-        ".php",
-        ".yaml",
-        ".yml",
-        ".toml",
-        ".ini",
-        ".cfg",
-        ".log",
-        ".rst",
-        ".tex",
+        ".pdf", 
+        ".docx",
+        ".doc", 
+        ".ppt", 
+        ".bmp", 
+        ".gif", 
+        ".jfif", 
+        ".jpg", 
+        ".jpeg", 
+        ".png", 
+        ".tiff", 
+        ".tif", 
+        ".html", 
+        ".xlsx", 
+        ".md", 
+        ".txt"
     }
 
     def __init__(
@@ -98,10 +99,10 @@ class MicrosoftGraphLoader(BaseLoader):
             raise ImportError("msal package not found. Install with: pip install msal") from None
         app = msal.ConfidentialClientApplication(
             self.client_id,
-            authority=f"https://login.microsoftonline.com/{self.tenant_id}",
+            authority=f"{MICROSOFT_LOGIN_URL}/{self.tenant_id}",
             client_credential=self.client_secret,
         )
-        result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+        result = app.acquire_token_for_client(scopes=[MICROSOFT_GRAPH_SCOPE])
         if "access_token" not in result:
             raise ValueError(
                 f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
@@ -117,9 +118,9 @@ class MicrosoftGraphLoader(BaseLoader):
         headers = {"Authorization": f"Bearer {token}"}
 
         if folder_item_id:
-            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{folder_item_id}/children"
+            url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/items/{folder_item_id}/children"
         else:
-            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children"
+            url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/root/children"
 
         files = []
         while url:
@@ -145,7 +146,7 @@ class MicrosoftGraphLoader(BaseLoader):
         if not download_url:
             # Fallback: get download URL via API
             r = requests.get(
-                f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{item['id']}/content",
+                f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/items/{item['id']}/content",
                 headers=headers,
                 allow_redirects=True,
             )
@@ -166,7 +167,7 @@ class MicrosoftGraphLoader(BaseLoader):
             headers = {"Authorization": f"Bearer {token}"}
             # Normalize path
             path = self.folder_path.strip("/")
-            r = requests.get(f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}", headers=headers)
+            r = requests.get(f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/root:/{path}", headers=headers)
             if r.status_code == 200:
                 folder_item_id = r.json().get("id")
             else:
@@ -259,7 +260,7 @@ class IngestSourceOperator(AbstractOperator):
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
         self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
         self.doc_id_hash: str = config.get(
-            OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
         self.ignore_hidden_files: bool = config.get("ignore_hidden_files", True)
         self.common_log_arguments: dict[str, Any] = {
@@ -544,7 +545,7 @@ class IngestSourceOperator(AbstractOperator):
                             "token_path",
                             os.path.expanduser("~/.credentials/token.json"),
                         )
-                        scopes = self.credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"])
+                        scopes = self.credentials.get("scopes", [GOOGLE_DRIVE_READONLY_SCOPE])
 
                         creds = None
                         if os.path.exists(token_path):
@@ -648,11 +649,11 @@ class IngestSourceOperator(AbstractOperator):
                         import requests
 
                         # Get access token
-                        token_url = f"https://login.microsoftonline.com/{self.credentials.get('tenant_id')}/oauth2/v2.0/token"
+                        token_url = f"{MICROSOFT_LOGIN_URL}/{self.credentials.get('tenant_id')}{MICROSOFT_OAUTH_TOKEN_PATH}"
                         token_data = {
                             "client_id": self.credentials.get("client_id"),
                             "client_secret": self.credentials.get("client_secret"),
-                            "scope": "https://graph.microsoft.com/.default",
+                            "scope": MICROSOFT_GRAPH_SCOPE,
                             "grant_type": "client_credentials",
                         }
                         token_response = requests.post(token_url, data=token_data)
@@ -671,7 +672,7 @@ class IngestSourceOperator(AbstractOperator):
                             drive_id = doc.metadata.get("drive_id") or self.connection_params.get("drive_id") or self.connection_params.get("document_library_id")
                             
                             # Both OneDrive and SharePoint can use the drives API endpoint
-                            download_url = f"https://graph.microsoft.com/v1.0/drives/{drive_id}/items/{item_id}/content"
+                            download_url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{drive_id}/items/{item_id}/content"
                             
                             response = requests.get(download_url, headers=headers, allow_redirects=True)
                         
@@ -894,7 +895,7 @@ class IngestSourceOperator(AbstractOperator):
 
             # Define required Google Drive API scopes
             # Use read-only scope for security best practices
-            scopes: list[str] = self.credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"])
+            scopes: list[str] = self.credentials.get("scopes", [GOOGLE_DRIVE_READONLY_SCOPE])
 
             return GoogleDriveLoader(
                 folder_id=self.connection_params.get("folder_id"),

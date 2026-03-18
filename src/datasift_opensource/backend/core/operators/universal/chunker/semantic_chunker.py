@@ -10,8 +10,8 @@ from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OperatorConstants,
 )
+from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.common_utils import is_value_in_range
