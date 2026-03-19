@@ -100,8 +100,7 @@ timestamps {
               
               # Activate virtual environment and run tests from project root
               . .venv/bin/activate
-              cd ../../..
-              ls -la
+              cd ../../.. && pwd
               export PYTHONPATH=./src/datasift_opensource/backend:./tests
               cp .env.example .env
               # Run unit tests with coverage
