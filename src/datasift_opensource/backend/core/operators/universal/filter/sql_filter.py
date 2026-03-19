@@ -411,13 +411,18 @@ def convert_operator(op: str) -> str:
     """Convert JSON operator to SQL operator."""
     if not isinstance(op, str):
         raise DatasiftException(
-            f"Operator must be a string, got {type(op).__name__}",
+            message=f"Operator must be a string, got {type(op).__name__}",
+            status_code=400,
             error_code=ErrorCode.SQL_FILTER_ERROR,
         )
     try:
         return _OPERATOR_MAP[op.lower()]
     except KeyError as e:
-        raise DatasiftException(f"Unknown operator: {op}", error_code=ErrorCode.SQL_FILTER_ERROR) from e
+        raise DatasiftException(
+            message=f"Unknown operator: {op}",
+            status_code=400,
+            error_code=ErrorCode.SQL_FILTER_ERROR,
+        ) from e
 
 
 def format_value(value: Any) -> str:

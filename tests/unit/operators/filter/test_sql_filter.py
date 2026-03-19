@@ -10,17 +10,17 @@ import duckdb
 import pyarrow as pa
 import pytest
 
-from src.datasift_opensource.backend.common.constants.constants import (
+from common.constants.constants import (
     ExecutionStatus,
     Metrics,
 )
-from src.datasift_opensource.backend.common.constants.operator_constants import (
+from common.constants.operator_constants import (
     OperatorConstants,
 )
-from src.datasift_opensource.backend.common.exceptions.datasift_exceptions import (
+from common.exceptions.datasift_exceptions import (
     DatasiftException,
 )
-from src.datasift_opensource.backend.core.operators.universal.filter.sql_filter import (
+from core.operators.universal.filter.sql_filter import (
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
     SQLFilterOperator,
