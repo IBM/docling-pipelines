@@ -217,8 +217,8 @@ def main() -> None:  # pragma: no cover
             "max_files": 1,
             "max_file_size": 1,
             "include_folder": "datasift",
-            "aws_access_id": "XXXX",
-            "aws_access_secret": "XXXX",  # pragma: allowlist secret
+            "aws_access_id": "",
+            "aws_access_secret": "",  # pragma: allowlist secret
             "aws_bucket_name": "tm-wkc-storage-1",
             "include_filter": "pdf",
         }

@@ -4,8 +4,7 @@ import io
 import json
 import logging
 import os
-import tempfile
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, ClassVar, Iterator
 
 import boto3
 import pyarrow as pa
@@ -13,14 +12,31 @@ import pyarrow as pa
 # Import standard LangChain loaders
 from langchain_community.document_loaders import (
     S3DirectoryLoader,
+    S3FileLoader,
 )
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 from langchain_google_community import GoogleDriveLoader
 
+from common.constants.constants import (
+    AttributeDataTypes,
+    DatasiftConstants,
+    ExecutionStatus,
+    Metrics,
+)
+from common.constants.operator_constants import OperatorConstants
+from common.util.incremental_update_util import IncrementalUpdateUtil
+from common.util.log import get_logger
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.universal.ingest.ingest_utils import (
+    filter_based_on_extension,
+    get_filter_extensions,
+    is_doc_previously_processed,
+)
 
 # Suppress pdfminer logging
-logging.getLogger('pdfminer').setLevel(logging.ERROR)
+logging.getLogger("pdfminer").setLevel(logging.ERROR)
+
 
 class MicrosoftGraphLoader(BaseLoader):
     """
@@ -32,7 +48,7 @@ class MicrosoftGraphLoader(BaseLoader):
     """
 
     # Supported text-extractable file extensions
-    TEXT_EXTENSIONS = {
+    TEXT_EXTENSIONS: ClassVar[set[str]] = {
         ".txt",
         ".md",
         ".csv",
@@ -66,7 +82,7 @@ class MicrosoftGraphLoader(BaseLoader):
         client_id: str,
         client_secret: str,
         tenant_id: str,
-        folder_path: str = None,
+        folder_path: str | None = None,
         recursive: bool = True,
     ):
         self.drive_id = drive_id
@@ -84,7 +100,7 @@ class MicrosoftGraphLoader(BaseLoader):
         try:
             import msal
         except ImportError:
-            raise ImportError("msal package not found. Install with: pip install msal")
+            raise ImportError("msal package not found. Install with: pip install msal") from None
         app = msal.ConfidentialClientApplication(
             self.client_id,
             authority=f"https://login.microsoftonline.com/{self.tenant_id}",
@@ -98,7 +114,7 @@ class MicrosoftGraphLoader(BaseLoader):
         self._token = result["access_token"]
         return self._token
 
-    def _list_files(self, folder_item_id: str = None) -> list[dict]:
+    def _list_files(self, folder_item_id: str | None = None) -> list[dict]:
         """Recursively list all files in the drive (or a specific folder)."""
         import requests
 
@@ -255,22 +271,6 @@ class MicrosoftGraphLoader(BaseLoader):
         return list(self.lazy_load())
 
 
-from common.constants.constants import (
-    AttributeDataTypes,
-    DatasiftConstants,
-    ExecutionStatus,
-    Metrics,
-)
-from common.constants.operator_constants import OperatorConstants
-from common.util.incremental_update_util import IncrementalUpdateUtil
-from common.util.log import get_logger
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.universal.ingest.ingest_utils import (
-    filter_based_on_extension,
-    get_filter_extensions,
-    is_doc_previously_processed,
-)
-
 # Configuration keys
 PROVIDER_KEY: str = "provider"
 CONNECTION_PARAMS_KEY: str = "connection_params"
@@ -325,7 +325,9 @@ class IngestSourceOperator(AbstractOperator):
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
         self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
         self.store_binary_content: bool = config.get("store_binary_content", False)
-        self.doc_id_hash: str = config.get(OperatorConstants.DOC_ID_HASH, OperatorConstants.DOC_ID_HASH_DEFAULT)
+        self.doc_id_hash: str = config.get(
+            OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
         self.ignore_hidden_files: bool = config.get("ignore_hidden_files", True)
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
@@ -527,7 +529,6 @@ class IngestSourceOperator(AbstractOperator):
             processed_doc: dict[str, Any] = {
                 "id": doc_id,
                 "name": source,
-                "modified_time": modified_time,
                 "metadata": json.dumps(doc.metadata),
                 "source_id": source,
                 "modified_time": modified_time if isinstance(modified_time, int) else 0,
@@ -823,20 +824,20 @@ class IngestSourceOperator(AbstractOperator):
         """
         # Get S3 file keys using existing method (already filters hidden files)
         file_keys: list[str] = self._get_s3_file_keys()
-        
+
         # Apply max_files limit to file keys
         if self.max_files > 0:
-            file_keys = file_keys[:self.max_files]
-        
+            file_keys = file_keys[: self.max_files]
+
         # Setup client config
         client_config: dict[str, Any] = {}
         if self.provider == "ibm_cos":
             client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
-        
+
         # Load each file individually
         documents: list[Document] = []
         bucket: str = self.connection_params.get("bucket")
-        
+
         for key in file_keys:
             try:
                 loader = S3FileLoader(
@@ -844,7 +845,7 @@ class IngestSourceOperator(AbstractOperator):
                     key=key,
                     aws_access_key_id=self.credentials.get("access_key"),
                     aws_secret_access_key=self.credentials.get("secret_key"),
-                    **client_config
+                    **client_config,
                 )
                 documents.extend(loader.load())
             except Exception as e:
@@ -853,9 +854,8 @@ class IngestSourceOperator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
                 continue
-        
-        return documents
 
+        return documents
 
     def _get_loader(self) -> BaseLoader:
         """
@@ -937,11 +937,11 @@ class IngestSourceOperator(AbstractOperator):
             class_name: str
             module_name, class_name = loader_path.rsplit(".", 1)
             module: Any = importlib.import_module(module_name)
-            LoaderClass: Any = getattr(module, class_name)
+            loader_class: Any = getattr(module, class_name)
 
             # Initialize with merged params and credentials
             init_kwargs: dict[str, Any] = {**self.connection_params, **self.credentials}
-            return LoaderClass(**init_kwargs)
+            return loader_class(**init_kwargs)
 
         else:
             raise ValueError(f"Provider '{self.provider}' is not supported.")
@@ -955,86 +955,86 @@ class IngestSourceOperator(AbstractOperator):
         metadata_features: dict[str, dict[str, Any]] = {
             "path": {
                 OperatorConstants.Columns.NAME: "Source Path",
-                OperatorConstants.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
-                OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.Config.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             "binary_content": {
                 OperatorConstants.Columns.NAME: "Binary Content",
-                OperatorConstants.DESCRIPTION: "The raw binary content of the document for downstream extraction operators",
-                OperatorConstants.AVAILABLE_FOR_FILTER: False,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.Config.DESCRIPTION: "The raw binary content of the document for downstream extraction operators",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             "metadata": {
                 OperatorConstants.Columns.NAME: "Document Metadata",
-                OperatorConstants.DESCRIPTION: "JSON-serialized metadata from the source document",
-                OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.Config.DESCRIPTION: "JSON-serialized metadata from the source document",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             "source_id": {
                 OperatorConstants.Columns.NAME: "Source ID",
-                OperatorConstants.DESCRIPTION: "The source identifier (file path, URL, etc.)",
-                OperatorConstants.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
+                OperatorConstants.Config.DESCRIPTION: "The source identifier (file path, URL, etc.)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
             self.doc_id_hash: {
                 OperatorConstants.Columns.NAME: "Hash ID",
-                OperatorConstants.DESCRIPTION: "Hash ID of the document",
-                OperatorConstants.AVAILABLE_FOR_VECTOR_DB: True,
-                OperatorConstants.TYPE: OperatorConstants.TYPE_STRING,
-                OperatorConstants.IS_PRIMARY: True,
-                OperatorConstants.TAGS: [
-                    OperatorConstants.MANDATORY,
-                    OperatorConstants.PRIMARY,
+                OperatorConstants.Config.DESCRIPTION: "Hash ID of the document",
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.IS_PRIMARY: True,
+                OperatorConstants.Misc.TAGS: [
+                    OperatorConstants.Misc.MANDATORY,
+                    OperatorConstants.Misc.PRIMARY,
                 ],
             },
         }
 
         return {
-            OperatorConstants.CATEGORY: self.category.value,
-            OperatorConstants.FEATURES: metadata_features,
-            OperatorConstants.IS_OPERATOR_AVAILABLE: self.is_available(),
-            OperatorConstants.ATTRIBUTES: {
+            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Config.FEATURES: metadata_features,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Config.ATTRIBUTES: {
                 PROVIDER_KEY: {
                     OperatorConstants.Columns.NAME: "Provider",
-                    OperatorConstants.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 CONNECTION_PARAMS_KEY: {
                     OperatorConstants.Columns.NAME: "Connection Parameters",
-                    OperatorConstants.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 CREDENTIALS_KEY: {
                     OperatorConstants.Columns.NAME: "Credentials",
-                    OperatorConstants.DESCRIPTION: "Authentication credentials for the provider",
-                    OperatorConstants.REQUIRED: True,
-                    OperatorConstants.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.DESCRIPTION: "Authentication credentials for the provider",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 MAX_FILES_KEY: {
                     OperatorConstants.Columns.NAME: "Max Files",
-                    OperatorConstants.DESCRIPTION: "Maximum number of files to ingest",
-                    OperatorConstants.DEFAULT: MAX_FILES_DEFAULT_VALUE,
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.INTEGER,
+                    OperatorConstants.Config.DESCRIPTION: "Maximum number of files to ingest",
+                    OperatorConstants.Config.DEFAULT: MAX_FILES_DEFAULT_VALUE,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 INCLUDE_FILTER_KEY: {
                     OperatorConstants.Columns.NAME: "Include File Type",
-                    OperatorConstants.DESCRIPTION: "File types to be included (comma-separated extensions)",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Config.DESCRIPTION: "File types to be included (comma-separated extensions)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
                 EXCLUDE_FILTER_KEY: {
                     OperatorConstants.Columns.NAME: "Exclude File Type",
-                    OperatorConstants.DESCRIPTION: "File types to be excluded (comma-separated extensions)",
-                    OperatorConstants.REQUIRED: False,
-                    OperatorConstants.TYPE: AttributeDataTypes.LIST,
+                    OperatorConstants.Config.DESCRIPTION: "File types to be excluded (comma-separated extensions)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
             },
         }
@@ -1092,7 +1092,7 @@ def main() -> None:  # pragma: no cover
         result_table: pa.Table = output_tables[0]
         print("\nTable Schema:")
         print(result_table.schema)
-        print(f"\nTable Shape: {result_table.num_rows} rows × {result_table.num_columns} columns")
+        print(f"\nTable Shape: {result_table.num_rows} rows x {result_table.num_columns} columns")
 
         if result_table.num_rows > 0:
             print(f"\nFirst {min(5, result_table.num_rows)} rows:")
