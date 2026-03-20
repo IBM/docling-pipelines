@@ -89,18 +89,18 @@ class DoclingChunkerOperator(AbstractOperator):
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
-    
+
         # Validate input parameters
         self._validate_input_parameters()
 
         # Initialize the HybridChunker
         self.chunker: HybridChunker | None = None
         self._initialize_chunker()
-    
+
     def _validate_input_parameters(self) -> None:
         """
         Validate input parameters for the Docling chunker operator.
-        
+
         Raises:
             ValueError: If required parameters are missing or invalid
         """
@@ -109,7 +109,7 @@ class DoclingChunkerOperator(AbstractOperator):
             raise ValueError("doc_column is required")
         if not isinstance(self.doc_column, str) or not self.doc_column.strip():
             raise ValueError("doc_column must be a non-empty string")
-        
+
         # Validate chunk_size
         if not isinstance(self.chunk_size, int):
             raise ValueError("chunk_size must be an integer")
@@ -117,7 +117,7 @@ class DoclingChunkerOperator(AbstractOperator):
             raise ValueError("chunk_size must be at least 100 tokens")
         if self.chunk_size > 2048:
             raise ValueError("chunk_size must not exceed 2048 tokens")
-        
+
         # Validate chunk_overlap
         if not isinstance(self.chunk_overlap, int):
             raise ValueError("chunk_overlap must be an integer")
@@ -125,13 +125,12 @@ class DoclingChunkerOperator(AbstractOperator):
             raise ValueError("chunk_overlap must be non-negative")
         if self.chunk_overlap >= self.chunk_size:
             raise ValueError("chunk_overlap must be less than chunk_size")
-        
+
         # Validate tokenizer
         if not self.tokenizer:
             raise ValueError("tokenizer is required")
         if not isinstance(self.tokenizer, str) or not self.tokenizer.strip():
             raise ValueError("tokenizer must be a non-empty string")
-
 
     def _initialize_chunker(self) -> None:
         """Initialize the Docling HybridChunker."""
@@ -572,8 +571,8 @@ def main() -> int:
             logger.info(f"First chunk preview: {chunks[0]['chunk'][:200]}...")
             logger.info(f"First chunk metadata: {chunks[0]['metadata']}")
 
-    if "doc_id_hash" in chunked_table.column_names:
-        hash_id: str | None = chunked_table["doc_id_hash"][0].as_py()
+    if OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in chunked_table.column_names:
+        hash_id: str | None = chunked_table[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT][0].as_py()
         logger.info(f"Document hash: {hash_id}")
 
     return 0
