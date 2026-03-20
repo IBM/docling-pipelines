@@ -14,27 +14,13 @@ Tests cover:
 - Multi-provider support structure
 """
 
-import sys
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
 import pyarrow as pa
 import numpy as np
 
-# Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "src"
-    / "datasift_opensource"
-    / "backend"
-)
-sys.path.insert(0, str(backend_dir))
-
-
-# noqa comments to suppress E402 (module level import not at top of file)
-# These imports must come after sys.path modification
-from core.operators.universal.embeddings.embeddings_operator import (  # noqa: E402
+from core.operators.universal.embeddings.embeddings_operator import (
     EmbeddingsOperator,
     OVERLAP_RATIO_DEFAULT,
     OVERLAP_RATIO_MIN,

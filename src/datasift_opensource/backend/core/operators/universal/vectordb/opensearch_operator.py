@@ -6,7 +6,7 @@ Supports multiple KNN engines, algorithms, incremental updates, and query capabi
 """
 
 import json
-from typing import Any
+from typing import Any, ClassVar
 
 import boto3
 import pyarrow as pa
@@ -51,8 +51,8 @@ class OpenSearchEngineTypes:
     NMSLIB: str = "nmslib"
     JVECTOR: str = "jvector"
 
-    ALL_ENGINES: list[str] = [FAISS, LUCENE, NMSLIB, JVECTOR]
-    RECOMMENDED_ENGINES: list[str] = [FAISS, LUCENE]
+    ALL_ENGINES: ClassVar[list[str]] = [FAISS, LUCENE, NMSLIB, JVECTOR]
+    RECOMMENDED_ENGINES: ClassVar[list[str]] = [FAISS, LUCENE]
 
 
 class OpenSearchAlgorithmTypes:
@@ -61,7 +61,7 @@ class OpenSearchAlgorithmTypes:
     HNSW: str = "hnsw"
     IVF: str = "ivf"
 
-    ALL_ALGORITHMS: list[str] = [HNSW, IVF]
+    ALL_ALGORITHMS: ClassVar[list[str]] = [HNSW, IVF]
     DEFAULT_ALGORITHM: str = HNSW
 
 
@@ -72,7 +72,7 @@ class VectorSimilarityTypes:
     COSINE: str = "cosine"
     INNER_PRODUCT: str = "inner_product"
 
-    ALL_TYPES: list[str] = [L2, COSINE, INNER_PRODUCT]
+    ALL_TYPES: ClassVar[list[str]] = [L2, COSINE, INNER_PRODUCT]
     DEFAULT: str = L2
 
 
@@ -142,7 +142,9 @@ class OpenSearchOperator(AbstractOperator):
 
         # Index configuration
         self.index_name: str | None = config.get(OperatorConstants.VectorDB.INDEX_NAME)
-        self.doc_id_column: str = config.get(OperatorConstants.Columns.DOC_ID_COLUMN, "doc_id_hash")
+        self.doc_id_column: str = config.get(
+            OperatorConstants.Columns.DOC_ID_COLUMN, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
+        )
         self.embeddings_column: str = config.get(
             OperatorConstants.Columns.EMBEDDINGS_COLUMN,
             OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
@@ -187,7 +189,7 @@ class OpenSearchOperator(AbstractOperator):
     def _validate_input_parameters(self) -> None:
         """
         Validate input parameters for the OpenSearch operator.
-        
+
         Raises:
             ValueError: If required parameters are missing or invalid
         """
@@ -196,46 +198,46 @@ class OpenSearchOperator(AbstractOperator):
             raise ValueError("opensearch_host is required")
         if not isinstance(self.host, str) or not self.host.strip():
             raise ValueError("opensearch_host must be a non-empty string")
-        
+
         if not self.index_name:
             raise ValueError("index_name is required")
         if not isinstance(self.index_name, str) or not self.index_name.strip():
             raise ValueError("index_name must be a non-empty string")
-        
+
         # Validate port
         if not isinstance(self.port, int):
             raise ValueError("opensearch_port must be an integer")
         if self.port < 1 or self.port > 65535:
             raise ValueError("opensearch_port must be between 1 and 65535")
-        
+
         # Validate batch size
         if not isinstance(self.batch_size, int):
             raise ValueError("batch_size must be an integer")
         if self.batch_size < 1:
             raise ValueError("batch_size must be greater than 0")
-        
+
         # Validate vector dimension
         if not isinstance(self.config_vector_dimension, int):
             raise ValueError("vector_dimension must be an integer")
         if self.config_vector_dimension < 1:
             raise ValueError("vector_dimension must be greater than 0")
-        
+
         # Validate AWS auth configuration
         if self.aws_auth and not self.aws_region:
             raise ValueError("aws_region is required when aws_auth is enabled")
-        
+
         # Validate engine
         if self.engine not in OpenSearchEngineTypes.ALL_ENGINES:
             raise ValueError(
                 f"Invalid engine '{self.engine}'. Must be one of: {', '.join(OpenSearchEngineTypes.ALL_ENGINES)}"
             )
-        
+
         # Validate algorithm
         if self.algorithm not in OpenSearchAlgorithmTypes.ALL_ALGORITHMS:
             raise ValueError(
                 f"Invalid algorithm '{self.algorithm}'. Must be one of: {', '.join(OpenSearchAlgorithmTypes.ALL_ALGORITHMS)}"
             )
-        
+
         # Validate space type
         if self.space_type not in VectorSimilarityTypes.ALL_TYPES:
             raise ValueError(
@@ -1000,7 +1002,7 @@ def main() -> None:
         "opensearch_host": "localhost",
         "opensearch_port": 9200,
         "opensearch_username": "admin",
-        "opensearch_password": "admin",
+        "opensearch_password": "admin",  # pragma: allowlist secret
         "opensearch_use_ssl": False,
         "opensearch_verify_certs": False,
         "index_name": "datasift_documents",
@@ -1061,9 +1063,9 @@ def main() -> None:
     operator: OpenSearchOperator = OpenSearchOperator(config)
 
     # Transform (index documents)
-    result_tables: list[pa.Table]
+    _result_tables: list[pa.Table]
     metadata: dict[str, Any]
-    result_tables, metadata = operator.transform(table)
+    _result_tables, metadata = operator.transform(table)
 
     print(f"Indexed {metadata[Metrics.External.PROCESSED_DOCS]} documents")
     print(f"Failed: {metadata[Metrics.External.FAILED_DOCS_COUNT]}")

@@ -358,7 +358,7 @@ class GuardRailsPIIAndHAPExtractor:
             Tuple of (updated table, updated content)
         """
         redaction_flag = self.hap_redaction if detected_field == METADATA_HAP_FIELD_NAME else self.redaction
-        content_column_name = "content"
+        content_column_name = OperatorConstants.Columns.DOC_COLUMN_DEFAULT
 
         if redaction_flag:
             input_dict["doc_content"] = self.redact(

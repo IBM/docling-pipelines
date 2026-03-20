@@ -8,17 +8,6 @@ registered by OperatorFactory (the primary bug that was previously fixed).
 """
 
 import pytest
-
-
-# Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "src"
-    / "datasift_opensource"
-    / "backend"
-)
-sys.path.insert(0, str(backend_dir))
-
 import pyarrow as pa
 
 from core.operators.universal.branching.branching_operator import BranchingOperator

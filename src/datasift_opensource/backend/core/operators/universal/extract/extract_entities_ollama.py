@@ -25,20 +25,11 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
+
+# Import TransformUtils from centralized location
+from common.util.transform_utils import TransformUtils
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
-
-try:
-    from data_processing.utils import TransformUtils
-except ImportError:
-
-    class TransformUtils:  # type: ignore[no-redef]
-        @staticmethod
-        def add_column(table: pa.Table, name: str, content: list) -> pa.Table:
-            new_column = pa.array(content)
-            new_field = pa.field(name, new_column.type)
-            return table.append_column(new_field, new_column)
-
 
 logger = get_logger(__name__)
 
