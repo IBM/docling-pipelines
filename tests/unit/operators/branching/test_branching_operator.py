@@ -8,7 +8,6 @@ registered by OperatorFactory (the primary bug that was previously fixed).
 """
 
 import pytest
-
 import pyarrow as pa
 
 from core.operators.universal.branching.branching_operator import BranchingOperator

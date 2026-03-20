@@ -14,12 +14,10 @@ Tests cover:
 
 import json
 import tempfile
-
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
-
 
 from core.operators.universal.extract.extract_entities_ollama import (
     ExtractEntitiesOllamaOperator,

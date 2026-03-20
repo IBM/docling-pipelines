@@ -12,24 +12,6 @@ from typing import Any
 import numpy as np
 import pyarrow as pa
 
-try:
-    from data_processing.utils import TransformUtils
-
-    HAS_TRANSFORM_UTILS: bool = True
-except ImportError:
-    HAS_TRANSFORM_UTILS: bool = False
-
-    # Fallback implementation
-    class TransformUtils:
-        @staticmethod
-        def add_column(table: pa.Table, name: str, content: list[Any]) -> pa.Table:
-            """Add a column to a PyArrow table."""
-            # Infer the type from the content
-            new_column = pa.array(content)
-            new_field = pa.field(name, new_column.type)
-            return table.append_column(new_field, new_column)
-
-
 from common.clients.ollama_client import (
     DEFAULT_TOKEN_LIMIT,
     OLLAMA_MODEL_TOKEN_LIMITS,
@@ -45,6 +27,9 @@ from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
+
+# Import TransformUtils from centralized location
+from common.util.transform_utils import TransformUtils
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator

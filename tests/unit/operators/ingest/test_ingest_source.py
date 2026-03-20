@@ -8,7 +8,6 @@ import json
 from unittest.mock import Mock, patch
 import pytest
 
-
 import pyarrow as pa
 from langchain_core.documents import Document
 
