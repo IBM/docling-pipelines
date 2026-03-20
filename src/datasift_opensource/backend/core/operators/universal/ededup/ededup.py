@@ -24,7 +24,7 @@ FILTER_KEY: str = "filter"
 logger = get_logger()
 
 
-class EdedupOperator(AbstractOperator):  # pragma: no cover
+class EdedupOperator(AbstractOperator):
     """
     Ededup (Exact De-duplication) Operator is an exact deduplication operator which can be added after Extract Operator,
     so that if there are exact duplicate documents that are extracted, it will be removed from the pyarrow table before
@@ -122,7 +122,7 @@ class EdedupOperator(AbstractOperator):  # pragma: no cover
         return output_tables, metadata
 
 
-def main() -> None:  # pragma: no cover
+def main() -> None:
     # 1. Create a Pyarrow table
     content: list[str] = [
         "Document content 1",
@@ -156,5 +156,5 @@ def main() -> None:  # pragma: no cover
     logger.info(f"Ededup Output MetaData : {metadata}")
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     exit(main())

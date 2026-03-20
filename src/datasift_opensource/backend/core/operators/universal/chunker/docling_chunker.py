@@ -556,8 +556,8 @@ def main() -> int:
             logger.info(f"First chunk preview: {chunks[0]['chunk'][:200]}...")
             logger.info(f"First chunk metadata: {chunks[0]['metadata']}")
 
-    if "doc_id_hash" in chunked_table.column_names:
-        hash_id: str | None = chunked_table["doc_id_hash"][0].as_py()
+    if OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in chunked_table.column_names:
+        hash_id: str | None = chunked_table[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT][0].as_py()
         logger.info(f"Document hash: {hash_id}")
 
     return 0

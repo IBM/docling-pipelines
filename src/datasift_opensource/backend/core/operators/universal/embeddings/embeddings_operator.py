@@ -1118,8 +1118,11 @@ def main() -> int:
                         print(f"  Embedding sample (first 5 values): {embeddings_data[:5]}")
 
         # Show document hash
-        if "doc_id_hash" in embeddings_table.column_names and embeddings_table.num_rows > 0:
-            doc_hash: str = embeddings_table["doc_id_hash"][0].as_py()
+        if (
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in embeddings_table.column_names
+            and embeddings_table.num_rows > 0
+        ):
+            doc_hash: str = embeddings_table[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT][0].as_py()
             print(f"  Document hash: {doc_hash}")
 
     except Exception as e:

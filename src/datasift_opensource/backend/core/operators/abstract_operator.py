@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from data_processing.transform import AbstractTableTransform
@@ -16,7 +16,7 @@ from core.operators.operator_utils import OperatorUtils
 logger = get_logger()
 
 
-class OperatorCategory(str, Enum):
+class OperatorCategory(StrEnum):
     Extract = "Extract"
     Ingest = "Ingest"
     Functional = "Functional"
@@ -61,17 +61,11 @@ class AbstractOperator(AbstractTableTransform):
         return {}
 
     def should_validate_field(self, *, field_value: Any) -> bool:
-        # # Determine if a field should be validated.
-        # from datasift_common.util.parameter_utils import is_parameterized_field
-
         # Always validate during execution phase
         if not self.validating_flow:
             return True
         else:
             return False
-
-        # # During validation phase, only validate if field is NOT parameterized
-        # return not is_parameterized_field(field=field_value)
 
     @staticmethod
     def create_base_metadata(
