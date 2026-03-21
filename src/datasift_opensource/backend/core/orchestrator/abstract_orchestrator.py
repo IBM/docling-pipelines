@@ -825,6 +825,9 @@ class AbstractOrchestrator:
             return None
         set_session_info(session_info)
 
+        # Get operator semaphore from orchestrator instance (for micro-batching)
+        operator_semaphore = self._global_operator_semaphore
+
         try:
             if link_id and prev_results.internal_metadata:
                 if len(prev_results.tables) != len(prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)):
@@ -841,6 +844,28 @@ class AbstractOrchestrator:
                 internal_metadata = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
                 prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
 
+            # If micro-batching enabled, acquire semaphore before executing operator
+            if operator_semaphore:  # pragma: no cover
+                operator_semaphore.acquire()
+                try:
+                    self.logger.debug(
+                        f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
+                        extra=self.common_log_arguments
+                    )
+                    result = self._execute_step(
+                        op_def=op_def,
+                        global_config=global_config,
+                        prev_results=prev_results,
+                        deleted_docs_count=deleted_docs_count
+                    )
+                finally:
+                    operator_semaphore.release()
+                    self.logger.debug(
+                        f"Operator {op_def[OperatorConstants.Columns.NAME]}: released semaphore slot",
+                        extra=self.common_log_arguments
+                    )
+            else:
+                # No semaphore - execute normally
                 self.logger.debug(
                     f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
                     extra=self.common_log_arguments
@@ -850,13 +875,6 @@ class AbstractOrchestrator:
                     global_config=global_config,
                     prev_results=prev_results,
                     deleted_docs_count=deleted_docs_count,
-                )
-            else:
-                result = self._execute_step(
-                    op_def=op_def,
-                    global_config=global_config,
-                    prev_results=prev_results,
-                    deleted_docs_count=deleted_docs_count
                 )
 
             if not op_def.get(DatasiftConstants.OUTPUT_EDGES):
