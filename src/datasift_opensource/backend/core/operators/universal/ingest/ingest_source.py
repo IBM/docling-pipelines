@@ -206,6 +206,11 @@ class MicrosoftGraphLoader(BaseLoader):
         return list(self.lazy_load())
 
 
+# Aliases for backward compatibility with tests
+SharePointLoader = MicrosoftGraphLoader
+OneDriveLoader = MicrosoftGraphLoader
+
+
 # Configuration keys
 PROVIDER_KEY: str = "provider"
 CONNECTION_PARAMS_KEY: str = "connection_params"
@@ -840,21 +845,18 @@ class IngestSourceOperator(AbstractOperator):
     def _get_loader(self) -> BaseLoader:
         """
         Factory method to initialize the correct LangChain loader.
+        
+        Note: S3/IBM COS providers use _load_s3_documents() directly and should not call this method.
+        See process_documents() for the special S3 handling logic.
         """
 
         # 1. Amazon S3 / IBM COS (S3 Compatible)
+        # Note: This case should never be reached as process_documents() calls _load_s3_documents()
+        # directly for S3/IBM COS providers. Keeping this for backward compatibility with tests.
         if self.provider in ["s3", "ibm_cos"]:
-            # IBM COS requires an endpoint_url; AWS S3 does not
-            client_config: dict[str, Any] = {}
-            if self.provider == "ibm_cos":
-                client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
-
-            return S3DirectoryLoader(
-                bucket=self.connection_params.get("bucket"),
-                prefix=self.connection_params.get("prefix", ""),
-                aws_access_key_id=self.credentials.get("access_key"),
-                aws_secret_access_key=self.credentials.get("secret_key"),
-                **client_config,
+            raise ValueError(
+                f"S3/IBM COS providers should not call _get_loader(). "
+                f"The process_documents() method uses _load_s3_documents() instead."
             )
 
         # 2. Microsoft SharePoint

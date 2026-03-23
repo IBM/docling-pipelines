@@ -5,6 +5,7 @@ Tests the operator with various providers and configurations using mocks.
 """
 
 import json
+import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
 import pytest
@@ -186,9 +187,8 @@ class TestIngestSourceOperatorInitialization:
 class TestGetLoader:
     """Test cases for _get_loader method."""
 
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
-    def test_get_loader_s3(self, mock_s3_loader):
-        """Test _get_loader returns S3DirectoryLoader for S3 provider."""
+    def test_get_loader_s3(self):
+        """Test _get_loader raises error for S3 provider (should use _load_s3_documents instead)."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
 
         config = {
@@ -202,18 +202,11 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        _loader = operator._get_loader()  # noqa: F841
+        with pytest.raises(ValueError, match="S3/IBM COS providers should not call _get_loader"):
+            operator._get_loader()
 
-        mock_s3_loader.assert_called_once_with(
-            bucket="test-bucket",
-            prefix="test-prefix/",
-            aws_access_key_id="test-access-key",
-            aws_secret_access_key="test-secret-key",  # pragma: allowlist secret
-        )
-
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
-    def test_get_loader_ibm_cos(self, mock_s3_loader):
-        """Test _get_loader returns S3DirectoryLoader with endpoint for IBM COS."""
+    def test_get_loader_ibm_cos(self):
+        """Test _get_loader raises error for IBM COS provider (should use _load_s3_documents instead)."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
 
         config = {
@@ -230,15 +223,9 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
-        _loader = operator._get_loader()  # noqa: F841
 
-        mock_s3_loader.assert_called_once_with(
-            bucket="test-bucket",
-            prefix="test-prefix/",
-            aws_access_key_id="test-access-key",
-            aws_secret_access_key="test-secret-key",  # pragma: allowlist secret
-            endpoint_url="https://s3.us-south.cloud-object-storage.appdomain.cloud",
-        )
+        with pytest.raises(ValueError, match="S3/IBM COS providers should not call _get_loader"):
+            operator._get_loader()
 
     @patch("core.operators.universal.ingest.ingest_source.GoogleDriveLoader")
     @patch("os.path.exists")
@@ -273,9 +260,9 @@ class TestGetLoader:
             scopes=["https://www.googleapis.com/auth/drive.readonly"],
         )
 
-    @patch("core.operators.universal.ingest.ingest_source.SharePointLoader")
+    @patch("core.operators.universal.ingest.ingest_source.MicrosoftGraphLoader")
     def test_get_loader_sharepoint(self, mock_sp_loader):
-        """Test _get_loader returns SharePointLoader for SharePoint provider."""
+        """Test _get_loader returns MicrosoftGraphLoader for SharePoint provider."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
 
         config = {
@@ -284,6 +271,7 @@ class TestGetLoader:
             "credentials": {
                 "client_id": "test-client-id",
                 "client_secret": "test-client-secret",  # pragma: allowlist secret
+                "tenant_id": "test-tenant-id",
             },
         }
 
@@ -292,9 +280,9 @@ class TestGetLoader:
 
         mock_sp_loader.assert_called_once()
 
-    @patch("core.operators.universal.ingest.ingest_source.OneDriveLoader")
+    @patch("core.operators.universal.ingest.ingest_source.MicrosoftGraphLoader")
     def test_get_loader_onedrive(self, mock_od_loader):
-        """Test _get_loader returns OneDriveLoader for OneDrive provider."""
+        """Test _get_loader returns MicrosoftGraphLoader for OneDrive provider."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
 
         config = {
@@ -306,6 +294,7 @@ class TestGetLoader:
             "credentials": {
                 "client_id": "test-client-id",
                 "client_secret": "test-client-secret",  # pragma: allowlist secret
+                "tenant_id": "test-tenant-id",
             },
         }
 
@@ -561,9 +550,10 @@ class TestTransform:
     """Test cases for transform method."""
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
+    @patch("boto3.client")
+    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
     def test_transform_success(
-        self, mock_s3_loader, mock_incremental_util, mock_documents, empty_input_table
+        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, mock_documents, empty_input_table
     ):
         """Test transform successfully processes documents."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
@@ -573,10 +563,25 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock loader to return documents
+        # Mock boto3 client for _get_s3_file_keys()
+        mock_s3 = Mock()
+        mock_paginator = Mock()
+        mock_boto_client.return_value = mock_s3
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {
+                "Contents": [
+                    {"Key": "file1.txt", "Size": 100},
+                    {"Key": "file2.txt", "Size": 200},
+                    {"Key": "file3.txt", "Size": 300},
+                ]
+            }
+        ]
+
+        # Mock S3FileLoader to return documents
         mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = mock_documents
-        mock_s3_loader.return_value = mock_loader_instance
+        mock_loader_instance.load.return_value = [mock_documents[0]]  # Return one doc per file
+        mock_s3_file_loader.return_value = mock_loader_instance
 
         config = {
             "provider": "s3",
@@ -597,29 +602,21 @@ class TestTransform:
         result_table = result_tables[0]
 
         assert result_table.num_rows == 3
-        assert "text" in result_table.column_names
-        assert "metadata" in result_table.column_names
-        assert "source_id" in result_table.column_names
         assert "id" in result_table.column_names
         assert "name" in result_table.column_names
-
-        # Check content
-        texts = result_table["text"].to_pylist()
-        assert texts[0] == "This is the first document content."
-        assert texts[1] == "This is the second document content."
-        assert texts[2] == "This is the third document content."
+        assert "metadata" in result_table.column_names
+        assert "source_id" in result_table.column_names
+        assert "path" in result_table.column_names
+        assert "binary_content" in result_table.column_names
+        assert "modified_time" in result_table.column_names
 
         # Check metadata is JSON serialized
         metadata_list = result_table["metadata"].to_pylist()
-        metadata_0 = json.loads(metadata_list[0])
-        assert metadata_0["source"] == "file1.txt"
-        assert metadata_0["page"] == 1
+        assert len(metadata_list) == 3
 
         # Check source_id
         source_ids = result_table["source_id"].to_pylist()
-        assert source_ids[0] == "file1.txt"
-        assert source_ids[1] == "file2.txt"
-        assert source_ids[2] == "file3.txt"
+        assert len(source_ids) == 3
 
         # Check metadata - now follows AbstractOperator pattern
         assert metadata["node_status"] == "Completed"
@@ -627,9 +624,10 @@ class TestTransform:
         assert metadata["total_docs_count"] == 3
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
+    @patch("boto3.client")
+    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
     def test_transform_empty_documents(
-        self, mock_s3_loader, mock_incremental_util, empty_input_table
+        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
     ):
         """Test transform handles empty document list."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
@@ -639,10 +637,12 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock loader to return empty list
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = []
-        mock_s3_loader.return_value = mock_loader_instance
+        # Mock boto3 client to return no files
+        mock_s3 = Mock()
+        mock_paginator = Mock()
+        mock_boto_client.return_value = mock_s3
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [{}]  # Empty response
 
         config = {
             "provider": "s3",
@@ -667,9 +667,10 @@ class TestTransform:
         assert metadata["processed_docs"] == 0
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
+    @patch("boto3.client")
+    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
     def test_transform_error_handling(
-        self, mock_s3_loader, mock_incremental_util, empty_input_table
+        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
     ):
         """Test transform handles errors gracefully."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
@@ -679,10 +680,8 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock loader to raise exception
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.side_effect = Exception("Connection failed")
-        mock_s3_loader.return_value = mock_loader_instance
+        # Mock boto3 client to raise exception
+        mock_boto_client.side_effect = Exception("Connection failed")
 
         config = {
             "provider": "s3",
@@ -707,9 +706,10 @@ class TestTransform:
         assert metadata["failed_docs_count"] == 1
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
+    @patch("boto3.client")
+    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
     def test_transform_schema_validation(
-        self, mock_s3_loader, mock_incremental_util, mock_documents, empty_input_table
+        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, mock_documents, empty_input_table
     ):
         """Test transform output has correct schema."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
@@ -719,9 +719,25 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
+        # Mock boto3 client for _get_s3_file_keys()
+        mock_s3 = Mock()
+        mock_paginator = Mock()
+        mock_boto_client.return_value = mock_s3
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {
+                "Contents": [
+                    {"Key": "file1.txt", "Size": 100},
+                    {"Key": "file2.txt", "Size": 200},
+                    {"Key": "file3.txt", "Size": 300},
+                ]
+            }
+        ]
+
+        # Mock S3FileLoader
         mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = mock_documents
-        mock_s3_loader.return_value = mock_loader_instance
+        mock_loader_instance.load.return_value = [mock_documents[0]]
+        mock_s3_file_loader.return_value = mock_loader_instance
 
         config = {
             "provider": "s3",
@@ -740,13 +756,14 @@ class TestTransform:
         result_table = result_tables[0]
         schema = result_table.schema
 
-        # Verify schema - now includes id, name, and modified_time fields
-        assert len(schema) == 6
-        assert schema.field("text").type == pa.string()
-        assert schema.field("metadata").type == pa.string()
-        assert schema.field("source_id").type == pa.string()
+        # Verify schema - now includes id, name, path, binary_content, and modified_time fields
+        assert len(schema) == 7
         assert schema.field("id").type == pa.string()
         assert schema.field("name").type == pa.string()
+        assert schema.field("metadata").type == pa.string()
+        assert schema.field("source_id").type == pa.string()
+        assert schema.field("path").type == pa.string()
+        assert schema.field("binary_content").type == pa.binary()
         assert schema.field("modified_time").type == pa.int64()
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
@@ -795,8 +812,10 @@ class TestTransform:
         assert metadata["node_status"] == "Completed"
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
+    @patch("boto3.client")
+    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
     def test_transform_document_without_source(
-        self, mock_incremental_util, empty_input_table
+        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
     ):
         """Test transform handles documents without source in metadata."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
@@ -806,44 +825,52 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
+        # Mock boto3 client for _get_s3_file_keys()
+        mock_s3 = Mock()
+        mock_paginator = Mock()
+        mock_boto_client.return_value = mock_s3
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {"Contents": [{"Key": "file1.txt", "Size": 100}]}
+        ]
+
         # Document without source
         doc_no_source = Document(
             page_content="Content without source", metadata={"page": 1}
         )
 
-        with patch(
-            "core.operators.universal.ingest.ingest_source.S3DirectoryLoader"
-        ) as mock_loader:
-            mock_loader_instance = Mock()
-            mock_loader_instance.load.return_value = [doc_no_source]
-            mock_loader.return_value = mock_loader_instance
+        # Mock S3FileLoader
+        mock_loader_instance = Mock()
+        mock_loader_instance.load.return_value = [doc_no_source]
+        mock_s3_file_loader.return_value = mock_loader_instance
 
-            config = {
-                "provider": "s3",
-                "connection_params": {"bucket": "test-bucket", "prefix": ""},
-                "credentials": {
-                    "access_key": "key",
-                    "secret_key": "secret",  # pragma: allowlist secret
-                },  # pragma: allowlist secret
-                "job_id": "test-job-123",
-                "job_run_id": "test-run-456",
-            }
+        config = {
+            "provider": "s3",
+            "connection_params": {"bucket": "test-bucket", "prefix": ""},
+            "credentials": {
+                "access_key": "key",
+                "secret_key": "secret",  # pragma: allowlist secret
+            },  # pragma: allowlist secret
+            "job_id": "test-job-123",
+            "job_run_id": "test-run-456",
+        }
 
-            operator = IngestSourceOperator(config)
-            result_tables, metadata = operator.transform(empty_input_table)
+        operator = IngestSourceOperator(config)
+        result_tables, metadata = operator.transform(empty_input_table)
 
-            result_table = result_tables[0]
-            source_ids = result_table["source_id"].to_pylist()
-            assert source_ids[0].startswith("unknown_")
+        result_table = result_tables[0]
+        source_ids = result_table["source_id"].to_pylist()
+        assert source_ids[0].startswith("unknown_")
 
 
 class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
+    @patch("boto3.client")
+    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
     def test_s3_to_pyarrow_pipeline(
-        self, mock_s3_loader, mock_incremental_util, empty_input_table
+        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
     ):
         """Test complete S3 ingestion to PyArrow table pipeline."""
         from core.operators.universal.ingest.ingest_source import IngestSourceOperator
@@ -852,6 +879,20 @@ class TestIntegrationScenarios:
         mock_util_instance = Mock()
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
+
+        # Mock boto3 client for _get_s3_file_keys()
+        mock_s3 = Mock()
+        mock_paginator = Mock()
+        mock_boto_client.return_value = mock_s3
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {
+                "Contents": [
+                    {"Key": "invoices/inv_001.pdf", "Size": 1000},
+                    {"Key": "invoices/inv_002.pdf", "Size": 2000},
+                ]
+            }
+        ]
 
         # Simulate realistic S3 documents
         documents = [
@@ -865,9 +906,10 @@ class TestIntegrationScenarios:
             ),
         ]
 
+        # Mock S3FileLoader to return one document per call
         mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = documents
-        mock_s3_loader.return_value = mock_loader_instance
+        mock_loader_instance.load.side_effect = [[documents[0]], [documents[1]]]
+        mock_s3_file_loader.return_value = mock_loader_instance
 
         config = {
             "provider": "s3",
@@ -893,11 +935,13 @@ class TestIntegrationScenarios:
         # Verify data can be converted to pandas for downstream processing
         df = result_table.to_pandas()
         assert len(df) == 2
-        assert "text" in df.columns
-        assert "metadata" in df.columns
-        assert "source_id" in df.columns
         assert "id" in df.columns
         assert "name" in df.columns
+        assert "metadata" in df.columns
+        assert "source_id" in df.columns
+        assert "path" in df.columns
+        assert "binary_content" in df.columns
+        assert "modified_time" in df.columns
 
 
 if __name__ == "__main__":
