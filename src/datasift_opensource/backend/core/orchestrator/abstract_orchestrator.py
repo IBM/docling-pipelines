@@ -1,6 +1,7 @@
 import json
 import os
 import threading
+from abc import ABC
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from operator import itemgetter
@@ -64,7 +65,7 @@ class ValidateStepResults:
         self.warnings = warnings
 
 
-class AbstractOrchestrator:
+class AbstractOrchestrator(ABC):
     def __init__(self) -> None:
         self.__canceling = False
         self.__failing = False
