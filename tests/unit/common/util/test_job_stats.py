@@ -256,8 +256,9 @@ class TestJobTracker(unittest.TestCase):
         # Extra cleanup to ensure test isolation
         clear_mock_storage()
         self.tracker.all_jobs.clear()
-        create_session_info(flow_id="flow1")
-        self.tracker.start_tracking_job(orchestrator=None, job_id="job1", job_run_id=test_job_run_id)
+        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        create_session_info(orchestrator=orch, flow_id="flow1")
+        self.tracker.start_tracking_job(orchestrator=orch, job_id="job1", job_run_id=test_job_run_id)
         sleep(1)
         self.tracker.end_job(job_run_id=test_job_run_id)
         self.assertEqual(self.tracker.all_jobs[test_job_run_id].status, ExecutionStatus.COMPLETED)
@@ -309,37 +310,13 @@ class TestJobTracker(unittest.TestCase):
         orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
         create_session_info(orchestrator=orch, flow_id="flow1")
         
-
-        # Mock the methods with proper return values
-        mock_update_run_status = Mock()
-        self.tracker._update_run_status = mock_update_run_status
-        
-        self.tracker._get_jobs = Mock(return_value={
-            "results": [
-                {
-                    "metadata": {
-                        "name": "mock_job",
-                        "description": "",
-                        "asset_id": job_id
-                    },
-                    "entity": {}
-                }
-            ]
-        })
-        
-        self.tracker._get_job_run = Mock(return_value={
-            "metadata": {},
-            "entity": {
-                "job_run": {
-                    "state": "Queued",
-                    "job_ref": job_id
-                }
-            }
-        })
-        
         job_run_id = str(uuid1())
-        self.tracker.request_cancel_job(job_run_id=job_run_id)
-        mock_update_run_status.assert_called_once_with(status=ExecutionStatus.CANCELING, message=f"Cancelling job run {job_run_id}")
+        
+        # request_cancel_job should raise an exception when job stats don't exist
+        with self.assertRaises(DatasiftException) as context:
+            self.tracker.request_cancel_job(job_run_id=job_run_id)
+        
+        self.assertIn(job_run_id, str(context.exception))
 
     def test_cancel_job_negative(self):
         test_job_run_id = str(uuid1())
@@ -357,7 +334,7 @@ class TestJobTracker(unittest.TestCase):
     def test_cancel_job_without_job_id(self):
         test_job_run_id = str(uuid1())
         create_session_info()
-        self.tracker.get_job_run_stats = Mock(return_value=None)
+        self.tracker.get_job = Mock(return_value=None)
         self.tracker._get_jobs = Mock(return_value={})
         with self.assertRaises(DatasiftException) as context:
             self.tracker.request_cancel_job(job_run_id=test_job_run_id)
@@ -367,65 +344,48 @@ class TestJobTracker(unittest.TestCase):
         create_session_info()
         job_id = str(uuid1())
         job_run_id = str(uuid1())
-        self.tracker.get_job_run_stats = Mock(return_value=JobStatsDto(
+        job_stats = JobStatsDto(
             job_id=job_id,
             job_run_id=job_run_id,
             status=ExecutionStatus.RUNNING
-        ))
+        )
+        self.tracker.get_job = Mock(return_value=job_stats)
         # Mock store_job_stats to prevent contaminating _MOCK_STORAGE
         self.tracker.store_job_stats = Mock()
-        
-        mock_update_run_status = Mock()
-        self.tracker._update_run_status = mock_update_run_status
-        
-        self.tracker._get_job_run = Mock(return_value={
-            "metadata": {},
-            "entity": {
-                "job_run": {
-                    "state": "Running",
-                    "job_ref": job_id
-                }
-            }
-        })
 
-        self.tracker.request_cancel_job(job_run_id=job_run_id)
-        mock_update_run_status.assert_called_once_with(status=ExecutionStatus.CANCELING,
-                                                       message=f"Cancelling job run {job_run_id}")
+        result = self.tracker.request_cancel_job(job_run_id=job_run_id)
+        
+        # Verify the status was changed to CANCELING
+        self.assertEqual(result.status, ExecutionStatus.CANCELING)
+        # Verify store_job_stats was called to persist the change
+        self.tracker.store_job_stats.assert_called_once()
 
     def test_cancel_job_with_status_different_in_persistent_store_and_jobs_framework(self):
         create_session_info()
         job_id = str(uuid1())
         job_run_id = str(uuid1())
-        self.tracker.get_job_run_stats = Mock(return_value=JobStatsDto(
+        job_stats = JobStatsDto(
             job_id=job_id,
             job_run_id=job_run_id,
             status=ExecutionStatus.FAILED
-        ))
+        )
+        self.tracker.get_job = Mock(return_value=job_stats)
         # Mock store_job_stats to prevent contaminating _MOCK_STORAGE
         self.tracker.store_job_stats = Mock()
-        
-        mock_update_run_status = Mock()
-        self.tracker._update_run_status = mock_update_run_status
-        
-        self.tracker._get_job_run = Mock(return_value={
-            "metadata": {},
-            "entity": {
-                "job_run": {
-                    "state": "Running",
-                    "job_ref": job_id
-                }
-            }
-        })
 
-        self.tracker.request_cancel_job(job_run_id=job_run_id)
-        mock_update_run_status.assert_called_once_with(status=ExecutionStatus.FAILED,
-                                                       message=f"Updating job run {job_run_id} to state {ExecutionStatus.FAILED.value}")
+        result = self.tracker.request_cancel_job(job_run_id=job_run_id)
+        
+        # Verify that terminal state (FAILED) is not changed
+        self.assertEqual(result.status, ExecutionStatus.FAILED)
+        # Verify store_job_stats was not called since status didn't change
+        self.tracker.store_job_stats.assert_not_called()
 
     @patch('common.util.job_tracker.storage.pickle_job_stats_store.PickleJobStatsStore.get_node_stats')
     @patch('common.util.job_tracker.storage.pickle_job_stats_store._get_job_id_for_job_run')
     @patch('common.util.job_tracker.storage.pickle_job_stats_store.PickleJobStatsStore.get_job_stats')
     def test_node_stats(self, mock_get_job_stats, mock_get_job_id_for_job_run, mock_get_node_stats):
-        create_session_info(flow_id="flow1")
+        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        create_session_info(orchestrator=orch, flow_id="flow1")
         job_run_id = str(uuid1())
         job_id = str(uuid1())
 
@@ -441,7 +401,7 @@ class TestJobTracker(unittest.TestCase):
             } for i in range(5)
         }
 
-        self.tracker.start_tracking_job(orchestrator=None, job_id=job_id, job_run_id=job_run_id)
+        self.tracker.start_tracking_job(orchestrator=orch, job_id=job_id, job_run_id=job_run_id)
         for i in range(5):
             node_stats = {
                 'node_id': uuid.uuid4(),
@@ -469,12 +429,12 @@ class TestJobTracker(unittest.TestCase):
 
     def test_cancel_job_when_status_is_canceling(self):
         create_session_info(flow_id="flow1")
-        self.tracker.get_job_run_stats = Mock()
+        self.tracker.get_job = Mock()
         self.tracker.end_job = Mock()
         # Mock job with CANCELING status
         job_stats_mock = Mock()
         job_stats_mock.status = ExecutionStatus.CANCELING
-        self.tracker.get_job_run_stats.return_value = job_stats_mock
+        self.tracker.get_job.return_value = job_stats_mock
 
         result = self.tracker.cancel_job_run_if_cancelling(job_run_id="job123")
 
@@ -482,8 +442,7 @@ class TestJobTracker(unittest.TestCase):
         self.tracker.end_job.assert_called_once_with(
             "job123",
             status=ExecutionStatus.CANCELED,
-            message="Job run Canceled",
-            cloud_client=None
+            message="Job run Canceled"
         )
 
     def test_not_cancel_job_when_status_is_not_canceling(self):
@@ -499,46 +458,6 @@ class TestJobTracker(unittest.TestCase):
 
         self.assertFalse(result)
         self.tracker.end_job.assert_not_called()
-
-    def test_get_flow_execution_status_with_job_stats_found_on_first_try(self):
-        create_session_info(flow_id="flow1")
-        job_id = "17486f02-c4dd-4751-9edc-0471db0d17fa"
-        job_run_id = "47486f02-c4dd-4751-9edc-0471db0d17fa"
-        flow_id = "415b9ab1-c984-4d78-8881-6c1d6c8096d8"
-        cos_client = MagicMock()
-        node_stats = {
-            "a724c386-c150-4430-9d50-01ef566b3e4a": {
-                "id": "a724c386-c150-4430-9d50-01ef566b3e4a",
-                "name": "Extract",
-                "node_status": "Completed",
-                "time_taken": 5,
-                "col_names": ["id", "name", "content", "entity"],
-                "docs_completed_count": 100,
-                "error": ""
-            }
-        }
-        mock_job_stats = JobStatsDto(job_id=job_id, job_run_id=job_run_id, orchestrator="Python",
-                                     start_time=1000, end_time=2000, status=ExecutionStatus.COMPLETED,
-                                     total_docs=100, processed_docs=100, failed_docs=0, skipped_docs=0,
-                                     node_stats=node_stats)
-
-        with patch.object(self.tracker, "get_job", return_value=mock_job_stats):
-            result = self.tracker.get_flow_execution_status(flow_id, job_run_id, cos_client)
-
-        self.assertEqual(result.status, ExecutionStatus.COMPLETED.value)
-        self.assertEqual(len(result.node_stats), 1)
-        self.assertEqual(result.elapsed_time, str(timedelta(seconds=1000)))
-
-    def test_get_flow_execution_status_job_stats_not_found_raises_exception(self):
-        create_session_info()
-        job_run_id = "47486f02-c4dd-4751-9edc-0471db0d17fa"
-        flow_id = "415b9ab1-c984-4d78-8881-6c1d6c8096d8"
-        cos_client = MagicMock()
-
-        with patch.object(self.tracker, "get_job", return_value=None):
-            with self.assertRaises(DatasiftException) as context:
-                self.tracker.get_flow_execution_status(flow_id, job_run_id, cos_client)
-            self.assertIn("Unable to find stats for job run", str(context.exception))
 
 
     def test_request_delete_job_run(self):

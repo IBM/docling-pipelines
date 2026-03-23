@@ -313,7 +313,15 @@ class JobTracker(metaclass=Singleton):
 
         # Update in-memory cache
         stat = self.get_job(job_run_id=job_run_id)
-        self.all_jobs[job_run_id] = stat
+        if stat:
+            # Apply increments to in-memory stats
+            for field, value in increments.items():
+                current_value = getattr(stat, field, 0)
+                setattr(stat, field, current_value + value)
+            # Apply updates to in-memory stats
+            for field, value in updates.items():
+                setattr(stat, field, value)
+            self.all_jobs[job_run_id] = stat
 
         logger.info(f"Document count updated for the job_run_id: {job_run_id}")
         _log_inconsistencies(job_stats=stat)
@@ -354,6 +362,8 @@ class JobTracker(metaclass=Singleton):
             node_metadata=target_node_stats.get("node_metadata", {}),
             error=str(target_node_stats.get("error", "")),
         )
+        # Update in-memory node_stats for CMDLINE mode
+        stat.node_stats[node_id] = data
         JobStatsStore.get_job_stats_store().store_node_stats(stat.job_id, job_run_id, data)
         logger.info(
             f"Node stats added for the job, job_run_id: {job_run_id}, node_id: {node_id}",
