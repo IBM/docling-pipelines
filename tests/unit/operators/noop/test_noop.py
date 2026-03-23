@@ -10,7 +10,7 @@ import pytest
 import pyarrow as pa
 import time
 
-from core.operators.universal.noop.noop import NOOPOperator
+from core.operators.functional.noop import NOOPOperator
 from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics
 

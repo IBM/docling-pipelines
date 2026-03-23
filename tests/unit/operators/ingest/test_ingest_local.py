@@ -7,7 +7,7 @@ Tests both metadata-only mode and legacy extraction mode
 from pathlib import Path
 import pytest
 
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
 
 class TestIngestLocalOperator:

@@ -20,7 +20,7 @@ import pytest
 
 
 from common.constants.operator_constants import OperatorConstants  # noqa: E402
-from core.operators.universal.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
+from core.operators.quality.pii_and_hap_annotator import (  # noqa: E402
     PIIAndHAPAnnotator,
 )
 
@@ -141,7 +141,7 @@ def mock_detect_pii_hap(request_data: dict, model_name: str = "granite4"):
 def mock_detection():
     """Mock the detection function for all tests."""
     with patch(
-        "core.operators.universal.pii_and_hap.pii_and_hap_annotator.detect_pii_hap",
+        "core.operators.quality.pii_and_hap_annotator.detect_pii_hap",
         side_effect=mock_detect_pii_hap,
     ):
         yield

@@ -13,10 +13,10 @@ from src.datasift_opensource.backend.common.constants.constants import (
 from src.datasift_opensource.backend.common.constants.operator_constants import (
     OperatorConstants,
 )
-from src.datasift_opensource.backend.core.operators.language.language_id.lang_id_fasttext import (
+from src.datasift_opensource.backend.core.operators.quality.lang_id_fasttext import (
     LanguageDetectFastText,
 )
-from src.datasift_opensource.backend.core.operators.language.language_id.fasttext_model_manager import (
+from src.datasift_opensource.backend.core.operators.quality.fasttext_model_manager import (
     FastTextModelManager,
 )
 

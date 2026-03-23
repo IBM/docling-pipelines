@@ -13,7 +13,7 @@ from common.constants.operator_constants import OperatorConstants
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.universal.ingest.ingest_utils import (
+from core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
     get_filter_extensions,
     is_doc_previously_processed,
@@ -90,14 +90,14 @@ class IngestLocalOperator(AbstractOperator):
 
         # Will be initialized in transform method
         self.previously_processed_docs_dict: Optional[dict[str, Any]] = None
-        
+
         # Validate input parameters
         self._validate_input_parameters()
 
     def _validate_input_parameters(self) -> None:
         """
         Validate input parameters for the ingest local folder operator.
-        
+
         Raises:
             ValueError: If required parameters are missing or invalid
         """
@@ -106,25 +106,24 @@ class IngestLocalOperator(AbstractOperator):
             raise ValueError("input_folder is required")
         if not isinstance(self.input_folder, str) or not self.input_folder.strip():
             raise ValueError("input_folder must be a non-empty string")
-        
+
         # Validate folder exists
         if not os.path.exists(self.input_folder):
             raise ValueError(f"input_folder does not exist: {self.input_folder}")
         if not os.path.isdir(self.input_folder):
             raise ValueError(f"input_folder is not a directory: {self.input_folder}")
-        
+
         # Validate max_files
         if not isinstance(self.max_files, int):
             raise ValueError("max_files must be an integer")
         if self.max_files < 1:
             raise ValueError("max_files must be greater than 0")
-        
+
         # Validate max_file_size
         if not isinstance(self.max_file_size, int):
             raise ValueError("max_file_size must be an integer")
         if self.max_file_size < 1:
             raise ValueError("max_file_size must be greater than 0")
-
 
     def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """

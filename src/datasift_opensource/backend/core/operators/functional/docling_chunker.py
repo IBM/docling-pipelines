@@ -28,7 +28,7 @@ from common.util.log import get_logger
 # Import TransformUtils from centralized location
 from common.util.transform_utils import TransformUtils
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
+from core.operators.functional.doc_id_hash import DocIdHashOperator
 
 logger: logging.Logger = get_logger()
 
@@ -490,7 +490,7 @@ def main() -> int:
 
     # First, extract the document using extract_docling_operator
     logger.info("Step 1: Extracting document content")
-    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.extract.extract_docling import ExtractDoclingOperator
 
     extract_config: dict[str, Any] = {
         "doc_column": "content",

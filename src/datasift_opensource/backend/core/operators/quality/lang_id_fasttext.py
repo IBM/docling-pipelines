@@ -21,8 +21,8 @@ from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.language.language_id.fasttext_model_manager import FastTextModelManager
 from core.operators.operator_utils import OperatorUtils
+from core.operators.quality.fasttext_model_manager import FastTextModelManager
 
 logger: Logger = get_logger()
 

@@ -19,7 +19,7 @@ from unittest.mock import MagicMock, patch
 import pyarrow as pa
 import pytest
 
-from core.operators.universal.extract.extract_entities_ollama import (
+from core.operators.extract.extract_entities_ollama import (
     ExtractEntitiesOllamaOperator,
     _build_json_template,
     _build_schema_description,

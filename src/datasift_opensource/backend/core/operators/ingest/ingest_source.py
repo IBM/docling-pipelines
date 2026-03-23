@@ -28,7 +28,7 @@ from common.constants.operator_constants import OperatorConstants
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.universal.ingest.ingest_utils import (
+from core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
     get_filter_extensions,
     is_doc_previously_processed,

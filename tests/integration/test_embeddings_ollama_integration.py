@@ -19,7 +19,7 @@ backend_dir = (
 )
 sys.path.insert(0, str(backend_dir))
 
-from core.operators.universal.embeddings.embeddings_operator import (  # noqa: E402
+from core.operators.functional.embeddings_operator import (  # noqa: E402
     EmbeddingsOperator,
 )
 

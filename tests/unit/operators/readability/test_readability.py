@@ -1,6 +1,6 @@
 import unittest
 import pyarrow as pa
-from core.operators.universal.readability.readability import (
+from core.operators.quality.readability import (
     ReadabilityOperator,
     DEFAULT_READABILITY_SCORES,
 )
