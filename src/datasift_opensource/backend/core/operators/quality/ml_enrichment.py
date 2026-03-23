@@ -31,7 +31,7 @@ from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # Import NLTK data management utilities
 # This module handles NLTK downloads with SSL bypass capabilities
-from core.operators.universal.ml_enrichment.nltk_data_manager import ensure_nltk_data
+from core.operators.quality.nltk_data_manager import ensure_nltk_data
 
 logger = get_logger()
 

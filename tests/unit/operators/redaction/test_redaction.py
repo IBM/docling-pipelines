@@ -1,6 +1,6 @@
 import pyarrow as pa
 
-from core.operators.universal.regex.redaction import RedactionOperator
+from core.operators.quality.redaction import RedactionOperator
 from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics
 
