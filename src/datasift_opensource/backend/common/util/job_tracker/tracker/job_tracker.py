@@ -14,7 +14,6 @@ from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OrchestratorType,
 )
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
@@ -180,7 +179,6 @@ class JobTracker(metaclass=Singleton):
         :return: A JobStatsDto object if found, otherwise None.
         """
         logger.info(f"Getting job stats by job_run_id: {job_run_id}")
-
         if JobStatsStore._is_cmd_line_mode():
             return self.all_jobs.get(job_run_id, None)
 
@@ -252,7 +250,7 @@ class JobTracker(metaclass=Singleton):
         # Map the run ID to the orchestrator instance to enable cancellation.
         self.__jobs_to_orchestrator[job_run_id] = orchestrator
 
-        orchestrator_type = OrchestratorType.PYTHON.capitalize()
+        orchestrator_type = orchestrator.get_type()
 
         # Create the initial statistics object for the new job run.
         stat = JobStatsDto(
@@ -422,7 +420,7 @@ class JobTracker(metaclass=Singleton):
         )
 
         # job_run_response = jobs_client.get_job_run()
-        # jobs_framework_state = job_run_response.get(OperatorConstants.ENTITY, {}).get(DatasiftConstants.JOB_RUN,
+        # jobs_framework_state = job_run_response.get(OperatorConstants.Misc.ENTITY, {}).get(DatasiftConstants.JOB_RUN,
         #                                                                               {}).get(DatasiftConstants.STATE, ExecutionStatus.QUEUED.value)
 
         # Use pattern matching to handle different job states.
