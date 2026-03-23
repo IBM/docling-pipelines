@@ -10,7 +10,7 @@ from unittest.mock import Mock, patch
 import nltk
 import pytest
 
-from src.datasift_opensource.backend.core.operators.universal.ml_enrichment.nltk_data_manager import (
+from src.datasift_opensource.backend.core.operators.quality.nltk_data_manager import (
     UnverifiedNLTKDownloader,
     ensure_nltk_data,
 )
@@ -135,7 +135,7 @@ class TestEnsureNLTKData:
     @patch("nltk.data.find")
     @patch("nltk.download")
     @patch(
-        "src.datasift_opensource.backend.core.operators.universal.ml_enrichment.nltk_data_manager.UnverifiedNLTKDownloader"
+        "src.datasift_opensource.backend.core.operators.quality.nltk_data_manager.UnverifiedNLTKDownloader"
     )
     def test_ssl_error_triggers_retry(
         self, mock_unverified_downloader, mock_download, mock_find
@@ -171,7 +171,7 @@ class TestEnsureNLTKData:
         mock_download.return_value = False
 
         with patch(
-            "src.datasift_opensource.backend.core.operators.universal.ml_enrichment.nltk_data_manager.UnverifiedNLTKDownloader"
+            "src.datasift_opensource.backend.core.operators.quality.nltk_data_manager.UnverifiedNLTKDownloader"
         ) as mock_unverified:
             mock_downloader_instance = Mock()
             mock_downloader_instance.download.return_value = True
@@ -195,7 +195,7 @@ class TestEnsureNLTKData:
     @patch("nltk.data.find")
     @patch("nltk.download")
     @patch(
-        "src.datasift_opensource.backend.core.operators.universal.ml_enrichment.nltk_data_manager.UnverifiedNLTKDownloader"
+        "src.datasift_opensource.backend.core.operators.quality.nltk_data_manager.UnverifiedNLTKDownloader"
     )
     def test_all_retries_fail(
         self, mock_unverified_downloader, mock_download, mock_find
@@ -215,7 +215,7 @@ class TestEnsureNLTKData:
     @patch("nltk.data.find")
     @patch("nltk.download")
     @patch(
-        "src.datasift_opensource.backend.core.operators.universal.ml_enrichment.nltk_data_manager.UnverifiedNLTKDownloader"
+        "src.datasift_opensource.backend.core.operators.quality.nltk_data_manager.UnverifiedNLTKDownloader"
     )
     def test_verification_fails_after_download(
         self, mock_unverified_downloader, mock_download, mock_find
@@ -259,7 +259,7 @@ class TestEnsureNLTKData:
             """Mock function that tracks call order"""
             import time
 
-            from src.datasift_opensource.backend.core.operators.universal.ml_enrichment.nltk_data_manager import (
+            from src.datasift_opensource.backend.core.operators.quality.nltk_data_manager import (
                 _nltk_lock,
             )
 
@@ -296,7 +296,7 @@ class TestEnsureNLTKData:
         mock_download.side_effect = ssl.SSLError("certificate verify failed")
 
         with patch(
-            "src.datasift_opensource.backend.core.operators.universal.ml_enrichment.nltk_data_manager.UnverifiedNLTKDownloader"
+            "src.datasift_opensource.backend.core.operators.quality.nltk_data_manager.UnverifiedNLTKDownloader"
         ) as mock_unverified:
             mock_downloader_instance = Mock()
             mock_downloader_instance.download.return_value = True
@@ -317,7 +317,7 @@ class TestEnsureNLTKData:
         mock_download.side_effect = ConnectionError("NLTK download returned False")
 
         with patch(
-            "src.datasift_opensource.backend.core.operators.universal.ml_enrichment.nltk_data_manager.UnverifiedNLTKDownloader"
+            "src.datasift_opensource.backend.core.operators.quality.nltk_data_manager.UnverifiedNLTKDownloader"
         ) as mock_unverified:
             mock_downloader_instance = Mock()
             mock_downloader_instance.download.return_value = True

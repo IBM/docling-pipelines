@@ -20,7 +20,7 @@ import pytest
 import pyarrow as pa
 import numpy as np
 
-from core.operators.universal.embeddings.embeddings_operator import (
+from core.operators.functional.embeddings_operator import (
     EmbeddingsOperator,
     OVERLAP_RATIO_DEFAULT,
     OVERLAP_RATIO_MIN,
@@ -130,7 +130,7 @@ def sample_table_empty():
 class TestEmbeddingsOperatorInitialization:
     """Test operator initialization and configuration."""
 
-    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    @patch("core.operators.functional.embeddings_operator.OllamaClient")
     def test_init_with_valid_config(self, mock_ollama_client, sample_config):
         """Test operator initialization with valid configuration."""
         operator = EmbeddingsOperator(sample_config)
@@ -142,7 +142,7 @@ class TestEmbeddingsOperatorInitialization:
         assert operator.doc_id_hash_column == "doc_id_hash"
         assert operator.overlap_ratio == 0.2
 
-    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    @patch("core.operators.functional.embeddings_operator.OllamaClient")
     def test_init_with_default_values(self, mock_ollama_client):
         """Test operator initialization with default values."""
         config = {"embeddings_model_id": "mistral"}
@@ -160,7 +160,7 @@ class TestEmbeddingsOperatorInitialization:
         )
         assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
 
-    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    @patch("core.operators.functional.embeddings_operator.OllamaClient")
     def test_init_with_minimal_config(self, mock_ollama_client):
         """Test operator initialization with minimal configuration."""
         config = {}
@@ -337,7 +337,7 @@ class TestEmbeddingsOperatorValidation:
         assert len(errors) > 0
         assert any("overlap_ratio must be between" in err for err in errors)
 
-    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    @patch("core.operators.functional.embeddings_operator.OllamaClient")
     def test_validate_invalid_model_id(self, mock_ollama_client):
         """Test validation with invalid model ID."""
         config = {
@@ -355,7 +355,7 @@ class TestEmbeddingsOperatorValidation:
             "embeddings_model_id must be a non-empty string" in err for err in errors
         )
 
-    @patch("core.operators.universal.embeddings.embeddings_operator.OllamaClient")
+    @patch("core.operators.functional.embeddings_operator.OllamaClient")
     def test_validate_all_supported_embeddings_types(self, mock_ollama_client):
         """Test validation accepts all supported embeddings types."""
         # Only test ollama since openai is not yet implemented
@@ -1031,7 +1031,7 @@ class TestEmbeddingsOperatorIntegration:
 
             # Mock OllamaClient for this specific model
             with patch(
-                "core.operators.universal.embeddings.embeddings_operator.OllamaClient"
+                "core.operators.functional.embeddings_operator.OllamaClient"
             ) as mock_client:
                 mock_instance = Mock()
                 mock_instance.generate_embeddings.return_value = [0.1] * 384

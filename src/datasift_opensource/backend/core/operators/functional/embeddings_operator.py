@@ -31,8 +31,8 @@ from common.util.operator_utils import find_doc_count, remove_rows
 # Import TransformUtils from centralized location
 from common.util.transform_utils import TransformUtils
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.functional.doc_id_hash import DocIdHashOperator
 from core.operators.operator_utils import OperatorUtils
-from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
 
 logger = get_logger()
 
@@ -850,21 +850,19 @@ def main() -> int:
 
     # Import required operators
     try:
-        from core.operators.universal.chunker.docling_chunker import (
-            DoclingChunkerOperator,
-        )
-        from core.operators.universal.extract.extract_docling import (
+        from core.operators.extract.extract_docling import (
             ExtractDoclingOperator,
         )
-        from core.operators.universal.ingest.ingest_local_folder import (
+        from core.operators.functional.docling_chunker import (
+            DoclingChunkerOperator,
+        )
+        from core.operators.ingest.ingest_local_folder import (
             IngestLocalOperator,
         )
     except ImportError as e:
         logger.error(f"Failed to import required operators: {e}")
         print("\n❌ Error: Failed to import operators. Make sure you're running from the correct directory.")
-        print(
-            "   Try: cd src/datasift_opensource/backend && python -m core.operators.universal.embeddings.embeddings_operator"
-        )
+        print("   Try: cd src/datasift_opensource/backend && python -m core.operators.functional.embeddings_operator")
         return 1
 
     # Validate PDF path

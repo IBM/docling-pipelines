@@ -10,7 +10,7 @@ registered by OperatorFactory (the primary bug that was previously fixed).
 import pytest
 import pyarrow as pa
 
-from core.operators.universal.branching.branching_operator import BranchingOperator
+from core.operators.functional.branching_operator import BranchingOperator
 from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics, OrchestratorType
 

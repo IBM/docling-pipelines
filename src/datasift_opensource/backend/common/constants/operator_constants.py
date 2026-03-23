@@ -469,8 +469,14 @@ class OperatorConstants:
         DEFAULT_WXAI_API_MAX_WAIT_TIME: Final[int] = 3600
         MAX_CONCURRENT_DELETIONS: Final[int] = 10
 
-        # Operator Paths
-        ALL_OPERATORS_PATH: Final[list[str]] = ["core.operators.universal", "core.operators.language"]
+        # Operator Paths - organized by OperatorCategory
+        ALL_OPERATORS_PATH: Final[list[str]] = [
+            "core.operators.extract",
+            "core.operators.ingest",
+            "core.operators.functional",
+            "core.operators.quality",
+            "core.operators.vectordb",
+        ]
 
 
 # Made with Bob

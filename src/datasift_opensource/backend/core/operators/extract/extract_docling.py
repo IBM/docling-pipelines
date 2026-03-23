@@ -30,7 +30,7 @@ from common.util.log import get_logger
 # Import TransformUtils from centralized location
 from common.util.transform_utils import TransformUtils
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
+from core.operators.functional.doc_id_hash import DocIdHashOperator
 
 logger: logging.Logger = get_logger()
 

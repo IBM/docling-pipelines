@@ -20,7 +20,7 @@ from common.constants.operator_constants import (
 from common.exceptions.datasift_exceptions import (
     DatasiftException,
 )
-from core.operators.universal.filter.sql_filter import (
+from core.operators.quality.sql_filter import (
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
     SQLFilterOperator,
@@ -875,9 +875,7 @@ def test_duckdb_execution_failure():
     )
 
     # Mock duckdb.connect() to return a connection that raises an exception on execute
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.BinderException("Mocked DuckDB error")
         mock_connect.return_value = mock_con
@@ -915,9 +913,7 @@ def test_duckdb_conversion_exception():
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
     )
 
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.ConversionException(
             "Type conversion error"
@@ -947,9 +943,7 @@ def test_duckdb_catalog_exception():
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
     )
 
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.CatalogException("Table not found")
         mock_connect.return_value = mock_con
@@ -979,9 +973,7 @@ def test_transform_general_exception():
     )
 
     # Mock duckdb.connect() to raise a general exception
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = RuntimeError("Unexpected runtime error")
 
         result_tables, metadata = operator.transform(table)
@@ -1051,9 +1043,7 @@ def test_error_handling_with_filter_criteria_per_criterion():
     )
 
     # Mock to fail on the second criterion
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         call_count = [0]
 
@@ -1091,9 +1081,7 @@ def test_error_with_features_to_drop():
         }
     )
 
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = Exception("Unexpected error during filtering")
         mock_connect.return_value = mock_con
@@ -1121,9 +1109,7 @@ def test_error_handling_preserves_table_structure():
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
     )
 
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Critical error")
 
         result_tables, metadata = operator.transform(table)
@@ -1148,9 +1134,7 @@ def test_failed_docs_metadata_structure():
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
     )
 
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Test error")
 
         result_tables, metadata = operator.transform(table)
@@ -1188,9 +1172,7 @@ def test_error_with_empty_table():
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
     )
 
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Error with empty table")
 
         result_tables, metadata = operator.transform(empty_table)
@@ -1223,9 +1205,7 @@ def test_error_handling_with_json_criteria():
         {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
     )
 
-    with patch(
-        "core.operators.universal.filter.sql_filter.duckdb.connect"
-    ) as mock_connect:
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.BinderException("JSON criteria error")
         mock_connect.return_value = mock_con

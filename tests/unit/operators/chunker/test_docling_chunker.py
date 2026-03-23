@@ -19,7 +19,7 @@ import pytest
 import pyarrow as pa
 from unittest.mock import patch, MagicMock
 
-from core.operators.universal.chunker.docling_chunker import DoclingChunkerOperator
+from core.operators.functional.docling_chunker import DoclingChunkerOperator
 from common.constants.constants import Metrics, ExecutionStatus
 from common.constants.operator_constants import OperatorConstants
 
@@ -115,7 +115,7 @@ def sample_table_no_content_column():
 def mock_docling_chunker():
     """Mock the HybridChunker to avoid external dependencies."""
     with patch(
-        "core.operators.universal.chunker.docling_chunker.HybridChunker"
+        "core.operators.functional.docling_chunker.HybridChunker"
     ) as mock_chunker_class:
         mock_chunker = MagicMock()
         mock_chunker_class.return_value = mock_chunker

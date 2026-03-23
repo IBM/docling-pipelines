@@ -42,7 +42,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_s3_provider(self):
         """Test initialization with S3 provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "s3",
@@ -62,7 +62,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_ibm_cos_provider(self):
         """Test initialization with IBM COS provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "ibm_cos",
@@ -87,7 +87,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_google_drive_provider(self):
         """Test initialization with Google Drive provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "google_drive",
@@ -110,7 +110,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_sharepoint_provider(self):
         """Test initialization with SharePoint provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "sharepoint",
@@ -128,7 +128,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_onedrive_provider(self):
         """Test initialization with OneDrive provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "onedrive",
@@ -150,7 +150,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_custom_provider(self):
         """Test initialization with custom provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "custom",
@@ -173,10 +173,10 @@ class TestIngestSourceOperatorInitialization:
 class TestGetLoader:
     """Test cases for _get_loader method."""
 
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
+    @patch("core.operators.ingest.ingest_source.S3DirectoryLoader")
     def test_get_loader_s3(self, mock_s3_loader):
         """Test _get_loader returns S3DirectoryLoader for S3 provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "s3",
@@ -198,10 +198,10 @@ class TestGetLoader:
             aws_secret_access_key="test-secret-key",  # pragma: allowlist secret
         )
 
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
+    @patch("core.operators.ingest.ingest_source.S3DirectoryLoader")
     def test_get_loader_ibm_cos(self, mock_s3_loader):
         """Test _get_loader returns S3DirectoryLoader with endpoint for IBM COS."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "ibm_cos",
@@ -227,14 +227,14 @@ class TestGetLoader:
             endpoint_url="https://s3.us-south.cloud-object-storage.appdomain.cloud",
         )
 
-    @patch("core.operators.universal.ingest.ingest_source.GoogleDriveLoader")
+    @patch("core.operators.ingest.ingest_source.GoogleDriveLoader")
     @patch("os.path.exists")
     @patch("os.makedirs")
     def test_get_loader_google_drive(
         self, mock_makedirs, mock_exists, mock_gdrive_loader
     ):
         """Test _get_loader returns GoogleDriveLoader for Google Drive provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         mock_exists.return_value = False
 
@@ -260,10 +260,10 @@ class TestGetLoader:
             scopes=["https://www.googleapis.com/auth/drive.readonly"],
         )
 
-    @patch("core.operators.universal.ingest.ingest_source.MicrosoftGraphLoader")
+    @patch("core.operators.ingest.ingest_source.MicrosoftGraphLoader")
     def test_get_loader_sharepoint(self, mock_sp_loader):
         """Test _get_loader returns MicrosoftGraphLoader for SharePoint provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "sharepoint",
@@ -280,10 +280,10 @@ class TestGetLoader:
 
         mock_sp_loader.assert_called_once()
 
-    @patch("core.operators.universal.ingest.ingest_source.MicrosoftGraphLoader")
+    @patch("core.operators.ingest.ingest_source.MicrosoftGraphLoader")
     def test_get_loader_onedrive(self, mock_od_loader):
         """Test _get_loader returns MicrosoftGraphLoader for OneDrive provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "onedrive",
@@ -306,7 +306,7 @@ class TestGetLoader:
     @patch("importlib.import_module")
     def test_get_loader_custom(self, mock_import):
         """Test _get_loader returns custom loader for custom provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock the custom loader class
         mock_loader_class = Mock()
@@ -331,7 +331,7 @@ class TestGetLoader:
 
     def test_get_loader_custom_missing_path(self):
         """Test _get_loader raises error when custom provider missing loader_class_path."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {"provider": "custom", "connection_params": {}, "credentials": {}}
 
@@ -344,7 +344,7 @@ class TestGetLoader:
 
     def test_get_loader_unsupported_provider(self):
         """Test _get_loader raises error for unsupported provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "unsupported_provider",
@@ -366,7 +366,7 @@ class TestGetS3FileKeys:
     @patch("boto3.client")
     def test_get_s3_file_keys_basic(self, mock_boto_client):
         """Test _get_s3_file_keys returns valid file keys."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock S3 client and paginator
         mock_s3 = Mock()
@@ -407,7 +407,7 @@ class TestGetS3FileKeys:
     @patch("boto3.client")
     def test_get_s3_file_keys_filters_hidden_files(self, mock_boto_client):
         """Test _get_s3_file_keys filters hidden files."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         mock_s3 = Mock()
         mock_paginator = Mock()
@@ -446,7 +446,7 @@ class TestGetS3FileKeys:
     @patch("boto3.client")
     def test_get_s3_file_keys_filters_zero_size(self, mock_boto_client):
         """Test _get_s3_file_keys filters zero-size files."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         mock_s3 = Mock()
         mock_paginator = Mock()
@@ -483,7 +483,7 @@ class TestGetS3FileKeys:
     @patch("boto3.client")
     def test_get_s3_file_keys_ibm_cos_endpoint(self, mock_boto_client):
         """Test _get_s3_file_keys uses endpoint_url for IBM COS."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         mock_s3 = Mock()
         mock_paginator = Mock()
@@ -521,7 +521,7 @@ class TestGetS3FileKeys:
     @patch("boto3.client")
     def test_get_s3_file_keys_empty_bucket(self, mock_boto_client):
         """Test _get_s3_file_keys handles empty bucket."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         mock_s3 = Mock()
         mock_paginator = Mock()
@@ -550,13 +550,18 @@ class TestTransform:
     """Test cases for transform method."""
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
+    @patch("core.operators.ingest.ingest_source.S3FileLoader")
     @patch("boto3.client")
     def test_transform_success(
-        self, mock_boto_client, mock_s3_file_loader, mock_incremental_util, mock_documents, empty_input_table
+        self,
+        mock_boto_client,
+        mock_s3_file_loader,
+        mock_incremental_util,
+        mock_documents,
+        empty_input_table,
     ):
         """Test transform successfully processes documents."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -637,7 +642,7 @@ class TestTransform:
         self, mock_boto_client, mock_incremental_util, empty_input_table
     ):
         """Test transform handles empty document list."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -674,12 +679,12 @@ class TestTransform:
         assert metadata["processed_docs"] == 0
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3DirectoryLoader")
+    @patch("core.operators.ingest.ingest_source.S3DirectoryLoader")
     def test_transform_error_handling(
         self, mock_s3_loader, mock_incremental_util, empty_input_table
     ):
         """Test transform handles errors gracefully."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -714,13 +719,18 @@ class TestTransform:
         assert metadata["failed_docs_count"] == 1
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
+    @patch("core.operators.ingest.ingest_source.S3FileLoader")
     @patch("boto3.client")
     def test_transform_schema_validation(
-        self, mock_boto_client, mock_s3_file_loader, mock_incremental_util, mock_documents, empty_input_table
+        self,
+        mock_boto_client,
+        mock_s3_file_loader,
+        mock_incremental_util,
+        mock_documents,
+        empty_input_table,
     ):
         """Test transform output has correct schema."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -774,7 +784,7 @@ class TestTransform:
         assert schema.field("modified_time").type == pa.int64()
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.GoogleDriveLoader")
+    @patch("core.operators.ingest.ingest_source.GoogleDriveLoader")
     @patch("os.path.exists")
     @patch("os.makedirs")
     def test_transform_google_drive(
@@ -787,7 +797,7 @@ class TestTransform:
         empty_input_table,
     ):
         """Test transform with Google Drive provider."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -820,12 +830,16 @@ class TestTransform:
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
     @patch("boto3.client")
-    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
+    @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_document_without_source(
-        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
+        self,
+        mock_s3_file_loader,
+        mock_boto_client,
+        mock_incremental_util,
+        empty_input_table,
     ):
         """Test transform handles documents without source in metadata."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -873,13 +887,17 @@ class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.universal.ingest.ingest_source.S3FileLoader")
+    @patch("core.operators.ingest.ingest_source.S3FileLoader")
     @patch("boto3.client")
     def test_s3_to_pyarrow_pipeline(
-        self, mock_boto_client, mock_s3_file_loader, mock_incremental_util, empty_input_table
+        self,
+        mock_boto_client,
+        mock_s3_file_loader,
+        mock_incremental_util,
+        empty_input_table,
     ):
         """Test complete S3 ingestion to PyArrow table pipeline."""
-        from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()

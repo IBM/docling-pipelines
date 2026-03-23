@@ -18,8 +18,8 @@ from common.util.common_utils import is_value_in_range
 from common.util.log import get_logger
 from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.ingest.ingest_local_folder import IngestLocalOperator
 from core.operators.operator_utils import OperatorUtils
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
 
 SIMPLE_CHUNK_TYPE: str = "simple"
 CHUNK_TYPE_KEY: str = "chunk_type"

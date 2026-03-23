@@ -19,7 +19,7 @@ from common.util.operator_utils import (
 )
 from common.util.perf_utils import log_memory_usage
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.universal.filter.sql_filter import (
+from core.operators.quality.sql_filter import (
     SQLFilterOperator,
     extract_columns,
 )
@@ -211,7 +211,7 @@ class BranchingOperator(AbstractOperator):
             }
             filter_operator: Any
             if spark_session:
-                from core.operators.universal.filter.sql_filter import (
+                from core.operators.quality.sql_filter import (
                     SparkSQLFilterOperator,
                 )
 
