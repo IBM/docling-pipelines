@@ -615,6 +615,3 @@ def test_chunked_content_json_structure(
     assert "chunk_id" in first_chunk["metadata"]
     assert "doc_name" in first_chunk["metadata"]
     assert "token_count" in first_chunk["metadata"]
-
-
-# Made with Bob

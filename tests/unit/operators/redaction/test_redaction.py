@@ -158,6 +158,3 @@ class TestRedactionOperator:
 
         assert len(warnings) == 1
         assert "empty" in warnings[0].lower()
-
-
-# Made with Bob

@@ -170,7 +170,7 @@ class TestUnconditionalBranching:
         branches = [make_branch(link_id="b1", link_name="all")]
         operator = make_operator(branches)
 
-        result_tables, metadata = operator.runner(table)
+        result_tables, _ = operator.runner(table)
 
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == table.num_rows
@@ -184,7 +184,7 @@ class TestUnconditionalBranching:
         ]
         operator = make_operator(branches)
 
-        result_tables, metadata = operator.runner(table)
+        result_tables, _ = operator.runner(table)
 
         assert len(result_tables) == 2
         assert result_tables[0].num_rows == table.num_rows
@@ -248,7 +248,7 @@ class TestConditionalBranchingCriteriaList:
         ]
         operator = make_operator(branches)
 
-        result_tables, metadata = operator.runner(table)
+        result_tables, _ = operator.runner(table)
 
         assert len(result_tables) == 2
         low_scores = result_tables[0]["score"].to_pylist()
@@ -496,7 +496,7 @@ class TestEdgeCases:
         ]
         operator = make_operator(branches)
 
-        result_tables, metadata = operator.runner(table)
+        result_tables, _ = operator.runner(table)
 
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == 0
@@ -900,5 +900,3 @@ class TestTransform:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

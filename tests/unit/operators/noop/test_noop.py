@@ -641,5 +641,3 @@ def test_no_side_effects_on_input():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

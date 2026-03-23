@@ -1001,5 +1001,3 @@ def test_rename_features_duplicate_old_feature():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

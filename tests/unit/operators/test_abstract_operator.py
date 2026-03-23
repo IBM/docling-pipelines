@@ -780,5 +780,3 @@ def test_record_skipped_document_with_unicode_characters():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob
