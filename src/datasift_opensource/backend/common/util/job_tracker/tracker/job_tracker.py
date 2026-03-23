@@ -399,6 +399,8 @@ class JobTracker(metaclass=Singleton):
         # jobs_client = JobsClient()
         session_info = get_session_info()
         persistent_store_stat = self.get_job(job_run_id=job_run_id)
+        if not persistent_store_stat:
+            raise DatasiftException(f"Could not find job id for job run ID: {job_run_id}", 400)
         # if not persistent_store_stat:
         #     # If job stats don't exist yet but job run is being cancelled,
         #     # Get job_id from Jobs Framework and assume that job run is in 'QUEUED' state
