@@ -6,8 +6,7 @@ import uuid
 from logging import Logger
 from typing import Any
 
-import pyarrow as pa
-from data_processing.data_access import DataAccess, DataAccessFactory
+from data_processing.data_access import DataAccess
 
 from common.constants.constants import DatasiftConstants, OrchestratorType
 from common.constants.operator_constants import OperatorConstants
@@ -16,9 +15,7 @@ from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.log import get_logger
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
-from core.orchestrator.cmdline.cmd_line_operator_executor import (
-    CommandLineOperatorExecutor,
-)
+from core.orchestrator.cmdline.cmd_line_operator_executor import CommandLineOperatorExecutor
 
 logger = get_logger()
 
@@ -36,8 +33,7 @@ class CommandLineOrchestrator(AbstractOrchestrator):
         return CommandLineOperatorExecutor(name, operator, params)
 
     def execute(self, *, flow_def: dict, params: dict) -> DataAccess | None:
-        self.set_job_id(job_id=params.get(DatasiftConstants.JOB_ID))
-        self.set_job_run_id(job_run_id=params.get(DatasiftConstants.JOB_RUN_ID))
+        self.set_job_ids(job_id=params.get(DatasiftConstants.JOB_ID), job_run_id=params.get(DatasiftConstants.JOB_RUN_ID))
         global_config = (
             flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
             | params
@@ -47,13 +43,6 @@ class CommandLineOrchestrator(AbstractOrchestrator):
         if DatasiftConstants.DAG not in flow_def:
             raise FlowExecutionFailedException("Invalid flow: 'dag' not found in the flow definition")
         op_flow = flow_def.get(DatasiftConstants.DAG, [])
-
-        # Create an empty DataAccess as input to the flow
-        data_access_factory = DataAccessFactory()
-        config = {"data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}}
-        data_access_factory.apply_input_params(args=config)
-        data_access = data_access_factory.create_data_access()
-        data_access.save_table(path="", table=pa.Table.from_arrays([], names=[]))
 
         job_tracker = JobTracker()
         job_tracker.start_tracking_job(
@@ -66,16 +55,7 @@ class CommandLineOrchestrator(AbstractOrchestrator):
         self.context_id = params.get(DatasiftConstants.CONTEXT_ID, self.get_job_id())
 
         # execute flows
-        return self.execute_flow(
-            op_flow=op_flow,
-            data_access=data_access,
-            global_config=global_config,
-            common_log_arguments={
-                DatasiftConstants.JOB_ID: self.get_job_id(),
-                DatasiftConstants.JOB_RUN_ID: self.get_job_run_id(),
-            },
-            job_log_final_path=job_log_final_path,
-        )
+        return self.execute_flow(op_flow=op_flow, global_config=global_config, job_log_final_path=job_log_final_path)
 
     def get_type(self):
         return OrchestratorType.CMDLINE

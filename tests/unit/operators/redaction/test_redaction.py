@@ -69,7 +69,7 @@ class TestRedactionOperator:
             [ids, names, content], names=["id", "name", "content"]
         )
 
-        table_list, metadata = operator.transform(input_table)
+        table_list, _ = operator.transform(input_table)
 
         output_table = table_list[0]
         redacted_content = output_table["content"].to_pylist()
@@ -158,6 +158,3 @@ class TestRedactionOperator:
 
         assert len(warnings) == 1
         assert "empty" in warnings[0].lower()
-
-
-# Made with Bob

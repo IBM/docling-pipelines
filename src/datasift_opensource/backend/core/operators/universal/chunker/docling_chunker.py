@@ -411,7 +411,7 @@ class DoclingChunkerOperator(AbstractOperator):
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
             },
-            self.doc_id_hash: {
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
                 OperatorConstants.Misc.NAME: "Hash ID",
                 OperatorConstants.Config.DESCRIPTION: "Hash ID of the document chunk",
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
