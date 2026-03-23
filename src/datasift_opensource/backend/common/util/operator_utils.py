@@ -184,7 +184,7 @@ def drop_features_from_table(output_features_to_drop: list, table: Table):
 
 
 def rename_features_and_save_original(
-    *, updated_features: list = None, input_features: dict | Table = None
+    *, updated_features: list | None = None, input_features: dict | Table | None = None
 ) -> Any | None:
     if not input_features or not updated_features:
         return None
@@ -203,7 +203,7 @@ def rename_features_and_save_original(
         _apply_dict_rename(input_features, rename_map)
 
 
-def _build_rename_map(*, updated_features: list = None, existing_features: set):
+def _build_rename_map(*, updated_features: list | None = None, existing_features: set):
     rename_map: dict[str, str] = {}
     seen_old: set = set()
     seen_new: set = set()
@@ -212,8 +212,8 @@ def _build_rename_map(*, updated_features: list = None, existing_features: set):
         _validate_feature(upd, idx)
 
         old_name, new_name = (
-            upd[OperatorConstants.OLD_FEATURE],
-            upd[OperatorConstants.NEW_FEATURE],
+            upd[OperatorConstants.Misc.OLD_FEATURE],
+            upd[OperatorConstants.Misc.NEW_FEATURE],
         )
 
         _check_duplicate(
@@ -236,8 +236,8 @@ def _validate_feature(upd: dict, idx: int):
     if not isinstance(upd, dict):
         _raise_value_error(f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}")
 
-    old_name = upd.get(OperatorConstants.OLD_FEATURE)
-    new_name = upd.get(OperatorConstants.NEW_FEATURE)
+    old_name = upd.get(OperatorConstants.Misc.OLD_FEATURE)
+    new_name = upd.get(OperatorConstants.Misc.NEW_FEATURE)
 
     if old_name is None or new_name is None:
         error = f"Each mapping dict must contain 'old_feature' and 'new_feature'. Got: {upd}"
@@ -313,8 +313,8 @@ def _apply_dict_rename(input_features: dict, rename_map: dict[str, str]):
         if feature is None:
             continue
 
-        if OperatorConstants.ORIGINAL_FEATURE not in feature:
-            feature[OperatorConstants.ORIGINAL_FEATURE] = old_name
+        if OperatorConstants.Misc.ORIGINAL_FEATURE not in feature:
+            feature[OperatorConstants.Misc.ORIGINAL_FEATURE] = old_name
 
         input_features[new_name] = feature
 
@@ -326,7 +326,7 @@ def get_mandatory_features(*, check_features: list, input_features: dict):
     mandatory_features = [
         feature
         for feature, value in input_features.items()
-        if feature in check_features and OperatorConstants.MANDATORY in value.get(OperatorConstants.TAGS, [])
+        if feature in check_features and OperatorConstants.Misc.MANDATORY in value.get(OperatorConstants.Misc.TAGS, [])
     ]
     return mandatory_features
 
