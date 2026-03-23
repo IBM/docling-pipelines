@@ -876,8 +876,8 @@ class TestTransform:
         ]
         operator = make_operator(branches)
 
-        runner_tables, runner_meta = operator.runner(table)
-        transform_tables, transform_meta = operator.transform(table)
+        runner_tables, _ = operator.runner(table)
+        transform_tables, _ = operator.transform(table)
 
         assert len(runner_tables) == len(transform_tables)
         assert runner_tables[0].num_rows == transform_tables[0].num_rows

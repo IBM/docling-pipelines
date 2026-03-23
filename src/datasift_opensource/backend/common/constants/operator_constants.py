@@ -318,7 +318,7 @@ class OperatorConstants:
 
         # Chunking Configuration
         CHUNK_SIZE: Final[str] = "chunk_size"
-        CHUNK_SIZE_DEFAULT: Final[int] = 4000
+        CHUNK_SIZE_DEFAULT: Final[int] = 2048
         CHUNKER: Final[str] = "chunker"
         START_INDEX: Final[str] = "start_index"
 
