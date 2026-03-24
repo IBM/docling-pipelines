@@ -54,12 +54,11 @@ class GoogleDriveSourceConfig(BaseModel):
     @field_validator("credentials_path")
     @classmethod
     def validate_credentials_path(cls, v: str) -> str:
-        """Validate that credentials file exists."""
+        """Validate and expand credentials file path."""
         expanded_path = os.path.expanduser(v)
-        if not os.path.exists(expanded_path):
-            raise ValueError(f"Credentials file does not exist: {v}")
-        if not os.path.isfile(expanded_path):
-            raise ValueError(f"Credentials path is not a file: {v}")
+        # Just expand the path, don't validate existence here
+        # The actual file access will happen during authentication
+        # This avoids permission errors during config validation
         return expanded_path
 
     @field_validator("file_extensions")

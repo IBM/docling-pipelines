@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import importlib
 import io
@@ -16,7 +17,6 @@ from langchain_community.document_loaders import (
 )
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
-from langchain_google_community import GoogleDriveLoader
 
 from common.constants.constants import (
     AttributeDataTypes,
@@ -28,6 +28,12 @@ from common.constants.operator_constants import OperatorConstants
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.universal.ingest.adapters.outbound.sources.google_drive.adapter import (
+    GoogleDriveSourceAdapter,
+)
+from core.operators.universal.ingest.adapters.outbound.sources.google_drive.config import (
+    GoogleDriveSourceConfig,
+)
 from core.operators.universal.ingest.ingest_utils import (
     filter_based_on_extension,
     get_filter_extensions,
@@ -406,7 +412,7 @@ class IngestSourceOperator(AbstractOperator):
 
     def process_documents(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         """
-        Process documents from the configured LangChain loader.
+        Process documents from the configured LangChain loader or new adapter.
 
         Args:
             metadata: Metadata dictionary for tracking
@@ -423,8 +429,11 @@ class IngestSourceOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
 
+            # Special handling for Google Drive using new adapter architecture
+            if self.provider == "google_drive":
+                documents: list[Document] = self._load_google_drive_documents()
             # Special handling for S3 to filter hidden files before loading
-            if self.provider in ["s3", "ibm_cos"]:
+            elif self.provider in ["s3", "ibm_cos"]:
                 documents: list[Document] = self._load_s3_documents()
             else:
                 loader: BaseLoader = self._get_loader()
@@ -462,6 +471,70 @@ class IngestSourceOperator(AbstractOperator):
             )
 
         return doc_data
+
+    def _load_google_drive_documents(self) -> list[Document]:
+        """
+        Load documents from Google Drive using the new adapter architecture.
+
+        Returns:
+            List of LangChain Document objects
+        """
+        # Create config from operator parameters
+        # Build config dict with required and optional fields
+        config_dict = {
+            "credentials_path": self.credentials.get("credentials_json_path"),
+            "token_path": self.credentials.get("token_path"),
+            "folder_id": self.connection_params.get("folder_id"),
+            "recursive": self.connection_params.get("recursive", False),
+            "file_extensions": self.included_extensions or [],
+            "exclude_patterns": [],
+            "scopes": self.credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"]),
+        }
+
+        # Add optional fields only if they exist
+        if "drive_id" in self.connection_params:
+            config_dict["drive_id"] = self.connection_params["drive_id"]
+        if "folder_path" in self.connection_params:
+            config_dict["folder_path"] = self.connection_params["folder_path"]
+        if "max_file_size_mb" in self.connection_params:
+            config_dict["max_file_size_mb"] = self.connection_params["max_file_size_mb"]
+
+        config = GoogleDriveSourceConfig(**config_dict)
+
+        # Create adapter and fetch documents
+        adapter = GoogleDriveSourceAdapter()
+
+        # Run async fetch in sync context and convert to LangChain Documents
+        async def fetch_all():
+            langchain_docs = []
+            async for domain_doc in adapter.fetch_documents(config):
+                # Convert domain Document to LangChain Document
+                # LangChain Document expects page_content (str) and metadata (dict)
+                # Note: We store binary content as a special attribute, not in metadata
+                # to avoid JSON serialization issues
+                langchain_doc = Document(
+                    page_content="",  # Will be populated by extract_content
+                    metadata={
+                        "source": domain_doc.source_url,
+                        "name": domain_doc.name,
+                        "id": domain_doc.id,
+                        "last_modified": domain_doc.modified_time.isoformat() if domain_doc.modified_time else None,
+                        "size": domain_doc.size,
+                        "mimetype": domain_doc.mimetype,
+                        "extension": domain_doc.extension,
+                        # Mark that binary content is available
+                        "has_binary_content": True,
+                        **domain_doc.metadata,
+                    },
+                )
+                # Store binary content as a private attribute to avoid JSON serialization
+                # This will be accessed by extract_content method
+                langchain_doc._binary_content = domain_doc.content
+                langchain_docs.append(langchain_doc)
+            return langchain_docs
+
+        documents = asyncio.run(fetch_all())
+        return documents
 
     def process_document(self, doc: Document, idx: int, metadata: dict[str, Any]) -> dict[str, Any] | None:
         """
@@ -604,8 +677,23 @@ class IngestSourceOperator(AbstractOperator):
             # Google Drive                                                        #
             # ------------------------------------------------------------------ #
             if self.provider == "google_drive":
+                # Check if binary content was already fetched by the new adapter
+                if hasattr(doc, "_binary_content") and doc._binary_content:
+                    binary_content = doc._binary_content
+                    logger.info(
+                        f"Using pre-fetched binary content from adapter for: {source}",
+                        extra=self.common_log_arguments,
+                    )
+                elif doc.metadata.get("has_binary_content"):
+                    # Binary content should be available but isn't - this is an error
+                    logger.error(
+                        f"Binary content marked as available but not found for: {source}",
+                        extra=self.common_log_arguments,
+                    )
+                    return False
+
                 file_id = doc.metadata.get("id") or doc.metadata.get("file_id")
-                if file_id:
+                if not binary_content and file_id:
                     try:
                         from google.oauth2.credentials import Credentials
                         from googleapiclient.discovery import build
@@ -902,28 +990,11 @@ class IngestSourceOperator(AbstractOperator):
                 recursive=self.connection_params.get("recursive", True),
             )
 
-        # 4. Google Drive
+        # 4. Google Drive - Using new hexagonal architecture adapter
         elif self.provider == "google_drive":
-            # Get credentials path and token path
-            credentials_path: str = self.credentials.get("credentials_json_path")
-            token_path: str = self.credentials.get("token_path", os.path.expanduser("~/.credentials/token.json"))
-
-            # Ensure the token directory exists
-            token_dir: str = os.path.dirname(token_path)
-            if token_dir and not os.path.exists(token_dir):
-                os.makedirs(token_dir, exist_ok=True)
-
-            # Define required Google Drive API scopes
-            # Use read-only scope for security best practices
-            scopes: list[str] = self.credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"])
-
-            return GoogleDriveLoader(
-                folder_id=self.connection_params.get("folder_id"),
-                credentials_path=credentials_path,
-                token_path=token_path,
-                recursive=self.connection_params.get("recursive", False),
-                scopes=scopes,
-            )
+            # Return a marker object that indicates we should use the new adapter
+            # The actual adapter will be used in process_documents
+            return "USE_NEW_ADAPTER"
 
         # 5. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class

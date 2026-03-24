@@ -95,8 +95,24 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
             if not creds:
                 # Run OAuth2 flow
-                flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes=config.scopes)
-                creds = flow.run_local_server(port=0)
+                try:
+                    # Check if credentials file exists and is readable
+                    if not credentials_path.exists():
+                        raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
+                    if not credentials_path.is_file():
+                        raise ValueError(f"Credentials path is not a file: {credentials_path}")
+
+                    flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), scopes=config.scopes)
+                    creds = flow.run_local_server(port=0)
+                except PermissionError as e:
+                    raise PermissionError(
+                        f"Permission denied accessing credentials file: {credentials_path}. "
+                        f"On macOS, you may need to grant Terminal/Python access to the file location in "
+                        f"System Preferences > Security & Privacy > Files and Folders. "
+                        f"Original error: {e}"
+                    ) from e
+                except Exception as e:
+                    raise ValueError(f"Failed to load credentials from {credentials_path}: {e}") from e
 
             # Save credentials for future use
             token_path.parent.mkdir(parents=True, exist_ok=True)
