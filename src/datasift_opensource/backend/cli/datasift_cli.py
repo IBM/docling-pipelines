@@ -19,7 +19,7 @@ def run_command_line_executor(flow_def: dict) -> None:
     from core.orchestrator.orchestrator_factory import OrchestratorFactory
 
     logger.info(">>> Creating the orchestrator")
-    orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
+    orchestrator = OrchestratorFactory.create_orchestrator()
     logger.info(">>> Creating the flow executor")
     executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
     logger.info(">>> Setting up execution parameters")

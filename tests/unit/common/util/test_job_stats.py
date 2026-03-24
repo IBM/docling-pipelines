@@ -225,7 +225,7 @@ class TestJobTracker(unittest.TestCase):
             delattr(self.tracker, 'store_job_stats')
 
     def test_start_job(self):
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
         self.tracker.start_tracking_job(orchestrator=orch, job_id="job1", job_run_id=test_job_run_id)
         self.assertIsNotNone(test_job_run_id)
@@ -235,7 +235,7 @@ class TestJobTracker(unittest.TestCase):
 
     def test_update_doc_counts(self):
         operator_category = "Ingest"
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
         self.tracker.start_tracking_job(orchestrator=orch, job_id="job1", job_run_id=test_job_run_id)
         
@@ -256,7 +256,7 @@ class TestJobTracker(unittest.TestCase):
         # Extra cleanup to ensure test isolation
         clear_mock_storage()
         self.tracker.all_jobs.clear()
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
         self.tracker.start_tracking_job(orchestrator=orch, job_id="job1", job_run_id=test_job_run_id)
         sleep(1)
@@ -268,7 +268,7 @@ class TestJobTracker(unittest.TestCase):
         self.tracker.request_cancel_job(job_run_id=test_job_run_id)
 
     def test_get_job(self):
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
         self.tracker.start_tracking_job(orchestrator=orch, job_id="job1", job_run_id=test_job_run_id)
         self.assertIsNotNone(self.tracker.get_job(job_run_id=test_job_run_id))
@@ -276,7 +276,7 @@ class TestJobTracker(unittest.TestCase):
 
     def test_cancel_job(self):
         operator_category = 'Ingest'
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
         self.tracker.start_tracking_job(orchestrator=orch, job_id="job1", job_run_id=test_job_run_id)
         self.assertIsNotNone(self.tracker.get_job(job_run_id=test_job_run_id))
@@ -307,7 +307,7 @@ class TestJobTracker(unittest.TestCase):
         self.tracker.all_jobs.clear()
         job_id = str(uuid1())  # Use unique job_id to avoid contamination
         
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
         
         job_run_id = str(uuid1())
@@ -320,7 +320,7 @@ class TestJobTracker(unittest.TestCase):
 
     def test_cancel_job_negative(self):
         test_job_run_id = str(uuid1())
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1", job_run_id=test_job_run_id)
         
         with self.assertRaises(DatasiftException) as context:
@@ -384,7 +384,7 @@ class TestJobTracker(unittest.TestCase):
     @patch('common.util.job_tracker.storage.pickle_job_stats_store._get_job_id_for_job_run')
     @patch('common.util.job_tracker.storage.pickle_job_stats_store.PickleJobStatsStore.get_job_stats')
     def test_node_stats(self, mock_get_job_stats, mock_get_job_id_for_job_run, mock_get_node_stats):
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
         job_run_id = str(uuid1())
         job_id = str(uuid1())
@@ -417,7 +417,7 @@ class TestJobTracker(unittest.TestCase):
         self.assertEqual(5, len(job_stats.node_stats))
 
     def test_singleton(self):
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1", job_run_id=test_job_run_id)
         
         for i in range(5):
@@ -461,7 +461,7 @@ class TestJobTracker(unittest.TestCase):
 
 
     def test_request_delete_job_run(self):
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+        orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1", job_run_id=test_job_run_id)
         stat = Mock()
         stat.job_id = str(uuid1())

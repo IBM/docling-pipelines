@@ -117,7 +117,7 @@ class FlowExecutor:
         """
         if params is None:
             params = {}
-        orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=orchestrator_name)
+        orchestrator = OrchestratorFactory.create_orchestrator()
         return orchestrator.validate(flow_def=self.flow_def, params=params)
 
     def start_diagnostic_collection(self):
@@ -205,7 +205,7 @@ def main():  # pragma: no cover
     logger.info(f">>> Loaded flow {flow!s}")
     logger.debug(flow.flow_def)
 
-    orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=args.orchestrator)
+    orchestrator = OrchestratorFactory.create_orchestrator()
     try:
         flow.execute(
             orchestrator=orchestrator,
