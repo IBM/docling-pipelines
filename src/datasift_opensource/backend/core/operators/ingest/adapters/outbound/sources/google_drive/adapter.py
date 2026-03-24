@@ -11,14 +11,10 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from langchain_google_community import GoogleDriveLoader
 
-from core.operators.universal.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
-
-# from .config import GoogleDriveSourceConfig
-from core.operators.universal.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
-from core.operators.universal.ingest.domain.models import Document
-
-# from .....ports.outbound.document_source import DocumentSourcePort
-from core.operators.universal.ingest.ports.outbound.document_source import DocumentSourcePort
+from core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
+from core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
+from core.operators.ingest.domain.models import Document
+from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 
 
 @register_source_adapter

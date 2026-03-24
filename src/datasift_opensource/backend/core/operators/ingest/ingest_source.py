@@ -28,16 +28,16 @@ from common.constants.operator_constants import OperatorConstants
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.log import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
+    GoogleDriveSourceAdapter,
+)
+from core.operators.ingest.adapters.outbound.sources.google_drive.config import (
+    GoogleDriveSourceConfig,
+)
 from core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
     get_filter_extensions,
     is_doc_previously_processed,
-)
-from core.operators.universal.ingest.adapters.outbound.sources.google_drive.adapter import (
-    GoogleDriveSourceAdapter,
-)
-from core.operators.universal.ingest.adapters.outbound.sources.google_drive.config import (
-    GoogleDriveSourceConfig,
 )
 
 # Suppress pdfminer logging

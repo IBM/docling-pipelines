@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 
 from pydantic import BaseModel
 
-from ...domain.models import Document
+from core.operators.ingest.domain.models import Document
 
 
 class DocumentSourcePort(ABC):

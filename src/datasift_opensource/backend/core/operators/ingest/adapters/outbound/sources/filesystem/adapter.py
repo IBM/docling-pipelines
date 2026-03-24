@@ -7,8 +7,9 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import AsyncGenerator, Generator
 
-from .....domain.models import Document
-from .....ports.outbound.document_source import DocumentSourcePort
+from core.operators.ingest.domain.models import Document
+from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+
 from .config import FilesystemSourceConfig
 
 

@@ -2,7 +2,7 @@
 
 from typing import Any, ClassVar
 
-from .....ports.outbound.document_source import DocumentSourcePort
+from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 
 
 class SourceAdapterFactory:
