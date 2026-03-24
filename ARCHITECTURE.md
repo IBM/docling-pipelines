@@ -132,26 +132,11 @@ AbstractOrchestrator (base class)
 └── PythonOrchestrator (programmatic execution)
 ```
 
-## Excluded Components
 
-The following components are **NOT** included in this repository (they belong in datasift-spark):
-- Spark orchestrator (`PySparkOrchestrator`)
-- Spark operators (`SparkLanguageDetect`, `SparkRedactionOperator`, etc.)
-- Spark-specific utilities
-- Enterprise integrations (CAMS, UDC)
-- REST API for Spark job management
-
-## Migration Notes
-
-This repository is organized to support the split from the datasift-api monorepo:
-- All Spark dependencies removed
-- Focus on lightweight, local execution
-- Python-only operator implementations
-- Command-line and programmatic interfaces
 
 ## Development Guidelines
 
-1. **No Spark Dependencies**: Keep the project Spark-free
+1. **Python orchestration**: Entire orchestration using Python and Prefect
 2. **Python-Only Operators**: Implement operators in pure Python
 3. **Modular Design**: Keep components loosely coupled
 4. **Plugin Support**: Design for extensibility
