@@ -227,16 +227,9 @@ class TestGetLoader:
             endpoint_url="https://s3.us-south.cloud-object-storage.appdomain.cloud",
         )
 
-    @patch("core.operators.ingest.ingest_source.GoogleDriveLoader")
-    @patch("os.path.exists")
-    @patch("os.makedirs")
-    def test_get_loader_google_drive(
-        self, mock_makedirs, mock_exists, mock_gdrive_loader
-    ):
-        """Test _get_loader returns GoogleDriveLoader for Google Drive provider."""
+    def test_get_loader_google_drive(self):
+        """Test Google Drive provider uses new adapter architecture (no _get_loader)."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
-
-        mock_exists.return_value = False
 
         config = {
             "provider": "google_drive",
@@ -249,15 +242,13 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
-        _loader = operator._get_loader()  # noqa: F841
 
-        mock_makedirs.assert_called_once()
-        mock_gdrive_loader.assert_called_once_with(
-            folder_id="test-folder-id",
-            credentials_path="/path/to/credentials.json",
-            token_path="/path/to/token.json",
-            recursive=True,
-            scopes=["https://www.googleapis.com/auth/drive.readonly"],
+        # Google Drive now uses adapter architecture, not _get_loader
+        # Verify operator is initialized correctly
+        assert operator.provider == "google_drive"
+        assert operator.connection_params["folder_id"] == "test-folder-id"
+        assert (
+            operator.credentials["credentials_json_path"] == "/path/to/credentials.json"
         )
 
     @patch("core.operators.ingest.ingest_source.MicrosoftGraphLoader")
@@ -784,19 +775,15 @@ class TestTransform:
         assert schema.field("modified_time").type == pa.int64()
 
     @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.ingest.ingest_source.GoogleDriveLoader")
-    @patch("os.path.exists")
-    @patch("os.makedirs")
+    @patch("core.operators.ingest.ingest_source.GoogleDriveSourceAdapter")
     def test_transform_google_drive(
         self,
-        mock_makedirs,
-        mock_exists,
-        mock_gdrive_loader,
+        mock_gdrive_adapter,
         mock_incremental_util,
         mock_documents,
         empty_input_table,
     ):
-        """Test transform with Google Drive provider."""
+        """Test transform with Google Drive provider using new adapter architecture."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
@@ -804,10 +791,27 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        mock_exists.return_value = False
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = mock_documents
-        mock_gdrive_loader.return_value = mock_loader_instance
+        # Mock the adapter to return documents
+        mock_adapter_instance = Mock()
+
+        # Create async generator that yields mock documents
+        async def mock_fetch_documents(config):
+            for doc in mock_documents:
+                # Create a mock domain document
+                domain_doc = Mock()
+                domain_doc.source_url = doc.metadata.get("source", "test-source")
+                domain_doc.name = doc.metadata.get("source", "test-file.txt")
+                domain_doc.id = "test-id"
+                domain_doc.modified_time = None
+                domain_doc.size = 100
+                domain_doc.mimetype = "text/plain"
+                domain_doc.extension = ".txt"
+                domain_doc.content = b"test content"
+                domain_doc.metadata = {}
+                yield domain_doc
+
+        mock_adapter_instance.fetch_documents = mock_fetch_documents
+        mock_gdrive_adapter.return_value = mock_adapter_instance
 
         config = {
             "provider": "google_drive",
