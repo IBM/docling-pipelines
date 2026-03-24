@@ -1,7 +1,7 @@
 import json
 import os
 import threading
-from abc import ABC, abstractmethod
+from abc import ABC
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
 from operator import itemgetter
@@ -64,7 +64,7 @@ class ValidateStepResults:
         self.warnings = warnings
 
 
-class AbstractOrchestrator(ABC):
+class AbstractOrchestrator(ABC):  # noqa: B024
     def __init__(self) -> None:
         self.__canceling = False
         self.__failing = False
@@ -422,22 +422,19 @@ class AbstractOrchestrator(ABC):
         """
         self.__canceling = True
 
-    @abstractmethod
-    def pause(self):
+    def pause(self):  # noqa: B027
         """
         Request for pausing a running job
         """
         pass
 
-    @abstractmethod
-    def resume(self):
+    def resume(self):  # noqa: B027
         """
         Request for resuming a paused job
         """
         pass
 
-    @abstractmethod
-    def get_type(self):
+    def get_type(self):  # noqa: B027
         """
         Returns the type of the orchestrator, Python or Spark
         """
@@ -717,13 +714,11 @@ class AbstractOrchestrator(ABC):
             params=config,
         )
 
-    @abstractmethod
-    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:
+    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:  # noqa: B027
         # The concrete subclasses needs to implement this method
         pass
 
-    @abstractmethod
-    def visualize(self):
+    def visualize(self):  # noqa: B027
         # The concrete subclasses needs to implement this method
         pass
 
