@@ -97,7 +97,7 @@ The OpenSearch operator stores documents and embeddings in OpenSearch for vector
 ### Example 1: Basic Usage with FAISS
 
 ```python
-from datasift_opensource.backend.core.operators.universal.vectordb.opensearch_operator import OpenSearchOperator
+from core.operators.universal.vectordb.opensearch_operator import OpenSearchOperator
 import pyarrow as pa
 import numpy as np
 
