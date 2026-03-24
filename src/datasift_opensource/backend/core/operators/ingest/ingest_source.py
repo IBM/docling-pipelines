@@ -40,8 +40,14 @@ from core.operators.ingest.ingest_utils import (
     is_doc_previously_processed,
 )
 
-# Suppress pdfminer logging
-logging.getLogger("pdfminer").setLevel(logging.ERROR)
+# Microsoft Graph API Constants
+MICROSOFT_LOGIN_URL = "https://login.microsoftonline.com"
+MICROSOFT_GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
+MICROSOFT_GRAPH_SCOPE = "https://graph.microsoft.com/.default"
+MICROSOFT_OAUTH_TOKEN_PATH = "/oauth2/v2.0/token"
+
+# Google Drive API Constants
+GOOGLE_DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
 
 
 class MicrosoftGraphLoader(BaseLoader):
@@ -55,31 +61,22 @@ class MicrosoftGraphLoader(BaseLoader):
 
     # Supported text-extractable file extensions
     TEXT_EXTENSIONS: ClassVar[set[str]] = {
-        ".txt",
-        ".md",
-        ".csv",
-        ".json",
-        ".xml",
-        ".html",
-        ".htm",
-        ".py",
-        ".js",
-        ".ts",
-        ".java",
-        ".c",
-        ".cpp",
-        ".cs",
-        ".go",
-        ".rb",
-        ".php",
-        ".yaml",
-        ".yml",
-        ".toml",
-        ".ini",
-        ".cfg",
-        ".log",
-        ".rst",
-        ".tex",
+        ".pdf", 
+        ".docx",
+        ".doc", 
+        ".ppt", 
+        ".bmp", 
+        ".gif", 
+        ".jfif", 
+        ".jpg", 
+        ".jpeg", 
+        ".png", 
+        ".tiff", 
+        ".tif", 
+        ".html", 
+        ".xlsx", 
+        ".md", 
+        ".txt"
     }
 
     def __init__(
@@ -109,10 +106,10 @@ class MicrosoftGraphLoader(BaseLoader):
             raise ImportError("msal package not found. Install with: pip install msal") from None
         app = msal.ConfidentialClientApplication(
             self.client_id,
-            authority=f"https://login.microsoftonline.com/{self.tenant_id}",
+            authority=f"{MICROSOFT_LOGIN_URL}/{self.tenant_id}",
             client_credential=self.client_secret,
         )
-        result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
+        result = app.acquire_token_for_client(scopes=[MICROSOFT_GRAPH_SCOPE])
         if "access_token" not in result:
             raise ValueError(
                 f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
@@ -128,9 +125,9 @@ class MicrosoftGraphLoader(BaseLoader):
         headers = {"Authorization": f"Bearer {token}"}
 
         if folder_item_id:
-            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{folder_item_id}/children"
+            url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/items/{folder_item_id}/children"
         else:
-            url = f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root/children"
+            url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/root/children"
 
         files = []
         while url:
@@ -156,7 +153,7 @@ class MicrosoftGraphLoader(BaseLoader):
         if not download_url:
             # Fallback: get download URL via API
             r = requests.get(
-                f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/items/{item['id']}/content",
+                f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/items/{item['id']}/content",
                 headers=headers,
                 allow_redirects=True,
             )
@@ -165,68 +162,6 @@ class MicrosoftGraphLoader(BaseLoader):
         r = requests.get(download_url)
         r.raise_for_status()
         return r.content
-
-    def _extract_text(self, item: dict, content: bytes) -> str:
-        """Extract text from file content based on file extension."""
-        name = item.get("name", "")
-        ext = os.path.splitext(name)[1].lower()
-
-        if ext in self.TEXT_EXTENSIONS:
-            try:
-                return content.decode("utf-8", errors="replace")
-            except Exception:
-                return content.decode("latin-1", errors="replace")
-
-        if ext == ".pdf":
-            try:
-                import io
-
-                import pypdf
-
-                reader = pypdf.PdfReader(io.BytesIO(content))
-                return "\n".join(page.extract_text() or "" for page in reader.pages)
-            except ImportError:
-                pass
-            try:
-                import io
-
-                import pdfminer.high_level as pdfminer
-
-                return pdfminer.extract_text(io.BytesIO(content))
-            except ImportError:
-                pass
-
-        if ext in (".docx", ".doc"):
-            try:
-                import io
-
-                import docx
-
-                doc = docx.Document(io.BytesIO(content))
-                return "\n".join(p.text for p in doc.paragraphs)
-            except ImportError:
-                pass
-
-        if ext in (".xlsx", ".xls"):
-            try:
-                import io
-
-                import openpyxl
-
-                wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
-                rows = []
-                for sheet in wb.worksheets:
-                    for row in sheet.iter_rows(values_only=True):
-                        rows.append("\t".join(str(c) if c is not None else "" for c in row))
-                return "\n".join(rows)
-            except ImportError:
-                pass
-
-        # Fallback: try UTF-8 decode
-        try:
-            return content.decode("utf-8", errors="replace")
-        except Exception:
-            return f"[Binary file: {name}]"
 
     def lazy_load(self) -> Iterator[Document]:
         """Lazily load documents from the Microsoft Graph API drive."""
@@ -239,7 +174,7 @@ class MicrosoftGraphLoader(BaseLoader):
             headers = {"Authorization": f"Bearer {token}"}
             # Normalize path
             path = self.folder_path.strip("/")
-            r = requests.get(f"https://graph.microsoft.com/v1.0/drives/{self.drive_id}/root:/{path}", headers=headers)
+            r = requests.get(f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/root:/{path}", headers=headers)
             if r.status_code == 200:
                 folder_item_id = r.json().get("id")
             else:
@@ -250,8 +185,7 @@ class MicrosoftGraphLoader(BaseLoader):
         files = self._list_files(folder_item_id=folder_item_id)
         for item in files:
             try:
-                content_bytes = self._download_file(item)
-                text = self._extract_text(item, content_bytes)
+                content_bytes: bytes = self._download_file(item)
                 metadata = {
                     "source": item.get("name", ""),
                     "drive_id": self.drive_id,
@@ -261,7 +195,9 @@ class MicrosoftGraphLoader(BaseLoader):
                     "web_url": item.get("webUrl", ""),
                     "mime_type": item.get("file", {}).get("mimeType", ""),
                 }
-                yield Document(page_content=text, metadata=metadata)
+                # Return Document with empty page_content since we only need binary content
+                # The binary will be downloaded separately in extract_content()
+                yield Document(page_content="", metadata=metadata)
             except Exception as e:
                 yield Document(
                     page_content="",
@@ -275,6 +211,11 @@ class MicrosoftGraphLoader(BaseLoader):
 
     def load(self) -> list[Document]:
         return list(self.lazy_load())
+
+
+# Aliases for backward compatibility with tests
+SharePointLoader = MicrosoftGraphLoader
+OneDriveLoader = MicrosoftGraphLoader
 
 
 # Configuration keys
@@ -330,7 +271,6 @@ class IngestSourceOperator(AbstractOperator):
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
         self.excluded_extensions: list[str] | None = get_filter_extensions(config.get(EXCLUDE_FILTER_KEY))
         self.force_ingest: bool = config.get(DatasiftConstants.FORCE_INGEST, False)
-        self.store_binary_content: bool = config.get("store_binary_content", False)
         self.doc_id_hash: str = config.get(
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
@@ -607,20 +547,15 @@ class IngestSourceOperator(AbstractOperator):
                 "modified_time": modified_time if isinstance(modified_time, int) else 0,
             }
 
-            # Store either binary content or text based on configuration
-            if self.store_binary_content:
-                # Download binary content so downstream ExtractDoclingOperator can process it
-                if not self.extract_content(
-                    doc=doc,
-                    source=source,
-                    processed_doc=processed_doc,
-                    metadata=metadata,
-                    idx=idx,
-                ):
-                    return None
-            else:
-                # Store text directly from LangChain's page_content
-                processed_doc["text"] = doc.page_content or ""
+            # Download binary content so downstream ExtractDoclingOperator can process it
+            if not self.extract_content(
+                doc=doc,
+                source=source,
+                processed_doc=processed_doc,
+                metadata=metadata,
+                idx=idx,
+            ):
+                return None
 
             logger.info(
                 f"Successfully processed document: {source}",
@@ -704,7 +639,7 @@ class IngestSourceOperator(AbstractOperator):
                             "token_path",
                             os.path.expanduser("~/.credentials/token.json"),
                         )
-                        scopes = self.credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"])
+                        scopes = self.credentials.get("scopes", [GOOGLE_DRIVE_READONLY_SCOPE])
 
                         creds = None
                         if os.path.exists(token_path):
@@ -794,6 +729,57 @@ class IngestSourceOperator(AbstractOperator):
                     except Exception as gdrive_err:
                         logger.warning(
                             f"Could not download binary from Google Drive for {source}: {gdrive_err}. "
+                            "Falling back to page_content text.",
+                            extra=self.common_log_arguments,
+                        )
+
+            # ------------------------------------------------------------------ #
+            # OneDrive / SharePoint                                               #
+            # ------------------------------------------------------------------ #
+            elif self.provider in ("onedrive", "sharepoint"):
+                item_id = doc.metadata.get("item_id")
+                if item_id:
+                    try:
+                        import requests
+
+                        # Get access token
+                        token_url = f"{MICROSOFT_LOGIN_URL}/{self.credentials.get('tenant_id')}{MICROSOFT_OAUTH_TOKEN_PATH}"
+                        token_data = {
+                            "client_id": self.credentials.get("client_id"),
+                            "client_secret": self.credentials.get("client_secret"),
+                            "scope": MICROSOFT_GRAPH_SCOPE,
+                            "grant_type": "client_credentials",
+                        }
+                        token_response = requests.post(token_url, data=token_data)
+                        token_response.raise_for_status()
+                        access_token = token_response.json()["access_token"]
+
+                        # Download file content
+                        headers = {"Authorization": f"Bearer {access_token}"}
+                        
+                        # Try to get download URL from metadata first
+                        download_url = doc.metadata.get("download_url")
+                        if download_url:
+                            response = requests.get(download_url)
+                        else:
+                            # Fallback: construct download URL using drive_id and item_id
+                            drive_id = doc.metadata.get("drive_id") or self.connection_params.get("drive_id") or self.connection_params.get("document_library_id")
+                            
+                            # Both OneDrive and SharePoint can use the drives API endpoint
+                            download_url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{drive_id}/items/{item_id}/content"
+                            
+                            response = requests.get(download_url, headers=headers, allow_redirects=True)
+                        
+                        response.raise_for_status()
+                        onedrive_bytes: bytes = response.content
+                        logger.info(
+                            f"Downloaded {len(onedrive_bytes)} bytes from {self.provider} for: {source}",
+                            extra=self.common_log_arguments,
+                        )
+                        binary_content = onedrive_bytes
+                    except Exception as onedrive_err:
+                        logger.warning(
+                            f"Could not download binary from {self.provider} for {source}: {onedrive_err}. "
                             "Falling back to page_content text.",
                             extra=self.common_log_arguments,
                         )
@@ -948,21 +934,18 @@ class IngestSourceOperator(AbstractOperator):
     def _get_loader(self) -> BaseLoader:
         """
         Factory method to initialize the correct LangChain loader.
+        
+        Note: S3/IBM COS providers use _load_s3_documents() directly and should not call this method.
+        See process_documents() for the special S3 handling logic.
         """
 
         # 1. Amazon S3 / IBM COS (S3 Compatible)
+        # Note: This case should never be reached as process_documents() calls _load_s3_documents()
+        # directly for S3/IBM COS providers. Keeping this for backward compatibility with tests.
         if self.provider in ["s3", "ibm_cos"]:
-            # IBM COS requires an endpoint_url; AWS S3 does not
-            client_config: dict[str, Any] = {}
-            if self.provider == "ibm_cos":
-                client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
-
-            return S3DirectoryLoader(
-                bucket=self.connection_params.get("bucket"),
-                prefix=self.connection_params.get("prefix", ""),
-                aws_access_key_id=self.credentials.get("access_key"),
-                aws_secret_access_key=self.credentials.get("secret_key"),
-                **client_config,
+            raise ValueError(
+                f"S3/IBM COS providers should not call _get_loader(). "
+                f"The process_documents() method uses _load_s3_documents() instead."
             )
 
         # 2. Microsoft SharePoint
