@@ -1,28 +1,3 @@
-"""
-Test Coverage Improvements for incremental_update_util.py
-
-Related Issue: https://github.ibm.com/wdp-gov/datasift-tracker/issues/5126
-
-Coverage Improvement Summary:
-- Previous Coverage: 81%
-- Current Coverage: 98%
-- Improvement: +17 percentage points
-- Date: 2026-03-24
-
-Changes Made:
-1. Added comprehensive tests for all public methods
-2. Added exception handling tests for error paths
-3. Added edge case tests (empty tables, None values, empty lists)
-4. Verified source file contains NO pragma: no cover comments
-5. All new tests include issue reference in docstrings
-
-Test Categories:
-- Basic functionality tests (lines 19-169)
-- Public method tests (lines 177-373)
-- Exception handling tests (lines 381-487)
-- Edge case tests (lines 495-818)
-"""
-
 import os
 import shutil
 import time
