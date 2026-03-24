@@ -1,11 +1,11 @@
 from common.constants.constants import OrchestratorType
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
-from core.orchestrator.cmdline.cmd_line_orchestrator import CommandLineOrchestrator
+from core.orchestrator.python.python_orchestrator import PythonOrchestrator
 
 """
 statically defined list of available orchestrators
 """
-orchestrators = {OrchestratorType.CMDLINE: CommandLineOrchestrator}
+orchestrators = {OrchestratorType.PYTHON: PythonOrchestrator}
 
 
 class OrchestratorFactory:

@@ -149,11 +149,3 @@ class JobStatsStore(ABC):
         from .pickle_job_stats_store import PickleJobStatsStore
 
         return PickleJobStatsStore()
-
-    @staticmethod
-    def _is_cmd_line_mode() -> bool:
-        from common.models.session_info import SessionInfo, get_session_info
-
-        session_info: SessionInfo = get_session_info()
-        orchestrator: Any | None = session_info.orchestrator
-        return orchestrator.__class__.__name__ == "CommandLineOrchestrator"
