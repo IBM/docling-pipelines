@@ -14,8 +14,8 @@ from dpk_ededup import (
 )
 
 # from dpk_ededup.transform_python import EdedupTransform
-# from datasift_core.operators.universal.ededup.ededup import EdedupOperator
-from core.operators.universal.ededup.ededup import EdedupOperator
+# from datasift_core.operators.quality.ededup import EdedupOperator
+from core.operators.quality.ededup import EdedupOperator
 from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics
 

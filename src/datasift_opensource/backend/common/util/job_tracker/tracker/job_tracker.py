@@ -14,7 +14,6 @@ from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
-    OrchestratorType,
 )
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
@@ -185,7 +184,6 @@ class JobTracker(metaclass=Singleton):
         :return: A JobStatsDto object if found, otherwise None.
         """
         logger.info(f"Getting job stats by job_run_id: {job_run_id}")
-
         if JobStatsStore._is_cmd_line_mode():
             return self.all_jobs.get(job_run_id, None)
 
@@ -257,7 +255,7 @@ class JobTracker(metaclass=Singleton):
         # Map the run ID to the orchestrator instance to enable cancellation.
         self.__jobs_to_orchestrator[job_run_id] = orchestrator
 
-        orchestrator_type = OrchestratorType.PYTHON.capitalize()
+        orchestrator_type = orchestrator.get_type()
 
         # Create the initial statistics object for the new job run.
         stat = JobStatsDto(
@@ -320,7 +318,15 @@ class JobTracker(metaclass=Singleton):
 
         # Update in-memory cache
         stat = self.get_job(job_run_id=job_run_id)
-        self.all_jobs[job_run_id] = stat
+        if stat:
+            # Apply increments to in-memory stats
+            for field, value in increments.items():
+                current_value = getattr(stat, field, 0)
+                setattr(stat, field, current_value + value)
+            # Apply updates to in-memory stats
+            for field, value in updates.items():
+                setattr(stat, field, value)
+            self.all_jobs[job_run_id] = stat
 
         logger.info(f"Document count updated for the job_run_id: {job_run_id}")
         _log_inconsistencies(job_stats=stat)
@@ -366,6 +372,8 @@ class JobTracker(metaclass=Singleton):
             node_metadata=target_node_stats.get("node_metadata", {}),
             error=str(target_node_stats.get("error", "")),
         )
+        # Update in-memory node_stats for CMDLINE mode
+        stat.node_stats[node_id] = data
         JobStatsStore.get_job_stats_store().store_node_stats(stat.job_id, job_run_id, data)
         logger.info(
             f"Node stats added for the job, job_run_id: {job_run_id}, node_id: {node_id}",
@@ -411,6 +419,8 @@ class JobTracker(metaclass=Singleton):
         # jobs_client = JobsClient()
         session_info = get_session_info()
         persistent_store_stat = self.get_job(job_run_id=job_run_id)
+        if not persistent_store_stat:
+            raise DatasiftException(f"Could not find job id for job run ID: {job_run_id}", 400)
         # if not persistent_store_stat:
         #     # If job stats don't exist yet but job run is being cancelled,
         #     # Get job_id from Jobs Framework and assume that job run is in 'QUEUED' state
@@ -432,7 +442,7 @@ class JobTracker(metaclass=Singleton):
         )
 
         # job_run_response = jobs_client.get_job_run()
-        # jobs_framework_state = job_run_response.get(OperatorConstants.ENTITY, {}).get(DatasiftConstants.JOB_RUN,
+        # jobs_framework_state = job_run_response.get(OperatorConstants.Misc.ENTITY, {}).get(DatasiftConstants.JOB_RUN,
         #                                                                               {}).get(DatasiftConstants.STATE, ExecutionStatus.QUEUED.value)
 
         # Use pattern matching to handle different job states.

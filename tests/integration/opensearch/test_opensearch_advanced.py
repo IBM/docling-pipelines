@@ -9,7 +9,7 @@ from pathlib import Path
 import pyarrow as pa
 import numpy as np
 
-from core.operators.universal.vectordb.opensearch_operator import (
+from core.operators.vectordb.opensearch_operator import (
     OpenSearchOperator,
     OpenSearchEngineTypes,
     OpenSearchAlgorithmTypes,

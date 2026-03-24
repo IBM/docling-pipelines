@@ -4,7 +4,22 @@ This document describes the architecture and organization of the datasift-open r
 
 ## Overview
 
-Datasift-open is a lightweight, standalone runtime for executing data processing flows locally or in non-Spark environments. It provides a command-line orchestrator and Python-based operators for data transformation, validation, and processing tasks.
+Datasift-open is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities.
+
+### Key Capabilities
+
+- **Operator-Based Architecture**: 17+ specialized operators organized into categories (ingest, extract, chunk, embed, vectordb, filter, branching and merging, utility, and language processing)
+- **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
+- **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator nodes
+- **Prefect Orchestration**: Workflow execution managed by Prefect for parallel processing and task dependency management
+- **Modern AI/ML Integrations**: Native support for Ollama (LLM operations), Docling (document processing), and OpenSearch (vector and scalar storage)
+
+### Use Cases
+
+- Extract structured information from tables within unstructured documents (PDFs, DOCX, etc.)
+- Combine vector similarity search with structured data filtering for improved retrieval accuracy
+- Build custom document processing pipelines with configurable operators
+- Perform entity extraction, semantic chunking, and embedding generation at scale
 
 ## Repository Structure
 
@@ -117,26 +132,11 @@ AbstractOrchestrator (base class)
 └── PythonOrchestrator (programmatic execution)
 ```
 
-## Excluded Components
 
-The following components are **NOT** included in this repository (they belong in datasift-spark):
-- Spark orchestrator (`PySparkOrchestrator`)
-- Spark operators (`SparkLanguageDetect`, `SparkRedactionOperator`, etc.)
-- Spark-specific utilities
-- Enterprise integrations (CAMS, UDC)
-- REST API for Spark job management
-
-## Migration Notes
-
-This repository is organized to support the split from the datasift-api monorepo:
-- All Spark dependencies removed
-- Focus on lightweight, local execution
-- Python-only operator implementations
-- Command-line and programmatic interfaces
 
 ## Development Guidelines
 
-1. **No Spark Dependencies**: Keep the project Spark-free
+1. **Python orchestration**: Entire orchestration using Python and Prefect
 2. **Python-Only Operators**: Implement operators in pure Python
 3. **Modular Design**: Keep components loosely coupled
 4. **Plugin Support**: Design for extensibility

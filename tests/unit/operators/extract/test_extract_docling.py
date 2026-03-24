@@ -15,7 +15,7 @@ from pathlib import Path
 def test_extract_docling_basic(sample_pdf_files):
     """Test the ExtractDoclingOperator with basic extraction."""
     import pyarrow as pa
-    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.extract.extract_docling import ExtractDoclingOperator
 
     # Use fixture for test files (automatically skips if not found)
     test_files = sample_pdf_files[:1]  # Test with first file
@@ -80,7 +80,7 @@ def test_extract_docling_basic(sample_pdf_files):
 def test_extract_docling_with_template(sample_pdf_files):
     """Test the ExtractDoclingOperator with template extraction."""
     import pyarrow as pa
-    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.extract.extract_docling import ExtractDoclingOperator
 
     # Check if DocumentExtractor is available
     try:
@@ -170,11 +170,12 @@ def test_extract_docling_with_template(sample_pdf_files):
         "Total docs should match input rows"
     )
 
+
 @pytest.mark.skip(reason="Running into OOM on Jenkins")
 def test_extract_docling_with_expand_extracted_data():
     """Test the ExtractDoclingOperator with expand_extracted_data flag."""
     import pyarrow as pa
-    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.extract.extract_docling import ExtractDoclingOperator
     import pytest
 
     # Check if DocumentExtractor is available
@@ -263,7 +264,7 @@ def test_extract_docling_with_expand_extracted_data():
 
 def test_get_metadata():
     """Test the get_metadata static method."""
-    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.extract.extract_docling import ExtractDoclingOperator
 
     # Create an instance with minimal config to call get_metadata
     config = {"doc_column": "content", "doc_id_hash": "doc_id_hash"}
@@ -305,7 +306,7 @@ def test_get_metadata():
 def test_extract_docling_txt_files():
     """Test the ExtractDoclingOperator with .txt files."""
     import pyarrow as pa
-    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.extract.extract_docling import ExtractDoclingOperator
 
     # Get test .txt files
     fixtures_dir = (
@@ -379,7 +380,7 @@ def test_extract_docling_txt_files():
 def test_extract_docling_mixed_file_types():
     """Test the ExtractDoclingOperator with mixed file types (.txt and .pdf)."""
     import pyarrow as pa
-    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.extract.extract_docling import ExtractDoclingOperator
 
     # Get test files - mix of txt and pdf
     txt_dir = (
@@ -451,7 +452,7 @@ def test_extract_docling_mixed_file_types():
 def test_extract_docling_txt_with_special_characters():
     """Test the ExtractDoclingOperator with .txt files containing special characters."""
     import pyarrow as pa
-    from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+    from core.operators.extract.extract_docling import ExtractDoclingOperator
     import tempfile
     import os
 

@@ -149,7 +149,7 @@ To use OpenSearch in a complete pipeline:
 
 ```python
 # 1. Ingest documents
-from datasift_opensource.backend.core.operators.universal.ingest.ingest_local_folder import IngestLocalFolderOperator
+from core.operators.universal.ingest.ingest_local_folder import IngestLocalFolderOperator
 
 ingest_config = {
     "input_folder": "/path/to/documents",
@@ -159,14 +159,14 @@ ingest_op = IngestLocalFolderOperator(ingest_config)
 table = ingest_op.transform()
 
 # 2. Extract content
-from datasift_opensource.backend.core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
 
 extract_config = {}
 extract_op = ExtractDoclingOperator(extract_config)
 table, _ = extract_op.transform(table)
 
 # 3. Chunk documents
-from datasift_opensource.backend.core.operators.universal.chunker.docling_chunker import DoclingChunkerOperator
+from core.operators.universal.chunker.docling_chunker import DoclingChunkerOperator
 
 chunk_config = {
     "chunk_size": 512,
@@ -179,7 +179,7 @@ table, _ = chunk_op.transform(table)
 # table = add_embeddings(table)
 
 # 5. Index in OpenSearch
-from datasift_opensource.backend.common.util.env_config import get_opensearch_config
+from common.util.env_config import get_opensearch_config
 
 # Load configuration from environment variables
 opensearch_config = get_opensearch_config()
