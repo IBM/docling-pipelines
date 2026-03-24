@@ -8,20 +8,9 @@ registered by OperatorFactory (the primary bug that was previously fixed).
 """
 
 import pytest
-
-
-# Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "src"
-    / "datasift_opensource"
-    / "backend"
-)
-sys.path.insert(0, str(backend_dir))
-
 import pyarrow as pa
 
-from core.operators.universal.branching.branching_operator import BranchingOperator
+from core.operators.functional.branching_operator import BranchingOperator
 from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics, OrchestratorType
 
@@ -181,7 +170,7 @@ class TestUnconditionalBranching:
         branches = [make_branch(link_id="b1", link_name="all")]
         operator = make_operator(branches)
 
-        result_tables, metadata = operator.runner(table)
+        result_tables, _ = operator.runner(table)
 
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == table.num_rows
@@ -195,7 +184,7 @@ class TestUnconditionalBranching:
         ]
         operator = make_operator(branches)
 
-        result_tables, metadata = operator.runner(table)
+        result_tables, _ = operator.runner(table)
 
         assert len(result_tables) == 2
         assert result_tables[0].num_rows == table.num_rows
@@ -259,7 +248,7 @@ class TestConditionalBranchingCriteriaList:
         ]
         operator = make_operator(branches)
 
-        result_tables, metadata = operator.runner(table)
+        result_tables, _ = operator.runner(table)
 
         assert len(result_tables) == 2
         low_scores = result_tables[0]["score"].to_pylist()
@@ -507,7 +496,7 @@ class TestEdgeCases:
         ]
         operator = make_operator(branches)
 
-        result_tables, metadata = operator.runner(table)
+        result_tables, _ = operator.runner(table)
 
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == 0
@@ -887,8 +876,8 @@ class TestTransform:
         ]
         operator = make_operator(branches)
 
-        runner_tables, runner_meta = operator.runner(table)
-        transform_tables, transform_meta = operator.transform(table)
+        runner_tables, _ = operator.runner(table)
+        transform_tables, _ = operator.transform(table)
 
         assert len(runner_tables) == len(transform_tables)
         assert runner_tables[0].num_rows == transform_tables[0].num_rows
@@ -911,5 +900,3 @@ class TestTransform:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

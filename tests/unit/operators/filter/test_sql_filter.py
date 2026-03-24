@@ -4,32 +4,31 @@ Unit tests for SQLFilterOperator.
 Tests filtering rows from a PyArrow table using SQL WHERE clause criteria.
 """
 
+from unittest.mock import MagicMock, patch
+
+import duckdb
+import pyarrow as pa
 import pytest
 
-
-# Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "src"
-    / "datasift_opensource"
-    / "backend"
+from common.constants.constants import (
+    ExecutionStatus,
+    Metrics,
 )
-sys.path.insert(0, str(backend_dir))
-
-import pyarrow as pa
-
-from core.operators.universal.filter.sql_filter import (
-    SQLFilterOperator,
-    json_to_sql_where,
-    convert_operator,
-    format_value,
-    process_condition,
+from common.constants.operator_constants import (
+    OperatorConstants,
+)
+from common.exceptions.datasift_exceptions import (
+    DatasiftException,
+)
+from core.operators.quality.sql_filter import (
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
+    SQLFilterOperator,
+    convert_operator,
+    format_value,
+    json_to_sql_where,
+    process_condition,
 )
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import Metrics
-from common.exceptions.datasift_exceptions import DatasiftException
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +94,6 @@ def test_basic_filter_less_than_or_equal():
     """Filter rows where word_count <= 150."""
     table = make_table()
     operator = make_operator(
-
         {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["word_count <= 150"]}
     )
     result_tables, metadata = operator.transform(table)
@@ -115,7 +113,6 @@ def test_and_logical_operator():
     table = make_table()
     operator = make_operator(
         {
-
             OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [
                 "score > 2",
                 "language = 'en'",
@@ -859,6 +856,371 @@ def test_filter_and_drop_combined():
     # Other columns still present
     assert "score" in result.column_names
     assert "content" in result.column_names
+
+
+# ---------------------------------------------------------------------------
+# 15. Error handling tests
+# ---------------------------------------------------------------------------
+
+
+def test_duckdb_execution_failure():
+    """
+    Test when DuckDB raises an exception during query execution.
+    Verify that the operator catches the exception, metadata contains FAILED status,
+    all documents are recorded as failed, and the original table is returned.
+    """
+    table = make_table()
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
+
+    # Mock duckdb.connect() to return a connection that raises an exception on execute
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_con = MagicMock()
+        mock_con.execute.side_effect = duckdb.BinderException("Mocked DuckDB error")
+        mock_connect.return_value = mock_con
+
+        result_tables, metadata = operator.transform(table)
+        result = result_tables[0]
+
+        # Original table should be returned unchanged
+        assert result.num_rows == table.num_rows
+        assert result.column_names == table.column_names
+
+        # Metadata should contain FAILED status
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+        # Error should be recorded in metadata
+        assert OperatorConstants.Extraction.ERROR in metadata
+        assert "Mocked DuckDB error" in metadata[OperatorConstants.Extraction.ERROR]
+
+        # All documents should be recorded as failed
+        assert Metrics.External.FAILED_DOCS in metadata
+        assert len(metadata[Metrics.External.FAILED_DOCS]) == table.num_rows
+
+        # Verify each document has proper error reason
+        for doc_info in metadata[Metrics.External.FAILED_DOCS]:
+            assert "reason" in doc_info
+            assert "Mocked DuckDB error" in doc_info["reason"]
+
+
+def test_duckdb_conversion_exception():
+    """
+    Test when DuckDB raises a ConversionException (type mismatch).
+    """
+    table = make_table()
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
+
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_con = MagicMock()
+        mock_con.execute.side_effect = duckdb.ConversionException(
+            "Type conversion error"
+        )
+        mock_connect.return_value = mock_con
+
+        result_tables, metadata = operator.transform(table)
+        result = result_tables[0]
+
+        # Original table returned
+        assert result.num_rows == table.num_rows
+
+        # Failed status
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+        # Error should be recorded
+        assert OperatorConstants.Extraction.ERROR in metadata
+        assert "Type conversion error" in metadata[OperatorConstants.Extraction.ERROR]
+
+
+def test_duckdb_catalog_exception():
+    """
+    Test when DuckDB raises a CatalogException (e.g., table not found).
+    """
+    table = make_table()
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
+
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_con = MagicMock()
+        mock_con.execute.side_effect = duckdb.CatalogException("Table not found")
+        mock_connect.return_value = mock_con
+
+        result_tables, metadata = operator.transform(table)
+        result = result_tables[0]
+
+        # Original table returned
+        assert result.num_rows == table.num_rows
+
+        # Failed status
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+        # Error recorded
+        assert OperatorConstants.Extraction.ERROR in metadata
+        assert "Table not found" in metadata[OperatorConstants.Extraction.ERROR]
+
+
+def test_transform_general_exception():
+    """
+    Test when transform() encounters an unexpected error.
+    Verify proper error handling and metadata recording.
+    """
+    table = make_table()
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
+
+    # Mock duckdb.connect() to raise a general exception
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_connect.side_effect = RuntimeError("Unexpected runtime error")
+
+        result_tables, metadata = operator.transform(table)
+        result = result_tables[0]
+
+        # Original table should be returned
+        assert result.num_rows == table.num_rows
+
+        # Metadata should contain FAILED status
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+        # Error should be recorded
+        assert OperatorConstants.Extraction.ERROR in metadata
+        assert (
+            "Unexpected runtime error" in metadata[OperatorConstants.Extraction.ERROR]
+        )
+
+        # All documents should be marked as failed
+        assert Metrics.External.FAILED_DOCS in metadata
+        assert len(metadata[Metrics.External.FAILED_DOCS]) == table.num_rows
+
+
+def test_datasift_exception_in_json_to_sql_where():
+    """
+    Test when a DatasiftException is raised during JSON to SQL conversion.
+    """
+    table = make_table()
+    # Invalid JSON criteria that will cause an error
+    invalid_criteria_json = {
+        "variable": "score",
+        # Missing operator - should raise DatasiftException
+        "value": 5,
+    }
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: invalid_criteria_json}
+    )
+
+    result_tables, metadata = operator.transform(table)
+    result = result_tables[0]
+
+    # Original table should be returned
+    assert result.num_rows == table.num_rows
+
+    # Metadata should contain FAILED status
+    assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+    # Error should be recorded
+    assert OperatorConstants.Extraction.ERROR in metadata
+
+    # All documents should be marked as failed
+    assert Metrics.External.FAILED_DOCS in metadata
+    assert len(metadata[Metrics.External.FAILED_DOCS]) == table.num_rows
+
+
+def test_error_handling_with_filter_criteria_per_criterion():
+    """
+    Test error handling when processing individual filter criteria.
+    """
+    table = make_table()
+    operator = make_operator(
+        {
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [
+                "score > 5",
+                "language = 'en'",
+            ]
+        }
+    )
+
+    # Mock to fail on the second criterion
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_con = MagicMock()
+        call_count = [0]
+
+        def execute_side_effect(sql):
+            call_count[0] += 1
+            if call_count[0] == 2:  # Fail on second call
+                raise duckdb.BinderException("Error on second criterion")
+            # First call succeeds
+            mock_result = MagicMock()
+            mock_result.arrow.return_value = table
+            return mock_result
+
+        mock_con.execute.side_effect = execute_side_effect
+        mock_connect.return_value = mock_con
+
+        result_tables, metadata = operator.transform(table)
+        result = result_tables[0]
+
+        # Original table returned
+        assert result.num_rows == table.num_rows
+
+        # Failed status
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+
+def test_error_with_features_to_drop():
+    """
+    Test error handling when both filtering and dropping features.
+    """
+    table = make_table()
+    operator = make_operator(
+        {
+            OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: ["language"],
+        }
+    )
+
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_con = MagicMock()
+        mock_con.execute.side_effect = Exception("Unexpected error during filtering")
+        mock_connect.return_value = mock_con
+
+        result_tables, metadata = operator.transform(table)
+        result = result_tables[0]
+
+        # Original table returned (with all columns intact)
+        assert result.num_rows == table.num_rows
+        assert "language" in result.column_names  # Column not dropped due to error
+
+        # Failed status
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+
+def test_error_handling_preserves_table_structure():
+    """
+    Test that error handling preserves the original table structure completely.
+    """
+    table = make_table()
+    original_schema = table.schema
+    original_num_rows = table.num_rows
+
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
+
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_connect.side_effect = Exception("Critical error")
+
+        result_tables, metadata = operator.transform(table)
+        result = result_tables[0]
+
+        # Verify table structure is completely preserved
+        assert result.schema == original_schema
+        assert result.num_rows == original_num_rows
+        assert result.column_names == table.column_names
+
+        # Verify all data is intact
+        for col_name in table.column_names:
+            assert result[col_name].to_pylist() == table[col_name].to_pylist()
+
+
+def test_failed_docs_metadata_structure():
+    """
+    Test that failed_docs metadata has the correct structure.
+    """
+    table = make_table()
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
+
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_connect.side_effect = Exception("Test error")
+
+        result_tables, metadata = operator.transform(table)
+
+        # Verify failed_docs structure
+        assert Metrics.External.FAILED_DOCS in metadata
+        failed_docs = metadata[Metrics.External.FAILED_DOCS]
+
+        # Should have entries for all documents
+        assert len(failed_docs) == table.num_rows
+
+        # Each entry should have proper structure (it's a list of dicts)
+        for doc_info in failed_docs:
+            assert "name" in doc_info
+            assert "reason" in doc_info
+            assert doc_info["reason"] == "Test error"
+
+
+def test_error_with_empty_table():
+    """
+    Test error handling with an empty input table.
+    """
+    empty_table = pa.table(
+        {
+            "id": [],
+            "name": [],
+            "content": [],
+            "score": [],
+            "language": [],
+            "word_count": [],
+        }
+    )
+
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
+    )
+
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_connect.side_effect = Exception("Error with empty table")
+
+        result_tables, metadata = operator.transform(empty_table)
+        result = result_tables[0]
+
+        # Empty table returned
+        assert result.num_rows == 0
+
+        # Failed status
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+        # No failed docs since table is empty
+        assert Metrics.External.FAILED_DOCS in metadata
+        assert len(metadata[Metrics.External.FAILED_DOCS]) == 0
+
+
+def test_error_handling_with_json_criteria():
+    """
+    Test error handling when using JSON criteria format.
+    """
+    table = make_table()
+    criteria_json = {
+        "logical_operator": "AND",
+        "criteria_list": [
+            {"variable": "score", "operator": ">", "value": 2},
+            {"variable": "language", "operator": "=", "value": "en"},
+        ],
+    }
+    operator = make_operator(
+        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
+    )
+
+    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+        mock_con = MagicMock()
+        mock_con.execute.side_effect = duckdb.BinderException("JSON criteria error")
+        mock_connect.return_value = mock_con
+
+        result_tables, metadata = operator.transform(table)
+        result = result_tables[0]
+
+        # Original table returned
+        assert result.num_rows == table.num_rows
+
+        # Failed status
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
+
+        # Error recorded
+        assert OperatorConstants.Extraction.ERROR in metadata
 
 
 if __name__ == "__main__":

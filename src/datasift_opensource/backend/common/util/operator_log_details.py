@@ -6,9 +6,9 @@ import os
 from common.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
-    Metrics,
-    OperatorConstants,
+    Metrics
 )
+from common.constants.operator_constants import OperatorConstants
 from common.util.iceberg_util import get_warehouse_path
 from common.util.job_tracker.model.models import NodeStatsDto
 
@@ -60,7 +60,7 @@ def get_log_and_job_file_path(*, job_id, jobrun_id):
         log_location_path,
         log_job_folder_name,
         str(jobrun_id),
-        OperatorConstants.NODES_METADATA_FILE,
+        OperatorConstants.Config.NODES_METADATA_FILE,
     )
     aggregated_job_log_path = os.path.join(
         log_location_path,

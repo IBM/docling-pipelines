@@ -15,7 +15,7 @@ import pytest
 import requests
 
 
-from core.operators.universal.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
+from core.operators.quality.pii_and_hap_annotator import (  # noqa: E402
     PIIAndHAPAnnotator,
 )
 
