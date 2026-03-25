@@ -1,0 +1,109 @@
+{
+  "document_class_id": "dcb423cb-e604-4901-bf65-a482bdf8a55c",
+  "document_class_name": "management_quarterly_cs",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "taxpayer_services",
+          "examples": [
+            "1010.05"
+          ],
+          "description": "taxpayer_services"
+        },
+        {
+          "name": "operations_support",
+          "examples": [
+            "3410.50"
+          ],
+          "description": "operations_support"
+        },
+        {
+          "name": "business_systems_modernization",
+          "examples": [
+            "$4569.4"
+          ],
+          "description": "business_systems_modernization",
+          "extraction_instructions": "business_systems_modernization"
+        }
+      ],
+      "document_type": "management_quarterly_cs",
+      "document_description": "Management Quarter",
+      "additional_prompt_instructions": "Management Quarterly Update"
+    },
+    "target_tables": [
+      {
+        "name": "manage_quart_table_daitest10feb",
+        "columns": [
+          {
+            "name": "taxpayers_services",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "taxpayer_services"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "taxpayers_services"
+          },
+          {
+            "name": "operations_support",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "operations_support"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "operations_support"
+          },
+          {
+            "name": "business_systems_modernization",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "business_systems_modernization"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "business_systems_modernization"
+          }
+        ],
+        "description": "manage_quarterly_table"
+      }
+    ]
+  },
+  "created_time": "2026-01-28T07:11:48Z",
+  "last_modified_time": "2026-02-10T11:32:23Z",
+  "created_by": "IBMid-2700076S1E",
+  "last_modified_by": "IBMid-2700076S1E",
+  "is_predefined": false,
+  "is_enabled": true
+}

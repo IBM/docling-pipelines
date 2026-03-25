@@ -83,6 +83,7 @@ class OperatorConstants:
         DOC_ID_HASH: Final[str] = "doc_id_hash_column"
         DOC_ID_HASH_DEFAULT: Final[str] = "doc_id_hash"
         DOCLING_DOCUMENT: Final[str] = "docling_document"
+        DOCUMENT_TYPE: Final[str] = "document_type"
         ID: Final[str] = "id"
         JSON_CONTENT: Final[str] = "json_content"
         KVP_COLUMN: Final[str] = "kvp_column"

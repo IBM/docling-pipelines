@@ -1,0 +1,275 @@
+{
+  "document_class_id": "bed51a4e-111c-4167-95e2-f3d2f1e40e07",
+  "document_class_name": "Remittance / Payment Advice",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "remittance_number",
+          "examples": [
+            "REM-20230918-001"
+          ],
+          "description": "Unique identifier for the remittance advice.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payment_date",
+          "examples": [
+            "2023-09-18"
+          ],
+          "description": "Date on which the payment was issued.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payer_name",
+          "examples": [
+            "ACME Corp."
+          ],
+          "description": "Name of the individual or business making the payment.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payer_account_number",
+          "examples": [
+            "12345678"
+          ],
+          "description": "Bank account or reference number of the payer (if relevant).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payee_name",
+          "examples": [
+            "XYZ Services LLC"
+          ],
+          "description": "Name of the individual or business receiving the payment.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payee_account_number",
+          "examples": [
+            "987654321"
+          ],
+          "description": "Bank account or reference number of the payee (if relevant).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_payment_amount",
+          "examples": [
+            "1500.00"
+          ],
+          "description": "Sum of money being paid in this remittance.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "currency",
+          "examples": [
+            "USD"
+          ],
+          "description": "Currency in which the payment is made.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payment_method",
+          "examples": [
+            "Check, ACH, Wire Transfer"
+          ],
+          "description": "Method by which the payment was executed.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "transaction_reference",
+          "examples": [
+            "ACH-REF-123456789"
+          ],
+          "description": "Reference code for the payment transaction (if applicable).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "fees_deducted",
+          "examples": [
+            "15.00"
+          ],
+          "description": "Any transaction fees or charges withheld from the payment.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "remarks",
+          "examples": [
+            "Partial payment for Q3 invoices. Balance to follow next month."
+          ],
+          "description": "Additional notes or comments about the remittance.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Remittance / Payment Advice",
+      "document_description": "A Remittance (Payment) Advice is a document or notification issued by a payer to a payee indicating that an invoice or set of invoices has been paid. It provides details for reconciliation, such as payment date, amount, and references to invoice numbers.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Remittance_Payment_Advice",
+        "columns": [
+          {
+            "name": "remittance_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "remittance_number"
+              ]
+            },
+            "description": "Unique identifier for the remittance advice."
+          },
+          {
+            "name": "payment_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "payment_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date on which the payment was issued."
+          },
+          {
+            "name": "payer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "payer_name"
+              ]
+            },
+            "description": "Name of the individual or business making the payment."
+          },
+          {
+            "name": "payer_account_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "payer_account_number"
+              ]
+            },
+            "description": "Bank account or reference number of the payer (if relevant)."
+          },
+          {
+            "name": "payee_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "payee_name"
+              ]
+            },
+            "description": "Name of the individual or business receiving the payment."
+          },
+          {
+            "name": "payee_account_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "payee_account_number"
+              ]
+            },
+            "description": "Bank account or reference number of the payee (if relevant)."
+          },
+          {
+            "name": "total_payment_amount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_payment_amount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Sum of money being paid in this remittance."
+          },
+          {
+            "name": "currency",
+            "type": "string",
+            "source": {
+              "field": [
+                "currency"
+              ]
+            },
+            "description": "Currency in which the payment is made."
+          },
+          {
+            "name": "payment_method",
+            "type": "string",
+            "source": {
+              "field": [
+                "payment_method"
+              ]
+            },
+            "description": "Method by which the payment was executed."
+          },
+          {
+            "name": "transaction_reference",
+            "type": "string",
+            "source": {
+              "field": [
+                "transaction_reference"
+              ]
+            },
+            "description": "Reference code for the payment transaction (if applicable)."
+          },
+          {
+            "name": "fees_deducted",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "fees_deducted"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Any transaction fees or charges withheld from the payment."
+          },
+          {
+            "name": "remarks",
+            "type": "string",
+            "source": {
+              "field": [
+                "remarks"
+              ]
+            },
+            "description": "Additional notes or comments about the remittance."
+          }
+        ],
+        "metadata": {},
+        "description": "A Remittance (Payment) Advice is a document or notification issued by a payer to a payee indicating that an invoice or set of invoices has been paid. It provides details for reconciliation, such as payment date, amount, and references to invoice numbers."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

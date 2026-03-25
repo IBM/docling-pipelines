@@ -1,0 +1,201 @@
+{
+  "document_class_id": "a53f9708-02ff-4bbb-a63e-460a069b4fd5",
+  "document_class_name": "Delivery Receipt",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "delivery_receipt_number",
+          "examples": [
+            "DR-2002"
+          ],
+          "description": "Unique identifier for the delivery receipt.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "carrier_name",
+          "examples": [
+            "Logistics Express"
+          ],
+          "description": "Name of the shipping or transport company.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_delivery",
+          "examples": [
+            "2023-05-15"
+          ],
+          "description": "When the goods were delivered.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "recipient_name",
+          "examples": [
+            "John Buyer"
+          ],
+          "description": "Person who received the goods.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "recipient_signature",
+          "examples": [
+            "John Buyer"
+          ],
+          "description": "Signature of the recipient acknowledging receipt.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipment_reference_number",
+          "examples": [
+            "BOL-1001"
+          ],
+          "description": "Linked Bill of Lading or shipment reference.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "items_delivered",
+          "examples": [
+            "10 crates of electronics"
+          ],
+          "description": "Brief summary of the delivered goods.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "condition_of_goods",
+          "examples": [
+            "No visible damage"
+          ],
+          "description": "Recipient\u2019s note on the condition at delivery.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "notes_remarks",
+          "examples": [
+            "1 crate slightly dented on the corner"
+          ],
+          "description": "Any extra remarks about the delivery.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Delivery Receipt",
+      "document_description": "A Delivery Receipt (sometimes called a Proof of Delivery) is typically a single-page confirmation that goods shipped have been received by the intended party. It captures essential shipment details and the recipient\u2019s acknowledgment.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Delivery_Receipt",
+        "columns": [
+          {
+            "name": "delivery_receipt_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "delivery_receipt_number"
+              ]
+            },
+            "description": "Unique identifier for the delivery receipt."
+          },
+          {
+            "name": "carrier_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "carrier_name"
+              ]
+            },
+            "description": "Name of the shipping or transport company."
+          },
+          {
+            "name": "date_of_delivery",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_delivery"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "When the goods were delivered."
+          },
+          {
+            "name": "recipient_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "recipient_name"
+              ]
+            },
+            "description": "Person who received the goods."
+          },
+          {
+            "name": "recipient_signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "recipient_signature"
+              ]
+            },
+            "description": "Signature of the recipient acknowledging receipt."
+          },
+          {
+            "name": "shipment_reference_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipment_reference_number"
+              ]
+            },
+            "description": "Linked Bill of Lading or shipment reference."
+          },
+          {
+            "name": "items_delivered",
+            "type": "string",
+            "source": {
+              "field": [
+                "items_delivered"
+              ]
+            },
+            "description": "Brief summary of the delivered goods."
+          },
+          {
+            "name": "condition_of_goods",
+            "type": "string",
+            "source": {
+              "field": [
+                "condition_of_goods"
+              ]
+            },
+            "description": "Recipient\u2019s note on the condition at delivery."
+          },
+          {
+            "name": "notes_remarks",
+            "type": "string",
+            "source": {
+              "field": [
+                "notes_remarks"
+              ]
+            },
+            "description": "Any extra remarks about the delivery."
+          }
+        ],
+        "metadata": {},
+        "description": "A Delivery Receipt (sometimes called a Proof of Delivery) is typically a single-page confirmation that goods shipped have been received by the intended party. It captures essential shipment details and the recipient\u2019s acknowledgment."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

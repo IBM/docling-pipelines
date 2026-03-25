@@ -1,0 +1,886 @@
+{
+  "document_class_id": "c724e6f8-7c88-4379-9a79-54aedcb879b0",
+  "document_class_name": "Rechnung",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "Rechnungsdatum",
+          "examples": [
+            "2024-02-04"
+          ],
+          "description": "das Erstellungs- oder Ausstellungsdatum der Rechnung.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Rechnungs-ID",
+          "examples": [
+            "INV-2024-001"
+          ],
+          "description": "eindeutige Kennung, Referenznummer oder Rechnungsnummer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Kundenname",
+          "examples": [
+            "John Smith"
+          ],
+          "description": "Vollst\u00e4ndiger Name der Person oder Firma, der die Rechnung gestellt wird.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_billing_address",
+          "examples": [
+            "123 Main St, Anytown, ST 12345"
+          ],
+          "description": "Vollst\u00e4ndige Rechnungsadresse. Hier werden Rechnungen und Rechnungen verschickt.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_email",
+          "examples": [
+            "john@example.com"
+          ],
+          "description": "Jede mit dem Kunden verkn\u00fcpfte E-Mail-Adresse.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_phone",
+          "examples": [
+            "+1 555-0123"
+          ],
+          "description": "Jede mit dem Kunden verkn\u00fcpfte Telefonnummer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Versandname",
+          "examples": [
+            "Jane Smith"
+          ],
+          "description": "Name des Empf\u00e4ngers f\u00fcr die Lieferung (kann vom Rechnungsnamen abweichen).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Versandadresse",
+          "examples": [
+            "456 Delivery Ln, Anytown, ST 12345"
+          ],
+          "description": "Vollst\u00e4ndige Adresse, an die die Waren geliefert werden.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Versandtelefon",
+          "examples": [
+            "+1 555-0124"
+          ],
+          "description": "Telefonnummer f\u00fcr Lieferzwecke kontaktieren.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Anbietername",
+          "examples": [
+            "Business Corp"
+          ],
+          "description": "Name des Unternehmens oder der Person, die die Rechnung ausstellt.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Vendor_address",
+          "examples": [
+            "456 Commerce Ave, Business City, ST 54321"
+          ],
+          "description": "Vollst\u00e4ndige Gesch\u00e4ftsadresse des Anbieters.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "anbieter_email",
+          "examples": [
+            "billing@business.com"
+          ],
+          "description": "Kontakt-E-Mail des Anbieters.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "anbieter_telefon",
+          "examples": [
+            "+1 555-9876"
+          ],
+          "description": "Kontakttelefonnummer des Anbieters.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Bankname",
+          "examples": [
+            "First National Bank"
+          ],
+          "description": "Der Name der Bank des Verk\u00e4ufers.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Bankkontonummer",
+          "examples": [
+            "1234567890"
+          ],
+          "description": "Die Bankkontonummer des Anbieters.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Filialname",
+          "examples": [
+            "Downtown Branch"
+          ],
+          "description": "Der vom Lieferanten verwendete Name der Bankfiliale.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "iban",
+          "examples": [
+            "US29NWBK60161331926819"
+          ],
+          "description": "Die internationale Bankkontonummer (IBAN) des Anbieters.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "schnell",
+          "examples": [
+            "FNBUUS33"
+          ],
+          "description": "Der SWIFT-Code f\u00fcr die Bank des Lieferanten.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Steuer-ID",
+          "examples": [
+            "12-3456789"
+          ],
+          "description": "Die Steueridentifikationsnummer des Verk\u00e4ufers.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Zwischensumme",
+          "examples": [
+            "1000.00"
+          ],
+          "description": "Betrag vor Steuern oder zus\u00e4tzlichen Geb\u00fchren.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Steuer",
+          "examples": [
+            "100.00"
+          ],
+          "description": "Der angewendete Steuerbetrag.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "gesamt",
+          "examples": [
+            "1100.00"
+          ],
+          "description": "Der endg\u00fcltige Gesamtbetrag einschlie\u00dflich aller Geb\u00fchren.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_discount",
+          "examples": [
+            "1100.00"
+          ],
+          "description": "Der auf die Rechnung angewendete Gesamtrabattbetrag.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Zahlungsbedingungen",
+          "examples": [
+            "Net 30"
+          ],
+          "description": "Alle angegebenen Zahlungsbedingungen oder Konditionen.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "F\u00e4lligkeitsdatum",
+          "examples": [
+            "2024-03-05"
+          ],
+          "description": "Das Datum, bis zu dem die Zahlung erfolgen muss.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "W\u00e4hrung",
+          "examples": [
+            "USD"
+          ],
+          "description": "Die in der Rechnung verwendete W\u00e4hrung.",
+          "available_options": [
+            "USD",
+            "EUR",
+            "CNY",
+            "JPY",
+            "GBP",
+            "AUD",
+            "CAD",
+            "CHF",
+            "HKD",
+            "SGD",
+            "INR",
+            "KRW",
+            "MXN",
+            "BRL",
+            "ZAR",
+            "SEK",
+            "NOK",
+            "DKK",
+            "NZD",
+            "TRY",
+            "AED",
+            "THB",
+            "PLN",
+            "IDR",
+            "MYR",
+            "PHP",
+            "RUB",
+            "CZK",
+            "ILS"
+          ],
+          "extraction_instructions": ""
+        },
+        {
+          "name": "W\u00e4hrungszeichen",
+          "affix": true,
+          "examples": [
+            "$"
+          ],
+          "description": "Das W\u00e4hrungszeichen der in der Rechnung verwendeten W\u00e4hrung.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Versandgeb\u00fchr",
+          "examples": [
+            "100.0"
+          ],
+          "description": "Versand- oder Liefergeb\u00fchr wie auf der Rechnung aufgedruckt (falls zutreffend)",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Tr\u00e4ger",
+          "examples": [
+            "FEDEX"
+          ],
+          "description": "Das Versandunternehmen, das die Ware liefert.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Purchase_order_number",
+          "examples": [
+            "PO-45678"
+          ],
+          "description": "Vom K\u00e4ufer angegebene Referenznummer zur Autorisierung des Kaufs.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Steuersatz",
+          "examples": [
+            "17%"
+          ],
+          "description": "Prozentsatz der auf die Zwischensumme angewendeten Steuer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "Steuertyp",
+          "examples": [
+            "VAT"
+          ],
+          "description": "Art der auf die Zwischensumme angewendeten Steuer.",
+          "available_options": [
+            "VAT",
+            "Sales Tax",
+            "GST",
+            "Excise Tax",
+            "Service Tax",
+            "Withholding Tax",
+            "WHT",
+            "Environmental Taxes",
+            "Carbon Tax",
+            "Tourism Tax",
+            "Lodging Tax",
+            "CGST",
+            "IGST",
+            "SGST",
+            "Use Tax",
+            "Cess",
+            "HST",
+            "PST",
+            "QST",
+            "Consumption Tax"
+          ],
+          "extraction_instructions": ""
+        },
+        {
+          "name": "line_items",
+          "fields": [
+            {
+              "name": "amount",
+              "examples": [
+                "500.00"
+              ],
+              "description": "The total amount for the line item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "description",
+              "examples": [
+                "Product A"
+              ],
+              "description": "Description of the product or service of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "product_code",
+              "examples": [
+                "SKU-123"
+              ],
+              "description": "Any product code, SKU, or identifier for the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "quantity",
+              "examples": [
+                "2"
+              ],
+              "description": "Number of units purchased of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "unit",
+              "examples": [
+                "each"
+              ],
+              "description": "Unit of measurement (e.g., \"each\", \"kg\", \"hours\") of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "unit_price",
+              "examples": [
+                "250.00"
+              ],
+              "description": "Price per unit of the item.",
+              "extraction_instructions": ""
+            }
+          ],
+          "description": "Informationen zu jedem in der Rechnung aufgef\u00fchrten Produkt oder jeder Dienstleistung."
+        }
+      ],
+      "document_type": "Rechnung",
+      "document_description": "Eine Rechnung ist ein Finanzdokument, das ein Verk\u00e4ufer einem K\u00e4ufer ausstellt und in dem die bereitgestellten Produkte oder Dienstleistungen, Mengen, Preise und Zahlungsbedingungen aufgef\u00fchrt sind. Es dient als Zahlungsaufforderung bei einem Verkaufsvorgang.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Invoice_line_items",
+        "columns": [
+          {
+            "name": "amount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "amount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Der Gesamtbetrag f\u00fcr die Werbebuchung."
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "description"
+              ]
+            },
+            "description": "Beschreibung des Produkts oder der Dienstleistung des Artikels."
+          },
+          {
+            "name": "product_code",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "product_code"
+              ]
+            },
+            "description": "Beliebiger Produktcode, SKU oder Kennung f\u00fcr den Artikel."
+          },
+          {
+            "name": "quantity",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "quantity"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Anzahl der gekauften Einheiten des Artikels."
+          },
+          {
+            "name": "unit",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "unit"
+              ]
+            },
+            "description": "Ma\u00dfeinheit (z. B. \u201ejeder\u201c, \u201ekg\u201c, \u201eStunden\u201c) des Artikels."
+          },
+          {
+            "name": "unit_price",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "unit_price"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Preis pro Einheit des Artikels."
+          }
+        ],
+        "metadata": {},
+        "description": "Informationen zu jedem in der Rechnung aufgef\u00fchrten Produkt oder jeder Dienstleistung."
+      },
+      {
+        "name": "Rechnung",
+        "columns": [
+          {
+            "name": "invoice_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "Rechnungsdatum"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "das Erstellungs- oder Ausstellungsdatum der Rechnung."
+          },
+          {
+            "name": "invoice_id",
+            "type": "string",
+            "source": {
+              "field": [
+                "Rechnungs-ID"
+              ]
+            },
+            "description": "eindeutige Kennung, Referenznummer oder Rechnungsnummer."
+          },
+          {
+            "name": "customer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "Kundenname"
+              ]
+            },
+            "description": "Vollst\u00e4ndiger Name der Person oder Firma, der die Rechnung gestellt wird."
+          },
+          {
+            "name": "customer_billing_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_billing_address"
+              ]
+            },
+            "description": "Vollst\u00e4ndige Rechnungsadresse. Hier werden Rechnungen und Rechnungen verschickt."
+          },
+          {
+            "name": "customer_email",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_email"
+              ]
+            },
+            "description": "Jede mit dem Kunden verkn\u00fcpfte E-Mail-Adresse."
+          },
+          {
+            "name": "customer_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_phone"
+              ]
+            },
+            "description": "Jede mit dem Kunden verkn\u00fcpfte Telefonnummer."
+          },
+          {
+            "name": "shipping_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "Versandname"
+              ]
+            },
+            "description": "Name des Empf\u00e4ngers f\u00fcr die Lieferung (kann vom Rechnungsnamen abweichen)."
+          },
+          {
+            "name": "shipping_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "Versandadresse"
+              ]
+            },
+            "description": "Vollst\u00e4ndige Adresse, an die die Waren geliefert werden."
+          },
+          {
+            "name": "shipping_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "Versandtelefon"
+              ]
+            },
+            "description": "Telefonnummer f\u00fcr Lieferzwecke kontaktieren."
+          },
+          {
+            "name": "vendor_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "Anbietername"
+              ]
+            },
+            "description": "Name des Unternehmens oder der Person, die die Rechnung ausstellt."
+          },
+          {
+            "name": "vendor_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "Vendor_address"
+              ]
+            },
+            "description": "Vollst\u00e4ndige Gesch\u00e4ftsadresse des Anbieters."
+          },
+          {
+            "name": "vendor_email",
+            "type": "string",
+            "source": {
+              "field": [
+                "anbieter_email"
+              ]
+            },
+            "description": "Kontakt-E-Mail des Anbieters."
+          },
+          {
+            "name": "vendor_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "anbieter_telefon"
+              ]
+            },
+            "description": "Kontakttelefonnummer des Anbieters."
+          },
+          {
+            "name": "bank_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "Bankname"
+              ]
+            },
+            "description": "Der Name der Bank des Verk\u00e4ufers."
+          },
+          {
+            "name": "bank_account_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "Bankkontonummer"
+              ]
+            },
+            "description": "Die Bankkontonummer des Anbieters."
+          },
+          {
+            "name": "branch_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "Filialname"
+              ]
+            },
+            "description": "Der vom Lieferanten verwendete Name der Bankfiliale."
+          },
+          {
+            "name": "iban",
+            "type": "string",
+            "source": {
+              "field": [
+                "iban"
+              ]
+            },
+            "description": "Die internationale Bankkontonummer (IBAN) des Anbieters."
+          },
+          {
+            "name": "swift",
+            "type": "string",
+            "source": {
+              "field": [
+                "schnell"
+              ]
+            },
+            "description": "Der SWIFT-Code f\u00fcr die Bank des Lieferanten."
+          },
+          {
+            "name": "tax_id",
+            "type": "string",
+            "source": {
+              "field": [
+                "Steuer-ID"
+              ]
+            },
+            "description": "Die Steueridentifikationsnummer des Verk\u00e4ufers."
+          },
+          {
+            "name": "sub_total",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "Zwischensumme"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Betrag vor Steuern oder zus\u00e4tzlichen Geb\u00fchren."
+          },
+          {
+            "name": "tax",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "Steuer"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Der angewendete Steuerbetrag."
+          },
+          {
+            "name": "total",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "gesamt"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Der endg\u00fcltige Gesamtbetrag einschlie\u00dflich aller Geb\u00fchren."
+          },
+          {
+            "name": "total_discount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_discount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Der auf die Rechnung angewendete Gesamtrabattbetrag."
+          },
+          {
+            "name": "payment_terms",
+            "type": "string",
+            "source": {
+              "field": [
+                "Zahlungsbedingungen"
+              ]
+            },
+            "description": "Alle angegebenen Zahlungsbedingungen oder Konditionen."
+          },
+          {
+            "name": "due_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "F\u00e4lligkeitsdatum"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Das Datum, bis zu dem die Zahlung erfolgen muss."
+          },
+          {
+            "name": "currency",
+            "type": "string",
+            "source": {
+              "field": [
+                "W\u00e4hrung"
+              ]
+            },
+            "description": "Die in der Rechnung verwendete W\u00e4hrung."
+          },
+          {
+            "name": "currency_sign",
+            "type": "string",
+            "source": {
+              "field": [
+                "W\u00e4hrungszeichen"
+              ]
+            },
+            "description": "Das W\u00e4hrungszeichen der in der Rechnung verwendeten W\u00e4hrung."
+          },
+          {
+            "name": "shipping_charge",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "Versandgeb\u00fchr"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Versand- oder Liefergeb\u00fchr wie auf der Rechnung aufgedruckt (falls zutreffend)"
+          },
+          {
+            "name": "carrier",
+            "type": "string",
+            "source": {
+              "field": [
+                "Tr\u00e4ger"
+              ]
+            },
+            "description": "Das Versandunternehmen, das die Ware liefert."
+          },
+          {
+            "name": "purchase_order_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "Purchase_order_number"
+              ]
+            },
+            "description": "Vom K\u00e4ufer angegebene Referenznummer zur Autorisierung des Kaufs."
+          },
+          {
+            "name": "tax_rate",
+            "type": "string",
+            "source": {
+              "field": [
+                "Steuersatz"
+              ]
+            },
+            "description": "Prozentsatz der auf die Zwischensumme angewendeten Steuer."
+          },
+          {
+            "name": "tax_type",
+            "type": "string",
+            "source": {
+              "field": [
+                "Steuertyp"
+              ]
+            },
+            "description": "Art der auf die Zwischensumme angewendeten Steuer."
+          }
+        ],
+        "metadata": {},
+        "description": "Eine Rechnung ist ein Finanzdokument, das ein Verk\u00e4ufer einem K\u00e4ufer ausstellt und in dem die bereitgestellten Produkte oder Dienstleistungen, Mengen, Preise und Zahlungsbedingungen aufgef\u00fchrt sind. Es dient als Zahlungsaufforderung bei einem Verkaufsvorgang."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2026-02-24T16:54:15Z",
+  "last_modified_time": "2026-02-24T16:54:15Z",
+  "created_by": "IBMid-6A1000966M",
+  "last_modified_by": "IBMid-6A1000966M",
+  "is_predefined": false,
+  "is_enabled": true
+}

@@ -1,0 +1,175 @@
+{
+  "document_class_id": "180c5984-03ac-4175-a8f3-60f9b577cb4e",
+  "document_class_name": "Life Insurance Authorization Form",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "signature_of_insured",
+          "examples": [
+            "Jonathan K. Smith"
+          ],
+          "description": "Signature of the individual who is insured under the policy.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_insured_signature",
+          "examples": [
+            "11/15/2023"
+          ],
+          "description": "Date when the insured signed the authorization form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "signature_of_personal_representative",
+          "examples": [
+            "Linda M. Johnson"
+          ],
+          "description": "Signature of the person authorized to act on behalf of the insured.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_representative_signature",
+          "examples": [
+            "11/15/2023"
+          ],
+          "description": "Date when the personal representative signed the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "representative_relationship_to_insured",
+          "examples": [
+            "Legal Guardian"
+          ],
+          "description": "Explanation of the relationship or authority allowing the representative to act on behalf of the insured.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "claims_contact_number",
+          "examples": [
+            "800-555-1234"
+          ],
+          "description": "Customer service number for assistance with life insurance claims.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "mailing_address",
+          "examples": [
+            "ATTN: Injury Handler, ABC LIFE INSURANCE COMPANY, 1234 Main Street, Citytown, NY 10001"
+          ],
+          "description": "Mailing address to send the completed authorization form for processing.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Life Insurance Authorization Form",
+      "document_description": "A life insurance authorization form used by USAA Life Insurance Company to collect and transmit information required for processing claims or investigative reports. The form includes fields for the insured's and personal representative's signatures and dates, and contains legal language authorizing the release of medical or personal records to USAA Life. It also provides specific instructions for Oklahoma residents and includes mailing information for claims processing.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Life_Insurance_Authorization_Form",
+        "columns": [
+          {
+            "name": "signature_of_insured",
+            "type": "string",
+            "source": {
+              "field": [
+                "signature_of_insured"
+              ]
+            },
+            "description": "Signature of the individual who is insured under the policy."
+          },
+          {
+            "name": "date_of_insured_signature",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_insured_signature"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date when the insured signed the authorization form."
+          },
+          {
+            "name": "signature_of_personal_representative",
+            "type": "string",
+            "source": {
+              "field": [
+                "signature_of_personal_representative"
+              ]
+            },
+            "description": "Signature of the person authorized to act on behalf of the insured."
+          },
+          {
+            "name": "date_of_representative_signature",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_representative_signature"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date when the personal representative signed the form."
+          },
+          {
+            "name": "representative_relationship_to_insured",
+            "type": "string",
+            "source": {
+              "field": [
+                "representative_relationship_to_insured"
+              ]
+            },
+            "description": "Explanation of the relationship or authority allowing the representative to act on behalf of the insured."
+          },
+          {
+            "name": "claims_contact_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "claims_contact_number"
+              ]
+            },
+            "description": "Customer service number for assistance with life insurance claims."
+          },
+          {
+            "name": "mailing_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "mailing_address"
+              ]
+            },
+            "description": "Mailing address to send the completed authorization form for processing."
+          }
+        ],
+        "metadata": {},
+        "description": "A life insurance authorization form used by USAA Life Insurance Company to collect and transmit information required for processing claims or investigative reports. The form includes fields for the insured's and personal representative's signatures and dates, and contains legal language authorizing the release of medical or personal records to USAA Life. It also provides specific instructions for Oklahoma residents and includes mailing information for claims processing."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

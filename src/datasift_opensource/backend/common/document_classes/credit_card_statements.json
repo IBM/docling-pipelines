@@ -1,0 +1,363 @@
+{
+  "document_class_id": "315783cd-c02f-4cd4-b7c2-a4c2c5064e78",
+  "document_class_name": "Credit Card Statements",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "cardholder_name",
+          "examples": [
+            "Jane Doe"
+          ],
+          "description": "Name of the individual or entity to whom the card is issued.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "credit_card_number",
+          "examples": [
+            "**** **** **** 1234"
+          ],
+          "description": "Credit card number or partial mask of it.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "issuing_bank",
+          "examples": [
+            "ABC Bank"
+          ],
+          "description": "Bank or institution issuing the credit card.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "statement_period_start",
+          "examples": [
+            "2023-08-10"
+          ],
+          "description": "Start date of the billing cycle.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "statement_period_end",
+          "examples": [
+            "2023-09-09"
+          ],
+          "description": "End date of the billing cycle.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "previous_balance",
+          "examples": [
+            "200.00"
+          ],
+          "description": "Unpaid balance carried from the prior statement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payments_and_credits",
+          "examples": [
+            "100.00"
+          ],
+          "description": "Total of payments or credits applied this cycle.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "purchases",
+          "examples": [
+            "350.00"
+          ],
+          "description": "Total amount of new purchases in the period.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "cash_advances",
+          "examples": [
+            "50.00"
+          ],
+          "description": "Amount of any cash advances taken in the period.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "finance_charges",
+          "examples": [
+            "5.00"
+          ],
+          "description": "Interest or finance charges levied this billing cycle.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "new_balance",
+          "examples": [
+            "505.00"
+          ],
+          "description": "Ending balance for the current statement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "minimum_payment_due",
+          "examples": [
+            "25.00"
+          ],
+          "description": "Minimum required payment to avoid penalties.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payment_due_date",
+          "examples": [
+            "2023-09-25"
+          ],
+          "description": "Date by which the minimum payment is due.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Credit Card Statements",
+      "document_description": "A credit card statement details all transactions, payments, interest charges, and the outstanding balance for a card account over a billing cycle. It is used by cardholders to track spending and pay the owed amount.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Credit_Card_Statements",
+        "columns": [
+          {
+            "name": "cardholder_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "cardholder_name"
+              ]
+            },
+            "description": "Name of the individual or entity to whom the card is issued."
+          },
+          {
+            "name": "credit_card_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "credit_card_number"
+              ]
+            },
+            "description": "Credit card number or partial mask of it."
+          },
+          {
+            "name": "issuing_bank",
+            "type": "string",
+            "source": {
+              "field": [
+                "issuing_bank"
+              ]
+            },
+            "description": "Bank or institution issuing the credit card."
+          },
+          {
+            "name": "statement_period_start",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "statement_period_start"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Start date of the billing cycle."
+          },
+          {
+            "name": "statement_period_end",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "statement_period_end"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "End date of the billing cycle."
+          },
+          {
+            "name": "previous_balance",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "previous_balance"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Unpaid balance carried from the prior statement."
+          },
+          {
+            "name": "payments_and_credits",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "payments_and_credits"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total of payments or credits applied this cycle."
+          },
+          {
+            "name": "purchases",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "purchases"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total amount of new purchases in the period."
+          },
+          {
+            "name": "cash_advances",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "cash_advances"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Amount of any cash advances taken in the period."
+          },
+          {
+            "name": "finance_charges",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "finance_charges"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Interest or finance charges levied this billing cycle."
+          },
+          {
+            "name": "new_balance",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "new_balance"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Ending balance for the current statement."
+          },
+          {
+            "name": "minimum_payment_due",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "minimum_payment_due"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Minimum required payment to avoid penalties."
+          },
+          {
+            "name": "payment_due_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "payment_due_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date by which the minimum payment is due."
+          }
+        ],
+        "metadata": {},
+        "description": "A credit card statement details all transactions, payments, interest charges, and the outstanding balance for a card account over a billing cycle. It is used by cardholders to track spending and pay the owed amount."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

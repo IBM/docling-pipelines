@@ -1,0 +1,43 @@
+{
+  "document_class_id": "5c929ab0-636e-4894-9a3d-e2b2ad117f07",
+  "document_class_name": "Test doc class",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "description",
+          "examples": [
+            "test description"
+          ],
+          "description": "test"
+        }
+      ],
+      "document_type": "Test doc class",
+      "document_description": "test"
+    },
+    "target_tables": [
+      {
+        "name": "test_desc_prag",
+        "columns": [
+          {
+            "name": "description",
+            "type": "string",
+            "source": {
+              "field": [
+                "description"
+              ]
+            },
+            "description": "test"
+          }
+        ],
+        "description": "test"
+      }
+    ]
+  },
+  "created_time": "2026-03-13T06:52:15Z",
+  "last_modified_time": "2026-03-13T06:52:15Z",
+  "created_by": "IBMid-697000RP9A",
+  "last_modified_by": "IBMid-697000RP9A",
+  "is_predefined": false,
+  "is_enabled": true
+}

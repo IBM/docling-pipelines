@@ -1,0 +1,52 @@
+{
+  "document_class_id": "60adafae-c8da-44ee-8be0-8400d8d7098a",
+  "document_class_name": "LicenseData",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "complaintName",
+          "description": "describes complaintName"
+        },
+        {
+          "name": "complaintsAddress",
+          "description": "describes complains address"
+        }
+      ],
+      "document_type": "LicenseData",
+      "document_description": "Describes complaint again license"
+    },
+    "target_tables": [
+      {
+        "name": "licenseDetails",
+        "columns": [
+          {
+            "name": "name",
+            "type": "string",
+            "source": {
+              "field": [
+                "complaintName"
+              ]
+            }
+          },
+          {
+            "name": "address",
+            "type": "string",
+            "source": {
+              "field": [
+                "complaintsAddress"
+              ]
+            }
+          }
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "created_time": "2025-12-02T08:46:25Z",
+  "last_modified_time": "2025-12-02T08:46:25Z",
+  "created_by": "IBMid-2700065J29",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": false,
+  "is_enabled": true
+}

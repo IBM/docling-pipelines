@@ -1,0 +1,193 @@
+{
+  "document_class_id": "1217194f-8da1-4293-a36c-e855ae619223",
+  "document_class_name": "Business Licenses & Permits",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "license_number",
+          "examples": [
+            "BL-2023-0456"
+          ],
+          "description": "Unique identifier for the license or permit.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "business_name",
+          "examples": [
+            "ABC Traders LLC"
+          ],
+          "description": "Name of the entity holding the license.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "business_address",
+          "examples": [
+            "100 Market St, CityTown, ST 11111"
+          ],
+          "description": "Physical address of the business.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "license_type",
+          "examples": [
+            "Retail Sales Permit"
+          ],
+          "description": "Type or category of the license.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "issuing_authority",
+          "examples": [
+            "City of CityTown"
+          ],
+          "description": "Government body or agency that issued the license.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "issue_date",
+          "examples": [
+            "2023-01-01"
+          ],
+          "description": "Date the license was granted.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "expiration_date",
+          "examples": [
+            "2024-01-01"
+          ],
+          "description": "Date when the license needs renewal.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "conditions_or_restrictions",
+          "examples": [
+            "No alcohol sales past midnight"
+          ],
+          "description": "Any special conditions placed on the license.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Business Licenses & Permits",
+      "document_description": "Business Licenses and Permits are official documents issued by government authorities that grant legal permission for a company to operate in a specific location, industry, or activity, often containing approval dates, restrictions, and compliance requirements.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Business_Licenses_and_Permits",
+        "columns": [
+          {
+            "name": "license_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "license_number"
+              ]
+            },
+            "description": "Unique identifier for the license or permit."
+          },
+          {
+            "name": "business_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "business_name"
+              ]
+            },
+            "description": "Name of the entity holding the license."
+          },
+          {
+            "name": "business_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "business_address"
+              ]
+            },
+            "description": "Physical address of the business."
+          },
+          {
+            "name": "license_type",
+            "type": "string",
+            "source": {
+              "field": [
+                "license_type"
+              ]
+            },
+            "description": "Type or category of the license."
+          },
+          {
+            "name": "issuing_authority",
+            "type": "string",
+            "source": {
+              "field": [
+                "issuing_authority"
+              ]
+            },
+            "description": "Government body or agency that issued the license."
+          },
+          {
+            "name": "issue_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "issue_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the license was granted."
+          },
+          {
+            "name": "expiration_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "expiration_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date when the license needs renewal."
+          },
+          {
+            "name": "conditions_or_restrictions",
+            "type": "string",
+            "source": {
+              "field": [
+                "conditions_or_restrictions"
+              ]
+            },
+            "description": "Any special conditions placed on the license."
+          }
+        ],
+        "metadata": {},
+        "description": "Business Licenses and Permits are official documents issued by government authorities that grant legal permission for a company to operate in a specific location, industry, or activity, often containing approval dates, restrictions, and compliance requirements."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}
