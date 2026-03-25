@@ -35,14 +35,14 @@ from core.operators.functional.doc_id_hash import DocIdHashOperator
 logger: logging.Logger = get_logger()
 
 
-def _extract_with_template_worker(file_path: str, binary_content: bytes, template: dict) -> dict[str, Any]:
+def _extract_with_template_worker(file_path: str, binary_content: bytes, template: dict | None) -> dict[str, Any]:
     """
     Worker function for template-based extraction - designed to run in parallel.
 
     Args:
         file_path: Path to the document file
         binary_content: Binary content of the document
-        template: Template dictionary for structured extraction
+        template: Template dictionary for structured extraction (None falls back to basic extraction)
 
     Returns:
         Dictionary containing extracted structured data
@@ -61,11 +61,13 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
             # Initialize extractor (each worker gets its own instance)
             extractor = DocumentExtractor(allowed_formats=[InputFormat.IMAGE, InputFormat.PDF])
 
-            # Extract with template
+            # Extract with template if provided
             if template:
                 result = extractor.extract(source=tmp_path, template=template)
             else:
-                raise ValueError("Template is required for template-based extraction")
+                # Fall back to basic extraction if no template
+                logger.warning(f"No template provided for {file_path}, using basic extraction")
+                return extract_basic_worker(file_path, binary_content, extract_tables=True, extract_images=True)
 
             # Convert pages to proper dict format
             pages_data = []
@@ -277,6 +279,25 @@ class ExtractDoclingOperator(AbstractOperator):
         if self._check_existing_features(table=table):
             metadata[OperatorConstants.Extraction.MESSAGE] = "All requested features already present. Moving to next operator"
             return [table], metadata
+        
+        # Load templates based on document_type column if use_template is True
+        document_types: list[str] = []
+        template_cache: dict[str, dict] = {}
+        
+        if self.use_template and OperatorConstants.Columns.DOCUMENT_TYPE in table.column_names:
+            # Extract document types from table
+            document_types = table.column(OperatorConstants.Columns.DOCUMENT_TYPE).to_pylist()
+            
+            # Generate Docling templates for all unique document types
+            DocumentClassUtils.generate_docling_templates_for_types(
+                document_types=document_types,
+                template_cache=template_cache,
+                include_nested=True  # Include nested fields like line_items
+            )
+            
+            if not template_cache:
+                logger.warning("No templates could be loaded from document_type column, using default template")
+        
         # Prepare document data for parallel processing
         doc_tasks = prepare_document_content_fetch(table=table)
 
@@ -303,9 +324,19 @@ class ExtractDoclingOperator(AbstractOperator):
                     )
                     continue
 
+                # Determine which template to use for this document
+                template_to_use = self.template  # Default template from config
+                
+                if self.use_template and document_types and template_cache:
+                    # Get document type for this row
+                    row_doc_type = document_types[task["idx"]]
+                    if row_doc_type and row_doc_type in template_cache:
+                        template_to_use = template_cache[row_doc_type]
+                        logger.debug(f"Using template for document type '{row_doc_type}' for {task['doc_name']}")
+                
                 if self.use_template:
                     future = executor.submit(
-                        _extract_with_template_worker, task["doc_name"], task["binary_content"], self.template
+                        _extract_with_template_worker, task["doc_name"], task["binary_content"], template_to_use
                     )
                 else:
                     future = executor.submit(

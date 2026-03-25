@@ -9,6 +9,8 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from common.constants.constants import DatasiftConstants
+from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 
 logger: logging.Logger = get_logger()
@@ -29,6 +31,16 @@ class DocumentClassUtils:
         "boolean": "boolean",
         "bool": "boolean",
     }
+
+    @staticmethod
+    def normalize_filename(name: str) -> str:
+        """Normalize document type name to filename."""
+        import re
+
+        name = name.lower()
+        name = re.sub(r"[^a-z0-9]+", "_", name)
+        name = re.sub(r"_+", "_", name)
+        return name.strip("_")
 
     @staticmethod
     def load_document_class(doc_class_path: str | Path) -> dict[str, Any]:
@@ -513,18 +525,13 @@ class DocumentClassUtils:
         doc_classes_dir = Path(doc_classes_dir)
         schema_templates: dict[str, dict] = {}
 
-        def normalize_filename(name: str) -> str:
-            """Normalize document type name to filename."""
-            name = name.lower()
-            name = re.sub(r"[^a-z0-9]+", "_", name)
-            name = re.sub(r"_+", "_", name)
-            return name.strip("_")
+        
 
         for document_type in document_types:
             if not document_type or document_type in schema_templates:
                 continue
 
-            file_name = doc_classes_dir / f"{normalize_filename(document_type)}.json"
+            file_name = doc_classes_dir / f"{DocumentClassUtils.normalize_filename(document_type)}.json"
             try:
                 with open(file_name, "r", encoding="utf-8") as f:
                     doc_cls = json.load(f)
@@ -544,3 +551,72 @@ class DocumentClassUtils:
                 )
 
         return schema_templates
+
+    @staticmethod
+    def generate_docling_templates_for_types(
+        document_types: list[str],
+        template_cache: dict[str, dict],
+        include_nested: bool = True,
+    ) -> None:
+        """
+        Generate Docling templates for document types and update template_cache in-place.
+        
+        This method is optimized for performance by:
+        - Processing only unique document types
+        - Updating cache in-place to avoid memory overhead
+        - Skipping already cached templates
+        
+        Args:
+            document_types: List of document type names (may contain duplicates)
+            template_cache: Dictionary to update with generated templates (modified in-place)
+            doc_classes_dir: Directory containing document class files
+                           (defaults to common/document_classes)
+            include_nested: Whether to include nested fields in templates
+        """
+        import re
+ 
+        doc_classes_dir = Path(DatasiftConstants.DOCUMENT_CLASSES_PATH)
+        
+        # Get unique document types, excluding already cached ones
+        unique_doc_types = set(dt for dt in document_types if dt and dt not in template_cache)
+        
+        if not unique_doc_types:
+            logger.debug("No new document types to process for template generation")
+            return
+        
+        logger.info(f"Generating Docling templates for document types: {unique_doc_types}")
+    
+        
+        for doc_type in unique_doc_types:
+            try:
+                # Construct path to document class file
+                normalized_name = DocumentClassUtils.normalize_filename(doc_type)
+                doc_class_path = doc_classes_dir / f"{normalized_name}.json"
+                
+                if not doc_class_path.exists():
+                    logger.warning(
+                        f"Document class file not found for type '{doc_type}': {doc_class_path}"
+                    )
+                    continue
+                
+                # Generate Docling template from document class
+                template = DocumentClassUtils.generate_docling_template(
+                    doc_class_path=doc_class_path,
+                    include_nested=include_nested
+                )
+                
+                # Update cache in-place
+                template_cache[doc_type] = template
+                logger.info(
+                    f"Generated Docling template for '{doc_type}' with {len(template)} fields"
+                )
+                
+            except Exception as e:
+                logger.warning(
+                    f"Failed to generate Docling template for '{doc_type}': {e}"
+                )
+        
+        if template_cache:
+            logger.info(
+                f"Template cache now contains {len(template_cache)} templates: {list(template_cache.keys())}"
+            )
