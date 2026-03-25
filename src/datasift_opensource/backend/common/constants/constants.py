@@ -55,6 +55,7 @@ class DatasiftConstants:
     RUNS = "runs"
     OPERATORS = "operators"
     DOCUMENTS = "documents"
+    DOCUMENT_CLASSES_PATH = "common/document_classes"
     OPERATOR_FILE = "operator_file"
     SUMMARY = "summary"
     VALIDATION_FAILED = "validation_failed"

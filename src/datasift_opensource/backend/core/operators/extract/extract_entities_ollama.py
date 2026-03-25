@@ -64,6 +64,7 @@ Rules:
 6. Include all significant entities: people, organizations, dates, amounts, locations, identifiers, etc.
 """
 
+DOCUMENT_CLASSES_PATH = DatasiftConstants.DOCUMENT_CLASSES_PATH
 # ---------------------------------------------------------------------------
 # Helper functions (adapted from extract_entities.py reference)
 # ---------------------------------------------------------------------------
@@ -348,6 +349,33 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
     return {}
 
 
+def _get_schema_templates(schema_templates: dict[str, dict], document_types: list[str]) -> None:
+    """Load document class schemas for given document types."""
+
+    def normalize_filename(name: str) -> str:
+        name = name.lower()
+        name = re.sub(r"[^a-z0-9]+", "_", name)
+        name = re.sub(r"_+", "_", name)
+        return name.strip("_")
+
+    for document_type in document_types:
+        if not document_type or document_type in schema_templates:
+            continue
+
+        file_name = f"{DOCUMENT_CLASSES_PATH}/{normalize_filename(document_type)}.json"
+        try:
+            with open(file_name, "r", encoding="utf-8") as f:
+                doc_cls = json.load(f)
+                doc_cls = doc_cls.get("document_class_schema", {}).get("document", {})
+                if doc_cls:
+                    schema_templates[document_type] = doc_cls
+                    logger.info(f"Loaded schema for document type '{document_type}' from {file_name}")
+                else:
+                    logger.warning(f"No valid schema found in {file_name}")
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning(f"Failed to load schema for '{document_type}' from {file_name}: {exc}")
+
+
 def _load_schema_from_file(schema_file: str, table_name: str) -> dict[str, Any] | None:
     """Load a named schema from a JSON schema file.
     
@@ -409,11 +437,16 @@ def _extract_entities_worker(
         has_schema: bool = bool(schema.get("fields") or schema.get("columns"))
 
         if has_schema:
+            # Extract schema metadata
+            schema_name = schema.get("document_type", "") or schema.get("table", "")
+            schema_desc_text = schema.get("document_description", "") or schema.get("description", "")
             schema_desc: str = _build_schema_description(schema)
             json_template: dict[str, Any] = _build_json_template(schema)
             system_prompt: str = _SYSTEM_PROMPT
             user_prompt: str = (
                 f"Extract entities from the following document text.\n\n"
+                f"Document Type: {schema_name}\n"
+                f"Description: {schema_desc_text}\n\n"
                 f"Schema fields to extract:\n{schema_desc}\n\n"
                 f"Return your answer as a JSON object matching this template exactly:\n"
                 f"{json.dumps(json_template, indent=2)}\n\n"
@@ -477,7 +510,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     inline via the ``schema`` config key or by pointing to a JSON file with
     ``schema_file`` + ``schema_table``.
 
-    Schema JSON format (same as ``document_schemas.json`` in the reference)::
+    Schema JSON format (same as ``document_classes.json`` in the reference)::
 
         {
           "schemas": [{
@@ -519,7 +552,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             _raw_expand if isinstance(_raw_expand, bool) else str(_raw_expand).lower() in ("true", "1", "yes")
         )
 
-        # Schema: inline dict takes priority over file reference
+        # Schema: priority order: document_type column > inline dict > file reference
         self.schema: dict[str, Any] | None = config.get("schema")
         self.schema_file: str | None = config.get("schema_file")
         self.schema_table: str = config.get("schema_table", "default")
@@ -645,10 +678,25 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     # Core transform
     # ------------------------------------------------------------------
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table, file_name: str = None) -> tuple[list[pa.Table], dict[str, Any]]:
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
 
         schema: dict[str, Any] = self._get_schema()
+        document_types: list[str] = []
+        schema_templates: dict[str, dict] = {}
+        if OperatorConstants.Columns.DOCUMENT_TYPE in table.column_names:
+            document_types.extend(table.column(OperatorConstants.Columns.DOCUMENT_TYPE).to_pylist())
+            _get_schema_templates(schema_templates, document_types)
+            #Validate which schemas were successfully loaded
+            unique_doc_types = set(dt for dt in document_types if dt)
+            missing_schemas = unique_doc_types - set(schema_templates.keys())
+            if missing_schemas:
+                logger.warning(
+                    f"Could not load schemas for document types: {missing_schemas}. "
+                    f"These documents will use the default schema instead."
+                )
+            if schema_templates:
+                logger.info(f"Successfully loaded schemas for: {list(schema_templates.keys())}")
         entities_list: list[dict[str, Any]] = [{}] * table.num_rows
 
         # Build task list
@@ -658,7 +706,6 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             doc_id = str(row.get(OperatorConstants.Columns.ID, row_idx))
             doc_name = str(row.get(OperatorConstants.Columns.NAME, f"doc_{row_idx}"))
             content = row.get(self.doc_column) or ""
-            
             # Log content preview for debugging
             content_preview = content[:200] if content else "(empty)"
             logger.info(f"Document '{doc_name}' (ID: {doc_id}) content preview: {content_preview}...")
@@ -681,7 +728,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                     doc_id,
                     doc_name,
                     content,
-                    schema,
+                    schema_templates.get(document_types[row_idx], schema) if (document_types and document_types[row_idx]) else schema,
                     self.ollama_model,
                     self.temperature,
                     self.max_doc_chars,

@@ -59,6 +59,8 @@ DEFAULT_DOC_COLUMN: str = OperatorConstants.Columns.DOC_COLUMN_DEFAULT
 DEFAULT_REQUEST_TIMEOUT: int = 120
 DEFAULT_MAX_CONTENT_LENGTH: int = 2000
 
+DOCUMENT_CLASSES_PATH = DatasiftConstants.DOCUMENT_CLASSES_PATH
+
 class DocumentClassifierOperator(AbstractOperator):
     """
     Operator for classifying documents into predefined types using LLM.
@@ -143,10 +145,7 @@ class DocumentClassifierOperator(AbstractOperator):
             DOCUMENT_TYPES_KEY, []
         )
         if not self.document_types:
-            raise DatasiftException(
-                error_code=ErrorCode.INVALID_CONFIGURATION,
-                message="document_types must be provided (list of types or dict with descriptions)"
-            )
+            self.document_types = self._get_document_types()
 
         # Classification parameters
         self.confidence_threshold: float = config.get(
@@ -178,7 +177,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
         logger.info(
             f"Initialized DocumentClassifierOperator with provider={self.provider}, "
-            f"model={self.model_id}, types={len(self.document_types) if isinstance(self.document_types, list) else len(self.document_types.keys())}"
+            f"model={self.model_id}, types={len(self.document_types)}"
         )
 
     def validate(self, errors: List[str], warnings: List[str], available_features: List[str]) -> None:
@@ -252,6 +251,60 @@ class DocumentClassifierOperator(AbstractOperator):
                     message="api_base and api_key are required for watsonx provider"
                 )
             logger.info(f"Validated watsonx configuration for {self.api_base}")
+
+    @staticmethod
+    def _get_document_types() -> Dict[str, str]:
+        """
+        Load document types from all JSON files in DOCUMENT_CLASSES_PATH.
+
+        Returns:
+            Dictionary mapping document_type to document_description
+        """
+        import os
+        from pathlib import Path
+
+        document_types = {}
+
+        try:
+            doc_classes_path = Path(DOCUMENT_CLASSES_PATH)
+
+            if not doc_classes_path.exists():
+                logger.warning(f"Document classes path not found: {doc_classes_path}")
+                return {}
+
+            # Read all .json files in the directory
+            json_files = list(doc_classes_path.glob("*.json"))
+            logger.info(f"Found {len(json_files)} document class files in {doc_classes_path}")
+
+            for json_file in json_files:
+                try:
+                    with open(json_file, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+
+                    # Extract document_type and document_description from the schema
+                    doc_schema = data.get("document_class_schema", {}).get("document", {})
+                    doc_type = doc_schema.get("document_type")
+                    doc_description = doc_schema.get("document_description")
+
+                    if doc_type and doc_description:
+                        document_types[doc_type] = doc_description
+                        logger.debug(f"Loaded document type '{doc_type}' from {json_file.name}")
+                    else:
+                        logger.warning(
+                            f"Skipping {json_file.name}: missing document_type or document_description"
+                        )
+
+                except (OSError, json.JSONDecodeError) as e:
+                    logger.warning(f"Failed to load {json_file.name}: {str(e)}")
+                    continue
+
+            logger.info(f"Successfully loaded {len(document_types)} document types")
+            return document_types
+
+        except Exception as e:
+            logger.error(f"Error loading document types: {str(e)}")
+            return {}
+
 
     def _call_ollama_chat(self, messages: List[Dict[str, str]]) -> str:
         """
@@ -779,7 +832,7 @@ Example response:
                 DOCUMENT_TYPES_KEY: {
                     OperatorConstants.Misc.NAME: "Document Types",
                     OperatorConstants.Config.DESCRIPTION: "List of document types or dictionary with descriptions",
-                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
                 CONFIDENCE_THRESHOLD_KEY: {
