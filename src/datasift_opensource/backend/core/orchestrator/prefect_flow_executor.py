@@ -114,12 +114,14 @@ class PrefectFlowExecutor:
         Each batch executes as an independent Prefect sub-flow that processes
         the entire DAG with full operator-level parallelism.
         """
-        # Initialize global operator semaphore (shared across all batches)
+        # Initialize global operator semaphore (shared across all batches) via batch manager
         max_concurrent_operators = global_config.get(
             DatasiftConstants.MAX_CONCURRENT_TASKS,
             DatasiftConstants.DEFAULT_MAX_CONCURRENT_TASKS,
         )
-        self._global_operator_semaphore = threading.Semaphore(max_concurrent_operators)
+        self.orchestrator.batch_manager.initialize_operator_semaphore(
+            max_concurrent_operators=max_concurrent_operators
+        )
 
         # 1. Build the inner flow to execute a batch once (reusable for all batches)
         inner_flow = self.build_flow(name="batch_sub_flow", flow_impl=self.__flow_impl)
@@ -149,7 +151,7 @@ class PrefectFlowExecutor:
         batch_futures = []
 
         for batch_num, batch_table in enumerate(batches):
-            batch_data_access = self._create_batch_data_access(batch_table=batch_table)
+            batch_data_access = self.orchestrator.batch_manager.create_batch_data_access(batch_table=batch_table)
 
             # 3. Submit task that executes sub flow for each batch
             future = batch_subflow_task.submit(
@@ -430,15 +432,5 @@ class PrefectFlowExecutor:
             error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{e!s}"
             logger.error(error, stack_info=True, exc_info=True)
             raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED)
-
-    @staticmethod
-    def _create_batch_data_access(*, batch_table: pa.Table) -> DataAccess:
-        """Create a DataAccess object for a batch table."""
-        data_access_factory = DataAccessFactory()
-        config = {"data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}}
-        data_access_factory.apply_input_params(config)
-        batch_data_access = data_access_factory.create_data_access()
-        batch_data_access.save_table(path="", table=batch_table)
-        return batch_data_access
 
 # Made with Bob

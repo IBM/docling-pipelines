@@ -149,6 +149,19 @@ class IncrementalUpdateUtil:
             return []
         return list(set(previously_processed_docs_dict.keys()) - set(doc_ids))
 
+    def process_ingested_docs(self, *, config: dict, job_id, doc_ids: list):
+        """
+        Updates incremental processing metadata based on the configuration with the documents identified by the ingest operator
+        """
+        if config.get(DatasiftConstants.FORCE_INGEST):
+            # If force_ingest is set, then delete all the previously saved metadata, to mimic a fresh ingest
+            self.clear_incremental_table(job_id=job_id)
+
+        if bool(config.get(DatasiftConstants.RETAIN_DELETED_DOCS, DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT)):
+            # If configured for retaining deleted documents, do not make any changes
+            return
+        self.mark_soft_deleted_docs(job_id=job_id, doc_ids=doc_ids)
+
     def mark_soft_deleted_docs(self, *, job_id, doc_ids: list):
         """
         Mark documents as soft-deleted for a given job ID and return the deleted document IDs.

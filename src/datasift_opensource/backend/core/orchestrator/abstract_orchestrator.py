@@ -34,6 +34,7 @@ from common.util.perf_utils import log_elapsed_time
 from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
+from core.orchestrator.batch_manager import BatchManager
 from core.orchestrator.prefect_flow_executor import PrefectFlowExecutor, ExecuteStepResults  # noqa: E402
 
 logger = get_logger()
@@ -58,8 +59,8 @@ class AbstractOrchestrator(ABC):
         self.test_mode = os.environ.get("test_mode", "False") == "True"
         self.flow_id = get_session_info().flow_id
         self.deleted_rows_list: Queue[pa.Table] = Queue()
-        # Global operator semaphore for micro-batching (shared across all batches)
-        self._global_operator_semaphore: threading.Semaphore | None = None
+        # Initialize batch manager
+        self.batch_manager = BatchManager()
         # Initialize Prefect flow executor
         self.prefect_executor = PrefectFlowExecutor(self)
         self.common_log_arguments = None
@@ -110,7 +111,7 @@ class AbstractOrchestrator(ABC):
         finally:
             self._check_and_upload_deleted_rows()
 
-    def _process_ingest_results(self, *, output_table, deleted_docs_count: int, operator: dict ) -> str | None:
+    def _get_ingest_summary_message(self, *, output_table, deleted_docs_count: int, operator: dict) -> str | None:
         """Process and log ingest step results."""
         if output_table.num_rows == 0 and operator[OperatorConstants.Misc.OPERATOR] != OperatorConstants.Operators.NOOP:
             message = "No documents are ingested."
@@ -119,23 +120,6 @@ class AbstractOrchestrator(ABC):
             self.logger.info(message, extra=self.common_log_arguments)
             return message
         return None
-
-    def _mark_soft_deleted_docs(
-        self,
-        *,
-        incremental_update_util: IncrementalUpdateUtil,
-        internal_metadata: dict,
-        global_config: dict,
-    ):
-        """Update metadata for incremental updates."""
-        doc_ids = internal_metadata.get(Metrics.Internal.ALL_DOC_IDS, [])
-        if not bool(
-            global_config.get(
-                DatasiftConstants.RETAIN_DELETED_DOCS,
-                DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT,
-            )
-        ):
-            incremental_update_util.mark_soft_deleted_docs(job_id=self.context_id, doc_ids=doc_ids)
 
     def _handle_exception(self, *, e, op_def, job_log_final_path, global_config):
         self.__failing = True
@@ -524,8 +508,8 @@ class AbstractOrchestrator(ABC):
             return None
         set_session_info(session_info)
 
-        # Get operator semaphore from orchestrator instance (for micro-batching)
-        operator_semaphore = self._global_operator_semaphore
+        # Get operator semaphore from batch manager (for micro-batching)
+        operator_semaphore = self.batch_manager.get_operator_semaphore()
 
         try:
             if link_id and prev_results.internal_metadata:
@@ -639,18 +623,8 @@ class AbstractOrchestrator(ABC):
             extra=self.common_log_arguments
         )
 
-        batching_enabled = global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False)
-
-        # Only read batch_size if batching is enabled
-        batch_size = (
-            global_config.get(DatasiftConstants.MICRO_BATCH_SIZE, DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE)
-            if batching_enabled
-            else None
-        )
-
         # Execute ingest operator to get initial table
         ingest_operator = op_flow[0]
-        incremental_update_util = IncrementalUpdateUtil()
 
         initial_result = self._create_empty_result()
         ingest_results = self._execute_step(
@@ -658,20 +632,15 @@ class AbstractOrchestrator(ABC):
         )
 
         deleted_docs_count = ingest_results.internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN, 0)
-        self.message = self._process_ingest_results(
+        self.message = self._get_ingest_summary_message(
             output_table=ingest_results.tables[0],
             deleted_docs_count=deleted_docs_count,
             operator=ingest_operator
         )
 
-        if global_config.get(DatasiftConstants.FORCE_INGEST):
-            incremental_update_util.clear_incremental_table(job_id=self.__job_id)
-        else:
-            self._mark_soft_deleted_docs(
-                incremental_update_util=incremental_update_util,
-                internal_metadata=ingest_results.internal_metadata,
-                global_config=global_config,
-            )
+        incremental_update_util = IncrementalUpdateUtil()
+        doc_ids = ingest_results.internal_metadata.get(Metrics.Internal.ALL_DOC_IDS, [])
+        incremental_update_util.process_ingested_docs(config=global_config, job_id=self.__job_id, doc_ids=doc_ids)
 
         # Get the ingested table
         ingested_table = ingest_results.tables[0]
@@ -683,30 +652,12 @@ class AbstractOrchestrator(ABC):
             self._finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path)
             return
 
-        if batching_enabled:
-            # BATCH MODE: Split table into multiple batches (Python orchestrator only)
-            # batch_size is guaranteed to have a value here (either from config or default)
-            batches = self._create_batches(table=ingested_table, batch_size=batch_size)
-            batch_count = len(batches)
-
-            self.logger.info(
-                f">>> Split {ingested_table.num_rows} rows into {batch_count} batches of size {batch_size}",
-                extra=self.common_log_arguments
-            )
-
-            # Add batch_count to global_config for operators to use
-            global_config[DatasiftConstants.BATCH_COUNT] = batch_count
-        else:
-            # NON-BATCH MODE: Use entire table as single "batch" (no splitting)
-            batches = [ingested_table]  # Single element list containing entire table
-
-            self.logger.info(
-                f">>> Non-batch mode: Processing all {ingested_table.num_rows} rows in single execution",
-                extra=self.common_log_arguments
-            )
-
-            # NOTE: Do NOT set BATCH_COUNT or BATCH_NUM in non-batch mode
-            # This ensures output paths don't include batch number subdirectories
+        # Prepare batches using batch manager
+        batches, global_config = self.batch_manager.prepare_batches(
+            ingested_table=ingested_table,
+            global_config=global_config,
+            common_log_arguments=self.common_log_arguments
+        )
 
         # Store ingest node ID for batch processing (needed to handle references to excluded ingest operator)
         ingest_node_id = op_flow[0].get(OperatorConstants.Columns.ID) if op_flow else None
@@ -788,24 +739,11 @@ class AbstractOrchestrator(ABC):
                     except Exception as cancel_error:
                         self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
 
-                self._global_operator_semaphore = None
+                self.batch_manager.reset_operator_semaphore()
                 # Re-raise the exception to fail the entire job
                 raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
 
-        self._global_operator_semaphore = None
-
-    @staticmethod
-    def _create_batches(*, table: pa.Table, batch_size: int) -> list[pa.Table]:  # pragma: no cover
-        """
-        Split a PyArrow table into batches.
-
-        Returns:
-            List of PyArrow tables, each containing at most batch_size rows
-        """
-        batches = []
-        for batch in table.to_batches(max_chunksize=batch_size):
-            batches.append(pa.Table.from_batches([batch]))
-        return batches
+        self.batch_manager.reset_operator_semaphore()
 
     @staticmethod
     def _remove_node_metadata_from_node_stats(*, job_stats):
