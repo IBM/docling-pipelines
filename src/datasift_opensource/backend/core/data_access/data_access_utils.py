@@ -1,7 +1,7 @@
 import re
 
 from common.constants.constants import DatasiftConstants
-from common.util.iceberg_util import get_warehouse_path
+from common.util.datasift_utils import get_data_path
 
 
 class DataAccessConstants:
@@ -60,7 +60,7 @@ class DataAccessUtils:
         local_config = config.get("data_local_config", {})
         config["data_config"] = None
         if not local_config or not local_config.get("output_folder"):
-            output_folder = f"{get_warehouse_path(path='')}/{job_id}/{job_run_id}"
+            output_folder = f"{get_data_path()}/{job_id}/{job_run_id}"
             config["data_local_config"] = {
                 "input_folder": "UNUSED",
                 "output_folder": output_folder,

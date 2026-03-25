@@ -1,9 +1,7 @@
-import json
 import os
 import threading
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
 from operator import itemgetter
 from queue import Queue
 from typing import ParamSpec, TypeVar
@@ -15,8 +13,7 @@ from common.constants.constants import DatasiftConstants, ExecutionStatus, Metri
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 from common.models.session_info import SessionInfo, get_session_info, set_session_info
-from common.util.datasift_utils import get_current_timestamp
-from common.util.iceberg_util import get_warehouse_path
+from common.util.datasift_utils import get_current_timestamp, get_data_path
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.job_tracker.tracker.job_tracker import JobStatsDto, JobTracker
 from common.util.log import get_logger
@@ -38,7 +35,6 @@ from core.orchestrator.batch_manager import BatchManager
 from core.orchestrator.prefect_flow_executor import PrefectFlowExecutor, ExecuteStepResults  # noqa: E402
 
 logger = get_logger()
-CANCELLED_MSG = ">>> Cancelled the execution: %s"
 
 R = TypeVar("R")  # The return type of the user's function
 P = ParamSpec("P")
@@ -47,10 +43,10 @@ thread_pool_executor = ThreadPoolExecutor(max_workers=20)
 
 class AbstractOrchestrator(ABC):
     def __init__(self) -> None:
-        self.__canceling = False
-        self.__failing = False
-        self.__job_run_id: str | None = None
-        self.__job_id: str | None = None
+        self.canceling = False
+        self.failing = False
+        self.job_run_id: str | None = None
+        self.job_id: str | None = None
         self.context_id: str | None = None
         self.jobs_client = None
         self.logger = get_logger()
@@ -61,32 +57,26 @@ class AbstractOrchestrator(ABC):
         self.deleted_rows_list: Queue[pa.Table] = Queue()
         # Initialize batch manager
         self.batch_manager = BatchManager()
+        self.job_tracker = JobTracker()
         # Initialize Prefect flow executor
         self.prefect_executor = PrefectFlowExecutor(self)
+        self.job_log_path = None
         self.common_log_arguments = None
 
     def set_job_ids(self, *, job_id, job_run_id):
-        self.__job_id = job_id
-        self.__job_run_id = job_run_id
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.__job_id, DatasiftConstants.JOB_RUN_ID: self.__job_run_id}
-        self.prefect_executor.set_job_ids(job_id=job_id, job_run_id=job_run_id)
-
-    def get_job_run_id(self):
-        return self.__job_run_id
-
-    def get_job_id(self):
-        return self.__job_id
-
-    def get_cancelling(self):
-        return self.__canceling
+        self.job_id = job_id
+        self.job_run_id = job_run_id
+        self.job_log_path = self.create_log_folders(job_id=self.job_id, type_="job")
+        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.prefect_executor.set_job_ids(job_id=job_id, job_run_id=job_run_id, job_log_path=self.job_log_path)
 
     def execute(self, *, flow_def: dict, params: dict):
         """
         Executes the given flow
         """
         job_id, job_run_id = itemgetter(DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID)(params)
-        self.__job_id = params.get(DatasiftConstants.JOB_ID)
-        self.__job_run_id = params.get(DatasiftConstants.JOB_RUN_ID)
+        self.job_id = params.get(DatasiftConstants.JOB_ID)
+        self.job_run_id = params.get(DatasiftConstants.JOB_RUN_ID)
         global_config = (
             flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
             | params
@@ -98,16 +88,12 @@ class AbstractOrchestrator(ABC):
 
         op_flow = flow_def.get(DatasiftConstants.DAG, [])
 
-        job_tracker = JobTracker()
-        if job_tracker.get_job(job_run_id=self.__job_run_id) is None:
-            if job_tracker.cancel_job_run_if_cancelling(job_run_id=job_run_id):
-                self.logger.info(CANCELLED_MSG, job_run_id)
-                return
-            job_tracker.start_tracking_job(orchestrator=self, job_id=self.__job_id, job_run_id=self.__job_run_id)
-        job_log_final_path = self.create_log_folders_cpd(job_id=self.__job_id, type_="job")
-        self.context_id = params.get(DatasiftConstants.CONTEXT_ID, self.__job_id)
+        if self.job_tracker.cancel_job_run_if_cancelling(job_run_id=job_run_id, job_log_path=self.job_log_path):
+            return
+        self.job_tracker.start_tracking_job(orchestrator=self, job_id=self.job_id, job_run_id=self.job_run_id)
+        self.context_id = params.get(DatasiftConstants.CONTEXT_ID, self.job_id)
         try:
-            self.execute_flow(op_flow=op_flow, global_config=global_config, job_log_final_path=job_log_final_path)
+            self.execute_flow(op_flow=op_flow, global_config=global_config)
         finally:
             self._check_and_upload_deleted_rows()
 
@@ -121,24 +107,23 @@ class AbstractOrchestrator(ABC):
             return message
         return None
 
-    def _handle_exception(self, *, e, op_def, job_log_final_path, global_config):
-        self.__failing = True
+    def _handle_node_failure(self, *, e, op_def, global_config):
+        self.failing = True
         node_stats = {
             "name": op_def["name"],
             "node_status": ExecutionStatus.FAILED.value,
             "error": str(e),
         }
-        job_tracker = JobTracker()
-        job_tracker.update_node_stats(
-            job_run_id=self.__job_run_id,
+        self.job_tracker.update_node_stats(
+            job_run_id=self.job_run_id,
             node_id=op_def[OperatorConstants.Columns.ID],
             node_stats=node_stats,
         )
         logger.error(e, stack_info=True, exc_info=True, extra=self.common_log_arguments)
         # if any exception occur for any operator,
         # we should add node_stats in above format in job_stats.json file
-        job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
-        self.write_jobs_logs(job_stats=job_stats, job_log_final_path=job_log_final_path)
+        job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
+        self.job_tracker.write_job_logs(job_stats=job_stats, job_log_path=self.job_log_path)
         # below logger will add failure reason in flow_execute.log
         node_logger = self._get_node_logger(
             node_id=op_def[OperatorConstants.Columns.ID],
@@ -152,17 +137,6 @@ class AbstractOrchestrator(ABC):
             get_session_info().transaction_id,
             extra=self.common_log_arguments
         )
-        """
-        This gets called only when you are running flow executor from local settings and not through web_flow_executor
-        """
-        if self.test_mode:
-            job_tracker.end_job(
-                job_run_id=self.__job_run_id,
-                status=ExecutionStatus.FAILED,
-                message=str(e),
-            )
-            job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
-            self.write_job_logs_local(job_stats=job_stats, job_log_final_path=job_log_final_path)
 
     def _handle_active_execution(self,
         *,
@@ -250,7 +224,7 @@ class AbstractOrchestrator(ABC):
             extra=self.common_log_arguments,
         )
 
-        JobTracker().update_node_stats(self.__job_run_id, node_id=node_id, node_stats=node_stats)
+        self.job_tracker.update_node_stats(self.job_run_id, node_id=node_id, node_stats=node_stats)
 
         op_logger.info(
             ">>> ================================================================",
@@ -313,20 +287,19 @@ class AbstractOrchestrator(ABC):
         if Metrics.External.PROCESSED_DOCS not in metadata:
             metadata[Metrics.External.PROCESSED_DOCS] = processed_docs_count
         operator_category = executor.get_operator().category
-        job_tracker = JobTracker()
         if internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN):
             metadata[Metrics.External.DELETED_DOC_COUNT] = internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN)
-        job_tracker.update_doc_counts(
-            job_run_id=self.__job_run_id,
+        self.job_tracker.update_doc_counts(
+            job_run_id=self.job_run_id,
             metadata=metadata,
             operator_category=operator_category,
         )
 
-        job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
+        job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
         jobs_framework_state = job_stats.status
 
         if jobs_framework_state == ExecutionStatus.CANCELING:
-            self.__canceling = True
+            self.canceling = True
         log_elapsed_time(start_time=start, operator=op_def[OperatorConstants.Misc.OPERATOR])
 
         return ExecuteStepResults(data_accesses, tables, internal_metadata)
@@ -369,7 +342,7 @@ class AbstractOrchestrator(ABC):
             try:
                 cumulative_deleted_rows = combine_cumulative_deleted_rows(self.deleted_rows_list)
                 deleted_rows_table_path = construct_deleted_rows_table_path(
-                    job_id=self.__job_id, job_run_id=self.__job_run_id
+                    job_id=self.job_id, job_run_id=self.job_run_id
                 )
                 parquet_table_handler: BaseParquetTableHandler = get_parquet_table_handler()
                 # delete table if exists already
@@ -383,7 +356,7 @@ class AbstractOrchestrator(ABC):
         """
         Request for cancelling a running job
         """
-        self.__canceling = True
+        self.canceling = True
 
     def pause(self):
         """
@@ -403,12 +376,12 @@ class AbstractOrchestrator(ABC):
         """
         pass
 
-    def create_log_folders_cpd(self, *, job_id, type_):
+    def create_log_folders(self, *, job_id, type_):
         """
         Created 3 folders, UDP_logs/jobId/JobrunID. The log for that job will be stored there
         """
         # PLACEHOLDER log TILL LOG LOCATION IS DECIDED
-        log_location_path = get_warehouse_path(path="")
+        log_location_path = get_data_path()
         log_app_location = DatasiftConstants.UDP_LOGS
 
         log_job_folder_name = job_id
@@ -416,7 +389,7 @@ class AbstractOrchestrator(ABC):
             log_location_path,
             log_app_location,
             log_job_folder_name,
-            str(self.__job_run_id),
+            str(self.job_run_id),
         )
         os.makedirs(log_job_location, exist_ok=True)
         if type_ == "flow":
@@ -426,15 +399,6 @@ class AbstractOrchestrator(ABC):
 
         log_final_path = os.path.join(log_job_location, log_job_run_file_name)
         return log_final_path
-
-    def write_job_logs_local(self, *, job_stats, job_log_final_path):
-        with open(job_log_final_path, "w") as file:
-            json.dump(job_stats.model_dump(), file, indent=4)
-
-    def write_jobs_logs(self, *, job_stats, job_log_final_path):
-        stats = deepcopy(job_stats)
-        self._remove_node_metadata_from_node_stats(job_stats=stats)
-        self.write_job_logs_local(job_stats=stats, job_log_final_path=job_log_final_path)
 
     def create_executor(self, *, op_def: dict, global_config: dict) -> AbstractOperatorExecutor:
         # note: In the union of 2 dictionaries below, if an element exists in both global config and local config (
@@ -473,13 +437,11 @@ class AbstractOrchestrator(ABC):
         # The concrete subclasses needs to implement this method
         pass
 
-
     def _inner_task(
         self,
         op_def,
         global_config,
         prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
-        job_log_final_path,
         session_info: SessionInfo,
         deleted_docs_count,
         link_id=None
@@ -497,8 +459,8 @@ class AbstractOrchestrator(ABC):
             )
             return None
         # exit early if the execution was cancelled or aborted.
-        if self.__failing or self.__canceling:
-            msg = "Cancelling" if self.__canceling else "Aborting"
+        if self.failing or self.canceling:
+            msg = "Cancelling" if self.canceling else "Aborting"
             node_logger.info(
                 ">>> %s the branch execution at node name: %s ",
                 msg,
@@ -568,35 +530,32 @@ class AbstractOrchestrator(ABC):
                 )
             return result
         except Exception as e:
-            self._handle_exception(
-                e=e,
-                op_def=op_def,
-                job_log_final_path=job_log_final_path,
-                global_config=global_config
-            )
+            self._handle_node_failure(e=e, op_def=op_def, global_config=global_config)
             # steps in output edges will exit early
             return None
 
-    def _finalize_dag_flow(self, *, op_flow, job_log_final_path):
-        job_tracker = JobTracker()
-        if self.__canceling or self.__failing:
-            status = ExecutionStatus.CANCELED if self.__canceling else ExecutionStatus.FAILED
-            job_tracker.end_job(self.__job_run_id, status=status, message=self.message)
-            job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
-            self.write_jobs_logs(job_stats=job_stats, job_log_final_path=job_log_final_path)
+    def _finalize_dag_flow(self, *, op_flow):
+        if self.canceling or self.failing:
+            status = ExecutionStatus.CANCELED if self.canceling else ExecutionStatus.FAILED
+            self.job_tracker.end_job(job_run_id=self.job_run_id,
+                                     status=status,
+                                     message=self.message,
+                                     job_log_path=self.job_log_path)
             self.logger.info(f">>> Job status is {status}.", extra=self.common_log_arguments)
             return
 
-        job_stats = job_tracker.get_job(job_run_id=self.__job_run_id)
-        job_tracker.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=op_flow)
+        job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
+        self.job_tracker.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=op_flow)
         job_status = OperatorUtils.determine_final_job_status(node_stats_list=job_stats.node_stats)
         job_stats.status = job_status
-        job_tracker.end_job(self.__job_run_id, status=job_status, message=self.message)
-        self.write_jobs_logs(job_stats=job_stats, job_log_final_path=job_log_final_path)
+        self.job_tracker.end_job(job_run_id=self.job_run_id,
+                                 status=job_status,
+                                 message=self.message,
+                                 job_log_path=self.job_log_path)
         self.logger.info(f">>> Job status is {job_status}.", extra=self.common_log_arguments)
 
     # ??? insert some of the parameters to self.
-    def execute_flow(self, *, op_flow, global_config, job_log_final_path):
+    def execute_flow(self, *, op_flow, global_config):
         """
         Execute DAG flow with unified batching approach.
         Supports both batch mode (multiple batches) and non-batch mode (single table).
@@ -610,10 +569,6 @@ class AbstractOrchestrator(ABC):
 
         Note: Micro-batching is only applied for Python orchestrator, not for Spark.
         """
-
-        if JobTracker().cancel_job_run_if_cancelling(self.__job_run_id):
-            self.logger.info(CANCELLED_MSG, self.__job_run_id)
-            return None
 
         # Configure prefect server logging
         _ = get_logger(name="prefect")
@@ -640,7 +595,7 @@ class AbstractOrchestrator(ABC):
 
         incremental_update_util = IncrementalUpdateUtil()
         doc_ids = ingest_results.internal_metadata.get(Metrics.Internal.ALL_DOC_IDS, [])
-        incremental_update_util.process_ingested_docs(config=global_config, job_id=self.__job_id, doc_ids=doc_ids)
+        incremental_update_util.process_ingested_docs(config=global_config, job_id=self.job_id, doc_ids=doc_ids)
 
         # Get the ingested table
         ingested_table = ingest_results.tables[0]
@@ -649,7 +604,7 @@ class AbstractOrchestrator(ABC):
         if ingested_table.num_rows == 0:
             self.logger.info(">>> No data to process - skipping flow execution", extra=self.common_log_arguments)
             clean_up_prefect_home()
-            self._finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path)
+            self._finalize_dag_flow(op_flow=op_flow)
             return
 
         # Prepare batches using batch manager
@@ -669,8 +624,7 @@ class AbstractOrchestrator(ABC):
         batch_futures = batch_outer_flow(
             op_flow=op_flow[1:],  # Skip ingest operator
             batches=batches,
-            global_config=global_config,
-            job_log_final_path=job_log_final_path,
+            global_config=global_config
         )
 
         # Wait for all sub-flows to complete
@@ -679,7 +633,7 @@ class AbstractOrchestrator(ABC):
         self.wait_for_sub_flows(batch_futures=batch_futures)
 
         clean_up_prefect_home()
-        self._finalize_dag_flow(op_flow=op_flow, job_log_final_path=job_log_final_path)
+        self._finalize_dag_flow(op_flow=op_flow)
 
     def _create_empty_result(self):
         data_access_factory = DataAccessFactory()
@@ -744,13 +698,6 @@ class AbstractOrchestrator(ABC):
                 raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
 
         self.batch_manager.reset_operator_semaphore()
-
-    @staticmethod
-    def _remove_node_metadata_from_node_stats(*, job_stats):
-        for node_id, node_stat in job_stats.node_stats.items():
-            if hasattr(node_stat, OperatorConstants.Config.NODE_METADATA):
-                node_stat.node_metadata = None
-
 
     @staticmethod
     def _collect_failed_doc_ids(*, job_stats: JobStatsDto | None) -> list[str]:

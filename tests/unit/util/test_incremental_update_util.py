@@ -8,7 +8,7 @@ import pyarrow as pa
 import pytest
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.util.iceberg_util import get_warehouse_path
+from common.util.datasift_utils import get_data_path
 from common.util.incremental_update_util import IncrementalUpdateUtil
 from core.operators.ingest.ingest_utils import is_doc_previously_processed
 
@@ -17,7 +17,7 @@ def test_incremental_update():
     util = IncrementalUpdateUtil()
 
     full_path = os.path.join(
-        get_warehouse_path(path=util.INCREMENTAL_PROCESSING_METADATA_PATH)
+        get_data_path(sub_dir=util.INCREMENTAL_PROCESSING_METADATA_PATH)
     )
     if os.path.exists(full_path):
         shutil.rmtree(full_path)

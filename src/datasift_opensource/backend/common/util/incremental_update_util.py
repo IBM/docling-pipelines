@@ -8,7 +8,7 @@ import pyarrow.compute as pc
 from common.constants.constants import DatasiftConstants
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.util.iceberg_util import get_warehouse_path
+from common.util.datasift_utils import get_data_path
 from common.util.log import get_logger
 from common.util.parquet_table_handler import (
     BaseParquetTableHandler,
@@ -272,7 +272,7 @@ class IncrementalUpdateUtil:
 
     def construct_table_path(self, *, job_id: str):
         return os.path.join(
-            get_warehouse_path(path=self.INCREMENTAL_PROCESSING_METADATA_PATH),
+            get_data_path(sub_dir=self.INCREMENTAL_PROCESSING_METADATA_PATH),
             job_id,
             self.PARQUET_FILE_NAME,
         )
