@@ -264,7 +264,7 @@ def test_validate_link_name_none():
 def test_doc_id_hash_basic():
     """Hash content produces hex string."""
     content = "test content"
-    result = OperatorUtils.validate_link_name(content=content)
+    result = OperatorUtils.doc_id_hash(content=content)
 
     assert isinstance(result, str)
     assert len(result) == 128  # SHA3-512 produces 128 hex chars
@@ -273,23 +273,23 @@ def test_doc_id_hash_basic():
 def test_doc_id_hash_deterministic():
     """Same content produces same hash."""
     content = "test content"
-    hash1 = OperatorUtils.validate_link_name(content=content)
-    hash2 = OperatorUtils.validate_link_name(content=content)
+    hash1 = OperatorUtils.doc_id_hash(content=content)
+    hash2 = OperatorUtils.doc_id_hash(content=content)
 
     assert hash1 == hash2
 
 
 def test_doc_id_hash_different_content():
     """Different content produces different hash."""
-    hash1 = OperatorUtils.validate_link_name(content="content1")
-    hash2 = OperatorUtils.validate_link_name(content="content2")
+    hash1 = OperatorUtils.doc_id_hash(content="content1")
+    hash2 = OperatorUtils.doc_id_hash(content="content2")
 
     assert hash1 != hash2
 
 
 def test_doc_id_hash_empty_string():
     """Empty string can be hashed."""
-    result = OperatorUtils.validate_link_name(content="")
+    result = OperatorUtils.doc_id_hash(content="")
 
     assert isinstance(result, str)
     assert len(result) == 128
@@ -298,7 +298,7 @@ def test_doc_id_hash_empty_string():
 def test_doc_id_hash_unicode():
     """Unicode content can be hashed."""
     content = "こんにちは世界"
-    result = OperatorUtils.validate_link_name(content=content)
+    result = OperatorUtils.doc_id_hash(content=content)
 
     assert isinstance(result, str)
     assert len(result) == 128

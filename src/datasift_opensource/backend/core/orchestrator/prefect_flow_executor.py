@@ -59,7 +59,7 @@ class PrefectFlowExecutor:
     - Managing batch execution with parallelism control
     """
 
-    def __init__(self, orchestrator):
+    def __init__(self, orchestrator, job_id, job_run_id, job_log_path):
         """
         Initialize the Prefect flow executor.
 
@@ -68,12 +68,6 @@ class PrefectFlowExecutor:
         """
         self.orchestrator = orchestrator
         self.logger = get_logger()
-        self.job_run_id: str | None = None
-        self.job_id: str | None = None
-        self.job_log_path = None
-        self.common_log_arguments = None
-
-    def set_job_ids(self, *, job_id, job_run_id, job_log_path):
         self.job_id = job_id
         self.job_run_id = job_run_id
         self.job_log_path = job_log_path

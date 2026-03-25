@@ -49,27 +49,25 @@ class AbstractOrchestrator(ABC):
         self.jobs_client = None
         self.logger = get_logger()
         self.message = ""
-        # Note: test_mode env variable is set only while running cliapp test cases
-        self.test_mode = os.environ.get("test_mode", "False") == "True"
-        self.flow_id = get_session_info().flow_id
+        self.flow_id = None
         self.deleted_rows_list: Queue[pa.Table] = Queue()
         # Initialize batch manager
         self.batch_manager = BatchManager()
         self.job_tracker = JobTracker()
         # Initialize Prefect flow executor
-        self.prefect_executor = PrefectFlowExecutor(self)
+        self.prefect_executor = None
         self.job_log_path = None
         self.common_log_arguments = None
         # Initialize node logger
         self.node_logger: NodeLogger | None = None
 
-    def set_job_ids(self, *, job_id, job_run_id):
+    def initialize(self, *, job_id, job_run_id):
+        self.flow_id = get_session_info().flow_id
         self.job_id = job_id
         self.job_run_id = job_run_id
         self.job_log_path = self.create_log_folders(job_id=self.job_id, type_="job")
         self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
-        self.prefect_executor.set_job_ids(job_id=job_id, job_run_id=job_run_id, job_log_path=self.job_log_path)
-        # Initialize node logger with common log arguments
+        self.prefect_executor = PrefectFlowExecutor(self, job_id=job_id, job_run_id=job_run_id, job_log_path=self.job_log_path)
         self.node_logger = NodeLogger(common_log_arguments=self.common_log_arguments)
 
     def execute(self, *, flow_def: dict, params: dict):
