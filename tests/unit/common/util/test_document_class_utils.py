@@ -43,7 +43,7 @@ def test_generate_docling_template_invoice(invoice_doc_class_path):
     assert len(template) > 0
     
     # Check expected fields exist
-    assert "invoice_number" in template
+    assert "invoice_id" in template  # Note: invoice.json uses invoice_id not invoice_number
     assert "invoice_date" in template
     assert "customer_name" in template
     assert "vendor_name" in template
@@ -52,7 +52,7 @@ def test_generate_docling_template_invoice(invoice_doc_class_path):
     assert "total" in template
     
     # Check types are correct based on target_tables
-    assert template["invoice_number"] == "string"
+    assert template["invoice_id"] == "string"
     assert template["invoice_date"] == "string"  # date -> string for Docling
     assert template["sub_total"] == "float"  # decimal -> float
     assert template["tax"] == "float"
@@ -78,7 +78,7 @@ def test_generate_docling_template_without_nested(invoice_doc_class_path):
     assert "line_items" not in template or not isinstance(template.get("line_items"), dict)
     
     # But top-level fields should still exist
-    assert "invoice_number" in template
+    assert "invoice_id" in template
     assert "total" in template
 
 
@@ -111,12 +111,12 @@ def test_generate_template_with_examples(invoice_doc_class_path):
     
     # Check examples
     assert isinstance(result["examples"], dict)
-    assert "invoice_number" in result["examples"]
-    assert isinstance(result["examples"]["invoice_number"], list)
+    assert "invoice_id" in result["examples"]
+    assert isinstance(result["examples"]["invoice_id"], list)
     
     # Check descriptions
     assert isinstance(result["descriptions"], dict)
-    assert "invoice_number" in result["descriptions"]
+    assert "invoice_id" in result["descriptions"]
     
     # Check document metadata
     assert result["document_type"] == "Invoice"
@@ -164,7 +164,7 @@ def test_direct_class_method(invoice_doc_class_path):
     
     assert isinstance(template, dict)
     assert len(template) > 0
-    assert "invoice_number" in template
+    assert "invoice_id" in template
 
 
 def test_type_mapping():
