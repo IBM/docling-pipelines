@@ -7,7 +7,7 @@ from pathlib import Path
 
 # Path setup is now automatic via conftest.py
 
-from core.orchestrator.cmdline.cmd_line_orchestrator import run_command_line_executor
+from cli.datasift_cli import run_command_line_executor
 
 
 def test_pii_hap_with_ollama():

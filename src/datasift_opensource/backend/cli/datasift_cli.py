@@ -6,59 +6,11 @@ import uuid
 from logging import Logger
 from typing import Any
 
-from data_processing.data_access import DataAccess
-
-from common.constants.constants import DatasiftConstants, OrchestratorType
-from common.constants.operator_constants import OperatorConstants
-from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+from common.constants.constants import OrchestratorType
 from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.log import get_logger
-from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
-from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
-from core.orchestrator.cmdline.cmd_line_operator_executor import CommandLineOperatorExecutor
 
 logger = get_logger()
-
-
-class CommandLineOrchestrator(AbstractOrchestrator):
-    """
-    This orchestrator is used for pure Python orchestration, but when datasift is
-    executed from the commandline.
-    """
-
-    def __init__(self):
-        super().__init__()
-
-    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:
-        return CommandLineOperatorExecutor(name, operator, params)
-
-    def execute(self, *, flow_def: dict, params: dict) -> DataAccess | None:
-        self.set_job_ids(job_id=params.get(DatasiftConstants.JOB_ID), job_run_id=params.get(DatasiftConstants.JOB_RUN_ID))
-        global_config = (
-            flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
-            | params
-            | {DatasiftConstants.FLOW_DEFINITION: flow_def}
-        )
-
-        if DatasiftConstants.DAG not in flow_def:
-            raise FlowExecutionFailedException("Invalid flow: 'dag' not found in the flow definition")
-        op_flow = flow_def.get(DatasiftConstants.DAG, [])
-
-        job_tracker = JobTracker()
-        job_tracker.start_tracking_job(
-            orchestrator=self,
-            job_id=self.get_job_id(),
-            job_run_id=self.get_job_run_id(),
-        )
-
-        job_log_final_path = self.create_log_folders_cpd(job_id=self.get_job_id(), type_="job")
-        self.context_id = params.get(DatasiftConstants.CONTEXT_ID, self.get_job_id())
-
-        # execute flows
-        return self.execute_flow(op_flow=op_flow, global_config=global_config, job_log_final_path=job_log_final_path)
-
-    def get_type(self):
-        return OrchestratorType.CMDLINE
 
 
 def run_command_line_executor(flow_def: dict) -> None:
@@ -67,14 +19,15 @@ def run_command_line_executor(flow_def: dict) -> None:
     from core.orchestrator.orchestrator_factory import OrchestratorFactory
 
     logger.info(">>> Creating the orchestrator")
-    orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.CMDLINE)
+    orchestrator = OrchestratorFactory.create_orchestrator()
     logger.info(">>> Creating the flow executor")
     executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
     logger.info(">>> Setting up execution parameters")
+    job_id = "001"
     job_run_id = str(uuid.uuid4())
 
     params: dict[str, Any] = {
-        DatasiftConstants.JOB_ID: "001",
+        DatasiftConstants.JOB_ID: job_id,
         DatasiftConstants.JOB_RUN_ID: job_run_id,
     }
     os.environ["RUNTIME"] = "local"
@@ -85,9 +38,11 @@ def run_command_line_executor(flow_def: dict) -> None:
     )
 
     session_info: SessionInfo = create_session_info(
-        job_id="001", job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
+        job_id=job_id, job_run_id=job_run_id, orchestrator=orchestrator, flow_id="flow1"
     )
     set_session_info(session_info)
+
+    orchestrator.set_job_ids(job_id=job_id, job_run_id=job_run_id)
 
     logger.info(">>> Starting flow execution")
     executor.execute(orchestrator=orchestrator, params=params)

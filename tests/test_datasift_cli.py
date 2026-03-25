@@ -3,7 +3,7 @@ import unittest
 import tempfile
 from unittest.mock import patch, MagicMock
 
-from core.orchestrator.cmdline.cmd_line_orchestrator import (
+from cli.datasift_cli import (
     run_command_line_executor,
     load_flow_definition,
 )
@@ -55,7 +55,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         Test loading a flow definition from a file
         """
-        from core.orchestrator.cmdline.cmd_line_orchestrator import load_flow_definition
+        from cli.datasift_cli import load_flow_definition
 
         filepath = "../../../tests/flow_local.json"
 

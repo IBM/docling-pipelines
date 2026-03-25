@@ -179,28 +179,7 @@ class JobTracker(metaclass=Singleton):
         :return: A JobStatsDto object if found, otherwise None.
         """
         logger.info(f"Getting job stats by job_run_id: {job_run_id}")
-        if JobStatsStore._is_cmd_line_mode():
-            return self.all_jobs.get(job_run_id, None)
-
-        # 1. Check the in-memory cache first for performance if "use_local_cache" is passed as True.
-        if use_local_cache and job_run_id in self.all_jobs:
-            in_memory_job_stats = self.all_jobs[job_run_id]
-            update_session_info(job_id=in_memory_job_stats.job_id)
-            return in_memory_job_stats
-
-        job_stats_store: JobStatsStore = JobStatsStore.get_job_stats_store()
-        job_run_stats: JobStatsDto = job_stats_store.get_job_stats(job_run_id=job_run_id)
-        if job_run_stats is None:
-            return None
-
-        # 3. Fetch and attach the associated node statistics to the job object.
-        node_stats: dict[str, NodeStatsDto] = job_stats_store.get_node_stats(
-            job_id=job_run_stats.job_id, job_run_id=job_run_id
-        )
-        job_run_stats.node_stats = node_stats if node_stats is not None else {}
-        update_session_info(job_id=job_run_stats.job_id)
-
-        return job_run_stats
+        return self.all_jobs.get(job_run_id, None)
 
     @staticmethod
     def store_job_stats(job_stats: JobStatsDto):
