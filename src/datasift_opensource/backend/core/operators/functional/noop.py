@@ -7,8 +7,8 @@ import pyarrow as pa
 from common.constants.constants import DatasiftConstants, Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
 
 logger: Logger = get_logger()
 
@@ -53,7 +53,7 @@ class NOOPOperator(AbstractOperator):
         )
 
         # Calculate doc count
-        total_docs_count: int = find_doc_count(table=table)
+        total_docs_count: int = OperatorUtils.find_doc_count(table=table)
 
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs_count)

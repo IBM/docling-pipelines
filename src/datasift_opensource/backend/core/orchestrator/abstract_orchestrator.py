@@ -18,9 +18,6 @@ from common.util.incremental_update_util import IncrementalUpdateUtil
 from common.util.job_tracker.tracker.job_tracker import JobStatsDto, JobTracker
 from common.util.log import get_logger
 
-# Note that get_logs is imported for the test cases
-from common.util.operator_utils import find_doc_count_from_tables, remove_internal_metrics_from_metadata
-
 from common.util.orchestrator_utils import (
     clean_up_prefect_home,
     combine_cumulative_deleted_rows,
@@ -154,7 +151,7 @@ class AbstractOrchestrator(ABC):
         )
 
         # Removing the internal metrics from the operator metadata if any to another dict
-        internal_metadata = remove_internal_metrics_from_metadata(metadata=metadata)
+        internal_metadata = OperatorUtils.remove_internal_metrics_from_metadata(metadata=metadata)
 
         operator = executor.get_operator()
         retain_deleted = operator.config.get(
@@ -258,7 +255,7 @@ class AbstractOrchestrator(ABC):
                 prev_data_access=prev_data_access
             )
 
-        processed_docs_count = find_doc_count_from_tables(tables=tables)
+        processed_docs_count = OperatorUtils.find_doc_count_from_tables(tables=tables)
         if Metrics.External.PROCESSED_DOCS not in metadata:
             metadata[Metrics.External.PROCESSED_DOCS] = processed_docs_count
         operator_category = executor.get_operator().category

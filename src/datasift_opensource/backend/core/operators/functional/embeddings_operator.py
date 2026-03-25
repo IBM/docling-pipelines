@@ -26,7 +26,6 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count, remove_rows
 
 # Import TransformUtils from centralized location
 from common.util.transform_utils import TransformUtils
@@ -624,7 +623,7 @@ class EmbeddingsOperator(AbstractOperator):
         )
 
         # Initialize metadata
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
         # Ensure doc_id_hash column exists using DocIdHashOperator
         if self.doc_id_hash_column not in table.column_names:
@@ -706,7 +705,7 @@ class EmbeddingsOperator(AbstractOperator):
                 remove_row_idx.append(idx)
 
         # Remove failed documents
-        table = remove_rows(table=table, remove_row_idx=remove_row_idx)
+        table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
 
         # Add embeddings column
         if embeddings_list:
