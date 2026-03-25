@@ -12,13 +12,9 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
-from common.util.operator_utils import (
-    find_doc_count,
-    validate_filter_criteria,
-    validate_link_name,
-)
 from common.util.perf_utils import log_memory_usage
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
 from core.operators.quality.sql_filter import (
     SQLFilterOperator,
     extract_columns,
@@ -67,7 +63,7 @@ class BranchingOperator(AbstractOperator):
             criteria_list: list[str] = branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_LIST, [])
             criteria_json: dict[str, Any] | None = branch.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON)
             link_name: str | None = branch.get(OperatorConstants.Misc.LINK_NAME)
-            validate_link_name(
+            OperatorUtils.validate_link_name(
                 link_name=link_name,
                 existing_link_names=existing_link_names,
                 errors=errors,
@@ -88,7 +84,7 @@ class BranchingOperator(AbstractOperator):
             if should_validate_criteria and should_validate_json:
                 criteria_valid: bool
                 json_valid: bool
-                criteria_valid, json_valid = validate_filter_criteria(
+                criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(
                     criteria_list=criteria_list, criteria_json=criteria_json
                 )
 
@@ -171,7 +167,7 @@ class BranchingOperator(AbstractOperator):
         )
         total_docs: int = table.num_rows
 
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
         metadata["branches"] = {}
 
         filtered_tables: list[pa.Table] = []

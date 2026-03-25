@@ -7,8 +7,8 @@ from dpk_doc_quality.transform import DocQualityTransform
 from common.constants.constants import AttributeDataTypes, Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
 
 logger = get_logger()
 DOC_CONTENT_COLUMN_KEY: str = "doc_content_column"
@@ -137,7 +137,7 @@ class DocQuality(DocQualityTransform, AbstractOperator):
 
         transformed_table: pa.Table = super().transform(table)[0][0]
 
-        total_docs: int = find_doc_count(table=table)
+        total_docs: int = OperatorUtils.find_doc_count(table=table)
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
         metadata[Metrics.External.PROCESSED_DOCS] = total_docs
         metadata[Metrics.External.PROCESSED_ROWS] = transformed_table.num_rows

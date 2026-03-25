@@ -26,8 +26,8 @@ from common.constants import (
     OperatorConstants,
 )
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
 
 # Import NLTK data management utilities
 # This module handles NLTK downloads with SSL bypass capabilities
@@ -203,7 +203,7 @@ class MLEnrichmentOperator(AbstractOperator):
         )
 
         # Initialize metadata
-        total_docs: int = find_doc_count(table=table)
+        total_docs: int = OperatorUtils.find_doc_count(table=table)
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
 
         output_tables: list[pa.Table] = []

@@ -9,7 +9,7 @@ from common.constants.constants import (
     Metrics
 )
 from common.constants.operator_constants import OperatorConstants
-from common.util.iceberg_util import get_warehouse_path
+from common.util.datasift_utils import get_data_path
 from common.util.job_tracker.model.models import NodeStatsDto
 
 
@@ -40,7 +40,7 @@ def get_log_and_job_file_path(*, job_id, jobrun_id):
     log_job_folder_name = job_id
     log_job_run_file_name = "flow_execute.log"
     job_log_file_name = "job_stats.json"
-    log_location_path = get_warehouse_path(path="")
+    log_location_path = get_data_path()
     log_final_path = os.path.join(
         log_location_path,
         log_app_location,

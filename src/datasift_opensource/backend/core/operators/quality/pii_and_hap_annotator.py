@@ -26,7 +26,6 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.util.common_utils import split_text_into_chunks
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 from .local_pii_hap_detect import detect_pii_hap, detect_pii_hap_openai
@@ -468,7 +467,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
         fields_to_redact = get_fields_to_redact(self.expected_redactions, self.pii_list)
 
         # Initialize metadata
-        metadata = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
         # Initialize table columns
         table_columns = initialize_table_columns(
@@ -591,11 +590,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
         # Remove failed documents
         if self.partial_ingest and len(remove_row_idx) > 0:
-            table = remove_rows(table=table, remove_row_idx=remove_row_idx)
+            table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
         elif not self.partial_ingest and len(remove_row_id) > 0:
-            from common.util.operator_utils import remove_all_rows
-
-            table = remove_all_rows(table=table, remove_row_id=remove_row_id)
+            table = OperatorUtils.remove_all_rows(table=table, remove_row_id=remove_row_id)
 
         table = update_table(table, table_columns, fields_to_redact, self.display_pii)
         metadata[Metrics.External.PROCESSED_ROWS] = table.num_rows

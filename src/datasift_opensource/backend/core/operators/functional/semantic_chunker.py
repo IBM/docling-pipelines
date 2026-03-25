@@ -18,7 +18,6 @@ from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.common_utils import is_value_in_range
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.extract.extract_docling import ExtractDoclingOperator
 from core.operators.ingest.ingest_local_folder import IngestLocalOperator
@@ -534,7 +533,7 @@ class SemanticChunkerOperator(AbstractOperator):
 
         input_doc_data: list[dict[str, Any]] = table.to_pylist()
         chunked_content_column: list[list[dict[str, Any]]] = []
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
         remove_row_idx: list[int] = []
         for idx, doc in enumerate(input_doc_data):
             try:
@@ -582,7 +581,7 @@ class SemanticChunkerOperator(AbstractOperator):
             chunked_content_column.append(chunked_content)
             metadata[Metrics.External.PROCESSED_DOCS] += 1
 
-        table = remove_rows(table=table, remove_row_idx=remove_row_idx)
+        table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
         if chunked_content_column:
             table = TransformUtils.add_column(
                 table=table,
