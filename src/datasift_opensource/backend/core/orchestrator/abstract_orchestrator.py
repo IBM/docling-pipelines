@@ -32,6 +32,7 @@ from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
 from core.orchestrator.batch_manager import BatchManager
+from core.orchestrator.node_logger import NodeLogger
 from core.orchestrator.prefect_flow_executor import PrefectFlowExecutor, ExecuteStepResults  # noqa: E402
 
 logger = get_logger()
@@ -62,6 +63,8 @@ class AbstractOrchestrator(ABC):
         self.prefect_executor = PrefectFlowExecutor(self)
         self.job_log_path = None
         self.common_log_arguments = None
+        # Initialize node logger
+        self.node_logger: NodeLogger | None = None
 
     def set_job_ids(self, *, job_id, job_run_id):
         self.job_id = job_id
@@ -69,6 +72,8 @@ class AbstractOrchestrator(ABC):
         self.job_log_path = self.create_log_folders(job_id=self.job_id, type_="job")
         self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
         self.prefect_executor.set_job_ids(job_id=job_id, job_run_id=job_run_id, job_log_path=self.job_log_path)
+        # Initialize node logger with common log arguments
+        self.node_logger = NodeLogger(common_log_arguments=self.common_log_arguments)
 
     def execute(self, *, flow_def: dict, params: dict):
         """
@@ -125,18 +130,13 @@ class AbstractOrchestrator(ABC):
         job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
         self.job_tracker.write_job_logs(job_stats=job_stats, job_log_path=self.job_log_path)
         # below logger will add failure reason in flow_execute.log
-        node_logger = self._get_node_logger(
-            node_id=op_def[OperatorConstants.Columns.ID],
-            node_name=op_def[OperatorConstants.Columns.NAME],
-            global_config=global_config,
-        )
-        node_logger.error(
-            ">>> Node %s failed and caused aborting the branch execution: %s transaction_ID: %s",
-            op_def["name"],
-            e,
-            get_session_info().transaction_id,
-            extra=self.common_log_arguments
-        )
+        if self.node_logger:
+            self.node_logger.log_node_failure(
+                node_id=op_def[OperatorConstants.Columns.ID],
+                node_name=op_def[OperatorConstants.Columns.NAME],
+                error=e,
+                global_config=global_config
+            )
 
     def _handle_active_execution(self,
         *,
@@ -209,43 +209,18 @@ class AbstractOrchestrator(ABC):
             "time_taken": end_time - start,
         }
 
-        op_logger = self._get_node_logger(node_id=node_id, node_name=node_name, global_config=global_config)
-        op_logger.info(
-            ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-            extra=self.common_log_arguments,
-        )
-        application_id: str = f" ApplicationId:{os.getenv('JOB_ID')}" if os.getenv("JOB_ID") else ""
-        op_logger.info(f"Orchestrator Type: {str(get_session_info().orchestrator).upper()}{application_id}")
-        op_logger.info("Step ID: %s", op_def[OperatorConstants.Columns.ID], extra=self.common_log_arguments)
-        op_logger.info(
-            ">>> Skipped execution for Step Name: %s, operator: %s because no input data available for processing.",
-            node_name,
-            operator_type,
-            extra=self.common_log_arguments,
-        )
+        if self.node_logger:
+            self.node_logger.log_skipped_execution(
+                node_id=node_id,
+                node_name=node_name,
+                operator_type=operator_type,
+                global_config=global_config
+            )
 
         self.job_tracker.update_node_stats(self.job_run_id, node_id=node_id, node_stats=node_stats)
 
-        op_logger.info(
-            ">>> ================================================================",
-            extra=self.common_log_arguments,
-        )
-
         return data_accesses, tables
 
-    def _get_node_logger(self, *, node_id, node_name, global_config):
-        pg_params = {
-            DatasiftConstants.JOB_ID: global_config.get(DatasiftConstants.JOB_ID),
-            DatasiftConstants.JOB_RUN_ID: global_config.get(DatasiftConstants.JOB_RUN_ID),
-            DatasiftConstants.NODE_ID: node_id,
-            OperatorConstants.Columns.NAME: node_name,
-        }
-        return get_logger(
-            name=f"{DatasiftConstants.LOGGER_NAME} : NodeLogger : {node_id}",
-            level="INFO",
-            is_pg=True,
-            pg_params=pg_params,
-        )
 
     def _execute_step(
         self,
@@ -446,27 +421,23 @@ class AbstractOrchestrator(ABC):
         deleted_docs_count,
         link_id=None
     ) -> ExecuteStepResults | None:
-        node_logger = self._get_node_logger(
-            node_id=op_def[OperatorConstants.Columns.ID],
-            node_name=op_def[OperatorConstants.Columns.NAME],
-            global_config=global_config
-        )
         if prev_results is None:
-            node_logger.info(
-                ">>> Error detected in previous step — node %s skipped. ",
-                op_def["name"],
-                extra=self.common_log_arguments
-            )
+            if self.node_logger:
+                self.node_logger.log_error_in_previous_step(
+                    node_id=op_def[OperatorConstants.Columns.ID],
+                    node_name=op_def[OperatorConstants.Columns.NAME],
+                    global_config=global_config
+                )
             return None
         # exit early if the execution was cancelled or aborted.
         if self.failing or self.canceling:
-            msg = "Cancelling" if self.canceling else "Aborting"
-            node_logger.info(
-                ">>> %s the branch execution at node name: %s ",
-                msg,
-                op_def["name"],
-                extra=self.common_log_arguments
-            )
+            if self.node_logger:
+                self.node_logger.log_cancellation_or_abort(
+                    node_id=op_def[OperatorConstants.Columns.ID],
+                    node_name=op_def[OperatorConstants.Columns.NAME],
+                    is_cancelling=self.canceling,
+                    global_config=global_config
+                )
             return None
         set_session_info(session_info)
 
@@ -523,11 +494,12 @@ class AbstractOrchestrator(ABC):
                 )
 
             if not op_def.get(DatasiftConstants.OUTPUT_EDGES):
-                node_logger.info(
-                    ">>> Branch execution completed at node name: %s ",
-                    op_def["name"],
-                    extra=self.common_log_arguments
-                )
+                if self.node_logger:
+                    self.node_logger.log_branch_completion(
+                        node_id=op_def[OperatorConstants.Columns.ID],
+                        node_name=op_def[OperatorConstants.Columns.NAME],
+                        global_config=global_config
+                    )
             return result
         except Exception as e:
             self._handle_node_failure(e=e, op_def=op_def, global_config=global_config)
