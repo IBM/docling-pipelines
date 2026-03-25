@@ -12,3 +12,6 @@ class ErrorCode(str, Enum):
     SQL_FILTER_ERROR = "sql_filter_error"
     INCOMPATIBLE_FEATURE_MAPPINGS = "incompatible_feature_mappings"
     OPENSEARCH_INSERT_FAILED = "opensearch_insert_failed"
+    CONNECTIONS_API_FAILED = "connections_api_failed"
+    INVALID_CONFIGURATION = "invalid_configuration"
+    EXTERNAL_SERVICE_ERROR = "external_service_error"

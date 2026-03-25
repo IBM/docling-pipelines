@@ -16,7 +16,6 @@ from typing import Any
 import pyarrow as pa
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import DocumentConverter
-from docling_core.types.doc.document import PictureItem, TableItem
 
 from common.constants.constants import (
     AttributeDataTypes,
@@ -29,197 +28,11 @@ from common.util.log import get_logger
 
 # Import TransformUtils from centralized location
 from common.util.transform_utils import TransformUtils
+from common.util.operator_utils import prepare_document_content_fetch, get_optimal_workers, extract_basic_worker
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.functional.doc_id_hash import DocIdHashOperator
 
 logger: logging.Logger = get_logger()
-
-
-def _detect_extension_from_bytes(binary_content: bytes) -> str:
-    """
-    Detect the file extension from the magic bytes of binary content.
-
-    Used when the document name / path has no extension (e.g. a cloud URL).
-    Returns a dotted extension string such as '.pdf', '.docx', or '' if unknown.
-    """
-    if not binary_content:
-        return ""
-
-    # PDF: %PDF
-    if binary_content[:4] == b"%PDF":
-        return ".pdf"
-
-    # ZIP-based Office formats (docx, xlsx, pptx) and plain ZIP
-    if binary_content[:2] == b"PK":
-        # Inspect the central directory for known Office content-type markers
-        content_sample = binary_content[:2048]
-        if b"word/" in content_sample:
-            return ".docx"
-        if b"xl/" in content_sample:
-            return ".xlsx"
-        if b"ppt/" in content_sample:
-            return ".pptx"
-        return ".docx"  # generic ZIP-based Office fallback
-
-    # Legacy OLE2 Office formats (doc, xls, ppt)
-    if binary_content[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
-        return ".doc"
-
-    # PNG
-    if binary_content[:8] == b"\x89PNG\r\n\x1a\n":
-        return ".png"
-
-    # JPEG
-    if binary_content[:3] == b"\xff\xd8\xff":
-        return ".jpg"
-
-    # GIF
-    if binary_content[:6] in (b"GIF87a", b"GIF89a"):
-        return ".gif"
-
-    # TIFF
-    if binary_content[:4] in (b"II*\x00", b"MM\x00*"):
-        return ".tiff"
-
-    # HTML
-    content_start = binary_content[:512].lstrip()
-    if content_start[:9].lower() == b"<!doctype" or content_start[:5].lower() == b"<html":
-        return ".html"
-
-    # Plain text / markdown fallback — try decoding as UTF-8
-    try:
-        binary_content[:512].decode("utf-8")
-        return ".txt"
-    except UnicodeDecodeError:
-        pass
-
-    return ""
-
-
-def _extract_basic_worker(
-    file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool
-) -> dict[str, Any]:
-    """
-    Worker function for basic extraction - designed to run in parallel.
-
-    Args:
-        file_path: Path to the document file
-        binary_content: Binary content of the document
-        extract_tables: Whether to extract tables
-        extract_images: Whether to extract images
-
-    Returns:
-        Dictionary containing extracted markdown content
-    """
-    logger.info(f"Processing file: {file_path}")
-
-    # Determine the effective file extension.
-    # When file_path is a URL or has no extension (e.g. from IngestSourceOperator),
-    # fall back to magic-byte detection so Docling receives a correctly-named temp file.
-    file_suffix = Path(file_path).suffix.lower()
-    if not file_suffix:
-        file_suffix = _detect_extension_from_bytes(binary_content)
-
-    # Handle .txt and .md files specially (Docling cannot process them)
-    if file_suffix in [".txt", ".md"]:
-        try:
-            # Decode text content
-            try:
-                raw_text = binary_content.decode("utf-8")
-            except UnicodeDecodeError:
-                # Try other encodings if UTF-8 fails
-                try:
-                    raw_text = binary_content.decode("latin-1")
-                except Exception as e:
-                    logger.error(f"Failed to decode text file {file_path}: {e!s}")
-                    return {
-                        OperatorConstants.Extraction.SUCCESS: False,
-                        OperatorConstants.Extraction.ERROR: f"Failed to decode text: {e!s}",
-                        OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
-                    }
-
-            # Use the raw text as markdown (since it's already plain text)
-            markdown_text = raw_text
-
-            logger.info(f"Completed extraction for text file: {file_path}")
-
-            return {
-                OperatorConstants.Extraction.SUCCESS: True,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
-                OperatorConstants.Columns.TABLES: [],  # No tables in plain text
-                OperatorConstants.Columns.IMAGES: [],  # No images in plain text
-                OperatorConstants.Metadata.METADATA: {
-                    "table_count": 0,
-                    "image_count": 0,
-                    "char_count": len(markdown_text),
-                    "is_text_file": True,
-                },
-            }
-        except Exception as e:
-            logger.error(f"Error processing text file {file_path}: {e!s}")
-            return {
-                OperatorConstants.Extraction.SUCCESS: False,
-                OperatorConstants.Extraction.ERROR: str(e),
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
-            }
-
-    # For non-text files, use Docling's DocumentConverter
-    # Save binary content to temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp_file:
-        tmp_file.write(binary_content)
-        tmp_path = tmp_file.name
-
-    try:
-        # Initialize converter (each worker gets its own instance)
-        converter = DocumentConverter()
-
-        # Convert document
-        result = converter.convert(tmp_path)
-
-        # Export to markdown
-        markdown_text = result.document.export_to_markdown()
-
-        # Extract tables
-        tables = []
-        if extract_tables:
-            for item, level in result.document.iterate_items():
-                if isinstance(item, TableItem):
-                    table_df = item.export_to_dataframe()
-                    tables.append({"ref": item.self_ref, "data": table_df.to_dict() if table_df is not None else None})
-
-        # Extract images
-        images = []
-        if extract_images:
-            for item, level in result.document.iterate_items():
-                if isinstance(item, PictureItem):
-                    images.append({"ref": item.self_ref, "caption": getattr(item, "caption", None)})
-
-        logger.info(f"Completed extraction for {file_path}")
-
-        return {
-            OperatorConstants.Extraction.SUCCESS: True,
-            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
-            OperatorConstants.Columns.TABLES: tables,
-            OperatorConstants.Columns.IMAGES: images,
-            OperatorConstants.Metadata.METADATA: {
-                "table_count": len(tables),
-                "image_count": len(images),
-                "char_count": len(markdown_text),
-            },
-        }
-    except Exception as e:
-        logger.error(f"Error extracting content from {file_path}: {e!s}")
-        return {
-            OperatorConstants.Extraction.SUCCESS: False,
-            OperatorConstants.Extraction.ERROR: str(e),
-            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
-        }
-    finally:
-        # Clean up temporary file
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
 
 
 def _extract_with_template_worker(file_path: str, binary_content: bytes, template: dict) -> dict[str, Any]:
@@ -339,7 +152,7 @@ class ExtractDoclingOperator(AbstractOperator):
         self.expand_extracted_data: bool = config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False)
 
         # Parallel processing configuration
-        self.max_workers: int = config.get(OperatorConstants.Config.MAX_WORKERS, self._get_optimal_workers())
+        self.max_workers: int = config.get(OperatorConstants.Config.MAX_WORKERS, get_optimal_workers(is_cpu_intensive=self.use_template))
         self.use_processes: bool = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         self.common_log_arguments: dict[str, Any] = {
@@ -365,263 +178,6 @@ class ExtractDoclingOperator(AbstractOperator):
             f"Initialized ExtractDoclingOperator with {self.max_workers} workers "
             f"using {'ProcessPoolExecutor' if self.use_processes else 'ThreadPoolExecutor'}"
         )
-
-    def _get_optimal_workers(self) -> int:
-        """
-        Determine optimal number of workers based on system resources.
-        Cross-platform compatible: Works on Linux, Windows, and macOS.
-
-        Returns:
-            Optimal number of workers
-        """
-        import platform
-
-        cpu_count = os.cpu_count() or 4
-        system = platform.system()
-
-        # For I/O-bound tasks (document extraction), use more workers than CPU count
-        # For CPU-bound tasks (template extraction with VLM), use CPU count
-        if self.use_template:
-            # Template extraction is more CPU-intensive (uses VLM models)
-            optimal = max(1, cpu_count - 1)  # Leave one CPU free for system
-        else:
-            # Basic extraction is more I/O-bound (file reading, PDF parsing)
-            optimal = min(cpu_count * 2, 16)  # Cap at 16 to avoid excessive threads
-
-        logger.info(f"Auto-detected optimal workers: {optimal} (CPU count: {cpu_count}, OS: {system})")
-        return optimal
-
-    def _extract_basic(self, file_path: str, binary_content: bytes) -> dict[str, Any]:
-        """
-        Basic extraction: Convert PDF to markdown and extract tables/images.
-        Handles .txt files specially since Docling cannot process them.
-        Based on extract_basic from docling extraction_script.py
-
-        Args:
-            file_path: Path to the document file
-            binary_content: Binary content of the document
-
-        Returns:
-            Dictionary containing extracted content and DoclingDocument object
-        """
-        logger.info(f"Processing file: {file_path}")
-
-        # Determine the effective file extension.
-        # When file_path is a URL or has no extension (e.g. from IngestSourceOperator),
-        # fall back to magic-byte detection so Docling receives a correctly-named temp file.
-        file_suffix = Path(file_path).suffix.lower()
-        if not file_suffix:
-            file_suffix = _detect_extension_from_bytes(binary_content)
-
-        # Handle .txt files specially (Docling cannot process them)
-        if file_suffix == ".txt":
-            try:
-                from docling_core.types.doc.document import DoclingDocument
-                from docling_core.types.doc.labels import DocItemLabel
-
-                # Decode text content
-                try:
-                    raw_text = binary_content.decode("utf-8")
-                except UnicodeDecodeError:
-                    # Try other encodings if UTF-8 fails
-                    try:
-                        raw_text = binary_content.decode("latin-1")
-                    except Exception as e:
-                        logger.error(f"Failed to decode text file {file_path}: {e!s}")
-                        return {
-                            OperatorConstants.Extraction.SUCCESS: False,
-                            OperatorConstants.Extraction.ERROR: f"Failed to decode text: {e!s}",
-                            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
-                            OperatorConstants.Columns.DOCLING_DOCUMENT: None,
-                        }
-
-                # Create a basic DoclingDocument structure
-                doc = DoclingDocument(name=Path(file_path).name)
-
-                # Split text into paragraphs and add as text items
-                paragraphs = [p.strip() for p in raw_text.split("\n\n") if p.strip()]
-
-                if not paragraphs:
-                    # If no double newlines, treat each line as a paragraph
-                    paragraphs = [line.strip() for line in raw_text.split("\n") if line.strip()]
-
-                for para in paragraphs:
-                    if para:
-                        doc.add_text(text=para, label=DocItemLabel.PARAGRAPH)
-
-                # Use the raw text as markdown (since it's already plain text)
-                markdown_text = raw_text
-
-                # Serialize the DoclingDocument
-                docling_doc_json = doc.model_dump_json()
-
-                logger.info(f"Completed extraction for text file: {file_path}")
-
-                return {
-                    OperatorConstants.Extraction.SUCCESS: True,
-                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
-                    OperatorConstants.Columns.DOCLING_DOCUMENT: docling_doc_json,
-                    OperatorConstants.Columns.TABLES: [],  # No tables in plain text
-                    OperatorConstants.Columns.IMAGES: [],  # No images in plain text
-                    OperatorConstants.Metadata.METADATA: {
-                        "table_count": 0,
-                        "image_count": 0,
-                        "char_count": len(markdown_text),
-                        "is_text_file": True,
-                    },
-                }
-            except Exception as e:
-                logger.error(f"Error processing text file {file_path}: {e!s}")
-                return {
-                    OperatorConstants.Extraction.SUCCESS: False,
-                    OperatorConstants.Extraction.ERROR: str(e),
-                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
-                    OperatorConstants.Columns.DOCLING_DOCUMENT: None,
-                }
-
-        # For non-text files, use Docling's DocumentConverter
-        # Save binary content to temporary file (file_suffix already computed above)
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp_file:
-            tmp_file.write(binary_content)
-            tmp_path = tmp_file.name
-
-        try:
-            # Initialize converter
-            converter = DocumentConverter()
-
-            # Convert document
-            result = converter.convert(tmp_path)
-
-            # Export to markdown
-            markdown_text = result.document.export_to_markdown()
-
-            # Extract tables
-            tables = []
-            for item, level in result.document.iterate_items():
-                if isinstance(item, TableItem):
-                    # Export table to dataframe format
-                    table_df = item.export_to_dataframe()
-                    tables.append({"ref": item.self_ref, "data": table_df.to_dict() if table_df is not None else None})
-
-            # Extract images
-            images = []
-            for item, level in result.document.iterate_items():
-                if isinstance(item, PictureItem):
-                    images.append({"ref": item.self_ref, "caption": getattr(item, "caption", None)})
-
-            logger.info(f"Completed extraction for {file_path}")
-
-            # Serialize the DoclingDocument object for storage
-            docling_doc_json = result.document.model_dump_json()
-
-            return {
-                OperatorConstants.Extraction.SUCCESS: True,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
-                OperatorConstants.Columns.DOCLING_DOCUMENT: docling_doc_json,  # Store serialized DoclingDocument
-                OperatorConstants.Columns.TABLES: tables,
-                OperatorConstants.Columns.IMAGES: images,
-                OperatorConstants.Metadata.METADATA: {
-                    "table_count": len(tables),
-                    "image_count": len(images),
-                    "char_count": len(markdown_text),
-                },
-            }
-        except Exception as e:
-            logger.error(f"Error extracting content from {file_path}: {e!s}")
-            return {
-                OperatorConstants.Extraction.SUCCESS: False,
-                OperatorConstants.Extraction.ERROR: str(e),
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
-                OperatorConstants.Columns.DOCLING_DOCUMENT: None,
-            }
-        finally:
-            # Clean up temporary file
-            import os
-
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-
-    def _extract_with_template(self, file_path: str, binary_content: bytes) -> dict[str, Any]:
-        """
-        Extract structured information using a template.
-        Based on extract_with_template from docling extraction_script.py
-
-        Args:
-            file_path: Path to the document file
-            binary_content: Binary content of the document
-
-        Returns:
-            Dictionary containing extracted structured data
-        """
-        logger.info(f"Processing file with template: {file_path}")
-
-        try:
-            # Save binary content to temporary file
-            import tempfile
-
-            from docling.document_extractor import DocumentExtractor
-
-            with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file_path).suffix) as tmp_file:
-                tmp_file.write(binary_content)
-                tmp_path = tmp_file.name
-
-            try:
-                # Initialize extractor
-                extractor = DocumentExtractor(allowed_formats=[InputFormat.IMAGE, InputFormat.PDF])
-
-                # Extract with template (only if template is not None)
-                if self.template:
-                    result = extractor.extract(source=tmp_path, template=self.template)
-                else:
-                    raise ValueError("Template is required for template-based extraction")
-
-                # Convert pages to proper dict format
-                pages_data = []
-                for page in result.pages:
-                    page_dict = {
-                        OperatorConstants.Extraction.PAGE_NO: page.page_no,
-                        OperatorConstants.Columns.EXTRACTED_DATA: page.extracted_data,
-                        OperatorConstants.Columns.RAW_TEXT: page.raw_text,
-                        OperatorConstants.Extraction.ERRORS: page.errors,
-                    }
-                    pages_data.append(page_dict)
-
-                logger.info(f"Saved structured results for {file_path}")
-
-                return {
-                    OperatorConstants.Extraction.SUCCESS: True,
-                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: json.dumps(pages_data, indent=2),
-                    OperatorConstants.Columns.STRUCTURED_DATA: pages_data,
-                    OperatorConstants.Metadata.METADATA: {"page_count": len(pages_data)},
-                }
-            finally:
-                # Clean up temporary file
-                import os
-
-                try:
-                    os.unlink(tmp_path)
-                except OSError:
-                    pass
-
-        except ImportError as e:
-            logger.error("DocumentExtractor not available. Install with: pip install docling[vlm]")
-            logger.error(f"Error: {e!s}")
-            return {
-                OperatorConstants.Extraction.SUCCESS: False,
-                OperatorConstants.Extraction.ERROR: "DocumentExtractor not available",
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
-            }
-        except Exception as e:
-            logger.error(f"Error extracting with template: {e!s}")
-            return {
-                OperatorConstants.Extraction.SUCCESS: False,
-                OperatorConstants.Extraction.ERROR: str(e),
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
-            }
 
     def _expand_extracted_data_columns(self, table: pa.Table, extracted_data_list: list[Any | None]) -> pa.Table:
         """
@@ -688,7 +244,17 @@ class ExtractDoclingOperator(AbstractOperator):
 
         return table
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+    def _check_existing_features(self, table: pa.Table) -> bool:
+        if self.doc_column not in table.column_names:
+            return False
+        if self.use_template:
+            if self.expand_extracted_data and not any(col.startswith("extracted_") for col in table.column_names):
+                return False
+            elif not OperatorConstants.Columns.EXTRACTED_DATA in table.column_names:
+                return False
+        return True
+
+    def transform(self, table: pa.Table, file_name: str = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform the input table by extracting content from documents.
 
@@ -698,7 +264,7 @@ class ExtractDoclingOperator(AbstractOperator):
                 - name: Document name/filename
                 - path: Document path (optional)
                 - binary_content: Binary content of the document (optional)
-
+            file_name: File name (optional)
         Returns:
             Tuple of (list of transformed tables, metadata dictionary)
         """
@@ -708,41 +274,11 @@ class ExtractDoclingOperator(AbstractOperator):
         if table.num_rows == 0:
             return [table], metadata
 
-        # Check if content already exists
-        if self.doc_column in table.column_names:
-            metadata[OperatorConstants.Extraction.MESSAGE] = "Content already present. Moving to next operator"
+        if self._check_existing_features(table=table):
+            metadata[OperatorConstants.Extraction.MESSAGE] = "All requested features already present. Moving to next operator"
             return [table], metadata
-
         # Prepare document data for parallel processing
-        doc_tasks = []
-        for idx in range(table.num_rows):
-            try:
-                doc_id = (
-                    table[OperatorConstants.Columns.ID][idx].as_py()
-                    if OperatorConstants.Columns.ID in table.column_names
-                    else f"doc_{idx}"
-                )
-                doc_name = (
-                    table[OperatorConstants.Columns.NAME][idx].as_py()
-                    if OperatorConstants.Columns.NAME in table.column_names
-                    else f"document_{idx}"
-                )
-
-                # Get binary content
-                if OperatorConstants.Columns.BINARY_CONTENT in table.column_names:
-                    binary_content = table[OperatorConstants.Columns.BINARY_CONTENT][idx].as_py()
-                else:
-                    if OperatorConstants.Columns.PATH in table.column_names:
-                        file_path = table[OperatorConstants.Columns.PATH][idx].as_py()
-                        with open(file_path, "rb") as f:
-                            binary_content = f.read()
-                    else:
-                        raise ValueError(f"No binary content or path available for document {doc_name}")
-
-                doc_tasks.append({"idx": idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content})
-            except Exception as e:
-                logger.error(f"Error preparing document at index {idx}: {e!s}")
-                doc_tasks.append({"idx": idx, "doc_id": str(idx), "doc_name": f"document_{idx}", "error": str(e)})
+        doc_tasks = prepare_document_content_fetch(table=table)
 
         # Process documents in parallel
         doc_contents = [None] * table.num_rows
@@ -773,7 +309,7 @@ class ExtractDoclingOperator(AbstractOperator):
                     )
                 else:
                     future = executor.submit(
-                        _extract_basic_worker,
+                        extract_basic_worker,
                         task["doc_name"],
                         task["binary_content"],
                         self.extract_tables,
