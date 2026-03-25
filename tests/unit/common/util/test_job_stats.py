@@ -260,7 +260,7 @@ class TestJobTracker(unittest.TestCase):
         create_session_info(orchestrator=orch, flow_id="flow1")
         self.tracker.start_tracking_job(orchestrator=orch, job_id="job1", job_run_id=test_job_run_id)
         sleep(1)
-        self.tracker.end_job(job_run_id=test_job_run_id)
+        self.tracker.end_job(job_run_id=test_job_run_id, job_log_path="/tmp/temp.log")
         self.assertEqual(self.tracker.all_jobs[test_job_run_id].status, ExecutionStatus.COMPLETED)
         self.assertGreater(self.tracker.all_jobs[test_job_run_id].duration, 0)
 
@@ -293,7 +293,7 @@ class TestJobTracker(unittest.TestCase):
         self.assertIsNotNone(job_stats)
         self.assertEqual(job_stats.status, ExecutionStatus.CANCELING, "Job status should still be CANCELING")
 
-        self.tracker.end_job(test_job_run_id, ExecutionStatus.CANCELED)
+        self.tracker.end_job(job_run_id=test_job_run_id, job_log_path="/tmp/temp.log", status=ExecutionStatus.CANCELED)
         job_stats = self.tracker.get_job(test_job_run_id)
         self.assertIsNotNone(job_stats)
         self.assertEqual(job_stats.status, ExecutionStatus.CANCELED, "Job status should be changed to CANCELLED")
@@ -328,7 +328,7 @@ class TestJobTracker(unittest.TestCase):
             self.assertIn(test_job_run_id, str(context.exception), f"Job run not found for ID: {test_job_run_id}")
 
         with self.assertRaises(DatasiftException) as context:
-            self.tracker.end_job(job_run_id=test_job_run_id)
+            self.tracker.end_job(job_run_id=test_job_run_id, job_log_path="/tmp/temp.log")
             self.assertIn(test_job_run_id, str(context.exception), f"Job run not found for ID: {test_job_run_id}")
 
     def test_cancel_job_without_job_id(self):
@@ -436,11 +436,12 @@ class TestJobTracker(unittest.TestCase):
         job_stats_mock.status = ExecutionStatus.CANCELING
         self.tracker.get_job.return_value = job_stats_mock
 
-        result = self.tracker.cancel_job_run_if_cancelling(job_run_id="job123")
+        result = self.tracker.cancel_job_run_if_cancelling(job_run_id="job123", job_log_path="/tmp/temp.log")
 
         self.assertTrue(result)
         self.tracker.end_job.assert_called_once_with(
-            "job123",
+            job_run_id="job123",
+            job_log_path='/tmp/temp.log',
             status=ExecutionStatus.CANCELED,
             message="Job run Canceled"
         )
@@ -454,7 +455,7 @@ class TestJobTracker(unittest.TestCase):
         job_stats_mock.status = ExecutionStatus.RUNNING
         self.tracker.get_job.return_value = job_stats_mock
 
-        result = self.tracker.cancel_job_run_if_cancelling(str(uuid1()))
+        result = self.tracker.cancel_job_run_if_cancelling(str(uuid1()), job_log_path="/tmp/temp.log")
 
         self.assertFalse(result)
         self.tracker.end_job.assert_not_called()
