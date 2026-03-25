@@ -177,7 +177,7 @@ class AbstractOrchestrator(ABC):
         *,
         op_def,
         executor: AbstractOperatorExecutor,
-        prev_results,
+        prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
         global_config,
         start
     ):
