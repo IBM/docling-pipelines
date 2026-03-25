@@ -131,7 +131,7 @@ def _build_json_template_from_fields(fields: list[dict[str, Any]]) -> dict[str, 
             # This is a nested object or array
             nested_template = _build_json_template_from_fields(nested_fields)
             # Check if it's an array type (like line_items)
-            if "array" in field.get("description", "").lower() or "list" in field.get("description", "").lower():
+            if isinstance(nested_fields, list):
                 template[name] = [nested_template]
             else:
                 template[name] = nested_template
