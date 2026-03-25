@@ -15,7 +15,6 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 
@@ -111,7 +110,7 @@ class EdedupOperator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
             if not metadata:
-                total_docs: int = find_doc_count(table=table)
+                total_docs: int = OperatorUtils.find_doc_count(table=table)
                 metadata = self.create_base_metadata(
                     total_docs_count=total_docs,
                     node_status=ExecutionStatus.COMPLETED_WITH_WARNINGS.value,

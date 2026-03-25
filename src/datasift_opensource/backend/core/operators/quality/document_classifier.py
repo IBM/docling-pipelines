@@ -17,8 +17,7 @@ from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from common.util.log import get_logger
-from common.util.operator_utils import prepare_document_content_fetch, get_optimal_workers, \
-    extract_basic_worker
+from core.operators.operator_utils import OperatorUtils
 
 # Try to import TransformUtils from data-prep-toolkit-transforms
 try:
@@ -167,7 +166,8 @@ class DocumentClassifierOperator(AbstractOperator):
         self._validate_provider_setup()
 
         # Parallel processing configuration
-        self.max_workers: int = config.get(OperatorConstants.Config.MAX_WORKERS, get_optimal_workers(is_cpu_intensive=False))
+        self.max_workers: int = config.get(OperatorConstants.Config.MAX_WORKERS,
+                                           OperatorUtils.get_optimal_workers(is_cpu_intensive=False))
         self.use_processes: bool = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         self.common_log_arguments: Dict[str, Any] = {
@@ -549,7 +549,7 @@ Example response:
             logger.info(f"'{self.doc_column}' column not found, fetching content from documents")
             content_was_fetched = True
             # Prepare document data for parallel processing
-            doc_tasks = prepare_document_content_fetch(table=table)
+            doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table)
 
             # Choose executor based on configuration
             ExtractionExecutor = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
@@ -571,7 +571,7 @@ Example response:
                         continue
 
                     future = executor.submit(
-                        extract_basic_worker,
+                        OperatorUtils.extract_basic_worker,
                         task["doc_name"],
                         task["binary_content"],
                         self.extract_tables,

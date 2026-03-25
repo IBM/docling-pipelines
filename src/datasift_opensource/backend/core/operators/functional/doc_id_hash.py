@@ -7,8 +7,8 @@ import pyarrow as pa
 from common.constants.constants import Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
 
 # Try to import DocIDTransform from dpk_doc_id
 try:
@@ -102,7 +102,7 @@ class DocIdHashOperator(AbstractOperator):
         Returns:
             Tuple of (list of output tables, metadata dictionary)
         """
-        total_docs: int = find_doc_count(table=table)
+        total_docs: int = OperatorUtils.find_doc_count(table=table)
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=total_docs)
 
         if self._doc_id_transform is not None:

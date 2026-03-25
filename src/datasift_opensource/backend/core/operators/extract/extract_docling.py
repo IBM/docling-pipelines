@@ -28,9 +28,9 @@ from common.util.log import get_logger
 
 # Import TransformUtils from centralized location
 from common.util.transform_utils import TransformUtils
-from common.util.operator_utils import prepare_document_content_fetch, get_optimal_workers, extract_basic_worker
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.functional.doc_id_hash import DocIdHashOperator
+from core.operators.operator_utils import OperatorUtils
 
 logger: logging.Logger = get_logger()
 
@@ -154,7 +154,8 @@ class ExtractDoclingOperator(AbstractOperator):
         self.expand_extracted_data: bool = config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False)
 
         # Parallel processing configuration
-        self.max_workers: int = config.get(OperatorConstants.Config.MAX_WORKERS, get_optimal_workers(is_cpu_intensive=self.use_template))
+        self.max_workers: int = config.get(OperatorConstants.Config.MAX_WORKERS,
+                                           OperatorUtils.get_optimal_workers(is_cpu_intensive=self.use_template))
         self.use_processes: bool = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         self.common_log_arguments: dict[str, Any] = {
@@ -299,7 +300,7 @@ class ExtractDoclingOperator(AbstractOperator):
                 logger.warning("No templates could be loaded from document_type column, using default template")
         
         # Prepare document data for parallel processing
-        doc_tasks = prepare_document_content_fetch(table=table)
+        doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table)
 
         # Process documents in parallel
         doc_contents = [None] * table.num_rows
@@ -340,7 +341,7 @@ class ExtractDoclingOperator(AbstractOperator):
                     )
                 else:
                     future = executor.submit(
-                        extract_basic_worker,
+                        OperatorUtils.extract_basic_worker,
                         task["doc_name"],
                         task["binary_content"],
                         self.extract_tables,

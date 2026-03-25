@@ -9,7 +9,7 @@ import pyarrow.compute as pc
 
 from common.constants.constants import DatasiftConstants
 from common.constants.operator_constants import OperatorConstants
-from common.util.iceberg_util import get_warehouse_path
+from common.util.datasift_utils import get_data_path
 from common.util.log import get_logger
 
 PREFECT_HOME_PREFIX = "prefect_"
@@ -49,7 +49,7 @@ def create_log_folders(job_id, job_run_id, type):
     Created 3 folders, UDP_logs/jobId/JobrunID. The log for that job will be stored there
     """
     # PLACEHOLDER log TILL LOG LOCATION IS DECIDED
-    log_location_path = get_warehouse_path(path="")
+    log_location_path = get_data_path()
 
     log_app_location = DatasiftConstants.UDP_LOGS
 
@@ -65,8 +65,8 @@ def create_log_folders(job_id, job_run_id, type):
     return log_final_path
 
 
-def write_job_logs(job_stats, job_log_final_path):
-    with open(job_log_final_path, "w") as file:
+def write_job_logs(job_stats, job_log_path):
+    with open(job_log_path, "w") as file:
         json.dump(job_stats.__dict__, file, indent=4)
 
 
@@ -304,4 +304,4 @@ def construct_deleted_rows_table_path(*, job_id: str, job_run_id):
     # table_name = "deleted_rows_table"
     metadata_path = "/unprocessed_docs"
     parquet_file_name = "unprocessed_docs.parquet"
-    return os.path.join(get_warehouse_path(path=metadata_path), job_id, job_run_id, parquet_file_name)
+    return os.path.join(get_data_path(sub_dir=metadata_path), job_id, job_run_id, parquet_file_name)

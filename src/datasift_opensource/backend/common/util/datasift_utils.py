@@ -4,6 +4,7 @@ from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, TypeVar
+from pathlib import Path
 
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import ErrorCode, ValidationAlert
@@ -11,6 +12,16 @@ from common.exceptions.error_messages import ValidationMessage
 from common.util.log import get_logger
 
 logger = get_logger()
+DEFAULT_DATA_ROOT_FOLDER = "./data"
+
+
+def get_data_path(*, sub_dir: str = "") -> str:
+    '''
+    Returns path from the root data directory with the given subdirectory. It creates the directories, if does not exist.
+    '''
+    data_path = DEFAULT_DATA_ROOT_FOLDER + sub_dir
+    Path(data_path).mkdir(parents=True, exist_ok=True)
+    return data_path
 
 
 def get_current_timestamp():

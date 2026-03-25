@@ -7,7 +7,7 @@ from typing import Any
 from filelock import FileLock
 
 from common.constants.constants import DatasiftConstants
-from common.util.iceberg_util import get_warehouse_path
+from common.util.datasift_utils import get_data_path
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.job_tracker.storage.job_stats_store import JobStatsStore
 from common.util.log import get_logger
@@ -50,7 +50,7 @@ def _save_job_run_pickle_file(data: dict[str, Any], json_data: str, file_path: s
 
 def _construct_job_run_job_stats_pickle_file_path(job_id: str, job_run_id: str):
     return os.path.join(
-        get_warehouse_path(path=""),
+        get_data_path(),
         PickleJobStatsStore.JOBS_STATS_PATH,
         job_id,
         job_run_id,
@@ -60,7 +60,7 @@ def _construct_job_run_job_stats_pickle_file_path(job_id: str, job_run_id: str):
 
 def _construct_job_run_node_stats_pickle_file_path(job_id: str, job_run_id: str):
     return os.path.join(
-        get_warehouse_path(path=""),
+        get_data_path(),
         PickleJobStatsStore.NODE_STATS_PATH,
         job_id,
         job_run_id,
@@ -69,7 +69,7 @@ def _construct_job_run_node_stats_pickle_file_path(job_id: str, job_run_id: str)
 
 
 def _construct_job_run_to_job_id_pickle_file_path():
-    return os.path.join(get_warehouse_path(path=""), PickleJobStatsStore.JOB_RUN_TO_JOB_ID_PICKLE_FILE)
+    return os.path.join(get_data_path(), PickleJobStatsStore.JOB_RUN_TO_JOB_ID_PICKLE_FILE)
 
 
 @lru_cache(maxsize=128)

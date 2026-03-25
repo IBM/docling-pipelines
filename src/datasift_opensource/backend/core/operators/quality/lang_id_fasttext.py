@@ -19,7 +19,6 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.operators.quality.fasttext_model_manager import FastTextModelManager
@@ -153,7 +152,7 @@ class LanguageDetectFastText(AbstractOperator):
 
         OperatorUtils.validate_columns(table=table, required=[self.doc_column_name], operator_name=self.short_name)
 
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
         new_doc_content: list[Any] = table[self.doc_column_name].to_pylist()
         language_name_column: list[str] = []
@@ -214,7 +213,7 @@ class LanguageDetectFastText(AbstractOperator):
             extra=self.common_log_arguments,
         )
 
-        table = remove_rows(table=table, remove_row_idx=remove_row_idx)
+        table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
 
         table = TransformUtils.add_column(
             table=table,

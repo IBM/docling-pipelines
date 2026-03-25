@@ -42,7 +42,7 @@ def run_command_line_executor(flow_def: dict) -> None:
     )
     set_session_info(session_info)
 
-    orchestrator.set_job_ids(job_id=job_id, job_run_id=job_run_id)
+    orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 
     logger.info(">>> Starting flow execution")
     executor.execute(orchestrator=orchestrator, params=params)

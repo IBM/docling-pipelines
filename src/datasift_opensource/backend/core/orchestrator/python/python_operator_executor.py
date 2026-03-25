@@ -13,13 +13,9 @@ from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages
 from common.util.log import get_logger
-from common.util.operator_utils import (
-    drop_features_from_table,
-    remove_internal_metrics_from_metadata,
-    rename_features_and_save_original,
-)
 from common.util.perf_utils import cleanup_pyarrow_buffers, log_memory_usage
 from core.operators.abstract_operator import AbstractOperator
+from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
 from core.orchestrator.operator_factory import OperatorFactoryProvider
 
@@ -87,9 +83,9 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             else:
                 result = op.transform(tables)
                 if len(op.output_features_to_drop) > 0:
-                    result[0][0] = drop_features_from_table(op.output_features_to_drop, result[0][0])
+                    result[0][0] = OperatorUtils.drop_features_from_table(op.output_features_to_drop, result[0][0])
                 if len(op.updated_features) > 0:
-                    result[0][0] = rename_features_and_save_original(
+                    result[0][0] = OperatorUtils.rename_features_and_save_original(
                         updated_features=op.updated_features,
                         input_features=result[0][0],
                     )
@@ -104,7 +100,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             self.update_final_node_stats(tables=result[0], metadata=metadata)
             time_taken = timeit.default_timer() - start
             # Removing the internal metrics from the operator metadata if any to another dict
-            _ = remove_internal_metrics_from_metadata(metadata=metadata)
+            _ = OperatorUtils.remove_internal_metrics_from_metadata(metadata=metadata)
             self._log_completion(
                 op_logger=op.logger,
                 name=op.name,
