@@ -3,7 +3,6 @@ import hashlib
 import importlib
 import io
 import json
-import logging
 import os
 from typing import Any, ClassVar, Iterator
 
@@ -12,7 +11,6 @@ import pyarrow as pa
 
 # Import standard LangChain loaders
 from langchain_community.document_loaders import (
-    S3DirectoryLoader,
     S3FileLoader,
 )
 from langchain_core.document_loaders import BaseLoader
@@ -61,22 +59,22 @@ class MicrosoftGraphLoader(BaseLoader):
 
     # Supported text-extractable file extensions
     TEXT_EXTENSIONS: ClassVar[set[str]] = {
-        ".pdf", 
+        ".pdf",
         ".docx",
-        ".doc", 
-        ".ppt", 
-        ".bmp", 
-        ".gif", 
-        ".jfif", 
-        ".jpg", 
-        ".jpeg", 
-        ".png", 
-        ".tiff", 
-        ".tif", 
-        ".html", 
-        ".xlsx", 
-        ".md", 
-        ".txt"
+        ".doc",
+        ".ppt",
+        ".bmp",
+        ".gif",
+        ".jfif",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".tiff",
+        ".tif",
+        ".html",
+        ".xlsx",
+        ".md",
+        ".txt",
     }
 
     def __init__(
@@ -185,7 +183,7 @@ class MicrosoftGraphLoader(BaseLoader):
         files = self._list_files(folder_item_id=folder_item_id)
         for item in files:
             try:
-                content_bytes: bytes = self._download_file(item)
+                # Binary content will be downloaded separately in extract_content()
                 metadata = {
                     "source": item.get("name", ""),
                     "drive_id": self.drive_id,
@@ -281,7 +279,7 @@ class IngestSourceOperator(AbstractOperator):
         }
         self.previously_processed_docs_dict: dict[str, Any] | None = None
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Operator-specific logic to load documents using LangChain loaders.
 
@@ -743,7 +741,9 @@ class IngestSourceOperator(AbstractOperator):
                         import requests
 
                         # Get access token
-                        token_url = f"{MICROSOFT_LOGIN_URL}/{self.credentials.get('tenant_id')}{MICROSOFT_OAUTH_TOKEN_PATH}"
+                        token_url = (
+                            f"{MICROSOFT_LOGIN_URL}/{self.credentials.get('tenant_id')}{MICROSOFT_OAUTH_TOKEN_PATH}"
+                        )
                         token_data = {
                             "client_id": self.credentials.get("client_id"),
                             "client_secret": self.credentials.get("client_secret"),
@@ -756,20 +756,24 @@ class IngestSourceOperator(AbstractOperator):
 
                         # Download file content
                         headers = {"Authorization": f"Bearer {access_token}"}
-                        
+
                         # Try to get download URL from metadata first
                         download_url = doc.metadata.get("download_url")
                         if download_url:
                             response = requests.get(download_url)
                         else:
                             # Fallback: construct download URL using drive_id and item_id
-                            drive_id = doc.metadata.get("drive_id") or self.connection_params.get("drive_id") or self.connection_params.get("document_library_id")
-                            
+                            drive_id = (
+                                doc.metadata.get("drive_id")
+                                or self.connection_params.get("drive_id")
+                                or self.connection_params.get("document_library_id")
+                            )
+
                             # Both OneDrive and SharePoint can use the drives API endpoint
                             download_url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{drive_id}/items/{item_id}/content"
-                            
+
                             response = requests.get(download_url, headers=headers, allow_redirects=True)
-                        
+
                         response.raise_for_status()
                         onedrive_bytes: bytes = response.content
                         logger.info(
@@ -934,7 +938,7 @@ class IngestSourceOperator(AbstractOperator):
     def _get_loader(self) -> BaseLoader:
         """
         Factory method to initialize the correct LangChain loader.
-        
+
         Note: S3/IBM COS providers use _load_s3_documents() directly and should not call this method.
         See process_documents() for the special S3 handling logic.
         """
@@ -944,8 +948,8 @@ class IngestSourceOperator(AbstractOperator):
         # directly for S3/IBM COS providers. Keeping this for backward compatibility with tests.
         if self.provider in ["s3", "ibm_cos"]:
             raise ValueError(
-                f"S3/IBM COS providers should not call _get_loader(). "
-                f"The process_documents() method uses _load_s3_documents() instead."
+                "S3/IBM COS providers should not call _get_loader(). "
+                "The process_documents() method uses _load_s3_documents() instead."
             )
 
         # 2. Microsoft SharePoint
