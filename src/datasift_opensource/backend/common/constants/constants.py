@@ -170,7 +170,6 @@ class DocumentConstants:
 class OrchestratorType:
     PYTHON = "python"
     SPARK = "spark"
-    CMDLINE = "cmdLine"
 
 
 class DataSourceType:

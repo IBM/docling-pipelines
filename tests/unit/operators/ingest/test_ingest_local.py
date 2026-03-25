@@ -7,7 +7,7 @@ Tests both metadata-only mode and legacy extraction mode
 from pathlib import Path
 import pytest
 
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
 
 class TestIngestLocalOperator:
@@ -135,7 +135,7 @@ class TestIngestLocalOperator:
 def test_ingest_local_operator_basic():
     """Basic test without fixtures for simple verification"""
     # Use the fixtures directory that should exist
-    fixtures_dir = Path(__file__).parent.parent.parent / "fixtures" / "invoices"
+    fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "invoices"
 
     if not fixtures_dir.exists():
         pytest.skip(f"Fixtures directory not found: {fixtures_dir}")
@@ -145,6 +145,7 @@ def test_ingest_local_operator_basic():
         "store_binary_content": True,
         "include_filter": "pdf",
         "max_files": 5,
+        "force_ingest": True
     }
 
     operator = IngestLocalOperator(config)

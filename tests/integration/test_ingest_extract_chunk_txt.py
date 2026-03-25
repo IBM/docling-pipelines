@@ -9,9 +9,9 @@ from pathlib import Path
 import pytest
 
 
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
-from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
-from core.operators.universal.chunker.docling_chunker import DoclingChunkerOperator
+from core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.extract.extract_docling import ExtractDoclingOperator
+from core.operators.functional.docling_chunker import DoclingChunkerOperator
 
 
 class TestIngestExtractChunkTxtIntegration:

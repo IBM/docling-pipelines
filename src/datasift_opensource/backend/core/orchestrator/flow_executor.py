@@ -15,6 +15,7 @@ from common.exceptions.datasift_exceptions import (
 from common.models.session_info import get_session_info
 from common.util.log import get_logger
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
+from core.orchestrator.flow_validator import FlowValidator
 from core.orchestrator.orchestrator_factory import OrchestratorFactory
 
 logger = get_logger()
@@ -67,6 +68,7 @@ class FlowExecutor:
         FlowExecutor.start_diagnostic_collection(self)
         if orchestrator is not None:
             self.__orchestrator = orchestrator
+
         try:
             job_tracker = JobTracker()
             if job_tracker.cancel_job_run_if_cancelling(job_run_id=self.session_info.job_run_id):
@@ -75,8 +77,8 @@ class FlowExecutor:
                     params[DatasiftConstants.JOB_RUN_ID],
                 )
                 return None
-
-            self.__orchestrator.validate(flow_def=self.flow_def, params=params)
+            flow_validator = FlowValidator(orchestrator)
+            flow_validator.validate(flow_def=self.flow_def, params=params)
         except FlowValidationException as exc:
             if len(exc.errors) == 0:
                 # if there are no errors (only warnings), go ahead with the flow execution
@@ -117,7 +119,7 @@ class FlowExecutor:
         """
         if params is None:
             params = {}
-        orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=orchestrator_name)
+        orchestrator = OrchestratorFactory.create_orchestrator()
         return orchestrator.validate(flow_def=self.flow_def, params=params)
 
     def start_diagnostic_collection(self):
@@ -205,7 +207,7 @@ def main():  # pragma: no cover
     logger.info(f">>> Loaded flow {flow!s}")
     logger.debug(flow.flow_def)
 
-    orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=args.orchestrator)
+    orchestrator = OrchestratorFactory.create_orchestrator()
     try:
         flow.execute(
             orchestrator=orchestrator,

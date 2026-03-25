@@ -18,7 +18,7 @@ from common.util.parquet_table_handler import (
 logger = get_logger(f"{DatasiftConstants.LOGGER_NAME} : INCREMENTAL UPDATE")
 
 
-class IncrementalUpdateUtil:  # pragma: no cover
+class IncrementalUpdateUtil:
     NAMESPACE = "datasift"
     TABLE_NAME = "incremental_update_metadata"
     INCREMENTAL_PROCESSING_METADATA_PATH = "/inc_process_metadata"

@@ -14,14 +14,12 @@ Tests cover:
 
 import json
 import tempfile
-
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
 
-
-from core.operators.universal.extract.extract_entities_ollama import (
+from core.operators.extract.extract_entities_ollama import (
     ExtractEntitiesOllamaOperator,
     _build_json_template,
     _build_schema_description,
@@ -205,7 +203,7 @@ class TestExtractEntitiesOllamaOperatorInit:
         assert op.ollama_model == "granite4"
         assert op.output_column == "entities"
         assert op.max_doc_chars == 8000
-        assert op.temperature == 0.0
+        assert op.temperature == pytest.approx(0.0)
         assert op.max_workers == 4
 
     def test_custom_values(self, basic_config):
@@ -380,7 +378,7 @@ class TestExtractEntitiesEmptyContent:
             "max_workers": 1,
         }
         op = ExtractEntitiesOllamaOperator(config)
-        result_tables, metadata = op.transform(empty_content_table)
+        _, metadata = op.transform(empty_content_table)
 
         assert metadata[Metrics.External.SKIPPED_DOCS_COUNT] == 1
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
@@ -401,7 +399,7 @@ class TestExtractEntitiesEmptyContent:
             "max_workers": 1,
         }
         op = ExtractEntitiesOllamaOperator(config)
-        result_tables, metadata = op.transform(table)
+        _, metadata = op.transform(table)
 
         assert metadata[Metrics.External.SKIPPED_DOCS_COUNT] == 1
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
@@ -421,7 +419,7 @@ class TestExtractEntitiesOllamaFailure:
         mock_chat.side_effect = Exception("Connection refused to Ollama")
 
         op = ExtractEntitiesOllamaOperator(basic_config)
-        result_tables, metadata = op.transform(sample_table)
+        _, metadata = op.transform(sample_table)
 
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert metadata[Metrics.External.PROCESSED_DOCS] == 0
@@ -440,7 +438,7 @@ class TestExtractEntitiesOllamaFailure:
         def mock_response(**kwargs):
             call_count[0] += 1
             if call_count[0] == 2:
-                raise Exception("Timeout on second document")
+                raise TimeoutError("Timeout on second document")
             return {
                 "message": {
                     "content": '{"vendor_name": "Test", "invoice_date": "2024-01-01", "total_amount": 0}'
@@ -450,7 +448,7 @@ class TestExtractEntitiesOllamaFailure:
         mock_chat.side_effect = mock_response
 
         op = ExtractEntitiesOllamaOperator(basic_config)
-        result_tables, metadata = op.transform(multi_row_table)
+        _, metadata = op.transform(multi_row_table)
 
         # 2 should succeed, 1 should fail
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
@@ -472,7 +470,7 @@ class TestExtractEntitiesOllamaFailure:
         }
 
         op = ExtractEntitiesOllamaOperator(basic_config)
-        result_tables, metadata = op.transform(sample_table)
+        _, metadata = op.transform(sample_table)
 
         assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
@@ -682,5 +680,3 @@ class TestValidate:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

@@ -6,10 +6,9 @@ Tests hashing document content using SHA-256 and adding a doc_id_hash column.
 
 import hashlib
 import pytest
-
 import pyarrow as pa
 
-from core.operators.universal.doc_id.doc_id_hash import DocIdHashOperator
+from core.operators.functional.doc_id_hash import DocIdHashOperator
 from common.constants.operator_constants import OperatorConstants
 from common.constants.constants import Metrics
 
