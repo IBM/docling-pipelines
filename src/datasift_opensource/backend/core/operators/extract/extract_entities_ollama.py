@@ -70,77 +70,18 @@ DOCUMENT_CLASSES_PATH = DatasiftConstants.DOCUMENT_CLASSES_PATH
 # ---------------------------------------------------------------------------
 
 
+# Import from centralized utility
+from common.util.document_class_utils import DocumentClassUtils
+
+# Create module-level aliases for backward compatibility
 def _build_schema_description_from_fields(fields: list[dict[str, Any]], indent: int = 0) -> str:
-    """Build rich schema description from fields array format.
-    
-    Args:
-        fields: List of field definitions with name, description, examples, etc.
-        indent: Current indentation level for nested fields
-    
-    Returns:
-        Human-readable schema description with examples
-    """
-    lines: list[str] = []
-    prefix = "  " * indent
-    
-    for field in fields:
-        name = field.get("name", "")
-        description = field.get("description", "")
-        examples = field.get("examples", [])
-        nested_fields = field.get("fields", [])
-        
-        # Build field line with description
-        if description:
-            line = f"{prefix}- {name}: {description}"
-        else:
-            line = f"{prefix}- {name}"
-        
-        # Add examples if available
-        if examples:
-            if len(examples) == 1:
-                line += f" (e.g., '{examples[0]}')"
-            else:
-                examples_str = "', '".join(str(ex) for ex in examples[:3])  # Show up to 3 examples
-                line += f" (e.g., '{examples_str}')"
-        
-        lines.append(line)
-        
-        # Recursively handle nested fields
-        if nested_fields:
-            lines.append(f"{prefix}  Contains:")
-            lines.append(_build_schema_description_from_fields(nested_fields, indent + 2))
-    
-    return "\n".join(lines)
+    """Build rich schema description from fields array format."""
+    return DocumentClassUtils.build_schema_description_from_fields(fields, indent)
 
 
 def _build_json_template_from_fields(fields: list[dict[str, Any]]) -> dict[str, Any]:
-    """Build JSON template from fields array format.
-    
-    Args:
-        fields: List of field definitions
-    
-    Returns:
-        Nested dictionary template matching the schema structure
-    """
-    template: dict[str, Any] = {}
-    
-    for field in fields:
-        name = field.get("name", "")
-        nested_fields = field.get("fields", [])
-        
-        if nested_fields:
-            # This is a nested object or array
-            nested_template = _build_json_template_from_fields(nested_fields)
-            # Check if it's an array type (like line_items)
-            if isinstance(nested_fields, list):
-                template[name] = [nested_template]
-            else:
-                template[name] = nested_template
-        else:
-            # Leaf field - set to None as placeholder
-            template[name] = None
-    
-    return template
+    """Build JSON template from fields array format."""
+    return DocumentClassUtils.build_json_template_from_fields(fields)
 
 
 def _build_schema_description(schema: dict[str, Any]) -> str:
@@ -351,29 +292,8 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
 
 def _get_schema_templates(schema_templates: dict[str, dict], document_types: list[str]) -> None:
     """Load document class schemas for given document types."""
-
-    def normalize_filename(name: str) -> str:
-        name = name.lower()
-        name = re.sub(r"[^a-z0-9]+", "_", name)
-        name = re.sub(r"_+", "_", name)
-        return name.strip("_")
-
-    for document_type in document_types:
-        if not document_type or document_type in schema_templates:
-            continue
-
-        file_name = f"{DOCUMENT_CLASSES_PATH}/{normalize_filename(document_type)}.json"
-        try:
-            with open(file_name, "r", encoding="utf-8") as f:
-                doc_cls = json.load(f)
-                doc_cls = doc_cls.get("document_class_schema", {}).get("document", {})
-                if doc_cls:
-                    schema_templates[document_type] = doc_cls
-                    logger.info(f"Loaded schema for document type '{document_type}' from {file_name}")
-                else:
-                    logger.warning(f"No valid schema found in {file_name}")
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning(f"Failed to load schema for '{document_type}' from {file_name}: {exc}")
+    loaded_schemas = DocumentClassUtils.get_schema_templates(document_types)
+    schema_templates.update(loaded_schemas)
 
 
 def _load_schema_from_file(schema_file: str, table_name: str) -> dict[str, Any] | None:

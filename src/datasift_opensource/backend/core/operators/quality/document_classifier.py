@@ -260,50 +260,11 @@ class DocumentClassifierOperator(AbstractOperator):
         Returns:
             Dictionary mapping document_type to document_description
         """
-        import os
+        from common.util.document_class_utils import DocumentClassUtils
         from pathlib import Path
-
-        document_types = {}
-
-        try:
-            doc_classes_path = Path(DOCUMENT_CLASSES_PATH)
-
-            if not doc_classes_path.exists():
-                logger.warning(f"Document classes path not found: {doc_classes_path}")
-                return {}
-
-            # Read all .json files in the directory
-            json_files = list(doc_classes_path.glob("*.json"))
-            logger.info(f"Found {len(json_files)} document class files in {doc_classes_path}")
-
-            for json_file in json_files:
-                try:
-                    with open(json_file, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-
-                    # Extract document_type and document_description from the schema
-                    doc_schema = data.get("document_class_schema", {}).get("document", {})
-                    doc_type = doc_schema.get("document_type")
-                    doc_description = doc_schema.get("document_description")
-
-                    if doc_type and doc_description:
-                        document_types[doc_type] = doc_description
-                        logger.debug(f"Loaded document type '{doc_type}' from {json_file.name}")
-                    else:
-                        logger.warning(
-                            f"Skipping {json_file.name}: missing document_type or document_description"
-                        )
-
-                except (OSError, json.JSONDecodeError) as e:
-                    logger.warning(f"Failed to load {json_file.name}: {str(e)}")
-                    continue
-
-            logger.info(f"Successfully loaded {len(document_types)} document types")
-            return document_types
-
-        except Exception as e:
-            logger.error(f"Error loading document types: {str(e)}")
-            return {}
+        
+        doc_classes_path = Path(DOCUMENT_CLASSES_PATH)
+        return DocumentClassUtils.get_document_types(doc_classes_path)
 
 
     def _call_ollama_chat(self, messages: List[Dict[str, str]]) -> str:
