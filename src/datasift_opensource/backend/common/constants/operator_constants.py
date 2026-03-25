@@ -444,6 +444,8 @@ class OperatorConstants:
         ENABLED_TEXT: Final[str] = "enabled_text"
         ENTITY_CURATION_OPERATOR: Final[str] = "entity_curation_operator"
         ENTITY_EXTRACT: Final[str] = "extract_entity"
+        DOCUMENT_CLASSIFIER: Final[str] = "document_classifier"
+        DOCLING_CHUNKER: Final[str] = "docling_chunker"
         ENTITY_STORE_OPERATOR: Final[str] = "entity_store"
         FORCED: Final[str] = "forced"
         FULL_OUTER_JOIN: Final[str] = "full_outer"

@@ -517,6 +517,94 @@ def test_extract_docling_txt_with_special_characters():
         if os.path.exists(temp_file_path):
             os.unlink(temp_file_path)
 
+@pytest.mark.unit
+def test_extract_docling_with_existing_content():
+    """Test that operator skips extraction if content column already exists."""
+    import pyarrow as pa
+    from core.operators.extract import ExtractDoclingOperator
+    # Create table with existing content column
+    table = pa.table({
+        "id": ["doc1"],
+        "name": ["test.pdf"],
+        "path": ["/path/to/test.pdf"],
+        "content": ["Existing content"],
+        "doc_id_hash": ["existing_hash"]
+    })
+    
+    # Initialize operator
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "extract_tables": True,
+        "extract_images": True
+    }
+    
+    operator = ExtractDoclingOperator(config)
+    
+    # Transform the table
+    result_tables, metadata = operator.transform(table)
+    result_table = result_tables[0]
+    
+    # Assertions - should return original table unchanged
+    assert result_table.num_rows == 1, "Should have 1 row"
+    assert result_table["content"][0].as_py() == "Existing content", "Should keep existing content"
+    assert result_table["doc_id_hash"][0].as_py() == "existing_hash", "Should keep existing hash"
+    assert "message" in metadata, "Should have message in metadata"
+
+
+@pytest.mark.unit
+def test_extract_docling_parallel_processing():
+    """Test the ExtractDoclingOperator with parallel processing configuration."""
+    import pyarrow as pa
+    from core.operators.extract import ExtractDoclingOperator
+    
+    # Get test files
+    fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "customer_support_docs"
+    test_files = list(fixtures_dir.glob("*.txt"))[:3]
+    
+    if len(test_files) < 2:
+        pytest.skip("Need at least 2 files for parallel processing test")
+    
+    # Prepare data for PyArrow table
+    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    
+    for file_path in test_files:
+        with open(file_path, "rb") as f:
+            binary_content = f.read()
+        
+        file_data["id"].append(str(file_path))
+        file_data["name"].append(file_path.name)
+        file_data["path"].append(str(file_path))
+        file_data["binary_content"].append(binary_content)
+    
+    # Create PyArrow table
+    table = pa.table(file_data)
+    
+    # Test with ThreadPoolExecutor
+    config_threads = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "extract_tables": False,
+        "extract_images": False,
+        "max_workers": 2,
+        "use_processes": False
+    }
+    
+    operator_threads = ExtractDoclingOperator(config_threads)
+    result_tables, metadata = operator_threads.transform(table)
+    result_table = result_tables[0]
+    
+    # Assertions
+    assert result_table.num_rows == len(test_files), "Should process all files"
+    assert metadata["processed_docs"] == len(test_files), "Should process all documents"
+    
+    # Verify all content was extracted
+    for idx in range(result_table.num_rows):
+        content = result_table["content"][idx].as_py()
+        assert content is not None, f"Content should not be None for row {idx}"
+        assert len(content) > 0, f"Content should not be empty for row {idx}"
+
+
 
 if __name__ == "__main__":
     import pytest
