@@ -106,13 +106,14 @@ class TestOpenSearchOperatorInitialization:
 
     def test_basic_initialization(self, basic_config):
         """Test basic operator initialization"""
-        with patch("core.operators.vectordb.opensearch_operator.OpenSearch"):
+        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
             operator = OpenSearchOperator(basic_config)
-            assert operator.host == "localhost"
-            assert operator.port == 9200
             assert operator.index_name == "test_index"
             assert operator.engine == "faiss"
             assert operator.algorithm == "hnsw"
+            assert operator.client_manager is not None
+            assert operator.index_manager is not None
+            assert operator.batch_processor is not None
 
     def test_missing_required_host(self, basic_config):
         """Test that missing host raises error"""
@@ -165,9 +166,9 @@ class TestEngineConfiguration:
         config[ENGINE_KEY] = "faiss"
         config[ALGORITHM_KEY] = "hnsw"
 
-        with patch("core.operators.vectordb.opensearch_operator.OpenSearch"):
+        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
             operator = OpenSearchOperator(config)
-            params = operator._get_engine_parameters()
+            params = operator.index_manager._get_engine_parameters()
             assert "ef_construction" in params
             assert "m" in params
 
@@ -177,9 +178,9 @@ class TestEngineConfiguration:
         config[ENGINE_KEY] = "faiss"
         config[ALGORITHM_KEY] = "ivf"
 
-        with patch("core.operators.vectordb.opensearch_operator.OpenSearch"):
+        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
             operator = OpenSearchOperator(config)
-            params = operator._get_engine_parameters()
+            params = operator.index_manager._get_engine_parameters()
             assert "nlist" in params
             assert "nprobe" in params
 
@@ -188,9 +189,9 @@ class TestEngineConfiguration:
         config = basic_config.copy()
         config[ENGINE_PARAMETERS_KEY] = {"ef_construction": 256, "m": 32}
 
-        with patch("core.operators.vectordb.opensearch_operator.OpenSearch"):
+        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
             operator = OpenSearchOperator(config)
-            params = operator._get_engine_parameters()
+            params = operator.index_manager._get_engine_parameters()
             assert params["ef_construction"] == 256
             assert params["m"] == 32
 
@@ -198,11 +199,11 @@ class TestEngineConfiguration:
 class TestIndexManagement:
     """Test index creation and management"""
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_create_index_mapping(self, mock_opensearch, basic_config):
         """Test index mapping creation"""
         operator = OpenSearchOperator(basic_config)
-        mapping = operator._create_index_mapping()
+        mapping = operator.index_manager.create_index_mapping()
 
         assert "mappings" in mapping
         assert "properties" in mapping["mappings"]
@@ -219,7 +220,7 @@ class TestIndexManagement:
         assert meta["engine"] == "faiss"
         assert meta["algorithm"] == "hnsw"
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_index_creation(self, mock_opensearch, basic_config):
         """Test index creation"""
         mock_client = MagicMock()
@@ -227,7 +228,7 @@ class TestIndexManagement:
         mock_opensearch.return_value = mock_client
 
         operator = OpenSearchOperator(basic_config)
-        operator._create_index()
+        operator.index_manager.create_index()
 
         # Verify index creation was called
         mock_client.indices.create.assert_called_once()
@@ -239,7 +240,7 @@ class TestIndexManagement:
 class TestDocumentProcessing:
     """Test document preparation and processing"""
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_prepare_document(self, mock_opensearch, basic_config):
         """Test document preparation"""
         operator = OpenSearchOperator(basic_config)
@@ -250,7 +251,7 @@ class TestDocumentProcessing:
             "embeddings": [0.1, 0.2, 0.3],
         }
 
-        doc = operator._prepare_document(row_data)
+        doc = operator.batch_processor.prepare_document(row_data)
 
         # Check feature mappings are applied
         assert "pk" in doc  # doc_id_hash mapped to pk
@@ -259,7 +260,7 @@ class TestDocumentProcessing:
         assert doc["pk"] == "doc1"
         assert doc["text"] == "Test content"
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_prepare_document_with_none_values(self, mock_opensearch, basic_config):
         """Test document preparation with None values"""
         operator = OpenSearchOperator(basic_config)
@@ -270,7 +271,7 @@ class TestDocumentProcessing:
             "embeddings": [0.1, 0.2, 0.3],
         }
 
-        doc = operator._prepare_document(row_data)
+        doc = operator.batch_processor.prepare_document(row_data)
 
         assert "pk" in doc
         assert "text" not in doc  # None value should be excluded
@@ -280,8 +281,8 @@ class TestDocumentProcessing:
 class TestBatchProcessing:
     """Test batch processing functionality"""
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_operator.helpers.bulk")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_transform_basic(
         self, mock_bulk, mock_opensearch, basic_config, sample_table
     ):
@@ -303,7 +304,7 @@ class TestBatchProcessing:
         assert metadata["processed_docs"] == 3
         assert metadata["failed_docs_count"] == 0
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_transform_missing_doc_id_column(self, mock_opensearch, basic_config):
         """Test transform with missing doc_id column"""
         mock_client = MagicMock()
@@ -319,7 +320,7 @@ class TestBatchProcessing:
 
         assert metadata["node_status"] == "failed"
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_transform_empty_table(self, mock_opensearch, basic_config):
         """Test transform with empty table"""
         mock_client = MagicMock()
@@ -338,7 +339,7 @@ class TestBatchProcessing:
 class TestQueryCapabilities:
     """Test query and delete capabilities"""
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_query_by_doc_names(self, mock_opensearch, basic_config):
         """Test querying documents by names"""
         mock_client = MagicMock()
@@ -360,8 +361,8 @@ class TestQueryCapabilities:
         assert docs[0]["name"] == "doc1"
         assert docs[1]["name"] == "doc2"
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_operator.helpers.bulk")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_delete_documents_by_ids(self, mock_bulk, mock_opensearch, basic_config):
         """Test deleting documents by IDs"""
         mock_client = MagicMock()
@@ -375,7 +376,7 @@ class TestQueryCapabilities:
         assert success == 2
         assert failed == 0
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_document_count(self, mock_opensearch, basic_config):
         """Test getting document count"""
         mock_client = MagicMock()
@@ -392,8 +393,8 @@ class TestQueryCapabilities:
 class TestChunkedEmbeddings:
     """Test chunked embeddings support"""
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_operator.helpers.bulk")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_transform_with_chunked_embeddings(
         self, mock_bulk, mock_opensearch, basic_config, chunked_embeddings_table
     ):
@@ -423,8 +424,8 @@ class TestChunkedEmbeddings:
         total_docs = sum(len(call[0][1]) for call in call_args)
         assert total_docs == 5  # 3 chunks from doc1 + 2 chunks from doc2
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_operator.helpers.bulk")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_chunked_embeddings_document_ids(
         self, mock_bulk, mock_opensearch, basic_config, chunked_embeddings_table
     ):
@@ -459,7 +460,7 @@ class TestChunkedEmbeddings:
 class TestAutoDimensionDetection:
     """Test automatic vector dimension detection"""
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_detect_dimension_from_flat_embeddings(
         self, mock_opensearch, basic_config, sample_table
     ):
@@ -470,11 +471,11 @@ class TestAutoDimensionDetection:
         mock_opensearch.return_value = mock_client
 
         operator = OpenSearchOperator(basic_config)
-        detected_dim = operator._detect_vector_dimension(sample_table)
+        detected_dim = operator.index_manager.detect_vector_dimension(sample_table)
 
         assert detected_dim == 384  # Should detect 384 from sample data
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_detect_dimension_from_chunked_embeddings(
         self, mock_opensearch, basic_config, chunked_embeddings_table
     ):
@@ -485,11 +486,13 @@ class TestAutoDimensionDetection:
         mock_opensearch.return_value = mock_client
 
         operator = OpenSearchOperator(basic_config)
-        detected_dim = operator._detect_vector_dimension(chunked_embeddings_table)
+        detected_dim = operator.index_manager.detect_vector_dimension(
+            chunked_embeddings_table
+        )
 
         assert detected_dim == 384  # Should detect 384 from first chunk
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_detect_dimension_empty_table(self, mock_opensearch, basic_config):
         """Test dimension detection with empty table"""
         mock_client = MagicMock()
@@ -498,11 +501,11 @@ class TestAutoDimensionDetection:
 
         empty_table = pa.table({"doc_id_hash": [], "embeddings": []})
         operator = OpenSearchOperator(basic_config)
-        detected_dim = operator._detect_vector_dimension(empty_table)
+        detected_dim = operator.index_manager.detect_vector_dimension(empty_table)
 
         assert detected_dim is None  # Should return None for empty table
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_detect_dimension_missing_column(self, mock_opensearch, basic_config):
         """Test dimension detection with missing embeddings column"""
         mock_client = MagicMock()
@@ -511,12 +514,12 @@ class TestAutoDimensionDetection:
 
         table = pa.table({"doc_id_hash": ["doc1"], "content": ["test"]})
         operator = OpenSearchOperator(basic_config)
-        detected_dim = operator._detect_vector_dimension(table)
+        detected_dim = operator.index_manager.detect_vector_dimension(table)
 
         assert detected_dim is None  # Should return None when column missing
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_operator.helpers.bulk")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_transform_uses_auto_detected_dimension(
         self, mock_bulk, mock_opensearch, basic_config, sample_table
     ):
@@ -534,15 +537,16 @@ class TestAutoDimensionDetection:
         operator.transform(sample_table)
 
         # Verify dimension was auto-detected and updated
-        assert operator.vector_dimension == 384  # Auto-detected, not config value
-        assert operator.dimension_auto_detected is True
+        assert (
+            operator.index_manager.vector_dimension == 384
+        )  # Auto-detected, not config value
 
 
 class TestBackwardCompatibility:
     """Test backward compatibility with existing functionality"""
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_operator.helpers.bulk")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_flat_embeddings_still_work(
         self, mock_bulk, mock_opensearch, basic_config, sample_table
     ):
@@ -575,7 +579,7 @@ class TestBackwardCompatibility:
         assert "doc3" in doc_ids
         assert "doc1_chunk_0" not in doc_ids  # No chunk suffixes for flat embeddings
 
-    @patch("core.operators.vectordb.opensearch_operator.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_config_dimension_used_when_detection_fails(
         self, mock_opensearch, basic_config
     ):
@@ -589,7 +593,7 @@ class TestBackwardCompatibility:
         table = pa.table({"doc_id_hash": ["doc1"], "embeddings": [None]})
 
         operator = OpenSearchOperator(basic_config)
-        detected_dim = operator._detect_vector_dimension(table)
+        detected_dim = operator.index_manager.detect_vector_dimension(table)
 
         assert detected_dim is None
         # Config dimension should be used as fallback
@@ -613,7 +617,7 @@ class TestMetadata:
             "algorithm": "hnsw",
         }
 
-        with patch("core.operators.vectordb.opensearch_operator.OpenSearch"):
+        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
             operator = OpenSearchOperator(config)
             metadata = operator.get_metadata()
 
