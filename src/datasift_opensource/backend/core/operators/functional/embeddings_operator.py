@@ -477,7 +477,7 @@ class EmbeddingsOperator(AbstractOperator):
         # Parse chunked_content - it can be a JSON string or a list
         chunked_content: list[Any] = []
         if isinstance(chunked_content_raw, str):
-            # Parse JSON string from DoclingChunkerOperator
+            # Parse JSON string from chunker operator
             try:
                 chunked_content = json.loads(chunked_content_raw)
                 logger.debug(
@@ -761,9 +761,9 @@ def main() -> int:
 
     # Calculate project root directory dynamically
     # Current file is at: src/datasift_opensource/backend/core/operators/universal/embeddings/embeddings_operator.py
-    # Path structure: embeddings_operator.py -> embeddings -> universal -> operators -> core -> backend -> datasift_opensource -> src -> PROJECT_ROOT
-    # Need to go up 8 levels to reach project root
-    project_root: Path = Path(__file__).resolve().parents[7]
+    # Path structure: embeddings_operator.py -> functional -> operators -> core -> backend -> datasift_opensource -> src -> PROJECT_ROOT
+    # Need to go up 6 levels to reach project root (datasift-opensource)
+    project_root: Path = Path(__file__).resolve().parents[6]
     default_pdf_path: Path = project_root / "tests" / "fixtures" / "invoices"
 
     # Parse command line arguments
@@ -852,8 +852,8 @@ def main() -> int:
         from core.operators.extract.extract_docling import (
             ExtractDoclingOperator,
         )
-        from core.operators.functional.docling_chunker import (
-            DoclingChunkerOperator,
+        from core.operators.functional.chunker import (
+            ChunkerOperator,
         )
         from core.operators.ingest.ingest_local_folder import (
             IngestLocalOperator,
@@ -1029,14 +1029,16 @@ def main() -> int:
     print("=" * 80)
 
     chunk_config: dict[str, Any] = {
+        "chunk_type": "hybrid",  # Use hybrid chunking strategy
         "doc_column": "content",
         "chunk_size": args.chunk_size,
         "chunk_overlap": 128,
+        "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
         "retain_original_content": True,
     }
 
     try:
-        chunker_operator: Any = DoclingChunkerOperator(chunk_config)
+        chunker_operator: Any = ChunkerOperator(chunk_config)
         chunk_tables: list[pa.Table]
         chunk_metadata: dict[str, Any]
         chunk_tables, chunk_metadata = chunker_operator.transform(extract_table)
@@ -1044,7 +1046,7 @@ def main() -> int:
 
         print(f"✓ Chunked {chunk_table.num_rows} document(s)")
         print(f"  Columns: {chunk_table.column_names}")
-        print(f"  Total chunks: {chunk_metadata.get('total_chunks', 0)}")
+        print(f"  Total chunks: {chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0)}")
         print(
             f"  Metadata: Processed={chunk_metadata.get('processed_docs', 0)}, "
             f"Failed={chunk_metadata.get('failed_docs_count', 0)}"
@@ -1052,11 +1054,9 @@ def main() -> int:
 
         # Show sample chunk info
         if "chunked_content" in chunk_table.column_names and chunk_table.num_rows > 0:
-            import json
-
             chunked_content: Any = chunk_table["chunked_content"][0].as_py()
             if chunked_content:
-                chunks: list[dict[str, Any]] = json.loads(chunked_content)
+                chunks: list[dict[str, Any]] = chunked_content
                 print(f"\n  First document has {len(chunks)} chunks")
                 if chunks:
                     first_chunk: dict[str, Any] = chunks[0]
@@ -1135,7 +1135,7 @@ def main() -> int:
     print("=" * 80)
     print(f"✓ Ingest:     {ingest_metadata.get('processed_docs', 0)} documents")
     print(f"✓ Extract:    {extract_metadata.get('processed_docs', 0)} documents")
-    print(f"✓ Chunk:      {chunk_metadata.get('total_chunks', 0)} chunks")
+    print(f"✓ Chunk:      {chunk_metadata.get('processed_docs', 0)} documents")
     print(f"✓ Embeddings: {embeddings_metadata.get('processed_docs', 0)} documents")
     print("=" * 80)
     print("\n✓ Pipeline completed successfully!")

@@ -50,7 +50,7 @@ class DocIdHashOperator(AbstractOperator):
 
     This is an internal operator (IS_OPERATOR_AVAILABLE = False).
     It is used internally by other operators (e.g., ExtractDoclingOperator,
-    DoclingChunkerOperator, EmbeddingsOperator) to generate document hash IDs.
+    ChunkerOperator, EmbeddingsOperator) to generate document hash IDs.
     """
 
     short_name: str = OperatorConstants.Operators.DOC_ID_OPERATOR
