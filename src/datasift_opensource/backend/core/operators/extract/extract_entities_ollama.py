@@ -614,7 +614,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                     f"These documents will use the default schema instead."
                 )
             if schema_templates:
-                logger.info(f"Successfully loaded schemas for: {list(schema_templates.keys())}")
+                logger.info("Successfully loaded schemas for: %s", list(schema_templates.keys()))
         entities_list: list[dict[str, Any]] = [{}] * table.num_rows
 
         # Build task list
@@ -626,7 +626,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             content = row.get(self.doc_column) or ""
             # Log content preview for debugging
             content_preview = content[:200] if content else "(empty)"
-            logger.info(f"Document '{doc_name}' (ID: {doc_id}) content preview: {content_preview}...")
+            logger.info("Document '%s' (ID: %s) content preview: %s...", doc_name, doc_id, content_preview)
 
             if not content:
                 self.record_skipped_document(

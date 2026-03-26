@@ -48,7 +48,7 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
     Returns:
         Dictionary containing extracted structured data
     """
-    logger.info(f"Processing file with template: {file_path}")
+    logger.info("Processing file with template: %s", file_path)
 
     try:
         from docling.document_extractor import DocumentExtractor
@@ -67,7 +67,7 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
                 result = extractor.extract(source=tmp_path, template=template)
             else:
                 # Fall back to basic extraction if no template
-                logger.warning(f"No template provided for {file_path}, using basic extraction")
+                logger.warning("No template provided for %s, using basic extraction", file_path)
                 return OperatorUtils.extract_basic_worker(file_path, binary_content, extract_tables=True, extract_images=True)
 
             # Convert pages to proper dict format
@@ -81,7 +81,7 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
                 }
                 pages_data.append(page_dict)
 
-            logger.info(f"Saved structured results for {file_path}")
+            logger.info("Saved structured results for %s", file_path)
 
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
@@ -335,7 +335,7 @@ class ExtractDoclingOperator(AbstractOperator):
                     row_doc_type = document_types[task["idx"]]
                     if row_doc_type and row_doc_type in template_cache:
                         template_to_use = template_cache[row_doc_type]
-                        logger.debug(f"Using template for document type '{row_doc_type}' for {task['doc_name']}")
+                        logger.debug("Using template for document type '%s' for %s", row_doc_type, task['doc_name'])
                 
                 if self.use_template:
                     future = executor.submit(

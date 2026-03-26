@@ -203,7 +203,7 @@ class DocumentClassUtils:
         target_tables = schema.get("target_tables", [])
 
         if not fields:
-            logger.warning(f"No fields found in document class: {doc_class_path}")
+            logger.warning("No fields found in document class: %s", doc_class_path)
             return {}
 
         if not target_tables:
@@ -317,7 +317,7 @@ class DocumentClassUtils:
         doc_classes_dir = Path(DocumentClassUtils.DOCUMENT_CLASSES_PATH)
 
         if not doc_classes_dir.exists():
-            logger.warning(f"Document classes directory not found: {doc_classes_dir}")
+            logger.warning("Document classes directory not found: %s", doc_classes_dir)
             return []
 
         result = []
@@ -335,7 +335,7 @@ class DocumentClassUtils:
                     }
                 )
             except Exception as e:
-                logger.warning(f"Error loading {json_file}: {e}")
+                logger.warning("Error loading %s: %s", json_file, e)
                 continue
 
         return sorted(result, key=lambda x: x["name"])
@@ -439,13 +439,13 @@ class DocumentClassUtils:
 
         try:
             if not doc_classes_dir.exists():
-                logger.warning(f"Document classes path not found: {doc_classes_dir}")
+                logger.warning("Document classes path not found: %s", doc_classes_dir)
                 return {}
 
             # Read all .json files in the directory
             json_files = list(doc_classes_dir.glob("*.json"))
             logger.info(
-                f"Found {len(json_files)} document class files in {doc_classes_dir}"
+                "Found %s document class files in %s", len(json_files), doc_classes_dir
             )
 
             for json_file in json_files:
@@ -471,14 +471,14 @@ class DocumentClassUtils:
                         )
 
                 except (OSError, json.JSONDecodeError) as e:
-                    logger.warning(f"Failed to load {json_file.name}: {str(e)}")
+                    logger.warning("Failed to load %s: %s", json_file.name, str(e))
                     continue
 
-            logger.info(f"Successfully loaded {len(document_types)} document types")
+            logger.info("Successfully loaded %s document types", len(document_types))
             return document_types
 
         except Exception as e:
-            logger.error(f"Error loading document types: {str(e)}")
+            logger.error("Error loading document types: %s", str(e))
             return {}
 
     @staticmethod
@@ -514,10 +514,10 @@ class DocumentClassUtils:
                     if doc_cls:
                         schema_templates[document_type] = doc_cls
                         logger.info(
-                            f"Loaded schema for document type '{document_type}' from {file_name}"
+                            "Loaded schema for document type '%s' from %s", document_type, file_name
                         )
                     else:
-                        logger.warning(f"No valid schema found in {file_name}")
+                        logger.warning("No valid schema found in %s", file_name)
             except (OSError, json.JSONDecodeError) as exc:
                 logger.warning(
                     f"Failed to load schema for '{document_type}' from {file_name}: {exc}"
@@ -554,7 +554,7 @@ class DocumentClassUtils:
             logger.debug("No new document types to process for template generation")
             return
         
-        logger.info(f"Generating Docling templates for document types: {unique_doc_types}")
+        logger.info("Generating Docling templates for document types: %s", unique_doc_types)
     
         
         for doc_type in unique_doc_types:
@@ -578,7 +578,7 @@ class DocumentClassUtils:
                 # Update cache in-place
                 template_cache[doc_type] = template
                 logger.info(
-                    f"Generated Docling template for '{doc_type}' with {len(template)} fields"
+                    "Generated Docling template for '%s' with %s fields", doc_type, len(template)
                 )
                 
             except Exception as e:
@@ -588,5 +588,5 @@ class DocumentClassUtils:
         
         if template_cache:
             logger.info(
-                f"Template cache now contains {len(template_cache)} templates: {list(template_cache.keys())}"
+                "Template cache now contains %s templates: %s", len(template_cache), list(template_cache.keys())
             )
