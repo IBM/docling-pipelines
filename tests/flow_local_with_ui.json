@@ -36,10 +36,10 @@
             {
                 "id": "6101c752-523e-4a4a-84e2-81e0b2109129",
                 "name": "chunk",
-                "operator": "docling_chunker",
+                "operator": "chunker",
                 "config": {
+                    "chunk_type": "hybrid",
                     "doc_column": "content",
-                    
                     "chunk_size": 512,
                     "chunk_overlap": 128,
                     "retain_original_content": "true"
