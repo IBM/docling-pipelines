@@ -44,8 +44,9 @@
             {
                 "id": "33333333-3333-3333-3333-333333333333",
                 "name": "chunk",
-                "operator": "docling_chunker",
+                "operator": "chunker",
                 "config": {
+                    "chunk_type": "hybrid",
                     "doc_column": "content",
                     "chunk_size": 512,
                     "chunk_overlap": 128,

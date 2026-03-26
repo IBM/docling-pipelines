@@ -32,10 +32,12 @@ class ChunkType(StrEnum):
     Attributes:
         SIMPLE: Fixed-size chunking with overlap (traditional approach)
         SEMANTIC: Content-aware chunking based on semantic similarity (LangChain)
+        HYBRID: Hierarchical + semantic chunking using Docling's HybridChunker
     """
 
     SIMPLE = "simple"
     SEMANTIC = "semantic"
+    HYBRID = "hybrid"
 
 
 CHUNK_TYPE_KEY: str = "chunk_type"
@@ -53,6 +55,12 @@ CHUNK_OVERLAP_MAX_SIZE: int = 512  # Maximum overlap size
 # Semantic Chunking Constants
 SEMANTIC_EMBEDDINGS_MODEL_KEY: str = "semantic_embeddings_model"
 SEMANTIC_EMBEDDINGS_MODEL_DEFAULT: str = "granite4"  # Default Ollama model for embeddings
+
+# Docling Chunking Constants
+DOCLING_TOKENIZER_KEY: str = "docling_tokenizer"
+DOCLING_TOKENIZER_DEFAULT: str = "sentence-transformers/all-MiniLM-L6-v2"
+DOCLING_CHUNK_SIZE_MIN: int = 100  # Minimum chunk size in tokens for Docling
+DOCLING_CHUNK_SIZE_MAX: int = 2048  # Maximum chunk size in tokens for Docling
 
 
 # Breakpoint Threshold Constants
@@ -90,11 +98,11 @@ RETAIN_ORIGINAL_CONTENT_DEFAULT: bool = True  # Keep original content alongside 
 logger = get_logger()
 
 
-class SemanticChunkerOperator(AbstractOperator):
+class ChunkerOperator(AbstractOperator):
     """
-    Operator for intelligent text chunking with support for both simple and semantic strategies.
+    Operator for intelligent text chunking with support for simple, semantic, and docling strategies.
 
-    This operator provides two chunking approaches:
+    This operator provides three chunking approaches:
 
     1. **Simple Chunking**: Traditional fixed-size chunking with configurable overlap.
        Uses LangChain's CharacterTextSplitter for consistent chunk sizes.
@@ -103,8 +111,11 @@ class SemanticChunkerOperator(AbstractOperator):
        Uses LangChain's SemanticChunker with Ollama embeddings to identify natural
        breakpoints in text, creating chunks that maintain semantic coherence.
 
+    3. **Docling Chunking**: Hierarchical chunking using Docling's HybridChunker.
+       Respects document structure and uses tokenizer-based chunking.
+
     Configuration Parameters:
-        chunk_type (str): Chunking strategy - "simple" or "semantic"
+        chunk_type (str): Chunking strategy - "simple", "semantic", or "docling"
 
         Simple Chunking Parameters:
             chunk_size (int): Size of each chunk in characters (500-5000)
@@ -122,6 +133,11 @@ class SemanticChunkerOperator(AbstractOperator):
                 - For std dev: positive number (e.g., 2.0 for 2 std devs)
                 - None: Use LangChain defaults
 
+        Docling Chunking Parameters:
+            chunk_size (int): Size of each chunk in tokens (100-2048)
+            chunk_overlap (int): Overlap between consecutive chunks (0-512)
+            docling_tokenizer (str): HuggingFace tokenizer model (default: "sentence-transformers/all-MiniLM-L6-v2")
+
     Example Configurations:
         Simple chunking:
             {"chunk_type": "simple", "chunk_size": 1000, "chunk_overlap": 200}
@@ -132,6 +148,14 @@ class SemanticChunkerOperator(AbstractOperator):
                 "semantic_embeddings_model": "granite4",
                 "breakpoint_threshold_type": "percentile",
                 "breakpoint_threshold_amount": 95.0
+            }
+
+        Docling chunking:
+            {
+                "chunk_type": "hybrid",
+                "chunk_size": 512,
+                "chunk_overlap": 50,
+                "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2"
             }
     """
 
@@ -145,12 +169,13 @@ class SemanticChunkerOperator(AbstractOperator):
         Args:
             config: Configuration dictionary containing:
                 - doc_column (str): Column name containing document content
-                - chunk_type (str): "simple" or "semantic" chunking strategy
-                - chunk_size (int): Size for simple chunking (default: 1000)
+                - chunk_type (str): "simple", "semantic", or "docling" chunking strategy
+                - chunk_size (int): Size for simple/docling chunking (default: 1000)
                 - chunk_overlap (int): Overlap for simple chunking (default: 200)
                 - semantic_embeddings_model (str): Ollama model for semantic chunking (default: "granite4")
                 - breakpoint_threshold_type (str): Boundary detection method (default: "percentile")
                 - breakpoint_threshold_amount (float): Threshold value (default: None)
+                - docling_tokenizer (str): Tokenizer for docling chunking (default: "sentence-transformers/all-MiniLM-L6-v2")
                 - retain_original_content (bool): Keep original content (default: True)
         """
         super().__init__(config)
@@ -172,6 +197,7 @@ class SemanticChunkerOperator(AbstractOperator):
         self.breakpoint_threshold_amount: float | None = config.get(
             BREAKPOINT_THRESHOLD_AMOUNT_KEY, BREAKPOINT_THRESHOLD_AMOUNT_DEFAULT
         )
+        self.docling_tokenizer: str = config.get(DOCLING_TOKENIZER_KEY, DOCLING_TOKENIZER_DEFAULT)
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
@@ -181,6 +207,9 @@ class SemanticChunkerOperator(AbstractOperator):
 
         # Initialize Ollama client for semantic chunking (lazy initialization)
         self._ollama_client: OllamaClient | None = None
+
+        # Docling HybridChunker will be lazily initialized when needed
+        self._docling_chunker = None
 
     def get_metadata(self) -> dict[str, Any]:
         operator_metadata = {
@@ -227,11 +256,11 @@ class SemanticChunkerOperator(AbstractOperator):
                 },
                 OperatorConstants.Processing.CHUNK_SIZE: {
                     OperatorConstants.Misc.NAME: "Chunk Size",
-                    OperatorConstants.Config.DESCRIPTION: "Chunk Size defined by user",
+                    OperatorConstants.Config.DESCRIPTION: "Chunk size in characters (simple: 500-5000) or tokens (docling: 100-2048). Validation enforced based on chunk_type.",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: OperatorConstants.Processing.CHUNK_SIZE_DEFAULT,
-                    OperatorConstants.Filtering.MIN_VALUE: CHUNK_MIN_SIZE,
-                    OperatorConstants.Filtering.MAX_VALUE: CHUNK_MAX_SIZE,
+                    OperatorConstants.Filtering.MIN_VALUE: DOCLING_CHUNK_SIZE_MIN,  # Use minimum across all types (100)
+                    OperatorConstants.Filtering.MAX_VALUE: CHUNK_MAX_SIZE,  # Use maximum across all types (5000)
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 CHUNK_OVERLAP_KEY: {
@@ -265,6 +294,20 @@ class SemanticChunkerOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: BREAKPOINT_THRESHOLD_AMOUNT_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
+                DOCLING_TOKENIZER_KEY: {
+                    OperatorConstants.Misc.NAME: "Docling Tokenizer",
+                    OperatorConstants.Config.DESCRIPTION: "Tokenizer model to use for Docling chunking (HuggingFace model name)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DOCLING_TOKENIZER_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                RETAIN_ORIGINAL_CONTENT_KEY: {
+                    OperatorConstants.Misc.NAME: "Retain Original Content",
+                    OperatorConstants.Config.DESCRIPTION: "Whether to keep the original content column after chunking",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: RETAIN_ORIGINAL_CONTENT_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
             },
         }
 
@@ -273,9 +316,9 @@ class SemanticChunkerOperator(AbstractOperator):
     def get_required_features(self) -> list[str]:
         return [self.doc_column]
 
-    def _validate_standard_chunker(self, errors: list[Any]) -> None:
+    def _validate_simple_chunker(self, errors: list[Any]) -> None:
         """
-        Validate configuration for standard chunking (non-semantic).
+        Validate configuration for simple chunking.
 
         Args:
             errors: List to append validation errors to
@@ -345,6 +388,37 @@ class SemanticChunkerOperator(AbstractOperator):
             if not self.semantic_embeddings_model or not self.semantic_embeddings_model.strip():
                 errors.append("semantic_embeddings_model cannot be empty for semantic chunking")
 
+    def _validate_docling_chunker(self, errors: list[Any]) -> None:
+        """
+        Validate configuration for hybrid chunking.
+
+        Args:
+            errors: List to append validation errors to
+        """
+        # Validate chunk_size for hybrid chunking (token-based, different range than simple)
+        if self.should_validate_field(field_value=self.chunk_size):
+            if self.chunk_size is not None and not is_value_in_range(
+                value=self.chunk_size,
+                min_value=DOCLING_CHUNK_SIZE_MIN,
+                max_value=DOCLING_CHUNK_SIZE_MAX,
+            ):
+                errors.append(
+                    f"Invalid input: chunk_size for hybrid chunking must be between {DOCLING_CHUNK_SIZE_MIN} and {DOCLING_CHUNK_SIZE_MAX} tokens."
+                )
+
+        # Validate chunk_overlap for hybrid chunking
+        if self.should_validate_field(field_value=self.chunk_overlap):
+            if self.chunk_overlap is not None:
+                if self.chunk_overlap < 0:
+                    errors.append("Invalid input: chunk_overlap must be non-negative for hybrid chunking.")
+                elif self.chunk_size is not None and self.chunk_overlap >= self.chunk_size:
+                    errors.append("Invalid input: chunk_overlap must be less than chunk_size for hybrid chunking.")
+
+        # Validate tokenizer is not empty
+        if self.should_validate_field(field_value=self.docling_tokenizer):
+            if not self.docling_tokenizer or not self.docling_tokenizer.strip():
+                errors.append("docling_tokenizer cannot be empty for hybrid chunking")
+
     def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
         super().validate(errors, warnings, available_features)
         if OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT in available_features:
@@ -355,18 +429,23 @@ class SemanticChunkerOperator(AbstractOperator):
                 )
             )
 
-        self._validate_standard_chunker(errors)
+        self._validate_simple_chunker(errors)
 
         # Validate semantic chunking parameters if using semantic chunking
         if self.chunk_type == ChunkType.SEMANTIC.value:
             self._validate_semantic_chunker(errors)
 
-    def simple_split_text(self, content: str) -> list[Document]:
+        # Validate hybrid chunking parameters if using hybrid chunking
+        elif self.chunk_type == ChunkType.HYBRID.value:
+            self._validate_docling_chunker(errors)
+
+    def _simple_split_text(self, content: str) -> list[Document]:
         """
         Perform simple fixed-size chunking with overlap using LangChain's CharacterTextSplitter.
 
-        This method splits text into chunks of approximately equal size with configurable
-        overlap between consecutive chunks. Uses period (.) as the primary separator.
+        This is an internal method that splits text into chunks of approximately equal size
+        with configurable overlap between consecutive chunks. Uses period (.) as the primary
+        separator.
 
         Args:
             content: Text content to split into chunks
@@ -375,7 +454,8 @@ class SemanticChunkerOperator(AbstractOperator):
             List of Document objects, each containing a chunk of text
 
         Note:
-            Uses self.chunk_size and self.chunk_overlap configuration parameters
+            Uses self.chunk_size and self.chunk_overlap configuration parameters.
+            This method is called internally by _split_text() and should not be called directly.
         """
         from langchain_text_splitters import CharacterTextSplitter
 
@@ -391,21 +471,17 @@ class SemanticChunkerOperator(AbstractOperator):
 
         Creates and caches an OllamaClient instance configured with the semantic
         embeddings model. The client is reused across multiple chunking operations
-        for efficiency.
+        for efficiency. Reuses the same client pattern as EmbeddingsOperator.
 
         Returns:
             OllamaClient: Configured client for generating embeddings
 
+        Raises:
+            DatasiftException: If client initialization fails
+
         Note:
             The client is initialized with validate_model=True to ensure the
             specified model is available before use.
-        Reuses the same client pattern as EmbeddingsOperator.
-
-        Returns:
-            Initialized OllamaClient instance
-
-        Raises:
-            DatasiftException: If client initialization fails
         """
         if self._ollama_client is None:
             try:
@@ -418,14 +494,14 @@ class SemanticChunkerOperator(AbstractOperator):
                 raise DatasiftException(f"Failed to initialize OllamaClient for semantic chunking: {e!s}") from e
         return self._ollama_client
 
-    def semantic_split_text(self, content: str) -> list[Document]:
+    def _semantic_split_text(self, content: str) -> list[Document]:
         """
         Perform semantic chunking using LangChain's SemanticChunker with Ollama embeddings.
 
-        This method uses embeddings to identify natural breakpoints in text based on
-        semantic similarity. Text is split into sentences, embeddings are generated for
-        sentence groups, and chunks are created at points where semantic similarity drops
-        below the configured threshold.
+        This is an internal method that uses embeddings to identify natural breakpoints in
+        text based on semantic similarity. Text is split into sentences, embeddings are
+        generated for sentence groups, and chunks are created at points where semantic
+        similarity drops below the configured threshold.
 
         The method integrates with the project's OllamaClient for consistency with other
         operators and reuses the embeddings infrastructure.
@@ -444,6 +520,7 @@ class SemanticChunkerOperator(AbstractOperator):
             - self.semantic_embeddings_model: Ollama model for embeddings
             - self.breakpoint_threshold_type: Method for detecting boundaries
             - self.breakpoint_threshold_amount: Threshold value for the method
+            This method is called internally by _split_text() and should not be called directly.
         """
         from langchain_core.embeddings import Embeddings
         from langchain_experimental.text_splitter import SemanticChunker
@@ -515,13 +592,156 @@ class SemanticChunkerOperator(AbstractOperator):
 
         return docs
 
+    def _get_docling_chunker(self):
+        """
+        Lazy initialization of Docling HybridChunker.
+
+        Creates and caches a HybridChunker instance configured with the specified
+        tokenizer and chunk size. The chunker is reused across multiple chunking
+        operations for efficiency.
+
+        Returns:
+            HybridChunker: Configured chunker for Docling-based chunking
+
+        Raises:
+            DatasiftException: If chunker initialization fails
+
+        Note:
+            Uses self.docling_tokenizer and self.chunk_size configuration parameters.
+        """
+        if self._docling_chunker is None:
+            try:
+                from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
+
+                self._docling_chunker = HybridChunker(
+                    tokenizer=self.docling_tokenizer,
+                    max_tokens=self.chunk_size,
+                    merge_peers=True,  # Merge chunks at the same hierarchy level
+                )
+                logger.info(
+                    f"Initialized Docling HybridChunker with tokenizer: {self.docling_tokenizer}, max_tokens: {self.chunk_size}",
+                    extra=self.common_log_arguments,
+                )
+            except Exception as e:
+                raise DatasiftException(f"Failed to initialize Docling HybridChunker: {e!s}") from e
+        return self._docling_chunker
+
+    def _create_docling_document_from_markdown(self, markdown_content: str, doc_name: str | None = None):
+        """
+        Create a DoclingDocument from markdown content.
+
+        Args:
+            markdown_content: Markdown text content
+            doc_name: Document name
+
+        Returns:
+            DoclingDocument instance
+        """
+        from docling_core.types.doc.document import DoclingDocument
+        from docling_core.types.doc.labels import DocItemLabel
+
+        # Create a basic DoclingDocument
+        doc: DoclingDocument = DoclingDocument(name=doc_name or "document")
+
+        # Split markdown into paragraphs and add as text items
+        paragraphs: list[str] = [p.strip() for p in markdown_content.split("\n\n") if p.strip()]
+
+        for para in paragraphs:
+            if para:
+                # add_text expects text string and label
+                doc.add_text(text=para, label=DocItemLabel.TEXT)
+
+        return doc
+
+    def _docling_split_text(self, content: str, doc_name: str | None = None) -> list[Document]:
+        """
+        Perform Docling-based chunking using HybridChunker.
+
+        This is an internal method that uses Docling's hybrid chunking approach which combines:
+        - Hierarchical chunking (respects document structure)
+        - Semantic chunking (groups related content)
+
+        Args:
+            content: Text content to split into chunks
+            doc_name: Optional document name for metadata
+
+        Returns:
+            List of Document objects, each containing a chunk of text with metadata
+
+        Raises:
+            DatasiftException: If chunking fails
+
+        Note:
+            Uses self.chunk_size and self.docling_tokenizer configuration parameters.
+            This method is called internally by _split_text() and should not be called directly.
+        """
+        try:
+            # Get the Docling chunker instance
+            chunker = self._get_docling_chunker()
+
+            # Create DoclingDocument from markdown content
+            docling_doc = self._create_docling_document_from_markdown(content, doc_name)
+
+            # Chunk the document
+            chunk_iter = chunker.chunk(dl_doc=docling_doc)
+
+            # Convert chunks to LangChain Document format
+            docs: list[Document] = []
+            for idx, chunk in enumerate(chunk_iter):
+                doc = Document(
+                    page_content=chunk.text,
+                    metadata={
+                        "start_index": getattr(chunk, "start_index", idx * self.chunk_size),
+                        "chunk_id": idx,
+                        "doc_name": doc_name,
+                        "token_count": len(chunk.text.split()),  # Approximate token count
+                    },
+                )
+                docs.append(doc)
+
+            logger.debug(
+                f"Docling chunking created {len(docs)} chunks",
+                extra=self.common_log_arguments,
+            )
+
+            return docs
+
+        except Exception as e:
+            logger.error(
+                f"Error in Docling chunking: {e!s}",
+                extra=self.common_log_arguments,
+            )
+            raise DatasiftException(f"Docling chunking failed: {e!s}") from e
+
     def _split_text(self, content: str) -> list[Document]:
+        """
+        Route text to the appropriate chunking method based on chunk_type.
+
+        This is an internal dispatcher method that selects the chunking strategy
+        (simple, semantic, or hybrid) based on the configured chunk_type.
+
+        Args:
+            content: Text content to split into chunks
+
+        Returns:
+            List of Document objects containing chunks
+
+        Raises:
+            DatasiftException: If an invalid chunk_type is configured
+
+        Note:
+            This method is called internally by transform() and should not be called directly.
+        """
         chunk_type: str = self.chunk_type.lower()
 
         if chunk_type == ChunkType.SIMPLE.value:
-            return self.simple_split_text(content)
+            return self._simple_split_text(content)
         elif chunk_type == ChunkType.SEMANTIC.value:
-            return self.semantic_split_text(content)
+            return self._semantic_split_text(content)
+        elif chunk_type == ChunkType.HYBRID.value:
+            # For hybrid chunking, we need the doc_name from context
+            # We'll extract it in the transform method
+            return self._docling_split_text(content)
         else:
             raise DatasiftException(f"Invalid chunk type: {self.chunk_type}")
 
@@ -534,6 +754,7 @@ class SemanticChunkerOperator(AbstractOperator):
         input_doc_data: list[dict[str, Any]] = table.to_pylist()
         chunked_content_column: list[list[dict[str, Any]]] = []
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
+        total_chunks: int = 0
         remove_row_idx: list[int] = []
         for idx, doc in enumerate(input_doc_data):
             try:
@@ -580,6 +801,10 @@ class SemanticChunkerOperator(AbstractOperator):
 
             chunked_content_column.append(chunked_content)
             metadata[Metrics.External.PROCESSED_DOCS] += 1
+            total_chunks += len(chunked_content)
+
+        # Add total_chunks to metadata
+        metadata[Metrics.External.TOTAL_CHUNKS] = total_chunks
 
         table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
         if chunked_content_column:
@@ -587,6 +812,10 @@ class SemanticChunkerOperator(AbstractOperator):
                 table=table,
                 name=OperatorConstants.Columns.CHUNKED_CONTENT,
                 content=chunked_content_column,
+            )
+            logger.info(
+                f"Added chunked_content column with {total_chunks} total chunks",
+                extra=self.common_log_arguments,
             )
 
         # Add the hash column to the pyarrow table
@@ -615,7 +844,7 @@ def main_simple(runtime: str = "python") -> None:  # pragma: no cover
         cd src/datasift_opensource/backend
         source .venv/bin/activate
         export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-        python -m core.operators.universal.chunker.semantic_chunker
+        python -m core.operators.functional.chunker
 
     Note: Must be run as a module (python -m) with proper PYTHONPATH for imports to work correctly.
     """
@@ -653,9 +882,9 @@ def main_simple(runtime: str = "python") -> None:  # pragma: no cover
     print(
         f"\n>>>>>>>>>>>>> Testing SIMPLE chunking with size: {config['chunk_size']}, overlap: {config['chunk_overlap']}"
     )
-    operator: SemanticChunkerOperator
+    operator: ChunkerOperator
     if runtime == "python":
-        operator = SemanticChunkerOperator(config=config)
+        operator = ChunkerOperator(config=config)
     else:
         raise ValueError("unknown operator value")
     print(operator)
@@ -703,7 +932,7 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
         cd src/datasift_opensource/backend
         source .venv/bin/activate
         export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-        python -c "from core.operators.functional.semantic_chunker import main_semantic; main_semantic()"
+        python -c "from core.operators.functional.chunker import main_semantic; main_semantic()"
 
     Note: Must be run as a module (python -m) with proper PYTHONPATH for imports to work correctly.
     """
@@ -775,9 +1004,120 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
     print(
         f">>>>>>>>>>>>> Breakpoint type: {config['breakpoint_threshold_type']}, amount: {config['breakpoint_threshold_amount']}"
     )
-    operator: SemanticChunkerOperator
+    operator: ChunkerOperator
     if runtime == "python":
-        operator = SemanticChunkerOperator(config=config)
+        operator = ChunkerOperator(config=config)
+    else:
+        raise ValueError("unknown operator value")
+    print(operator)
+
+    metadata: dict[str, Any]
+    table_list, metadata = operator.transform(table)
+    table = table_list[0]
+    print(table.schema)
+    print(f">>>>>>>>>>>>> Number of rows after chunking: {table.num_rows}")
+
+    # Calculate chunk statistics per document and overall
+    print("\n>>>>>>>>>>>>> Per-Document Chunk Statistics:")
+    total_chunks = 0
+    all_chunk_sizes = []
+
+    for row in table.to_pylist():
+        doc_name = row.get("name", "Unknown")
+        if row.get("chunked_content"):
+            chunks = row["chunked_content"]
+            num_chunks = len(chunks)
+            total_chunks += num_chunks
+
+            doc_chunk_sizes = []
+            for chunk in chunks:
+                if "chunk" in chunk:
+                    size = len(chunk["chunk"])
+                    doc_chunk_sizes.append(size)
+                    all_chunk_sizes.append(size)
+
+            if doc_chunk_sizes:
+                avg_size = sum(doc_chunk_sizes) / len(doc_chunk_sizes)
+                min_size = min(doc_chunk_sizes)
+                max_size = max(doc_chunk_sizes)
+                print(f"  {doc_name}:")
+                print(f"    Chunks: {num_chunks}, Avg: {avg_size:.0f}, Min: {min_size}, Max: {max_size} chars")
+
+    # Initialize statistics variables
+    avg_chunk_size = 0.0
+    min_chunk_size = 0
+    max_chunk_size = 0
+
+    if all_chunk_sizes:
+        avg_chunk_size = sum(all_chunk_sizes) / len(all_chunk_sizes)
+        min_chunk_size = min(all_chunk_sizes)
+        max_chunk_size = max(all_chunk_sizes)
+        print("\n>>>>>>>>>>>>> Overall Chunk Statistics:")
+        print(f"  Total chunks created: {total_chunks}")
+        print(f"  Average chunk size: {avg_chunk_size:.2f} characters")
+        print(f"  Min chunk size: {min_chunk_size} characters")
+        print(f"  Max chunk size: {max_chunk_size} characters")
+
+    print(f"\n>>>>>>>>>>>>> Meta Data : - \n {json.dumps(metadata, indent=2)}")
+
+
+def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
+    """
+    Demo pipeline: Ingest → Extract → Chunk (Hybrid)
+
+    This demonstrates hybrid chunking using HybridChunker.
+    Hybrid chunking combines hierarchical and semantic chunking for optimal results.
+
+    Usage:
+        cd src/datasift_opensource/backend
+        source .venv/bin/activate
+        export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+        python -c "from core.operators.functional.chunker import main_hybrid; main_hybrid()"
+
+    Note: Must be run as a module (python -m) with proper PYTHONPATH for imports to work correctly.
+    """
+    print("=" * 80)
+    print("HYBRID CHUNKING DEMO")
+    print("=" * 80)
+
+    # 1. Ingest files
+    ingest_operator: IngestLocalOperator = IngestLocalOperator(
+        {
+            "input_folder": "../../../tests/fixtures/customer_support_docs/",
+            "include_filter": "pdf,txt",
+            "force_ingest": True,
+        }
+    )
+
+    input_table: pa.Table | None = None
+    table_list, _ = ingest_operator.transform(input_table)
+    table: pa.Table = table_list[0]
+    print(f">>>>>>>>>>>>> Number of rows after ingest: {table.num_rows}")
+
+    # 2. Extract text content from binary
+    extract_operator: ExtractDoclingOperator = ExtractDoclingOperator(
+        {
+            "doc_column": "content",
+        }
+    )
+    table_list, _ = extract_operator.transform(table)
+    table = table_list[0]
+    print(f">>>>>>>>>>>>> Number of rows after extraction: {table.num_rows}")
+
+    # 3. Run chunking operator with hybrid chunking
+    config: dict[str, Any] = {
+        "chunk_type": ChunkType.HYBRID.value,  # Use hybrid chunking
+        "chunk_size": 512,  # Token-based chunk size
+        "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",  # Tokenizer for chunking
+        "doc_column": "content",
+        "retain_original_content": True,
+    }
+    print(f"\n>>>>>>>>>>>>> Testing HYBRID chunking with chunk_size: {config['chunk_size']} tokens")
+    print(f">>>>>>>>>>>>> Tokenizer: {config['docling_tokenizer']}")
+
+    operator: ChunkerOperator
+    if runtime == "python":
+        operator = ChunkerOperator(config=config)
     else:
         raise ValueError("unknown operator value")
     print(operator)
@@ -833,10 +1173,14 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
 
 
 def main(runtime: str = "python") -> None:  # pragma: no cover
-    # Running SIMPLE chunking demo (default)
-    # For semantic chunking, use: main_semantic()
-    # main_simple(runtime)
-    main_semantic(runtime)
+    # For simple chunking, use:
+    #   main_simple()
+
+    # For semantic chunking, use:
+    # main_semantic(runtime)
+
+    # For hybrid chunking, use:
+    main_hybrid(runtime)
 
 
 if __name__ == "__main__":  # pragma: no cover
