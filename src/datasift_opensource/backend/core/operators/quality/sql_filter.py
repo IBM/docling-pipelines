@@ -16,7 +16,6 @@ from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count, validate_filter_criteria
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 
@@ -98,7 +97,7 @@ class SQLFilterOperator(AbstractOperator):
 
         # Only validate if both fields are not parameterized
         if should_validate_criteria and should_validate_json:
-            criteria_valid, json_valid = validate_filter_criteria(
+            criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(
                 criteria_list=self.filter_criteria,
                 criteria_json=self.filter_criteria_json,
             )
@@ -162,7 +161,7 @@ class SQLFilterOperator(AbstractOperator):
         :return: list of output tables and custom statistics
         """
         # Initialize metadata
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
         try:
             filtered_table: list[pa.Table] = self._dpk_transform(table=table, metadata=metadata)
@@ -317,7 +316,7 @@ class SQLFilterOperator(AbstractOperator):
         metadata["docs_after_filter"] = filtered_table.num_rows
         metadata["columns_after_filter"] = filtered_table_cols_dropped.num_columns
         metadata["bytes_after_filter"] = filtered_table.nbytes
-        metadata[Metrics.External.PROCESSED_DOCS] = find_doc_count(table=filtered_table_cols_dropped)
+        metadata[Metrics.External.PROCESSED_DOCS] = OperatorUtils.find_doc_count(table=filtered_table_cols_dropped)
 
         return [filtered_table_cols_dropped]
 

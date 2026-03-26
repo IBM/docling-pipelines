@@ -6,12 +6,8 @@ separating these concerns from the main orchestrator logic.
 """
 
 import copy
-import threading
 from collections.abc import Callable
 from typing import Any, ParamSpec, TypeVar
-
-import pyarrow as pa
-from data_processing.data_access import DataAccess, DataAccessFactory
 
 from common.constants.constants import DatasiftConstants, TaskType
 from common.constants.operator_constants import OperatorConstants
@@ -63,7 +59,7 @@ class PrefectFlowExecutor:
     - Managing batch execution with parallelism control
     """
 
-    def __init__(self, orchestrator):
+    def __init__(self, orchestrator, job_id, job_run_id, job_log_path):
         """
         Initialize the Prefect flow executor.
 
@@ -72,14 +68,10 @@ class PrefectFlowExecutor:
         """
         self.orchestrator = orchestrator
         self.logger = get_logger()
-        self.__job_run_id: str | None = None
-        self.__job_id: str | None = None
-        self.common_log_arguments = None
-
-    def set_job_ids(self, *, job_id, job_run_id):
-        self.__job_id = job_id
-        self.__job_run_id = job_run_id
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.__job_id, DatasiftConstants.JOB_RUN_ID: self.__job_run_id}
+        self.job_id = job_id
+        self.job_run_id = job_run_id
+        self.job_log_path = job_log_path
+        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
 
     def build_flow(self, *, name, flow_impl):
         """Build a Prefect flow for operator execution."""
@@ -107,19 +99,21 @@ class PrefectFlowExecutor:
             task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"]),
         )(self.__non_execute_inner_flow)
 
-    def batch_outer_flow_impl(self, op_flow, batches, global_config, job_log_final_path):
+    def batch_outer_flow_impl(self, op_flow, batches, global_config):
         """
         Process batches using Prefect sub-flows with DAG parallelism.
 
         Each batch executes as an independent Prefect sub-flow that processes
         the entire DAG with full operator-level parallelism.
         """
-        # Initialize global operator semaphore (shared across all batches)
+        # Initialize global operator semaphore (shared across all batches) via batch manager
         max_concurrent_operators = global_config.get(
             DatasiftConstants.MAX_CONCURRENT_TASKS,
             DatasiftConstants.DEFAULT_MAX_CONCURRENT_TASKS,
         )
-        self._global_operator_semaphore = threading.Semaphore(max_concurrent_operators)
+        self.orchestrator.batch_manager.initialize_operator_semaphore(
+            max_concurrent_operators=max_concurrent_operators
+        )
 
         # 1. Build the inner flow to execute a batch once (reusable for all batches)
         inner_flow = self.build_flow(name="batch_sub_flow", flow_impl=self.__flow_impl)
@@ -127,36 +121,30 @@ class PrefectFlowExecutor:
         # Create a task wrapper for subflow execution
         def batch_cache_key_fn(context, parameters):
             """Custom cache key that excludes batch_data_access to avoid serialization errors."""
-            return f"{parameters.get('batch_num')}_{self.__job_run_id}"
+            return f"{parameters.get('batch_num')}_{self.job_run_id}"
 
         # 2. Define a task to execute inner flow
         @task(cache_key_fn=batch_cache_key_fn)
-        def batch_subflow_task(batch_num, op_flow, global_config, job_log_final_path, batch_data_access):
+        def batch_subflow_task(batch_num, op_flow, global_config, batch_data_access):
             """Execute a single batch as a Prefect subflow."""
             logger.info("Inside batch_subflow_task()")
             batch_global_config = global_config.copy()
             if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
                 batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
 
-            return inner_flow(
-                op_flow=op_flow,
-                data_access=batch_data_access,
-                global_config=batch_global_config,
-                job_log_final_path=job_log_final_path,
-            )
+            return inner_flow(op_flow=op_flow, data_access=batch_data_access,global_config=batch_global_config)
 
         # Submit all batches as tasks
         batch_futures = []
 
         for batch_num, batch_table in enumerate(batches):
-            batch_data_access = self._create_batch_data_access(batch_table=batch_table)
+            batch_data_access = self.orchestrator.batch_manager.create_batch_data_access(batch_table=batch_table)
 
             # 3. Submit task that executes sub flow for each batch
             future = batch_subflow_task.submit(
                 batch_num=batch_num,
                 op_flow=op_flow,
                 global_config=global_config,
-                job_log_final_path=job_log_final_path,
                 batch_data_access=batch_data_access
             )
             batch_futures.append((batch_num, future))
@@ -203,7 +191,7 @@ class PrefectFlowExecutor:
             persist_result=persist_result,
         )
 
-    def __flow_impl(self, op_flow, data_access, global_config, job_log_final_path):
+    def __flow_impl(self, op_flow, data_access, global_config):
         """
         Execute the inner flow with Prefect task orchestration.
 
@@ -293,7 +281,6 @@ class PrefectFlowExecutor:
                     op_def=op_def,
                     global_config=global_config,
                     prev_results=prev_results,
-                    job_log_final_path=job_log_final_path,
                     session_info=session_info,
                     deleted_docs_count=deleted_docs_count,
                     link_id=link_id
@@ -309,16 +296,11 @@ class PrefectFlowExecutor:
                         results.set_entry(index, future, len(op_def.get(DatasiftConstants.OUTPUT_EDGES)))
                 prev_index = index
             except Exception as e:
-                self.orchestrator._handle_exception(
-                    e=e,
-                    op_def=op_def,
-                    job_log_final_path=job_log_final_path,
-                    global_config=global_config
-                )
+                self.orchestrator._handle_node_failure(e=e, op_def=op_def, global_config=global_config)
 
         self.__wait_for_tasks(destinations=destinations)
         job_tracker = JobTracker()
-        job_stats = job_tracker.get_job(job_run_id=self.orchestrator.get_job_run_id())
+        job_stats = job_tracker.get_job(job_run_id=self.job_run_id)
         failed_doc_ids = self.orchestrator._collect_failed_doc_ids(job_stats=job_stats)
 
         tables = [
@@ -330,7 +312,7 @@ class PrefectFlowExecutor:
         ]
         incremental_update_util.save_metadata_for_incremental_update(
             job_id=self.orchestrator.context_id,
-            job_run_id=self.orchestrator.get_job_run_id(),
+            job_run_id=self.job_run_id,
             tables=tables,
             failed_doc_ids=failed_doc_ids,
         )
@@ -430,15 +412,5 @@ class PrefectFlowExecutor:
             error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{e!s}"
             logger.error(error, stack_info=True, exc_info=True)
             raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED)
-
-    @staticmethod
-    def _create_batch_data_access(*, batch_table: pa.Table) -> DataAccess:
-        """Create a DataAccess object for a batch table."""
-        data_access_factory = DataAccessFactory()
-        config = {"data_config": {"da_class": "data_processing.data_access.DataAccessMemory"}}
-        data_access_factory.apply_input_params(config)
-        batch_data_access = data_access_factory.create_data_access()
-        batch_data_access.save_table(path="", table=batch_table)
-        return batch_data_access
 
 # Made with Bob

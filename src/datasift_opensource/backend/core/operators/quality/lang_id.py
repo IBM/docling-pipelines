@@ -5,15 +5,14 @@ import pyarrow as pa
 from data_processing.utils.transform_utils import TransformUtils
 from langdetect import detect_langs
 
+from common.constants import OperatorConstants
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
     ExecutionStatus,
-    Metrics,
-    OperatorConstants,
+    Metrics
 )
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count, remove_rows
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 
@@ -83,7 +82,7 @@ class LanguageDetect(AbstractOperator):
 
         OperatorUtils.validate_columns(table=table, required=[self.doc_column_name], operator_name=self.short_name)
 
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
         new_doc_content: list[Any] = table[self.doc_column_name].to_pylist()
         language_name_column: list[str] = []
@@ -130,7 +129,7 @@ class LanguageDetect(AbstractOperator):
                     if not message:
                         message = "Documents with no language detected are marked as UNKNOWN"
 
-        table = remove_rows(table=table, remove_row_idx=remove_row_idx)
+        table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
 
         table = TransformUtils.add_column(
             table=table,

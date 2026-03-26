@@ -11,7 +11,6 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 
@@ -132,7 +131,7 @@ class RedactionOperator(AbstractOperator):
 
         logger.info("Running transform function.", extra=self.common_log_arguments)
         # Initialize metadata
-        metadata = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
         metadata["total_redactions"] = 0
 
         if self.pattern is None:
@@ -140,7 +139,7 @@ class RedactionOperator(AbstractOperator):
                 "No word or regex pattern provided for redaction, skipping redaction",
                 extra=self.common_log_arguments,
             )
-            metadata[Metrics.External.PROCESSED_DOCS] = find_doc_count(table=table)
+            metadata[Metrics.External.PROCESSED_DOCS] = OperatorUtils.find_doc_count(table=table)
             metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
                 metadata[Metrics.External.NODE_STATUS],
                 ExecutionStatus.COMPLETED_WITH_WARNINGS,

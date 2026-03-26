@@ -16,8 +16,8 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
-from common.util.operator_utils import find_doc_count
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.operator_utils import OperatorUtils
 
 logger = get_logger()
 
@@ -189,7 +189,7 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
                 column: pa.ChunkedArray = transformed_table.column(i)
                 casted_column: pa.ChunkedArray = column.cast(pa.string())
                 transformed_table = transformed_table.set_column(i, field.name, casted_column)
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=find_doc_count(table=table))
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
         metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
         return [transformed_table], metadata
 
