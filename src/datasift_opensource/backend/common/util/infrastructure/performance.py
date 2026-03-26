@@ -6,8 +6,8 @@ import pyarrow as pa
 
 from common.constants.constants import DatasiftConstants
 from common.models.session_info import get_session_info
-from common.util.datasift_utils import get_current_timestamp
-from common.util.log import get_logger
+from common.util.core.datetime import get_current_timestamp
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -112,7 +112,7 @@ def log_memory_usage(
     if logger:
         logger.info(log_fields_str, extra=extra)
     else:
-        from common.util.log import get_logger
+        from common.util.infrastructure.logging import get_logger
 
         logger = get_logger()
         logger.info(log_fields_str, extra=extra)

@@ -13,7 +13,7 @@
 import time
 
 from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -86,3 +86,18 @@ def retry_with_exponential_backoff(max_retries=5, initial_delay=2, max_delay=60,
         return wrapper
 
     return decorator
+
+
+
+def should_retry_on_result(result, exception):
+    """
+    Default retry logic for postgres advisory lock acquisition.
+    
+    Args:
+        result: The result from the function call
+        exception: Any exception that occurred
+        
+    Returns:
+        Tuple of (should_retry: bool, error_message: str)
+    """
+    return not bool(result), "Error in acquiring postgres advisory lock"

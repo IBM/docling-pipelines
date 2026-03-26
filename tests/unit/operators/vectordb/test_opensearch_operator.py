@@ -14,7 +14,7 @@ from core.operators.vectordb.opensearch_operator import (
     ENGINE_PARAMETERS_KEY,
 )
 from common.constants.operator_constants import OperatorConstants
-from common.util.env_config import get_opensearch_config
+from common.util.infrastructure.config import get_opensearch_config
 
 
 @pytest.fixture

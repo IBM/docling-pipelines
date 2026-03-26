@@ -9,7 +9,7 @@ from typing import Any
 
 from opensearchpy import OpenSearch, helpers
 
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 

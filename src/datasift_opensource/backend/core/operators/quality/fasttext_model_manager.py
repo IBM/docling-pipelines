@@ -20,7 +20,7 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 
 class FastTextConstants:

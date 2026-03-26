@@ -8,8 +8,8 @@ import pyarrow as pa
 import pytest
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.util.datasift_utils import get_data_path
-from common.util.incremental_update_util import IncrementalUpdateUtil
+from common.util.infrastructure.filesystem import get_data_path
+from common.util.data.incremental_update import IncrementalUpdateUtil
 from core.operators.ingest.ingest_utils import is_doc_previously_processed
 
 
@@ -218,7 +218,7 @@ def test_delete_file_success_cpd():
 
 
 def test_delete_file_exception_cpd():
-    with patch("common.util.parquet_table_handler.get_logger") as mock_get_logger:
+    with patch("common.util.data.pyarrow_handler.get_logger") as mock_get_logger:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
@@ -228,10 +228,10 @@ def test_delete_file_exception_cpd():
         with patch("os.remove", side_effect=Exception("Mock removal error")):
             with patch("os.path.exists", return_value=True):
                 with patch(
-                    "common.util.parquet_table_handler._lock_path",
+                    "common.util.data.pyarrow_handler._lock_path",
                     return_value="/mock.lock",
                 ):
-                    with patch("common.util.parquet_table_handler.FileLock"):
+                    with patch("common.util.data.pyarrow_handler.FileLock"):
                         util.parquet_table_handler.delete_file(path=table_path)
 
         mock_logger.error.assert_called_once()

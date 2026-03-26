@@ -3,7 +3,7 @@
 from typing import Any
 
 from common.constants.operator_constants import OperatorConstants
-from common.util.operator_metadata import OperatorMetadata
+from common.util.operators.metadata import OperatorMetadata
 
 
 def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = False) -> str:

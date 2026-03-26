@@ -15,8 +15,8 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.models.session_info import get_session_info
-from common.util.log import get_logger
-from common.util.orchestrator_utils import update_deleted_rows
+from common.util.infrastructure.logging import get_logger
+from common.util.orchestration.deleted_rows_tracker import update_deleted_rows
 from core.data_access.data_access_utils import DataAccessUtils
 from core.operators.abstract_operator import AbstractOperator
 from core.operators.operator_utils import OperatorUtils

@@ -20,11 +20,11 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.models.session_info import get_session_info
-from common.util.common_utils import Singleton
-from common.util.datasift_utils import delete_folders, get_data_path
+from common.util.core.patterns import Singleton
+from common.util.infrastructure.filesystem import delete_folders, get_data_path
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.job_tracker.storage.job_stats_store import JobStatsStore
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 CANCELLED_MSG = ">>> Cancelled the execution: %s"

@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import call, patch
 
 from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.retry_utils import retry_with_exponential_backoff
+from common.util.infrastructure.retry import retry_with_exponential_backoff
 
 class RetriableException(Exception):
     pass

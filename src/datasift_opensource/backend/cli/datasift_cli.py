@@ -8,7 +8,7 @@ from typing import Any
 
 from common.constants.constants import OrchestratorType
 from common.util.job_tracker.tracker.job_tracker import JobTracker
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -112,7 +112,7 @@ def main():  # pragma: no cover
 
     # Handle --list-operators command early (before heavy imports)
     if args.list_operators:
-        from common.util.operator_display_utils import list_operators
+        from common.util.operators.display import list_operators
 
         print(list_operators(verbose=args.verbose, summary_only=not args.verbose))
         return

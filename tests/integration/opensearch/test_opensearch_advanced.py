@@ -15,7 +15,7 @@ from core.operators.vectordb.opensearch_operator import (
     OpenSearchAlgorithmTypes,
     VectorSimilarityTypes,
 )
-from common.util.env_config import get_opensearch_config
+from common.util.infrastructure.config import get_opensearch_config
 
 
 # Check if .env file exists
