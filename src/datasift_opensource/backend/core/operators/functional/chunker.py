@@ -62,6 +62,13 @@ DOCLING_TOKENIZER_DEFAULT: str = "sentence-transformers/all-MiniLM-L6-v2"
 DOCLING_CHUNK_SIZE_MIN: int = 100  # Minimum chunk size in tokens for Docling
 DOCLING_CHUNK_SIZE_MAX: int = 2048  # Maximum chunk size in tokens for Docling
 
+# Summarization Constants
+ENABLE_SUMMARIZATION_DEFAULT = False
+MAX_INPUT_TOKENS_KEY = "max_input_tokens"
+OVERLAP_RATIO_KEY = "overlap_ratio"
+SUMMARY_SENTENCES_KEY = "summary_sentences"
+SUMMARY_MAX_WORDS_KEY = "summary_max_words"
+
 
 # Breakpoint Threshold Constants
 class BreakpointThresholdType(StrEnum):
@@ -198,6 +205,20 @@ class ChunkerOperator(AbstractOperator):
             BREAKPOINT_THRESHOLD_AMOUNT_KEY, BREAKPOINT_THRESHOLD_AMOUNT_DEFAULT
         )
         self.docling_tokenizer: str = config.get(DOCLING_TOKENIZER_KEY, DOCLING_TOKENIZER_DEFAULT)
+
+        # Summarization configuration
+        self.enable_summarization: bool = config.get(
+            DatasiftConstants.ENABLE_SUMMARIZATION_KEY, ENABLE_SUMMARIZATION_DEFAULT
+        )
+        if self.enable_summarization:
+            self.summarization_model: str = config.get(
+                DatasiftConstants.SUMMARY_MODEL_ID_KEY, DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT
+            )
+            self.max_length: int = config.get(MAX_INPUT_TOKENS_KEY, DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT)
+            self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, DatasiftConstants.OVERLAP_RATIO_DEFAULT)
+            self.summary_sentences: int = config.get(SUMMARY_SENTENCES_KEY, DatasiftConstants.SUMMARY_SENTENCES_DEFAULT)
+            self.summary_max_words: int = config.get(SUMMARY_MAX_WORDS_KEY, DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT)
+
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
@@ -308,6 +329,47 @@ class ChunkerOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: RETAIN_ORIGINAL_CONTENT_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
+                DatasiftConstants.ENABLE_SUMMARIZATION_KEY: {
+                    OperatorConstants.Misc.NAME: "Enable Summarization",
+                    OperatorConstants.Config.DESCRIPTION: "Generate summaries for each chunk",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: ENABLE_SUMMARIZATION_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                DatasiftConstants.SUMMARY_MODEL_ID_KEY: {
+                    OperatorConstants.Misc.NAME: "Summarization Model",
+                    OperatorConstants.Config.DESCRIPTION: "Ollama model used for summarization",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                SUMMARY_SENTENCES_KEY: {
+                    OperatorConstants.Misc.NAME: "Summary Sentences",
+                    OperatorConstants.Config.DESCRIPTION: "Number of sentences in each summary",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_SENTENCES_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: 1,
+                    OperatorConstants.Filtering.MAX_VALUE: 5,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                SUMMARY_MAX_WORDS_KEY: {
+                    OperatorConstants.Misc.NAME: "Summary Max Words",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum words per summary",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: 10,
+                    OperatorConstants.Filtering.MAX_VALUE: 100,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                MAX_INPUT_TOKENS_KEY: {
+                    OperatorConstants.Misc.NAME: "Max Input Tokens",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum input tokens per summarization request",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: 1000,
+                    OperatorConstants.Filtering.MAX_VALUE: 32000,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
             },
         }
 
@@ -388,6 +450,15 @@ class ChunkerOperator(AbstractOperator):
             if not self.semantic_embeddings_model or not self.semantic_embeddings_model.strip():
                 errors.append("semantic_embeddings_model cannot be empty for semantic chunking")
 
+    def _validate_summarization(self, errors: list[Any]) -> None:
+        if self.should_validate_field(field_value=self.enable_summarization) and self.enable_summarization:
+            if self.should_validate_field(field_value=self.summarization_model):
+                if self.summarization_model is None or len(self.summarization_model) == 0:
+                    errors.append(
+                        "Invalid model id. Summarization Model id not provided. "
+                        "Please select a foundation model from the available models."
+                    )
+
     def _validate_docling_chunker(self, errors: list[Any]) -> None:
         """
         Validate configuration for hybrid chunking.
@@ -438,6 +509,9 @@ class ChunkerOperator(AbstractOperator):
         # Validate hybrid chunking parameters if using hybrid chunking
         elif self.chunk_type == ChunkType.HYBRID.value:
             self._validate_docling_chunker(errors)
+
+        # Validate summarization model
+        self._validate_summarization(errors)
 
     def _simple_split_text(self, content: str) -> list[Document]:
         """
@@ -754,6 +828,34 @@ class ChunkerOperator(AbstractOperator):
         input_doc_data: list[dict[str, Any]] = table.to_pylist()
         chunked_content_column: list[list[dict[str, Any]]] = []
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
+
+        summarization_util = ""
+        if self.enable_summarization:
+            try:
+                from common.util.summarization_util import SummarizationUtil
+
+                summarization_util = SummarizationUtil(
+                    model=self.summarization_model,
+                    max_length=self.max_length,
+                    overlap_ratio=self.overlap_ratio,
+                    summary_sentences=self.summary_sentences,
+                    summary_max_words=self.summary_max_words,
+                    validate_model=False,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Summarization initialization failed, skipping summary generation: {e!s}",
+                    exc_info=True,
+                    extra=self.common_log_arguments,
+                )
+                self.enable_summarization = False
+                metadata[Metrics.External.PROCESSING_MESSAGE] = (
+                    "Failed to generate summary as summarization model initialization failed"
+                )
+                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                    metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
+                ).value
+
         total_chunks: int = 0
         remove_row_idx: list[int] = []
         for idx, doc in enumerate(input_doc_data):
@@ -798,6 +900,21 @@ class ChunkerOperator(AbstractOperator):
                         else 0,
                     }
                 )
+
+            if self.enable_summarization and chunked_content:
+                try:
+                    summarization_util.generate_summary_for_chunked_content(chunked_content=chunked_content)
+                except Exception as e:
+                    logger.warning(
+                        f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
+                        extra=self.common_log_arguments,
+                    )
+                    metadata[Metrics.External.PROCESSING_MESSAGE] = (
+                        "Failed to generate summary for some or all documents"
+                    )
+                    metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                        metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
+                    ).value
 
             chunked_content_column.append(chunked_content)
             metadata[Metrics.External.PROCESSED_DOCS] += 1
@@ -878,6 +995,7 @@ def main_simple(runtime: str = "python") -> None:  # pragma: no cover
         "chunk_size": 1000,  # Size of each chunk
         "chunk_overlap": 200,  # Overlap between chunks
         "doc_column": "content",
+        "enable_summarization": True,
     }
     print(
         f"\n>>>>>>>>>>>>> Testing SIMPLE chunking with size: {config['chunk_size']}, overlap: {config['chunk_overlap']}"
@@ -999,6 +1117,7 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
         "chunk_size": 200,  # Only used for simple chunking
         "chunk_overlap": 50,  # Only used for simple chunking
         "doc_column": "content",
+        "enable_summarization": True,
     }
     print(f"\n>>>>>>>>>>>>> Testing SEMANTIC chunking with model: {config['semantic_embeddings_model']}")
     print(
@@ -1111,6 +1230,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
         "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",  # Tokenizer for chunking
         "doc_column": "content",
         "retain_original_content": True,
+        "enable_summarization": True,
     }
     print(f"\n>>>>>>>>>>>>> Testing HYBRID chunking with chunk_size: {config['chunk_size']} tokens")
     print(f">>>>>>>>>>>>> Tokenizer: {config['docling_tokenizer']}")

@@ -26,6 +26,7 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.util.log import get_logger
+from common.util.summarization_util import SummarizationUtil
 
 # Import TransformUtils from centralized location
 from common.util.transform_utils import TransformUtils
@@ -505,7 +506,7 @@ class EmbeddingsOperator(AbstractOperator):
         for chunk in chunked_content:
             if isinstance(chunk, dict):
                 # Chunk is a dictionary with 'chunk' key
-                chunk_text: str = chunk.get(OperatorConstants.Columns.CHUNK, "")
+                chunk_text = SummarizationUtil.build_chunk_text_for_embedding(chunk=chunk)
                 if chunk_text:
                     texts.append(chunk_text)
             elif isinstance(chunk, str):
@@ -760,9 +761,9 @@ def main() -> int:
     from pathlib import Path
 
     # Calculate project root directory dynamically
-    # Current file is at: src/datasift_opensource/backend/core/operators/universal/embeddings/embeddings_operator.py
+    # Current file is at: src/datasift_opensource/backend/core/operators/functional/embeddings_operator.py
     # Path structure: embeddings_operator.py -> functional -> operators -> core -> backend -> datasift_opensource -> src -> PROJECT_ROOT
-    # Need to go up 6 levels to reach project root (datasift-opensource)
+    # Need to go up 7 levels to reach project root
     project_root: Path = Path(__file__).resolve().parents[6]
     default_pdf_path: Path = project_root / "tests" / "fixtures" / "invoices"
 
@@ -1035,6 +1036,7 @@ def main() -> int:
         "chunk_overlap": 128,
         "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
         "retain_original_content": True,
+        "enable_summarization": True,
     }
 
     try:
