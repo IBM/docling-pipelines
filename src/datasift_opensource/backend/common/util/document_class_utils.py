@@ -10,12 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from common.constants.constants import DatasiftConstants
-from common.constants.operator_constants import OperatorConstants
 from common.util.log import get_logger
 
 logger: logging.Logger = get_logger()
 
-DOCUMENT_CLASSES_PATH = DatasiftConstants.DOCUMENT_CLASSES_PATH
+
 class DocumentClassUtils:
     """Utilities for document class schema operations."""
 
@@ -31,6 +30,7 @@ class DocumentClassUtils:
         "boolean": "boolean",
         "bool": "boolean",
     }
+    DOCUMENT_CLASSES_PATH = DatasiftConstants.DOCUMENT_CLASSES_PATH
 
     @staticmethod
     def normalize_filename(name: str) -> str:
@@ -306,25 +306,15 @@ class DocumentClassUtils:
         }
 
     @staticmethod
-    def list_available_document_classes(
-        doc_classes_dir: str | Path | None = None,
-    ) -> list[dict[str, str]]:
+    def list_available_document_classes() -> list[dict[str, str]]:
         """
         List all available document class JSON files.
-
-        Args:
-            doc_classes_dir: Directory containing document class files
-                           (defaults to common/document_classes)
 
         Returns:
             List of dictionaries with document class info
         """
-        if doc_classes_dir is None:
-            # Default to common/document_classes
-            current_file = Path(__file__)
-            doc_classes_dir = current_file.parent.parent / "document_classes"
 
-        doc_classes_dir = Path(doc_classes_dir)
+        doc_classes_dir = Path(DocumentClassUtils.DOCUMENT_CLASSES_PATH)
 
         if not doc_classes_dir.exists():
             logger.warning(f"Document classes directory not found: {doc_classes_dir}")
@@ -441,14 +431,10 @@ class DocumentClassUtils:
         """
         Load document types from all JSON files in document classes directory.
 
-        Args:
-            doc_classes_dir: Directory containing document class files
-                           (defaults to common/document_classes)
-
         Returns:
             Dictionary mapping document_type to document_description
         """
-        doc_classes_dir = Path(DOCUMENT_CLASSES_PATH)
+        doc_classes_dir = Path(DocumentClassUtils.DOCUMENT_CLASSES_PATH)
         document_types = {}
 
         try:
@@ -497,27 +483,19 @@ class DocumentClassUtils:
 
     @staticmethod
     def get_schema_templates(
-        document_types: list[str], doc_classes_dir: str | Path | None = None
+        document_types: list[str]
     ) -> dict[str, dict]:
         """
         Load document class schemas for given document types.
 
         Args:
             document_types: List of document type names to load
-            doc_classes_dir: Directory containing document class files
-                           (defaults to common/document_classes)
 
         Returns:
             Dictionary mapping document_type to schema dict
         """
-        import re
 
-        if doc_classes_dir is None:
-            # Default to common/document_classes
-            current_file = Path(__file__)
-            doc_classes_dir = current_file.parent.parent / "document_classes"
-
-        doc_classes_dir = Path(doc_classes_dir)
+        doc_classes_dir = Path(DocumentClassUtils.DOCUMENT_CLASSES_PATH)
         schema_templates: dict[str, dict] = {}
 
         
@@ -564,11 +542,8 @@ class DocumentClassUtils:
         Args:
             document_types: List of document type names (may contain duplicates)
             template_cache: Dictionary to update with generated templates (modified in-place)
-            doc_classes_dir: Directory containing document class files
-                           (defaults to common/document_classes)
             include_nested: Whether to include nested fields in templates
         """
-        import re
  
         doc_classes_dir = Path(DatasiftConstants.DOCUMENT_CLASSES_PATH)
         
