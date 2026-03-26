@@ -47,7 +47,6 @@ class OperatorConstants:
         # Processing Operators
         BRANCHING: Final[str] = "branching"
         CHUNKER: Final[str] = "chunker"
-        DOCLING_CHUNKER: Final[str] = "docling_chunker"
         DOC_ID_OPERATOR: Final[str] = "doc_id_hash"
         DOC_QUALITY: Final[str] = "doc_quality"
         EDEDUP: Final[str] = "ededup"
