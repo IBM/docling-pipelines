@@ -58,8 +58,6 @@ DEFAULT_DOC_COLUMN: str = OperatorConstants.Columns.DOC_COLUMN_DEFAULT
 DEFAULT_REQUEST_TIMEOUT: int = 120
 DEFAULT_MAX_CONTENT_LENGTH: int = 2000
 
-DOCUMENT_CLASSES_PATH = DatasiftConstants.DOCUMENT_CLASSES_PATH
-
 class DocumentClassifierOperator(AbstractOperator):
     """
     Operator for classifying documents into predefined types using LLM.
@@ -255,16 +253,11 @@ class DocumentClassifierOperator(AbstractOperator):
     @staticmethod
     def _get_document_types() -> Dict[str, str]:
         """
-        Load document types from all JSON files in DOCUMENT_CLASSES_PATH.
-
         Returns:
             Dictionary mapping document_type to document_description
         """
         from common.util.document_class_utils import DocumentClassUtils
-        from pathlib import Path
-        
-        doc_classes_path = Path(DOCUMENT_CLASSES_PATH)
-        return DocumentClassUtils.get_document_types(doc_classes_path)
+        return DocumentClassUtils.get_document_types()
 
 
     def _call_ollama_chat(self, messages: List[Dict[str, str]]) -> str:

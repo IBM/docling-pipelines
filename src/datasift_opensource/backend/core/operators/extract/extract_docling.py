@@ -24,6 +24,7 @@ from common.constants.constants import (
     Metrics,
 )
 from common.constants.operator_constants import OperatorConstants
+from common.util.document_class_utils import DocumentClassUtils
 from common.util.log import get_logger
 
 # Import TransformUtils from centralized location
@@ -67,7 +68,7 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
             else:
                 # Fall back to basic extraction if no template
                 logger.warning(f"No template provided for {file_path}, using basic extraction")
-                return extract_basic_worker(file_path, binary_content, extract_tables=True, extract_images=True)
+                return OperatorUtils.extract_basic_worker(file_path, binary_content, extract_tables=True, extract_images=True)
 
             # Convert pages to proper dict format
             pages_data = []
@@ -182,7 +183,8 @@ class ExtractDoclingOperator(AbstractOperator):
             f"using {'ProcessPoolExecutor' if self.use_processes else 'ThreadPoolExecutor'}"
         )
 
-    def _expand_extracted_data_columns(self, table: pa.Table, extracted_data_list: list[Any | None]) -> pa.Table:
+    @staticmethod
+    def _expand_extracted_data_columns(table: pa.Table, extracted_data_list: list[Any | None]) -> pa.Table:
         """
         Expand the extracted_data column into individual columns based on the template structure.
         Each key in the extracted_data becomes a separate column in the PyArrow table.

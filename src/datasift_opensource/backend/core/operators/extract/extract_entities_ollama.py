@@ -63,8 +63,6 @@ Rules:
 5. Preserve original values (dates, amounts, names) exactly as they appear.
 6. Include all significant entities: people, organizations, dates, amounts, locations, identifiers, etc.
 """
-
-DOCUMENT_CLASSES_PATH = DatasiftConstants.DOCUMENT_CLASSES_PATH
 # ---------------------------------------------------------------------------
 # Helper functions (adapted from extract_entities.py reference)
 # ---------------------------------------------------------------------------

@@ -15,7 +15,7 @@ from common.util.log import get_logger
 
 logger: logging.Logger = get_logger()
 
-
+DOCUMENT_CLASSES_PATH = DatasiftConstants.DOCUMENT_CLASSES_PATH
 class DocumentClassUtils:
     """Utilities for document class schema operations."""
 
@@ -437,7 +437,7 @@ class DocumentClassUtils:
         return template
 
     @staticmethod
-    def get_document_types(doc_classes_dir: str | Path | None = None) -> dict[str, str]:
+    def get_document_types() -> dict[str, str]:
         """
         Load document types from all JSON files in document classes directory.
 
@@ -448,12 +448,7 @@ class DocumentClassUtils:
         Returns:
             Dictionary mapping document_type to document_description
         """
-        if doc_classes_dir is None:
-            # Default to common/document_classes
-            current_file = Path(__file__)
-            doc_classes_dir = current_file.parent.parent / "document_classes"
-
-        doc_classes_dir = Path(doc_classes_dir)
+        doc_classes_dir = Path(DOCUMENT_CLASSES_PATH)
         document_types = {}
 
         try:
