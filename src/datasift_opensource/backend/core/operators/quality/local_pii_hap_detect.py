@@ -14,7 +14,7 @@ from typing import Any
 
 from common.clients.ollama_client import InteractionMode, OllamaClient
 from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 

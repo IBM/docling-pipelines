@@ -25,11 +25,11 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 from common.util.summarization_util import SummarizationUtil
 
 # Import TransformUtils from centralized location
-from common.util.transform_utils import TransformUtils
+from common.util.data.transform import TransformUtils
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.functional.doc_id_hash import DocIdHashOperator
 from core.operators.operator_utils import OperatorUtils

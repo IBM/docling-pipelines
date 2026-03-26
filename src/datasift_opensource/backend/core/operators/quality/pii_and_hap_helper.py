@@ -14,7 +14,7 @@ from typing import Any
 import pyarrow as pa
 
 from common.constants.operator_constants import OperatorConstants
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 
 class TransformUtils:

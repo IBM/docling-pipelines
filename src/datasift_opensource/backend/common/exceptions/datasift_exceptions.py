@@ -3,9 +3,6 @@ from typing import Any
 
 from common.exceptions.error_codes import ErrorCode
 from common.exceptions.error_messages import ValidationMessage
-from common.util.log import get_logger
-
-logger = get_logger()
 
 
 class DatasiftException(Exception):
@@ -61,6 +58,9 @@ class ValidationAlert(dict):
         """Set extra fields as instance attributes with basic validation."""
         for key, value in kwargs.items():
             if not isinstance(key, str) or not key.isidentifier():
+                # Lazy import to avoid circular dependency
+                from common.util.infrastructure.logging import get_logger
+                logger = get_logger()
                 logger.warning(msg=f"Invalid attribute name: {key}", stack_info=True)
                 continue
             setattr(self, key, value)

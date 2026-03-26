@@ -4,7 +4,7 @@ from typing import Any, Iterator
 
 from common.clients.ollama_client import InteractionMode, OllamaClient
 from common.constants import DatasiftConstants, OperatorConstants
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 

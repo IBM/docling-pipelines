@@ -12,8 +12,8 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages
-from common.util.log import get_logger
-from common.util.perf_utils import cleanup_pyarrow_buffers, log_memory_usage
+from common.util.infrastructure.logging import get_logger
+from common.util.infrastructure.performance import cleanup_pyarrow_buffers, log_memory_usage
 from core.operators.abstract_operator import AbstractOperator
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor

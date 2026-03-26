@@ -38,7 +38,7 @@ build/
 .env.local
 
 # Runtime data and logs
-data/
+/data/
 *.parquet
 *.parquet.lock
 *.pkl

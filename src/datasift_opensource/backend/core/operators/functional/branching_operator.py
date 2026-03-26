@@ -11,8 +11,8 @@ from common.constants.constants import (
     Metrics,
 )
 from common.constants.operator_constants import OperatorConstants
-from common.util.log import get_logger
-from common.util.perf_utils import log_memory_usage
+from common.util.infrastructure.logging import get_logger
+from common.util.infrastructure.performance import log_memory_usage
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.operators.quality.sql_filter import (

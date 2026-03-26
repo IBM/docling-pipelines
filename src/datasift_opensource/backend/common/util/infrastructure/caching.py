@@ -5,8 +5,8 @@ from typing import Any
 
 from cachetools import TTLCache
 
-from common.util.common_utils import Singleton
-from common.util.log import get_logger
+from common.util.core.patterns import Singleton
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 

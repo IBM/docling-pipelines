@@ -1,10 +1,4 @@
-"""
-Centralized TransformUtils implementation for PyArrow table operations.
-
-This module provides a fallback implementation of TransformUtils when the
-data-prep-toolkit-transforms package is not available. It handles common
-PyArrow table transformations used across multiple operators.
-"""
+"""Data transformation utilities for PyArrow table operations."""
 
 from typing import Any
 

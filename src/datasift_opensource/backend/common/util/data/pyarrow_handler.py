@@ -1,3 +1,5 @@
+"""PyArrow table handling utilities for reading, writing, and transforming Parquet tables."""
+
 import os
 from abc import ABC, abstractmethod
 
@@ -7,7 +9,8 @@ import pyarrow.parquet as pq
 from filelock import FileLock
 
 from common.constants.constants import DatasiftConstants
-from common.util.log import get_logger
+from common.util.data.transform import HAS_TRANSFORM_UTILS, TransformUtils
+from common.util.infrastructure.logging import get_logger
 
 LOCK_TIMEOUT: float = 20
 
@@ -145,18 +148,21 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
 
 
 def get_parquet_table_handler() -> BaseParquetTableHandler:
+    """
+    Get the default Parquet table handler implementation.
+    
+    Returns:
+        BaseParquetTableHandler: An instance of CpdParquetTableHandler
+    """
     return CpdParquetTableHandler()
 
 
-def main():  # pragma: no cover
-    table: pa.Table = CpdParquetTableHandler().read_table(path="")
-    from tabulate import tabulate
+__all__ = [
+    "BaseParquetTableHandler",
+    "CpdParquetTableHandler",
+    "get_parquet_table_handler",
+    "TransformUtils",
+    "HAS_TRANSFORM_UTILS",
+]
 
-    print("Incremental Table : \n " + tabulate(table.to_pandas(), headers="keys", tablefmt="pretty"))
-    print(table.schema)
-    print(table.num_rows)
-
-
-# main entry point into the program; used for unit testing only
-if __name__ == "__main__":  # pragma: no cover
-    main()
+# Made with Bob

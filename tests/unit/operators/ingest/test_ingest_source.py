@@ -549,7 +549,7 @@ class TestGetS3FileKeys:
 class TestTransform:
     """Test cases for transform method."""
 
-    @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
+    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_success(
@@ -623,7 +623,7 @@ class TestTransform:
         assert metadata["processed_docs"] == 3
         assert metadata["total_docs_count"] == 3
 
-    @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
+    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_empty_documents(
@@ -666,7 +666,7 @@ class TestTransform:
         assert metadata["node_status"] == "Completed"
         assert metadata["processed_docs"] == 0
 
-    @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
+    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_error_handling(
@@ -705,7 +705,7 @@ class TestTransform:
         assert metadata["node_status"] == "CompletedWithErrors"
         assert metadata["failed_docs_count"] == 1
 
-    @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
+    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_schema_validation(
@@ -766,7 +766,7 @@ class TestTransform:
         assert schema.field("binary_content").type == pa.binary()
         assert schema.field("modified_time").type == pa.int64()
 
-    @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
+    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
     @patch("core.operators.ingest.ingest_source.GoogleDriveLoader")
     @patch("os.path.exists")
     @patch("os.makedirs")
@@ -811,7 +811,7 @@ class TestTransform:
         assert result_tables[0].num_rows == 3
         assert metadata["node_status"] == "Completed"
 
-    @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
+    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_document_without_source(
@@ -866,7 +866,7 @@ class TestTransform:
 class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
 
-    @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
+    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_s3_to_pyarrow_pipeline(

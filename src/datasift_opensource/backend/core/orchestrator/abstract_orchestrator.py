@@ -13,18 +13,23 @@ from common.constants.constants import DatasiftConstants, ExecutionStatus, Metri
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 from common.models.session_info import SessionInfo, get_session_info, set_session_info
-from common.util.datasift_utils import get_current_timestamp, get_data_path
-from common.util.incremental_update_util import IncrementalUpdateUtil
+from common.util.core.datetime import get_current_timestamp
+from common.util.infrastructure.filesystem import get_data_path
+from common.util.data.incremental_update import IncrementalUpdateUtil
 from common.util.job_tracker.tracker.job_tracker import JobStatsDto, JobTracker
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
-from common.util.orchestrator_utils import (
+from common.util.orchestration.prefect_config import (
     clean_up_prefect_home,
+)
+from common.util.orchestration.deleted_rows_tracker import (
     combine_cumulative_deleted_rows,
+)
+from common.util.orchestration.flow_utils import (
     construct_deleted_rows_table_path
 )
-from common.util.parquet_table_handler import BaseParquetTableHandler, get_parquet_table_handler
-from common.util.perf_utils import log_elapsed_time
+from common.util.data.pyarrow_handler import BaseParquetTableHandler, get_parquet_table_handler
+from common.util.infrastructure.performance import log_elapsed_time
 from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
