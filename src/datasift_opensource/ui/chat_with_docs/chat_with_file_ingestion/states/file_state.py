@@ -1,11 +1,9 @@
 import json
 import reflex as rx
-from typing import TypedDict
+from typing import TypedDict, Optional
 import asyncio
 import logging
-import shutil
 import tempfile
-import os
 from pathlib import Path
 
 # Configure logging to show in terminal with timestamp
@@ -37,8 +35,17 @@ class ProcessedDoc(TypedDict):
     chunks: list[str]
     total_chars: int
 
+
 def get_index_name_from_flow(project_root: Path) -> str:
-    
+    """
+    Extract the OpenSearch index name from the flow JSON configuration.
+
+    Args:
+        project_root: Path to the project root directory
+
+    Returns:
+        str: The index name from the OpenSearch operator config, or 'datasift_documents' as fallback
+    """
     base_flow_file = project_root / "tests" / "flow_invoice_entities.json"
 
     # ----------------------------------------------------------------
@@ -55,19 +62,18 @@ def get_index_name_from_flow(project_root: Path) -> str:
     for node in flow_def.get("dag", []):
         if node.get("operator") == "opensearch":
             datasift_index = node["config"].get("index_name")
-            logger.info(
-                f"Using index_name from flow JSON: '{datasift_index}'"
-            )
+            logger.info(f"Using index_name from flow JSON: '{datasift_index}'")
             break
-    
+
     # Fallback if no OpenSearch node found
     if not datasift_index:
         datasift_index = "datasift_documents"
         logger.warning(
             f"No OpenSearch node found in flow JSON, using default: '{datasift_index}'"
         )
-    
+
     return datasift_index
+
 
 async def process_document(file_path: Path, file_name: str) -> ProcessedDoc:
     """
@@ -123,6 +129,9 @@ class LogPollerState(rx.State):
         # This must happen here (not in process_documents) because start_polling
         # fires first; if the old file still contains PIPELINE_DONE the loop would
         # exit immediately on the first iteration.
+        # Note: Potential race condition if process_documents starts writing before
+        # this completes, mitigated by the 0.3s sleep in process_documents after
+        # acquiring the lock, giving this operation time to finish.
         try:
             _LOG_FILE.write_text("", encoding="utf-8")
         except Exception:
@@ -145,13 +154,13 @@ class LogPollerState(rx.State):
                             all_lines = text.splitlines()
                             # Filter out the sentinel line from display
                             visible = [
-                                l
-                                for l in all_lines
-                                if l.strip() and "PIPELINE_DONE" not in l
+                                line
+                                for line in all_lines
+                                if line.strip() and "PIPELINE_DONE" not in line
                             ]
                             self.log_lines = visible
                             # Stop polling when sentinel appears
-                            done = any("PIPELINE_DONE" in l for l in all_lines)
+                            done = any("PIPELINE_DONE" in line for line in all_lines)
                         except Exception:
                             pass
 
@@ -258,7 +267,7 @@ class FileUploadState(rx.State):
                 self.files[idx]["progress"] = 100
                 self.files[idx]["size"] = f"{doc_data['total_chars']} chars"
             except Exception as e:
-                logging.exception(f"Error processing file {file_name}: {e}")
+                logger.exception(f"Error processing file {file_name}: {e}")
                 self.files[idx]["status"] = "error"
                 self.files[idx]["error"] = str(e)
             yield
@@ -272,9 +281,9 @@ class FileUploadState(rx.State):
         try:
             if file_path.exists():
                 file_path.unlink()
-                logging.info(f"Deleted file from disk: {file_path}")
+                logger.info(f"Deleted file from disk: {file_path}")
         except Exception as e:
-            logging.error(f"Error deleting file {name}: {e}")
+            logger.error(f"Error deleting file {name}: {e}")
 
         # Remove from state
         self.files = [f for f in self.files if f["name"] != name]
@@ -309,7 +318,7 @@ class FileUploadState(rx.State):
         # is empty before the pipeline subprocess begins appending to it.
         await asyncio.sleep(0.3)
 
-        tmp_flow_path: Path | None = None  # track temp file for cleanup in finally
+        tmp_flow_path: Optional[Path] = None  # track temp file for cleanup in finally
         try:
             # Resolve paths relative to the project root
             project_root = Path(__file__).parents[6]
@@ -328,10 +337,8 @@ class FileUploadState(rx.State):
                 / "src"
                 / "datasift_opensource"
                 / "backend"
-                / "core"
-                / "orchestrator"
-                / "cmdline"
-                / "cmd_line_orchestrator.py"
+                / "cli"
+                / "datasift_cli.py"
             )
             base_flow_file = project_root / "tests" / "flow_invoice_entities.json"
 
@@ -342,7 +349,7 @@ class FileUploadState(rx.State):
             # ----------------------------------------------------------------
             with base_flow_file.open("r", encoding="utf-8") as fh:
                 flow_data = json.load(fh)
-            
+
             # Store the index name in state so chat_state can access it
             async with self:
                 self.datasift_index = get_index_name_from_flow(project_root)
@@ -364,7 +371,7 @@ class FileUploadState(rx.State):
 
             logger.info(
                 f"Running backend pipeline: {orchestrator_script} --flow-file {flow_file} "
-                f"(index: {datasift_index})"
+                f"(index: {self.datasift_index})"
             )
 
             # Stream subprocess output: write to log file AND echo to terminal via logger
