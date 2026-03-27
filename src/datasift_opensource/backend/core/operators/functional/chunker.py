@@ -1292,7 +1292,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
     print(f"\n>>>>>>>>>>>>> Meta Data : - \n {json.dumps(metadata, indent=2)}")
 
 
-def main(runtime: str = "python") -> None:  # pragma: no cover
+def _main(runtime: str = "python") -> None:  # pragma: no cover
     # For simple chunking, use:
     #   main_simple()
 
@@ -1304,4 +1304,4 @@ def main(runtime: str = "python") -> None:  # pragma: no cover
 
 
 if __name__ == "__main__":  # pragma: no cover
-    main()
+    _main()

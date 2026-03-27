@@ -279,7 +279,7 @@ class MLEnrichmentOperator(AbstractOperator):
         return output_tables, metadata
 
 
-def main() -> None:  # pragma: no cover
+def _main() -> None:  # pragma: no cover
     """
     Main function to test the ML Enrichment operator.
     """
@@ -375,4 +375,4 @@ def main() -> None:  # pragma: no cover
 
 
 if __name__ == "__main__":  # pragma: no cover
-    exit(main())
+    exit(_main())

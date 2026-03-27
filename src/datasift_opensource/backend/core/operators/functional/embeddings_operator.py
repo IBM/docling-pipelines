@@ -728,7 +728,7 @@ class EmbeddingsOperator(AbstractOperator):
         return [table], metadata
 
 
-def main() -> int:
+def _main() -> int:
     """
     Demo pipeline: Ingest → Extract → Chunk → Embeddings
 
@@ -1150,4 +1150,4 @@ def main() -> int:
 if __name__ == "__main__":
     import sys
 
-    sys.exit(main())
+    sys.exit(_main())

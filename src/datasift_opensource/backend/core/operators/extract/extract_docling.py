@@ -508,7 +508,7 @@ class ExtractDoclingOperator(AbstractOperator):
         }
 
 
-def main() -> int:
+def _main() -> int:
     """
     Main function to test the extract_docling_operator.
     Configure the variables below to test different extraction scenarios.
@@ -642,4 +642,4 @@ def main() -> int:
 if __name__ == "__main__":
     # Configure logging
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    exit(main())
+    exit(_main())

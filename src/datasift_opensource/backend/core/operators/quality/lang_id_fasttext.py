@@ -243,7 +243,7 @@ class LanguageDetectFastText(AbstractOperator):
 
 
 # Used for unit testing only
-def main() -> tuple[list[pa.Table], dict[str, Any]]:
+def _main() -> tuple[list[pa.Table], dict[str, Any]]:
     print("=" * 80)
     print("FastText Language Detection Operator - Test Run")
     print("=" * 80)
@@ -372,4 +372,4 @@ def main() -> tuple[list[pa.Table], dict[str, Any]]:
 
 # main entry point into the program; used for unit testing only
 if __name__ == "__main__":
-    main()
+    _main()
