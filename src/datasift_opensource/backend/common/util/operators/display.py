@@ -1,9 +1,11 @@
 """Utility functions for displaying operator information to users."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from common.constants.operator_constants import OperatorConstants
-from common.util.operators.metadata import OperatorMetadata
+
+if TYPE_CHECKING:
+    pass
 
 
 def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = False) -> str:
@@ -141,6 +143,8 @@ def list_operators(verbose: bool = False, summary_only: bool = False) -> str:
     Returns:
         Formatted string with operator information
     """
+    from core.operators.operator_metadata import OperatorMetadata
+
     operator_metadata_obj = OperatorMetadata()
     operator_metadata = operator_metadata_obj.get_operator_metadata(internal_features=False)
 

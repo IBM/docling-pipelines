@@ -9,21 +9,22 @@ from typing import Any
 import pyarrow as pa
 from charset_normalizer import from_bytes
 from docling.document_converter import DocumentConverter
-from docling_core.types.doc import TableItem, PictureItem
+from docling_core.types.doc import PictureItem, TableItem
 from pyarrow import Table
 
 from common.constants.constants import (
     DatasiftConstants,
     DocsStructure,
     ExecutionStatus,
-    Metrics, internal_metrics,
+    Metrics,
+    internal_metrics,
 )
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException, FlowValidationException, ValidationAlert
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
+from common.util.infrastructure.logging import get_logger
 from common.util.job_tracker.model.models import normalize_node_stats_for_dto
 from common.util.job_tracker.tracker.job_tracker import NodeStatsDto
-from common.util.infrastructure.logging import get_logger
 
 status_codes = {
     ExecutionStatus.FAILED: 1,
@@ -44,7 +45,6 @@ logger = get_logger()
 
 
 class OperatorUtils:
-
     @staticmethod
     def validate_columns(
         table: pa.Table | list,
@@ -455,7 +455,8 @@ class OperatorUtils:
             normalized_path = normalized_path.replace("datasift.zip", "/datasift/storage/job-assets")
         else:
             logger.info(
-                f"[DEBUG] import_transforms_code_from_file - No zip path found, using original: {normalized_path}")
+                f"[DEBUG] import_transforms_code_from_file - No zip path found, using original: {normalized_path}"
+            )
 
         normalized_path = Path(normalized_path)
         for transformation_code_file in os.listdir(normalized_path):
@@ -493,14 +494,16 @@ class OperatorUtils:
 
     @staticmethod
     def rename_features_and_save_original(
-            *, updated_features: list | None = None, input_features: dict | Table | None = None
+        *, updated_features: list | None = None, input_features: dict | Table | None = None
     ) -> Any | None:
         if not input_features or not updated_features:
             return None
 
         existing_features = set(input_features.schema.names) if isinstance(input_features, Table) else input_features
 
-        rename_map = OperatorUtils._build_rename_map(updated_features=updated_features, existing_features=existing_features)
+        rename_map = OperatorUtils._build_rename_map(
+            updated_features=updated_features, existing_features=existing_features
+        )
 
         OperatorUtils._validate_existing_features(rename_map, existing_features)
 
@@ -543,7 +546,9 @@ class OperatorUtils:
     @staticmethod
     def _validate_feature(upd: dict, idx: int):
         if not isinstance(upd, dict):
-            OperatorUtils._raise_value_error(f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}")
+            OperatorUtils._raise_value_error(
+                f"Each item in updated_features must be a dict. Item at index {idx} is {type(upd)}"
+            )
 
         old_name = upd.get(OperatorConstants.Misc.OLD_FEATURE)
         new_name = upd.get(OperatorConstants.Misc.NEW_FEATURE)
@@ -561,13 +566,13 @@ class OperatorUtils:
 
     @staticmethod
     def _check_duplicate(
-            *,
-            old_name: str,
-            new_name: str,
-            idx: int,
-            seen_old: set,
-            seen_new: set,
-            input_features: Any,
+        *,
+        old_name: str,
+        new_name: str,
+        idx: int,
+        seen_old: set,
+        seen_new: set,
+        input_features: Any,
     ):
         if old_name in seen_old:
             OperatorUtils._raise_value_error(f"Duplicate mapping for old_feature '{old_name}' at index {idx}")
@@ -600,8 +605,9 @@ class OperatorUtils:
 
     @staticmethod
     def _validate_dict_mandatory(rename_map: dict[str, str], input_features: dict):
-        mandatory_features = OperatorUtils.get_mandatory_features(check_features=list(rename_map.keys()),
-                                                    input_features=input_features)
+        mandatory_features = OperatorUtils.get_mandatory_features(
+            check_features=list(rename_map.keys()), input_features=input_features
+        )
         if mandatory_features:
             raise FlowValidationException(
                 message="Invalid rename attempted",
@@ -636,8 +642,8 @@ class OperatorUtils:
         mandatory_features = [
             feature
             for feature, value in input_features.items()
-            if
-            feature in check_features and OperatorConstants.Misc.MANDATORY in value.get(OperatorConstants.Misc.TAGS, [])
+            if feature in check_features
+            and OperatorConstants.Misc.MANDATORY in value.get(OperatorConstants.Misc.TAGS, [])
         ]
         return mandatory_features
 
@@ -697,7 +703,8 @@ class OperatorUtils:
             # ALL items must be valid (either leaf conditions or nested groups)
             # Recursively validate each item to match runtime behavior
             return all(
-                isinstance(item, dict) and OperatorUtils._validate_criteria_json(criteria_json=item) for item in json_criteria_list
+                isinstance(item, dict) and OperatorUtils._validate_criteria_json(criteria_json=item)
+                for item in json_criteria_list
             )
 
         return False
@@ -740,11 +747,13 @@ class OperatorUtils:
                         raise ValueError(f"No binary content or path available for document {doc_name}")
 
                 doc_tasks.append(
-                    {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content})
+                    {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content}
+                )
             except Exception as e:
                 logger.error(f"Error preparing document at index {row_idx}: {e!s}")
                 doc_tasks.append(
-                    {"idx": row_idx, "doc_id": str(row_idx), "doc_name": f"document_{row_idx}", "error": str(e)})
+                    {"idx": row_idx, "doc_id": str(row_idx), "doc_name": f"document_{row_idx}", "error": str(e)}
+                )
         return doc_tasks
 
     @staticmethod
@@ -834,7 +843,7 @@ class OperatorUtils:
 
     @staticmethod
     def extract_basic_worker(
-            file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool
+        file_path: str, binary_content: bytes, extract_tables: bool, extract_images: bool
     ) -> dict[str, Any]:
         """
         Worker function for basic extraction - designed to run in parallel.
@@ -921,7 +930,8 @@ class OperatorUtils:
                         if isinstance(item, TableItem):
                             table_df = item.export_to_dataframe()
                             tables.append(
-                                {"ref": item.self_ref, "data": table_df.to_dict() if table_df is not None else None})
+                                {"ref": item.self_ref, "data": table_df.to_dict() if table_df is not None else None}
+                            )
 
                 # Extract images
                 images = []
@@ -954,7 +964,7 @@ class OperatorUtils:
 
 
 def get_missing_operator(features: list[str]):
-    from common.util.operators.metadata import OperatorMetadata
+    from core.operators.operator_metadata import OperatorMetadata
 
     operator_metadata = OperatorMetadata()
     feature_operators_map = operator_metadata.get_feature_operators_map()
