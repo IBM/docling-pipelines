@@ -26,8 +26,8 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
             continue
 
         # Operator header
-        category = metadata.get(OperatorConstants.CATEGORY, "Unknown")
-        is_available = metadata.get(OperatorConstants.IS_OPERATOR_AVAILABLE, False)
+        category = metadata.get(OperatorConstants.Misc.CATEGORY, "Unknown")
+        is_available = metadata.get(OperatorConstants.Misc.IS_OPERATOR_AVAILABLE, False)
         status = "✓ Available" if is_available else "✗ Unavailable"
 
         lines.append(f"\n{'=' * 80}")
@@ -37,13 +37,13 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
         lines.append(f"{'=' * 80}")
 
         # Features (output columns)
-        features = metadata.get(OperatorConstants.FEATURES, {})
+        features = metadata.get(OperatorConstants.Config.FEATURES, {})
         if features:
             lines.append(f"\nOutput Features ({len(features)}):")
             for feature_name, feature_info in sorted(features.items()):
                 name = feature_info.get(OperatorConstants.Columns.NAME, feature_name)
-                desc = feature_info.get(OperatorConstants.DESCRIPTION, "No description")
-                feature_type = feature_info.get(OperatorConstants.TYPE, "unknown")
+                desc = feature_info.get(OperatorConstants.Config.DESCRIPTION, "No description")
+                feature_type = feature_info.get(OperatorConstants.Misc.TYPE, "unknown")
 
                 if verbose:
                     lines.append(f"  • {feature_name} ({feature_type})")
@@ -52,11 +52,11 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
 
                     # Additional flags
                     flags = []
-                    if feature_info.get(OperatorConstants.AVAILABLE_FOR_FILTER):
+                    if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_FILTER):
                         flags.append("filterable")
-                    if feature_info.get(OperatorConstants.AVAILABLE_FOR_VECTOR_DB):
+                    if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB):
                         flags.append("vectorizable")
-                    if feature_info.get(OperatorConstants.IS_PRIMARY):
+                    if feature_info.get(OperatorConstants.Misc.IS_PRIMARY):
                         flags.append("primary")
                     if flags:
                         lines.append(f"    Flags: {', '.join(flags)}")
@@ -64,15 +64,15 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
                     lines.append(f"  • {feature_name}: {name}")
 
         # Attributes (input parameters)
-        attributes = metadata.get(OperatorConstants.ATTRIBUTES, {})
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
         if attributes:
             lines.append(f"\nConfiguration Parameters ({len(attributes)}):")
             for attr_name, attr_info in sorted(attributes.items()):
                 name = attr_info.get(OperatorConstants.Columns.NAME, attr_name)
-                desc = attr_info.get(OperatorConstants.DESCRIPTION, "No description")
-                required = attr_info.get(OperatorConstants.REQUIRED, False)
-                default = attr_info.get(OperatorConstants.DEFAULT, None)
-                attr_type = attr_info.get(OperatorConstants.TYPE, "unknown")
+                desc = attr_info.get(OperatorConstants.Config.DESCRIPTION, "No description")
+                required = attr_info.get(OperatorConstants.Config.REQUIRED, False)
+                default = attr_info.get(OperatorConstants.Config.DEFAULT, None)
+                attr_type = attr_info.get(OperatorConstants.Misc.TYPE, "unknown")
 
                 req_marker = "[REQUIRED]" if required else "[OPTIONAL]"
 
@@ -116,10 +116,10 @@ def display_operator_summary(operator_metadata: dict[str, Any]) -> str:
         if not metadata:
             continue
 
-        category = metadata.get(OperatorConstants.CATEGORY, "Unknown")
-        is_available = metadata.get(OperatorConstants.IS_OPERATOR_AVAILABLE, False)
+        category = metadata.get(OperatorConstants.Misc.CATEGORY, "Unknown")
+        is_available = metadata.get(OperatorConstants.Misc.IS_OPERATOR_AVAILABLE, False)
         status = "Available" if is_available else "Unavailable"
-        features = metadata.get(OperatorConstants.FEATURES, {})
+        features = metadata.get(OperatorConstants.Config.FEATURES, {})
         feature_count = len(features)
 
         lines.append(f"{short_name:<25} {category:<15} {status:<12} {feature_count:<10}")
@@ -163,3 +163,5 @@ def main():  # pragma: no cover
 
 if __name__ == "__main__":  # pragma: no cover
     main()
+
+# Made with Bob

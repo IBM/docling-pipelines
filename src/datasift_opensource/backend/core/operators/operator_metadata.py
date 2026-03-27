@@ -58,7 +58,7 @@ class OperatorMetadata:
     def get_features(self, *, short_name: str, purpose: str | None = None) -> dict:
         """
         Returns the features from the given operator for the purpose of
-         a) filtering (OperatorConstants.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.AVAILABLE_FOR_VECTOR_DB)`
+         a) filtering (OperatorConstants.Config.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB)`
         """
         if (
             self.operator_metadata.get(short_name) is not None
@@ -81,7 +81,7 @@ class OperatorMetadata:
     ) -> dict:
         """
         Returns the features from the given operator for the purpose of
-         a) filtering (OperatorConstants.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.AVAILABLE_FOR_VECTOR_DB)`
+         a) filtering (OperatorConstants.Config.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB)`
         """
         features: dict = {}
         if input_features:
