@@ -22,7 +22,7 @@ def log_elapsed_time(*, start_time, operator: str | None = None, actions: list |
         logger.info(log_message, extra={DatasiftConstants.TRACK_PERF: "true"})
 
 
-def get_pyarrow_table_size_mb(table: pa.Table) -> float:  # pragma: no cover # NOSONAR
+def get_pyarrow_table_size_mb(table: pa.Table) -> float:
     """
     Returns the approximate size of the pyarrow Table in MiB.
     Uses table.nbytes (total bytes of buffers)
@@ -41,7 +41,7 @@ def get_pyarrow_table_size_mb(table: pa.Table) -> float:  # pragma: no cover # N
         return sum(c.nbytes for c in table.columns) / (1024 * 1024)
 
 
-def get_process_memory_mb() -> dict[str, float]:  # pragma: no cover # NOSONAR
+def get_process_memory_mb() -> dict[str, float]:
     """
     Returns current process memory metrics in MiB: rss and vms.
     """
@@ -70,7 +70,7 @@ def log_memory_usage(
     table: pa.Table | list[pa.Table] | None = None,
     extra: dict | None = None,
     logger=None,
-):  # pragma: no cover # NOSONAR
+):
     """
     Logs current memory utilization and PyArrow table size for a given operator and phase.
     Only logs if get_session_info().track_perf is enabled.
@@ -118,7 +118,7 @@ def log_memory_usage(
         logger.info(log_fields_str, extra=extra)
 
 
-def cleanup_pyarrow_buffers(operator_name, phase, table, extra, logger):  # pragma: no cover # NOSONAR
+def cleanup_pyarrow_buffers(operator_name, phase, table, extra, logger):
     """
     Cleanup PyArrow buffers and log memory usage.
     Only performs cleanup if get_session_info().track_perf is enabled.
