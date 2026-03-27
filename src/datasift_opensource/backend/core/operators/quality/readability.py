@@ -200,34 +200,3 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
             warnings.append("Invalid readability scores provided.")
 
 
-# Used for unit testing only
-def main() -> None:  # pragma: no cover
-    config: dict[str, Any] = {
-        "readability_contents_column_name": "content",
-        "readability_score_list": DEFAULT_READABILITY_SCORES,
-    }
-    operator: ReadabilityOperator = ReadabilityOperator(config=config)
-    print(operator)
-
-    content: pa.Array = pa.array(
-        [
-            "The cat sat on the mat. It was a sunny day.",
-            "Python is a high-level programming language used for web development.",
-            "The implementation of sophisticated algorithms necessitates comprehensive understanding.",
-        ]
-    )
-    col_names: list[str] = ["content"]
-    input_table: pa.Table = pa.Table.from_arrays([content], names=col_names)
-
-    table_list: list[pa.Table]
-    metadata: dict[str, Any]
-    table_list, metadata = operator.transform(table=input_table)
-
-    print(">>> completed the operator", operator)
-    table: pa.Table = table_list[0]
-    print(f"total scores added: {table.num_columns}")
-    print(f"\noutput table: {table} {metadata} {table.column_names}")
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()

@@ -10,11 +10,11 @@ from common.util.infrastructure.logging import get_logger
 def align_table_schema(table: pa.Table, all_cols: dict) -> pa.Table:
     """
     Ensure schema alignment across tables by adding missing columns with null values.
-    
+
     Args:
         table: PyArrow table to align
         all_cols: Dictionary mapping column names to their PyArrow types
-        
+
     Returns:
         Aligned PyArrow table with all columns from all_cols
     """
@@ -34,19 +34,25 @@ def align_table_schema(table: pa.Table, all_cols: dict) -> pa.Table:
 def _combine_tables(tables: list[pa.Table], table_type: str) -> pa.Table | None:
     """
     Combine multiple PyArrow tables safely with duplicate ID detection.
-    
+
     Args:
         tables: List of PyArrow tables to combine
         table_type: Description of table type for logging
-        
+
     Returns:
         Combined PyArrow table or None if combination fails
     """
     logger = get_logger()
     if not tables:
         return None
+
+    # Filter out None values from the list
+    valid_tables = [t for t in tables if t is not None]
+    if not valid_tables:
+        return None
+
     try:
-        combined = pa.concat_tables(tables, promote=True)
+        combined = pa.concat_tables(valid_tables, promote=True)
         # Warn if duplicate IDs
         if OperatorConstants.Columns.ID in combined.column_names:
             unique_ids = pc.count_distinct(combined[OperatorConstants.Columns.ID]).as_py()
@@ -64,10 +70,10 @@ def _total_rows(
 ) -> int:
     """
     Returns total rows from pa.Table, list, or dict of pa.Table.
-    
+
     Args:
         tables: Single table, list of tables, dict of tables, or None
-        
+
     Returns:
         Total number of rows across all tables
     """
@@ -81,9 +87,9 @@ def _total_rows(
 
 
 __all__ = [
-    "align_table_schema",
     "_combine_tables",
     "_total_rows",
+    "align_table_schema",
 ]
 
 # Made with Bob

@@ -18,6 +18,7 @@ from common.util.orchestration.flow_utils import add_validation_alert
 from common.util.infrastructure.logging import get_logger
 from common.util.orchestration.prefect_config import clean_up_prefect_home
 from core.operators.abstract_operator import OperatorCategory
+from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.operator_factory import OperatorFactory, OperatorFactoryProvider
 
 
@@ -43,7 +44,7 @@ class FlowValidator:
     - Operator-specific validation rules
     """
 
-    def __init__(self, orchestrator):
+    def __init__(self, orchestrator: AbstractOrchestrator):
         """Initialize the FlowValidator.
         
         Args:
@@ -146,8 +147,10 @@ class FlowValidator:
                 session_info=session_info
             )
 
-        validation_flow = self.orchestrator.prefect_executor.build_non_execute_flow(flow_name="dag_validation_flow")
-        validation_flow(TaskType.VALIDATE_FLOW, node_validation_task, dag, None)
+        self.orchestrator.flow_engine.execute_non_execute_flow(
+            flow_name="dag_validation_flow",
+            task=node_validation_task,
+            dag=dag)
         clean_up_prefect_home()
 
         if validate_results.errors or validate_results.warnings:

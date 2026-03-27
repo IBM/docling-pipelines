@@ -6,6 +6,8 @@ separating these concerns from the main orchestrator logic.
 """
 
 import copy
+import threading
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, ParamSpec, TypeVar
 
@@ -49,7 +51,32 @@ class ExecuteStepResults:
         self.internal_metadata = internal_metadata
 
 
-class PrefectFlowExecutor:
+class AbstractFlowEngine(ABC):
+    def __init__(self, *, orchestrator, batch_manager, job_id, job_run_id, job_log_path):
+        """
+        Initialize the Prefect flow executor.
+
+        Args:
+            orchestrator: Reference to the parent AbstractOrchestrator instance
+        """
+        self.orchestrator = orchestrator
+        self.batch_manager = batch_manager
+        self.logger = get_logger()
+        self.job_id = job_id
+        self.job_run_id = job_run_id
+        self.job_log_path = job_log_path
+        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+
+    @abstractmethod
+    def execute_batch_flow(self, *, op_flow, batches, global_config):
+        pass
+
+    @abstractmethod
+    def execute_non_execute_flow(self, *, flow_name=None, task, dag):
+        pass
+
+
+class PrefectEngine(AbstractFlowEngine):
     """
     Handles Prefect-specific flow execution logic.
 
@@ -60,21 +87,33 @@ class PrefectFlowExecutor:
     - Managing batch execution with parallelism control
     """
 
-    def __init__(self, orchestrator, job_id, job_run_id, job_log_path):
-        """
-        Initialize the Prefect flow executor.
+    def __init__(self, *, orchestrator, batch_manager, job_id, job_run_id, job_log_path):
+        super().__init__(orchestrator=orchestrator,
+            batch_manager=batch_manager,
+            job_id=job_id,
+            job_run_id=job_run_id,
+            job_log_path=job_log_path)
 
-        Args:
-            orchestrator: Reference to the parent AbstractOrchestrator instance
-        """
-        self.orchestrator = orchestrator
-        self.logger = get_logger()
-        self.job_id = job_id
-        self.job_run_id = job_run_id
-        self.job_log_path = job_log_path
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+    def execute_batch_flow(self, *, op_flow, batches, global_config):
+        batch_outer_flow = self._build_flow(name="batch_outer_flow", flow_impl=self.batch_outer_flow_impl)
+        batch_futures = batch_outer_flow(
+            op_flow=op_flow[1:],  # Skip ingest operator
+            batches=batches,
+            global_config=global_config
+        )
 
-    def build_flow(self, *, name, flow_impl):
+        # Wait for all sub-flows to complete
+        # Note: Metadata is saved incrementally by each sub-flow in inner_flow() at line 1194
+        # so we don't need to merge and save results here
+        self._wait_for_sub_flows(batch_futures=batch_futures)
+
+    def execute_non_execute_flow(self, *, flow_name=None, task, dag):
+
+        flow = self.build_non_execute_flow(flow_name=flow_name)
+        flow(TaskType.VALIDATE_FLOW, task, dag, None)
+
+
+    def _build_flow(self, *, name, flow_impl):
         """Build a Prefect flow for operator execution."""
         prefect_config = self.__get_prefect_config()
 
@@ -112,12 +151,12 @@ class PrefectFlowExecutor:
             DatasiftConstants.MAX_CONCURRENT_TASKS,
             DatasiftConstants.DEFAULT_MAX_CONCURRENT_TASKS,
         )
-        self.orchestrator.batch_manager.initialize_operator_semaphore(
+        self.batch_manager.initialize_operator_semaphore(
             max_concurrent_operators=max_concurrent_operators
         )
 
         # 1. Build the inner flow to execute a batch once (reusable for all batches)
-        inner_flow = self.build_flow(name="batch_sub_flow", flow_impl=self.__flow_impl)
+        inner_flow = self._build_flow(name="batch_sub_flow", flow_impl=self.__flow_impl)
 
         # Create a task wrapper for subflow execution
         def batch_cache_key_fn(context, parameters):
@@ -139,7 +178,7 @@ class PrefectFlowExecutor:
         batch_futures = []
 
         for batch_num, batch_table in enumerate(batches):
-            batch_data_access = self.orchestrator.batch_manager.create_batch_data_access(batch_table=batch_table)
+            batch_data_access = self.batch_manager.create_batch_data_access(batch_table=batch_table)
 
             # 3. Submit task that executes sub flow for each batch
             future = batch_subflow_task.submit(
@@ -151,6 +190,62 @@ class PrefectFlowExecutor:
             batch_futures.append((batch_num, future))
 
         return batch_futures
+
+    def _wait_for_sub_flows(self, *, batch_futures):
+        """
+        Wait for all sub-flows (batches) to complete with fail-fast cancellation.
+
+        Note: This method does not return batch results to avoid loading all PyArrow tables
+        into memory. Each sub-flow saves its metadata incrementally.
+        """
+        failed_batch = None
+        cancellation_event = threading.Event()
+
+        for batch_num, future in batch_futures:
+            # Check if another batch already failed
+            if cancellation_event.is_set():
+                try:
+                    future.cancel()
+                    self.logger.info(
+                        f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
+                        extra=self.common_log_arguments,
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
+                continue
+
+            try:
+                future.result()
+                self.logger.info(
+                    f"Batch {batch_num} completed successfully",
+                    extra=self.common_log_arguments,
+                )
+
+            except Exception as e:
+                # Batch failed - trigger cancellation
+                cancellation_event.set()
+
+                self.logger.error(
+                    f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
+                    extra=self.common_log_arguments,
+                    exc_info=True,
+                )
+
+                for remaining_num, remaining_future in batch_futures[batch_num + 1 :]:
+                    try:
+                        remaining_future.cancel()
+                        self.logger.info(
+                            f"Cancelled batch {remaining_num}",
+                            extra=self.common_log_arguments,
+                        )
+                    except Exception as cancel_error:
+                        self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
+
+                self.batch_manager.reset_operator_semaphore()
+                # Re-raise the exception to fail the entire job
+                raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
+
+        self.batch_manager.reset_operator_semaphore()
 
     def __get_prefect_config(self) -> dict:
         """Get the default values for Prefect settings."""

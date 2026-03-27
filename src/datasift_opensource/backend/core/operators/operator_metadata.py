@@ -27,13 +27,13 @@ class OperatorMetadata:
                 required_features = op.get_required_features()
                 config_values["required_features"] = required_features
                 if not internal_features:
-                    features = config_values.get(OperatorConstants.FEATURES, {})
+                    features = config_values.get(OperatorConstants.Config.FEATURES, {})
                     filtered_features = {
                         k: v
                         for k, v in features.items()
-                        if OperatorConstants.INTERNAL_FEATURE not in v.get(OperatorConstants.TAGS, [])
+                        if OperatorConstants.Misc.INTERNAL_FEATURE not in v.get(OperatorConstants.Misc.TAGS, [])
                     }
-                    config_values[OperatorConstants.FEATURES] = filtered_features
+                    config_values[OperatorConstants.Config.FEATURES] = filtered_features
 
                 refresh_operator_metadata[short_name] = config_values
             except Exception as e:
@@ -55,18 +55,18 @@ class OperatorMetadata:
 
         return self.operator_metadata
 
-    def get_features(self, *, short_name: str, purpose: str = None) -> dict:
+    def get_features(self, *, short_name: str, purpose: str | None = None) -> dict:
         """
         Returns the features from the given operator for the purpose of
-         a) filtering (OperatorConstants.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.AVAILABLE_FOR_VECTOR_DB)`
+         a) filtering (OperatorConstants.Config.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB)`
         """
         if (
             self.operator_metadata.get(short_name) is not None
-            and self.operator_metadata.get(short_name).get(OperatorConstants.FEATURES) is not None
+            and self.operator_metadata.get(short_name).get(OperatorConstants.Config.FEATURES) is not None
         ):
-            features: dict = self.operator_metadata.get(short_name).get(OperatorConstants.FEATURES)
+            features: dict = self.operator_metadata.get(short_name).get(OperatorConstants.Config.FEATURES)
             if purpose is None:
-                return {k: v for k, v in features.items()}
+                return dict(features.items())
             else:
                 return {k: v for k, v in features.items() if v.get(purpose, False)}
         else:
@@ -75,13 +75,13 @@ class OperatorMetadata:
     def get_features_from_input_output_features(
         self,
         *,
-        purpose: str = None,
-        input_features: dict = None,
-        output_features: dict = None,
+        purpose: str | None = None,
+        input_features: dict | None = None,
+        output_features: dict | None = None,
     ) -> dict:
         """
         Returns the features from the given operator for the purpose of
-         a) filtering (OperatorConstants.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.AVAILABLE_FOR_VECTOR_DB)`
+         a) filtering (OperatorConstants.Config.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB)`
         """
         features: dict = {}
         if input_features:
@@ -90,7 +90,7 @@ class OperatorMetadata:
             features.update(output_features)
         if len(features) > 0:
             if purpose is None:
-                return {k: v for k, v in features.items()}
+                return dict(features.items())
             else:
                 return {k: v for k, v in features.items() if v.get(purpose, False)}
         else:
@@ -106,20 +106,11 @@ class OperatorMetadata:
         for short_name in operator_short_names:
             op_features = list(self.get_features(short_name=short_name).keys())
             for feature in op_features:
-                label = self.operator_metadata.get(short_name).get(OperatorConstants.LABEL, None)
+                label = self.operator_metadata.get(short_name).get(OperatorConstants.Misc.LABEL, None)
                 if label:
                     feature_operators_map[feature].append(label)
 
         return feature_operators_map
 
 
-# Only used for unit testing
-def main():  # pragma: no cover
-    operator = OperatorMetadata()
-    operator_items = operator.get_operator_metadata()
-    for key, value in operator_items.items():
-        print(f"Key: {key}, value: {value}")
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
+# Made with Bob

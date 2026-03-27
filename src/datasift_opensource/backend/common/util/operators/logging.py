@@ -218,7 +218,7 @@ def _extract_document_level_errors(*, node_metadata: dict) -> list:
     Looks for 'failed_docs' and 'skipped_docs' lists and returns their contents.
     """
     errors = []
-    metadata = node_metadata.get(OperatorConstants.NODE_METADATA, {})
+    metadata = node_metadata.get(OperatorConstants.Metadata.NODE_METADATA, {})
     for field in [Metrics.External.FAILED_DOCS, Metrics.External.SKIPPED_DOCS]:
         if field in metadata and isinstance(metadata[field], list) and metadata[field]:
             errors.extend(metadata.get(field, [f"Unable to find details of {field}."]))
@@ -253,7 +253,7 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
         else:
             node_info = copy.deepcopy(node_stat)
 
-        metadata = node_info.get(OperatorConstants.NODE_METADATA, {})
+        metadata = node_info.get(OperatorConstants.Metadata.NODE_METADATA, {})
         if node_info.get(Metrics.External.START_TIME):
             node_info[Metrics.External.START_TIME] = datetime.datetime.fromtimestamp(
                 node_info[Metrics.External.START_TIME]
@@ -267,7 +267,7 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
             errors = _extract_document_level_errors(node_metadata=metadata)
             if errors:
                 node_info.setdefault("document_level_errors", []).extend(errors)
-            node_info.pop(OperatorConstants.NODE_METADATA, None)  # Remove metadata after processing
+            node_info.pop(OperatorConstants.Metadata.NODE_METADATA, None)  # Remove metadata after processing
 
         # Replace document ID lists with their counts
         _count_and_remove_lists(node_info=node_info, keys_to_count=keys_to_count)
@@ -311,3 +311,5 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list = 
     >>> ===============================================================
     """
     return complete_message
+
+# Made with Bob
