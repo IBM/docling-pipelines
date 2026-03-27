@@ -1,10 +1,10 @@
 # (C) Copyright IBM Corp. 2024.
-# Licensed under the Apache License, Version 2.0 (the “License”);
+# Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #  http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an “AS IS” BASIS,
+# distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
@@ -14,14 +14,15 @@ import json
 import logging
 import os
 import sys
+from typing import ClassVar
 
 from common.constants.constants import DatasiftConstants  # , Environments
 
 HEALTH_API_SUFFIX = "/health"
 
 
-class ConditionalFormatter(logging.Formatter):  # pragma: no cover
-    fields_to_be_included = [
+class ConditionalFormatter(logging.Formatter):
+    fields_to_be_included: ClassVar[list[str]] = [
         DatasiftConstants.JOB_ID,
         DatasiftConstants.JOB_RUN_ID,
         DatasiftConstants.TRACK_PERF,
@@ -71,7 +72,7 @@ class ConditionalFormatter(logging.Formatter):  # pragma: no cover
         return json.dumps(log_dict)
 
 
-def get_log_level(name: str = None):
+def get_log_level(name: str | None = None):
     """
     When log level is None or str
     :param name:
@@ -86,11 +87,11 @@ def get_log_level(name: str = None):
 
 def get_logger(
     name: str = DatasiftConstants.LOGGER_NAME,
-    level: [int, str] = None,
-    file: str = None,
+    level: int | str | None = None,
+    file: str | None = None,
     *,
     is_pg: bool = False,
-    pg_params: dict = None,
+    pg_params: dict | None = None,
 ) -> logging.Logger:
     """
     Returns a logger configured with stdout, file output, and optional Postgres handler.
