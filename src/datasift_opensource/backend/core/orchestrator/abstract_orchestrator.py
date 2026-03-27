@@ -1,5 +1,4 @@
 import os
-import threading
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
@@ -30,7 +29,7 @@ from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
 from core.orchestrator.batch_manager import BatchManager
 from core.orchestrator.node_logger import NodeLogger
-from core.orchestrator.prefect_flow_executor import PrefectFlowExecutor, ExecuteStepResults  # noqa: E402
+from core.orchestrator.prefect_engine import PrefectEngine, ExecuteStepResults, AbstractFlowEngine  # noqa: E402
 
 logger = get_logger()
 
@@ -55,7 +54,7 @@ class AbstractOrchestrator(ABC):
         self.batch_manager = BatchManager()
         self.job_tracker = JobTracker()
         # Initialize Prefect flow executor
-        self.prefect_executor = None
+        self.flow_engine: AbstractFlowEngine = None
         self.job_log_path = None
         self.common_log_arguments = None
         # Initialize node logger
@@ -67,7 +66,12 @@ class AbstractOrchestrator(ABC):
         self.job_run_id = job_run_id
         self.job_log_path = self.create_log_folders(job_id=self.job_id, type_="job")
         self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
-        self.prefect_executor = PrefectFlowExecutor(self, job_id=job_id, job_run_id=job_run_id, job_log_path=self.job_log_path)
+        self.flow_engine = PrefectEngine(
+            orchestrator=self,
+            batch_manager=self.batch_manager,
+            job_id=job_id,
+            job_run_id=job_run_id,
+            job_log_path=self.job_log_path)
         self.node_logger = NodeLogger(common_log_arguments=self.common_log_arguments)
 
     def execute(self, *, flow_def: dict, params: dict):
@@ -586,18 +590,7 @@ class AbstractOrchestrator(ABC):
         global_config[DatasiftConstants.INGEST_NODE_ID] = ingest_node_id
 
         # Build and execute batch flow (works for both single and multiple batches)
-        batch_outer_flow = self.prefect_executor.build_flow(name="batch_outer_flow",
-                                                            flow_impl=self.prefect_executor.batch_outer_flow_impl)
-        batch_futures = batch_outer_flow(
-            op_flow=op_flow[1:],  # Skip ingest operator
-            batches=batches,
-            global_config=global_config
-        )
-
-        # Wait for all sub-flows to complete
-        # Note: Metadata is saved incrementally by each sub-flow in inner_flow() at line 1194
-        # so we don't need to merge and save results here
-        self.wait_for_sub_flows(batch_futures=batch_futures)
+        self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)
 
         clean_up_prefect_home()
         self._finalize_dag_flow(op_flow=op_flow)
@@ -609,62 +602,6 @@ class AbstractOrchestrator(ABC):
         data_access = data_access_factory.create_data_access()
         data_access.save_table(path="", table=pa.Table.from_arrays([], names=[]))
         return ExecuteStepResults([data_access], [pa.Table.from_arrays(arrays=[], names=[])], None)
-
-    def wait_for_sub_flows(self, *, batch_futures):
-        """
-        Wait for all sub-flows (batches) to complete with fail-fast cancellation.
-
-        Note: This method does not return batch results to avoid loading all PyArrow tables
-        into memory. Each sub-flow saves its metadata incrementally.
-        """
-        failed_batch = None
-        cancellation_event = threading.Event()
-
-        for batch_num, future in batch_futures:
-            # Check if another batch already failed
-            if cancellation_event.is_set():
-                try:
-                    future.cancel()
-                    self.logger.info(
-                        f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
-                        extra=self.common_log_arguments,
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
-                continue
-
-            try:
-                future.result()
-                self.logger.info(
-                    f"Batch {batch_num} completed successfully",
-                    extra=self.common_log_arguments,
-                )
-
-            except Exception as e:
-                # Batch failed - trigger cancellation
-                cancellation_event.set()
-
-                self.logger.error(
-                    f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
-                    extra=self.common_log_arguments,
-                    exc_info=True,
-                )
-
-                for remaining_num, remaining_future in batch_futures[batch_num + 1 :]:
-                    try:
-                        remaining_future.cancel()
-                        self.logger.info(
-                            f"Cancelled batch {remaining_num}",
-                            extra=self.common_log_arguments,
-                        )
-                    except Exception as cancel_error:
-                        self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
-
-                self.batch_manager.reset_operator_semaphore()
-                # Re-raise the exception to fail the entire job
-                raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
-
-        self.batch_manager.reset_operator_semaphore()
 
     @staticmethod
     def _collect_failed_doc_ids(*, job_stats: JobStatsDto | None) -> list[str]:
