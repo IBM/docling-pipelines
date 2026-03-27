@@ -73,5 +73,3 @@ class NOOPOperator(AbstractOperator):
             extra=self.common_log_arguments,
         )
         return [table], metadata
-
-

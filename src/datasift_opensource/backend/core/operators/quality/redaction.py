@@ -184,5 +184,4 @@ class RedactionOperator(AbstractOperator):
         return [self.doc_column]
 
 
-
 # Made with Bob
