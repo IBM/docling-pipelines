@@ -48,14 +48,7 @@ class BatchManager:
             - batch_size: Size of each batch (None if batching disabled)
         """
         batching_enabled = global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False)
-        
-        # Only read batch_size if batching is enabled
-        batch_size = (
-            global_config.get(DatasiftConstants.MICRO_BATCH_SIZE, DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE)
-            if batching_enabled
-            else None
-        )
-        
+        batch_size = global_config.get(DatasiftConstants.MICRO_BATCH_SIZE, DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE)
         return batching_enabled, batch_size
 
     def create_batches(self, *, table: pa.Table, batch_size: int) -> list[pa.Table]:
