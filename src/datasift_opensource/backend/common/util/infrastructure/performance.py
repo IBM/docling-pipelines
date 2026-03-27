@@ -5,7 +5,6 @@ import psutil
 import pyarrow as pa
 
 from common.constants.constants import DatasiftConstants
-from common.models.session_info import get_session_info
 from common.util.core.datetime import get_current_timestamp
 from common.util.infrastructure.logging import get_logger
 
@@ -13,13 +12,12 @@ logger = get_logger()
 
 
 def log_elapsed_time(*, start_time, operator: str | None = None, actions: list | None = None):
-    if get_session_info().track_perf:
-        elapsed_time = get_current_timestamp() - start_time
-        log_message = operator if operator else ""
-        log_message = log_message + ":" + ("-".join(actions) if actions else "")
-        log_message = log_message + ":" + str(elapsed_time)
+    elapsed_time = get_current_timestamp() - start_time
+    log_message = operator if operator else ""
+    log_message = log_message + ":" + ("-".join(actions) if actions else "")
+    log_message = log_message + ":" + str(elapsed_time)
 
-        logger.info(log_message, extra={DatasiftConstants.TRACK_PERF: "true"})
+    logger.info(log_message, extra={DatasiftConstants.TRACK_PERF: "true"})
 
 
 def get_pyarrow_table_size_mb(table: pa.Table) -> float:
@@ -73,7 +71,6 @@ def log_memory_usage(
 ):
     """
     Logs current memory utilization and PyArrow table size for a given operator and phase.
-    Only logs if get_session_info().track_perf is enabled.
 
     Parameters
     ----------
@@ -88,10 +85,7 @@ def log_memory_usage(
     logger : Logger | None
         Logger instance to use
     """
-    if not get_session_info().track_perf:
-        return
-
-    if not table:
+    if table is None:
         return
 
     process_memory = get_process_memory_mb()
@@ -121,7 +115,6 @@ def log_memory_usage(
 def cleanup_pyarrow_buffers(operator_name, phase, table, extra, logger):
     """
     Cleanup PyArrow buffers and log memory usage.
-    Only performs cleanup if get_session_info().track_perf is enabled.
 
     Parameters
     ----------
@@ -136,9 +129,6 @@ def cleanup_pyarrow_buffers(operator_name, phase, table, extra, logger):
     logger : Logger | None
         Logger instance to use
     """
-    if not get_session_info().track_perf:
-        return
-
     log_memory_usage(
         operator_name=operator_name,
         phase=phase,

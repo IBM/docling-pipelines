@@ -195,12 +195,18 @@ class TestCombineTables:
         table1 = pa.table({"col": [1, 2, 3]})
 
         # Passing None in the list should be handled gracefully
-        # The function filters out None values, so this should not raise
+        # The function filters out None values and returns the valid table
         result = _combine_tables([table1, None], "error_tables")
 
-        # Should return the valid table
+        # Should return the valid table (None values are filtered out)
         assert result is not None
         assert result.num_rows == 3
+
+    def test_combine_tables_all_none(self):
+        """Test that combination returns None when all tables are None."""
+        # When all tables are None, should return None
+        result = _combine_tables([None, None], "all_none_tables")
+        assert result is None
 
     def test_combine_large_number_of_tables(self):
         """Test combining many tables."""
