@@ -83,7 +83,7 @@ class TestGetLogger:
     def test_get_logger_with_file_output(self, tmp_path):
         """Test getting logger with file output."""
         log_file = str(tmp_path / "test.log")
-        logger = get_logger(file=log_file)
+        logger = get_logger(name="test_file_logger", file=log_file)
 
         # Check that file handler was added
         file_handlers = [
@@ -174,7 +174,7 @@ class TestConditionalFormatter:
     @pytest.fixture
     def mock_session_info(self):
         """Mock session info."""
-        with patch("common.util.infrastructure.logging.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.transaction_id = "test-transaction-id"
             mock.return_value = session_info
@@ -294,10 +294,10 @@ class TestEdgeCases:
         assert logger is not None
 
     def test_get_logger_with_invalid_level_string(self):
-        """Test getting logger with invalid level string."""
-        # Should default to INFO or handle gracefully
-        logger = get_logger(level="INVALID_LEVEL")
-        assert logger is not None
+        """Test getting logger with invalid level string raises ValueError."""
+        # Invalid level should raise ValueError from logging.getLevelName
+        with pytest.raises(ValueError):
+            get_logger(level="INVALID_LEVEL")
 
     def test_get_logger_multiple_calls_same_name(self):
         """Test that multiple calls with same name return same logger."""
@@ -310,7 +310,7 @@ class TestEdgeCases:
         """Test formatting record with empty message."""
         formatter = ConditionalFormatter()
 
-        with patch("common.util.infrastructure.logging.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.transaction_id = "test-id"
             mock.return_value = session_info

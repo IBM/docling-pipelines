@@ -95,8 +95,8 @@ class TestGetPyarrowTableSizeMb:
         """Test fallback size calculation when nbytes not available."""
         table = pa.table({"id": [1, 2, 3]})
 
-        # Mock nbytes to raise exception
-        with patch.object(pa.Table, "nbytes", side_effect=AttributeError):
+        # Mock get_total_buffer_size to raise exception to trigger fallback
+        with patch.object(table, "get_total_buffer_size", side_effect=AttributeError):
             size = get_pyarrow_table_size_mb(table)
             # Should use fallback calculation
             assert size >= 0
@@ -150,7 +150,7 @@ class TestLogElapsedTime:
     @pytest.fixture
     def mock_session_info(self):
         """Mock session info with track_perf enabled."""
-        with patch("common.util.infrastructure.performance.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.track_perf = True
             mock.return_value = session_info
@@ -159,7 +159,7 @@ class TestLogElapsedTime:
     @pytest.fixture
     def mock_session_info_disabled(self):
         """Mock session info with track_perf disabled."""
-        with patch("common.util.infrastructure.performance.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.track_perf = False
             mock.return_value = session_info
@@ -223,7 +223,7 @@ class TestLogMemoryUsage:
     @pytest.fixture
     def mock_session_info(self):
         """Mock session info with track_perf enabled."""
-        with patch("common.util.infrastructure.performance.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.track_perf = True
             mock.return_value = session_info
@@ -232,7 +232,7 @@ class TestLogMemoryUsage:
     @pytest.fixture
     def mock_session_info_disabled(self):
         """Mock session info with track_perf disabled."""
-        with patch("common.util.infrastructure.performance.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.track_perf = False
             mock.return_value = session_info
@@ -329,7 +329,7 @@ class TestCleanupPyarrowBuffers:
     @pytest.fixture
     def mock_session_info(self):
         """Mock session info with track_perf enabled."""
-        with patch("common.util.infrastructure.performance.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.track_perf = True
             mock.return_value = session_info
@@ -338,7 +338,7 @@ class TestCleanupPyarrowBuffers:
     @pytest.fixture
     def mock_session_info_disabled(self):
         """Mock session info with track_perf disabled."""
-        with patch("common.util.infrastructure.performance.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.track_perf = False
             mock.return_value = session_info
@@ -410,7 +410,7 @@ class TestEdgeCases:
 
     def test_log_memory_usage_with_empty_table(self):
         """Test logging memory usage with empty table."""
-        with patch("common.util.infrastructure.performance.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.track_perf = True
             mock.return_value = session_info
@@ -425,11 +425,12 @@ class TestEdgeCases:
                 logger=mock_logger,
             )
 
+            # Empty table should still log
             assert mock_logger.info.called
 
     def test_log_elapsed_time_with_zero_duration(self):
         """Test logging elapsed time with zero duration."""
-        with patch("common.util.infrastructure.performance.get_session_info") as mock:
+        with patch("common.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.track_perf = True
             mock.return_value = session_info

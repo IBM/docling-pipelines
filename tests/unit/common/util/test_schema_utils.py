@@ -5,7 +5,6 @@ Tests for PyArrow table schema operations.
 
 import pyarrow as pa
 import pyarrow.compute as pc
-import pytest
 
 from common.util.data.schema_utils import (
     align_table_schema,
@@ -195,10 +194,13 @@ class TestCombineTables:
         # Create tables that might cause issues
         table1 = pa.table({"col": [1, 2, 3]})
 
-        # Mock concat_tables to raise exception
-        with pytest.raises(Exception):
-            # This should trigger the exception handling
-            _combine_tables([table1, None], "error_tables")
+        # Passing None in the list should be handled gracefully
+        # The function filters out None values, so this should not raise
+        result = _combine_tables([table1, None], "error_tables")
+
+        # Should return the valid table
+        assert result is not None
+        assert result.num_rows == 3
 
     def test_combine_large_number_of_tables(self):
         """Test combining many tables."""
