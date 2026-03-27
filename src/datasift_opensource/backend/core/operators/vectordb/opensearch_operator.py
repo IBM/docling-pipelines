@@ -10,7 +10,7 @@ from typing import Any
 
 from common.constants.constants import Metrics
 from common.constants.operator_constants import OperatorConstants
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.vectordb.opensearch_client import OpenSearchClient
 from core.operators.vectordb.opensearch_index_manager import (

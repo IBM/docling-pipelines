@@ -14,9 +14,9 @@ from common.exceptions.datasift_exceptions import (
 )
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.models.session_info import get_session_info, set_session_info
-from common.util.datasift_utils import add_validation_alert
-from common.util.log import get_logger
-from common.util.orchestrator_utils import clean_up_prefect_home
+from common.util.orchestration.flow_utils import add_validation_alert
+from common.util.infrastructure.logging import get_logger
+from common.util.orchestration.prefect_config import clean_up_prefect_home
 from core.operators.abstract_operator import OperatorCategory
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.operator_factory import OperatorFactory, OperatorFactoryProvider

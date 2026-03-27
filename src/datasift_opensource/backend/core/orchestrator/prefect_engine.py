@@ -20,10 +20,11 @@ from common.exceptions.datasift_exceptions import (
     PrefectFlowFailed,
 )
 from common.models.session_info import get_session_info
-from common.util.incremental_update_util import IncrementalUpdateUtil
+from common.util.data.incremental_update import IncrementalUpdateUtil
 from common.util.job_tracker.tracker.job_tracker import JobTracker
-from common.util.log import get_logger
-from common.util.orchestrator_utils import create_node_id_to_index_map, set_prefect_env_variables
+from common.util.infrastructure.logging import get_logger
+from common.util.orchestration.flow_utils import create_node_id_to_index_map
+from common.util.orchestration.prefect_config import set_prefect_env_variables
 from core.orchestrator.futured_list import FuturedList
 
 set_prefect_env_variables()

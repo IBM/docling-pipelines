@@ -23,8 +23,8 @@ from common.constants.constants import (
     Metrics,
 )
 from common.constants.operator_constants import OperatorConstants
-from common.util.incremental_update_util import IncrementalUpdateUtil
-from common.util.log import get_logger
+from common.util.data.incremental_update import IncrementalUpdateUtil
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.ingest.ingest_utils import (
     filter_based_on_extension,

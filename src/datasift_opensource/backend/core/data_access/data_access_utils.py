@@ -1,7 +1,7 @@
 import re
 
 from common.constants.constants import DatasiftConstants
-from common.util.datasift_utils import get_data_path
+from common.util.infrastructure.filesystem import get_data_path
 
 
 class DataAccessConstants:

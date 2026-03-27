@@ -1,75 +1,10 @@
-import os
-import shutil
+"""Concurrency utilities for parallel processing and context propagation."""
+
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
 from typing import Any, TypeVar
-from pathlib import Path
 
 from common.constants.operator_constants import OperatorConstants
-from common.exceptions.datasift_exceptions import ErrorCode, ValidationAlert
-from common.exceptions.error_messages import ValidationMessage
-from common.util.log import get_logger
-
-logger = get_logger()
-DEFAULT_DATA_ROOT_FOLDER = "./data"
-
-
-def get_data_path(*, sub_dir: str = "") -> str:
-    '''
-    Returns path from the root data directory with the given subdirectory. It creates the directories, if does not exist.
-    '''
-    data_path = DEFAULT_DATA_ROOT_FOLDER + sub_dir
-    Path(data_path).mkdir(parents=True, exist_ok=True)
-    return data_path
-
-
-def get_current_timestamp():
-    return round(datetime.now().timestamp())
-
-
-def add_validation_alert(message: str | ValidationMessage, op_def: dict, alerts: list, **kwargs):
-    """
-
-    Parameters
-    ----------
-       message: Either a plain string or a ValidationMessage object.
-        op_def: Dictionary with operator definition keys: ID, NAME, OPERATOR.
-        alerts: List to which the new ValidationAlert will be appended.
-        **kwargs: Optional extra parameters to include in the alert.
-    Returns
-    -------
-    instance of ValidationAlert model
-    """
-    message_obj = message if isinstance(message, ValidationMessage) else ValidationMessage(message=message)
-
-    alerts.append(
-        ValidationAlert(
-            code=ErrorCode.FLOW_VALIDATION_FAILED.value,
-            node_id=op_def.get(OperatorConstants.Misc.ID),
-            node_name=op_def.get(OperatorConstants.Misc.NAME),
-            operator=op_def.get(OperatorConstants.Misc.OPERATOR),
-            **message_obj.model_dump(mode="python"),
-            **kwargs,
-        )
-    )
-
-
-def delete_folders(*, paths_list):
-    for folder in paths_list:
-        if os.path.exists(folder):
-            logger.info(f"\nContents of {folder}:")
-            for root, dirs, files in os.walk(folder):
-                for name in files:
-                    logger.info(os.path.join(root, name))
-                for name in dirs:
-                    logger.info(os.path.join(root, name))
-            # After listing, delete the folder
-            shutil.rmtree(folder)
-            logger.info(f"Deleted: {folder}")
-        else:
-            logger.info(f"Not found: {folder}")
-
 
 # Define type variables for generic function typing
 T = TypeVar("T")  # input batch type
@@ -182,5 +117,10 @@ def submit_task_with_context_propagation(executor: "ThreadPoolExecutor", func: "
     return executor.submit(run_with_session_info, current_session, func, *args, **kwargs)
 
 
-def should_retry_on_result(result, exception):
-    return not bool(result), "Error in acquiring postgres advisory lock"
+__all__ = [
+    "process_batches_in_parallel",
+    "run_with_session_info",
+    "submit_task_with_context_propagation",
+]
+
+# Made with Bob

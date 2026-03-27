@@ -3,7 +3,7 @@ from typing import Any
 
 from common.constants.constants import ExecutionStatus
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 

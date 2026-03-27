@@ -24,8 +24,8 @@ from common.constants.constants import (
     Metrics,
 )
 from common.constants.operator_constants import OperatorConstants
-from common.util.common_utils import split_text_into_chunks
-from common.util.log import get_logger
+from common.util.core.strings import split_text_into_chunks
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 from .local_pii_hap_detect import detect_pii_hap, detect_pii_hap_openai

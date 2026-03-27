@@ -8,7 +8,7 @@ import tracemalloc
 from common.constants.constants import DatasiftConstants, OrchestratorType
 from common.exceptions.datasift_exceptions import FlowValidationException, ValidationAlertEncoder
 from common.models.session_info import get_session_info
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.flow_validator import FlowValidator
 from core.orchestrator.orchestrator_factory import OrchestratorFactory

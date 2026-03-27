@@ -16,8 +16,8 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from common.util.common_utils import is_value_in_range
-from common.util.log import get_logger
+from common.util.core.validation import is_value_in_range
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.extract.extract_docling import ExtractDoclingOperator
 from core.operators.ingest.ingest_local_folder import IngestLocalOperator

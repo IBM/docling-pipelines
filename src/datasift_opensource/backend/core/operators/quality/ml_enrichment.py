@@ -25,7 +25,7 @@ from common.constants import (
     Metrics,
     OperatorConstants,
 )
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 

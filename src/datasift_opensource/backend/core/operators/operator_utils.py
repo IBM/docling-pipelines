@@ -23,7 +23,7 @@ from common.exceptions.datasift_exceptions import FlowExecutionFailedException, 
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.job_tracker.model.models import normalize_node_stats_for_dto
 from common.util.job_tracker.tracker.job_tracker import NodeStatsDto
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 status_codes = {
     ExecutionStatus.FAILED: 1,
@@ -227,7 +227,7 @@ class OperatorUtils:
         Returns:
             A dictionary containing the operator logs.
         """
-        from common.util.operator_log_details import get_log_and_job_file_path
+        from common.util.operators.logging import get_log_and_job_file_path
 
         log_final_path, _, _, aggregated_job_log_path = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
 
@@ -954,7 +954,7 @@ class OperatorUtils:
 
 
 def get_missing_operator(features: list[str]):
-    from common.util.operator_metadata import OperatorMetadata
+    from common.util.operators.metadata import OperatorMetadata
 
     operator_metadata = OperatorMetadata()
     feature_operators_map = operator_metadata.get_feature_operators_map()
