@@ -113,15 +113,4 @@ class OperatorMetadata:
         return feature_operators_map
 
 
-# Only used for unit testing
-def main():  # pragma: no cover
-    operator = OperatorMetadata()
-    operator_items = operator.get_operator_metadata()
-    for key, value in operator_items.items():
-        print(f"Key: {key}, value: {value}")
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()
-
 # Made with Bob
