@@ -1,7 +1,7 @@
 import os
 import unittest
 import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from cli.datasift_cli import (
     run_command_line_executor,
@@ -57,7 +57,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         from cli.datasift_cli import load_flow_definition
 
-        filepath = "../../../tests/flow_local.json"
+        filepath = "./tests/flow_local.json"
 
         flow_def = load_flow_definition(file_path=filepath)
         assert flow_def is not None
@@ -113,18 +113,11 @@ class TestCommandLineOrchestrator(unittest.TestCase):
             # Clean up the temporary file
             os.unlink(temp_file_path)
 
-    @patch(
-        "core.orchestrator.orchestrator_factory.OrchestratorFactory.create_orchestrator"
-    )
-    def test_flow_execution_failure(self, mock_create_orchestrator):
+    def test_flow_execution_failure(self):
         """
         Test handling of flow execution failure
         """
-        # Create a mock orchestrator that raises an exception during execution
-        mock_orchestrator = MagicMock()
-        mock_orchestrator.execute.side_effect = Exception("Flow execution failed")
-        mock_create_orchestrator.return_value = mock_orchestrator
-
+        
         # Create a simple flow definition
         flow_def = {
             "dag": [
