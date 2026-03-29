@@ -4,7 +4,7 @@ This module contains the FlowValidator class which handles all flow validation l
 that was previously embedded in AbstractOrchestrator.
 """
 
-from common.constants.constants import DatasiftConstants, OrchestratorType, TaskType
+from common.constants.constants import DatasiftConstants, OrchestratorType
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import (
     DatasiftException,
@@ -14,13 +14,12 @@ from common.exceptions.datasift_exceptions import (
 )
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.models.session_info import get_session_info, set_session_info
-from common.util.orchestration.flow_utils import add_validation_alert
 from common.util.infrastructure.logging import get_logger
+from common.util.orchestration.flow_utils import add_validation_alert
 from common.util.orchestration.prefect_config import clean_up_prefect_home
 from core.operators.abstract_operator import OperatorCategory
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 from core.orchestrator.operator_factory import OperatorFactory, OperatorFactoryProvider
-
 
 logger = get_logger()
 
@@ -36,7 +35,7 @@ class ValidateStepResults:
 
 class FlowValidator:
     """Handles all flow validation logic for the datasift orchestrator.
-    
+
     This class encapsulates validation methods that check:
     - DAG structure and connectivity
     - Operator placement and categories
@@ -46,7 +45,7 @@ class FlowValidator:
 
     def __init__(self, orchestrator: AbstractOrchestrator):
         """Initialize the FlowValidator.
-        
+
         Args:
             orchestrator: Reference to the AbstractOrchestrator instance
         """
@@ -56,11 +55,11 @@ class FlowValidator:
 
     def validate(self, *, flow_def: dict, params: dict):
         """Main validation entry point for a flow definition.
-        
+
         Args:
             flow_def: The flow definition dictionary
             params: Additional parameters to merge with global config
-            
+
         Raises:
             FlowValidationException: If validation fails
         """
@@ -84,11 +83,11 @@ class FlowValidator:
 
     def validate_dag(self, *, flow_def: dict, global_config: dict):
         """Validate the DAG structure and all nodes.
-        
+
         Args:
             flow_def: The flow definition dictionary
             global_config: Global configuration dictionary
-            
+
         Raises:
             FlowValidationException: If validation fails
         """
@@ -141,17 +140,15 @@ class FlowValidator:
 
         def node_validation_task(task_name, op_def, result=None, link_name=None):
             return self._validate_node(
-                op_def=op_def,
-                global_config=global_config,
-                validate_results=validate_results,
-                session_info=session_info
+                op_def=op_def, global_config=global_config, validate_results=validate_results, session_info=session_info
             )
 
         self.orchestrator.flow_engine.execute_non_execute_flow(
-            flow_name="dag_validation_flow",
-            task=node_validation_task,
-            dag=dag)
+            flow_name="dag_validation_flow", task=node_validation_task, dag=dag
+        )
         clean_up_prefect_home()
+
+        self.validate_last_operator(dag=dag, global_config=global_config, validate_results=validate_results)
 
         if validate_results.errors or validate_results.warnings:
             self.logger.error(f"Validation errors: {validate_results.errors}")
@@ -159,7 +156,7 @@ class FlowValidator:
 
     def validate_first_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
         """Validate that the first operator in the DAG is an Ingest operator.
-        
+
         Args:
             dag: List of operator definitions
             global_config: Global configuration dictionary
@@ -179,7 +176,7 @@ class FlowValidator:
 
     def validate_disjoint_operators(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain disconnected (disjoint) operators.
-        
+
         Args:
             dag: List of operator definitions
             validate_results: Container for validation results
@@ -194,20 +191,20 @@ class FlowValidator:
             index = id_to_index.get(list(components[0])[-1])
             if index is not None:
                 add_validation_alert(
-                message=ValidationMessage(
-                    message=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.value,
-                    message_code=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.name,
-                ),
+                    message=ValidationMessage(
+                        message=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.value,
+                        message_code=ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.name,
+                    ),
                     op_def=dag[index],
                     alerts=validate_results.errors,
                 )
 
     def _build_graph(self, dag: list) -> dict:
         """Build a directed graph representation from the DAG.
-        
+
         Args:
             dag: List of operator definitions
-            
+
         Returns:
             Dictionary mapping node IDs to lists of connected node IDs
         """
@@ -219,10 +216,10 @@ class FlowValidator:
 
     def _make_undirected_graph(self, graph: dict) -> dict:
         """Convert a directed graph into an undirected graph for disjoint detection.
-        
+
         Args:
             graph: Directed graph dictionary
-            
+
         Returns:
             Undirected graph dictionary
         """
@@ -235,10 +232,10 @@ class FlowValidator:
 
     def _find_connected_components(self, undirected: dict) -> list:
         """Find connected components in an undirected graph.
-        
+
         Args:
             undirected: Undirected graph dictionary
-            
+
         Returns:
             List of sets, each containing node IDs in a connected component
         """
@@ -260,12 +257,12 @@ class FlowValidator:
 
     def check_duplicate_extract_operators(self, *, sequence, global_config, errors):
         """Check for duplicate extract operators in the sequence.
-        
+
         Args:
             sequence: List of operator definitions
             global_config: Global configuration dictionary
             errors: List to collect error alerts
-            
+
         Returns:
             Count of extract operators found
         """
@@ -289,6 +286,26 @@ class FlowValidator:
 
         return extract_operator_count
 
+    def validate_last_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+        """Validate that the last operator in the DAG is a VectorDB operator."""
+        if not dag:
+            return
+
+        last_op = dag[-1]
+        category = self.get_operator_category(
+            op_def=last_op, global_config=global_config, alerts=validate_results.errors
+        )
+
+        if category != OperatorCategory.VectorDB:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
+                    message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name,
+                ),
+                op_def=last_op,
+                alerts=validate_results.warnings,
+            )
+
     def validate_operator_category(
         self,
         *,
@@ -299,7 +316,7 @@ class FlowValidator:
         alerts: list,
     ):
         """Validate that an operator belongs to the expected category.
-        
+
         Args:
             op_def: Operator definition dictionary
             global_config: Global configuration dictionary
@@ -313,15 +330,15 @@ class FlowValidator:
 
     def get_operator_category(self, *, op_def: dict, global_config: dict, alerts: list):
         """Get the category of an operator.
-        
+
         Args:
             op_def: Operator definition dictionary
             global_config: Global configuration dictionary
             alerts: List to collect alerts
-            
+
         Returns:
             Operator category
-            
+
         Raises:
             FlowValidationException: If operator cannot be created
         """
@@ -371,7 +388,7 @@ class FlowValidator:
 
     def create_validation_alerts(self, op_def: dict, messages: list, alerts: list, **kwargs):
         """Create validation alerts from a list of messages.
-        
+
         Args:
             op_def: Operator definition dictionary
             messages: List of validation messages
@@ -390,13 +407,13 @@ class FlowValidator:
         session_info,
     ):
         """Validate a single node in the DAG.
-        
+
         Args:
             op_def: Operator definition dictionary
             global_config: Global configuration dictionary
             validate_results: Container for validation results
             session_info: Session information
-            
+
         Returns:
             Updated validate_results
         """
@@ -468,10 +485,10 @@ class FlowValidator:
 
     def get_duplicate_node_names(self, *, nodes):
         """Get duplicate names of nodes from pipeline.
-        
+
         Args:
             nodes: List of node names
-            
+
         Returns:
             List of duplicate node names
         """
@@ -482,12 +499,12 @@ class FlowValidator:
         self, operator: str, operator_factory: OperatorFactory, global_config: dict
     ) -> bool:
         """Evaluate whether to skip validation for a custom operator.
-        
+
         Args:
             operator: Operator name
             operator_factory: Operator factory instance
             global_config: Global configuration dictionary
-            
+
         Returns:
             True if validation should be skipped, False otherwise
         """
@@ -498,5 +515,6 @@ class FlowValidator:
         ):
             return True
         return False
+
 
 # Made with Bob
