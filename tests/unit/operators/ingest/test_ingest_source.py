@@ -4,10 +4,11 @@ Unit tests for IngestSourceOperator.
 Tests the operator with various providers and configurations using mocks.
 """
 
-import json
 import sys
 from pathlib import Path
+import pyarrow as pa
 from unittest.mock import Mock, patch
+from langchain_core.documents import Document
 import pytest
 
 # Add the backend directory to the Python path
@@ -18,10 +19,6 @@ backend_dir = (
     / "backend"
 )
 sys.path.insert(0, str(backend_dir))
-
-
-import pyarrow as pa
-from langchain_core.documents import Document
 
 
 @pytest.fixture
@@ -130,7 +127,6 @@ class TestIngestSourceOperatorInitialization:
             "credentials": {
                 "client_id": "test-client-id",
                 "client_secret": "test-client-secret",  # pragma: allowlist secret
-
             },
         }
 
@@ -171,7 +167,6 @@ class TestIngestSourceOperatorInitialization:
                 "loader_class_path": "my_package.loaders.CustomLoader",
                 "custom_param": "value",
             },
-            "credentials": {"api_key": "test-api-key"},
             "credentials": {"api_key": "test-api-key"},  # pragma: allowlist secret
         }
 
@@ -202,7 +197,9 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(ValueError, match="S3/IBM COS providers should not call _get_loader"):
+        with pytest.raises(
+            ValueError, match="S3/IBM COS providers should not call _get_loader"
+        ):
             operator._get_loader()
 
     def test_get_loader_ibm_cos(self):
@@ -224,7 +221,9 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(ValueError, match="S3/IBM COS providers should not call _get_loader"):
+        with pytest.raises(
+            ValueError, match="S3/IBM COS providers should not call _get_loader"
+        ):
             operator._get_loader()
 
     def test_get_loader_google_drive(self):
@@ -544,7 +543,12 @@ class TestTransform:
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_success(
-        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, mock_documents, empty_input_table
+        self,
+        mock_s3_file_loader,
+        mock_boto_client,
+        mock_incremental_util,
+        mock_documents,
+        empty_input_table,
     ):
         """Test transform successfully processes documents."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
@@ -571,7 +575,9 @@ class TestTransform:
 
         # Mock S3FileLoader to return documents
         mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = [mock_documents[0]]  # Return one doc per file
+        mock_loader_instance.load.return_value = [
+            mock_documents[0]
+        ]  # Return one doc per file
         mock_s3_file_loader.return_value = mock_loader_instance
 
         config = {
@@ -583,6 +589,7 @@ class TestTransform:
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
+            "force_ingest": True,
         }
 
         operator = IngestSourceOperator(config)
@@ -618,7 +625,11 @@ class TestTransform:
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_empty_documents(
-        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
+        self,
+        mock_s3_file_loader,
+        mock_boto_client,
+        mock_incremental_util,
+        empty_input_table,
     ):
         """Test transform handles empty document list."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
@@ -644,6 +655,7 @@ class TestTransform:
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
+            "force_ingest": True,
         }
 
         operator = IngestSourceOperator(config)
@@ -661,7 +673,11 @@ class TestTransform:
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_error_handling(
-        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
+        self,
+        mock_s3_file_loader,
+        mock_boto_client,
+        mock_incremental_util,
+        empty_input_table,
     ):
         """Test transform handles errors gracefully."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
@@ -683,6 +699,7 @@ class TestTransform:
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
+            "force_ingest": True,
         }
 
         operator = IngestSourceOperator(config)
@@ -700,7 +717,12 @@ class TestTransform:
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_schema_validation(
-        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, mock_documents, empty_input_table
+        self,
+        mock_s3_file_loader,
+        mock_boto_client,
+        mock_incremental_util,
+        mock_documents,
+        empty_input_table,
     ):
         """Test transform output has correct schema."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
@@ -739,6 +761,7 @@ class TestTransform:
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
+            "force_ingest": True,
         }
 
         operator = IngestSourceOperator(config)
@@ -757,19 +780,31 @@ class TestTransform:
         assert schema.field("binary_content").type == pa.binary()
         assert schema.field("modified_time").type == pa.int64()
 
-    @patch("common.util.incremental_update_util.IncrementalUpdateUtil")
-    @patch("core.operators.ingest.ingest_source.GoogleDriveSourceAdapter")
+    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
+    @patch(
+        "core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.create"
+    )
+    @patch(
+        "core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.is_registered",
+        return_value=True,
+    )
     @patch("os.path.exists")
     @patch("os.makedirs")
     def test_transform_google_drive(
         self,
-        mock_gdrive_adapter,
+        mock_makedirs,
+        mock_path_exists,
+        mock_is_registered,
+        mock_factory_create,
         mock_incremental_util,
         mock_documents,
         empty_input_table,
     ):
         """Test transform with Google Drive provider using new adapter architecture."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
+
+        # Mock os.path.exists to return True
+        mock_path_exists.return_value = True
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -796,7 +831,7 @@ class TestTransform:
                 yield domain_doc
 
         mock_adapter_instance.fetch_documents = mock_fetch_documents
-        mock_gdrive_adapter.return_value = mock_adapter_instance
+        mock_factory_create.return_value = mock_adapter_instance
 
         config = {
             "provider": "google_drive",
@@ -808,6 +843,7 @@ class TestTransform:
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
+            "force_ingest": True,
         }
 
         operator = IngestSourceOperator(config)
@@ -821,7 +857,11 @@ class TestTransform:
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_transform_document_without_source(
-        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
+        self,
+        mock_s3_file_loader,
+        mock_boto_client,
+        mock_incremental_util,
+        empty_input_table,
     ):
         """Test transform handles documents without source in metadata."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
@@ -859,6 +899,7 @@ class TestTransform:
             },  # pragma: allowlist secret
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
+            "force_ingest": True,
         }
 
         operator = IngestSourceOperator(config)
@@ -876,7 +917,11 @@ class TestIntegrationScenarios:
     @patch("boto3.client")
     @patch("core.operators.ingest.ingest_source.S3FileLoader")
     def test_s3_to_pyarrow_pipeline(
-        self, mock_s3_file_loader, mock_boto_client, mock_incremental_util, empty_input_table
+        self,
+        mock_s3_file_loader,
+        mock_boto_client,
+        mock_incremental_util,
+        empty_input_table,
     ):
         """Test complete S3 ingestion to PyArrow table pipeline."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
@@ -926,6 +971,7 @@ class TestIntegrationScenarios:
             },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
+            "force_ingest": True,
         }
 
         operator = IngestSourceOperator(config)
