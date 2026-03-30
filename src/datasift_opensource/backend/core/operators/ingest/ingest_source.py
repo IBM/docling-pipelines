@@ -1,8 +1,7 @@
+import asyncio
 import hashlib
 import importlib
-import io
 import json
-import os
 from typing import Any, ClassVar, Iterator
 
 import boto3
@@ -14,8 +13,10 @@ from langchain_community.document_loaders import (
 )
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
-from langchain_google_community import GoogleDriveLoader
 
+# Import adapters to trigger registration via @register_source_adapter decorator
+# These imports are necessary for the factory to discover available adapters
+import core.operators.ingest.adapters.outbound.sources.google_drive.adapter  # noqa: F401
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -26,6 +27,9 @@ from common.constants.operator_constants import OperatorConstants
 from common.util.data.incremental_update import IncrementalUpdateUtil
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
+    SourceAdapterFactory,
+)
 from core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
     get_filter_extensions,
@@ -37,9 +41,6 @@ MICROSOFT_LOGIN_URL = "https://login.microsoftonline.com"
 MICROSOFT_GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
 MICROSOFT_GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 MICROSOFT_OAUTH_TOKEN_PATH = "/oauth2/v2.0/token"
-
-# Google Drive API Constants
-GOOGLE_DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
 
 
 class MicrosoftGraphLoader(BaseLoader):
@@ -344,7 +345,7 @@ class IngestSourceOperator(AbstractOperator):
 
     def process_documents(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         """
-        Process documents from the configured LangChain loader.
+        Process documents from the configured LangChain loader or new adapter.
 
         Args:
             metadata: Metadata dictionary for tracking
@@ -361,8 +362,11 @@ class IngestSourceOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
 
+            # Try to use new adapter architecture first
+            if SourceAdapterFactory.is_registered(self.provider):
+                documents: list[Document] = self._load_documents_via_adapter()
             # Special handling for S3 to filter hidden files before loading
-            if self.provider in ["s3", "ibm_cos"]:
+            elif self.provider in ["s3", "ibm_cos"]:
                 documents: list[Document] = self._load_s3_documents()
             else:
                 loader: BaseLoader = self._get_loader()
@@ -400,6 +404,94 @@ class IngestSourceOperator(AbstractOperator):
             )
 
         return doc_data
+
+    def _load_documents_via_adapter(self) -> list[Document]:
+        """
+        Load documents using the adapter architecture with automatic provider selection.
+
+        This method uses the SourceAdapterFactory to automatically select and instantiate
+        the correct adapter based on the provider name. It eliminates the need for
+        provider-specific if-else conditions and delegates configuration building to
+        provider-specific config builders.
+
+        Returns:
+            List of LangChain Document objects
+
+        Raises:
+            ValueError: If provider is not registered or configuration is invalid
+        """
+        # Get the adapter class for this provider
+        adapter_class = SourceAdapterFactory.get_adapter_class(self.provider)
+        if not adapter_class:
+            raise ValueError(
+                f"No adapter registered for provider '{self.provider}'. "
+                f"Available providers: {', '.join(SourceAdapterFactory.get_registered_names())}"
+            )
+
+        # Build provider-specific configuration
+        config = self._build_adapter_config(self.provider)
+
+        # Create adapter instance
+        adapter = SourceAdapterFactory.create(self.provider)
+
+        # Run async fetch in sync context and convert to LangChain Documents
+        async def fetch_all():
+            langchain_docs = []
+            async for domain_doc in adapter.fetch_documents(config):
+                # Convert domain Document to LangChain Document
+                # LangChain Document expects page_content (str) and metadata (dict)
+                # Note: We store binary content as a special attribute, not in metadata
+                # to avoid JSON serialization issues
+                langchain_doc = Document(
+                    page_content="",  # Will be populated by extract_content
+                    metadata={
+                        "source": domain_doc.source_url,
+                        "name": domain_doc.name,
+                        "id": domain_doc.id,
+                        "last_modified": domain_doc.modified_time.isoformat() if domain_doc.modified_time else None,
+                        "size": domain_doc.size,
+                        "mimetype": domain_doc.mimetype,
+                        "extension": domain_doc.extension,
+                        # Mark that binary content is available
+                        "has_binary_content": True,
+                        **domain_doc.metadata,
+                    },
+                )
+                # Store binary content as a private attribute to avoid JSON serialization
+                # This will be accessed by extract_content method
+                langchain_doc._binary_content = domain_doc.content
+                langchain_docs.append(langchain_doc)
+            return langchain_docs
+
+        documents = asyncio.run(fetch_all())
+        return documents
+
+    def _build_adapter_config(self, provider: str):
+        """
+        Build provider-specific configuration from operator parameters.
+
+        This method delegates configuration building to the appropriate adapter,
+        following the Open/Closed Principle. Each adapter knows how to construct
+        its own configuration from operator parameters.
+
+        Args:
+            provider: The provider name (e.g., "filesystem", "google_drive")
+
+        Returns:
+            Provider-specific configuration object (Pydantic model)
+
+        Raises:
+            ValueError: If provider is not supported or configuration is invalid
+        """
+        # Create adapter instance to access its config builder
+        adapter = SourceAdapterFactory.create(provider)
+
+        # Delegate configuration building to the adapter
+        return adapter.build_config_from_operator_params(
+            connection_params=self.connection_params,
+            credentials=self.credentials,
+            included_extensions=self.included_extensions,
+        )
 
     def process_document(self, doc: Document, idx: int, metadata: dict[str, Any]) -> dict[str, Any] | None:
         """
@@ -534,119 +626,28 @@ class IngestSourceOperator(AbstractOperator):
             binary_content: bytes | None = None
 
             # ------------------------------------------------------------------ #
-            # Google Drive                                                        #
+            # Check for pre-fetched binary content from adapters                  #
             # ------------------------------------------------------------------ #
-            if self.provider == "google_drive":
-                file_id = doc.metadata.get("id") or doc.metadata.get("file_id")
-                if file_id:
-                    try:
-                        from google.oauth2.credentials import Credentials
-                        from googleapiclient.discovery import build
-                        from googleapiclient.http import MediaIoBaseDownload
-
-                        credentials_path = self.credentials.get("credentials_json_path")
-                        token_path = self.credentials.get(
-                            "token_path",
-                            os.path.expanduser("~/.credentials/token.json"),
-                        )
-                        scopes = self.credentials.get("scopes", [GOOGLE_DRIVE_READONLY_SCOPE])
-
-                        creds = None
-                        if os.path.exists(token_path):
-                            creds = Credentials.from_authorized_user_file(token_path, scopes)
-
-                        if creds is None or not creds.valid:
-                            from google_auth_oauthlib.flow import InstalledAppFlow
-
-                            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, scopes)
-                            creds = flow.run_local_server(port=0)
-                            token_dir = os.path.dirname(token_path)
-                            if token_dir:
-                                os.makedirs(token_dir, exist_ok=True)
-                            with open(token_path, "w") as token_file:
-                                token_file.write(creds.to_json())
-
-                        service = build("drive", "v3", credentials=creds)
-
-                        # Determine MIME type to decide export vs. direct download
-                        file_meta = service.files().get(fileId=file_id, fields="mimeType,name").execute()
-                        mime_type = file_meta.get("mimeType", "")
-                        gdrive_file_name = file_meta.get("name", "")
-
-                        # Google Workspace documents must be exported; map to Office formats
-                        export_map = {
-                            "application/vnd.google-apps.document": (
-                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                ".docx",
-                            ),
-                            "application/vnd.google-apps.spreadsheet": (
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                ".xlsx",
-                            ),
-                            "application/vnd.google-apps.presentation": (
-                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                ".pptx",
-                            ),
-                        }
-
-                        # MIME type → file extension for non-Workspace files
-                        mime_to_ext = {
-                            "application/pdf": ".pdf",
-                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-                            "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-                            "application/msword": ".doc",
-                            "text/plain": ".txt",
-                            "text/markdown": ".md",
-                            "text/html": ".html",
-                            "image/png": ".png",
-                            "image/jpeg": ".jpg",
-                            "image/gif": ".gif",
-                            "image/tiff": ".tiff",
-                        }
-
-                        buf = io.BytesIO()
-                        if mime_type in export_map:
-                            export_mime, export_ext = export_map[mime_type]
-                            request = service.files().export_media(fileId=file_id, mimeType=export_mime)
-                            # Ensure the filename has the correct exported extension
-                            if gdrive_file_name and not gdrive_file_name.lower().endswith(export_ext):
-                                gdrive_file_name = gdrive_file_name + export_ext
-                        else:
-                            request = service.files().get_media(fileId=file_id)
-                            # Derive extension from MIME type if filename has none
-                            if gdrive_file_name and "." not in gdrive_file_name:
-                                ext = mime_to_ext.get(mime_type, "")
-                                if ext:
-                                    gdrive_file_name = gdrive_file_name + ext
-
-                        downloader = MediaIoBaseDownload(buf, request)
-                        done = False
-                        while not done:
-                            _, done = downloader.next_chunk()
-                        binary_content = buf.getvalue()
-
-                        # Override the document name with the real filename so that
-                        # ExtractDoclingOperator can derive the correct temp-file extension
-                        if gdrive_file_name:
-                            processed_doc["name"] = gdrive_file_name
-
-                        logger.info(
-                            f"Downloaded {len(binary_content)} bytes from Google Drive for: {source} "
-                            f"(name={gdrive_file_name})",
-                            extra=self.common_log_arguments,
-                        )
-                    except Exception as gdrive_err:
-                        logger.warning(
-                            f"Could not download binary from Google Drive for {source}: {gdrive_err}. "
-                            "Falling back to page_content text.",
-                            extra=self.common_log_arguments,
-                        )
+            # All adapters using the new hexagonal architecture store binary
+            # content in the _binary_content attribute to avoid JSON serialization
+            if hasattr(doc, "_binary_content") and doc._binary_content:
+                binary_content = doc._binary_content
+                logger.info(
+                    f"Using pre-fetched binary content from adapter for: {source}",
+                    extra=self.common_log_arguments,
+                )
+            elif doc.metadata.get("has_binary_content"):
+                # Binary content should be available but isn't - this is an error
+                logger.error(
+                    f"Binary content marked as available but not found for: {source}",
+                    extra=self.common_log_arguments,
+                )
+                return False
 
             # ------------------------------------------------------------------ #
             # OneDrive / SharePoint                                               #
             # ------------------------------------------------------------------ #
-            elif self.provider in ("onedrive", "sharepoint"):
+            if self.provider in ("onedrive", "sharepoint"):
                 item_id = doc.metadata.get("item_id")
                 if item_id:
                     try:
@@ -889,30 +890,7 @@ class IngestSourceOperator(AbstractOperator):
                 recursive=self.connection_params.get("recursive", True),
             )
 
-        # 4. Google Drive
-        elif self.provider == "google_drive":
-            # Get credentials path and token path
-            credentials_path: str = self.credentials.get("credentials_json_path")
-            token_path: str = self.credentials.get("token_path", os.path.expanduser("~/.credentials/token.json"))
-
-            # Ensure the token directory exists
-            token_dir: str = os.path.dirname(token_path)
-            if token_dir and not os.path.exists(token_dir):
-                os.makedirs(token_dir, exist_ok=True)
-
-            # Define required Google Drive API scopes
-            # Use read-only scope for security best practices
-            scopes: list[str] = self.credentials.get("scopes", [GOOGLE_DRIVE_READONLY_SCOPE])
-
-            return GoogleDriveLoader(
-                folder_id=self.connection_params.get("folder_id"),
-                credentials_path=credentials_path,
-                token_path=token_path,
-                recursive=self.connection_params.get("recursive", False),
-                scopes=scopes,
-            )
-
-        # 5. Custom / FileNet / Other
+        # 4. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         elif self.provider == "custom":
             loader_path: str = self.connection_params.get("loader_class_path")
@@ -1025,5 +1003,3 @@ class IngestSourceOperator(AbstractOperator):
                 },
             },
         }
-
-

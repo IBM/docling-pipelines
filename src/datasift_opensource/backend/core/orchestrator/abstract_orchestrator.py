@@ -249,11 +249,7 @@ class AbstractOrchestrator(ABC):
         internal_metadata = {}
         if skip:
             data_accesses, tables = self._handle_skipped_execution(
-                op_def=op_def,
-                executor=executor,
-                prev_results=prev_results,
-                global_config=global_config,
-                start=start
+                op_def=op_def, executor=executor, prev_results=prev_results, global_config=global_config, start=start
             )
         else:
             data_accesses, tables, metadata, internal_metadata = self._handle_active_execution(
@@ -337,19 +333,19 @@ class AbstractOrchestrator(ABC):
         """
         self.canceling = True
 
-    def pause(self):
+    def pause(self):  # noqa: B027
         """
         Request for pausing a running job
         """
         pass
 
-    def resume(self):
+    def resume(self):  # noqa: B027
         """
         Request for resuming a paused job
         """
         pass
 
-    def get_type(self):
+    def get_type(self):  # noqa: B027
         """
         Returns the type of the orchestrator, Python or Spark
         """
@@ -408,11 +404,11 @@ class AbstractOrchestrator(ABC):
             params=config,
         )
 
-    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:
+    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:  # noqa: B027
         # The concrete subclasses needs to implement this method
         pass
 
-    def visualize(self):
+    def visualize(self):  # noqa: B027
         # The concrete subclasses needs to implement this method
         pass
 
@@ -423,7 +419,7 @@ class AbstractOrchestrator(ABC):
         prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
         session_info: SessionInfo,
         deleted_docs_count,
-        link_id=None
+        link_id=None,
     ) -> ExecuteStepResults | None:
         if prev_results is None:
             if self.node_logger:
@@ -470,25 +466,25 @@ class AbstractOrchestrator(ABC):
                 try:
                     self.logger.debug(
                         f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
-                        extra=self.common_log_arguments
+                        extra=self.common_log_arguments,
                     )
                     result = self._execute_step(
                         op_def=op_def,
                         global_config=global_config,
                         prev_results=prev_results,
-                        deleted_docs_count=deleted_docs_count
+                        deleted_docs_count=deleted_docs_count,
                     )
                 finally:
                     operator_semaphore.release()
                     self.logger.debug(
                         f"Operator {op_def[OperatorConstants.Columns.NAME]}: released semaphore slot",
-                        extra=self.common_log_arguments
+                        extra=self.common_log_arguments,
                     )
             else:
                 # No semaphore - execute normally
                 self.logger.debug(
                     f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
-                    extra=self.common_log_arguments
+                    extra=self.common_log_arguments,
                 )
                 result = self._execute_step(
                     op_def=op_def,
@@ -549,10 +545,7 @@ class AbstractOrchestrator(ABC):
         # Configure prefect server logging
         _ = get_logger(name="prefect")
 
-        self.logger.info(
-            ">>> Starting flow execution with unified batching approach",
-            extra=self.common_log_arguments
-        )
+        self.logger.info(">>> Starting flow execution with unified batching approach", extra=self.common_log_arguments)
 
         # Execute ingest operator to get initial table
         ingest_operator = op_flow[0]
