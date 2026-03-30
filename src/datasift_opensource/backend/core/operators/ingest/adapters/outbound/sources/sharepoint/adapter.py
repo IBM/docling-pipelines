@@ -86,8 +86,12 @@ class SharePointSourceAdapter(DocumentSourcePort):
                 doc_id = metadata.get("id", "")
                 doc_name = metadata.get("source", "unknown")
 
-                # Convert page_content (string) to bytes
-                content = lc_doc.page_content.encode("utf-8")
+                # Get binary content - prefer _binary_content attribute if available
+                if hasattr(lc_doc, "_binary_content") and lc_doc._binary_content is not None:
+                    content = lc_doc._binary_content
+                else:
+                    # Fallback: Convert page_content (string) to bytes
+                    content = lc_doc.page_content.encode("utf-8")
 
                 # Apply file extension filter if specified
                 if config.file_extensions:

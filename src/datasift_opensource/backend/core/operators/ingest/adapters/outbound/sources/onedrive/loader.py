@@ -40,7 +40,7 @@ class OneDriveDirectoryLoader(BaseLoader):
         documents = []
         async for adapter_doc in self.adapter.fetch_documents(self.config):
             langchain_doc = Document(
-                page_content=adapter_doc.content.decode('utf-8', errors='ignore'),
+                page_content="",  # Keep empty, binary content stored separately
                 metadata={
                     "source": adapter_doc.source_url,
                     "name": adapter_doc.name,
@@ -48,9 +48,12 @@ class OneDriveDirectoryLoader(BaseLoader):
                     "last_modified": adapter_doc.modified_time.timestamp() if adapter_doc.modified_time else 0,
                     "size": adapter_doc.size,
                     "mimetype": adapter_doc.mimetype,
+                    "has_binary_content": True,
                     **adapter_doc.metadata,
                 }
             )
+            # Store binary content as attribute for downstream processing
+            langchain_doc._binary_content = adapter_doc.content
             documents.append(langchain_doc)
         return documents
     
