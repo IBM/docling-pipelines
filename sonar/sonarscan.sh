@@ -107,6 +107,9 @@ echo "sonar.sources=${SONAR_SOURCES}" >> sonar-project.properties
 echo "sonar.exclusions=${SONAR_EXCLUSIONS}" >> sonar-project.properties
 echo "sonar.tests=${SONAR_TESTS}" >> sonar-project.properties
 echo "sonar.sourceEncoding=UTF-8" >> sonar-project.properties
+echo "sonar.python.version=3.12" >> sonar-project.properties
+echo "sonar.python.coverage.reportPaths=coverage.xml" >> sonar-project.properties
+echo "sonar.language=py" >> sonar-project.properties
 
 # sonar credentials
 echo "sonar.login=${SONAR_TOKEN}" >> sonar-project.properties
