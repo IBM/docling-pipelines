@@ -43,6 +43,9 @@ dependencies = [
     "unicodedataplus==16.0.0",
     "datatrove==0.3.0",
     "nltk==3.9.3",
+    "langchain-community>=0.4.1",
+    "langchain-google-community>=3.0.5",
+    "msal>=1.35.0",
 ]
 
 [project.optional-dependencies]
@@ -96,8 +99,8 @@ all-cloud = [
 ]
 
 [project.scripts]
-datasift-api = "datasift_opensource.backend.app.main:app"
-datasift-orchestrator = "datasift_opensource.backend.orchestrator.cli:main"
+datasift-api = "app.main:app"
+datasift-orchestrator = "core.orchestrator.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

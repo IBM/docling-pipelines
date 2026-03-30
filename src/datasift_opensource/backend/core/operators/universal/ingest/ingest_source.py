@@ -5,7 +5,6 @@ import json
 import logging
 import os
 from typing import Any, ClassVar, Iterator
-
 import boto3
 import pyarrow as pa
 
@@ -879,9 +878,8 @@ class IngestSourceOperator(AbstractOperator):
 
         # 2. Microsoft SharePoint
         elif self.provider == "sharepoint":
-            # Use custom MicrosoftGraphLoader which supports app-only (client credentials) auth.
-            # LangChain's SharePointLoader calls /me/drives/ which requires delegated user auth.
-            return MicrosoftGraphLoader(
+            from .adapters.outbound.sources.sharepoint.loader import SharePointDirectoryLoader
+            return SharePointDirectoryLoader(
                 drive_id=self.connection_params.get("document_library_id"),
                 client_id=self.credentials.get("client_id"),
                 client_secret=self.credentials.get("client_secret"),
@@ -892,8 +890,8 @@ class IngestSourceOperator(AbstractOperator):
 
         # 3. Microsoft OneDrive
         elif self.provider == "onedrive":
-            # Use custom MicrosoftGraphLoader which supports app-only (client credentials) auth.
-            return MicrosoftGraphLoader(
+            from .adapters.outbound.sources.onedrive.loader import OneDriveDirectoryLoader
+            return OneDriveDirectoryLoader(
                 drive_id=self.connection_params.get("drive_id"),
                 client_id=self.credentials.get("client_id"),
                 client_secret=self.credentials.get("client_secret"),
@@ -901,29 +899,12 @@ class IngestSourceOperator(AbstractOperator):
                 folder_path=self.connection_params.get("folder_path"),
                 recursive=self.connection_params.get("recursive", True),
             )
+            
 
         # 4. Google Drive
         elif self.provider == "google_drive":
-            # Get credentials path and token path
-            credentials_path: str = self.credentials.get("credentials_json_path")
-            token_path: str = self.credentials.get("token_path", os.path.expanduser("~/.credentials/token.json"))
-
-            # Ensure the token directory exists
-            token_dir: str = os.path.dirname(token_path)
-            if token_dir and not os.path.exists(token_dir):
-                os.makedirs(token_dir, exist_ok=True)
-
-            # Define required Google Drive API scopes
-            # Use read-only scope for security best practices
-            scopes: list[str] = self.credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"])
-
-            return GoogleDriveLoader(
-                folder_id=self.connection_params.get("folder_id"),
-                credentials_path=credentials_path,
-                token_path=token_path,
-                recursive=self.connection_params.get("recursive", False),
-                scopes=scopes,
-            )
+            from .adapters.outbound.sources.google_drive.adapter import GoogleDriveSourceAdapter
+            return GoogleDriveSourceAdapter()
 
         # 5. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
