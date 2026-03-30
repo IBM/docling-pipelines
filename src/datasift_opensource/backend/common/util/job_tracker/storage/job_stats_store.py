@@ -3,7 +3,7 @@ from typing import Any
 
 from common.constants.constants import ExecutionStatus
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -149,11 +149,3 @@ class JobStatsStore(ABC):
         from .pickle_job_stats_store import PickleJobStatsStore
 
         return PickleJobStatsStore()
-
-    @staticmethod
-    def _is_cmd_line_mode() -> bool:
-        from common.models.session_info import SessionInfo, get_session_info
-
-        session_info: SessionInfo = get_session_info()
-        orchestrator: Any | None = session_info.orchestrator
-        return orchestrator.__class__.__name__ == "CommandLineOrchestrator"

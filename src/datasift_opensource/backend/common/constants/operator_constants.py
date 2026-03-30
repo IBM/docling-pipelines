@@ -47,7 +47,6 @@ class OperatorConstants:
         # Processing Operators
         BRANCHING: Final[str] = "branching"
         CHUNKER: Final[str] = "chunker"
-        DOCLING_CHUNKER: Final[str] = "docling_chunker"
         DOC_ID_OPERATOR: Final[str] = "doc_id_hash"
         DOC_QUALITY: Final[str] = "doc_quality"
         EDEDUP: Final[str] = "ededup"
@@ -90,6 +89,7 @@ class OperatorConstants:
         PATH: Final[str] = "path"
         RAW_TEXT: Final[str] = "raw_text"
         USER_DEFINED_CONTENT_COLUMN: Final[str] = "user_defined_content_column"
+        SUMMARY: Final[str] = "summary"
 
         # Embeddings and Vector Columns
         DENSE_EMBEDDINGS_COLUMN_DEFAULT: Final[str] = "vector_embeddings"
@@ -318,7 +318,7 @@ class OperatorConstants:
 
         # Chunking Configuration
         CHUNK_SIZE: Final[str] = "chunk_size"
-        CHUNK_SIZE_DEFAULT: Final[int] = 4000
+        CHUNK_SIZE_DEFAULT: Final[int] = 2048
         CHUNKER: Final[str] = "chunker"
         START_INDEX: Final[str] = "start_index"
 
@@ -443,6 +443,8 @@ class OperatorConstants:
         ENABLED_TEXT: Final[str] = "enabled_text"
         ENTITY_CURATION_OPERATOR: Final[str] = "entity_curation_operator"
         ENTITY_EXTRACT: Final[str] = "extract_entity"
+        DOCUMENT_CLASSIFIER: Final[str] = "document_classifier"
+        DOCLING_CHUNKER: Final[str] = "docling_chunker"
         ENTITY_STORE_OPERATOR: Final[str] = "entity_store"
         FORCED: Final[str] = "forced"
         FULL_OUTER_JOIN: Final[str] = "full_outer"
@@ -469,8 +471,14 @@ class OperatorConstants:
         DEFAULT_WXAI_API_MAX_WAIT_TIME: Final[int] = 3600
         MAX_CONCURRENT_DELETIONS: Final[int] = 10
 
-        # Operator Paths
-        ALL_OPERATORS_PATH: Final[list[str]] = ["core.operators.universal", "core.operators.language"]
+        # Operator Paths - organized by OperatorCategory
+        ALL_OPERATORS_PATH: Final[list[str]] = [
+            "core.operators.extract",
+            "core.operators.ingest",
+            "core.operators.functional",
+            "core.operators.quality",
+            "core.operators.vectordb",
+        ]
 
 
 # Made with Bob

@@ -25,7 +25,8 @@
                         "credentials_json_path": "<Credentials path>"
                     },
                     "max_files": 100,
-                    "force_ingest": true
+                    "force_ingest": true,
+                    "store_binary_content": true
                 },
                 "input_edges": [],
                 "output_edges": [{"node_id_ref": "22222222-2222-2222-2222-222222222222"}]
@@ -43,8 +44,9 @@
             {
                 "id": "33333333-3333-3333-3333-333333333333",
                 "name": "chunk",
-                "operator": "docling_chunker",
+                "operator": "chunker",
                 "config": {
+                    "chunk_type": "hybrid",
                     "doc_column": "content",
                     "chunk_size": 512,
                     "chunk_overlap": 128,

@@ -4,14 +4,14 @@ Integration test for Ingest -> Extract -> Chunking with .txt files
 Tests the complete flow from file ingestion to content extraction to chunking for text files
 """
 
-import json
 from pathlib import Path
 import pytest
 
 
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
-from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
-from core.operators.universal.chunker.docling_chunker import DoclingChunkerOperator
+from common.constants.constants import Metrics
+from core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.extract.extract_docling import ExtractDoclingOperator
+from core.operators.functional.chunker import ChunkerOperator
 
 
 class TestIngestExtractChunkTxtIntegration:
@@ -100,13 +100,14 @@ class TestIngestExtractChunkTxtIntegration:
         # Step 3: Chunk the extracted content
         print("\n=== Step 3: Chunking .txt file content ===")
         chunk_config = {
+            "chunk_type": "hybrid",
             "doc_column": "content",
             "chunk_size": 256,  # Smaller chunks for testing
             "chunk_overlap": 50,
             "retain_original_content": True,
         }
 
-        chunker_operator = DoclingChunkerOperator(chunk_config)
+        chunker_operator = ChunkerOperator(chunk_config)
         chunk_tables, chunk_metadata = chunker_operator.transform(extract_table)
         chunk_table = chunk_tables[0]
 
@@ -124,7 +125,8 @@ class TestIngestExtractChunkTxtIntegration:
         for idx in range(chunk_table.num_rows):
             chunked_content = chunk_table["chunked_content"][idx].as_py()
             if chunked_content:
-                chunks = json.loads(chunked_content)
+                # chunked_content is already a list, not a JSON string
+                chunks = chunked_content
                 total_chunks += len(chunks)
                 print(f"  File {idx}: {len(chunks)} chunks created")
 
@@ -132,15 +134,12 @@ class TestIngestExtractChunkTxtIntegration:
                 if len(chunks) > 0:
                     first_chunk = chunks[0]
                     assert "chunk" in first_chunk, "Chunk should have 'chunk' field"
-                    assert "metadata" in first_chunk, (
-                        "Chunk should have 'metadata' field"
-                    )
                     assert len(first_chunk["chunk"]) > 0, (
                         "Chunk text should not be empty"
                     )
 
         assert total_chunks > 0, "Should have created at least one chunk"
-        assert chunk_metadata.get("total_chunks", 0) > 0, (
+        assert chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0) > 0, (
             "Metadata should report chunks created"
         )
 
@@ -201,16 +200,23 @@ class TestIngestExtractChunkTxtIntegration:
         )
 
         # Step 3: Chunk the content
-        chunk_config = {"doc_column": "content", "chunk_size": 256, "chunk_overlap": 50}
+        chunk_config = {
+            "chunk_type": "hybrid",
+            "doc_column": "content",
+            "chunk_size": 256,
+            "chunk_overlap": 50,
+        }
 
-        chunker_operator = DoclingChunkerOperator(chunk_config)
+        chunker_operator = ChunkerOperator(chunk_config)
         chunk_tables, chunk_metadata = chunker_operator.transform(extract_table)
         _chunk_table = chunk_tables[0]  # noqa: F841
 
         # Verify chunks were created
-        assert chunk_metadata.get("total_chunks", 0) > 0, "Should have created chunks"
+        assert chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0) > 0, (
+            "Should have created chunks"
+        )
         print(
-            f"Created {chunk_metadata.get('total_chunks', 0)} total chunks from mixed files"
+            f"Created {chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0)} total chunks from mixed files"
         )
 
         print("\n=== Mixed file type test completed successfully! ===")
@@ -240,14 +246,14 @@ def test_basic_txt_integration():
     extract_op = ExtractDoclingOperator(extract_config)
     extract_tables, _ = extract_op.transform(ingest_tables[0])
 
-    chunk_config = {"doc_column": "content", "chunk_size": 256}
+    chunk_config = {"chunk_type": "hybrid", "doc_column": "content", "chunk_size": 256}
 
-    chunk_op = DoclingChunkerOperator(chunk_config)
+    chunk_op = ChunkerOperator(chunk_config)
     chunk_tables, chunk_metadata = chunk_op.transform(extract_tables[0])
 
     assert chunk_tables[0].num_rows > 0
     assert "chunked_content" in chunk_tables[0].column_names
-    assert chunk_metadata.get("total_chunks", 0) > 0
+    assert chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0) > 0
 
 
 if __name__ == "__main__":

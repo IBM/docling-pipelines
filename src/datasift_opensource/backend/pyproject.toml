@@ -19,8 +19,12 @@ dependencies = [
     "filelock==3.20.3",
     "ibm-cos-sdk==2.14.3",
     "langdetect==1.0.9",
-    "langchain==1.2.10",
-    "langchain-core==1.2.14",
+    "langchain==1.2.13",
+    "langchain-classic==1.0.3",
+    "langchain-core==1.2.21",
+    "langchain-text-splitters==1.1.1",
+    "langchain-experimental==0.4.1",
+    "langchain-community==0.4.1",
     "pandas==2.3.3",
     "prefect==3.4.23",
     "pyiceberg[glue]==0.9.1",
@@ -100,7 +104,7 @@ all-cloud = [
 
 [project.scripts]
 datasift-api = "app.main:app"
-datasift-orchestrator = "core.orchestrator.cli:main"
+datasift-orchestrator = "cli.datasift_cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

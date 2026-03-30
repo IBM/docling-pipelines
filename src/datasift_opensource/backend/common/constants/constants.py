@@ -79,6 +79,13 @@ class DatasiftConstants:
     LANGUAGE_CODE = "language_code"
     SCRIPT_CODE = "script_code"
     SCRIPT_LABEL = "script_label"
+    ENABLE_SUMMARIZATION_KEY = "enable_summarization"
+    SUMMARY_MODEL_ID_KEY = "summarization_model_id"
+    MAX_INPUT_TOKENS_DEFAULT = 8000
+    OVERLAP_RATIO_DEFAULT = 0.2
+    SUMMARY_SENTENCES_DEFAULT = 2
+    SUMMARY_MAX_WORDS_DEFAULT = 20
+    SUMMARY_MODEL_ID_DEFAULT = "granite4"
 
 
 class Metrics:
@@ -170,7 +177,6 @@ class DocumentConstants:
 class OrchestratorType:
     PYTHON = "python"
     SPARK = "spark"
-    CMDLINE = "cmdLine"
 
 
 class DataSourceType:

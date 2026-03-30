@@ -7,7 +7,10 @@
     "execute_type": "local",
     "global_config": {
       "doc_column": "content",
-      "disable_validation": "true"
+      "disable_validation": "false",
+      "force_ingest": true,
+      "enable_micro_batching": true,
+      "micro_batch_size": 10
     },
     "dag": [
       {
@@ -15,10 +18,25 @@
         "name": "ingest_documents",
         "operator": "ingest_local",
         "config": {
-          "input_folder": "tests/fixtures/customer_support_docs",
-          "include_filter": "txt"
+          "input_folder": "./tests/fixtures/invoices",
+          "include_filter": "txt, pdf"
         },
         "input_edges": [],
+        "output_edges": [
+          { "node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71" }
+        ]
+      },
+      {
+        "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
+        "name": "extract_documents",
+        "operator": "extract_docling",
+        "config": {
+          "doc_column": "content",
+          "use_template": false
+        },
+        "input_edges": [
+          { "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
+        ],
         "output_edges": [
           { "node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71" }
         ]
@@ -32,7 +50,7 @@
           "doc_id_column": "id"
         },
         "input_edges": [
-          { "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
+          { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
         ],
         "output_edges": [
           { "node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500" }
@@ -59,7 +77,8 @@
         "name": "generate_embeddings",
         "operator": "embeddings",
         "config": {
-          "embeddings_type": "local",
+          "embeddings_type": "ollama",
+          "embeddings_model_id": "nomic-embed-text",
           "doc_column": "content",
           "embeddings_column": "embeddings"
         },

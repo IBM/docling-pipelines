@@ -9,7 +9,7 @@ from src.datasift_opensource.backend.common.constants import (
     OperatorConstants,
     Metrics,
 )
-from src.datasift_opensource.backend.core.operators.universal.ml_enrichment.ml_enrichment import (
+from src.datasift_opensource.backend.core.operators.quality.ml_enrichment import (
     MLEnrichmentOperator,
 )
 
