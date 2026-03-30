@@ -32,9 +32,6 @@ from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
     SourceAdapterFactory,
 )
-from core.operators.ingest.adapters.outbound.sources.google_drive.config import (
-    GoogleDriveSourceConfig,
-)
 from core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
     get_filter_extensions,
@@ -478,9 +475,9 @@ class IngestSourceOperator(AbstractOperator):
         """
         Build provider-specific configuration from operator parameters.
 
-        This method maps operator parameters to the appropriate config model
-        for each provider. It centralizes configuration logic and makes it
-        easy to add new providers.
+        This method delegates configuration building to the appropriate adapter,
+        following the Open/Closed Principle. Each adapter knows how to construct
+        its own configuration from operator parameters.
 
         Args:
             provider: The provider name (e.g., "filesystem", "google_drive")
@@ -491,31 +488,15 @@ class IngestSourceOperator(AbstractOperator):
         Raises:
             ValueError: If provider is not supported or configuration is invalid
         """
-        if provider == "google_drive":
-            config_dict = {
-                "credentials_path": self.credentials.get("credentials_json_path"),
-                "token_path": self.credentials.get("token_path"),
-                "folder_id": self.connection_params.get("folder_id"),
-                "recursive": self.connection_params.get("recursive", False),
-                "file_extensions": self.included_extensions or [],
-                "exclude_patterns": [],
-                "scopes": self.credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"]),
-            }
-            # Add optional fields only if they exist
-            if "drive_id" in self.connection_params:
-                config_dict["drive_id"] = self.connection_params["drive_id"]
-            if "folder_path" in self.connection_params:
-                config_dict["folder_path"] = self.connection_params["folder_path"]
-            if "max_file_size_mb" in self.connection_params:
-                config_dict["max_file_size_mb"] = self.connection_params["max_file_size_mb"]
+        # Create adapter instance to access its config builder
+        adapter = SourceAdapterFactory.create(provider)
 
-            return GoogleDriveSourceConfig(**config_dict)
-
-        else:
-            raise ValueError(
-                f"Configuration builder not implemented for provider '{provider}'. "
-                f"Supported providers: filesystem, google_drive"
-            )
+        # Delegate configuration building to the adapter
+        return adapter.build_config_from_operator_params(
+            connection_params=self.connection_params,
+            credentials=self.credentials,
+            included_extensions=self.included_extensions,
+        )
 
     def process_document(self, doc: Document, idx: int, metadata: dict[str, Any]) -> dict[str, Any] | None:
         """

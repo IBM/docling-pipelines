@@ -7,12 +7,14 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import AsyncGenerator, Generator
 
+from core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from core.operators.ingest.domain.models import Document
 from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 
 from .config import FilesystemSourceConfig
 
 
+@register_source_adapter
 class FilesystemSourceAdapter(DocumentSourcePort):
     """
     Adapter for ingesting documents from local filesystem.
@@ -124,6 +126,44 @@ class FilesystemSourceAdapter(DocumentSourcePort):
     def get_config_schema(self) -> type[FilesystemSourceConfig]:
         """Get the configuration schema for this adapter."""
         return FilesystemSourceConfig
+
+    def build_config_from_operator_params(
+        self,
+        connection_params: dict,
+        credentials: dict,
+        included_extensions: list[str] | None = None,
+    ) -> FilesystemSourceConfig:
+        """
+        Build Filesystem configuration from operator parameters.
+
+        Maps IngestSource operator parameters to FilesystemSourceConfig.
+        This encapsulates the knowledge of how to construct the config within
+        the adapter itself, following the Single Responsibility Principle.
+
+        Args:
+            connection_params: Connection parameters from operator config
+            credentials: Credentials from operator config (unused for filesystem)
+            included_extensions: File extensions to include (optional)
+
+        Returns:
+            FilesystemSourceConfig: Validated configuration object
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
+        config_dict = {
+            "root_path": connection_params.get("root_path"),
+            "recursive": connection_params.get("recursive", True),
+            "file_extensions": included_extensions or [],
+            "exclude_patterns": connection_params.get("exclude_patterns", []),
+            "follow_symlinks": connection_params.get("follow_symlinks", False),
+        }
+
+        # Add optional fields only if they exist
+        if "max_file_size_mb" in connection_params:
+            config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
+
+        return FilesystemSourceConfig(**config_dict)
 
     def _walk_directory(self, root_path: Path, config: FilesystemSourceConfig) -> Generator[Path, None, None]:
         """

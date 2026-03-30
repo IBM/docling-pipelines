@@ -70,6 +70,32 @@ class DocumentSourcePort(ABC):
         """
         pass
 
+    @abstractmethod
+    def build_config_from_operator_params(
+        self,
+        connection_params: dict,
+        credentials: dict,
+        included_extensions: list[str] | None = None,
+    ) -> BaseModel:
+        """
+        Build adapter-specific configuration from operator parameters.
+
+        This method allows each adapter to define how to map operator parameters
+        to its specific configuration model, following the Open/Closed Principle.
+
+        Args:
+            connection_params: Connection parameters from operator config
+            credentials: Credentials from operator config
+            included_extensions: File extensions to include (optional)
+
+        Returns:
+            BaseModel: Adapter-specific configuration object (Pydantic model)
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
+        pass
+
     def get_metadata(self) -> dict:
         """
         Get metadata about this source for discovery and UI purposes.

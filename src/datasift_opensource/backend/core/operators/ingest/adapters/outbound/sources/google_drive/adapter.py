@@ -253,3 +253,47 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             type[GoogleDriveSourceConfig]: The Pydantic configuration model
         """
         return GoogleDriveSourceConfig
+
+    def build_config_from_operator_params(
+        self,
+        connection_params: dict,
+        credentials: dict,
+        included_extensions: list[str] | None = None,
+    ) -> GoogleDriveSourceConfig:
+        """
+        Build Google Drive configuration from operator parameters.
+
+        Maps IngestSource operator parameters to GoogleDriveSourceConfig.
+        This encapsulates the knowledge of how to construct the config within
+        the adapter itself, following the Single Responsibility Principle.
+
+        Args:
+            connection_params: Connection parameters from operator config
+            credentials: Credentials from operator config
+            included_extensions: File extensions to include (optional)
+
+        Returns:
+            GoogleDriveSourceConfig: Validated configuration object
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
+        config_dict = {
+            "credentials_path": credentials.get("credentials_json_path"),
+            "token_path": credentials.get("token_path"),
+            "folder_id": connection_params.get("folder_id"),
+            "recursive": connection_params.get("recursive", False),
+            "file_extensions": included_extensions or [],
+            "exclude_patterns": [],
+            "scopes": credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"]),
+        }
+
+        # Add optional fields only if they exist
+        if "drive_id" in connection_params:
+            config_dict["drive_id"] = connection_params["drive_id"]
+        if "folder_path" in connection_params:
+            config_dict["folder_path"] = connection_params["folder_path"]
+        if "max_file_size_mb" in connection_params:
+            config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
+
+        return GoogleDriveSourceConfig(**config_dict)
