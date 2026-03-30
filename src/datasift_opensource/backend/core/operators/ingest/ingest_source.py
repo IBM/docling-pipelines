@@ -1,9 +1,7 @@
 import asyncio
 import hashlib
 import importlib
-import io
 import json
-import os
 from typing import Any, ClassVar, Iterator
 
 import boto3
@@ -43,9 +41,6 @@ MICROSOFT_LOGIN_URL = "https://login.microsoftonline.com"
 MICROSOFT_GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
 MICROSOFT_GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 MICROSOFT_OAUTH_TOKEN_PATH = "/oauth2/v2.0/token"
-
-# Google Drive API Constants
-GOOGLE_DRIVE_READONLY_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
 
 
 class MicrosoftGraphLoader(BaseLoader):
@@ -631,134 +626,28 @@ class IngestSourceOperator(AbstractOperator):
             binary_content: bytes | None = None
 
             # ------------------------------------------------------------------ #
-            # Google Drive                                                        #
+            # Check for pre-fetched binary content from adapters                  #
             # ------------------------------------------------------------------ #
-            if self.provider == "google_drive":
-                # Check if binary content was already fetched by the new adapter
-                if hasattr(doc, "_binary_content") and doc._binary_content:
-                    binary_content = doc._binary_content
-                    logger.info(
-                        f"Using pre-fetched binary content from adapter for: {source}",
-                        extra=self.common_log_arguments,
-                    )
-                elif doc.metadata.get("has_binary_content"):
-                    # Binary content should be available but isn't - this is an error
-                    logger.error(
-                        f"Binary content marked as available but not found for: {source}",
-                        extra=self.common_log_arguments,
-                    )
-                    return False
-
-                file_id = doc.metadata.get("id") or doc.metadata.get("file_id")
-                if not binary_content and file_id:
-                    try:
-                        from google.oauth2.credentials import Credentials
-                        from googleapiclient.discovery import build
-                        from googleapiclient.http import MediaIoBaseDownload
-
-                        credentials_path = self.credentials.get("credentials_json_path")
-                        token_path = self.credentials.get(
-                            "token_path",
-                            os.path.expanduser("~/.credentials/token.json"),
-                        )
-                        scopes = self.credentials.get("scopes", [GOOGLE_DRIVE_READONLY_SCOPE])
-
-                        creds = None
-                        if os.path.exists(token_path):
-                            creds = Credentials.from_authorized_user_file(token_path, scopes)
-
-                        if creds is None or not creds.valid:
-                            from google_auth_oauthlib.flow import InstalledAppFlow
-
-                            flow = InstalledAppFlow.from_client_secrets_file(credentials_path, scopes)
-                            creds = flow.run_local_server(port=0)
-                            token_dir = os.path.dirname(token_path)
-                            if token_dir:
-                                os.makedirs(token_dir, exist_ok=True)
-                            with open(token_path, "w") as token_file:
-                                token_file.write(creds.to_json())
-
-                        service = build("drive", "v3", credentials=creds)
-
-                        # Determine MIME type to decide export vs. direct download
-                        file_meta = service.files().get(fileId=file_id, fields="mimeType,name").execute()
-                        mime_type = file_meta.get("mimeType", "")
-                        gdrive_file_name = file_meta.get("name", "")
-
-                        # Google Workspace documents must be exported; map to Office formats
-                        export_map = {
-                            "application/vnd.google-apps.document": (
-                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                ".docx",
-                            ),
-                            "application/vnd.google-apps.spreadsheet": (
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                ".xlsx",
-                            ),
-                            "application/vnd.google-apps.presentation": (
-                                "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                                ".pptx",
-                            ),
-                        }
-
-                        # MIME type → file extension for non-Workspace files
-                        mime_to_ext = {
-                            "application/pdf": ".pdf",
-                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
-                            "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
-                            "application/msword": ".doc",
-                            "text/plain": ".txt",
-                            "text/markdown": ".md",
-                            "text/html": ".html",
-                            "image/png": ".png",
-                            "image/jpeg": ".jpg",
-                            "image/gif": ".gif",
-                            "image/tiff": ".tiff",
-                        }
-
-                        buf = io.BytesIO()
-                        if mime_type in export_map:
-                            export_mime, export_ext = export_map[mime_type]
-                            request = service.files().export_media(fileId=file_id, mimeType=export_mime)
-                            # Ensure the filename has the correct exported extension
-                            if gdrive_file_name and not gdrive_file_name.lower().endswith(export_ext):
-                                gdrive_file_name = gdrive_file_name + export_ext
-                        else:
-                            request = service.files().get_media(fileId=file_id)
-                            # Derive extension from MIME type if filename has none
-                            if gdrive_file_name and "." not in gdrive_file_name:
-                                ext = mime_to_ext.get(mime_type, "")
-                                if ext:
-                                    gdrive_file_name = gdrive_file_name + ext
-
-                        downloader = MediaIoBaseDownload(buf, request)
-                        done = False
-                        while not done:
-                            _, done = downloader.next_chunk()
-                        binary_content = buf.getvalue()
-
-                        # Override the document name with the real filename so that
-                        # ExtractDoclingOperator can derive the correct temp-file extension
-                        if gdrive_file_name:
-                            processed_doc["name"] = gdrive_file_name
-
-                        logger.info(
-                            f"Downloaded {len(binary_content)} bytes from Google Drive for: {source} "
-                            f"(name={gdrive_file_name})",
-                            extra=self.common_log_arguments,
-                        )
-                    except Exception as gdrive_err:
-                        logger.warning(
-                            f"Could not download binary from Google Drive for {source}: {gdrive_err}. "
-                            "Falling back to page_content text.",
-                            extra=self.common_log_arguments,
-                        )
+            # All adapters using the new hexagonal architecture store binary
+            # content in the _binary_content attribute to avoid JSON serialization
+            if hasattr(doc, "_binary_content") and doc._binary_content:
+                binary_content = doc._binary_content
+                logger.info(
+                    f"Using pre-fetched binary content from adapter for: {source}",
+                    extra=self.common_log_arguments,
+                )
+            elif doc.metadata.get("has_binary_content"):
+                # Binary content should be available but isn't - this is an error
+                logger.error(
+                    f"Binary content marked as available but not found for: {source}",
+                    extra=self.common_log_arguments,
+                )
+                return False
 
             # ------------------------------------------------------------------ #
             # OneDrive / SharePoint                                               #
             # ------------------------------------------------------------------ #
-            elif self.provider in ("onedrive", "sharepoint"):
+            if self.provider in ("onedrive", "sharepoint"):
                 item_id = doc.metadata.get("item_id")
                 if item_id:
                     try:
@@ -1001,13 +890,7 @@ class IngestSourceOperator(AbstractOperator):
                 recursive=self.connection_params.get("recursive", True),
             )
 
-        # 4. Google Drive - Using new hexagonal architecture adapter
-        elif self.provider == "google_drive":
-            # Return a marker object that indicates we should use the new adapter
-            # The actual adapter will be used in process_documents
-            return "USE_NEW_ADAPTER"
-
-        # 5. Custom / FileNet / Other
+        # 4. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         elif self.provider == "custom":
             loader_path: str = self.connection_params.get("loader_class_path")
