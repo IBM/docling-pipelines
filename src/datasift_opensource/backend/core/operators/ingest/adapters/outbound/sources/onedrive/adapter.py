@@ -4,15 +4,15 @@ import os
 from datetime import datetime
 from typing import AsyncGenerator
 
-from core.operators.universal.ingest.adapters.outbound.sources.factories.source_factory import (
+from core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
     register_source_adapter,
 )
-from core.operators.universal.ingest.adapters.outbound.sources.onedrive.config import OneDriveSourceConfig
-from core.operators.universal.ingest.domain.models import Document
-from core.operators.universal.ingest.ports.outbound.document_source import DocumentSourcePort
+from core.operators.ingest.adapters.outbound.sources.onedrive.config import OneDriveSourceConfig
+from core.operators.ingest.domain.models import Document
+from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 
 # Import the MicrosoftGraphLoader from ingest_source.py
-from core.operators.universal.ingest.ingest_source import MicrosoftGraphLoader
+from core.operators.ingest.ingest_source import MicrosoftGraphLoader
 
 
 @register_source_adapter
@@ -187,6 +187,33 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             type[OneDriveSourceConfig]: The Pydantic configuration model
         """
         return OneDriveSourceConfig
+
+    def build_config_from_operator_params(
+        self,
+        connection_params: dict,
+        credentials: dict,
+        included_extensions: list[str] | None = None,
+    ) -> OneDriveSourceConfig:
+        """
+        Build OneDrive configuration from operator parameters.
+
+        Args:
+            connection_params: Connection parameters (drive_id, folder_path, etc.)
+            credentials: Credentials (client_id, client_secret, tenant_id)
+            included_extensions: File extensions to include (optional)
+
+        Returns:
+            OneDriveSourceConfig: Validated configuration object
+        """
+        return OneDriveSourceConfig(
+            client_id=credentials.get("client_id", ""),
+            client_secret=credentials.get("client_secret", ""),
+            tenant_id=credentials.get("tenant_id", ""),
+            drive_id=connection_params.get("drive_id"),
+            folder_path=connection_params.get("folder_path"),
+            recursive=connection_params.get("recursive", True),
+            file_extensions=included_extensions,
+        )
 
 
 async def main():

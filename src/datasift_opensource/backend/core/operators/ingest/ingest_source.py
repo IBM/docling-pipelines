@@ -15,7 +15,8 @@ from langchain_core.documents import Document
 
 # Import adapters to trigger registration via @register_source_adapter decorator
 # These imports are necessary for the factory to discover available adapters
-import core.operators.ingest.adapters.outbound.sources.google_drive.adapter  # noqa: F401
+# Note: Google Drive adapter import moved to lazy loading in _get_loader() to avoid
+# requiring google_auth_oauthlib dependency unless actually using Google Drive
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
