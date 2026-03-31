@@ -41,7 +41,6 @@ JENKINS_BRANCH=$1
 SONAR_TOKEN=$2
 JENKINS_BUILD_DIR=$3
 JENKINS_BUILD_NUMBER=$4
-EXTRA_PARAMAS=$5
 
 if [[ -z ${JENKINS_BUILD_DIR} ]]; then
   clean-exit error "JENKINS_BUILD_DIR not set!"
@@ -125,7 +124,7 @@ cat sonar-project.properties
 echo "==="
 
 # Run the scanner
-${SONAR_INSTALL_DIR}/bin/sonar-scanner ${EXTRA_PARAMAS} --debug
+${SONAR_INSTALL_DIR}/bin/sonar-scanner --debug
 
 RESULT=$?
 if [ ${RESULT} -ne 0 ]; then
