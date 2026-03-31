@@ -124,15 +124,8 @@ timestamps {
             println "Running sonarqube.."
             sh("chmod +x sonar/sonarscan.sh")
             println "Base branch is ${env.CHANGE_TARGET}"
-            def pullBranchKey=''
-            if (env.BRANCH_NAME.startsWith("PR-")) {
-              pullBranchKey = "-Dsonar.pullrequest.key=${env.CHANGE_ID} \
-                    -Dsonar.pullrequest.branch=${env.CHANGE_BRANCH} \
-                    -Dsonar.pullrequest.base=${env.CHANGE_TARGET}"
-            } else {
-              pullBranchKey = '-Dsonar.branch.name=' + env.BRANCH_NAME
-            }
-            sh("./sonar/sonarscan.sh ${env.CHANGE_TARGET} ${SONAR_PWD} ${WORKSPACE} ${env.BUILD_ID} ${pullBranchKey}")
+            echo sh(script: 'env|sort', returnStdout: true)
+            sh("./sonar/sonarscan.sh ${env.CHANGE_TARGET} ${SONAR_PWD} ${WORKSPACE} ${env.BUILD_ID}")
           }
         }
       }
