@@ -53,3 +53,6 @@ src/datasift_opensource/backend/models/
 # OS
 .DS_Store
 Thumbs.db
+
+# Connector credentials
+connectors/.env
