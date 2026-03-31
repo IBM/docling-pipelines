@@ -14,7 +14,7 @@ from typing import Any
 
 from common.clients.ollama_client import InteractionMode, OllamaClient
 from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -165,14 +165,3 @@ def detect_pii_hap_openai(
         raise DatasiftException(message=f"Error calling OpenAI API: {exc!s}", status_code=500) from exc
 
 
-# Test function
-if __name__ == "__main__":  # pragma: no cover
-    request_data = {
-        "input": (
-            "My name is John Doe and I live in New York. "
-            "My email is john.doe@example.com and my phone number is 000000000000."
-        ),
-        "detectors": {"hap": {"threshold": 0.8}, "pii": {"threshold": 0.5}},
-    }
-    result = detect_pii_hap(request_data)
-    print(json.dumps(result, indent=2))

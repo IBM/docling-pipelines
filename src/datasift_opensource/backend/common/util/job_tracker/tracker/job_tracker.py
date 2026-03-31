@@ -20,11 +20,11 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.models.session_info import get_session_info
-from common.util.common_utils import Singleton
-from common.util.datasift_utils import delete_folders, get_data_path
+from common.util.core.patterns import Singleton
+from common.util.infrastructure.filesystem import delete_folders, get_data_path
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.job_tracker.storage.job_stats_store import JobStatsStore
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 CANCELLED_MSG = ">>> Cancelled the execution: %s"
@@ -137,6 +137,11 @@ def _log_inconsistencies(*, job_stats: JobStatsDto):
     Args:
         job_stats (JobStatsDto): Job statistics object to validate.
     """
+    # If job_stats is None, log warning and return early
+    if job_stats is None:
+        logger.warning("Cannot log: job_stats is None")
+        return
+
     total = job_stats.total_docs
     sum_parts = job_stats.processed_docs + job_stats.failed_docs + job_stats.skipped_docs
     if total != sum_parts:
@@ -169,7 +174,7 @@ class JobTracker(metaclass=Singleton):
         # This is necessary for operations like cancellation.
         self.__jobs_to_orchestrator = {}
 
-    def get_job(self, job_run_id: str = None, use_local_cache: bool = False) -> JobStatsDto | None:
+    def get_job(self, job_run_id: str | None, use_local_cache: bool = False) -> JobStatsDto | None:
         """
         Retrieves job statistics for a given job_run_id.
 
@@ -324,6 +329,11 @@ class JobTracker(metaclass=Singleton):
         :param node_stats: A dictionary of statistics for the node.
         """
         stat = self.get_job(job_run_id=job_run_id)
+
+        # If no job stats found, log warning and return early
+        if stat is None:
+            logger.warning(f"No job stats found for job_run_id: {job_run_id}. Cannot update node stats.")
+            return
 
         # Get the existing node stats or create an empty dict if it's the first update.
         existing_node = stat.node_stats.get(node_id)

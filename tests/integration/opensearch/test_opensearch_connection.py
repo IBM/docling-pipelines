@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from opensearchpy import OpenSearch
-from common.util.env_config import get_env_var, get_env_bool, get_env_int
+from common.util.infrastructure.config import get_env_var, get_env_bool, get_env_int
 
 
 # Check if .env file exists

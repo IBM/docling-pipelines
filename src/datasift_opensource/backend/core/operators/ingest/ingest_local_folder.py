@@ -10,8 +10,8 @@ from common.constants.constants import (
     Metrics,
 )
 from common.constants.operator_constants import OperatorConstants
-from common.util.incremental_update_util import IncrementalUpdateUtil
-from common.util.log import get_logger
+from common.util.data.incremental_update import IncrementalUpdateUtil
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
@@ -432,37 +432,3 @@ class IngestLocalOperator(AbstractOperator):
         }
 
 
-# used for unit testing only
-def main() -> None:  # pragma: no cover
-    # 1. Construct the operators with the required configuration and input parameters
-    operator: IngestLocalOperator = IngestLocalOperator(
-        {
-            "doc_column": "content",
-            "input_folder": "cliapp/test/input_docs",
-            "include_filter": "pdf,txt",
-        }
-    )
-    print(operator)
-
-    # 2. Create an in-memory py-arrow table, as the input
-    input_table: pa.Table | None = None
-
-    # 3. Run the operators
-    table_list: list[pa.Table]
-    metadata: dict[str, Any]
-    table_list, metadata = operator.transform(input_table)
-
-    # 4. Inspect and print the results after the operators is completed
-    print(">>> completed the operators", operator)
-    print(f"\noutput table has {table_list[0].num_rows} rows")
-
-    table: pa.Table = table_list[0]
-    # print(f"\noutput table: {table}")  # too much content
-    print(f"output metadata : {metadata}")
-    if table_list[0].num_rows:  # avoid printing if table is empty
-        print("Found docs: ", table["name"], table["size"])
-
-
-# main entry point into the program; used for unit testing only
-if __name__ == "__main__":  # pragma: no cover
-    main()

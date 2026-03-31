@@ -16,7 +16,7 @@ from common.constants import DatasiftConstants, OperatorConstants, Metrics, Attr
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 from core.operators.operator_utils import OperatorUtils
 
 # Try to import TransformUtils from data-prep-toolkit-transforms

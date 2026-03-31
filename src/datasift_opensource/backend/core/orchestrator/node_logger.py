@@ -9,7 +9,7 @@ import os
 
 from common.constants.constants import DatasiftConstants
 from common.constants.operator_constants import OperatorConstants
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 from common.models.session_info import get_session_info
 
 

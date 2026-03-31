@@ -14,7 +14,7 @@ from common.constants.constants import (
     Metrics,
 )
 from common.constants.operator_constants import OperatorConstants
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 
@@ -121,39 +121,3 @@ class EdedupOperator(AbstractOperator):
         return output_tables, metadata
 
 
-def main() -> None:
-    # 1. Create a Pyarrow table
-    content: list[str] = [
-        "Document content 1",
-        "Document content 2",
-        "Document content 1",
-    ]
-    doc_id_hash: list[str] = [str(101), str(102), str(103)]
-    id: list[str] = [str(101), str(102), str(103)]
-    name: list[str] = ["Doc 1", "Doc 2", "Doc 3"]
-
-    data: dict[str, list[str]] = {
-        OperatorConstants.Columns.DOC_COLUMN_DEFAULT: content,
-        OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: doc_id_hash,
-        OperatorConstants.Misc.ID: id,
-        OperatorConstants.Misc.NAME: name,
-    }
-
-    input_table: pa.Table = pa.table(data)
-    logger.info(f"\nInput Pyarrow Table : {input_table}\n")
-
-    config: dict[str, Any] = {}
-
-    operator: EdedupOperator = EdedupOperator(config=config)
-
-    print(operator)
-
-    table: list[pa.Table]
-    metadata: dict[str, Any]
-    table, metadata = operator.transform(input_table)
-    logger.info(f"Ededup Output Table : {table}")
-    logger.info(f"Ededup Output MetaData : {metadata}")
-
-
-if __name__ == "__main__":
-    exit(main())

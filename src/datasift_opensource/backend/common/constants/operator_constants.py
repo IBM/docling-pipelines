@@ -90,6 +90,7 @@ class OperatorConstants:
         PATH: Final[str] = "path"
         RAW_TEXT: Final[str] = "raw_text"
         USER_DEFINED_CONTENT_COLUMN: Final[str] = "user_defined_content_column"
+        SUMMARY: Final[str] = "summary"
 
         # Embeddings and Vector Columns
         DENSE_EMBEDDINGS_COLUMN_DEFAULT: Final[str] = "vector_embeddings"

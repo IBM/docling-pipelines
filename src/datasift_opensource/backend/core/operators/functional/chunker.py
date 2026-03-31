@@ -16,8 +16,8 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from common.util.common_utils import is_value_in_range
-from common.util.log import get_logger
+from common.util.core.validation import is_value_in_range
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.extract.extract_docling import ExtractDoclingOperator
 from core.operators.ingest.ingest_local_folder import IngestLocalOperator
@@ -61,6 +61,13 @@ DOCLING_TOKENIZER_KEY: str = "docling_tokenizer"
 DOCLING_TOKENIZER_DEFAULT: str = "sentence-transformers/all-MiniLM-L6-v2"
 DOCLING_CHUNK_SIZE_MIN: int = 100  # Minimum chunk size in tokens for Docling
 DOCLING_CHUNK_SIZE_MAX: int = 2048  # Maximum chunk size in tokens for Docling
+
+# Summarization Constants
+ENABLE_SUMMARIZATION_DEFAULT = False
+MAX_INPUT_TOKENS_KEY = "max_input_tokens"
+OVERLAP_RATIO_KEY = "overlap_ratio"
+SUMMARY_SENTENCES_KEY = "summary_sentences"
+SUMMARY_MAX_WORDS_KEY = "summary_max_words"
 
 
 # Breakpoint Threshold Constants
@@ -198,6 +205,20 @@ class ChunkerOperator(AbstractOperator):
             BREAKPOINT_THRESHOLD_AMOUNT_KEY, BREAKPOINT_THRESHOLD_AMOUNT_DEFAULT
         )
         self.docling_tokenizer: str = config.get(DOCLING_TOKENIZER_KEY, DOCLING_TOKENIZER_DEFAULT)
+
+        # Summarization configuration
+        self.enable_summarization: bool = config.get(
+            DatasiftConstants.ENABLE_SUMMARIZATION_KEY, ENABLE_SUMMARIZATION_DEFAULT
+        )
+        if self.enable_summarization:
+            self.summarization_model: str = config.get(
+                DatasiftConstants.SUMMARY_MODEL_ID_KEY, DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT
+            )
+            self.max_length: int = config.get(MAX_INPUT_TOKENS_KEY, DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT)
+            self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, DatasiftConstants.OVERLAP_RATIO_DEFAULT)
+            self.summary_sentences: int = config.get(SUMMARY_SENTENCES_KEY, DatasiftConstants.SUMMARY_SENTENCES_DEFAULT)
+            self.summary_max_words: int = config.get(SUMMARY_MAX_WORDS_KEY, DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT)
+
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
@@ -308,6 +329,47 @@ class ChunkerOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: RETAIN_ORIGINAL_CONTENT_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
+                DatasiftConstants.ENABLE_SUMMARIZATION_KEY: {
+                    OperatorConstants.Misc.NAME: "Enable Summarization",
+                    OperatorConstants.Config.DESCRIPTION: "Generate summaries for each chunk",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: ENABLE_SUMMARIZATION_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                DatasiftConstants.SUMMARY_MODEL_ID_KEY: {
+                    OperatorConstants.Misc.NAME: "Summarization Model",
+                    OperatorConstants.Config.DESCRIPTION: "Ollama model used for summarization",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                SUMMARY_SENTENCES_KEY: {
+                    OperatorConstants.Misc.NAME: "Summary Sentences",
+                    OperatorConstants.Config.DESCRIPTION: "Number of sentences in each summary",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_SENTENCES_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: 1,
+                    OperatorConstants.Filtering.MAX_VALUE: 5,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                SUMMARY_MAX_WORDS_KEY: {
+                    OperatorConstants.Misc.NAME: "Summary Max Words",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum words per summary",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: 10,
+                    OperatorConstants.Filtering.MAX_VALUE: 100,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                MAX_INPUT_TOKENS_KEY: {
+                    OperatorConstants.Misc.NAME: "Max Input Tokens",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum input tokens per summarization request",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT,
+                    OperatorConstants.Filtering.MIN_VALUE: 1000,
+                    OperatorConstants.Filtering.MAX_VALUE: 32000,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
             },
         }
 
@@ -388,6 +450,15 @@ class ChunkerOperator(AbstractOperator):
             if not self.semantic_embeddings_model or not self.semantic_embeddings_model.strip():
                 errors.append("semantic_embeddings_model cannot be empty for semantic chunking")
 
+    def _validate_summarization(self, errors: list[Any]) -> None:
+        if self.should_validate_field(field_value=self.enable_summarization) and self.enable_summarization:
+            if self.should_validate_field(field_value=self.summarization_model):
+                if self.summarization_model is None or len(self.summarization_model) == 0:
+                    errors.append(
+                        "Invalid model id. Summarization Model id not provided. "
+                        "Please select a foundation model from the available models."
+                    )
+
     def _validate_docling_chunker(self, errors: list[Any]) -> None:
         """
         Validate configuration for hybrid chunking.
@@ -438,6 +509,9 @@ class ChunkerOperator(AbstractOperator):
         # Validate hybrid chunking parameters if using hybrid chunking
         elif self.chunk_type == ChunkType.HYBRID.value:
             self._validate_docling_chunker(errors)
+
+        # Validate summarization model
+        self._validate_summarization(errors)
 
     def _simple_split_text(self, content: str) -> list[Document]:
         """
@@ -754,6 +828,34 @@ class ChunkerOperator(AbstractOperator):
         input_doc_data: list[dict[str, Any]] = table.to_pylist()
         chunked_content_column: list[list[dict[str, Any]]] = []
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
+
+        summarization_util = ""
+        if self.enable_summarization:
+            try:
+                from common.util.summarization_util import SummarizationUtil
+
+                summarization_util = SummarizationUtil(
+                    model=self.summarization_model,
+                    max_length=self.max_length,
+                    overlap_ratio=self.overlap_ratio,
+                    summary_sentences=self.summary_sentences,
+                    summary_max_words=self.summary_max_words,
+                    validate_model=False,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Summarization initialization failed, skipping summary generation: {e!s}",
+                    exc_info=True,
+                    extra=self.common_log_arguments,
+                )
+                self.enable_summarization = False
+                metadata[Metrics.External.PROCESSING_MESSAGE] = (
+                    "Failed to generate summary as summarization model initialization failed"
+                )
+                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                    metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
+                ).value
+
         total_chunks: int = 0
         remove_row_idx: list[int] = []
         for idx, doc in enumerate(input_doc_data):
@@ -799,6 +901,21 @@ class ChunkerOperator(AbstractOperator):
                     }
                 )
 
+            if self.enable_summarization and chunked_content:
+                try:
+                    summarization_util.generate_summary_for_chunked_content(chunked_content=chunked_content)
+                except Exception as e:
+                    logger.warning(
+                        f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
+                        extra=self.common_log_arguments,
+                    )
+                    metadata[Metrics.External.PROCESSING_MESSAGE] = (
+                        "Failed to generate summary for some or all documents"
+                    )
+                    metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                        metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
+                    ).value
+
             chunked_content_column.append(chunked_content)
             metadata[Metrics.External.PROCESSED_DOCS] += 1
             total_chunks += len(chunked_content)
@@ -833,355 +950,3 @@ class ChunkerOperator(AbstractOperator):
 
         return [table], metadata
 
-
-def main_simple(runtime: str = "python") -> None:  # pragma: no cover
-    """
-    Demo pipeline: Ingest → Extract → Chunk (Simple)
-
-    This demonstrates simple fixed-size chunking with overlap.
-
-    Usage:
-        cd src/datasift_opensource/backend
-        source .venv/bin/activate
-        export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-        python -m core.operators.functional.chunker
-
-    Note: Must be run as a module (python -m) with proper PYTHONPATH for imports to work correctly.
-    """
-    # 1. Ingest files
-    ingest_operator: IngestLocalOperator = IngestLocalOperator(
-        {
-            "input_folder": "../../../tests/fixtures/customer_support_docs/",
-            "include_filter": "pdf,txt",
-            "force_ingest": True,
-        }
-    )
-
-    input_table: pa.Table | None = None
-    table_list, _ = ingest_operator.transform(input_table)
-    table: pa.Table = table_list[0]
-    print(f">>>>>>>>>>>>> Number of rows after ingest: {table.num_rows}")
-
-    # 2. Extract text content from binary
-    extract_operator: ExtractDoclingOperator = ExtractDoclingOperator(
-        {
-            "doc_column": "content",
-        }
-    )
-    table_list, _ = extract_operator.transform(table)
-    table = table_list[0]
-    print(f">>>>>>>>>>>>> Number of rows after extraction: {table.num_rows}")
-
-    # 3. Run chunking operator with SIMPLE chunking
-    config: dict[str, Any] = {
-        "chunk_type": ChunkType.SIMPLE.value,  # Use simple chunking
-        "chunk_size": 1000,  # Size of each chunk
-        "chunk_overlap": 200,  # Overlap between chunks
-        "doc_column": "content",
-    }
-    print(
-        f"\n>>>>>>>>>>>>> Testing SIMPLE chunking with size: {config['chunk_size']}, overlap: {config['chunk_overlap']}"
-    )
-    operator: ChunkerOperator
-    if runtime == "python":
-        operator = ChunkerOperator(config=config)
-    else:
-        raise ValueError("unknown operator value")
-    print(operator)
-
-    metadata: dict[str, Any]
-    table_list, metadata = operator.transform(table)
-    table = table_list[0]
-    print(table.schema)
-    print(f">>>>>>>>>>>>> Number of rows after chunking: {table.num_rows}")
-
-    # Calculate chunk statistics
-    print("\n>>>>>>>>>>>>> Chunk Statistics:")
-    total_chunks = 0
-    all_chunk_sizes = []
-
-    for row in table.to_pylist():
-        if row.get("chunked_content"):
-            chunks = row["chunked_content"]
-            total_chunks += len(chunks)
-            for chunk in chunks:
-                if "chunk" in chunk:
-                    all_chunk_sizes.append(len(chunk["chunk"]))
-
-    if all_chunk_sizes:
-        avg_chunk_size = sum(all_chunk_sizes) / len(all_chunk_sizes)
-        print(f"  Total chunks: {total_chunks}")
-        print(f"  Average size: {avg_chunk_size:.2f} characters")
-        print(f"  Min size: {min(all_chunk_sizes)} characters")
-        print(f"  Max size: {max(all_chunk_sizes)} characters")
-
-    print(f"\n>>>>>>>>>>>>> Meta Data : - \n {json.dumps(metadata, indent=2)}")
-
-
-def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
-    """
-    Demo pipeline: Ingest → Extract → Chunk (Semantic)
-
-    This demonstrates semantic chunking using Ollama embeddings.
-    The script automatically handles Ollama setup:
-    - Checks if Ollama is installed
-    - Starts Ollama server if not running
-    - Pulls the specified model if not available
-
-    Usage:
-        cd src/datasift_opensource/backend
-        source .venv/bin/activate
-        export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-        python -c "from core.operators.functional.chunker import main_semantic; main_semantic()"
-
-    Note: Must be run as a module (python -m) with proper PYTHONPATH for imports to work correctly.
-    """
-    # Model to use for semantic chunking
-    semantic_embeddings_model = "granite4"
-
-    # ========================================================================
-    # OLLAMA SETUP - Automatic setup with model pulling
-    # ========================================================================
-    print("=" * 80)
-    print("OLLAMA SETUP CHECK")
-    print("=" * 80)
-
-    # Check Ollama readiness with auto-remediation
-    print(f"\nChecking Ollama prerequisites for model: {semantic_embeddings_model}...")
-    success, message = OllamaClient.ensure_ready(
-        model_name=semantic_embeddings_model,
-        auto_start=True,
-        auto_pull=True,  # Automatically pull model if not available
-    )
-
-    if not success:
-        print(f"\n✗ {message}")
-        print("\n" + "=" * 80)
-        print("SETUP REQUIRED")
-        print("=" * 80)
-        print("Please follow the instructions above to set up Ollama.")
-        print("=" * 80)
-        return
-
-    print(f"✓ {message}")
-    print("=" * 80)
-
-    # 1. Ingest files
-    ingest_operator: IngestLocalOperator = IngestLocalOperator(
-        {
-            "input_folder": "../../../tests/fixtures/semantic_chunking_docs",
-            "include_filter": "pdf,txt",  # Only txt files for simplicity
-            "force_ingest": True,
-        }
-    )
-
-    input_table: pa.Table | None = None
-    table_list, _ = ingest_operator.transform(input_table)
-    table: pa.Table = table_list[0]
-    print(f">>>>>>>>>>>>> Number of rows after ingest: {table.num_rows}")
-
-    # 2. Extract text content from binary
-    extract_operator: ExtractDoclingOperator = ExtractDoclingOperator(
-        {
-            "doc_column": "content",
-        }
-    )
-    table_list, _ = extract_operator.transform(table)
-    table = table_list[0]
-    print(f">>>>>>>>>>>>> Number of rows after extraction: {table.num_rows}")
-
-    # 3. Run chunking operator with SEMANTIC chunking
-    config: dict[str, Any] = {
-        "chunk_type": ChunkType.SEMANTIC.value,  # Use semantic chunking
-        "semantic_embeddings_model": semantic_embeddings_model,  # Ollama model for embeddings
-        "breakpoint_threshold_type": BreakpointThresholdType.PERCENTILE.value,  # Method for determining chunk boundaries
-        "breakpoint_threshold_amount": 95.0,  # Split at 95th percentile of dissimilarity
-        "chunk_size": 200,  # Only used for simple chunking
-        "chunk_overlap": 50,  # Only used for simple chunking
-        "doc_column": "content",
-    }
-    print(f"\n>>>>>>>>>>>>> Testing SEMANTIC chunking with model: {config['semantic_embeddings_model']}")
-    print(
-        f">>>>>>>>>>>>> Breakpoint type: {config['breakpoint_threshold_type']}, amount: {config['breakpoint_threshold_amount']}"
-    )
-    operator: ChunkerOperator
-    if runtime == "python":
-        operator = ChunkerOperator(config=config)
-    else:
-        raise ValueError("unknown operator value")
-    print(operator)
-
-    metadata: dict[str, Any]
-    table_list, metadata = operator.transform(table)
-    table = table_list[0]
-    print(table.schema)
-    print(f">>>>>>>>>>>>> Number of rows after chunking: {table.num_rows}")
-
-    # Calculate chunk statistics per document and overall
-    print("\n>>>>>>>>>>>>> Per-Document Chunk Statistics:")
-    total_chunks = 0
-    all_chunk_sizes = []
-
-    for row in table.to_pylist():
-        doc_name = row.get("name", "Unknown")
-        if row.get("chunked_content"):
-            chunks = row["chunked_content"]
-            num_chunks = len(chunks)
-            total_chunks += num_chunks
-
-            doc_chunk_sizes = []
-            for chunk in chunks:
-                if "chunk" in chunk:
-                    size = len(chunk["chunk"])
-                    doc_chunk_sizes.append(size)
-                    all_chunk_sizes.append(size)
-
-            if doc_chunk_sizes:
-                avg_size = sum(doc_chunk_sizes) / len(doc_chunk_sizes)
-                min_size = min(doc_chunk_sizes)
-                max_size = max(doc_chunk_sizes)
-                print(f"  {doc_name}:")
-                print(f"    Chunks: {num_chunks}, Avg: {avg_size:.0f}, Min: {min_size}, Max: {max_size} chars")
-
-    # Initialize statistics variables
-    avg_chunk_size = 0.0
-    min_chunk_size = 0
-    max_chunk_size = 0
-
-    if all_chunk_sizes:
-        avg_chunk_size = sum(all_chunk_sizes) / len(all_chunk_sizes)
-        min_chunk_size = min(all_chunk_sizes)
-        max_chunk_size = max(all_chunk_sizes)
-        print("\n>>>>>>>>>>>>> Overall Chunk Statistics:")
-        print(f"  Total chunks created: {total_chunks}")
-        print(f"  Average chunk size: {avg_chunk_size:.2f} characters")
-        print(f"  Min chunk size: {min_chunk_size} characters")
-        print(f"  Max chunk size: {max_chunk_size} characters")
-
-    print(f"\n>>>>>>>>>>>>> Meta Data : - \n {json.dumps(metadata, indent=2)}")
-
-
-def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
-    """
-    Demo pipeline: Ingest → Extract → Chunk (Hybrid)
-
-    This demonstrates hybrid chunking using HybridChunker.
-    Hybrid chunking combines hierarchical and semantic chunking for optimal results.
-
-    Usage:
-        cd src/datasift_opensource/backend
-        source .venv/bin/activate
-        export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-        python -c "from core.operators.functional.chunker import main_hybrid; main_hybrid()"
-
-    Note: Must be run as a module (python -m) with proper PYTHONPATH for imports to work correctly.
-    """
-    print("=" * 80)
-    print("HYBRID CHUNKING DEMO")
-    print("=" * 80)
-
-    # 1. Ingest files
-    ingest_operator: IngestLocalOperator = IngestLocalOperator(
-        {
-            "input_folder": "../../../tests/fixtures/customer_support_docs/",
-            "include_filter": "pdf,txt",
-            "force_ingest": True,
-        }
-    )
-
-    input_table: pa.Table | None = None
-    table_list, _ = ingest_operator.transform(input_table)
-    table: pa.Table = table_list[0]
-    print(f">>>>>>>>>>>>> Number of rows after ingest: {table.num_rows}")
-
-    # 2. Extract text content from binary
-    extract_operator: ExtractDoclingOperator = ExtractDoclingOperator(
-        {
-            "doc_column": "content",
-        }
-    )
-    table_list, _ = extract_operator.transform(table)
-    table = table_list[0]
-    print(f">>>>>>>>>>>>> Number of rows after extraction: {table.num_rows}")
-
-    # 3. Run chunking operator with hybrid chunking
-    config: dict[str, Any] = {
-        "chunk_type": ChunkType.HYBRID.value,  # Use hybrid chunking
-        "chunk_size": 512,  # Token-based chunk size
-        "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",  # Tokenizer for chunking
-        "doc_column": "content",
-        "retain_original_content": True,
-    }
-    print(f"\n>>>>>>>>>>>>> Testing HYBRID chunking with chunk_size: {config['chunk_size']} tokens")
-    print(f">>>>>>>>>>>>> Tokenizer: {config['docling_tokenizer']}")
-
-    operator: ChunkerOperator
-    if runtime == "python":
-        operator = ChunkerOperator(config=config)
-    else:
-        raise ValueError("unknown operator value")
-    print(operator)
-
-    metadata: dict[str, Any]
-    table_list, metadata = operator.transform(table)
-    table = table_list[0]
-    print(table.schema)
-    print(f">>>>>>>>>>>>> Number of rows after chunking: {table.num_rows}")
-
-    # Calculate chunk statistics per document and overall
-    print("\n>>>>>>>>>>>>> Per-Document Chunk Statistics:")
-    total_chunks = 0
-    all_chunk_sizes = []
-
-    for row in table.to_pylist():
-        doc_name = row.get("name", "Unknown")
-        if row.get("chunked_content"):
-            chunks = row["chunked_content"]
-            num_chunks = len(chunks)
-            total_chunks += num_chunks
-
-            doc_chunk_sizes = []
-            for chunk in chunks:
-                if "chunk" in chunk:
-                    size = len(chunk["chunk"])
-                    doc_chunk_sizes.append(size)
-                    all_chunk_sizes.append(size)
-
-            if doc_chunk_sizes:
-                avg_size = sum(doc_chunk_sizes) / len(doc_chunk_sizes)
-                min_size = min(doc_chunk_sizes)
-                max_size = max(doc_chunk_sizes)
-                print(f"  {doc_name}:")
-                print(f"    Chunks: {num_chunks}, Avg: {avg_size:.0f}, Min: {min_size}, Max: {max_size} chars")
-
-    # Initialize statistics variables
-    avg_chunk_size = 0.0
-    min_chunk_size = 0
-    max_chunk_size = 0
-
-    if all_chunk_sizes:
-        avg_chunk_size = sum(all_chunk_sizes) / len(all_chunk_sizes)
-        min_chunk_size = min(all_chunk_sizes)
-        max_chunk_size = max(all_chunk_sizes)
-        print("\n>>>>>>>>>>>>> Overall Chunk Statistics:")
-        print(f"  Total chunks created: {total_chunks}")
-        print(f"  Average chunk size: {avg_chunk_size:.2f} characters")
-        print(f"  Min chunk size: {min_chunk_size} characters")
-        print(f"  Max chunk size: {max_chunk_size} characters")
-
-    print(f"\n>>>>>>>>>>>>> Meta Data : - \n {json.dumps(metadata, indent=2)}")
-
-
-def main(runtime: str = "python") -> None:  # pragma: no cover
-    # For simple chunking, use:
-    #   main_simple()
-
-    # For semantic chunking, use:
-    # main_semantic(runtime)
-
-    # For hybrid chunking, use:
-    main_hybrid(runtime)
-
-
-if __name__ == "__main__":  # pragma: no cover
-    main()

@@ -15,8 +15,8 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.models.session_info import get_session_info
-from common.util.log import get_logger
-from common.util.orchestrator_utils import update_deleted_rows
+from common.util.infrastructure.logging import get_logger
+from common.util.orchestration.deleted_rows_tracker import update_deleted_rows
 from core.data_access.data_access_utils import DataAccessUtils
 from core.operators.abstract_operator import AbstractOperator
 from core.operators.operator_utils import OperatorUtils
@@ -46,7 +46,7 @@ class AbstractOperatorExecutor:
         self,
         *,
         data_access: DataAccess | dict[str, DataAccess | None] | None,
-        deleted_rows_list: Queue[pa.Table] = None,
+        deleted_rows_list: Queue[pa.Table] | None,
     ) -> tuple[list[DataAccess], dict[str, Any]]:
         input_tables = self._get_input_tables(data_access=data_access)
         out_tables, metadata = self._execute_impl(tables=input_tables)
@@ -173,6 +173,12 @@ class AbstractOperatorExecutor:
         )
 
         job_stats = JobTracker().get_job(job_run_id=job_run_id)
+
+        # If no job stats found, log warning and return early
+        if job_stats is None:
+            logger.warning(f"No job stats found for job_run_id: {job_run_id}. Cannot update final node stats.")
+            return
+
         existing_node = job_stats.node_stats.get(node_id, {})
 
         # Extract node stats based on type

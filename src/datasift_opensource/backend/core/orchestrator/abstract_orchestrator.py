@@ -1,5 +1,4 @@
 import os
-import threading
 from abc import ABC
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
@@ -13,24 +12,29 @@ from common.constants.constants import DatasiftConstants, ExecutionStatus, Metri
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 from common.models.session_info import SessionInfo, get_session_info, set_session_info
-from common.util.datasift_utils import get_current_timestamp, get_data_path
-from common.util.incremental_update_util import IncrementalUpdateUtil
+from common.util.core.datetime import get_current_timestamp
+from common.util.infrastructure.filesystem import get_data_path
+from common.util.data.incremental_update import IncrementalUpdateUtil
 from common.util.job_tracker.tracker.job_tracker import JobStatsDto, JobTracker
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
-from common.util.orchestrator_utils import (
+from common.util.orchestration.prefect_config import (
     clean_up_prefect_home,
+)
+from common.util.orchestration.deleted_rows_tracker import (
     combine_cumulative_deleted_rows,
+)
+from common.util.orchestration.flow_utils import (
     construct_deleted_rows_table_path
 )
-from common.util.parquet_table_handler import BaseParquetTableHandler, get_parquet_table_handler
-from common.util.perf_utils import log_elapsed_time
+from common.util.data.pyarrow_handler import BaseParquetTableHandler, get_parquet_table_handler
+from common.util.infrastructure.performance import log_elapsed_time
 from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
 from core.orchestrator.batch_manager import BatchManager
 from core.orchestrator.node_logger import NodeLogger
-from core.orchestrator.prefect_flow_executor import PrefectFlowExecutor, ExecuteStepResults  # noqa: E402
+from core.orchestrator.prefect_engine import PrefectEngine, ExecuteStepResults, AbstractFlowEngine  # noqa: E402
 
 logger = get_logger()
 
@@ -55,7 +59,7 @@ class AbstractOrchestrator(ABC):
         self.batch_manager = BatchManager()
         self.job_tracker = JobTracker()
         # Initialize Prefect flow executor
-        self.prefect_executor = None
+        self.flow_engine: AbstractFlowEngine = None
         self.job_log_path = None
         self.common_log_arguments = None
         # Initialize node logger
@@ -67,7 +71,12 @@ class AbstractOrchestrator(ABC):
         self.job_run_id = job_run_id
         self.job_log_path = self.create_log_folders(job_id=self.job_id, type_="job")
         self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
-        self.prefect_executor = PrefectFlowExecutor(self, job_id=job_id, job_run_id=job_run_id, job_log_path=self.job_log_path)
+        self.flow_engine = PrefectEngine(
+            orchestrator=self,
+            batch_manager=self.batch_manager,
+            job_id=job_id,
+            job_run_id=job_run_id,
+            job_log_path=self.job_log_path)
         self.node_logger = NodeLogger(common_log_arguments=self.common_log_arguments)
 
     def execute(self, *, flow_def: dict, params: dict):
@@ -240,11 +249,7 @@ class AbstractOrchestrator(ABC):
         internal_metadata = {}
         if skip:
             data_accesses, tables = self._handle_skipped_execution(
-                op_def=op_def,
-                executor=executor,
-                prev_results=prev_results,
-                global_config=global_config,
-                start=start
+                op_def=op_def, executor=executor, prev_results=prev_results, global_config=global_config, start=start
             )
         else:
             data_accesses, tables, metadata, internal_metadata = self._handle_active_execution(
@@ -328,19 +333,19 @@ class AbstractOrchestrator(ABC):
         """
         self.canceling = True
 
-    def pause(self):
+    def pause(self):  # noqa: B027
         """
         Request for pausing a running job
         """
         pass
 
-    def resume(self):
+    def resume(self):  # noqa: B027
         """
         Request for resuming a paused job
         """
         pass
 
-    def get_type(self):
+    def get_type(self):  # noqa: B027
         """
         Returns the type of the orchestrator, Python or Spark
         """
@@ -399,11 +404,11 @@ class AbstractOrchestrator(ABC):
             params=config,
         )
 
-    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:
+    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:  # noqa: B027
         # The concrete subclasses needs to implement this method
         pass
 
-    def visualize(self):
+    def visualize(self):  # noqa: B027
         # The concrete subclasses needs to implement this method
         pass
 
@@ -414,7 +419,7 @@ class AbstractOrchestrator(ABC):
         prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
         session_info: SessionInfo,
         deleted_docs_count,
-        link_id=None
+        link_id=None,
     ) -> ExecuteStepResults | None:
         if prev_results is None:
             if self.node_logger:
@@ -461,25 +466,25 @@ class AbstractOrchestrator(ABC):
                 try:
                     self.logger.debug(
                         f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
-                        extra=self.common_log_arguments
+                        extra=self.common_log_arguments,
                     )
                     result = self._execute_step(
                         op_def=op_def,
                         global_config=global_config,
                         prev_results=prev_results,
-                        deleted_docs_count=deleted_docs_count
+                        deleted_docs_count=deleted_docs_count,
                     )
                 finally:
                     operator_semaphore.release()
                     self.logger.debug(
                         f"Operator {op_def[OperatorConstants.Columns.NAME]}: released semaphore slot",
-                        extra=self.common_log_arguments
+                        extra=self.common_log_arguments,
                     )
             else:
                 # No semaphore - execute normally
                 self.logger.debug(
                     f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
-                    extra=self.common_log_arguments
+                    extra=self.common_log_arguments,
                 )
                 result = self._execute_step(
                     op_def=op_def,
@@ -540,10 +545,7 @@ class AbstractOrchestrator(ABC):
         # Configure prefect server logging
         _ = get_logger(name="prefect")
 
-        self.logger.info(
-            ">>> Starting flow execution with unified batching approach",
-            extra=self.common_log_arguments
-        )
+        self.logger.info(">>> Starting flow execution with unified batching approach", extra=self.common_log_arguments)
 
         # Execute ingest operator to get initial table
         ingest_operator = op_flow[0]
@@ -586,18 +588,7 @@ class AbstractOrchestrator(ABC):
         global_config[DatasiftConstants.INGEST_NODE_ID] = ingest_node_id
 
         # Build and execute batch flow (works for both single and multiple batches)
-        batch_outer_flow = self.prefect_executor.build_flow(name="batch_outer_flow",
-                                                            flow_impl=self.prefect_executor.batch_outer_flow_impl)
-        batch_futures = batch_outer_flow(
-            op_flow=op_flow[1:],  # Skip ingest operator
-            batches=batches,
-            global_config=global_config
-        )
-
-        # Wait for all sub-flows to complete
-        # Note: Metadata is saved incrementally by each sub-flow in inner_flow() at line 1194
-        # so we don't need to merge and save results here
-        self.wait_for_sub_flows(batch_futures=batch_futures)
+        self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)
 
         clean_up_prefect_home()
         self._finalize_dag_flow(op_flow=op_flow)
@@ -609,62 +600,6 @@ class AbstractOrchestrator(ABC):
         data_access = data_access_factory.create_data_access()
         data_access.save_table(path="", table=pa.Table.from_arrays([], names=[]))
         return ExecuteStepResults([data_access], [pa.Table.from_arrays(arrays=[], names=[])], None)
-
-    def wait_for_sub_flows(self, *, batch_futures):
-        """
-        Wait for all sub-flows (batches) to complete with fail-fast cancellation.
-
-        Note: This method does not return batch results to avoid loading all PyArrow tables
-        into memory. Each sub-flow saves its metadata incrementally.
-        """
-        failed_batch = None
-        cancellation_event = threading.Event()
-
-        for batch_num, future in batch_futures:
-            # Check if another batch already failed
-            if cancellation_event.is_set():
-                try:
-                    future.cancel()
-                    self.logger.info(
-                        f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
-                        extra=self.common_log_arguments,
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
-                continue
-
-            try:
-                future.result()
-                self.logger.info(
-                    f"Batch {batch_num} completed successfully",
-                    extra=self.common_log_arguments,
-                )
-
-            except Exception as e:
-                # Batch failed - trigger cancellation
-                cancellation_event.set()
-
-                self.logger.error(
-                    f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
-                    extra=self.common_log_arguments,
-                    exc_info=True,
-                )
-
-                for remaining_num, remaining_future in batch_futures[batch_num + 1 :]:
-                    try:
-                        remaining_future.cancel()
-                        self.logger.info(
-                            f"Cancelled batch {remaining_num}",
-                            extra=self.common_log_arguments,
-                        )
-                    except Exception as cancel_error:
-                        self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
-
-                self.batch_manager.reset_operator_semaphore()
-                # Re-raise the exception to fail the entire job
-                raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
-
-        self.batch_manager.reset_operator_semaphore()
 
     @staticmethod
     def _collect_failed_doc_ids(*, job_stats: JobStatsDto | None) -> list[str]:

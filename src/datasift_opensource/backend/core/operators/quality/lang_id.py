@@ -12,7 +12,7 @@ from common.constants.constants import (
     ExecutionStatus,
     Metrics
 )
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 
@@ -157,45 +157,3 @@ class LanguageDetect(AbstractOperator):
         return [table], metadata
 
 
-# Used for unit testing only
-def main() -> tuple[list[pa.Table], dict[str, Any]]:
-    # 1. Construct the operator with the required configuration and input parameters
-    operator: LanguageDetect = LanguageDetect(
-        {"doc_column": "content", OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: False}
-    )
-    print(operator)
-
-    # 2. Create an in-memory py-arrow table, as the input
-
-    content: pa.Array = pa.array(
-        [
-            "Contact support team via email: support@ibm.com, or the sales team sales@in.ibm.com, Content Phone Number: 08012345678 ",
-            "My personal email id is jj@acm.org, PhoneNumber is: +91 932-123-1234 and +91 9321231234, Amex Card Number: 378734493671000",
-            "",
-            "8967840594",
-            "Hello, world! Bonjour, monde! ¡Hola, mundo!",
-        ]
-    )
-    name: pa.Array = pa.array(["name1", "name2", "name3", "name4", "name5"])
-    doc_id: pa.Array = pa.array(["1", "2", "3", "4", "5"])
-    col_names: list[str] = [
-        OperatorConstants.Columns.ID,
-        OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
-        OperatorConstants.Misc.NAME,
-    ]
-    input_table: pa.Table = pa.Table.from_arrays([doc_id, content, name], names=col_names)
-
-    # 3. Run the operator
-    table_list: list[pa.Table]
-    metadata: dict[str, Any]
-    table_list, metadata = operator.transform(input_table)
-    # 4. Inspect and print the results after the operator is completed
-    print(">>> completed the operator", operator)
-    table: pa.Table = table_list[0]
-    print(f"\noutput table: {table}, {metadata}")
-    return table_list, metadata
-
-
-# main entry point into the program; used for unit testing only
-if __name__ == "__main__":
-    main()

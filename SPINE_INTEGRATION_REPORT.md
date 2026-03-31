@@ -1360,7 +1360,7 @@ Create [`src/datasift_opensource/backend/core/operators/universal/schema/ix_clie
 from typing import Any, Optional
 import os
 import requests
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 

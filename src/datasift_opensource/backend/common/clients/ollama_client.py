@@ -12,7 +12,7 @@ import json
 from enum import Enum
 from typing import Any
 
-from common.util.log import get_logger
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -162,8 +162,16 @@ class OllamaClient:
                 response = ollama.chat(model=self.model, messages=messages, stream=stream)
                 # When stream=False, response is a dict with the message content
                 # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
+                # Handle both dict and ChatResponse object
                 if isinstance(response, dict):
                     return response.get("message", {}).get("content", "")
+                elif hasattr(response, "message"):
+                    # ChatResponse object
+                    message = response.message
+                    if isinstance(message, dict):
+                        return message.get("content", "")
+                    elif hasattr(message, "content"):
+                        return message.content or ""
                 return ""  # Fallback for unexpected response format
             else:
                 response = ollama.generate(model=self.model, prompt=prompt, stream=stream)
