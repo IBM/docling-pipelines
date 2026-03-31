@@ -16,7 +16,7 @@ from common.util.data.pyarrow_handler import (
     CpdParquetTableHandler,
     get_parquet_table_handler,
 )
-from common.util.data.transform import HAS_TRANSFORM_UTILS, TransformUtils
+from common.util.data.transform import TransformUtils
 from common.util.infrastructure.caching import LRUCache
 from common.util.infrastructure.concurrency import (
     process_batches_in_parallel,
@@ -63,7 +63,6 @@ from common.util.orchestration.flow_utils import (
 from common.util.orchestration.prefect_config import clean_up_prefect_home, set_prefect_env_variables
 
 __all__ = [
-    "HAS_TRANSFORM_UTILS",
     # Data utilities
     "BaseParquetTableHandler",
     "CpdParquetTableHandler",
