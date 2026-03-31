@@ -875,31 +875,16 @@ class IngestSourceOperator(AbstractOperator):
                 "The process_documents() method uses _load_s3_documents() instead."
             )
 
-        # 2. Microsoft SharePoint
-        elif self.provider == "sharepoint":
-            from .adapters.outbound.sources.sharepoint.loader import SharePointDirectoryLoader
-            return SharePointDirectoryLoader(
-                drive_id=self.connection_params.get("document_library_id"),
-                client_id=self.credentials.get("client_id"),
-                client_secret=self.credentials.get("client_secret"),
-                tenant_id=self.credentials.get("tenant_id"),
-                folder_path=self.connection_params.get("folder_path"),
-                recursive=self.connection_params.get("recursive", True),
-            )
-
-        # 3. Microsoft OneDrive
-        elif self.provider == "onedrive":
-            from .adapters.outbound.sources.onedrive.loader import OneDriveDirectoryLoader
-            return OneDriveDirectoryLoader(
-                drive_id=self.connection_params.get("drive_id"),
-                client_id=self.credentials.get("client_id"),
-                client_secret=self.credentials.get("client_secret"),
-                tenant_id=self.credentials.get("tenant_id"),
-                folder_path=self.connection_params.get("folder_path"),
-                recursive=self.connection_params.get("recursive", True),
+        # 2. Microsoft SharePoint & OneDrive
+        # These providers use the hexagonal architecture adapters via _load_documents_via_adapter()
+        # and should not reach this method. Keeping this for backward compatibility.
+        elif self.provider in ["sharepoint", "onedrive"]:
+            raise ValueError(
+                f"{self.provider} provider should use _load_documents_via_adapter(). "
+                "This provider is registered with SourceAdapterFactory and should be handled automatically."
             )
             
-        # 4. Google Drive
+        # 3. Google Drive
         elif self.provider == "google_drive":
             from .adapters.outbound.sources.google_drive.adapter import GoogleDriveSourceAdapter
             return GoogleDriveSourceAdapter()
