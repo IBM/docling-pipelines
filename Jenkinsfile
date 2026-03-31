@@ -127,7 +127,7 @@ timestamps {
             if (env.BRANCH_NAME.startsWith("PR-")) {
               scanBranch = env.CHANGE_BRANCH
             } else {
-              scanBranch = env.CHANGE_TARGET
+              scanBranch = env.BRANCH_NAME
             }
             println "Base branch is ${env.CHANGE_TARGET}"
             echo sh(script: 'env|sort', returnStdout: true)
