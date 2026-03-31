@@ -125,7 +125,6 @@ timestamps {
             //sh("chmod +x sonar/sonarscan.sh")
             //println "Base branch is \$env.CHANGE_TARGET"
             //sh("./sonar/sonarscan.sh \$env.CHANGE_TARGET \$SONAR_PWD \$WORKSPACE \$env.BUILD_ID")
-            {
             def pullBranchKey=''
             if (env.BRANCH_NAME.startsWith("PR-")) {
               pullBranchKey = "-Dsonar.pullrequest.key=${env.CHANGE_ID} \
