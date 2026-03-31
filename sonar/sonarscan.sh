@@ -57,7 +57,7 @@ fi
 ###################################################################################
 SONAR_SOURCES="src/datasift_opensource"
 SONAR_TESTS="tests"
-SONAR_EXCLUSIONS="tests/**,**/ui/**,**/__pycache__/**,**/*.pyc"
+SONAR_EXCLUSIONS="**/tests/**,**/ui/**,**/__pycache__/**,**/*.pyc"
 
 # Check if running on MacOS or Linux
 if [[ "$(uname -s)" == "Darwin" ]]; then
