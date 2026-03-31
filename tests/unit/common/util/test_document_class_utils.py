@@ -211,5 +211,3 @@ def test_print_template_example(invoice_doc_class_path):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "-s"])
-
-# Made with Bob
