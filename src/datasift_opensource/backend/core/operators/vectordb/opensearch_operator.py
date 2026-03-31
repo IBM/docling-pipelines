@@ -5,21 +5,24 @@ High-level orchestrator that delegates to specialized components.
 Maintains backward compatibility with the original OpenSearchOperator interface.
 """
 
-import pyarrow as pa
 from typing import Any
+
+import pyarrow as pa
 
 from common.constants.constants import Metrics
 from common.constants.operator_constants import OperatorConstants
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from core.operators.vectordb.opensearch_batch_processor import OpenSearchBatchProcessor
 from core.operators.vectordb.opensearch_client import OpenSearchClient
 from core.operators.vectordb.opensearch_index_manager import (
-    OpenSearchIndexManager,
-    OpenSearchEngineTypes,
     OpenSearchAlgorithmTypes,
+    OpenSearchEngineTypes,
+    OpenSearchIndexManager,
     VectorSimilarityTypes,
 )
-from core.operators.vectordb.opensearch_batch_processor import OpenSearchBatchProcessor
 
 logger = get_logger()
 
@@ -36,7 +39,7 @@ DEFAULT_VECTOR_DIMENSION: int = 384
 class OpenSearchOperator(AbstractOperator):
     """
     Refactored OpenSearch operator that delegates responsibilities to specialized components.
-    
+
     This operator acts as a high-level orchestrator, maintaining the same interface
     as the original implementation while delegating to:
     - OpenSearchClient: Connection management
@@ -93,9 +96,15 @@ class OpenSearchOperator(AbstractOperator):
 
         # Validate required parameters
         if not host:
-            raise ValueError("opensearch_host is required")
+            raise DatasiftException(
+                message="opensearch_host is required",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+            )
         if not self.index_name:
-            raise ValueError("index_name is required")
+            raise DatasiftException(
+                message="index_name is required", status_code=400, error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+            )
 
         # Initialize components
         self.client_manager = OpenSearchClient(
@@ -250,7 +259,7 @@ class OpenSearchOperator(AbstractOperator):
                         chunk_row_data: dict[str, Any] = row_data.copy()
                         chunk_row_data[self.embeddings_column] = chunk_embedding
                         chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
-                        
+
                         doc: dict[str, Any] = self.batch_processor.prepare_document(chunk_row_data)
                         documents.append((chunk_doc_id, doc))
                 else:

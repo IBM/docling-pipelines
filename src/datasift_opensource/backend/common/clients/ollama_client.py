@@ -12,6 +12,8 @@ import json
 from enum import Enum
 from typing import Any
 
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -104,7 +106,7 @@ class OllamaClient:
 
         Raises:
             ImportError: If ollama package is not installed
-            ValueError: If the model is not available
+            DatasiftException: If the model is not available or connection fails
         """
         try:
             import ollama
@@ -119,15 +121,25 @@ class OllamaClient:
             # Check if the requested model is available
             model_base = self.model.split(":")[0]  # Handle model:tag format
             if model_base not in available_models:
-                raise ValueError(
-                    f"Model '{self.model}' is not available. "
-                    f"Available models: {', '.join(available_models) if available_models else 'none'}. "
-                    f"Please pull the model using: ollama pull {self.model}"
+                raise DatasiftException(
+                    message=(
+                        f"Model '{self.model}' is not available. "
+                        f"Available models: {', '.join(available_models) if available_models else 'none'}. "
+                        f"Please pull the model using: ollama pull {self.model}"
+                    ),
+                    status_code=404,
+                    error_code=ErrorCode.OLLAMA_MODEL_NOT_FOUND
                 )
 
             logger.info(f"Model '{self.model}' validated successfully")
-        except ValueError:
+        except DatasiftException:
             raise
+        except (ConnectionError, TimeoutError) as exc:
+            raise DatasiftException(
+                message=f"Failed to connect to Ollama server: {exc}",
+                status_code=503,
+                error_code=ErrorCode.OLLAMA_CONNECTION_FAILED
+            ) from exc
         except Exception as exc:
             logger.warning(f"Could not validate model availability: {exc!s}")
             # Don't fail initialization if validation check itself fails
@@ -182,10 +194,18 @@ class OllamaClient:
                 return ""  # Fallback for unexpected response format
         except (ConnectionError, TimeoutError) as exc:
             logger.error(f"Connection failed: {exc}")
-            raise
+            raise DatasiftException(
+                message=f"Failed to connect to Ollama server: {exc}",
+                status_code=503,
+                error_code=ErrorCode.OLLAMA_CONNECTION_FAILED
+            ) from exc
         except ValueError as exc:
             logger.error(f"Invalid model or parameters: {exc}")
-            raise
+            raise DatasiftException(
+                message=f"Model '{self.model}' not found or invalid parameters: {exc}",
+                status_code=404,
+                error_code=ErrorCode.OLLAMA_MODEL_NOT_FOUND
+            ) from exc
         except Exception as exc:
             logger.error(f"Unexpected error during model execution: {exc}")
             raise
@@ -301,26 +321,47 @@ class OllamaClient:
                 # Handle EmbeddingsResponse object from newer ollama versions
                 embedding = embedding_response.embedding
             else:
-                raise TypeError(
-                    f"Unexpected response type from model '{self.model}': {type(embedding_response).__name__}"
+                raise DatasiftException(
+                    message=f"Unexpected response type from model '{self.model}': {type(embedding_response).__name__}",
+                    status_code=500,
+                    error_code=ErrorCode.EXTERNAL_SERVICE_ERROR
                 )
 
             if not isinstance(embedding, list) or not embedding:
-                raise ValueError(f"Empty or missing embedding in response from model '{self.model}'.")
+                raise DatasiftException(
+                    message=f"Empty or missing embedding in response from model '{self.model}'.",
+                    status_code=500,
+                    error_code=ErrorCode.EXTERNAL_SERVICE_ERROR
+                )
 
             return embedding
 
         except (ConnectionError, TimeoutError) as exc:
             logger.error("Connection failed during embedding generation: %s", exc)
+            raise DatasiftException(
+                message=f"Failed to connect to Ollama server during embedding generation: {exc}",
+                status_code=503,
+                error_code=ErrorCode.OLLAMA_CONNECTION_FAILED
+            ) from exc
+
+        except DatasiftException:
             raise
 
         except (ValueError, TypeError) as exc:
             logger.error("Invalid response structure from Ollama API: %s", exc)
-            raise
+            raise DatasiftException(
+                message=f"Invalid response from Ollama API: {exc}",
+                status_code=500,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR
+            ) from exc
 
-        except Exception:
+        except Exception as exc:
             logger.exception("Unexpected error during embedding generation")
-            raise
+            raise DatasiftException(
+                message=f"Unexpected error during embedding generation: {exc}",
+                status_code=500,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR
+            ) from exc
 
     @staticmethod
     def is_installed() -> bool:

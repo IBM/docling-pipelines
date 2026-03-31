@@ -1,17 +1,25 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
+    # Flow validation and execution
     FLOW_VALIDATION_FAILED = "flow_validation_failed"
     FLOW_EXECUTION_FAILED = "flow_execution_failed"
-    UNKNOWN_ERROR = "unknown_error"
-    DATASIFT_DATA_ACCESS_COS_FAILED = "datasift_data_access_cos_failed"
-    DATASIFT_DATA_ACCESS_S3_FAILED = "datasift_data_access_s3_failed"
-    MISSING_FEATURES = "missing_features"
     PREFECT_FLOW_TASK_FAILED = "prefect_flow_failed"
+
+    # Operator errors
+    OPERATOR_CONFIGURATION_INVALID = "operator_configuration_invalid"
+    OPERATOR_EXECUTION_FAILED = "operator_execution_failed"
     SQL_FILTER_ERROR = "sql_filter_error"
-    INCOMPATIBLE_FEATURE_MAPPINGS = "incompatible_feature_mappings"
-    OPENSEARCH_INSERT_FAILED = "opensearch_insert_failed"
-    CONNECTIONS_API_FAILED = "connections_api_failed"
+
+    # Ollama integration
+    OLLAMA_CONNECTION_FAILED = "ollama_connection_failed"
+    OLLAMA_MODEL_NOT_FOUND = "ollama_model_not_found"
+
+    # OpenSearch integration
+    OPENSEARCH_CONNECTION_FAILED = "opensearch_connection_failed"
+    OPENSEARCH_INDEX_ERROR = "opensearch_index_error"
+
+    # Configuration and external services
     INVALID_CONFIGURATION = "invalid_configuration"
     EXTERNAL_SERVICE_ERROR = "external_service_error"
