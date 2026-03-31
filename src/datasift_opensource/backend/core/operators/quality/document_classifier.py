@@ -19,18 +19,7 @@ from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from common.util.infrastructure.logging import get_logger
 from core.operators.operator_utils import OperatorUtils
 
-# Try to import TransformUtils from data-prep-toolkit-transforms
-try:
-    from data_processing.utils import TransformUtils  # type: ignore
-except ImportError:
-    # Fallback implementation
-    class TransformUtils:  # type: ignore
-        @staticmethod
-        def add_column(table: pa.Table, name: str, content: List[Any]) -> pa.Table:
-            """Add a column to a PyArrow table."""
-            new_column: pa.Array = pa.array(content)
-            new_field: pa.Field = pa.field(name, new_column.type)
-            return table.append_column(new_field, new_column)
+from data_processing.utils import TransformUtils 
 
 logger: logging.Logger = get_logger()
 
