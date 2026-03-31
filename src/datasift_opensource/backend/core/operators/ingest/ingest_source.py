@@ -875,19 +875,14 @@ class IngestSourceOperator(AbstractOperator):
                 "The process_documents() method uses _load_s3_documents() instead."
             )
 
-        # 2. Microsoft SharePoint & OneDrive
+        # 2. Microsoft SharePoint, OneDrive & Google Drive
         # These providers use the hexagonal architecture adapters via _load_documents_via_adapter()
         # and should not reach this method. Keeping this for backward compatibility.
-        elif self.provider in ["sharepoint", "onedrive"]:
+        elif self.provider in ["sharepoint", "onedrive", "google_drive"]:
             raise ValueError(
                 f"{self.provider} provider should use _load_documents_via_adapter(). "
                 "This provider is registered with SourceAdapterFactory and should be handled automatically."
             )
-            
-        # 3. Google Drive
-        elif self.provider == "google_drive":
-            from .adapters.outbound.sources.google_drive.adapter import GoogleDriveSourceAdapter
-            return GoogleDriveSourceAdapter()
 
         # 5. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
