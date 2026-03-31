@@ -41,6 +41,7 @@ JENKINS_BRANCH=$1
 SONAR_TOKEN=$2
 JENKINS_BUILD_DIR=$3
 JENKINS_BUILD_NUMBER=$4
+EXTRA_PARAMAS=$5
 
 if [[ -z ${JENKINS_BUILD_DIR} ]]; then
   clean-exit error "JENKINS_BUILD_DIR not set!"
@@ -57,7 +58,7 @@ fi
 ###################################################################################
 SONAR_SOURCES="src/datasift_opensource"
 SONAR_TESTS="tests"
-SONAR_EXCLUSIONS="**/ui/**,**/__pycache__/**,**/*.pyc"
+SONAR_EXCLUSIONS="tests/**,**/ui/**,**/__pycache__/**,**/*.pyc"
 
 # Check if running on MacOS or Linux
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -124,7 +125,7 @@ cat sonar-project.properties
 echo "==="
 
 # Run the scanner
-${SONAR_INSTALL_DIR}/bin/sonar-scanner --debug
+${SONAR_INSTALL_DIR}/bin/sonar-scanner ${EXTRA_PARAMAS} --debug
 
 RESULT=$?
 if [ ${RESULT} -ne 0 ]; then
