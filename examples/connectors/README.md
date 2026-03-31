@@ -8,10 +8,10 @@ This directory contains test scripts for various data source adapters (OneDrive,
 
 1. Copy the example environment file:
    ```bash
-   cp connectors/.env.example connectors/.env
+   cp examples/connectors/.env.example examples/connectors/.env
    ```
 
-2. Edit `connectors/.env` and fill in your credentials:
+2. Edit `examples/connectors/.env` and fill in your credentials:
    ```bash
    # OneDrive Configuration
    ONEDRIVE_CLIENT_ID=your-actual-client-id
@@ -35,8 +35,8 @@ This directory contains test scripts for various data source adapters (OneDrive,
 
 4. Run the test scripts:
    ```bash
-   python connectors/test_onedrive_adapter.py
-   python connectors/test_sharepoint_adapter.py
+   python examples/connectors/test_onedrive_adapter.py
+   python examples/connectors/test_sharepoint_adapter.py
    ```
 
 ### Option 2: Using Environment Variables
@@ -48,14 +48,14 @@ Set environment variables directly in your shell:
 export ONEDRIVE_CLIENT_ID='your-client-id'
 export ONEDRIVE_CLIENT_SECRET='your-client-secret'
 export ONEDRIVE_TENANT_ID='your-tenant-id'
-python connectors/test_onedrive_adapter.py
+python examples/connectors/test_onedrive_adapter.py
 
 # SharePoint
 export SHAREPOINT_CLIENT_ID='your-client-id'
 export SHAREPOINT_CLIENT_SECRET='your-client-secret'
 export SHAREPOINT_TENANT_ID='your-tenant-id'
 export SHAREPOINT_DOCUMENT_LIBRARY_ID='your-document-library-id'
-python connectors/test_sharepoint_adapter.py
+python examples/connectors/test_sharepoint_adapter.py
 ```
 
 ## Important Notes

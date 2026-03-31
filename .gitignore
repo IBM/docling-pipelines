@@ -55,4 +55,4 @@ src/datasift_opensource/backend/models/
 Thumbs.db
 
 # Connector credentials
-connectors/.env
+examples/connectors/.env

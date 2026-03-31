@@ -17,7 +17,7 @@ except ImportError:
     print("Or set environment variables manually.")
 
 # Add the backend directory to Python path
-backend_path = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
+backend_path = Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
 sys.path.insert(0, str(backend_path))
 
 from core.operators.ingest.adapters.outbound.sources.sharepoint.adapter import (
