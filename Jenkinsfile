@@ -122,10 +122,11 @@ timestamps {
         script {
           withCredentials([string(credentialsId: 'sonarqube-auth-token-cio', variable: 'SONAR_PWD')]) {
             println "Running sonarqube.."
-            //sh("chmod +x sonar/sonarscan.sh")
-            //println "Base branch is \$env.CHANGE_TARGET"
-            //sh("./sonar/sonarscan.sh \$env.CHANGE_TARGET \$SONAR_PWD \$WORKSPACE \$env.BUILD_ID")
-            def pullBranchKey=''
+            sh("chmod +x sonar/sonarscan.sh")
+            println "Base branch is ${env.CHANGE_TARGET}"
+            println "Base branch is ${env.BRANCH_NAME}"
+            sh("./sonar/sonarscan.sh ${env.CHANGE_TARGET} ${SONAR_PWD} ${WORKSPACE} ${env.BUILD_ID}")
+            /* def pullBranchKey=''
             if (env.BRANCH_NAME.startsWith("PR-")) {
               pullBranchKey = "-Dsonar.pullrequest.key=${env.CHANGE_ID} \
                     -Dsonar.pullrequest.branch=${env.CHANGE_BRANCH} \
@@ -161,7 +162,7 @@ timestamps {
               # Run sonar
               echo "Run sonar-scanner"
               sonar-scanner ${pullBranchKey} -Dsonar.token=${SONAR_PWD} -Dsonar.verbose=true
-            '''
+            '''*/
           }
         }
       }
