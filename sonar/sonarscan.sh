@@ -37,7 +37,7 @@ SONAR_HOST_URL="https://sonarqube-prod.apps.wdc-sonarqube-prod.core.cirrus.ibm.c
 SONAR_SCANNER_VERSION=7.0.2.4839
 PROJECT_KEY="56865-datasift-opensource"
 PROJECT_NAME="datasift-opensource"
-JENKINS_BRANCH="main"
+JENKINS_BRANCH=$1
 SONAR_TOKEN=$2
 JENKINS_BUILD_DIR=$3
 JENKINS_BUILD_NUMBER=$4
@@ -57,7 +57,7 @@ fi
 ###################################################################################
 SONAR_SOURCES="src/datasift_opensource"
 SONAR_TESTS="tests"
-SONAR_EXCLUSIONS=""
+SONAR_EXCLUSIONS="**/ui/**,**/__pycache__/**,**/*.pyc,tests/**"
 
 # Check if running on MacOS or Linux
 if [[ "$(uname -s)" == "Darwin" ]]; then
@@ -107,6 +107,9 @@ echo "sonar.sources=${SONAR_SOURCES}" >> sonar-project.properties
 echo "sonar.exclusions=${SONAR_EXCLUSIONS}" >> sonar-project.properties
 echo "sonar.tests=${SONAR_TESTS}" >> sonar-project.properties
 echo "sonar.sourceEncoding=UTF-8" >> sonar-project.properties
+echo "sonar.python.version=3.12" >> sonar-project.properties
+echo "sonar.python.coverage.reportPaths=coverage.xml" >> sonar-project.properties
+echo "sonar.language=py" >> sonar-project.properties
 
 # sonar credentials
 echo "sonar.login=${SONAR_TOKEN}" >> sonar-project.properties
@@ -134,12 +137,13 @@ if [ -z "$JENKINS_PULL_REQUEST_BRANCH" ]; then # this is not a pull request
   while [ -z ${ANALYSIS_ID} ]; do
     OUTPUT=$(curl -s -k -u ${SONAR_TOKEN}: "${SONAR_HOST_URL}/api/project_analyses/search?project=${PROJECT_KEY}&branch=${SCAN_BRANCH}&category=VERSION")
     ANALYSIS_ID=$(echo $OUTPUT | jq -r '.analyses[] | select(.events[].name == "'${JENKINS_BUILD_NUMBER}'") | .key')
+    
     if [ -z "${ANALYSIS_ID}" ]; then
       let COUNTER+=1
       if [ ${COUNTER} -gt 30 ]; then
         clean-exit warning "Failed to get ANALYSIS_ID after ${COUNTER} attempts."
       fi
-      sleep 1
+      sleep 2
     fi
   done
   echo "ANALYSIS_ID=${ANALYSIS_ID}"
@@ -162,4 +166,3 @@ rm -rf sonar-project.properties
 rm -rf .scannerwork/
 rm -rf sonar-scanner-7.0.2.4839-linux
 clean-exit success
-
