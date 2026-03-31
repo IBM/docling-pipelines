@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import MagicMock, patch, Mock
 from botocore.credentials import Credentials
 
+from common.exceptions.datasift_exceptions import DatasiftException
 from core.operators.vectordb.opensearch_client import OpenSearchClient
 
 
@@ -63,46 +64,48 @@ class TestParameterValidation:
     """Test connection parameter validation"""
 
     def test_missing_host_raises_error(self):
-        """Test that missing host raises ValueError"""
+        """Test that missing host raises DatasiftException"""
         client = OpenSearchClient(host="", port=9200)
 
-        with pytest.raises(ValueError, match="opensearch_host is required"):
+        with pytest.raises(DatasiftException, match="opensearch_host is required"):
             client.connect()
 
     def test_none_host_raises_error(self):
-        """Test that None host raises ValueError"""
+        """Test that None host raises DatasiftException"""
         client = OpenSearchClient(host=None, port=9200)
 
-        with pytest.raises(ValueError, match="opensearch_host is required"):
+        with pytest.raises(DatasiftException, match="opensearch_host is required"):
             client.connect()
 
     def test_invalid_port_type_raises_error(self):
-        """Test that non-integer port raises ValueError"""
+        """Test that non-integer port raises DatasiftException"""
         client = OpenSearchClient(host="localhost", port="9200")
 
-        with pytest.raises(ValueError, match="opensearch_port must be an integer"):
+        with pytest.raises(
+            DatasiftException, match="opensearch_port must be an integer"
+        ):
             client.connect()
 
     def test_port_below_range_raises_error(self):
-        """Test that port below valid range raises ValueError"""
+        """Test that port below valid range raises DatasiftException"""
         client = OpenSearchClient(host="localhost", port=0)
 
         with pytest.raises(
-            ValueError, match="opensearch_port must be between 1 and 65535"
+            DatasiftException, match="opensearch_port must be between 1 and 65535"
         ):
             client.connect()
 
     def test_port_above_range_raises_error(self):
-        """Test that port above valid range raises ValueError"""
+        """Test that port above valid range raises DatasiftException"""
         client = OpenSearchClient(host="localhost", port=65536)
 
         with pytest.raises(
-            ValueError, match="opensearch_port must be between 1 and 65535"
+            DatasiftException, match="opensearch_port must be between 1 and 65535"
         ):
             client.connect()
 
     def test_aws_auth_without_region_raises_error(self):
-        """Test that AWS auth without region raises ValueError"""
+        """Test that AWS auth without region raises DatasiftException"""
         client = OpenSearchClient(
             host="localhost",
             port=9200,
@@ -111,7 +114,7 @@ class TestParameterValidation:
         )
 
         with pytest.raises(
-            ValueError, match="aws_region is required when aws_auth is enabled"
+            DatasiftException, match="aws_region is required when aws_auth is enabled"
         ):
             client.connect()
 
@@ -412,7 +415,7 @@ class TestEdgeCases:
         client = OpenSearchClient(host="   ", port=9200)
 
         with pytest.raises(
-            ValueError, match="opensearch_host must be a non-empty string"
+            DatasiftException, match="opensearch_host must be a non-empty string"
         ):
             client.connect()
 
@@ -447,8 +450,8 @@ class TestEdgeCases:
             aws_region="us-east-1",
         )
 
-        # Should raise ValueError when credentials are None
-        with pytest.raises(ValueError, match="Credentials cannot be empty"):
+        # Should raise DatasiftException when credentials are None
+        with pytest.raises(DatasiftException, match="Credentials cannot be empty"):
             client.connect()
 
 

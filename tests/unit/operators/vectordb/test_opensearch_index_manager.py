@@ -8,6 +8,7 @@ import pyarrow as pa
 import numpy as np
 from unittest.mock import MagicMock
 
+from common.exceptions.datasift_exceptions import DatasiftException
 from core.operators.vectordb.opensearch_index_manager import (
     OpenSearchIndexManager,
 )
@@ -107,8 +108,8 @@ class TestEngineAlgorithmValidation:
     """Test engine and algorithm validation"""
 
     def test_invalid_engine_raises_error(self, mock_client):
-        """Test that invalid engine raises ValueError"""
-        with pytest.raises(ValueError, match="Invalid engine"):
+        """Test that invalid engine raises DatasiftException"""
+        with pytest.raises(DatasiftException, match="Invalid engine"):
             OpenSearchIndexManager(
                 client=mock_client,
                 index_name="test_index",
@@ -116,8 +117,8 @@ class TestEngineAlgorithmValidation:
             )
 
     def test_invalid_algorithm_raises_error(self, mock_client):
-        """Test that invalid algorithm raises ValueError"""
-        with pytest.raises(ValueError, match="Invalid algorithm"):
+        """Test that invalid algorithm raises DatasiftException"""
+        with pytest.raises(DatasiftException, match="Invalid algorithm"):
             OpenSearchIndexManager(
                 client=mock_client,
                 index_name="test_index",
@@ -159,7 +160,7 @@ class TestEngineAlgorithmValidation:
 
     def test_lucene_ivf_incompatibility(self, mock_client):
         """Test Lucene with IVF is invalid"""
-        with pytest.raises(ValueError, match="not supported by engine"):
+        with pytest.raises(DatasiftException, match="not supported by engine"):
             OpenSearchIndexManager(
                 client=mock_client,
                 index_name="test_index",

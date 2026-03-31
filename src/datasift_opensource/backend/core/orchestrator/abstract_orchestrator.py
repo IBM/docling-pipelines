@@ -1,5 +1,5 @@
 import os
-from abc import ABC
+from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor
 from operator import itemgetter
 from queue import Queue
@@ -13,28 +13,25 @@ from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 from common.models.session_info import SessionInfo, get_session_info, set_session_info
 from common.util.core.datetime import get_current_timestamp
-from common.util.infrastructure.filesystem import get_data_path
 from common.util.data.incremental_update import IncrementalUpdateUtil
-from common.util.job_tracker.tracker.job_tracker import JobStatsDto, JobTracker
+from common.util.data.pyarrow_handler import BaseParquetTableHandler, get_parquet_table_handler
+from common.util.infrastructure.filesystem import get_data_path
 from common.util.infrastructure.logging import get_logger
-
-from common.util.orchestration.prefect_config import (
-    clean_up_prefect_home,
-)
+from common.util.infrastructure.performance import log_elapsed_time
+from common.util.job_tracker.tracker.job_tracker import JobStatsDto, JobTracker
 from common.util.orchestration.deleted_rows_tracker import (
     combine_cumulative_deleted_rows,
 )
-from common.util.orchestration.flow_utils import (
-    construct_deleted_rows_table_path
+from common.util.orchestration.flow_utils import construct_deleted_rows_table_path
+from common.util.orchestration.prefect_config import (
+    clean_up_prefect_home,
 )
-from common.util.data.pyarrow_handler import BaseParquetTableHandler, get_parquet_table_handler
-from common.util.infrastructure.performance import log_elapsed_time
 from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
 from core.orchestrator.batch_manager import BatchManager
 from core.orchestrator.node_logger import NodeLogger
-from core.orchestrator.prefect_engine import PrefectEngine, ExecuteStepResults, AbstractFlowEngine  # noqa: E402
+from core.orchestrator.prefect_engine import AbstractFlowEngine, ExecuteStepResults, PrefectEngine
 
 logger = get_logger()
 
@@ -70,20 +67,24 @@ class AbstractOrchestrator(ABC):
         self.job_id = job_id
         self.job_run_id = job_run_id
         self.job_log_path = self.create_log_folders(job_id=self.job_id, type_="job")
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.common_log_arguments = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
         self.flow_engine = PrefectEngine(
             orchestrator=self,
             batch_manager=self.batch_manager,
             job_id=job_id,
             job_run_id=job_run_id,
-            job_log_path=self.job_log_path)
+            job_log_path=self.job_log_path,
+        )
         self.node_logger = NodeLogger(common_log_arguments=self.common_log_arguments)
 
     def execute(self, *, flow_def: dict, params: dict):
         """
         Executes the given flow
         """
-        job_id, job_run_id = itemgetter(DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID)(params)
+        _, job_run_id = itemgetter(DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID)(params)
         self.job_id = params.get(DatasiftConstants.JOB_ID)
         self.job_run_id = params.get(DatasiftConstants.JOB_RUN_ID)
         global_config = (
@@ -117,11 +118,14 @@ class AbstractOrchestrator(ABC):
         return None
 
     def _handle_node_failure(self, *, e, op_def, global_config):
+        from common.exceptions.error_codes import ErrorCode
+
         self.failing = True
         node_stats = {
             "name": op_def["name"],
             "node_status": ExecutionStatus.FAILED.value,
             "error": str(e),
+            "error_code": ErrorCode.OPERATOR_EXECUTION_FAILED.value
         }
         self.job_tracker.update_node_stats(
             job_run_id=self.job_run_id,
@@ -142,11 +146,8 @@ class AbstractOrchestrator(ABC):
                 global_config=global_config
             )
 
-    def _handle_active_execution(self,
-        *,
-        op_def,
-        executor: AbstractOperatorExecutor,
-        prev_data_access: dict[str, DataAccess]
+    def _handle_active_execution(
+        self, *, op_def, executor: AbstractOperatorExecutor, prev_data_access: dict[str, DataAccess]
     ):
         if executor.get_operator().short_name == OperatorConstants.Operators.DESIGN_FLOW_OUTPUT_OPERATOR:
             # save the deleted rows as this is needed for DESIGN_FLOW_OUTPUT_OPERATOR
@@ -182,7 +183,8 @@ class AbstractOrchestrator(ABC):
 
         return data_accesses, tables, metadata, internal_metadata
 
-    def _handle_skipped_execution(self,
+    def _handle_skipped_execution(
+        self,
         *,
         op_def,
         executor: AbstractOperatorExecutor,
@@ -215,16 +217,12 @@ class AbstractOrchestrator(ABC):
 
         if self.node_logger:
             self.node_logger.log_skipped_execution(
-                node_id=node_id,
-                node_name=node_name,
-                operator_type=operator_type,
-                global_config=global_config
+                node_id=node_id, node_name=node_name, operator_type=operator_type, global_config=global_config
             )
 
         self.job_tracker.update_node_stats(self.job_run_id, node_id=node_id, node_stats=node_stats)
 
         return data_accesses, tables
-
 
     def _execute_step(
         self,
@@ -253,9 +251,7 @@ class AbstractOrchestrator(ABC):
             )
         else:
             data_accesses, tables, metadata, internal_metadata = self._handle_active_execution(
-                op_def=op_def,
-                executor=executor,
-                prev_data_access=prev_data_access
+                op_def=op_def, executor=executor, prev_data_access=prev_data_access
             )
 
         processed_docs_count = OperatorUtils.find_doc_count_from_tables(tables=tables)
@@ -404,8 +400,9 @@ class AbstractOrchestrator(ABC):
             params=config,
         )
 
-    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:  # noqa: B027
-        # The concrete subclasses needs to implement this method
+    @abstractmethod
+    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:
+        """The concrete subclasses needs to implement this method"""
         pass
 
     def visualize(self):  # noqa: B027
@@ -509,10 +506,9 @@ class AbstractOrchestrator(ABC):
     def _finalize_dag_flow(self, *, op_flow):
         if self.canceling or self.failing:
             status = ExecutionStatus.CANCELED if self.canceling else ExecutionStatus.FAILED
-            self.job_tracker.end_job(job_run_id=self.job_run_id,
-                                     status=status,
-                                     message=self.message,
-                                     job_log_path=self.job_log_path)
+            self.job_tracker.end_job(
+                job_run_id=self.job_run_id, status=status, message=self.message, job_log_path=self.job_log_path
+            )
             self.logger.info(f">>> Job status is {status}.", extra=self.common_log_arguments)
             return
 
@@ -520,10 +516,9 @@ class AbstractOrchestrator(ABC):
         self.job_tracker.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=op_flow)
         job_status = OperatorUtils.determine_final_job_status(node_stats_list=job_stats.node_stats)
         job_stats.status = job_status
-        self.job_tracker.end_job(job_run_id=self.job_run_id,
-                                 status=job_status,
-                                 message=self.message,
-                                 job_log_path=self.job_log_path)
+        self.job_tracker.end_job(
+            job_run_id=self.job_run_id, status=job_status, message=self.message, job_log_path=self.job_log_path
+        )
         self.logger.info(f">>> Job status is {job_status}.", extra=self.common_log_arguments)
 
     # ??? insert some of the parameters to self.
@@ -557,9 +552,7 @@ class AbstractOrchestrator(ABC):
 
         deleted_docs_count = ingest_results.internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN, 0)
         self.message = self._get_ingest_summary_message(
-            output_table=ingest_results.tables[0],
-            deleted_docs_count=deleted_docs_count,
-            operator=ingest_operator
+            output_table=ingest_results.tables[0], deleted_docs_count=deleted_docs_count, operator=ingest_operator
         )
 
         incremental_update_util = IncrementalUpdateUtil()
@@ -578,9 +571,7 @@ class AbstractOrchestrator(ABC):
 
         # Prepare batches using batch manager
         batches, global_config = self.batch_manager.prepare_batches(
-            ingested_table=ingested_table,
-            global_config=global_config,
-            common_log_arguments=self.common_log_arguments
+            ingested_table=ingested_table, global_config=global_config, common_log_arguments=self.common_log_arguments
         )
 
         # Store ingest node ID for batch processing (needed to handle references to excluded ingest operator)

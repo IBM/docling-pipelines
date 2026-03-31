@@ -4,11 +4,13 @@ OpenSearch Index Manager
 Handles index creation, validation, and schema management for OpenSearch.
 """
 
-import pyarrow as pa
 from typing import Any, ClassVar
 
+import pyarrow as pa
 from opensearchpy import OpenSearch
 
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -34,6 +36,7 @@ ENGINE_ALGORITHM_DEFAULT_PARAMETERS: dict[tuple[str, str], dict[str, int]] = {
 
 class OpenSearchEngineTypes:
     """KNN engine types supported by OpenSearch"""
+
     FAISS: str = "faiss"
     LUCENE: str = "lucene"
     NMSLIB: str = "nmslib"
@@ -43,6 +46,7 @@ class OpenSearchEngineTypes:
 
 class OpenSearchAlgorithmTypes:
     """KNN algorithm types supported by OpenSearch"""
+
     HNSW: str = "hnsw"
     IVF: str = "ivf"
     ALL_ALGORITHMS: ClassVar[list[str]] = [HNSW, IVF]
@@ -50,6 +54,7 @@ class OpenSearchAlgorithmTypes:
 
 class VectorSimilarityTypes:
     """Vector similarity metrics"""
+
     L2: str = "l2"
     COSINE: str = "cosine"
     INNER_PRODUCT: str = "inner_product"
@@ -59,7 +64,7 @@ class VectorSimilarityTypes:
 class OpenSearchIndexManager:
     """
     Manages OpenSearch index operations including creation, validation, and schema management.
-    
+
     Responsibilities:
     - Index creation with proper KNN configuration
     - Index validation and compatibility checking
@@ -115,18 +120,26 @@ class OpenSearchIndexManager:
     def _validate_engine_algorithm(self) -> None:
         """Validate engine and algorithm compatibility."""
         if self.engine not in OpenSearchEngineTypes.ALL_ENGINES:
-            raise ValueError(f"Invalid engine '{self.engine}'. Supported: {OpenSearchEngineTypes.ALL_ENGINES}")
+            raise DatasiftException(
+                message=f"Invalid engine '{self.engine}'. Supported: {OpenSearchEngineTypes.ALL_ENGINES}",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+            )
 
         if self.algorithm not in OpenSearchAlgorithmTypes.ALL_ALGORITHMS:
-            raise ValueError(
-                f"Invalid algorithm '{self.algorithm}'. Supported: {OpenSearchAlgorithmTypes.ALL_ALGORITHMS}"
+            raise DatasiftException(
+                message=f"Invalid algorithm '{self.algorithm}'. Supported: {OpenSearchAlgorithmTypes.ALL_ALGORITHMS}",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
             )
 
         supported_algorithms: list[str] = ENGINE_ALGORITHM_SUPPORT.get(self.engine, [])
         if self.algorithm not in supported_algorithms:
-            raise ValueError(
-                f"Algorithm '{self.algorithm}' not supported by engine '{self.engine}'. "
-                f"Supported algorithms: {supported_algorithms}"
+            raise DatasiftException(
+                message=f"Algorithm '{self.algorithm}' not supported by engine '{self.engine}'. "
+                f"Supported algorithms: {supported_algorithms}",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
             )
 
     def _get_engine_parameters(self) -> dict[str, Any]:
@@ -261,32 +274,47 @@ class OpenSearchIndexManager:
         }
 
     def create_index(self) -> None:
-        """Create the OpenSearch index if it doesn't exist."""
+        """
+        Create the OpenSearch index if it doesn't exist.
+
+        Raises:
+            DatasiftException: If index creation fails
+        """
         if self.client.indices.exists(index=self.index_name):
             logger.info(f"Index {self.index_name} already exists")
             self.validate_existing_index()
             return
 
-        # Build index configuration
-        index_body: dict[str, Any] = self.create_index_mapping()
+        try:
+            # Build index configuration
+            index_body: dict[str, Any] = self.create_index_mapping()
 
-        # Add custom settings if provided
-        if self.index_settings:
-            index_body["settings"] = self.index_settings
-        else:
-            # Default settings for KNN
-            index_body["settings"] = {
-                "index": {
-                    "knn": True,
-                    "knn.algo_param.ef_search": 100,
-                    "number_of_shards": 2,
-                    "number_of_replicas": 1,
+            # Add custom settings if provided
+            if self.index_settings:
+                index_body["settings"] = self.index_settings
+            else:
+                # Default settings for KNN
+                index_body["settings"] = {
+                    "index": {
+                        "knn": True,
+                        "knn.algo_param.ef_search": 100,
+                        "number_of_shards": 2,
+                        "number_of_replicas": 1
+                    }
                 }
-            }
 
-        # Create index
-        self.client.indices.create(index=self.index_name, body=index_body)
-        logger.info(f"Created index {self.index_name} with engine {self.engine} and algorithm {self.algorithm}")
+            # Create index
+            self.client.indices.create(index=self.index_name, body=index_body)
+            logger.info(f"Created index {self.index_name} with engine {self.engine} and algorithm {self.algorithm}")
+        except Exception as exc:
+            from common.exceptions.datasift_exceptions import DatasiftException
+            from common.exceptions.error_codes import ErrorCode
+
+            raise DatasiftException(
+                message=f"Failed to create OpenSearch index '{self.index_name}': {exc}",
+                status_code=500,
+                error_code=ErrorCode.OPENSEARCH_INDEX_ERROR
+            ) from exc
 
     def validate_existing_index(self) -> None:
         """Validate that existing index configuration matches requested settings."""
@@ -299,9 +327,7 @@ class OpenSearchIndexManager:
             existing_algorithm: str | None = meta.get("algorithm")
 
             if existing_engine and existing_engine != self.engine:
-                logger.warning(
-                    f"Engine mismatch: index has '{existing_engine}', config specifies '{self.engine}'"
-                )
+                logger.warning(f"Engine mismatch: index has '{existing_engine}', config specifies '{self.engine}'")
 
             if existing_algorithm and existing_algorithm != self.algorithm:
                 logger.warning(
@@ -321,7 +347,7 @@ class OpenSearchIndexManager:
     def delete_index(self) -> bool:
         """
         Delete the index.
-        
+
         Returns:
             True if deletion was successful, False otherwise
         """

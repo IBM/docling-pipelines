@@ -7,6 +7,7 @@ import pytest
 import pyarrow as pa
 import numpy as np
 from unittest.mock import MagicMock, patch
+from common.exceptions.datasift_exceptions import DatasiftException
 from core.operators.vectordb.opensearch_operator import (
     OpenSearchOperator,
     ENGINE_KEY,
@@ -120,7 +121,7 @@ class TestOpenSearchOperatorInitialization:
         config = basic_config.copy()
         del config[OperatorConstants.VectorDB.OPENSEARCH_HOST]
 
-        with pytest.raises(ValueError, match="opensearch_host is required"):
+        with pytest.raises(DatasiftException, match="opensearch_host is required"):
             OpenSearchOperator(config)
 
     def test_missing_required_index_name(self, basic_config):
@@ -128,7 +129,7 @@ class TestOpenSearchOperatorInitialization:
         config = basic_config.copy()
         del config[OperatorConstants.VectorDB.INDEX_NAME]
 
-        with pytest.raises(ValueError, match="index_name is required"):
+        with pytest.raises(DatasiftException, match="index_name is required"):
             OpenSearchOperator(config)
 
     def test_invalid_engine(self, basic_config):
@@ -136,7 +137,7 @@ class TestOpenSearchOperatorInitialization:
         config = basic_config.copy()
         config[ENGINE_KEY] = "invalid_engine"
 
-        with pytest.raises(ValueError, match="Invalid engine"):
+        with pytest.raises(DatasiftException, match="Invalid engine"):
             OpenSearchOperator(config)
 
     def test_invalid_algorithm(self, basic_config):
@@ -144,7 +145,7 @@ class TestOpenSearchOperatorInitialization:
         config = basic_config.copy()
         config[ALGORITHM_KEY] = "invalid_algorithm"
 
-        with pytest.raises(ValueError, match="Invalid algorithm"):
+        with pytest.raises(DatasiftException, match="Invalid algorithm"):
             OpenSearchOperator(config)
 
     def test_incompatible_engine_algorithm(self, basic_config):
@@ -153,7 +154,7 @@ class TestOpenSearchOperatorInitialization:
         config[ENGINE_KEY] = "lucene"
         config[ALGORITHM_KEY] = "ivf"  # Lucene doesn't support IVF
 
-        with pytest.raises(ValueError, match="not supported by engine"):
+        with pytest.raises(DatasiftException, match="not supported by engine"):
             OpenSearchOperator(config)
 
 
