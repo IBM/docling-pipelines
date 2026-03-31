@@ -136,39 +136,12 @@ ANALYSIS_ID=
 if [ -z "$JENKINS_PULL_REQUEST_BRANCH" ]; then # this is not a pull request
   while [ -z ${ANALYSIS_ID} ]; do
     OUTPUT=$(curl -s -k -u ${SONAR_TOKEN}: "${SONAR_HOST_URL}/api/project_analyses/search?project=${PROJECT_KEY}&branch=${SCAN_BRANCH}&category=VERSION")
-    
-    # Check if OUTPUT is null or empty before parsing
-    if [ -z "$OUTPUT" ] || [ "$OUTPUT" = "null" ]; then
-      echo "Warning: API returned null/empty response (attempt $((COUNTER+1)))"
-      let COUNTER+=1
-      if [ ${COUNTER} -gt 30 ]; then
-        clean-exit warning "Failed to get ANALYSIS_ID after ${COUNTER} attempts. API returned null/empty responses."
-      fi
-      sleep 2
-      continue
-    fi
-    
-    # Check if response contains analyses array before parsing
-    ANALYSES_COUNT=$(echo "$OUTPUT" | jq -r '.analyses | length // 0' 2>/dev/null)
-    if [ "$ANALYSES_COUNT" = "0" ] || [ -z "$ANALYSES_COUNT" ]; then
-      echo "Warning: No analyses found in response (attempt $((COUNTER+1)))"
-      let COUNTER+=1
-      if [ ${COUNTER} -gt 30 ]; then
-        clean-exit warning "Failed to get ANALYSIS_ID after ${COUNTER} attempts. No analyses found."
-      fi
-      sleep 2
-      continue
-    fi
-    
-    # Try to extract ANALYSIS_ID with error handling
-    ANALYSIS_ID=$(echo "$OUTPUT" | jq -r '.analyses[] | select(.events[].name == "'${JENKINS_BUILD_NUMBER}'") | .key' 2>/dev/null)
+    ANALYSIS_ID=$(echo $OUTPUT | jq -r '.analyses[] | select(.events[].name == "'${JENKINS_BUILD_NUMBER}'") | .key')
     
     if [ -z "${ANALYSIS_ID}" ]; then
       let COUNTER+=1
       if [ ${COUNTER} -gt 30 ]; then
-        echo "Debug: Last API response:"
-        echo "$OUTPUT" | jq . 2>/dev/null || echo "$OUTPUT"
-        clean-exit warning "Failed to get ANALYSIS_ID after ${COUNTER} attempts. Build number '${JENKINS_BUILD_NUMBER}' not found in analyses."
+        clean-exit warning "Failed to get ANALYSIS_ID after ${COUNTER} attempts."
       fi
       sleep 2
     fi
@@ -179,23 +152,13 @@ if [ -z "$JENKINS_PULL_REQUEST_BRANCH" ]; then # this is not a pull request
   ANALYSIS_URL="${SONAR_HOST_URL}/api/qualitygates/project_status?analysisId=${ANALYSIS_ID}"
   echo "ANALYSIS_URL=${ANALYSIS_URL}"
   ANALYSIS=$(curl -s -k -u ${SONAR_TOKEN}: ${ANALYSIS_URL})
-  
-  # Validate quality gate response before parsing
-  if [ -z "$ANALYSIS" ] || [ "$ANALYSIS" = "null" ]; then
-    clean-exit warning "Quality gate API returned null/empty response. Skipping quality gate check."
-  fi
-  
-  echo ${ANALYSIS} | jq . 2>/dev/null || echo "Warning: Could not parse quality gate response as JSON"
+  echo ${ANALYSIS} | jq .
 
-  # Check the quality gate pass/fail status with error handling
-  SCAN_RESULT=$(echo ${ANALYSIS} | jq -r '.projectStatus.status // empty' 2>/dev/null)
-  if [ -z "$SCAN_RESULT" ]; then
-    clean-exit warning "Could not determine quality gate status. Response may be incomplete."
-  elif [[ "${SCAN_RESULT}" != "OK" ]]; then
+  # Check the quality gate pass/fail status
+  SCAN_RESULT=$(echo ${ANALYSIS} | jq -r .projectStatus.status)
+  if [[ "${SCAN_RESULT}" != "OK" ]]; then
     clean-exit error "Scan failed the quality gate.\nSee ${SONAR_HOST_URL}/dashboard?id=${PROJECT_KEY}."
   fi
-else
-  echo "Skipping quality gate check for pull request branch: ${JENKINS_PULL_REQUEST_BRANCH}"
 fi
 
 rm -rf sonar-scanner-cli-7.0.2.4839-linux.zip
@@ -203,4 +166,3 @@ rm -rf sonar-project.properties
 rm -rf .scannerwork/
 rm -rf sonar-scanner-7.0.2.4839-linux
 clean-exit success
-

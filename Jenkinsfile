@@ -123,9 +123,15 @@ timestamps {
           withCredentials([string(credentialsId: 'sonarqube-auth-token-cio', variable: 'SONAR_PWD')]) {
             println "Running sonarqube.."
             sh("chmod +x sonar/sonarscan.sh")
+            def scanBranch=''
+            if (env.BRANCH_NAME.startsWith("PR-")) {
+              scanBranch = env.CHANGE_BRANCH
+            } else {
+              scanBranch = env.CHANGE_TARGET
+            }
             println "Base branch is ${env.CHANGE_TARGET}"
             echo sh(script: 'env|sort', returnStdout: true)
-            sh("./sonar/sonarscan.sh ${env.CHANGE_TARGET} ${SONAR_PWD} ${WORKSPACE} ${env.BUILD_ID}")
+            sh("./sonar/sonarscan.sh ${scanBranch} ${SONAR_PWD} ${WORKSPACE} ${env.BUILD_ID}")
           }
         }
       }
