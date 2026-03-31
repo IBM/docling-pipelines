@@ -9,7 +9,7 @@ import pyarrow.parquet as pq
 from filelock import FileLock
 
 from common.constants.constants import DatasiftConstants
-from common.util.data.transform import HAS_TRANSFORM_UTILS, TransformUtils
+from common.util.data.transform import TransformUtils
 from common.util.infrastructure.logging import get_logger
 
 LOCK_TIMEOUT: float = 20
@@ -162,7 +162,6 @@ __all__ = [
     "CpdParquetTableHandler",
     "get_parquet_table_handler",
     "TransformUtils",
-    "HAS_TRANSFORM_UTILS",
 ]
 
 # Made with Bob
