@@ -1,5 +1,5 @@
 import os
-from typing import Any
+from typing import Any, Optional
 
 import pyarrow as pa
 
@@ -142,17 +142,17 @@ class IngestLocalOperator(AbstractOperator):
         doc_data: list[dict[str, Any]]
         metadata: dict[str, Any]
         doc_data, metadata = self.process_files(self.input_folder)
+        
+        # Create new table from ingested documents
+        new_table = pa.Table.from_pylist(doc_data)
+        
         if table is None:
-            table = pa.Table.from_pylist(doc_data)
+            # No input table, use the newly created table
+            table = new_table
         else:
-            table = pa.Table.from_pylist(doc_data)
-            # TODO: Fix this, doc_data contains multiple columns
-            # temp_table = pa.Table.from_pylist(doc_data)
-            # col_names = temp_table.column_names
-            # i = 0
-            # for col in temp_table.columns:
-            #    table.append_column(field_=col_names[i], column=[col])
-            #    i += 1
+            # Merge input table with new table by concatenating rows
+            # Both tables should have compatible schemas for concatenation
+            table = pa.concat_tables([table, new_table], promote_options="default")
 
         # Return the resulting pyarrow table and metadata
         node_status: str = ExecutionStatus.COMPLETED.value
