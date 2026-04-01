@@ -6,15 +6,11 @@ Tests for PyArrow table transformation operations.
 import pyarrow as pa
 import pytest
 
-from common.util.data.transform import HAS_TRANSFORM_UTILS, TransformUtils
+from common.util.data.transform import TransformUtils
 
 
 class TestTransformUtils:
     """Test TransformUtils functionality."""
-
-    def test_has_transform_utils_flag(self):
-        """Test that HAS_TRANSFORM_UTILS flag is a boolean."""
-        assert isinstance(HAS_TRANSFORM_UTILS, bool)
 
     def test_add_column_to_table(self):
         """Test adding a column to a PyArrow table."""

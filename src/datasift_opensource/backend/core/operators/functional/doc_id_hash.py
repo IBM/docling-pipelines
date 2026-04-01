@@ -9,34 +9,9 @@ from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
+from data_processing.utils import TransformUtils
 
-# Try to import DocIDTransform from dpk_doc_id
-try:
-    from dpk_doc_id import DocIDTransform, doc_column_name_key, hash_column_name_key
-
-    HAS_DOC_ID_TRANSFORM: bool = True
-except ImportError:
-    HAS_DOC_ID_TRANSFORM: bool = False
-    DocIDTransform = None
-    hash_column_name_key: str = "hash_column"
-    doc_column_name_key: str = "doc_column"
-
-# Try to import TransformUtils from data-prep-toolkit-transforms
-try:
-    from data_processing.utils import TransformUtils
-
-    HAS_TRANSFORM_UTILS: bool = True
-except ImportError:
-    HAS_TRANSFORM_UTILS: bool = False
-
-    # Fallback implementation
-    class TransformUtils:
-        @staticmethod
-        def add_column(table: pa.Table, name: str, content: list[str]) -> pa.Table:
-            """Add a column to a PyArrow table."""
-            new_column: pa.Array = pa.array(content)
-            new_field: pa.Field = pa.field(name, new_column.type)
-            return table.append_column(new_field, new_column)
+from dpk_doc_id import DocIDTransform, doc_column_name_key, hash_column_name_key
 
 
 logger: Logger = get_logger()
@@ -81,11 +56,8 @@ class DocIdHashOperator(AbstractOperator):
         )
 
         # Initialize DocIDTransform if available
-        if HAS_DOC_ID_TRANSFORM and DocIDTransform is not None:
-            self._doc_id_transform: Any | None = DocIDTransform(config)
-        else:
-            self._doc_id_transform: Any | None = None
-
+        self._doc_id_transform: Any | None = DocIDTransform(config)
+        
     def get_metadata(self) -> dict[str, Any]:
         return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False}
 

@@ -32,6 +32,26 @@ from common.constants.operator_constants import OperatorConstants  # noqa: E402
 
 
 # Test Fixtures
+@pytest.fixture(autouse=True)
+def mock_ollama_list():
+    """Mock ollama.list() to prevent actual Ollama connection during tests.
+
+    This fixture is automatically used for all tests in this module to prevent
+    OllamaClient from attempting to connect to a real Ollama server during
+    model validation in __init__.
+    """
+    with patch("ollama.list") as mock_list:
+        # Return a mock response with available models
+        mock_list.return_value = {
+            "models": [
+                Mock(model="llama3:latest"),
+                Mock(model="mistral:latest"),
+                Mock(model="granite4:latest"),
+            ]
+        }
+        yield mock_list
+
+
 @pytest.fixture
 def mock_ollama_embeddings():
     """Mock ollama.embeddings() to return realistic embedding vectors."""
@@ -130,8 +150,7 @@ def sample_table_empty():
 class TestEmbeddingsOperatorInitialization:
     """Test operator initialization and configuration."""
 
-    @patch("core.operators.functional.embeddings_operator.OllamaClient")
-    def test_init_with_valid_config(self, mock_ollama_client, sample_config):
+    def test_init_with_valid_config(self, sample_config):
         """Test operator initialization with valid configuration."""
         operator = EmbeddingsOperator(sample_config)
 
@@ -142,8 +161,7 @@ class TestEmbeddingsOperatorInitialization:
         assert operator.doc_id_hash_column == "doc_id_hash"
         assert operator.overlap_ratio == 0.2
 
-    @patch("core.operators.functional.embeddings_operator.OllamaClient")
-    def test_init_with_default_values(self, mock_ollama_client):
+    def test_init_with_default_values(self):
         """Test operator initialization with default values."""
         config = {"embeddings_model_id": "mistral"}
         operator = EmbeddingsOperator(config)
@@ -160,8 +178,7 @@ class TestEmbeddingsOperatorInitialization:
         )
         assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
 
-    @patch("core.operators.functional.embeddings_operator.OllamaClient")
-    def test_init_with_minimal_config(self, mock_ollama_client):
+    def test_init_with_minimal_config(self):
         """Test operator initialization with minimal configuration."""
         config = {}
         operator = EmbeddingsOperator(config)

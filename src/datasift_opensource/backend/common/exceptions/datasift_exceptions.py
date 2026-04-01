@@ -10,8 +10,8 @@ class DatasiftException(Exception):
         self,
         message,
         status_code: int = 500,
-        error_code: ErrorCode = None,
-        message_code: str = None,
+        error_code: ErrorCode | None = None,
+        message_code: str | None = None,
         more_info: str = "https://www.ibm.com/docs/en/software-hub/5.2.x?topic=data-getting-started",
     ):
         super().__init__(message)
@@ -60,6 +60,7 @@ class ValidationAlert(dict):
             if not isinstance(key, str) or not key.isidentifier():
                 # Lazy import to avoid circular dependency
                 from common.util.infrastructure.logging import get_logger
+
                 logger = get_logger()
                 logger.warning(msg=f"Invalid attribute name: {key}", stack_info=True)
                 continue
@@ -77,8 +78,10 @@ class ValidationAlertEncoder(JSONEncoder):
 
 class FlowExecutionFailedException(DatasiftException):
     # Thrown when the given flow or flow definition not found
-    def __init__(self, message: str, status_code: int = 500, errors: list[ValidationAlert] = None):
-        super().__init__(message, status_code)
+    def __init__(self, message: str, status_code: int = 500, errors: list[ValidationAlert] | None = None):
+        from common.exceptions.error_codes import ErrorCode
+
+        super().__init__(message, status_code, error_code=ErrorCode.FLOW_EXECUTION_FAILED)
         self.errors = errors
 
 
@@ -101,7 +104,7 @@ class PrefectFlowFailed(DatasiftException):
         self,
         message,
         error_code: ErrorCode,
-        message_code: str = None,
+        message_code: str | None = None,
         status_code: int = 500,
     ):
         super().__init__(

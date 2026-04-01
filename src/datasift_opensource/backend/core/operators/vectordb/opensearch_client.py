@@ -10,6 +10,8 @@ import boto3
 from botocore.credentials import Credentials
 from opensearchpy import AWSV4SignerAuth, OpenSearch, RequestsHttpConnection
 
+from common.exceptions.datasift_exceptions import DatasiftException
+from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -18,7 +20,7 @@ logger = get_logger()
 class OpenSearchClient:
     """
     Manages OpenSearch client connection and authentication.
-    
+
     Responsibilities:
     - Connection setup with various authentication methods
     - Client lifecycle management
@@ -61,62 +63,94 @@ class OpenSearchClient:
         self.aws_auth = aws_auth
         self.aws_region = aws_region
         self.timeout = timeout
-        
+
         self._client: OpenSearch | None = None
         self._version: tuple[int, int, int] | None = None
 
     def _validate_parameters(self) -> None:
-        """Validate connection parameters."""
+        """
+        Validate connection parameters.
+
+        Raises:
+            DatasiftException: If connection parameters are invalid
+        """
         if not self.host:
-            raise ValueError("opensearch_host is required")
+            raise DatasiftException(
+                message="opensearch_host is required",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+            )
         if not isinstance(self.host, str) or not self.host.strip():
-            raise ValueError("opensearch_host must be a non-empty string")
-        
+            raise DatasiftException(
+                message="opensearch_host must be a non-empty string",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+            )
+
         if not isinstance(self.port, int):
-            raise ValueError("opensearch_port must be an integer")
+            raise DatasiftException(
+                message="opensearch_port must be an integer",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+            )
         if self.port < 1 or self.port > 65535:
-            raise ValueError("opensearch_port must be between 1 and 65535")
-        
+            raise DatasiftException(
+                message="opensearch_port must be between 1 and 65535",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+            )
+
         if self.aws_auth and not self.aws_region:
-            raise ValueError("aws_region is required when aws_auth is enabled")
+            raise DatasiftException(
+                message="aws_region is required when aws_auth is enabled",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+            )
 
     def connect(self) -> OpenSearch:
         """
         Create and return an OpenSearch client with appropriate authentication.
-        
+
         Returns:
             Configured OpenSearch client
-            
+
         Raises:
-            ValueError: If connection parameters are invalid
+            DatasiftException: If connection parameters are invalid or connection fails
         """
         self._validate_parameters()
-        
-        connection_params: dict[str, Any] = {
-            "hosts": [{"host": self.host, "port": self.port}],
-            "use_ssl": self.use_ssl,
-            "verify_certs": self.verify_certs,
-            "connection_class": RequestsHttpConnection,
-            "timeout": self.timeout,
-        }
 
-        # Add authentication
-        if self.aws_auth:
-            credentials: Credentials | None = boto3.Session().get_credentials()
-            auth: AWSV4SignerAuth = AWSV4SignerAuth(credentials, self.aws_region or "us-east-1")
-            connection_params["http_auth"] = auth
-        elif self.username and self.password:
-            connection_params["http_auth"] = (self.username, self.password)
+        try:
+            connection_params: dict[str, Any] = {
+                "hosts": [{"host": self.host, "port": self.port}],
+                "use_ssl": self.use_ssl,
+                "verify_certs": self.verify_certs,
+                "connection_class": RequestsHttpConnection,
+                "timeout": self.timeout
+            }
 
-        self._client = OpenSearch(**connection_params)
-        logger.info(f"Connected to OpenSearch at {self.host}:{self.port}")
-        
-        return self._client
+            # Add authentication
+            if self.aws_auth:
+                credentials: Credentials | None = boto3.Session().get_credentials()
+                auth: AWSV4SignerAuth = AWSV4SignerAuth(credentials, self.aws_region or "us-east-1")
+                connection_params["http_auth"] = auth
+            elif self.username and self.password:
+                connection_params["http_auth"] = (self.username, self.password)
+
+            self._client = OpenSearch(**connection_params)
+            logger.info(f"Connected to OpenSearch at {self.host}:{self.port}")
+
+            return self._client
+        except Exception as exc:
+            raise DatasiftException(
+                message=f"Failed to connect to OpenSearch at {self.host}:{self.port}: {exc}",
+                status_code=503,
+                error_code=ErrorCode.OPENSEARCH_CONNECTION_FAILED
+            ) from exc
 
     def get_client(self) -> OpenSearch:
         """
         Get the OpenSearch client, creating it if necessary.
-        
+
         Returns:
             OpenSearch client instance
         """
@@ -127,13 +161,13 @@ class OpenSearchClient:
     def get_version(self) -> tuple[int, int, int]:
         """
         Get OpenSearch server version.
-        
+
         Returns:
             Version tuple (major, minor, patch)
         """
         if self._version is not None:
             return self._version
-            
+
         try:
             client = self.get_client()
             info: dict[str, Any] = client.info()
@@ -151,7 +185,7 @@ class OpenSearchClient:
     def test_connection(self) -> bool:
         """
         Test the connection to OpenSearch.
-        
+
         Returns:
             True if connection is successful, False otherwise
         """

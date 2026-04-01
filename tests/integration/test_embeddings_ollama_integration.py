@@ -19,6 +19,7 @@ backend_dir = (
 )
 sys.path.insert(0, str(backend_dir))
 
+from common.exceptions.datasift_exceptions import DatasiftException  # noqa: E402
 from core.operators.functional.embeddings_operator import (  # noqa: E402
     EmbeddingsOperator,
 )
@@ -258,7 +259,7 @@ class TestOllamaClientIntegration:
         with patch("ollama.embeddings") as mock_embeddings:
             mock_embeddings.return_value = {"embedding": []}
 
-            with pytest.raises(ValueError) as exc_info:
+            with pytest.raises(DatasiftException) as exc_info:
                 client.generate_embeddings("test")
 
             assert "Empty or missing embedding" in str(exc_info.value)
@@ -275,7 +276,7 @@ class TestOllamaClientIntegration:
         with patch("ollama.embeddings") as mock_embeddings:
             mock_embeddings.return_value = {"some_other_key": "value"}
 
-            with pytest.raises(ValueError) as exc_info:
+            with pytest.raises(DatasiftException) as exc_info:
                 client.generate_embeddings("test")
 
             assert "Empty or missing embedding" in str(exc_info.value)

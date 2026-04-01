@@ -15,18 +15,7 @@ import pyarrow as pa
 
 from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.logging import get_logger
-
-
-class TransformUtils:
-    """Utility class for PyArrow table transformations."""
-
-    @staticmethod
-    def add_column(table: pa.Table, name: str, content: list) -> pa.Table:
-        """Add a new column to a PyArrow table."""
-        new_column = pa.array(content)
-        new_field = pa.field(name, new_column.type)
-        return table.append_column(new_field, new_column)
-
+from data_processing.utils import TransformUtils
 
 logger = get_logger(__name__)
 
