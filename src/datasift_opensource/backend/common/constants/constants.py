@@ -202,6 +202,7 @@ class ExecutionStatus(StrEnum):
     RESUMING = "Resuming"
     CANCELING = "Canceling"
     CANCELED = "Canceled"
+    FAILING = "Failing"
     FAILED = "Failed"
     COMPLETED = "Completed"
     COMPLETED_WITH_ERRORS = "CompletedWithErrors"

@@ -395,9 +395,7 @@ class PrefectEngine(AbstractFlowEngine):
                 self.orchestrator._handle_node_failure(e=e, op_def=op_def, global_config=global_config)
 
         self.__wait_for_tasks(destinations=destinations)
-        job_tracker = JobTracker()
-        job_stats = job_tracker.get_job(job_run_id=self.job_run_id)
-        failed_doc_ids = self.orchestrator._collect_failed_doc_ids(job_stats=job_stats)
+        failed_doc_ids = self._collect_failed_doc_ids()
 
         tables = [
             destination[0].result().tables[0]
@@ -508,5 +506,19 @@ class PrefectEngine(AbstractFlowEngine):
             error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{e!s}"
             logger.error(error, stack_info=True, exc_info=True)
             raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED)
+
+    def _collect_failed_doc_ids(self) -> list[str]:
+        """Collect all failed document IDs from node stats"""
+
+        job_tracker = JobTracker()
+        job_stats = job_tracker.get_job(job_run_id=self.job_run_id)
+        if not job_stats:
+            return []
+
+        failed_doc_ids: list[str] = []
+        for node_stats in job_stats.node_stats.values():
+            if node_stats.failed_docs:
+                failed_doc_ids.extend(node_stats.failed_docs)
+        return failed_doc_ids
 
 # Made with Bob

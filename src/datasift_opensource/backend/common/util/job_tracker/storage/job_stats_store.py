@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Any
 
 from common.constants.constants import ExecutionStatus
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
