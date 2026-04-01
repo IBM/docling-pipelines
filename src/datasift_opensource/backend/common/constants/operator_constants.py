@@ -124,7 +124,7 @@ class OperatorConstants:
 
         # Merge and Join Columns
         COLUMN_LIST: Final[str] = "column_list"
-        COLUMNS: Final[str] = "columns"
+        FEATURES: Final[str] = "columns"
         INNER_JOIN_DUPLICATE_COLUMN: Final[str] = "inner_join"
 
     class Config:
