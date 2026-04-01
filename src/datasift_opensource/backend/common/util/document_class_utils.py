@@ -65,6 +65,26 @@ class DocumentClassUtils:
             return json.load(f)
 
     @staticmethod
+    def _check_direct_field_match(source: dict, field_path: list[str]) -> str | None:
+        """Check if source has direct field reference matching field_path."""
+        if "field" in source and source["field"] == field_path:
+            return source.get("type")
+        return None
+
+    @staticmethod
+    def _check_transform_field_match(source: dict, field_path: list[str]) -> bool:
+        """Check if transform arguments contain matching field reference."""
+        if "transform" not in source:
+            return False
+        
+        transform = source["transform"]
+        for arg in transform.get("arguments", []):
+            if "value" in arg and "field" in arg["value"]:
+                if arg["value"]["field"] == field_path:
+                    return True
+        return False
+
+    @staticmethod
     def _get_field_type_from_target_tables(
         field_path: list[str], target_tables: list[dict]
     ) -> str | None:
@@ -80,23 +100,15 @@ class DocumentClassUtils:
         """
         for table in target_tables:
             for column in table.get("columns", []):
-                # Get the source field path
                 source = column.get("source", {})
 
                 # Handle direct field reference
-                if "field" in source:
-                    source_field = source["field"]
-                    if source_field == field_path:
-                        return column.get("type")
+                if "field" in source and source["field"] == field_path:
+                    return column.get("type")
 
                 # Handle transform with field reference
-                if "transform" in source:
-                    transform = source["transform"]
-                    for arg in transform.get("arguments", []):
-                        if "value" in arg and "field" in arg["value"]:
-                            source_field = arg["value"]["field"]
-                            if source_field == field_path:
-                                return column.get("type")
+                if DocumentClassUtils._check_transform_field_match(source, field_path):
+                    return column.get("type")
 
         return None
 
@@ -238,6 +250,41 @@ class DocumentClassUtils:
         return template
 
     @staticmethod
+    def _extract_field_metadata(
+        fields_list: list[dict],
+        examples: dict[str, list],
+        descriptions: dict[str, str],
+        prefix: str = ""
+    ) -> None:
+        """
+        Recursively extract examples and descriptions from fields.
+        
+        Args:
+            fields_list: List of field definitions
+            examples: Dictionary to populate with examples (modified in-place)
+            descriptions: Dictionary to populate with descriptions (modified in-place)
+            prefix: Current field path prefix
+        """
+        for field in fields_list:
+            field_name = field.get("name")
+            if not field_name:
+                continue
+
+            full_name = f"{prefix}{field_name}" if prefix else field_name
+
+            if "fields" in field:
+                # Nested field - recurse
+                DocumentClassUtils._extract_field_metadata(
+                    field["fields"], examples, descriptions, f"{full_name}."
+                )
+            else:
+                # Regular field - extract metadata
+                if "examples" in field and field["examples"]:
+                    examples[full_name] = field["examples"]
+                if "description" in field and field["description"]:
+                    descriptions[full_name] = field["description"]
+
+    @staticmethod
     def generate_template_with_examples(
         doc_class_path: str | Path, include_nested: bool = True
     ) -> dict[str, Any]:
@@ -268,34 +315,15 @@ class DocumentClassUtils:
             doc_class_path=doc_class_path, include_nested=include_nested
         )
 
-        # Extract examples
+        # Extract examples and descriptions
         schema = doc_class.get("document_class_schema", {})
         document = schema.get("document", {})
         fields = document.get("fields", [])
 
-        examples = {}
-        descriptions = {}
+        examples: dict[str, list] = {}
+        descriptions: dict[str, str] = {}
 
-        def extract_field_metadata(fields_list: list[dict], prefix: str = ""):
-            """Recursively extract examples and descriptions."""
-            for field in fields_list:
-                field_name = field.get("name")
-                if not field_name:
-                    continue
-
-                full_name = f"{prefix}{field_name}" if prefix else field_name
-
-                if "fields" in field:
-                    # Nested field
-                    extract_field_metadata(field["fields"], f"{full_name}.")
-                else:
-                    # Regular field
-                    if "examples" in field and field["examples"]:
-                        examples[full_name] = field["examples"]
-                    if "description" in field and field["description"]:
-                        descriptions[full_name] = field["description"]
-
-        extract_field_metadata(fields)
+        DocumentClassUtils._extract_field_metadata(fields, examples, descriptions)
 
         return {
             "template": template,
