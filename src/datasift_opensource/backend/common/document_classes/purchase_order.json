@@ -1,0 +1,802 @@
+{
+  "document_class_id": "a2a02b65-d7f1-4de5-afaa-9e6db93b8c49",
+  "document_class_name": "Purchase Order",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "purchase_order_date",
+          "examples": [
+            "2024-02-04"
+          ],
+          "description": "The date when the purchase order was created or issued.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "purchase_order_number",
+          "examples": [
+            "2024-001"
+          ],
+          "description": "The unique identifier or reference number of the purchase order.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "purchase_order_requested_delivery_date",
+          "examples": [
+            "2024-02-08"
+          ],
+          "description": "The date by which the items are requested to be delivered.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_name",
+          "examples": [
+            "John Smith"
+          ],
+          "description": "Full name of the person or company placing the order.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_address",
+          "examples": [
+            "123 Main St, Anytown, ST 12345"
+          ],
+          "description": "Complete mailing or physical address of the customer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_email",
+          "examples": [
+            "john@example.com"
+          ],
+          "description": "Any email address associated with the customer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_phone",
+          "examples": [
+            "+1 555-0123"
+          ],
+          "description": "Any phone number associated with the customer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipping_name",
+          "examples": [
+            "Jane Smith"
+          ],
+          "description": "Full name of the person in the shipping location.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipping_address",
+          "examples": [
+            "456 Delivery Ln, Anytown, ST 12345"
+          ],
+          "description": "Complete mailing or physical address of the shipping location.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipping_phone",
+          "examples": [
+            "+1 555-0124"
+          ],
+          "description": "Any phone number associated with the shipping location.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_name",
+          "examples": [
+            "Business Corp"
+          ],
+          "description": "Name of the company or person receiving the purchase order.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_address",
+          "examples": [
+            "456 Commerce Ave, Business City, ST 54321"
+          ],
+          "description": "Complete business address of the vendor.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_email",
+          "examples": [
+            "billing@business.com"
+          ],
+          "description": "Vendor's contact email.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "vendor_phone",
+          "examples": [
+            "+1 555-9876"
+          ],
+          "description": "Vendor's contact phone number.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "supplier_name",
+          "examples": [
+            "Business Corp"
+          ],
+          "description": "Name of the company or entity supplying the materials or products.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "supplier_address",
+          "examples": [
+            "456 Commerce Ave, Business City, ST 54321"
+          ],
+          "description": "Complete business address of the supplier.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "supplier_email",
+          "examples": [
+            "supplier@business.com"
+          ],
+          "description": "Supplier's contact email.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "supplier_phone",
+          "examples": [
+            "+1 555-9776"
+          ],
+          "description": "Supplier's contact phone number.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "sub_total",
+          "examples": [
+            "1000.00"
+          ],
+          "description": "Amount before tax or additional charges.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax",
+          "examples": [
+            "100.00"
+          ],
+          "description": "The tax amount applied.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total",
+          "examples": [
+            "1100.00"
+          ],
+          "description": "The final total amount including all charges.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_discount",
+          "examples": [
+            "0.00"
+          ],
+          "description": "Any discount amount applied to the order.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "payment_terms",
+          "examples": [
+            "Net 30"
+          ],
+          "description": "Any specified payment conditions or terms.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "due_date",
+          "examples": [
+            "2024-03-05"
+          ],
+          "description": "The date by which payment must be made.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "currency",
+          "examples": [
+            "USD"
+          ],
+          "description": "The currency used in the purchase order.",
+          "available_options": [
+            "USD",
+            "EUR",
+            "CNY",
+            "JPY",
+            "GBP",
+            "AUD",
+            "CAD",
+            "CHF",
+            "HKD",
+            "SGD",
+            "INR",
+            "KRW",
+            "MXN",
+            "BRL",
+            "ZAR",
+            "SEK",
+            "NOK",
+            "DKK",
+            "NZD",
+            "TRY",
+            "AED",
+            "THB",
+            "PLN",
+            "IDR",
+            "MYR",
+            "PHP",
+            "RUB",
+            "CZK",
+            "ILS"
+          ],
+          "extraction_instructions": ""
+        },
+        {
+          "name": "currency_sign",
+          "affix": true,
+          "examples": [
+            "$"
+          ],
+          "description": "The currency sign of the currency used in the purchase order.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "shipping_charge",
+          "examples": [
+            "100.0"
+          ],
+          "description": "Cost for shipping or delivery.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "carrier",
+          "examples": [
+            "FEDEX"
+          ],
+          "description": "The shipping company who will deliver the goods.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "line_items",
+          "fields": [
+            {
+              "name": "amount",
+              "examples": [
+                "500.00"
+              ],
+              "description": "The total amount for the line item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "description",
+              "examples": [
+                "Product A"
+              ],
+              "description": "Description of the product or service of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "product_code",
+              "examples": [
+                "SKU-123"
+              ],
+              "description": "Any product code, SKU, or identifier for the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "quantity",
+              "examples": [
+                "2"
+              ],
+              "description": "Number of units purchased of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "unit",
+              "examples": [
+                "each"
+              ],
+              "description": "Unit of measurement (e.g., \"each\", \"kg\", \"hours\") of the item.",
+              "extraction_instructions": ""
+            },
+            {
+              "name": "unit_price",
+              "examples": [
+                "250.00"
+              ],
+              "description": "Price per unit of the item.",
+              "extraction_instructions": ""
+            }
+          ],
+          "description": "Information about each product or service listed in the invoice."
+        }
+      ],
+      "document_type": "Purchase Order",
+      "document_description": "A purchase order (PO) is a legally binding document sent from a buyer to a seller, detailing the types, quantities, and agreed prices for products or services the buyer intends to purchase.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Purchase_Order_line_items",
+        "columns": [
+          {
+            "name": "amount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "amount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "The total amount for the line item."
+          },
+          {
+            "name": "description",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "description"
+              ]
+            },
+            "description": "Description of the product or service of the item."
+          },
+          {
+            "name": "product_code",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "product_code"
+              ]
+            },
+            "description": "Any product code, SKU, or identifier for the item."
+          },
+          {
+            "name": "quantity",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "quantity"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Number of units purchased of the item."
+          },
+          {
+            "name": "unit",
+            "type": "string",
+            "source": {
+              "field": [
+                "line_items",
+                "unit"
+              ]
+            },
+            "description": "Unit of measurement (e.g., \"each\", \"kg\", \"hours\") of the item."
+          },
+          {
+            "name": "unit_price",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "line_items",
+                        "unit_price"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Price per unit of the item."
+          }
+        ],
+        "metadata": {},
+        "description": "Information about each product or service listed in the invoice."
+      },
+      {
+        "name": "Purchase_Order",
+        "columns": [
+          {
+            "name": "purchase_order_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "purchase_order_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The date when the purchase order was created or issued."
+          },
+          {
+            "name": "purchase_order_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "purchase_order_number"
+              ]
+            },
+            "description": "The unique identifier or reference number of the purchase order."
+          },
+          {
+            "name": "purchase_order_requested_delivery_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "purchase_order_requested_delivery_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The date by which the items are requested to be delivered."
+          },
+          {
+            "name": "customer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_name"
+              ]
+            },
+            "description": "Full name of the person or company placing the order."
+          },
+          {
+            "name": "customer_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_address"
+              ]
+            },
+            "description": "Complete mailing or physical address of the customer."
+          },
+          {
+            "name": "customer_email",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_email"
+              ]
+            },
+            "description": "Any email address associated with the customer."
+          },
+          {
+            "name": "customer_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_phone"
+              ]
+            },
+            "description": "Any phone number associated with the customer."
+          },
+          {
+            "name": "shipping_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipping_name"
+              ]
+            },
+            "description": "Full name of the person in the shipping location."
+          },
+          {
+            "name": "shipping_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipping_address"
+              ]
+            },
+            "description": "Complete mailing or physical address of the shipping location."
+          },
+          {
+            "name": "shipping_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "shipping_phone"
+              ]
+            },
+            "description": "Any phone number associated with the shipping location."
+          },
+          {
+            "name": "vendor_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_name"
+              ]
+            },
+            "description": "Name of the company or person receiving the purchase order."
+          },
+          {
+            "name": "vendor_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_address"
+              ]
+            },
+            "description": "Complete business address of the vendor."
+          },
+          {
+            "name": "vendor_email",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_email"
+              ]
+            },
+            "description": "Vendor's contact email."
+          },
+          {
+            "name": "vendor_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "vendor_phone"
+              ]
+            },
+            "description": "Vendor's contact phone number."
+          },
+          {
+            "name": "supplier_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "supplier_name"
+              ]
+            },
+            "description": "Name of the company or entity supplying the materials or products."
+          },
+          {
+            "name": "supplier_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "supplier_address"
+              ]
+            },
+            "description": "Complete business address of the supplier."
+          },
+          {
+            "name": "supplier_email",
+            "type": "string",
+            "source": {
+              "field": [
+                "supplier_email"
+              ]
+            },
+            "description": "Supplier's contact email."
+          },
+          {
+            "name": "supplier_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "supplier_phone"
+              ]
+            },
+            "description": "Supplier's contact phone number."
+          },
+          {
+            "name": "sub_total",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "sub_total"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Amount before tax or additional charges."
+          },
+          {
+            "name": "tax",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "tax"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "The tax amount applied."
+          },
+          {
+            "name": "total",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "The final total amount including all charges."
+          },
+          {
+            "name": "total_discount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_discount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Any discount amount applied to the order."
+          },
+          {
+            "name": "payment_terms",
+            "type": "string",
+            "source": {
+              "field": [
+                "payment_terms"
+              ]
+            },
+            "description": "Any specified payment conditions or terms."
+          },
+          {
+            "name": "due_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "due_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The date by which payment must be made."
+          },
+          {
+            "name": "currency",
+            "type": "string",
+            "source": {
+              "field": [
+                "currency"
+              ]
+            },
+            "description": "The currency used in the purchase order."
+          },
+          {
+            "name": "currency_sign",
+            "type": "string",
+            "source": {
+              "field": [
+                "currency_sign"
+              ]
+            },
+            "description": "The currency sign of the currency used in the purchase order."
+          },
+          {
+            "name": "shipping_charge",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "shipping_charge"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Cost for shipping or delivery."
+          },
+          {
+            "name": "carrier",
+            "type": "string",
+            "source": {
+              "field": [
+                "carrier"
+              ]
+            },
+            "description": "The shipping company who will deliver the goods."
+          }
+        ],
+        "metadata": {},
+        "description": "A purchase order (PO) is a legally binding document sent from a buyer to a seller, detailing the types, quantities, and agreed prices for products or services the buyer intends to purchase."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

@@ -1,0 +1,287 @@
+{
+  "document_class_id": "b75e9cfe-da3e-4da6-9c22-a28cbfa212e5",
+  "document_class_name": "Expense Reports",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "report_id",
+          "examples": [
+            "EXP-202309A"
+          ],
+          "description": "Unique identifier for the expense report.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "employee_name",
+          "examples": [
+            "John Smith"
+          ],
+          "description": "Name of the person submitting expenses.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "employee_id",
+          "examples": [
+            "E12345"
+          ],
+          "description": "Internal identifier for the employee, if applicable.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "report_period_start",
+          "examples": [
+            "2023-08-01"
+          ],
+          "description": "Beginning date covered by this expense report.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "report_period_end",
+          "examples": [
+            "2023-08-31"
+          ],
+          "description": "Ending date for the reported expenses.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "subtotal",
+          "examples": [
+            "450.00"
+          ],
+          "description": "Sum of all expenses before any taxes/fees if applicable.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "tax_or_vat",
+          "examples": [
+            "36.00"
+          ],
+          "description": "Any tax or VAT included in total expenses.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_reimbursement_amount",
+          "examples": [
+            "486.00"
+          ],
+          "description": "Amount to be reimbursed to the employee.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "approval_status",
+          "examples": [
+            "Pending Manager Approval"
+          ],
+          "description": "Current status (submitted, approved, denied, etc.).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "approval_signature",
+          "examples": [
+            "Manager Name"
+          ],
+          "description": "Signature or name of the approving authority.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "submission_date",
+          "examples": [
+            "2023-09-05"
+          ],
+          "description": "Date the expense report was formally submitted.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Expense Reports",
+      "document_description": "An expense report is a record submitted by employees or contractors to track and claim reimbursement for business-related expenditures, including date, cost, receipts, and purpose of each expense.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Expense_Reports",
+        "columns": [
+          {
+            "name": "report_id",
+            "type": "string",
+            "source": {
+              "field": [
+                "report_id"
+              ]
+            },
+            "description": "Unique identifier for the expense report."
+          },
+          {
+            "name": "employee_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "employee_name"
+              ]
+            },
+            "description": "Name of the person submitting expenses."
+          },
+          {
+            "name": "employee_id",
+            "type": "string",
+            "source": {
+              "field": [
+                "employee_id"
+              ]
+            },
+            "description": "Internal identifier for the employee, if applicable."
+          },
+          {
+            "name": "report_period_start",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "report_period_start"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Beginning date covered by this expense report."
+          },
+          {
+            "name": "report_period_end",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "report_period_end"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Ending date for the reported expenses."
+          },
+          {
+            "name": "subtotal",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "subtotal"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Sum of all expenses before any taxes/fees if applicable."
+          },
+          {
+            "name": "tax_or_vat",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "tax_or_vat"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Any tax or VAT included in total expenses."
+          },
+          {
+            "name": "total_reimbursement_amount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_reimbursement_amount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Amount to be reimbursed to the employee."
+          },
+          {
+            "name": "approval_status",
+            "type": "string",
+            "source": {
+              "field": [
+                "approval_status"
+              ]
+            },
+            "description": "Current status (submitted, approved, denied, etc.)."
+          },
+          {
+            "name": "approval_signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "approval_signature"
+              ]
+            },
+            "description": "Signature or name of the approving authority."
+          },
+          {
+            "name": "submission_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "submission_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the expense report was formally submitted."
+          }
+        ],
+        "metadata": {},
+        "description": "An expense report is a record submitted by employees or contractors to track and claim reimbursement for business-related expenditures, including date, cost, receipts, and purpose of each expense."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

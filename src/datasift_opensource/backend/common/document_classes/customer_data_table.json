@@ -1,0 +1,247 @@
+{
+  "document_class_id": "ae63f2d6-23e9-4b64-9f40-4640b1ff932f",
+  "document_class_name": "Customer Data Table",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "customer_id",
+          "examples": [
+            "CUST00000001"
+          ],
+          "description": "Unique 8-digit customer identifier in format CUST########.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "customer_name",
+          "examples": [
+            "John Smith"
+          ],
+          "description": "Full name of the customer (first name and last name).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "address",
+          "examples": [
+            "1234 Main St"
+          ],
+          "description": "Street address of the customer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "city",
+          "examples": [
+            "New York"
+          ],
+          "description": "City where the customer resides.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "state",
+          "examples": [
+            "NY"
+          ],
+          "description": "Two-letter state code.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "zip_code",
+          "examples": [
+            "10001"
+          ],
+          "description": "5-digit ZIP code.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "phone_number",
+          "examples": [
+            "(555) 123-4567"
+          ],
+          "description": "Customer contact phone number in format (###) ###-####.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "email",
+          "examples": [
+            "customer1@email.com"
+          ],
+          "description": "Customer email address.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "registration_date",
+          "examples": [
+            "2023-01-15"
+          ],
+          "description": "Date when the customer registered or joined.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "total_purchases",
+          "examples": [
+            "$5,000"
+          ],
+          "description": "Total dollar amount of customer purchases.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "status",
+          "examples": [
+            "Active"
+          ],
+          "description": "Customer account status (Active or Inactive).",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Customer Data Table",
+      "document_description": "Customer data tables contain comprehensive customer information including identification, contact details, registration information, purchase history, and account status. Each document contains 500 pages with approximately 19 customer records per page, organized in a structured table format with consistent columns across all pages.",
+      "additional_prompt_instructions": "This document contains a multi-page table with customer records. Each page has the same table structure with header row repeated. Extract all customer records from all pages in the document."
+    },
+    "target_tables": [
+      {
+        "name": "Customer_Data",
+        "columns": [
+          {
+            "name": "customer_id",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_id"
+              ]
+            },
+            "description": "Unique 8-digit customer identifier in format CUST########."
+          },
+          {
+            "name": "customer_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "customer_name"
+              ]
+            },
+            "description": "Full name of the customer (first name and last name)."
+          },
+          {
+            "name": "address",
+            "type": "string",
+            "source": {
+              "field": [
+                "address"
+              ]
+            },
+            "description": "Street address of the customer."
+          },
+          {
+            "name": "city",
+            "type": "string",
+            "source": {
+              "field": [
+                "city"
+              ]
+            },
+            "description": "City where the customer resides."
+          },
+          {
+            "name": "state",
+            "type": "string",
+            "source": {
+              "field": [
+                "state"
+              ]
+            },
+            "description": "Two-letter state code."
+          },
+          {
+            "name": "zip_code",
+            "type": "string",
+            "source": {
+              "field": [
+                "zip_code"
+              ]
+            },
+            "description": "5-digit ZIP code."
+          },
+          {
+            "name": "phone_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "phone_number"
+              ]
+            },
+            "description": "Customer contact phone number in format (###) ###-####."
+          },
+          {
+            "name": "email",
+            "type": "string",
+            "source": {
+              "field": [
+                "email"
+              ]
+            },
+            "description": "Customer email address."
+          },
+          {
+            "name": "registration_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "registration_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date when the customer registered or joined."
+          },
+          {
+            "name": "total_purchases",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "total_purchases"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total dollar amount of customer purchases."
+          },
+          {
+            "name": "status",
+            "type": "string",
+            "source": {
+              "field": [
+                "status"
+              ]
+            },
+            "description": "Customer account status (Active or Inactive)."
+          }
+        ],
+        "metadata": {},
+        "description": "Customer data tables contain comprehensive customer information including identification, contact details, registration information, purchase history, and account status. Each document contains 500 pages with approximately 19 customer records per page, organized in a structured table format with consistent columns across all pages."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2026-03-17T14:05:07Z",
+  "last_modified_time": "2026-03-17T14:05:07Z",
+  "created_by": "IBMid-6A1000966M",
+  "last_modified_by": "IBMid-6A1000966M",
+  "is_predefined": false,
+  "is_enabled": true
+}

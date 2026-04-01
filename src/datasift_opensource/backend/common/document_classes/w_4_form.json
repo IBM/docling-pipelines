@@ -1,0 +1,193 @@
+{
+  "document_class_id": "2de1f634-9743-483a-b12c-604d302b4b8f",
+  "document_class_name": "W-4 Form",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "employee_name",
+          "examples": [
+            "Mary Johnson"
+          ],
+          "description": "Full legal name of the employee.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "social_security_number",
+          "examples": [
+            "987-65-4321"
+          ],
+          "description": "Employee\u2019s SSN as required on the W-4.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "home_address",
+          "examples": [
+            "456 Oak St, Townville, ST 12345"
+          ],
+          "description": "Mailing address of the employee.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "filing_status",
+          "examples": [
+            "Married filing jointly"
+          ],
+          "description": "Employee\u2019s chosen filing status (e.g., Single, Married).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "extra_withholding",
+          "examples": [
+            "20"
+          ],
+          "description": "Additional amount employee requests withheld from each paycheck, if any.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "exempt",
+          "examples": [
+            "True or False"
+          ],
+          "description": "Indicates whether employee claims exemption from withholding.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "signature",
+          "examples": [
+            "Mary Johnson"
+          ],
+          "description": "Signature of the employee certifying the form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_signed",
+          "examples": [
+            "2023-02-15"
+          ],
+          "description": "Date the W-4 is signed.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "W-4 Form",
+      "document_description": "Form W-4 is a one-page IRS document employees in the U.S. fill out to let their employer know how much federal income tax to withhold from their pay. It typically includes personal information, filing status, and allowances or deductions claimed.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "W_4_Form",
+        "columns": [
+          {
+            "name": "employee_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "employee_name"
+              ]
+            },
+            "description": "Full legal name of the employee."
+          },
+          {
+            "name": "social_security_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "social_security_number"
+              ]
+            },
+            "description": "Employee\u2019s SSN as required on the W-4."
+          },
+          {
+            "name": "home_address",
+            "type": "decimal",
+            "source": {
+              "field": [
+                "home_address"
+              ]
+            },
+            "description": "Mailing address of the employee."
+          },
+          {
+            "name": "filing_status",
+            "type": "string",
+            "source": {
+              "field": [
+                "filing_status"
+              ]
+            },
+            "description": "Employee\u2019s chosen filing status (e.g., Single, Married)."
+          },
+          {
+            "name": "extra_withholding",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "extra_withholding"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Additional amount employee requests withheld from each paycheck, if any."
+          },
+          {
+            "name": "exempt",
+            "type": "string",
+            "source": {
+              "field": [
+                "exempt"
+              ]
+            },
+            "description": "Indicates whether employee claims exemption from withholding."
+          },
+          {
+            "name": "signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "signature"
+              ]
+            },
+            "description": "Signature of the employee certifying the form."
+          },
+          {
+            "name": "date_signed",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_signed"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the W-4 is signed."
+          }
+        ],
+        "metadata": {},
+        "description": "Form W-4 is a one-page IRS document employees in the U.S. fill out to let their employer know how much federal income tax to withhold from their pay. It typically includes personal information, filing status, and allowances or deductions claimed."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-23T14:47:38Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-698000GGD3",
+  "is_predefined": true,
+  "is_enabled": true
+}
