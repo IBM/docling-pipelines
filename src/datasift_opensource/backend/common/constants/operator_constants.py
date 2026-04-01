@@ -173,6 +173,12 @@ class OperatorConstants:
         TEMPLATE: Final[str] = "template"
         USE_PROCESSES: Final[str] = "use_processes"
         USE_TEMPLATE: Final[str] = "use_template"
+        USE_VLM_PIPELINE: Final[str] = "use_vlm_pipeline"
+        VLM_PRESET: Final[str] = "vlm_preset"
+        VLM_PRESET_DEFAULT: Final[str] = "granite_docling"
+        VLM_ENGINE_TYPE: Final[str] = "vlm_engine_type"
+        VLM_ENGINE_TRANSFORMERS: Final[str] = "transformers"
+        VLM_ENGINE_MLX: Final[str] = "mlx"
 
         # Processing Configuration
         ALWAYS_RETRIEVE_DOCUMENT: Final[str] = "always_retrieve_document"

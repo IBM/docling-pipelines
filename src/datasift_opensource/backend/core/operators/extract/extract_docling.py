@@ -24,11 +24,11 @@ from common.constants.constants import (
     Metrics,
 )
 from common.constants.operator_constants import OperatorConstants
-from common.util.document_class_utils import DocumentClassUtils
-from common.util.infrastructure.logging import get_logger
 
 # Import TransformUtils from centralized location
 from common.util.data.transform import TransformUtils
+from common.util.document_class_utils import DocumentClassUtils
+from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.functional.doc_id_hash import DocIdHashOperator
 from core.operators.operator_utils import OperatorUtils
@@ -68,7 +68,9 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
             else:
                 # Fall back to basic extraction if no template
                 logger.warning("No template provided for %s, using basic extraction", file_path)
-                return OperatorUtils.extract_basic_worker(file_path, binary_content, extract_tables=True, extract_images=True)
+                return OperatorUtils.extract_basic_worker(
+                    file_path, binary_content, extract_tables=True, extract_images=True
+                )
 
             # Convert pages to proper dict format
             pages_data = []
@@ -113,6 +115,134 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
         }
 
 
+def _extract_vlm_worker(
+    file_path: str, binary_content: bytes, vlm_preset: str, vlm_engine_type: str | None = None
+) -> dict[str, Any]:
+    """
+    Worker function for VLM-based extraction using presets - designed to run in parallel.
+
+    Args:
+        file_path: Path to the document file
+        binary_content: Binary content of the document
+        vlm_preset: VLM preset name (e.g., "granite_docling")
+        vlm_engine_type: Optional engine type ("transformers" or "mlx")
+
+    Returns:
+        Dictionary containing extracted markdown content
+    """
+    logger.info(f"Processing file with VLM pipeline (preset: {vlm_preset}): {file_path}")
+
+    try:
+        # Import VLM-specific classes
+        from docling.datamodel.pipeline_options import VlmPipelineOptions
+        from docling.document_converter import ImageFormatOption, PdfFormatOption
+        from docling.pipeline.vlm_pipeline import VlmPipeline
+        from docling_core.types.doc.document import PictureItem, TableItem
+    except ImportError as e:
+        logger.error("VLM pipeline dependencies not available. Install with: pip install docling[vlm]")
+        logger.error(f"Error: {e!s}")
+        return {
+            OperatorConstants.Extraction.SUCCESS: False,
+            OperatorConstants.Extraction.ERROR: "VLM pipeline dependencies not available. Install docling[vlm]",
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
+        }
+
+    # Determine the effective file extension
+    # When file_path is a URL or has no extension, fall back to magic-byte detection
+    file_suffix = Path(file_path).suffix.lower()
+    if not file_suffix:
+        file_suffix = OperatorUtils.detect_extension_from_bytes(binary_content)
+
+    # Save binary content to temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp_file:
+        tmp_file.write(binary_content)
+        tmp_path = tmp_file.name
+
+    try:
+        # Configure VLM options from preset
+        from docling.datamodel.pipeline_options import VlmConvertOptions
+
+        # If engine type is specified, create options with that engine type
+        # Otherwise use the preset's default engine
+        if vlm_engine_type:
+            from docling.datamodel.vlm_engine_options import MlxVlmEngineOptions, TransformersVlmEngineOptions
+
+            if vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS:
+                engine_options = TransformersVlmEngineOptions()
+                vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+            elif vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_MLX:
+                engine_options = MlxVlmEngineOptions()
+                vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+            else:
+                logger.warning(f"Unknown VLM engine type: {vlm_engine_type}. Using preset default.")
+                vlm_options = VlmConvertOptions.from_preset(vlm_preset)
+        else:
+            vlm_options = VlmConvertOptions.from_preset(vlm_preset)
+
+        # Set up converter with VLM pipeline for supported formats (PDF and IMAGE)
+        # VLM pipeline only supports formats that use PdfDocumentBackend
+        converter = DocumentConverter(
+            format_options={
+                InputFormat.PDF: PdfFormatOption(
+                    pipeline_cls=VlmPipeline,
+                    pipeline_options=VlmPipelineOptions(vlm_options=vlm_options),
+                ),
+                InputFormat.IMAGE: ImageFormatOption(
+                    pipeline_cls=VlmPipeline,
+                    pipeline_options=VlmPipelineOptions(vlm_options=vlm_options),
+                ),
+            }
+        )
+
+        # Convert document
+        result = converter.convert(tmp_path)
+
+        # Export to markdown
+        markdown_text = result.document.export_to_markdown()
+
+        # Extract tables (VLM pipeline handles tables internally)
+        tables = []
+        for item, _ in result.document.iterate_items():
+            if isinstance(item, TableItem):
+                table_df = item.export_to_dataframe()
+                tables.append({"ref": item.self_ref, "data": table_df.to_dict() if table_df is not None else None})
+
+        # Extract images
+        images = []
+        for item, _ in result.document.iterate_items():
+            if isinstance(item, PictureItem):
+                images.append({"ref": item.self_ref, "caption": getattr(item, "caption", None)})
+
+        logger.info(f"Completed VLM extraction for {file_path}")
+
+        return {
+            OperatorConstants.Extraction.SUCCESS: True,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
+            OperatorConstants.Columns.TABLES: tables,
+            OperatorConstants.Columns.IMAGES: images,
+            OperatorConstants.Metadata.METADATA: {
+                "table_count": len(tables),
+                "image_count": len(images),
+                "char_count": len(markdown_text),
+                "vlm_preset": vlm_preset,
+                "vlm_engine_type": vlm_engine_type or "auto",
+            },
+        }
+    except Exception as e:
+        logger.error(f"Error extracting content with VLM pipeline from {file_path}: {e!s}")
+        return {
+            OperatorConstants.Extraction.SUCCESS: False,
+            OperatorConstants.Extraction.ERROR: str(e),
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
+        }
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(tmp_path)
+        except OSError as e:
+            logger.warning(f"Failed to cleanup temporary file {tmp_path}: {e}")
+
+
 class ExtractDoclingOperator(AbstractOperator):
     """
     Operator for extracting content from documents using Docling.
@@ -138,6 +268,9 @@ class ExtractDoclingOperator(AbstractOperator):
                 - use_template: Whether to use template-based extraction (default: False)
                 - template: Template dictionary for structured extraction (optional)
                 - expand_extracted_data: Whether to expand extracted_data into individual columns (default: False)
+                - use_vlm_pipeline: Whether to use VLM pipeline for enhanced extraction (default: False)
+                - vlm_preset: VLM preset name (default: "granite_docling")
+                - vlm_engine_type: VLM engine type - "transformers" or "mlx" (default: None/auto)
                 - max_workers: Maximum number of parallel workers (default: auto-detect)
                 - use_processes: Use ProcessPoolExecutor instead of ThreadPoolExecutor (default: False)
         """
@@ -154,9 +287,45 @@ class ExtractDoclingOperator(AbstractOperator):
         self.template: dict[str, Any] | None = config.get(OperatorConstants.Config.TEMPLATE)
         self.expand_extracted_data: bool = config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False)
 
+        # VLM Pipeline configuration
+        self.use_vlm_pipeline: bool = config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False)
+        self.vlm_preset: str = config.get(
+            OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
+        )
+        self.vlm_engine_type: str | None = config.get(OperatorConstants.Config.VLM_ENGINE_TYPE)
+
+        # Validate VLM preset if VLM pipeline is enabled
+        if self.use_vlm_pipeline and self.vlm_preset:
+            try:
+                from docling.datamodel.pipeline_options import VlmConvertOptions
+
+                # Test if preset is valid by attempting to load it
+                VlmConvertOptions.from_preset(self.vlm_preset)
+            except Exception as e:
+                raise ValueError(
+                    f"Invalid vlm_preset: '{self.vlm_preset}'. "
+                    f"Error: {e!s}. "
+                    f"Please verify the preset name is correct (e.g., 'granite_docling')."
+                ) from e
+
+        # Validate VLM engine type
+        if self.vlm_engine_type and self.vlm_engine_type not in [
+            OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS,
+            OperatorConstants.Config.VLM_ENGINE_MLX,
+        ]:
+            raise ValueError(
+                f"Invalid vlm_engine_type: {self.vlm_engine_type}. "
+                f"Must be '{OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS}' or '{OperatorConstants.Config.VLM_ENGINE_MLX}'"
+            )
+
+        # Validate mutually exclusive modes
+        if self.use_vlm_pipeline and self.use_template:
+            raise ValueError("Cannot use both VLM pipeline and template extraction simultaneously")
+
         # Parallel processing configuration
-        self.max_workers: int = config.get(OperatorConstants.Config.MAX_WORKERS,
-                                           OperatorUtils.get_optimal_workers(is_cpu_intensive=self.use_template))
+        self.max_workers: int = config.get(
+            OperatorConstants.Config.MAX_WORKERS, OperatorUtils.get_optimal_workers(is_cpu_intensive=self.use_template)
+        )
         self.use_processes: bool = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         self.common_log_arguments: dict[str, Any] = {
@@ -255,11 +424,11 @@ class ExtractDoclingOperator(AbstractOperator):
         if self.use_template:
             if self.expand_extracted_data and not any(col.startswith("extracted_") for col in table.column_names):
                 return False
-            elif not OperatorConstants.Columns.EXTRACTED_DATA in table.column_names:
+            elif OperatorConstants.Columns.EXTRACTED_DATA not in table.column_names:
                 return False
         return True
 
-    def transform(self, table: pa.Table, file_name: str = None) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform the input table by extracting content from documents.
 
@@ -280,27 +449,29 @@ class ExtractDoclingOperator(AbstractOperator):
             return [table], metadata
 
         if self._check_existing_features(table=table):
-            metadata[OperatorConstants.Extraction.MESSAGE] = "All requested features already present. Moving to next operator"
+            metadata[OperatorConstants.Extraction.MESSAGE] = (
+                "All requested features already present. Moving to next operator"
+            )
             return [table], metadata
-        
+
         # Load templates based on document_type column if use_template is True
         document_types: list[str] = []
         template_cache: dict[str, dict] = {}
-        
+
         if self.use_template and OperatorConstants.Columns.DOCUMENT_TYPE in table.column_names:
             # Extract document types from table
             document_types = table.column(OperatorConstants.Columns.DOCUMENT_TYPE).to_pylist()
-            
+
             # Generate Docling templates for all unique document types
             DocumentClassUtils.generate_docling_templates_for_types(
                 document_types=document_types,
                 template_cache=template_cache,
-                include_nested=True  # Include nested fields like line_items
+                include_nested=True,  # Include nested fields like line_items
             )
-            
+
             if not template_cache:
                 logger.warning("No templates could be loaded from document_type column, using default template")
-        
+
         # Prepare document data for parallel processing
         doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table)
 
@@ -311,11 +482,11 @@ class ExtractDoclingOperator(AbstractOperator):
         failed_indices = []
 
         # Choose executor based on configuration
-        ExecutorClass = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
+        executor_class = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
 
         logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
 
-        with ExecutorClass(max_workers=self.max_workers) as executor:
+        with executor_class(max_workers=self.max_workers) as executor:
             # Submit all tasks
             future_to_task = {}
             for task in doc_tasks:
@@ -329,17 +500,25 @@ class ExtractDoclingOperator(AbstractOperator):
 
                 # Determine which template to use for this document
                 template_to_use = self.template  # Default template from config
-                
+
                 if self.use_template and document_types and template_cache:
                     # Get document type for this row
                     row_doc_type = document_types[task["idx"]]
                     if row_doc_type and row_doc_type in template_cache:
                         template_to_use = template_cache[row_doc_type]
-                        logger.debug("Using template for document type '%s' for %s", row_doc_type, task['doc_name'])
-                
+                        logger.debug("Using template for document type '%s' for %s", row_doc_type, task["doc_name"])
+
                 if self.use_template:
                     future = executor.submit(
                         _extract_with_template_worker, task["doc_name"], task["binary_content"], template_to_use
+                    )
+                elif self.use_vlm_pipeline:
+                    future = executor.submit(
+                        _extract_vlm_worker,
+                        task["doc_name"],
+                        task["binary_content"],
+                        self.vlm_preset,
+                        self.vlm_engine_type,
                     )
                 else:
                     future = executor.submit(
@@ -523,6 +702,27 @@ class ExtractDoclingOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
+                OperatorConstants.Config.USE_VLM_PIPELINE: {
+                    OperatorConstants.Misc.NAME: "Use VLM Pipeline",
+                    OperatorConstants.Config.DESCRIPTION: "Enable Vision Language Model pipeline for enhanced document understanding (requires docling[vlm])",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                OperatorConstants.Config.VLM_PRESET: {
+                    OperatorConstants.Misc.NAME: "VLM Preset",
+                    OperatorConstants.Config.DESCRIPTION: "VLM preset name for document processing (e.g., 'granite_docling')",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Config.VLM_PRESET_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.VLM_ENGINE_TYPE: {
+                    OperatorConstants.Misc.NAME: "VLM Engine Type",
+                    OperatorConstants.Config.DESCRIPTION: "VLM engine backend: 'transformers' (universal) or 'mlx' (macOS optimized). Auto-detect if not specified.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
                 OperatorConstants.Config.MAX_WORKERS: {
                     OperatorConstants.Misc.NAME: "Max Workers",
                     OperatorConstants.Config.DESCRIPTION: "Maximum number of parallel workers (auto-detect if not specified)",
@@ -539,4 +739,3 @@ class ExtractDoclingOperator(AbstractOperator):
                 },
             },
         }
-

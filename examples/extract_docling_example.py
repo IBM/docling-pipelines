@@ -15,7 +15,9 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"))
+sys.path.insert(
+    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
+)
 
 from common.constants.operator_constants import OperatorConstants
 from core.operators.extract.extract_docling import ExtractDoclingOperator
@@ -34,8 +36,18 @@ def main() -> int:
     # Input: Path to file or directory
     input_path_str: str = "tests/fixtures/invoices/TR-INV_044_1_1.1.pdf"
 
-    # Use template-based extraction (True) or basic markdown extraction (False)
+    # Extraction mode selection (only one can be True at a time):
+    # - use_template: Template-based structured extraction
+    # - use_vlm_pipeline: VLM (Vision Language Model) enhanced extraction
+    # - Neither: Basic markdown extraction
     use_template: bool = False
+    use_vlm_pipeline: bool = False  # Requires: pip install docling[vlm]
+
+    # VLM Pipeline configuration (only used if use_vlm_pipeline=True)
+    # Default: "granite_docling"
+    vlm_preset: str = OperatorConstants.Config.VLM_PRESET_DEFAULT
+    # "transformers" or "mlx"
+    vlm_engine_type: str = OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
 
     # File pattern for directory processing (only used if input is a directory)
     file_pattern: str = "*.pdf"
@@ -64,6 +76,11 @@ def main() -> int:
         OperatorConstants.Config.EXTRACT_IMAGES: True,
         OperatorConstants.Config.USE_TEMPLATE: use_template,
         OperatorConstants.Config.TEMPLATE: invoice_template if use_template else None,
+        OperatorConstants.Config.USE_VLM_PIPELINE: use_vlm_pipeline,
+        OperatorConstants.Config.VLM_PRESET: vlm_preset,
+        OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_engine_type
+        if use_vlm_pipeline
+        else None,
     }
 
     operator: ExtractDoclingOperator = ExtractDoclingOperator(config)
@@ -96,20 +113,23 @@ def main() -> int:
         logger.info(f"Metadata: {metadata}")
         logger.info(f"Result columns: {result_table.column_names}")
 
-        if OperatorConstants.Columns.DOC_COLUMN_DEFAULT in result_table.column_names:
-            content = result_table[OperatorConstants.Columns.DOC_COLUMN_DEFAULT][0].as_py()
+        # Use shorter aliases for readability
+        cols = OperatorConstants.Columns
+
+        if cols.DOC_COLUMN_DEFAULT in result_table.column_names:
+            content = result_table[cols.DOC_COLUMN_DEFAULT][0].as_py()
             logger.info(f"Content length: {len(content) if content else 0} characters")
             if content:
                 logger.info(f"Content preview: {content[:200]}...")
 
-        if OperatorConstants.Columns.EXTRACTED_DATA in result_table.column_names:
-            extracted_data = result_table[OperatorConstants.Columns.EXTRACTED_DATA][0].as_py()
+        if cols.EXTRACTED_DATA in result_table.column_names:
+            extracted_data = result_table[cols.EXTRACTED_DATA][0].as_py()
             if extracted_data:
                 logger.info(f"Extracted data length: {len(extracted_data)} characters")
                 logger.info(f"Extracted data preview: {extracted_data[:200]}...")
 
-        if OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result_table.column_names:
-            hash_id = result_table[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT][0].as_py()
+        if cols.DOC_ID_HASH_DEFAULT in result_table.column_names:
+            hash_id = result_table[cols.DOC_ID_HASH_DEFAULT][0].as_py()
             logger.info(f"Document hash: {hash_id}")
 
     elif input_path.is_dir():
@@ -156,7 +176,10 @@ def main() -> int:
 
 if __name__ == "__main__":
     # Configure logging
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    )
     sys.exit(main())
 
 # Made with Bob
