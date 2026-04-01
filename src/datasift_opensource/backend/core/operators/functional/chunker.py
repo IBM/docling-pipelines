@@ -1,4 +1,3 @@
-import json
 from enum import StrEnum
 from typing import Any
 
@@ -7,6 +6,7 @@ from data_processing.utils import TransformUtils
 from langchain_core.documents import Document
 
 from common.clients.ollama_client import OllamaClient
+from common.clients.ollama_embeddings_adapter import OllamaClientEmbeddings
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -16,11 +16,9 @@ from common.constants.constants import (
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
-from common.util.core.validation import is_value_in_range
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from core.operators.extract.extract_docling import ExtractDoclingOperator
-from core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.functional.chunker_validator import ChunkerValidator
 from core.operators.operator_utils import OperatorUtils
 
 
@@ -378,118 +376,6 @@ class ChunkerOperator(AbstractOperator):
     def get_required_features(self) -> list[str]:
         return [self.doc_column]
 
-    def _validate_simple_chunker(self, errors: list[Any]) -> None:
-        """
-        Validate configuration for simple chunking.
-
-        Args:
-            errors: List to append validation errors to
-        """
-        if self.should_validate_field(field_value=self.chunk_size):
-            if self.chunk_size is not None and not is_value_in_range(
-                value=self.chunk_size,
-                min_value=CHUNK_MIN_SIZE,
-                max_value=CHUNK_MAX_SIZE,
-            ):
-                errors.append(f"Invalid input: chunk_size must be between {CHUNK_MIN_SIZE} and {CHUNK_MAX_SIZE}.")
-
-        if self.should_validate_field(field_value=self.chunk_overlap):
-            if self.chunk_overlap is not None and not is_value_in_range(
-                value=self.chunk_overlap,
-                min_value=CHUNK_OVERLAP_MIN_SIZE,
-                max_value=CHUNK_OVERLAP_MAX_SIZE,
-            ):
-                errors.append(
-                    f"Invalid input: chunk_overlap must be between {CHUNK_OVERLAP_MIN_SIZE} and {CHUNK_OVERLAP_MAX_SIZE}."
-                )
-
-        if self.should_validate_field(field_value=self.chunk_type):
-            if self.chunk_type not in VALID_CHUNK_TYPES:
-                errors.append(
-                    ValidationMessage.create(
-                        message=f"Invalid chunk_type: {self.chunk_type}",
-                        message_code=ValidationCodeMessages.CHUNKER_INVALID_CHUNK_TYPE.name,
-                        chunk_type=self.chunk_type,
-                    )
-                )
-
-    def _validate_semantic_chunker(self, errors: list[Any]) -> None:
-        """
-        Validate configuration for semantic chunking.
-
-        Args:
-            errors: List to append validation errors to
-        """
-        # Validate breakpoint threshold type
-        if self.should_validate_field(field_value=self.breakpoint_threshold_type):
-            if self.breakpoint_threshold_type not in VALID_BREAKPOINT_TYPES:
-                errors.append(
-                    f"Invalid breakpoint_threshold_type: {self.breakpoint_threshold_type}. "
-                    f"Must be one of: {', '.join(VALID_BREAKPOINT_TYPES)}"
-                )
-
-        # Validate breakpoint threshold amount if provided
-        if self.should_validate_field(field_value=self.breakpoint_threshold_amount):
-            if self.breakpoint_threshold_amount is not None:
-                # Validate based on threshold type
-                if self.breakpoint_threshold_type == BreakpointThresholdType.PERCENTILE.value:
-                    if not (0 <= self.breakpoint_threshold_amount <= 100):
-                        errors.append(
-                            f"Invalid breakpoint_threshold_amount for percentile: {self.breakpoint_threshold_amount}. "
-                            "Must be between 0 and 100."
-                        )
-                elif self.breakpoint_threshold_type == BreakpointThresholdType.STANDARD_DEVIATION.value:
-                    if self.breakpoint_threshold_amount < 0:
-                        errors.append(
-                            f"Invalid breakpoint_threshold_amount for standard_deviation: {self.breakpoint_threshold_amount}. "
-                            "Must be non-negative."
-                        )
-
-        # Validate semantic embeddings model is not empty
-        if self.should_validate_field(field_value=self.semantic_embeddings_model):
-            if not self.semantic_embeddings_model or not self.semantic_embeddings_model.strip():
-                errors.append("semantic_embeddings_model cannot be empty for semantic chunking")
-
-    def _validate_summarization(self, errors: list[Any]) -> None:
-        if self.should_validate_field(field_value=self.enable_summarization) and self.enable_summarization:
-            if self.should_validate_field(field_value=self.summarization_model):
-                if self.summarization_model is None or len(self.summarization_model) == 0:
-                    errors.append(
-                        "Invalid model id. Summarization Model id not provided. "
-                        "Please select a foundation model from the available models."
-                    )
-
-    def _validate_docling_chunker(self, errors: list[Any]) -> None:
-        """
-        Validate configuration for hybrid chunking.
-
-        Args:
-            errors: List to append validation errors to
-        """
-        # Validate chunk_size for hybrid chunking (token-based, different range than simple)
-        if self.should_validate_field(field_value=self.chunk_size):
-            if self.chunk_size is not None and not is_value_in_range(
-                value=self.chunk_size,
-                min_value=DOCLING_CHUNK_SIZE_MIN,
-                max_value=DOCLING_CHUNK_SIZE_MAX,
-            ):
-                errors.append(
-                    f"Invalid input: chunk_size for hybrid chunking must be between {DOCLING_CHUNK_SIZE_MIN} and {DOCLING_CHUNK_SIZE_MAX} tokens."
-                )
-
-        # Validate chunk_overlap for hybrid chunking
-        if self.should_validate_field(field_value=self.chunk_overlap):
-            if self.chunk_overlap is not None:
-                if self.chunk_overlap < 0:
-                    errors.append("Invalid input: chunk_overlap must be non-negative for hybrid chunking.")
-                elif self.chunk_size is not None and self.chunk_overlap >= self.chunk_size:
-                    errors.append("Invalid input: chunk_overlap must be less than chunk_size for hybrid chunking.")
-
-        # Validate tokenizer is not empty
-        if self.should_validate_field(field_value=self.docling_tokenizer):
-            if not self.docling_tokenizer or not self.docling_tokenizer.strip():
-                errors.append("docling_tokenizer cannot be empty for hybrid chunking")
-
     def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
         super().validate(errors, warnings, available_features)
         if OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT in available_features:
@@ -500,18 +386,42 @@ class ChunkerOperator(AbstractOperator):
                 )
             )
 
-        self._validate_simple_chunker(errors)
+        # Validate simple chunker parameters (always validate these base parameters)
+        ChunkerValidator.validate_simple_chunker(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            chunk_type=self.chunk_type,
+            should_validate_field_fn=self.should_validate_field,
+            errors=errors,
+        )
 
         # Validate semantic chunking parameters if using semantic chunking
         if self.chunk_type == ChunkType.SEMANTIC.value:
-            self._validate_semantic_chunker(errors)
+            ChunkerValidator.validate_semantic_chunker(
+                breakpoint_threshold_type=self.breakpoint_threshold_type,
+                breakpoint_threshold_amount=self.breakpoint_threshold_amount,
+                semantic_embeddings_model=self.semantic_embeddings_model,
+                should_validate_field_fn=self.should_validate_field,
+                errors=errors,
+            )
 
         # Validate hybrid chunking parameters if using hybrid chunking
         elif self.chunk_type == ChunkType.HYBRID.value:
-            self._validate_docling_chunker(errors)
+            ChunkerValidator.validate_docling_chunker(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+                docling_tokenizer=self.docling_tokenizer,
+                should_validate_field_fn=self.should_validate_field,
+                errors=errors,
+            )
 
         # Validate summarization model
-        self._validate_summarization(errors)
+        ChunkerValidator.validate_summarization(
+            enable_summarization=self.enable_summarization,
+            summarization_model=self.summarization_model if self.enable_summarization else "",
+            should_validate_field_fn=self.should_validate_field,
+            errors=errors,
+        )
 
     def _simple_split_text(self, content: str) -> list[Document]:
         """
@@ -596,51 +506,12 @@ class ChunkerOperator(AbstractOperator):
             - self.breakpoint_threshold_amount: Threshold value for the method
             This method is called internally by _split_text() and should not be called directly.
         """
-        from langchain_core.embeddings import Embeddings
         from langchain_experimental.text_splitter import SemanticChunker
 
         # Get OllamaClient instance (reuses existing pattern from EmbeddingsOperator)
         ollama_client = self._get_ollama_client()
 
-        # Create a custom embeddings wrapper that uses our OllamaClient
-        class OllamaClientEmbeddings(Embeddings):
-            """
-            Wrapper to make OllamaClient compatible with LangChain's Embeddings interface.
-
-            This adapter allows the project's OllamaClient to be used with LangChain's
-            SemanticChunker, ensuring consistency across the codebase and reusing the
-            existing Ollama integration infrastructure.
-            """
-
-            def __init__(self, client: OllamaClient):
-                """Initialize with an OllamaClient instance."""
-                self.client = client
-
-            def embed_documents(self, texts: list[str]) -> list[list[float]]:
-                """
-                Generate embeddings for multiple documents.
-
-                Args:
-                    texts: List of text strings to embed
-
-                Returns:
-                    List of embedding vectors (list of floats) for each text
-                """
-                return [self.client.generate_embeddings(text) for text in texts]
-
-            def embed_query(self, text: str) -> list[float]:
-                """
-                Generate embedding for a single query text.
-
-                Args:
-                    text: Text string to embed
-
-                Returns:
-                    Embedding vector as list of floats
-                """
-                return self.client.generate_embeddings(text)
-
-        # Use our custom embeddings wrapper with the OllamaClient
+        # Use the OllamaClientEmbeddings adapter to make OllamaClient compatible with LangChain
         embeddings = OllamaClientEmbeddings(ollama_client)
 
         # Create semantic chunker with configured parameters
@@ -819,111 +690,141 @@ class ChunkerOperator(AbstractOperator):
         else:
             raise DatasiftException(f"Invalid chunk type: {self.chunk_type}")
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
-        logger.info(
-            f"Using {self.chunk_type} for generating chunks",
-            extra=self.common_log_arguments,
-        )
+    def _initialize_summarization(self, metadata: dict[str, Any]) -> Any:
+        """
+        Initialize summarization utility if enabled.
 
-        input_doc_data: list[dict[str, Any]] = table.to_pylist()
-        chunked_content_column: list[list[dict[str, Any]]] = []
-        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
+        Args:
+            metadata: Metadata dictionary to update with warnings if initialization fails
 
-        summarization_util = ""
-        if self.enable_summarization:
-            try:
-                from common.util.summarization_util import SummarizationUtil
+        Returns:
+            SummarizationUtil instance if successful, empty string otherwise
 
-                summarization_util = SummarizationUtil(
-                    model=self.summarization_model,
-                    max_length=self.max_length,
-                    overlap_ratio=self.overlap_ratio,
-                    summary_sentences=self.summary_sentences,
-                    summary_max_words=self.summary_max_words,
-                    validate_model=False,
+        Note:
+            Updates metadata with warnings and status if initialization fails
+        """
+        if not self.enable_summarization:
+            return ""
+
+        try:
+            from common.util.summarization_util import SummarizationUtil
+
+            return SummarizationUtil(
+                model=self.summarization_model,
+                max_length=self.max_length,
+                overlap_ratio=self.overlap_ratio,
+                summary_sentences=self.summary_sentences,
+                summary_max_words=self.summary_max_words,
+                validate_model=False,
+            )
+        except Exception as e:
+            logger.warning(
+                f"Summarization initialization failed, skipping summary generation: {e!s}",
+                exc_info=True,
+                extra=self.common_log_arguments,
+            )
+            self.enable_summarization = False
+            metadata[Metrics.External.PROCESSING_MESSAGE] = (
+                "Failed to generate summary as summarization model initialization failed"
+            )
+            metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
+            ).value
+            return ""
+
+    def _process_single_document(
+        self, doc: dict[str, Any], idx: int, summarization_util: Any, metadata: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]] | None, bool]:
+        """
+        Process a single document to create chunks.
+
+        Args:
+            doc: Document dictionary containing content and metadata
+            idx: Document index in the input data
+            summarization_util: SummarizationUtil instance or empty string
+            metadata: Metadata dictionary to update with processing results
+
+        Returns:
+            Tuple of (chunked_content list, should_remove_row boolean)
+            Returns (None, True) if processing fails
+
+        Note:
+            Updates metadata with error information if processing fails
+        """
+        try:
+            logger.debug(
+                f"Creating chunks for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} with {self.chunk_type.lower()} chunk type",
+                extra=self.common_log_arguments,
+            )
+            content: str = doc[self.doc_column]
+            if not content:
+                raise DatasiftException(
+                    f"The column '{self.doc_column}' was not found in the input data. This may be due to the use of the merge operator with the 'columns' merge type. For this flow, please use the 'rows' merge type instead."
                 )
+            chunks: list[Document] = self._split_text(content)
+        except Exception as exc:
+            logger.error(
+                f"An error occurred while creating chunking for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} : \n {exc!s}",
+                exc_info=True,
+                stack_info=True,
+            )
+            self.record_failed_document(
+                metadata=metadata,
+                doc_id=doc.get(OperatorConstants.Columns.ID),
+                doc_name=doc.get(OperatorConstants.Misc.NAME),
+                reason=f"Failed to create a data chunk for the document '{doc.get(OperatorConstants.Misc.NAME)}' due to the following error: {getattr(exc, 'message', str(exc)) if getattr(exc, 'message', str(exc)) else getattr(exc, 'message', repr(exc))}",
+            )
+            metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                metadata[Metrics.External.NODE_STATUS],
+                ExecutionStatus.COMPLETED_WITH_ERRORS.value,
+            )
+            return None, True
+
+        chunked_content: list[dict[str, Any]] = []
+        for chunk in chunks:
+            chunked_content.append(
+                {
+                    OperatorConstants.Columns.CHUNK: chunk.page_content,
+                    OperatorConstants.Processing.START_INDEX: chunk.metadata.get(
+                        OperatorConstants.Processing.START_INDEX, 0
+                    )
+                    if chunk.metadata
+                    else 0,
+                }
+            )
+
+        if self.enable_summarization and chunked_content:
+            try:
+                summarization_util.generate_summary_for_chunked_content(chunked_content=chunked_content)
             except Exception as e:
                 logger.warning(
-                    f"Summarization initialization failed, skipping summary generation: {e!s}",
-                    exc_info=True,
+                    f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
                     extra=self.common_log_arguments,
                 )
-                self.enable_summarization = False
-                metadata[Metrics.External.PROCESSING_MESSAGE] = (
-                    "Failed to generate summary as summarization model initialization failed"
-                )
+                metadata[Metrics.External.PROCESSING_MESSAGE] = "Failed to generate summary for some or all documents"
                 metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
                     metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
                 ).value
 
-        total_chunks: int = 0
-        remove_row_idx: list[int] = []
-        for idx, doc in enumerate(input_doc_data):
-            try:
-                logger.debug(
-                    f"Creating chunks for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} with {self.chunk_type.lower()} chunk type",
-                    extra=self.common_log_arguments,
-                )
-                content: str = doc[self.doc_column]
-                if not content:
-                    raise DatasiftException(
-                        f"The column '{self.doc_column}' was not found in the input data. This may be due to the use of the merge operator with the 'columns' merge type. For this flow, please use the 'rows' merge type instead."
-                    )
-                chunks: list[Document] = self._split_text(content)
-            except Exception as exc:
-                logger.error(
-                    f"An error occurred while creating chunking for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} : \n {exc!s}",
-                    exc_info=True,
-                    stack_info=True,
-                )
-                self.record_failed_document(
-                    metadata=metadata,
-                    doc_id=doc.get(OperatorConstants.Columns.ID),
-                    doc_name=doc.get(OperatorConstants.Misc.NAME),
-                    reason=f"Failed to create a data chunk for the document '{doc.get(OperatorConstants.Misc.NAME)}' due to the following error: {getattr(exc, 'message', str(exc)) if getattr(exc, 'message', str(exc)) else getattr(exc, 'message', repr(exc))}",
-                )
-                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                    metadata[Metrics.External.NODE_STATUS],
-                    ExecutionStatus.COMPLETED_WITH_ERRORS.value,
-                )
-                remove_row_idx.append(idx)
-                continue
-            chunked_content: list[dict[str, Any]] = []
-            for chunk in chunks:
-                chunked_content.append(
-                    {
-                        OperatorConstants.Columns.CHUNK: chunk.page_content,
-                        OperatorConstants.Processing.START_INDEX: chunk.metadata.get(
-                            OperatorConstants.Processing.START_INDEX, 0
-                        )
-                        if chunk.metadata
-                        else 0,
-                    }
-                )
+        return chunked_content, False
 
-            if self.enable_summarization and chunked_content:
-                try:
-                    summarization_util.generate_summary_for_chunked_content(chunked_content=chunked_content)
-                except Exception as e:
-                    logger.warning(
-                        f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
-                        extra=self.common_log_arguments,
-                    )
-                    metadata[Metrics.External.PROCESSING_MESSAGE] = (
-                        "Failed to generate summary for some or all documents"
-                    )
-                    metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                        metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
-                    ).value
+    def _finalize_table(
+        self, table: pa.Table, chunked_content_column: list[list[dict[str, Any]]], total_chunks: int
+    ) -> pa.Table:
+        """
+        Finalize the output table by adding chunked content and optionally removing original content.
 
-            chunked_content_column.append(chunked_content)
-            metadata[Metrics.External.PROCESSED_DOCS] += 1
-            total_chunks += len(chunked_content)
+        Args:
+            table: Input PyArrow table
+            chunked_content_column: List of chunked content for each document
+            total_chunks: Total number of chunks created
 
-        # Add total_chunks to metadata
-        metadata[Metrics.External.TOTAL_CHUNKS] = total_chunks
+        Returns:
+            Finalized PyArrow table with chunked content
 
-        table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
+        Note:
+            Removes original content column if retain_original_content is False
+        """
         if chunked_content_column:
             table = TransformUtils.add_column(
                 table=table,
@@ -935,18 +836,50 @@ class ChunkerOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
 
-        # Add the hash column to the pyarrow table
-        if table.columns:
-            logger.info(
-                f"Dropping original content column: {self.doc_column} from pyarrow table",
-                extra=self.common_log_arguments,
-            )
-            # table_list, _ = DocIdHashOperator({}).transform(table)
-            # table = table_list[0]
-
         # If original content is not to be retained then drop the content column.
         if table.columns and not self.retain_original_content:
             table = table.drop_columns([self.doc_column])
+            logger.info(
+                f"Dropped original content column: {self.doc_column}",
+                extra=self.common_log_arguments,
+            )
+
+        return table
+
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+        logger.info(
+            f"Using {self.chunk_type} for generating chunks",
+            extra=self.common_log_arguments,
+        )
+
+        input_doc_data: list[dict[str, Any]] = table.to_pylist()
+        chunked_content_column: list[list[dict[str, Any]]] = []
+        metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
+
+        # Initialize summarization if enabled
+        summarization_util = self._initialize_summarization(metadata)
+
+        # Process each document
+        total_chunks: int = 0
+        remove_row_idx: list[int] = []
+        for idx, doc in enumerate(input_doc_data):
+            chunked_content, should_remove = self._process_single_document(doc, idx, summarization_util, metadata)
+
+            if should_remove:
+                remove_row_idx.append(idx)
+                continue
+
+            # Type checker: chunked_content is guaranteed to be list here (not None)
+            if chunked_content is not None:
+                chunked_content_column.append(chunked_content)
+                metadata[Metrics.External.PROCESSED_DOCS] += 1
+                total_chunks += len(chunked_content)
+
+        # Add total_chunks to metadata
+        metadata[Metrics.External.TOTAL_CHUNKS] = total_chunks
+
+        # Remove failed rows and finalize table
+        table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
+        table = self._finalize_table(table, chunked_content_column, total_chunks)
 
         return [table], metadata
-
