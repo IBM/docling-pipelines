@@ -577,6 +577,10 @@ class JobTracker(metaclass=Singleton):
         logger.info(f"Completed final document status update for job_run_id: {job_stats.job_run_id}")
 
     def write_job_logs(self, *, job_stats, job_log_path):
+        if job_log_path is None:
+            logger.warning(f"job_log_path is None, skipping job log write for job_run_id: {job_stats.job_run_id}")
+            return
+        
         stats = deepcopy(job_stats)
         self._remove_node_metadata_from_node_stats(job_stats=stats)
         with open(job_log_path, "w") as file:

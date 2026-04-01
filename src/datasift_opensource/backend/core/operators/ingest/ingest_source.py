@@ -3,7 +3,6 @@ import hashlib
 import importlib
 import json
 from typing import Any, ClassVar, Iterator
-
 import boto3
 import pyarrow as pa
 
@@ -16,7 +15,8 @@ from langchain_core.documents import Document
 
 # Import adapters to trigger registration via @register_source_adapter decorator
 # These imports are necessary for the factory to discover available adapters
-import core.operators.ingest.adapters.outbound.sources.google_drive.adapter  # noqa: F401
+# Note: Google Drive adapter import moved to lazy loading in _get_loader() to avoid
+# requiring google_auth_oauthlib dependency unless actually using Google Drive
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -178,7 +178,9 @@ class MicrosoftGraphLoader(BaseLoader):
         files = self._list_files(folder_item_id=folder_item_id)
         for item in files:
             try:
-                # Binary content will be downloaded separately in extract_content()
+                # Download binary content immediately
+                binary_content = self._download_file(item)
+                
                 metadata = {
                     "source": item.get("name", ""),
                     "drive_id": self.drive_id,
@@ -187,11 +189,17 @@ class MicrosoftGraphLoader(BaseLoader):
                     "last_modified": item.get("lastModifiedDateTime", ""),
                     "web_url": item.get("webUrl", ""),
                     "mime_type": item.get("file", {}).get("mimeType", ""),
+                    "has_binary_content": True,
                 }
-                # Return Document with empty page_content since we only need binary content
-                # The binary will be downloaded separately in extract_content()
-                yield Document(page_content="", metadata=metadata)
+                
+                # Create Document and attach binary content
+                doc = Document(page_content="", metadata=metadata)
+                doc._binary_content = binary_content
+                yield doc
             except Exception as e:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to download file {item.get('name', '')}: {str(e)}", exc_info=True)
                 yield Document(
                     page_content="",
                     metadata={
@@ -630,16 +638,18 @@ class IngestSourceOperator(AbstractOperator):
             # ------------------------------------------------------------------ #
             # All adapters using the new hexagonal architecture store binary
             # content in the _binary_content attribute to avoid JSON serialization
-            if hasattr(doc, "_binary_content") and doc._binary_content:
+            if hasattr(doc, "_binary_content") and doc._binary_content is not None:
                 binary_content = doc._binary_content
                 logger.info(
-                    f"Using pre-fetched binary content from adapter for: {source}",
+                    f"Using pre-fetched binary content from adapter for: {source} (size: {len(binary_content)} bytes)",
                     extra=self.common_log_arguments,
                 )
             elif doc.metadata.get("has_binary_content"):
                 # Binary content should be available but isn't - this is an error
                 logger.error(
-                    f"Binary content marked as available but not found for: {source}",
+                    f"Binary content marked as available but not found for: {source}. "
+                    f"has_attr: {hasattr(doc, '_binary_content')}, "
+                    f"value: {getattr(doc, '_binary_content', 'NOT_SET')}",
                     extra=self.common_log_arguments,
                 )
                 return False
@@ -865,32 +875,16 @@ class IngestSourceOperator(AbstractOperator):
                 "The process_documents() method uses _load_s3_documents() instead."
             )
 
-        # 2. Microsoft SharePoint
-        elif self.provider == "sharepoint":
-            # Use custom MicrosoftGraphLoader which supports app-only (client credentials) auth.
-            # LangChain's SharePointLoader calls /me/drives/ which requires delegated user auth.
-            return MicrosoftGraphLoader(
-                drive_id=self.connection_params.get("document_library_id"),
-                client_id=self.credentials.get("client_id"),
-                client_secret=self.credentials.get("client_secret"),
-                tenant_id=self.credentials.get("tenant_id"),
-                folder_path=self.connection_params.get("folder_path"),
-                recursive=self.connection_params.get("recursive", True),
+        # 2. Microsoft SharePoint, OneDrive & Google Drive
+        # These providers use the hexagonal architecture adapters via _load_documents_via_adapter()
+        # and should not reach this method. Keeping this for backward compatibility.
+        elif self.provider in ["sharepoint", "onedrive", "google_drive"]:
+            raise ValueError(
+                f"{self.provider} provider should use _load_documents_via_adapter(). "
+                "This provider is registered with SourceAdapterFactory and should be handled automatically."
             )
 
-        # 3. Microsoft OneDrive
-        elif self.provider == "onedrive":
-            # Use custom MicrosoftGraphLoader which supports app-only (client credentials) auth.
-            return MicrosoftGraphLoader(
-                drive_id=self.connection_params.get("drive_id"),
-                client_id=self.credentials.get("client_id"),
-                client_secret=self.credentials.get("client_secret"),
-                tenant_id=self.credentials.get("tenant_id"),
-                folder_path=self.connection_params.get("folder_path"),
-                recursive=self.connection_params.get("recursive", True),
-            )
-
-        # 4. Custom / FileNet / Other
+        # 5. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         elif self.provider == "custom":
             loader_path: str = self.connection_params.get("loader_class_path")

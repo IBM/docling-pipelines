@@ -84,9 +84,11 @@ class AbstractOrchestrator(ABC):
         """
         Executes the given flow
         """
-        _, job_run_id = itemgetter(DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID)(params)
-        self.job_id = params.get(DatasiftConstants.JOB_ID)
-        self.job_run_id = params.get(DatasiftConstants.JOB_RUN_ID)
+        job_id, job_run_id = itemgetter(DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID)(params)
+        
+        # Initialize the orchestrator with job_id and job_run_id
+        self.initialize(job_id=job_id, job_run_id=job_run_id)
+ 
         global_config = (
             flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
             | params

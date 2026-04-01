@@ -242,17 +242,16 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        # Google Drive now uses adapter architecture, not _get_loader
-        # Verify operator is initialized correctly
-        assert operator.provider == "google_drive"
-        assert operator.connection_params["folder_id"] == "test-folder-id"
-        assert (
-            operator.credentials["credentials_json_path"] == "/path/to/credentials.json"
-        )
+        # Google Drive uses adapter architecture via SourceAdapterFactory
+        # Calling _get_loader() should raise ValueError
+        with pytest.raises(
+            ValueError,
+            match="google_drive provider should use _load_documents_via_adapter",
+        ):
+            operator._get_loader()
 
-    @patch("core.operators.ingest.ingest_source.MicrosoftGraphLoader")
-    def test_get_loader_sharepoint(self, mock_sp_loader):
-        """Test _get_loader returns MicrosoftGraphLoader for SharePoint provider."""
+    def test_get_loader_sharepoint(self):
+        """Test _get_loader raises ValueError for SharePoint provider (should use adapter)."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
@@ -266,13 +265,12 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
-        _loader = operator._get_loader()  # noqa: F841
+        
+        with pytest.raises(ValueError, match="sharepoint provider should use _load_documents_via_adapter"):
+            operator._get_loader()
 
-        mock_sp_loader.assert_called_once()
-
-    @patch("core.operators.ingest.ingest_source.MicrosoftGraphLoader")
-    def test_get_loader_onedrive(self, mock_od_loader):
-        """Test _get_loader returns MicrosoftGraphLoader for OneDrive provider."""
+    def test_get_loader_onedrive(self):
+        """Test _get_loader raises ValueError for OneDrive provider (should use adapter)."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
@@ -289,9 +287,9 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
-        _loader = operator._get_loader()  # noqa: F841
-
-        mock_od_loader.assert_called_once()
+        
+        with pytest.raises(ValueError, match="onedrive provider should use _load_documents_via_adapter"):
+            operator._get_loader()
 
     @patch("importlib.import_module")
     def test_get_loader_custom(self, mock_import):
@@ -785,6 +783,9 @@ class TestTransform:
         "core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.create"
     )
     @patch(
+        "core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.get_adapter_class"
+    )
+    @patch(
         "core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.is_registered",
         return_value=True,
     )
@@ -795,6 +796,7 @@ class TestTransform:
         mock_makedirs,
         mock_path_exists,
         mock_is_registered,
+        mock_get_adapter_class,
         mock_factory_create,
         mock_incremental_util,
         mock_documents,
@@ -811,6 +813,10 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
+        # Mock get_adapter_class to return a mock adapter class
+        mock_adapter_class = Mock()
+        mock_get_adapter_class.return_value = mock_adapter_class
+        
         # Mock the adapter to return documents
         mock_adapter_instance = Mock()
 
@@ -826,13 +832,15 @@ class TestTransform:
                 domain_doc.size = 100
                 domain_doc.mimetype = "text/plain"
                 domain_doc.extension = ".txt"
-                domain_doc.content = b"test content"
-                domain_doc.metadata = {}
+                domain_doc.content = doc.page_content.encode('utf-8')  # Use actual content from mock_documents
+                domain_doc.metadata = doc.metadata
                 yield domain_doc
 
-        mock_adapter_instance.fetch_documents = mock_fetch_documents
+        # Mock fetch_documents to return the async generator when called
+        mock_adapter_instance.fetch_documents = Mock(side_effect=lambda config: mock_fetch_documents(config))
+        mock_adapter_instance.supports_incremental = False
         mock_factory_create.return_value = mock_adapter_instance
-
+        
         config = {
             "provider": "google_drive",
             "connection_params": {"folder_id": "test-folder-id", "recursive": True},
