@@ -1,0 +1,20 @@
+{
+    "job_id": "001",
+    "job_run_id": "002",
+    "status": "Starting",
+    "message": "No documents are ingested.",
+    "start_time": 1772435043,
+    "end_time": 1772435053,
+    "duration": 10,
+    "total_docs": 0,
+    "processed_docs": 0,
+    "total_pages_processed": 0,
+    "execution_time": null,
+    "failed_docs": 0,
+    "skipped_docs": 0,
+    "deleted_doc_count": 0,
+    "node_stats": {},
+    "orchestrator": "Python",
+    "heartbeat_timestamp": 1772435053,
+    "flow_id": "flow1"
+}
