@@ -20,8 +20,8 @@ import pytest
 import pyarrow as pa
 import numpy as np
 
-from core.operators.functional.embeddings_operator import (
-    EmbeddingsOperator,
+from core.operators.functional.embeddings import EmbeddingsOperator
+from core.operators.functional.embeddings.embeddings_operator import (
     OVERLAP_RATIO_DEFAULT,
     OVERLAP_RATIO_MIN,
     OVERLAP_RATIO_MAX,
@@ -188,18 +188,6 @@ class TestEmbeddingsOperatorInitialization:
         assert operator.embeddings_model_id == "granite4"
         assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
 
-    def test_init_with_openai_provider(self):
-        """Test operator initialization with OpenAI provider."""
-        config = {
-            "embeddings_type": "openai",
-            "embeddings_model_id": "text-embedding-ada-002",
-        }
-        # OpenAI provider is not yet implemented, so initialization should raise an exception
-        with pytest.raises(Exception) as exc_info:
-            EmbeddingsOperator(config)
-
-        assert "not yet implemented" in str(exc_info.value).lower()
-
     def test_get_required_features(self, sample_config):
         """Test get_required_features returns correct list."""
         operator = EmbeddingsOperator(sample_config)
@@ -354,7 +342,9 @@ class TestEmbeddingsOperatorValidation:
         assert len(errors) > 0
         assert any("overlap_ratio must be between" in err for err in errors)
 
-    @patch("core.operators.functional.embeddings_operator.OllamaClient")
+    @patch(
+        "core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
+    )
     def test_validate_invalid_model_id(self, mock_ollama_client):
         """Test validation with invalid model ID."""
         config = {
@@ -372,7 +362,9 @@ class TestEmbeddingsOperatorValidation:
             "embeddings_model_id must be a non-empty string" in err for err in errors
         )
 
-    @patch("core.operators.functional.embeddings_operator.OllamaClient")
+    @patch(
+        "core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
+    )
     def test_validate_all_supported_embeddings_types(self, mock_ollama_client):
         """Test validation accepts all supported embeddings types."""
         # Only test ollama since openai is not yet implemented
@@ -644,19 +636,6 @@ class TestEmbeddingsGeneration:
             "unsupported" in str(exc_info.value).lower()
             or "failed to initialize" in str(exc_info.value).lower()
         )
-
-    def test_create_embeddings_openai_not_implemented(self):
-        """Test that OpenAI provider raises not implemented error during initialization."""
-        config = {
-            "embeddings_type": "openai",
-            "embeddings_model_id": "text-embedding-ada-002",
-        }
-
-        # OpenAI provider should raise exception during initialization
-        with pytest.raises(Exception) as exc_info:
-            EmbeddingsOperator(config)
-
-        assert "not yet implemented" in str(exc_info.value).lower()
 
 
 # Document Hash Tests
@@ -1048,10 +1027,11 @@ class TestEmbeddingsOperatorIntegration:
 
             # Mock OllamaClient for this specific model
             with patch(
-                "core.operators.functional.embeddings_operator.OllamaClient"
+                "core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
             ) as mock_client:
                 mock_instance = Mock()
                 mock_instance.generate_embeddings.return_value = [0.1] * 384
+                mock_instance.generate_embeddings_batch.return_value = [[0.1] * 384]
                 mock_client.return_value = mock_instance
 
                 operator = EmbeddingsOperator(config)

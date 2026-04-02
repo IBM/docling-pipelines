@@ -6,21 +6,12 @@ These tests require:
 2. A model to be available (e.g., ollama pull granite4 or llama2)
 """
 
-import sys
-from pathlib import Path
-
 import pytest
 import pyarrow as pa
 import requests
 
-# Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
-)
-sys.path.insert(0, str(backend_dir))
-
-from common.exceptions.datasift_exceptions import DatasiftException  # noqa: E402
-from core.operators.functional.embeddings_operator import (  # noqa: E402
+from common.exceptions.datasift_exceptions import DatasiftException
+from core.operators.functional.embeddings.embeddings_operator import (
     EmbeddingsOperator,
 )
 

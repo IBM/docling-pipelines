@@ -6,17 +6,13 @@ It supports multiple providers (Ollama, OpenAI, etc.) and handles chunking of lo
 """
 
 import json
-from enum import Enum
 from typing import Any
 
 import numpy as np
 import pyarrow as pa
 
-from common.clients.ollama_client import (
-    DEFAULT_TOKEN_LIMIT,
-    OLLAMA_MODEL_TOKEN_LIMITS,
-    OllamaClient,
-)
+# Import adapters to trigger registration
+import core.operators.functional.embeddings.adapters.outbound  # noqa: F401
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -25,32 +21,21 @@ from common.constants.constants import (
 )
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.infrastructure.logging import get_logger
-from common.util.summarization_util import SummarizationUtil
 
 # Import TransformUtils from centralized location
 from common.util.data.transform import TransformUtils
+from common.util.infrastructure.logging import get_logger
+from common.util.summarization_util import SummarizationUtil
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.functional.doc_id_hash import DocIdHashOperator
+from core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import LLMAdapterFactory
+from core.operators.functional.embeddings.ports.outbound.llm_service import LLMServicePort
 from core.operators.operator_utils import OperatorUtils
 
 logger = get_logger()
 
-
-class EmbeddingsProvider(Enum):
-    """
-    Supported embeddings providers.
-
-    This enum defines the available embedding providers that can be used
-    for generating vector embeddings from text content.
-    """
-
-    OLLAMA = "ollama"
-    OPENAI = "openai"
-
-
 # Supported embeddings providers (for backward compatibility)
-SUPPORTED_EMBEDDINGS_TYPES: list[str] = [provider.value for provider in EmbeddingsProvider]
+SUPPORTED_EMBEDDINGS_TYPES: list[str] = LLMAdapterFactory.list_adapters()
 
 # Overlap ratio for chunking
 OVERLAP_RATIO_KEY: str = "overlap_ratio"
@@ -81,10 +66,9 @@ class EmbeddingsOperator(AbstractOperator):
     - openai: OpenAI embedding models (text-embedding-ada-002, etc.)
 
     To add a new provider:
-    1. Add provider name to SUPPORTED_EMBEDDINGS_TYPES
-    2. Implement _create_embeddings_<provider>() method
-    3. Add provider case to _create_embeddings() routing method
-    4. Update metadata and documentation
+    1. Create a new provider class inheriting from EmbeddingProvider
+    2. Register it in providers/__init__.py using ProviderFactory.register()
+    3. The provider will be automatically available through the factory pattern
     """
 
     short_name: str = OperatorConstants.Operators.EMBEDDINGS
@@ -102,6 +86,7 @@ class EmbeddingsOperator(AbstractOperator):
                 - overlap_ratio: Overlap ratio for chunking long text (default: 0.2)
                 - doc_column: Input column containing document content (default: "content")
                 - doc_id_hash_column: Column for document hash (default: "doc_id_hash")
+                - batch_size: Number of texts to process in each batch (default: 32)
         """
         super().__init__(config)
 
@@ -126,50 +111,49 @@ class EmbeddingsOperator(AbstractOperator):
         # Chunking configuration
         self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, OVERLAP_RATIO_DEFAULT)
 
+        # Batch processing configuration
+        self.batch_size: int = config.get("batch_size", 32)
+
         # Logging
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-        # Initialize embedding client
-        self.embedding_client: OllamaClient = self._initialize_embedding_client()
+        # Initialize embedding adapter
+        self.embedding_adapter: LLMServicePort = self._initialize_embedding_adapter()
 
         logger.info(
-            f"Initialized EmbeddingsOperator with provider: {self.embeddings_type}, model: {self.embeddings_model_id}",
+            f"Initialized EmbeddingsOperator with adapter: {self.embeddings_type}, model: {self.embeddings_model_id}",
             extra=self.common_log_arguments,
         )
 
-    def _initialize_embedding_client(self) -> OllamaClient:
+    def _initialize_embedding_adapter(self) -> LLMServicePort:
         """
-        Initialize the appropriate embedding client based on embeddings_type.
+        Initialize the appropriate embedding adapter based on embeddings_type.
 
-        This method creates and returns the appropriate client (OllamaClient, OpenAIClient, etc.)
-        based on the configured embeddings_type. The client is stored as self.embedding_client
-        for reuse across multiple embedding operations.
+        This method creates and returns the appropriate adapter using LLMAdapterFactory.
+        The adapter is stored as self.embedding_adapter for reuse across multiple
+        embedding operations.
 
         Returns:
-            The initialized embedding client for the configured provider
+            The initialized embedding adapter for the configured adapter type
 
         Raises:
-            DatasiftException: If the provider is unsupported or client initialization fails
+            DatasiftException: If the adapter is unsupported or initialization fails
         """
         try:
-            if self.embeddings_type == EmbeddingsProvider.OLLAMA.value:
-                return OllamaClient(model=self.embeddings_model_id, validate_model=True)
-            elif self.embeddings_type == EmbeddingsProvider.OPENAI.value:
-                # Placeholder for OpenAI client initialization
-                # TODO: Implement OpenAI client when available
-                raise DatasiftException("OpenAI embeddings provider is not yet implemented")
-            else:
-                raise DatasiftException(
-                    f"Unsupported embeddings_type: {self.embeddings_type}. "
-                    f"Supported types: {SUPPORTED_EMBEDDINGS_TYPES}"
-                )
+            # Extract adapter_config if present in config
+            adapter_config = self.config.get("provider_config", {})
+
+            # Create adapter using factory
+            adapter = LLMAdapterFactory.create(
+                adapter_name=self.embeddings_type, model_name=self.embeddings_model_id, **adapter_config
+            )
+
+            return adapter
         except Exception as e:
-            raise DatasiftException(
-                f"Failed to initialize embedding client for provider '{self.embeddings_type}': {e!s}"
-            ) from e
+            raise DatasiftException(f"Failed to initialize embedding adapter '{self.embeddings_type}': {e!s}") from e
 
     def get_required_features(self) -> list[str]:
         """Return list of required input features."""
@@ -289,10 +273,10 @@ class EmbeddingsOperator(AbstractOperator):
 
     def _create_embeddings(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
         """
-        Generate embeddings for text using the configured provider.
+        Generate embeddings for text using the configured provider with batch processing.
 
-        This method routes to the appropriate provider-specific implementation
-        based on the embeddings_type configuration.
+        This method handles chunking of long text based on model token limits
+        and generates embeddings using efficient batch processing.
 
         Args:
             text: List of text strings to embed
@@ -303,40 +287,10 @@ class EmbeddingsOperator(AbstractOperator):
             list: List of embedding vectors (one per input text)
 
         Raises:
-            DatasiftException: If embedding generation fails or provider is unsupported
-        """
-        if self.embeddings_type == EmbeddingsProvider.OLLAMA.value:
-            return self._generate_embeddings_ollama(text, model_name, overlap_ratio)
-        elif self.embeddings_type == EmbeddingsProvider.OPENAI.value:
-            return self._create_embeddings_openai(text, model_name, overlap_ratio)
-        else:
-            raise DatasiftException(
-                f"Unsupported embeddings_type: {self.embeddings_type}. Supported types: {SUPPORTED_EMBEDDINGS_TYPES}"
-            )
-
-    def _generate_embeddings_ollama(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
-        """
-        Generate embeddings for text using Ollama.
-
-        This method handles chunking of long text based on model token limits
-        and generates embeddings for each chunk, averaging them if needed.
-
-        Args:
-            text: List of text strings to embed
-            model_name: Name of the Ollama model to use
-            overlap_ratio: Overlap ratio for chunking (0.0 to 0.5)
-
-        Returns:
-            list: List of embedding vectors (one per input text)
-
-        Raises:
             DatasiftException: If embedding generation fails
         """
-        # Use the pre-initialized embedding client
-        ollama_client: OllamaClient = self.embedding_client
-
-        embeddings: list[list[float]] = []
-        token_limit: int = OLLAMA_MODEL_TOKEN_LIMITS.get(model_name, DEFAULT_TOKEN_LIMIT)
+        # Get token limit from adapter
+        token_limit: int = self.embedding_adapter.get_model_token_limit()
 
         # Approximate: 1 token ≈ 4 characters
         char_limit: int = token_limit * 4
@@ -344,37 +298,29 @@ class EmbeddingsOperator(AbstractOperator):
 
         logger.debug(
             f"Using token limit: {token_limit}, char limit: {char_limit}, "
-            f"overlap: {overlap_chars} for model: {model_name}",
+            f"overlap: {overlap_chars}, batch_size: {self.batch_size} for model: {model_name}",
             extra=self.common_log_arguments,
         )
 
-        for text_item in text:
+        # Separate texts into those that need chunking and those that don't
+        texts_to_embed: list[str] = []
+        text_indices: list[int] = []  # Track original indices
+        chunked_texts: dict[int, list[str]] = {}  # Map index to chunks
+
+        for idx, text_item in enumerate(text):
             if not text_item or not text_item.strip():
-                # Empty text - return zero vector
-                logger.warning(
-                    "Empty text provided for embedding generation",
-                    extra=self.common_log_arguments,
-                )
-                embeddings.append([0.0] * 384)  # Default embedding size
+                # Empty text - will handle separately
                 continue
 
             # Check if text needs chunking
             if len(text_item) <= char_limit:
-                # Text fits in one chunk
-                try:
-                    embedding: list[float] = ollama_client.generate_embeddings(text_item)
-                    embeddings.append(embedding)
-                except Exception as e:
-                    logger.error(
-                        f"Failed to generate embedding: {e!s}",
-                        exc_info=True,
-                        extra=self.common_log_arguments,
-                    )
-                    raise DatasiftException(f"Ollama embedding generation failed: {e!s}") from e
+                # Text fits in one chunk - add to batch
+                texts_to_embed.append(text_item)
+                text_indices.append(idx)
             else:
                 # Text needs chunking
                 logger.debug(
-                    f"Text length {len(text_item)} exceeds limit {char_limit}, chunking...",
+                    f"Text at index {idx} (length {len(text_item)}) exceeds limit {char_limit}, chunking...",
                     extra=self.common_log_arguments,
                 )
 
@@ -386,52 +332,66 @@ class EmbeddingsOperator(AbstractOperator):
                     chunks.append(chunk)
                     start = end - overlap_chars if end < len(text_item) else end
 
+                chunked_texts[idx] = chunks
                 logger.debug(
-                    f"Created {len(chunks)} chunks for text",
+                    f"Created {len(chunks)} chunks for text at index {idx}",
                     extra=self.common_log_arguments,
                 )
 
-                # Generate embeddings for each chunk
-                chunk_embeddings: list[list[float]] = []
-                for i, chunk in enumerate(chunks):
-                    try:
-                        embedding = ollama_client.generate_embeddings(chunk)
-                        chunk_embeddings.append(embedding)
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to generate embedding for chunk {i + 1}/{len(chunks)}: {e!s}",
-                            exc_info=True,
-                            extra=self.common_log_arguments,
-                        )
-                        raise DatasiftException(f"Ollama embedding generation failed for chunk {i + 1}: {e!s}") from e
+        # Generate embeddings in batches for non-chunked texts
+        embeddings_map: dict[int, list[float]] = {}
+
+        if texts_to_embed:
+            try:
+                # Use batch processing for better performance
+                batch_embeddings = self.embedding_adapter.generate_embeddings_batch(
+                    texts_to_embed, batch_size=self.batch_size
+                )
+
+                # Map embeddings back to original indices
+                for i, embedding in enumerate(batch_embeddings):
+                    embeddings_map[text_indices[i]] = embedding
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to generate batch embeddings: {e!s}",
+                    exc_info=True,
+                    extra=self.common_log_arguments,
+                )
+                raise DatasiftException(f"Batch embedding generation failed: {e!s}") from e
+
+        # Process chunked texts
+        for idx, chunks in chunked_texts.items():
+            try:
+                # Generate embeddings for chunks in batch
+                chunk_embeddings = self.embedding_adapter.generate_embeddings_batch(chunks, batch_size=self.batch_size)
 
                 # Average the chunk embeddings
                 avg_embedding: list[float] = np.mean(chunk_embeddings, axis=0).tolist()
-                embeddings.append(avg_embedding)
+                embeddings_map[idx] = avg_embedding
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to generate embeddings for chunked text at index {idx}: {e!s}",
+                    exc_info=True,
+                    extra=self.common_log_arguments,
+                )
+                raise DatasiftException(f"Embedding generation failed for chunked text: {e!s}") from e
+
+        # Build final embeddings list in original order
+        embeddings: list[list[float]] = []
+        for idx, text_item in enumerate(text):
+            if not text_item or not text_item.strip():
+                # Empty text - return zero vector
+                logger.warning(
+                    f"Empty text at index {idx} provided for embedding generation",
+                    extra=self.common_log_arguments,
+                )
+                embeddings.append([0.0] * 384)  # Default embedding size
+            else:
+                embeddings.append(embeddings_map[idx])
 
         return embeddings
-
-    def _create_embeddings_openai(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
-        """
-        Generate embeddings for text using OpenAI.
-
-        This is a placeholder implementation for OpenAI embeddings.
-        To be implemented when OpenAI provider support is added.
-
-        Args:
-            text: List of text strings to embed
-            model_name: Name of the OpenAI model to use
-            overlap_ratio: Overlap ratio for chunking (0.0 to 0.5)
-
-        Returns:
-            list: List of embedding vectors (one per input text)
-
-        Raises:
-            DatasiftException: Currently raises as not yet implemented
-        """
-        raise DatasiftException(
-            "OpenAI embeddings provider is not yet implemented. This is a placeholder for future extension."
-        )
 
     def _get_doc_identifiers(self, table: pa.Table, idx: int) -> tuple[str, str]:
         """
@@ -607,6 +567,61 @@ class EmbeddingsOperator(AbstractOperator):
         )
         return table
 
+    def _process_single_document(
+        self,
+        table: pa.Table,
+        idx: int,
+        has_chunked_content: bool,
+        doc_hash_values: list[str],
+    ) -> tuple[list[float] | list[list[float]], str]:
+        """
+        Process a single document to generate embeddings.
+
+        Args:
+            table: PyArrow table containing documents
+            idx: Row index of the document to process
+            has_chunked_content: Whether the table contains chunked content
+            doc_hash_values: Pre-cached list of document hash values
+
+        Returns:
+            tuple: (embeddings, doc_hash) where embeddings is either a single vector
+                   or list of vectors depending on chunked_content
+
+        Raises:
+            Exception: Any error during content extraction or embedding generation
+        """
+        _doc_id, doc_name = self._get_doc_identifiers(table, idx)
+
+        # Get content to embed using helper methods
+        if has_chunked_content:
+            texts = self._parse_chunked_content(table, idx, doc_name)
+        else:
+            texts = self._get_full_document_content(table, idx)
+
+        # Generate embeddings using configured provider
+        doc_embeddings: list[list[float]] = self._create_embeddings(
+            text=texts,
+            model_name=self.embeddings_model_id,
+            overlap_ratio=self.overlap_ratio,
+        )
+
+        # For chunked content, store all embeddings; for full doc, store single embedding
+        embeddings_result: list[float] | list[list[float]]
+        if has_chunked_content:
+            embeddings_result = doc_embeddings
+        else:
+            embeddings_result = doc_embeddings[0]
+
+        # Retrieve document hash from pre-cached values
+        doc_hash: str = doc_hash_values[idx]
+
+        logger.debug(
+            f"Successfully generated embeddings for document: {doc_name}",
+            extra=self.common_log_arguments,
+        )
+
+        return embeddings_result, doc_hash
+
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform the input table by adding embeddings.
@@ -649,39 +664,26 @@ class EmbeddingsOperator(AbstractOperator):
         # Check if we have chunked content
         has_chunked_content: bool = OperatorConstants.Columns.CHUNKED_CONTENT in table.column_names
 
-        # Process each document using PyArrow columnar access
+        # Cache column values before loop for performance (reduces PyArrow overhead)
+        doc_hash_values: list[str] = table[self.doc_id_hash_column].to_pylist()
+
+        # Process each document
         for idx in range(table.num_rows):
             doc_id, doc_name = self._get_doc_identifiers(table, idx)
 
             try:
-                # Get content to embed using helper methods
-                if has_chunked_content:
-                    texts = self._parse_chunked_content(table, idx, doc_name)
-                else:
-                    texts = self._get_full_document_content(table, idx)
-
-                # Generate embeddings using configured provider
-                doc_embeddings: list[list[float]] = self._create_embeddings(
-                    text=texts,
-                    model_name=self.embeddings_model_id,
-                    overlap_ratio=self.overlap_ratio,
+                # Process document and generate embeddings
+                embeddings_result, doc_hash = self._process_single_document(
+                    table=table,
+                    idx=idx,
+                    has_chunked_content=has_chunked_content,
+                    doc_hash_values=doc_hash_values,
                 )
 
-                # For chunked content, store all embeddings; for full doc, store single embedding
-                if has_chunked_content:
-                    embeddings_list.append(doc_embeddings)
-                else:
-                    embeddings_list.append(doc_embeddings[0])
-
-                # Retrieve document hash (guaranteed to exist after DocIdHashOperator)
-                doc_hash: str = table[self.doc_id_hash_column][idx].as_py()
+                # Store results
+                embeddings_list.append(embeddings_result)
                 doc_id_hashes.append(doc_hash)
                 metadata[Metrics.External.PROCESSED_DOCS] += 1
-
-                logger.debug(
-                    f"Successfully generated embeddings for document: {doc_name}",
-                    extra=self.common_log_arguments,
-                )
 
             except Exception as exc:
                 logger.error(
