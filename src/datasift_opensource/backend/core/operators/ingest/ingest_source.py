@@ -681,9 +681,11 @@ class IngestSourceOperator(AbstractOperator):
         # Try provider-specific download
         if self.provider in ("s3", "ibm_cos"):
             binary_content = self._download_s3_content(doc, source)
-
-        # Fallback to page_content
-        elif binary_content is None:
+            # Fallback to page_content
+            if binary_content is None:
+                binary_content = self._fallback_to_page_content(doc, source)
+        else:
+            # For non-S3 providers, use page_content
             binary_content = self._fallback_to_page_content(doc, source)
 
         return binary_content
