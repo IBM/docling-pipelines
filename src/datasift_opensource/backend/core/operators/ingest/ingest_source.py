@@ -295,7 +295,15 @@ class IngestSourceOperator(AbstractOperator):
 
         # Initialize incremental update utility
         incremental_update_util: IncrementalUpdateUtil = IncrementalUpdateUtil()
-        job_id_for_tracking: str = self.context_id if self.context_id else (self.job_id if self.job_id else "")
+        job_id_for_tracking: str = ""
+        if self.context_id:
+            job_id_for_tracking = self.context_id
+        else:
+            if self.job_id:
+                job_id_for_tracking = self.job_id
+            else:
+                job_id_for_tracking = ""
+
         self.previously_processed_docs_dict = (
             None if self.force_ingest else incremental_update_util.get_all_processed_docs(job_id=job_id_for_tracking)
         )
@@ -631,124 +639,9 @@ class IngestSourceOperator(AbstractOperator):
             True if binary content was successfully obtained, False otherwise.
         """
         try:
-            binary_content: bytes | None = None
-
-            # ------------------------------------------------------------------ #
-            # Check for pre-fetched binary content from adapters                  #
-            # ------------------------------------------------------------------ #
-            # All adapters using the new hexagonal architecture store binary
-            # content in the _binary_content attribute to avoid JSON serialization
-            if hasattr(doc, "_binary_content") and doc._binary_content is not None:
-                binary_content = doc._binary_content
-                logger.info(
-                    f"Using pre-fetched binary content from adapter for: {source} (size: {len(binary_content)} bytes)",
-                    extra=self.common_log_arguments,
-                )
-            elif doc.metadata.get("has_binary_content"):
-                # Binary content should be available but isn't - this is an error
-                logger.error(
-                    f"Binary content marked as available but not found for: {source}. "
-                    f"has_attr: {hasattr(doc, '_binary_content')}, "
-                    f"value: {getattr(doc, '_binary_content', 'NOT_SET')}",
-                    extra=self.common_log_arguments,
-                )
-                return False
-
-            # ------------------------------------------------------------------ #
-            # OneDrive / SharePoint                                               #
-            # ------------------------------------------------------------------ #
-            if self.provider in ("onedrive", "sharepoint"):
-                item_id = doc.metadata.get("item_id")
-                if item_id:
-                    try:
-                        import requests
-
-                        # Get access token
-                        token_url = (
-                            f"{MICROSOFT_LOGIN_URL}/{self.credentials.get('tenant_id')}{MICROSOFT_OAUTH_TOKEN_PATH}"
-                        )
-                        token_data = {
-                            "client_id": self.credentials.get("client_id"),
-                            "client_secret": self.credentials.get("client_secret"),
-                            "scope": MICROSOFT_GRAPH_SCOPE,
-                            "grant_type": "client_credentials",
-                        }
-                        token_response = requests.post(token_url, data=token_data)
-                        token_response.raise_for_status()
-                        access_token = token_response.json()["access_token"]
-
-                        # Download file content
-                        headers = {"Authorization": f"Bearer {access_token}"}
-
-                        # Try to get download URL from metadata first
-                        download_url = doc.metadata.get("download_url")
-                        if download_url:
-                            response = requests.get(download_url)
-                        else:
-                            # Fallback: construct download URL using drive_id and item_id
-                            drive_id = (
-                                doc.metadata.get("drive_id")
-                                or self.connection_params.get("drive_id")
-                                or self.connection_params.get("document_library_id")
-                            )
-
-                            # Both OneDrive and SharePoint can use the drives API endpoint
-                            download_url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{drive_id}/items/{item_id}/content"
-
-                            response = requests.get(download_url, headers=headers, allow_redirects=True)
-
-                        response.raise_for_status()
-                        onedrive_bytes: bytes = response.content
-                        logger.info(
-                            f"Downloaded {len(onedrive_bytes)} bytes from {self.provider} for: {source}",
-                            extra=self.common_log_arguments,
-                        )
-                        binary_content = onedrive_bytes
-                    except Exception as onedrive_err:
-                        logger.warning(
-                            f"Could not download binary from {self.provider} for {source}: {onedrive_err}. "
-                            "Falling back to page_content text.",
-                            extra=self.common_log_arguments,
-                        )
-
-            # ------------------------------------------------------------------ #
-            # Amazon S3 / IBM COS                                                 #
-            # ------------------------------------------------------------------ #
-            elif self.provider in ("s3", "ibm_cos"):
-                bucket = self.connection_params.get("bucket")
-                # The loader sets source to the S3 key
-                key = doc.metadata.get("source", source)
-                try:
-                    client_config = {
-                        "aws_access_key_id": self.credentials.get("access_key"),
-                        "aws_secret_access_key": self.credentials.get("secret_key"),
-                    }
-                    if self.provider == "ibm_cos":
-                        client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
-                    s3_client = boto3.client("s3", **client_config)
-                    response = s3_client.get_object(Bucket=bucket, Key=key)
-                    s3_bytes: bytes = response["Body"].read()
-                    logger.info(
-                        f"Downloaded {len(s3_bytes)} bytes from S3/COS for: {source}",
-                        extra=self.common_log_arguments,
-                    )
-                    binary_content = s3_bytes
-                except Exception as s3_err:
-                    logger.warning(
-                        f"Could not download binary from S3/COS for {source}: {s3_err}. "
-                        "Falling back to page_content text.",
-                        extra=self.common_log_arguments,
-                    )
-
-            # ------------------------------------------------------------------ #
-            # Fallback: encode page_content as UTF-8 bytes                        #
-            # ------------------------------------------------------------------ #
+            binary_content = self._get_binary_content(doc, source)
             if binary_content is None:
-                logger.info(
-                    f"No provider-specific download available for {source}; using page_content as binary content.",
-                    extra=self.common_log_arguments,
-                )
-                binary_content = (doc.page_content or "").encode("utf-8")
+                return False
 
             processed_doc["binary_content"] = binary_content
             processed_doc["path"] = source
@@ -767,6 +660,96 @@ class IngestSourceOperator(AbstractOperator):
             )
             return False
 
+    # Provides fallback if _binary_content is missing
+    # Provider specific logic can be removed after all the adapters have been migrated
+    def _get_binary_content(self, doc: Document, source: str) -> bytes | None:
+        """
+        Get binary content from document using appropriate method based on provider.
+
+        Args:
+            doc: LangChain Document object.
+            source: Source identifier.
+
+        Returns:
+            Binary content as bytes, or None if unavailable.
+        """
+        # Check for pre-fetched binary content from adapters
+        binary_content = self._check_adapter_binary_content(doc, source)
+        if binary_content is not None:
+            return binary_content
+
+        # Try provider-specific download
+        if self.provider in ("s3", "ibm_cos"):
+            binary_content = self._download_s3_content(doc, source)
+            # Fallback to page_content
+            if binary_content is None:
+                binary_content = self._fallback_to_page_content(doc, source)
+        else:
+            # For non-S3 providers, use page_content
+            binary_content = self._fallback_to_page_content(doc, source)
+
+        return binary_content
+
+    # Required for the new adapters
+    def _check_adapter_binary_content(self, doc: Document, source: str) -> bytes | None:
+        """Check if binary content is pre-fetched from adapter."""
+        if hasattr(doc, "_binary_content") and doc._binary_content is not None:
+            logger.info(
+                f"Using pre-fetched binary content from adapter for: {source} (size: {len(doc._binary_content)} bytes)",
+                extra=self.common_log_arguments,
+            )
+            return doc._binary_content
+
+        if doc.metadata.get("has_binary_content"):
+            logger.error(
+                f"Binary content marked as available but not found for: {source}. "
+                f"has_attr: {hasattr(doc, '_binary_content')}, "
+                f"value: {getattr(doc, '_binary_content', 'NOT_SET')}",
+                extra=self.common_log_arguments,
+            )
+            return None
+
+        return None
+
+    def _download_s3_content(self, doc: Document, source: str) -> bytes | None:
+        """Download content from S3 or IBM COS."""
+        bucket = self.connection_params.get("bucket")
+        key = doc.metadata.get("source", source)
+
+        try:
+            client_config = {
+                "aws_access_key_id": self.credentials.get("access_key"),
+                "aws_secret_access_key": self.credentials.get("secret_key"),
+            }
+            if self.provider == "ibm_cos":
+                client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
+
+            s3_client = boto3.client("s3", **client_config)
+            response = s3_client.get_object(Bucket=bucket, Key=key)
+            s3_bytes = response["Body"].read()
+
+            logger.info(
+                f"Downloaded {len(s3_bytes)} bytes from S3/COS for: {source}",
+                extra=self.common_log_arguments,
+            )
+            return s3_bytes
+
+        except Exception as err:
+            logger.warning(
+                f"Could not download binary from S3/COS for {source}: {err}. "
+                "Falling back to page_content text.",
+                extra=self.common_log_arguments,
+            )
+            return None
+
+    def _fallback_to_page_content(self, doc: Document, source: str) -> bytes:
+        """Fallback to encoding page_content as UTF-8 bytes."""
+        logger.info(
+            f"No provider-specific download available for {source}; using page_content as binary content.",
+            extra=self.common_log_arguments,
+        )
+        return (doc.page_content or "").encode("utf-8")
+
     def _get_s3_file_keys(self) -> list[str]:
         """
         Get list of S3 file keys, filtering out directories, hidden files, and applying include/exclude filters.
@@ -774,7 +757,18 @@ class IngestSourceOperator(AbstractOperator):
         bucket: str = self.connection_params.get("bucket")
         prefix: str = self.connection_params.get("prefix", "")
 
-        # Setup boto3 client
+        s3_client = self._create_s3_client()
+        pages = s3_client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix)
+
+        file_keys: list[str] = []
+        for page in pages:
+            if "Contents" in page:
+                file_keys.extend(self._filter_s3_objects(page["Contents"]))
+
+        return file_keys
+
+    def _create_s3_client(self) -> Any:
+        """Create and configure boto3 S3 client."""
         client_config: dict[str, Any] = {
             "aws_access_key_id": self.credentials.get("access_key"),
             "aws_secret_access_key": self.credentials.get("secret_key"),
@@ -783,40 +777,46 @@ class IngestSourceOperator(AbstractOperator):
         if self.provider == "ibm_cos":
             client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
 
-        s3_client: Any = boto3.client("s3", **client_config)
+        return boto3.client("s3", **client_config)
 
-        # List all objects
-        paginator: Any = s3_client.get_paginator("list_objects_v2")
-        pages: Any = paginator.paginate(Bucket=bucket, Prefix=prefix)
-
+    def _filter_s3_objects(self, objects: list[dict[str, Any]]) -> list[str]:
+        """Filter S3 objects to get valid file keys."""
         file_keys: list[str] = []
-        for page in pages:
-            if "Contents" not in page:
+
+        for obj in objects:
+            key: str = obj["Key"]
+
+            if self._should_skip_s3_object(key, obj):
                 continue
 
-            for obj in page["Contents"]:
-                key: str = obj["Key"]
-
-                # Skip directory markers (keys ending with /)
-                if key.endswith("/"):
-                    continue
-
-                # Skip hidden files/directories (any path component starting with .)
-                path_parts: list[str] = key.split("/")
-                if any(part.startswith(".") and part not in [".", ".."] for part in path_parts):
-                    continue
-
-                # Skip if size is 0 (likely a directory marker)
-                if obj.get("Size", 0) == 0:
-                    continue
-
-                # Apply include/exclude extension filters
-                if filter_based_on_extension(key, self.excluded_extensions, self.included_extensions):
-                    continue
-
-                file_keys.append(key)
+            file_keys.append(key)
 
         return file_keys
+
+    def _should_skip_s3_object(self, key: str, obj: dict[str, Any]) -> bool:
+        """Check if S3 object should be skipped based on filters."""
+        # Skip directory markers
+        if key.endswith("/"):
+            return True
+
+        # Skip hidden files/directories
+        if self._is_hidden_path(key):
+            return True
+
+        # Skip empty files
+        if obj.get("Size", 0) == 0:
+            return True
+
+        # Skip based on extension filters
+        if filter_based_on_extension(key, self.excluded_extensions, self.included_extensions):
+            return True
+
+        return False
+
+    def _is_hidden_path(self, key: str) -> bool:
+        """Check if any path component is hidden (starts with .)."""
+        path_parts: list[str] = key.split("/")
+        return any(part.startswith(".") and part not in [".", ".."] for part in path_parts)
 
     def _load_s3_documents(self) -> list[Document]:
         """
