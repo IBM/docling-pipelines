@@ -1,0 +1,309 @@
+{
+  "document_class_id": "2773ccad-d5d2-4ddb-99c3-3caa3a857e5b",
+  "document_class_name": "Client Success Case Study",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "title",
+          "examples": [
+            "Global Bank Corp"
+          ],
+          "description": "Name of the client organization featured in the case study. In the top left of the image."
+        },
+        {
+          "name": "project_description",
+          "examples": [
+            "Enhancing Cloud Security with XYZ Platform"
+          ],
+          "description": "The description of the project's objective or outcome. In the image it exactly below the client name"
+        },
+        {
+          "name": "industry",
+          "examples": [
+            "Retail"
+          ],
+          "description": "The industry to which the client belongs."
+        },
+        {
+          "name": "geo",
+          "examples": [
+            "Europe"
+          ],
+          "description": "The geographical region where the client operates or where the project took place."
+        },
+        {
+          "name": "deal_size",
+          "examples": [
+            "$750K"
+          ],
+          "description": "The monetary value of the deal between the client and the service provider."
+        },
+        {
+          "name": "deal_closed",
+          "examples": [
+            "2Q 2025"
+          ],
+          "description": "The quarter and year in which the deal was closed."
+        },
+        {
+          "name": "ibm_sales_play",
+          "examples": [
+            "Security and Compliance Modernization"
+          ],
+          "description": "The IBM sales initiative or theme (if applicable) tied to the project."
+        },
+        {
+          "name": "products_services",
+          "examples": [
+            "Cloud Migration Services, Cybersecurity Suite"
+          ],
+          "description": "The IBM or partner products and services involved in the solution."
+        },
+        {
+          "name": "business_partner",
+          "examples": [
+            "TechNova Solutions"
+          ],
+          "description": "The partner organization collaborating with IBM on the engagement."
+        },
+        {
+          "name": "competitors",
+          "examples": [
+            "N/A"
+          ],
+          "description": "Mention of any competitors involved or considered for the project."
+        },
+        {
+          "name": "team",
+          "examples": [
+            "Alex Kim"
+          ],
+          "description": "Name of the IBM or partner team member leading or involved in the engagement."
+        },
+        {
+          "name": "client_website",
+          "examples": [
+            "https://www.globalbankcorp.com"
+          ],
+          "description": "Official website of the client organization."
+        },
+        {
+          "name": "client_overview",
+          "examples": [
+            "Global Bank Corp is a multinational financial services firm with operations in over 150 countries and more than 200 million customers."
+          ],
+          "description": "Brief description of the client organization, its operations, and scale."
+        },
+        {
+          "name": "business_need",
+          "examples": [
+            "Client needed a scalable cloud infrastructure to support global e-commerce operations with improved latency and resilience."
+          ],
+          "description": "Summary of the primary business challenge or need that led to the engagement."
+        },
+        {
+          "name": "winning_tactics",
+          "examples": [
+            "Leveraged deep expertise in hybrid cloud and regulatory compliance to deliver a customized architecture meeting global standards."
+          ],
+          "description": "Details on how the service provider approached and won the client engagement."
+        },
+        {
+          "name": "client_benefits",
+          "examples": [
+            "Improved scalability, 40% reduction in downtime, enhanced compliance with international data protection laws."
+          ],
+          "description": "Tangible or strategic benefits the client received from the implementation."
+        }
+      ],
+      "document_type": "Client Success Case Study",
+      "document_description": "A Client Success Case Study is a business document highlighting a successful collaboration between a client and a service provider, showcasing business challenges, implemented solutions, and resulting benefits.",
+      "additional_prompt_instructions": "\nSpecial instructions: \n- For the business_need field return all the text below until the fields client_benefits and winning_tactics\n- For the client_benefits field return all the text below until the end of the page\n\n- For the winning_tactics field return all the text below until the end of the page\n\nImportant anchor/fields mapping setting:\nAlways set the field mapping of 'title' to \"Industry\""
+    },
+    "target_tables": [
+      {
+        "name": "Client_win_custom",
+        "columns": [
+          {
+            "name": "title",
+            "type": "string",
+            "source": {
+              "field": [
+                "title"
+              ]
+            },
+            "description": "Name of the client organization featured in the case study."
+          },
+          {
+            "name": "project_description",
+            "type": "string",
+            "source": {
+              "field": [
+                "project_description"
+              ]
+            },
+            "description": "The description of the project's objective or outcome."
+          },
+          {
+            "name": "industry",
+            "type": "string",
+            "source": {
+              "field": [
+                "industry"
+              ]
+            },
+            "description": "The industry to which the client belongs."
+          },
+          {
+            "name": "geo",
+            "type": "string",
+            "source": {
+              "field": [
+                "geo"
+              ]
+            },
+            "description": "The geographical region where the client operates or where the project took place."
+          },
+          {
+            "name": "deal_size",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "deal_size"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "The monetary value of the deal between the client and the service provider."
+          },
+          {
+            "name": "deal_closed",
+            "type": "string",
+            "source": {
+              "field": [
+                "deal_closed"
+              ]
+            },
+            "description": "The quarter and year in which the deal was closed."
+          },
+          {
+            "name": "ibm_sales_play",
+            "type": "string",
+            "source": {
+              "field": [
+                "ibm_sales_play"
+              ]
+            },
+            "description": "The IBM sales initiative or theme (if applicable) tied to the project."
+          },
+          {
+            "name": "products_services",
+            "type": "string",
+            "source": {
+              "field": [
+                "products_services"
+              ]
+            },
+            "description": "The IBM or partner products and services involved in the solution."
+          },
+          {
+            "name": "business_partner",
+            "type": "string",
+            "source": {
+              "field": [
+                "business_partner"
+              ]
+            },
+            "description": "The partner organization collaborating with IBM on the engagement."
+          },
+          {
+            "name": "competitors",
+            "type": "string",
+            "source": {
+              "field": [
+                "competitors"
+              ]
+            },
+            "description": "Mention of any competitors involved or considered for the project."
+          },
+          {
+            "name": "team",
+            "type": "string",
+            "source": {
+              "field": [
+                "team"
+              ]
+            },
+            "description": "Name of the IBM or partner team member leading or involved in the engagement."
+          },
+          {
+            "name": "client_website",
+            "type": "string",
+            "source": {
+              "field": [
+                "client_website"
+              ]
+            },
+            "description": "Official website of the client organization."
+          },
+          {
+            "name": "client_overview",
+            "type": "string",
+            "source": {
+              "field": [
+                "client_overview"
+              ]
+            },
+            "description": "Brief description of the client organization, its operations, and scale."
+          },
+          {
+            "name": "business_need",
+            "type": "string",
+            "source": {
+              "field": [
+                "business_need"
+              ]
+            },
+            "description": "Summary of the primary business challenge or need that led to the engagement."
+          },
+          {
+            "name": "winning_tactics",
+            "type": "string",
+            "source": {
+              "field": [
+                "winning_tactics"
+              ]
+            },
+            "description": "Details on how the service provider approached and won the client engagement."
+          },
+          {
+            "name": "client_benefits",
+            "type": "string",
+            "source": {
+              "field": [
+                "client_benefits"
+              ]
+            },
+            "description": "Tangible or strategic benefits the client received from the implementation."
+          }
+        ],
+        "description": "Information about client wins"
+      }
+    ]
+  },
+  "created_time": "2025-11-12T13:52:09Z",
+  "last_modified_time": "2025-11-12T13:52:09Z",
+  "created_by": "IBMid-270006EKFK",
+  "last_modified_by": "IBMid-270006EKFK",
+  "is_predefined": false,
+  "is_enabled": true
+}

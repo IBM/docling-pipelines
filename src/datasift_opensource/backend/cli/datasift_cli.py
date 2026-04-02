@@ -6,8 +6,6 @@ import uuid
 from logging import Logger
 from typing import Any
 
-from common.constants.constants import OrchestratorType
-from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()

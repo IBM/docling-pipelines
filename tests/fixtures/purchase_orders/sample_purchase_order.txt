@@ -1,0 +1,92 @@
+PURCHASE ORDER
+
+PO Number: PO-2024-001234
+Order Date: January 15, 2024
+Delivery Date: February 28, 2024
+
+SUPPLIER INFORMATION:
+Supplier Name: Acme Office Supplies Inc.
+Supplier ID: SUP-98765
+Contact: sales@acmeoffice.com
+Address: 456 Commerce Street, Business City, CA 94102
+
+BUYER INFORMATION:
+Company: TechCorp Solutions
+Department: IT Operations
+Approved By: john.smith@techcorp.com
+
+SHIPPING ADDRESS:
+TechCorp Solutions - Building A
+789 Innovation Drive
+Tech Valley, CA 95014
+United States
+
+ORDER DETAILS:
+
+Item 1:
+Item ID: DESK-PRO-2000
+Description: Professional Standing Desk with Electric Height Adjustment
+Quantity: 25 units
+Unit Price: $599.99
+Total: $14,999.75
+
+Item 2:
+Item ID: CHAIR-ERG-500
+Description: Ergonomic Office Chair with Lumbar Support
+Quantity: 25 units
+Unit Price: $349.99
+Total: $8,749.75
+
+Item 3:
+Item ID: MON-4K-27
+Description: 27-inch 4K Monitor with USB-C
+Quantity: 50 units
+Unit Price: $449.99
+Total: $22,499.50
+
+Item 4:
+Item ID: KB-MECH-RGB
+Description: Mechanical Keyboard with RGB Backlighting
+Quantity: 50 units
+Unit Price: $129.99
+Total: $6,499.50
+
+Item 5:
+Item ID: MOUSE-WIRE-PRO
+Description: Wireless Ergonomic Mouse
+Quantity: 50 units
+Unit Price: $59.99
+Total: $2,999.50
+
+FINANCIAL SUMMARY:
+Subtotal: $55,748.00
+Tax (8.5%): $4,738.58
+Shipping & Handling: $500.00
+Total Amount: $60,986.58
+Currency: USD
+
+PAYMENT TERMS:
+Net 30 days from delivery
+Payment Method: Wire Transfer
+Account: Acme Office Supplies - Account #123456789
+
+STATUS: Approved
+
+NOTES:
+- All items must be delivered to Building A loading dock
+- Delivery window: 8:00 AM - 5:00 PM, Monday-Friday
+- Contact facilities@techcorp.com 24 hours before delivery
+- Installation services included for desks and chairs
+- 2-year warranty on all electronic items
+- Return policy: 30 days for unopened items
+
+AUTHORIZED SIGNATURES:
+Buyer: John Smith, IT Operations Manager
+Date: January 15, 2024
+
+Supplier: Sarah Johnson, Sales Director
+Date: January 15, 2024
+
+---
+This purchase order is valid for 30 days from the order date.
+For questions, contact procurement@techcorp.com or call (555) 123-4567.

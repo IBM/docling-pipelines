@@ -1,0 +1,293 @@
+{
+  "document_class_id": "2ab746a7-7d7a-4f39-a59b-2774faac5dc4",
+  "document_class_name": "Passport",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "passport_number",
+          "examples": [
+            "123456789"
+          ],
+          "description": "Unique identifier typically printed on the data page (e.g. near 'Passport No.').",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "full_name",
+          "examples": [
+            "John  Doe"
+          ],
+          "description": "The passport holder's full legal name.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_birth",
+          "examples": [
+            "1990-01-15"
+          ],
+          "description": "Passport holder's date of birth.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "place_of_birth",
+          "examples": [
+            "Townville"
+          ],
+          "description": "City or region where the holder was born, if present.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "gender",
+          "examples": [
+            "M"
+          ],
+          "description": "Gender as listed in the passport (e.g., M, F, X).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "nationality",
+          "examples": [
+            "US"
+          ],
+          "description": "Nationality or citizenship of the passport holder.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_issue",
+          "examples": [
+            "2021-06-15"
+          ],
+          "description": "The date when the passport was issued.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_expiration",
+          "examples": [
+            "2031-06-15"
+          ],
+          "description": "Passport expiration date.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "issuing_authority",
+          "examples": [
+            "U.S. Department of State"
+          ],
+          "description": "Government entity that issued the passport.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "passport_type",
+          "examples": [
+            "P"
+          ],
+          "description": "Type of passport (often 'P' for personal or 'D' for diplomatic).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "personal_number",
+          "examples": [
+            "1234ABCD"
+          ],
+          "description": "Additional personal reference number (if present).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "mrz_line_1",
+          "examples": [
+            "P<USAJOHNSON<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<"
+          ],
+          "description": "First line of the Machine-Readable Zone (MRZ).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "mrz_line_2",
+          "examples": [
+            "123456789USA9001151M2406153<<<<<<<<<<<<<02"
+          ],
+          "description": "Second line of the Machine-Readable Zone (MRZ).",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Passport",
+      "document_description": "Passports are government-issued travel documents that certify the holder's identity and citizenship, containing personal information, a photograph, and security features that allow individuals to travel internationally and re-enter their country of origin.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Passport",
+        "columns": [
+          {
+            "name": "passport_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "passport_number"
+              ]
+            },
+            "description": "Unique identifier typically printed on the data page (e.g. near 'Passport No.')."
+          },
+          {
+            "name": "full_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "full_name"
+              ]
+            },
+            "description": "The passport holder's full legal name."
+          },
+          {
+            "name": "date_of_birth",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_birth"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Passport holder's date of birth."
+          },
+          {
+            "name": "place_of_birth",
+            "type": "string",
+            "source": {
+              "field": [
+                "place_of_birth"
+              ]
+            },
+            "description": "City or region where the holder was born, if present."
+          },
+          {
+            "name": "gender",
+            "type": "string",
+            "source": {
+              "field": [
+                "gender"
+              ]
+            },
+            "description": "Gender as listed in the passport (e.g., M, F, X)."
+          },
+          {
+            "name": "nationality",
+            "type": "string",
+            "source": {
+              "field": [
+                "nationality"
+              ]
+            },
+            "description": "Nationality or citizenship of the passport holder."
+          },
+          {
+            "name": "date_of_issue",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_issue"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "The date when the passport was issued."
+          },
+          {
+            "name": "date_of_expiration",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_expiration"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Passport expiration date."
+          },
+          {
+            "name": "issuing_authority",
+            "type": "string",
+            "source": {
+              "field": [
+                "issuing_authority"
+              ]
+            },
+            "description": "Government entity that issued the passport."
+          },
+          {
+            "name": "passport_type",
+            "type": "string",
+            "source": {
+              "field": [
+                "passport_type"
+              ]
+            },
+            "description": "Type of passport (often 'P' for personal or 'D' for diplomatic)."
+          },
+          {
+            "name": "personal_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "personal_number"
+              ]
+            },
+            "description": "Additional personal reference number (if present)."
+          },
+          {
+            "name": "mrz_line_1",
+            "type": "string",
+            "source": {
+              "field": [
+                "mrz_line_1"
+              ]
+            },
+            "description": "First line of the Machine-Readable Zone (MRZ)."
+          },
+          {
+            "name": "mrz_line_2",
+            "type": "string",
+            "source": {
+              "field": [
+                "mrz_line_2"
+              ]
+            },
+            "description": "Second line of the Machine-Readable Zone (MRZ)."
+          }
+        ],
+        "metadata": {},
+        "description": "Passports are government-issued travel documents that certify the holder's identity and citizenship, containing personal information, a photograph, and security features that allow individuals to travel internationally and re-enter their country of origin."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

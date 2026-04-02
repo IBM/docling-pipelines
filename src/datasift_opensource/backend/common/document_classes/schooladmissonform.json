@@ -1,0 +1,173 @@
+{
+  "document_class_id": "e1a56494-1979-4e3c-bb1d-cb7f8b8af2ef",
+  "document_class_name": "SchoolAdmissonForm",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "SchoolName",
+          "examples": [
+            "RAINBOW school"
+          ],
+          "description": "describes name of the school"
+        },
+        {
+          "name": "SchoolCode",
+          "examples": [
+            "N3123"
+          ],
+          "description": "describes school Code"
+        },
+        {
+          "name": "U_DISECode",
+          "examples": [
+            "2312"
+          ],
+          "description": "describes  U_DISECode"
+        },
+        {
+          "name": "SchoolAdmissionNumber",
+          "examples": [
+            "SH3113"
+          ],
+          "description": "describes school admission number"
+        },
+        {
+          "name": "AdmissionDate",
+          "examples": [
+            "04-12-2025"
+          ],
+          "description": "describes admission date"
+        },
+        {
+          "name": "Session",
+          "examples": [
+            "Morning"
+          ],
+          "description": "describes session"
+        },
+        {
+          "name": "ClassofAdmission",
+          "examples": [
+            "1st"
+          ],
+          "description": "describes Class of Admission"
+        },
+        {
+          "name": "Name",
+          "examples": [
+            "Mr Harish"
+          ],
+          "description": "describes name of the student"
+        },
+        {
+          "name": "Gender",
+          "examples": [
+            "Male"
+          ],
+          "description": "describes gender"
+        }
+      ],
+      "document_type": "SchoolAdmissonForm",
+      "document_description": "Describes school admission form"
+    },
+    "target_tables": [
+      {
+        "name": "SchoolInfo",
+        "columns": [
+          {
+            "name": "schoolName",
+            "type": "string",
+            "source": {
+              "field": [
+                "SchoolName"
+              ]
+            }
+          },
+          {
+            "name": "SchoolCode",
+            "type": "string",
+            "source": {
+              "field": [
+                "SchoolCode"
+              ]
+            },
+            "description": "descibes school code"
+          },
+          {
+            "name": "UDECCode",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "U_DISECode"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            }
+          },
+          {
+            "name": "AdmissionDate",
+            "type": "date",
+            "source": {
+              "field": [
+                "AdmissionDate"
+              ]
+            },
+            "description": "describes admission date"
+          }
+        ],
+        "description": ""
+      },
+      {
+        "name": "studentInfo",
+        "columns": [
+          {
+            "name": "ClassofAdmission",
+            "type": "string",
+            "source": {
+              "field": [
+                "ClassofAdmission"
+              ]
+            },
+            "description": "describes class of admission"
+          },
+          {
+            "name": "Name",
+            "type": "string",
+            "source": {
+              "field": [
+                "Name"
+              ]
+            },
+            "description": "describes name of the student"
+          },
+          {
+            "name": "gender",
+            "type": "string",
+            "source": {
+              "field": [
+                "Gender"
+              ]
+            },
+            "description": "describes gender"
+          }
+        ],
+        "description": ""
+      }
+    ]
+  },
+  "created_time": "2025-12-09T17:34:01Z",
+  "last_modified_time": "2025-12-10T05:13:17Z",
+  "created_by": "IBMid-2700065J29",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": false,
+  "is_enabled": true
+}

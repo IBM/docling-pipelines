@@ -1,0 +1,365 @@
+{
+  "document_class_id": "48f9798d-f756-4365-9510-f8c38b0227a4",
+  "document_class_name": "Driver License",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "license_number",
+          "examples": [
+            "D1234567"
+          ],
+          "description": "Unique identifier printed on the license (e.g. near 'DLN', 'LIC No.', or 'DL').",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "full_name",
+          "examples": [
+            "Jane Doe"
+          ],
+          "description": "The full legal name of the license holder.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_birth",
+          "examples": [
+            "1990-01-15"
+          ],
+          "description": "License holder's date of birth ",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "place_of_birth",
+          "examples": [
+            "Cityville"
+          ],
+          "description": "The city/place where the holder was born (if present).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "gender",
+          "examples": [
+            "F"
+          ],
+          "description": "Gender of the license holder (often listed as M or F).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "nationality",
+          "examples": [
+            "US"
+          ],
+          "description": "Nationality of the holder.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_issue",
+          "examples": [
+            "2020-05-10"
+          ],
+          "description": "Date the license was issued.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_expiration",
+          "examples": [
+            "2025-05-10"
+          ],
+          "description": "License expiration date",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "issuing_state",
+          "examples": [
+            "CA"
+          ],
+          "description": "The state (or country) that issued the license.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "issuing_authority",
+          "examples": [
+            "California DMV"
+          ],
+          "description": "Name of the authority that issued the license.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "license_class",
+          "examples": [
+            "C"
+          ],
+          "description": "Class of license (e.g., Class C, Class A).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "endorsements",
+          "examples": [
+            "None"
+          ],
+          "description": "Any endorsements listed on the license.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "restrictions",
+          "examples": [
+            "None"
+          ],
+          "description": "Any restrictions specified on the license.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "address",
+          "examples": [
+            "1234 Main St, Cityville, CA 90000"
+          ],
+          "description": "The residential address of the license holder.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "height",
+          "examples": [
+            "5'6\""
+          ],
+          "description": "Height of the holder (e.g. '5'6\"').",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "weight",
+          "examples": [
+            "130 lbs"
+          ],
+          "description": "Weight of the holder.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "eye_color",
+          "examples": [
+            "Brown"
+          ],
+          "description": "Eye color of the license holder (e.g., Brown, Blue).",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Driver License",
+      "document_description": "A Driver\u2019s License is a government-issued credential that permits an individual to legally operate a motor vehicle, typically including the holder\u2019s photo, personal details, and unique license number for identification and enforcement purposes.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Driver_License",
+        "columns": [
+          {
+            "name": "license_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "license_number"
+              ]
+            },
+            "description": "Unique identifier printed on the license (e.g. near 'DLN', 'LIC No.', or 'DL')."
+          },
+          {
+            "name": "full_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "full_name"
+              ]
+            },
+            "description": "The full legal name of the license holder."
+          },
+          {
+            "name": "date_of_birth",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_birth"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "License holder's date of birth "
+          },
+          {
+            "name": "place_of_birth",
+            "type": "string",
+            "source": {
+              "field": [
+                "place_of_birth"
+              ]
+            },
+            "description": "The city/place where the holder was born (if present)."
+          },
+          {
+            "name": "gender",
+            "type": "string",
+            "source": {
+              "field": [
+                "gender"
+              ]
+            },
+            "description": "Gender of the license holder (often listed as M or F)."
+          },
+          {
+            "name": "nationality",
+            "type": "string",
+            "source": {
+              "field": [
+                "nationality"
+              ]
+            },
+            "description": "Nationality of the holder."
+          },
+          {
+            "name": "date_of_issue",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_issue"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the license was issued."
+          },
+          {
+            "name": "date_of_expiration",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_expiration"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "License expiration date"
+          },
+          {
+            "name": "issuing_state",
+            "type": "string",
+            "source": {
+              "field": [
+                "issuing_state"
+              ]
+            },
+            "description": "The state (or country) that issued the license."
+          },
+          {
+            "name": "issuing_authority",
+            "type": "string",
+            "source": {
+              "field": [
+                "issuing_authority"
+              ]
+            },
+            "description": "Name of the authority that issued the license."
+          },
+          {
+            "name": "license_class",
+            "type": "string",
+            "source": {
+              "field": [
+                "license_class"
+              ]
+            },
+            "description": "Class of license (e.g., Class C, Class A)."
+          },
+          {
+            "name": "endorsements",
+            "type": "string",
+            "source": {
+              "field": [
+                "endorsements"
+              ]
+            },
+            "description": "Any endorsements listed on the license."
+          },
+          {
+            "name": "restrictions",
+            "type": "string",
+            "source": {
+              "field": [
+                "restrictions"
+              ]
+            },
+            "description": "Any restrictions specified on the license."
+          },
+          {
+            "name": "address",
+            "type": "string",
+            "source": {
+              "field": [
+                "address"
+              ]
+            },
+            "description": "The residential address of the license holder."
+          },
+          {
+            "name": "height",
+            "type": "string",
+            "source": {
+              "field": [
+                "height"
+              ]
+            },
+            "description": "Height of the holder (e.g. '5'6\"')."
+          },
+          {
+            "name": "weight",
+            "type": "string",
+            "source": {
+              "field": [
+                "weight"
+              ]
+            },
+            "description": "Weight of the holder."
+          },
+          {
+            "name": "eye_color",
+            "type": "string",
+            "source": {
+              "field": [
+                "eye_color"
+              ]
+            },
+            "description": "Eye color of the license holder (e.g., Brown, Blue)."
+          }
+        ],
+        "metadata": {},
+        "description": "A Driver\u2019s License is a government-issued credential that permits an individual to legally operate a motor vehicle, typically including the holder\u2019s photo, personal details, and unique license number for identification and enforcement purposes."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

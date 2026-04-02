@@ -63,17 +63,39 @@ Rules:
 5. Preserve original values (dates, amounts, names) exactly as they appear.
 6. Include all significant entities: people, organizations, dates, amounts, locations, identifiers, etc.
 """
-
 # ---------------------------------------------------------------------------
 # Helper functions (adapted from extract_entities.py reference)
 # ---------------------------------------------------------------------------
 
 
-def _build_schema_description(schema: dict[str, Any]) -> str:
-    """Convert schema columns dict to human-readable description.
+# Import from centralized utility
+from common.util.document_class_utils import DocumentClassUtils
 
+# Create module-level aliases for backward compatibility
+def _build_schema_description_from_fields(fields: list[dict[str, Any]], indent: int = 0) -> str:
+    """Build rich schema description from fields array format."""
+    return DocumentClassUtils.build_schema_description_from_fields(fields, indent)
+
+
+def _build_json_template_from_fields(fields: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build JSON template from fields array format."""
+    return DocumentClassUtils.build_json_template_from_fields(fields)
+
+
+def _build_schema_description(schema: dict[str, Any]) -> str:
+    """Convert schema to human-readable description.
+    
+    Supports both formats:
+    - New format: 'fields' array with rich metadata
+    - Old format: 'columns' dict with dot-notation
+    
     Strips common prefix from column names to avoid double-nesting.
     """
+    # Check for new 'fields' format first
+    if "fields" in schema:
+        return _build_schema_description_from_fields(schema["fields"])
+    
+    # Fall back to old 'columns' format
     columns = schema.get("columns", {})
     if not columns:
         return ""
@@ -103,11 +125,20 @@ def _build_schema_description(schema: dict[str, Any]) -> str:
 
 def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
     """Build skeleton JSON template matching schema structure.
+    
+    Supports both formats:
+    - New format: 'fields' array with rich metadata
+    - Old format: 'columns' dict with dot-notation
 
     Handles nested paths by building a hierarchical structure.
     If all columns start with the same prefix (e.g., 'invoice_entities.'),
     that prefix is stripped to avoid double-nesting.
     """
+    # Check for new 'fields' format first
+    if "fields" in schema:
+        return _build_json_template_from_fields(schema["fields"])
+    
+    # Fall back to old 'columns' format
     columns = schema.get("columns", {})
     if not columns:
         return {}
@@ -257,13 +288,32 @@ def _parse_llm_json(raw_response: str) -> dict[str, Any]:
     return {}
 
 
+def _get_schema_templates(schema_templates: dict[str, dict], document_types: list[str]) -> None:
+    """Load document class schemas for given document types."""
+    loaded_schemas = DocumentClassUtils.get_schema_templates(document_types)
+    schema_templates.update(loaded_schemas)
+
+
 def _load_schema_from_file(schema_file: str, table_name: str) -> dict[str, Any] | None:
-    """Load a named schema from a JSON schema file."""
+    """Load a named schema from a JSON schema file.
+    
+    Supports two formats:
+    1. New format: Root-level 'fields' array (ignores table_name)
+    2. Old format: 'schemas' array with 'table' property
+    """
     try:
         with open(schema_file, encoding="utf-8") as fh:
             data: dict[str, Any] = json.load(fh)
+        
+        # Check for new 'fields' format at root level
+        if "fields" in data:
+            logger.info("Loaded schema with 'fields' format from '%s'", schema_file)
+            return data
+        
+        # Fall back to old 'schemas' array format
         for schema in data.get("schemas", []):
             if schema.get("table") == table_name:
+                logger.info("Loaded schema table '%s' from '%s'", table_name, schema_file)
                 return schema
         logger.warning("Schema table '%s' not found in '%s'", table_name, schema_file)
     except (OSError, json.JSONDecodeError) as exc:
@@ -301,14 +351,20 @@ def _extract_entities_worker(
 
     try:
         truncated_content: str = content[:max_doc_chars] if len(content) > max_doc_chars else content
-        has_schema: bool = bool(schema.get("columns"))
+        # Check for both schema formats: new 'fields' array or old 'columns' dict
+        has_schema: bool = bool(schema.get("fields") or schema.get("columns"))
 
         if has_schema:
+            # Extract schema metadata
+            schema_name = schema.get("document_type", "") or schema.get("table", "")
+            schema_desc_text = schema.get("document_description", "") or schema.get("description", "")
             schema_desc: str = _build_schema_description(schema)
             json_template: dict[str, Any] = _build_json_template(schema)
             system_prompt: str = _SYSTEM_PROMPT
             user_prompt: str = (
                 f"Extract entities from the following document text.\n\n"
+                f"Document Type: {schema_name}\n"
+                f"Description: {schema_desc_text}\n\n"
                 f"Schema fields to extract:\n{schema_desc}\n\n"
                 f"Return your answer as a JSON object matching this template exactly:\n"
                 f"{json.dumps(json_template, indent=2)}\n\n"
@@ -321,6 +377,15 @@ def _extract_entities_worker(
                 f"Document text:\n{truncated_content}"
             )
 
+        # Log the prompts being sent to LLM
+        logger.info("=" * 80)
+        logger.info("LLM PROMPT for document '%s' (ID: %s)", doc_name, doc_id)
+        logger.info("-" * 80)
+        logger.info("SYSTEM PROMPT:\n%s", system_prompt)
+        logger.info("-" * 80)
+        logger.info("USER PROMPT:\n%s", user_prompt)
+        logger.info("=" * 80)
+
         response: dict[str, Any] = ollama.chat(
             model=ollama_model,
             messages=[
@@ -331,6 +396,14 @@ def _extract_entities_worker(
         )
         raw: str = response["message"]["content"]
         entities: dict[str, Any] = _parse_llm_json(raw)
+        
+        # Log the extracted entities
+        logger.info("=" * 80)
+        logger.info("EXTRACTED ENTITIES for document '%s' (ID: %s)", doc_name, doc_id)
+        logger.info("-" * 80)
+        logger.info("%s", json.dumps(entities, indent=2, ensure_ascii=False))
+        logger.info("=" * 80)
+        
         return {"success": True, "entities": entities, "error": None}
 
     except Exception as exc:
@@ -355,7 +428,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     inline via the ``schema`` config key or by pointing to a JSON file with
     ``schema_file`` + ``schema_table``.
 
-    Schema JSON format (same as ``document_schemas.json`` in the reference)::
+    Schema JSON format (same as ``document_classes.json`` in the reference)::
 
         {
           "schemas": [{
@@ -397,7 +470,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             _raw_expand if isinstance(_raw_expand, bool) else str(_raw_expand).lower() in ("true", "1", "yes")
         )
 
-        # Schema: inline dict takes priority over file reference
+        # Schema: priority order: document_type column > inline dict > file reference
         self.schema: dict[str, Any] | None = config.get("schema")
         self.schema_file: str | None = config.get("schema_file")
         self.schema_table: str = config.get("schema_table", "default")
@@ -523,10 +596,25 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
     # Core transform
     # ------------------------------------------------------------------
 
-    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table, file_name: str = None) -> tuple[list[pa.Table], dict[str, Any]]:
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
 
         schema: dict[str, Any] = self._get_schema()
+        document_types: list[str] = []
+        schema_templates: dict[str, dict] = {}
+        if OperatorConstants.Columns.DOCUMENT_TYPE in table.column_names:
+            document_types.extend(table.column(OperatorConstants.Columns.DOCUMENT_TYPE).to_pylist())
+            _get_schema_templates(schema_templates, document_types)
+            #Validate which schemas were successfully loaded
+            unique_doc_types = set(dt for dt in document_types if dt)
+            missing_schemas = unique_doc_types - set(schema_templates.keys())
+            if missing_schemas:
+                logger.warning(
+                    f"Could not load schemas for document types: {missing_schemas}. "
+                    f"These documents will use the default schema instead."
+                )
+            if schema_templates:
+                logger.info("Successfully loaded schemas for: %s", list(schema_templates.keys()))
         entities_list: list[dict[str, Any]] = [{}] * table.num_rows
 
         # Build task list
@@ -536,6 +624,9 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
             doc_id = str(row.get(OperatorConstants.Columns.ID, row_idx))
             doc_name = str(row.get(OperatorConstants.Columns.NAME, f"doc_{row_idx}"))
             content = row.get(self.doc_column) or ""
+            # Log content preview for debugging
+            content_preview = content[:200] if content else "(empty)"
+            logger.info("Document '%s' (ID: %s) content preview: %s...", doc_name, doc_id, content_preview)
 
             if not content:
                 self.record_skipped_document(
@@ -555,7 +646,7 @@ class ExtractEntitiesOllamaOperator(AbstractOperator):
                     doc_id,
                     doc_name,
                     content,
-                    schema,
+                    schema_templates.get(document_types[row_idx], schema) if (document_types and document_types[row_idx]) else schema,
                     self.ollama_model,
                     self.temperature,
                     self.max_doc_chars,

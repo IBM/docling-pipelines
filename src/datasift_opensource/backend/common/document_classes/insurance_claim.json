@@ -1,0 +1,285 @@
+{
+  "document_class_id": "ec8551a2-de21-4ad6-9f1d-32cb63fbc9b8",
+  "document_class_name": "Insurance Claim",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "claim_id",
+          "examples": [
+            "CLM-0012345"
+          ],
+          "description": "Unique identifier assigned to the insurance claim.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "policy_number",
+          "examples": [
+            "POL-987654321"
+          ],
+          "description": "Insurance policy number under which the claim is filed.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "claimant_name",
+          "examples": [
+            "John Doe"
+          ],
+          "description": "Name of the person making the claim or the patient\u2019s name.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "provider_name",
+          "examples": [
+            "ABC Medical Clinic"
+          ],
+          "description": "Healthcare provider or facility that rendered services.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "service_date_range",
+          "examples": [
+            "2023-06-01 to 2023-06-10"
+          ],
+          "description": "Date(s) when medical services were performed.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "diagnosis_codes",
+          "examples": [
+            "J20.9, E11.9"
+          ],
+          "description": "ICD or DSM codes describing the patient\u2019s diagnosis.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "procedure_codes",
+          "examples": [
+            "99213, 81002"
+          ],
+          "description": "CPT or HCPCS codes for services provided.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "amount_billed",
+          "examples": [
+            "500.00"
+          ],
+          "description": "Total amount billed for the services.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "amount_covered",
+          "examples": [
+            "400.00"
+          ],
+          "description": "Portion of the amount that insurance covers.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "patient_responsibility",
+          "examples": [
+            "100.00"
+          ],
+          "description": "Remaining amount the patient must pay out of pocket.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "claim_status",
+          "examples": [
+            "Pending"
+          ],
+          "description": "Current status of the claim (e.g., pending, approved, denied).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "submission_date",
+          "examples": [
+            "2023-06-15"
+          ],
+          "description": "Date the claim was submitted to the insurer.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Insurance Claim",
+      "document_description": "Insurance claim documents are used by policyholders or healthcare providers to request reimbursement or payment from an insurer for healthcare services rendered, often including patient details, coverage information, and itemized charges.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Insurance_Claim",
+        "columns": [
+          {
+            "name": "claim_id",
+            "type": "string",
+            "source": {
+              "field": [
+                "claim_id"
+              ]
+            },
+            "description": "Unique identifier assigned to the insurance claim."
+          },
+          {
+            "name": "policy_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "policy_number"
+              ]
+            },
+            "description": "Insurance policy number under which the claim is filed."
+          },
+          {
+            "name": "claimant_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "claimant_name"
+              ]
+            },
+            "description": "Name of the person making the claim or the patient\u2019s name."
+          },
+          {
+            "name": "provider_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "provider_name"
+              ]
+            },
+            "description": "Healthcare provider or facility that rendered services."
+          },
+          {
+            "name": "service_date_range",
+            "type": "string",
+            "source": {
+              "field": [
+                "service_date_range"
+              ]
+            },
+            "description": "Date(s) when medical services were performed."
+          },
+          {
+            "name": "diagnosis_codes",
+            "type": "string",
+            "source": {
+              "field": [
+                "diagnosis_codes"
+              ]
+            },
+            "description": "ICD or DSM codes describing the patient\u2019s diagnosis."
+          },
+          {
+            "name": "procedure_codes",
+            "type": "string",
+            "source": {
+              "field": [
+                "procedure_codes"
+              ]
+            },
+            "description": "CPT or HCPCS codes for services provided."
+          },
+          {
+            "name": "amount_billed",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "amount_billed"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Total amount billed for the services."
+          },
+          {
+            "name": "amount_covered",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "amount_covered"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Portion of the amount that insurance covers."
+          },
+          {
+            "name": "patient_responsibility",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "patient_responsibility"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Remaining amount the patient must pay out of pocket."
+          },
+          {
+            "name": "claim_status",
+            "type": "string",
+            "source": {
+              "field": [
+                "claim_status"
+              ]
+            },
+            "description": "Current status of the claim (e.g., pending, approved, denied)."
+          },
+          {
+            "name": "submission_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "submission_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the claim was submitted to the insurer."
+          }
+        ],
+        "metadata": {},
+        "description": "Insurance claim documents are used by policyholders or healthcare providers to request reimbursement or payment from an insurer for healthcare services rendered, often including patient details, coverage information, and itemized charges."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

@@ -1,4 +1,5 @@
 from enum import Enum, StrEnum
+from pathlib import Path
 from typing import TypedDict
 
 # Import OperatorConstants for re-export
@@ -55,6 +56,8 @@ class DatasiftConstants:
     RUNS = "runs"
     OPERATORS = "operators"
     DOCUMENTS = "documents"
+    # Use absolute path based on this file's location to work from anywhere
+    DOCUMENT_CLASSES_PATH = str(Path(__file__).parent.parent / "document_classes")
     OPERATOR_FILE = "operator_file"
     SUMMARY = "summary"
     VALIDATION_FAILED = "validation_failed"
@@ -199,6 +202,7 @@ class ExecutionStatus(StrEnum):
     RESUMING = "Resuming"
     CANCELING = "Canceling"
     CANCELED = "Canceled"
+    FAILING = "Failing"
     FAILED = "Failed"
     COMPLETED = "Completed"
     COMPLETED_WITH_ERRORS = "CompletedWithErrors"

@@ -1,0 +1,317 @@
+{
+    "fields": [
+        {
+            "name": "purchase_order_date",
+            "examples": [
+                "2024-02-04"
+            ],
+            "description": "The date when the purchase order was created or issued.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "purchase_order_number",
+            "examples": [
+                "2024-001"
+            ],
+            "description": "The unique identifier or reference number of the purchase order.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "purchase_order_requested_delivery_date",
+            "examples": [
+                "2024-02-08"
+            ],
+            "description": "The date by which the items are requested to be delivered.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "customer_name",
+            "examples": [
+                "John Smith"
+            ],
+            "description": "Full name of the person or company placing the order.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "customer_address",
+            "examples": [
+                "123 Main St, Anytown, ST 12345"
+            ],
+            "description": "Complete mailing or physical address of the customer.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "customer_email",
+            "examples": [
+                "john@example.com"
+            ],
+            "description": "Any email address associated with the customer.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "customer_phone",
+            "examples": [
+                "+1 555-0123"
+            ],
+            "description": "Any phone number associated with the customer.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "shipping_name",
+            "examples": [
+                "Jane Smith"
+            ],
+            "description": "Full name of the person in the shipping location.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "shipping_address",
+            "examples": [
+                "456 Delivery Ln, Anytown, ST 12345"
+            ],
+            "description": "Complete mailing or physical address of the shipping location.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "shipping_phone",
+            "examples": [
+                "+1 555-0124"
+            ],
+            "description": "Any phone number associated with the shipping location.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "vendor_name",
+            "examples": [
+                "Business Corp"
+            ],
+            "description": "Name of the company or person receiving the purchase order.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "vendor_address",
+            "examples": [
+                "456 Commerce Ave, Business City, ST 54321"
+            ],
+            "description": "Complete business address of the vendor.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "vendor_email",
+            "examples": [
+                "billing@business.com"
+            ],
+            "description": "Vendor's contact email.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "vendor_phone",
+            "examples": [
+                "+1 555-9876"
+            ],
+            "description": "Vendor's contact phone number.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "supplier_name",
+            "examples": [
+                "Business Corp"
+            ],
+            "description": "Name of the company or entity supplying the materials or products.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "supplier_address",
+            "examples": [
+                "456 Commerce Ave, Business City, ST 54321"
+            ],
+            "description": "Complete business address of the supplier.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "supplier_email",
+            "examples": [
+                "supplier@business.com"
+            ],
+            "description": "Supplier's contact email.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "supplier_phone",
+            "examples": [
+                "+1 555-9776"
+            ],
+            "description": "Supplier's contact phone number.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "sub_total",
+            "examples": [
+                "1000.00"
+            ],
+            "description": "Amount before tax or additional charges.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "tax",
+            "examples": [
+                "100.00"
+            ],
+            "description": "The tax amount applied.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "total",
+            "examples": [
+                "1100.00"
+            ],
+            "description": "The final total amount including all charges.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "total_discount",
+            "examples": [
+                "0.00"
+            ],
+            "description": "Any discount amount applied to the order.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "payment_terms",
+            "examples": [
+                "Net 30"
+            ],
+            "description": "Any specified payment conditions or terms.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "due_date",
+            "examples": [
+                "2024-03-05"
+            ],
+            "description": "The date by which payment must be made.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "currency",
+            "examples": [
+                "USD"
+            ],
+            "description": "The currency used in the purchase order.",
+            "available_options": [
+                "USD",
+                "EUR",
+                "CNY",
+                "JPY",
+                "GBP",
+                "AUD",
+                "CAD",
+                "CHF",
+                "HKD",
+                "SGD",
+                "INR",
+                "KRW",
+                "MXN",
+                "BRL",
+                "ZAR",
+                "SEK",
+                "NOK",
+                "DKK",
+                "NZD",
+                "TRY",
+                "AED",
+                "THB",
+                "PLN",
+                "IDR",
+                "MYR",
+                "PHP",
+                "RUB",
+                "CZK",
+                "ILS"
+            ],
+            "extraction_instructions": ""
+        },
+        {
+            "name": "currency_sign",
+            "affix": true,
+            "examples": [
+                "$"
+            ],
+            "description": "The currency sign of the currency used in the purchase order.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "shipping_charge",
+            "examples": [
+                "100.0"
+            ],
+            "description": "Cost for shipping or delivery.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "carrier",
+            "examples": [
+                "FEDEX"
+            ],
+            "description": "The shipping company who will deliver the goods.",
+            "extraction_instructions": ""
+        },
+        {
+            "name": "line_items",
+            "fields": [
+                {
+                    "name": "amount",
+                    "examples": [
+                        "500.00"
+                    ],
+                    "description": "The total amount for the line item.",
+                    "extraction_instructions": ""
+                },
+                {
+                    "name": "description",
+                    "examples": [
+                        "Product A"
+                    ],
+                    "description": "Description of the product or service of the item.",
+                    "extraction_instructions": ""
+                },
+                {
+                    "name": "product_code",
+                    "examples": [
+                        "SKU-123"
+                    ],
+                    "description": "Any product code, SKU, or identifier for the item.",
+                    "extraction_instructions": ""
+                },
+                {
+                    "name": "quantity",
+                    "examples": [
+                        "2"
+                    ],
+                    "description": "Number of units purchased of the item.",
+                    "extraction_instructions": ""
+                },
+                {
+                    "name": "unit",
+                    "examples": [
+                        "each"
+                    ],
+                    "description": "Unit of measurement (e.g., \"each\", \"kg\", \"hours\") of the item.",
+                    "extraction_instructions": ""
+                },
+                {
+                    "name": "unit_price",
+                    "examples": [
+                        "250.00"
+                    ],
+                    "description": "Price per unit of the item.",
+                    "extraction_instructions": ""
+                }
+            ],
+            "description": "Information about each product or service listed in the invoice."
+        }
+    ],
+    "document_type": "Purchase Order",
+    "document_description": "A purchase order (PO) is a legally binding document sent from a buyer to a seller, detailing the types, quantities, and agreed prices for products or services the buyer intends to purchase.",
+    "additional_prompt_instructions": ""
+}

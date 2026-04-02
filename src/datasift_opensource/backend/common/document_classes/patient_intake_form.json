@@ -1,0 +1,265 @@
+{
+  "document_class_id": "2b26c27b-42a6-4965-afdf-a79311f6c94f",
+  "document_class_name": "Patient Intake Form",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "patient_name",
+          "examples": [
+            "Jane Doe"
+          ],
+          "description": "Full legal name of the patient.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_birth",
+          "examples": [
+            "1980-07-12"
+          ],
+          "description": "Patient\u2019s birth date.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "address",
+          "examples": [
+            "1234 Main St, Springfield, ST 00000"
+          ],
+          "description": "Mailing or residential address of the patient.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "contact_phone",
+          "examples": [
+            "(555) 123-4567"
+          ],
+          "description": "Patient's primary phone number.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "email_address",
+          "examples": [
+            "jane.doe@example.com"
+          ],
+          "description": "Patient\u2019s email, if provided.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "emergency_contact",
+          "examples": [
+            "John Doe, (555) 987-6543"
+          ],
+          "description": "Name/number of a person to contact in emergencies.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "insurance_provider",
+          "examples": [
+            "XYZ Health Insurance"
+          ],
+          "description": "Name of the patient\u2019s primary insurance.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "insurance_policy_number",
+          "examples": [
+            "H123456789"
+          ],
+          "description": "Policy or membership ID for the insurance coverage.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "medical_history_summary",
+          "examples": [
+            "Allergies: Penicillin. Past surgeries: Appendectomy (2010)."
+          ],
+          "description": "Brief overview of critical past medical history.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "current_medications",
+          "examples": [
+            "Metformin, Lisinopril"
+          ],
+          "description": "List of meds the patient is presently taking.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_signed",
+          "examples": [
+            "2023-09-01"
+          ],
+          "description": "When the patient signed the intake form.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "patient_signature",
+          "examples": [
+            "Jane Doe"
+          ],
+          "description": "Signature or digital signature of the patient.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Patient Intake Form",
+      "document_description": "A Patient Intake Form is typically used by healthcare providers to gather personal, medical, and insurance information from new or returning patients, serving as the foundation of their medical record and billing data.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Patient_Intake_Form",
+        "columns": [
+          {
+            "name": "patient_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "patient_name"
+              ]
+            },
+            "description": "Full legal name of the patient."
+          },
+          {
+            "name": "date_of_birth",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_birth"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Patient\u2019s birth date."
+          },
+          {
+            "name": "address",
+            "type": "string",
+            "source": {
+              "field": [
+                "address"
+              ]
+            },
+            "description": "Mailing or residential address of the patient."
+          },
+          {
+            "name": "contact_phone",
+            "type": "string",
+            "source": {
+              "field": [
+                "contact_phone"
+              ]
+            },
+            "description": "Patient's primary phone number."
+          },
+          {
+            "name": "email_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "email_address"
+              ]
+            },
+            "description": "Patient\u2019s email, if provided."
+          },
+          {
+            "name": "emergency_contact",
+            "type": "string",
+            "source": {
+              "field": [
+                "emergency_contact"
+              ]
+            },
+            "description": "Name/number of a person to contact in emergencies."
+          },
+          {
+            "name": "insurance_provider",
+            "type": "string",
+            "source": {
+              "field": [
+                "insurance_provider"
+              ]
+            },
+            "description": "Name of the patient\u2019s primary insurance."
+          },
+          {
+            "name": "insurance_policy_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "insurance_policy_number"
+              ]
+            },
+            "description": "Policy or membership ID for the insurance coverage."
+          },
+          {
+            "name": "medical_history_summary",
+            "type": "string",
+            "source": {
+              "field": [
+                "medical_history_summary"
+              ]
+            },
+            "description": "Brief overview of critical past medical history."
+          },
+          {
+            "name": "current_medications",
+            "type": "string",
+            "source": {
+              "field": [
+                "current_medications"
+              ]
+            },
+            "description": "List of meds the patient is presently taking."
+          },
+          {
+            "name": "date_signed",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_signed"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "When the patient signed the intake form."
+          },
+          {
+            "name": "patient_signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "patient_signature"
+              ]
+            },
+            "description": "Signature or digital signature of the patient."
+          }
+        ],
+        "metadata": {},
+        "description": "A Patient Intake Form is typically used by healthcare providers to gather personal, medical, and insurance information from new or returning patients, serving as the foundation of their medical record and billing data."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

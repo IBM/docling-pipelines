@@ -1,0 +1,899 @@
+{
+  "document_class_id": "0f94996e-b6b3-419c-87c1-a0396830dcec",
+  "document_class_name": "Initial Claimant's Statement for Income Replacement/Waiver of Premium Benefits",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "insured_full_name",
+          "examples": [
+            "Michael D. Thompson"
+          ],
+          "description": "Full legal name of the insured individual filing the claim.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "home_address",
+          "examples": [
+            "789 Oakwood Dr, Springfield, IL, 62704"
+          ],
+          "description": "Residential address of the insured.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "name_of_last_employer",
+          "examples": [
+            "Sunrise Construction Inc."
+          ],
+          "description": "Name of the insured's most recent employer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "business_address",
+          "examples": [
+            "234 Industrial Way, Chicago, IL, 60601"
+          ],
+          "description": "Business address of the insured's last employer.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "usaa_number",
+          "examples": [
+            "9988776655"
+          ],
+          "description": "USAA membership identification number.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "home_telephone_number",
+          "examples": [
+            "555-123-9876"
+          ],
+          "description": "Primary contact phone number of the insured.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "insured_birth_date",
+          "examples": [
+            "07/22/1978"
+          ],
+          "description": "Date of birth of the insured individual.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "business_telephone_number",
+          "examples": [
+            "312-555-7890"
+          ],
+          "description": "Business contact phone number of the insured.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "disabling_condition",
+          "examples": [
+            "Lower back and knee injury from a construction accident."
+          ],
+          "description": "Description of the current disabling condition and its cause.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "month_of_accident_or_illness",
+          "examples": [
+            "02"
+          ],
+          "description": "month when the accident or illness occurred.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "day_of_accident_or_illness",
+          "examples": [
+            "15"
+          ],
+          "description": "day when the accident or illness occurred.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "year_of_accident_or_illness",
+          "examples": [
+            "2024"
+          ],
+          "description": "year when the accident or illness occurred.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "month_stopped_working",
+          "examples": [
+            "02"
+          ],
+          "description": "month when the insured completely stopped working due to the disability.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "day_stopped_working",
+          "examples": [
+            "17"
+          ],
+          "description": "day when the insured completely stopped working due to the disability.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "year_stopped_working",
+          "examples": [
+            "2024"
+          ],
+          "description": "year when the insured completely stopped working due to the disability.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "work_return_status",
+          "examples": [
+            "have not returned"
+          ],
+          "description": "Indicates whether the insured has returned to work, part-time, full-time, or has not returned.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_1_name",
+          "examples": [
+            "Dr. Robert Meyers"
+          ],
+          "description": "Name of the first physician or medical practitioner consulted.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_1_address",
+          "examples": [
+            "123 Wellness St, Boston, MA, 02110"
+          ],
+          "description": "Address of the first physician or medical practitioner consulted.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_1_dates_consulted",
+          "examples": [
+            "02/20/2024"
+          ],
+          "description": "Date of consultation with the first physician.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_2_name",
+          "examples": [
+            "Dr. Susan Collins"
+          ],
+          "description": "Name of the second physician or medical practitioner consulted.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_2_address",
+          "examples": [
+            "45 Medical Plaza, New York, NY, 10016"
+          ],
+          "description": "Address of the second physician or medical practitioner consulted.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_2_dates_consulted",
+          "examples": [
+            "02/22/2024"
+          ],
+          "description": "Date of consultation with the second physician.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_3_name",
+          "examples": [
+            "Dr. rer tyj"
+          ],
+          "description": "Name of the third physician or medical practitioner consulted.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_3_address",
+          "examples": [
+            "12 trefar, New York, NY, 10016"
+          ],
+          "description": "Address of the third physician or medical practitioner consulted.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "physician_row_3_dates_consulted",
+          "examples": [
+            "01/21/2022"
+          ],
+          "description": "Date of consultation with the third physician.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_1_name",
+          "examples": [
+            "Springfield Medical Center"
+          ],
+          "description": "Name of the first hospital where the insured was confined.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_1_address",
+          "examples": [
+            "890 Main St, Springfield, IL, 62703"
+          ],
+          "description": "Address of the first hospital where the insured was confined.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_1_from",
+          "examples": [
+            "02/18/2024"
+          ],
+          "description": "Start date of the first hospital confinement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_1_to",
+          "examples": [
+            "02/25/2024"
+          ],
+          "description": "End date of the first hospital confinement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_1_reason",
+          "examples": [
+            "Surgery and rehabilitation for injury."
+          ],
+          "description": "Reason for the first hospital confinement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_2_name",
+          "examples": [
+            "Springfield Medical Center"
+          ],
+          "description": "Name of the second hospital where the insured was confined.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_2_address",
+          "examples": [
+            "890 Main St, Springfield, IL, 62703"
+          ],
+          "description": "Address of the second hospital where the insured was confined.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_2_from",
+          "examples": [
+            "02/18/2024"
+          ],
+          "description": "Start date of the second hospital confinement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_2_to",
+          "examples": [
+            "02/25/2024"
+          ],
+          "description": "End date of the second hospital confinement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "hospital_row_2_reason",
+          "examples": [
+            "Surgery and rehabilitation for injury."
+          ],
+          "description": "Reason for the second hospital confinement.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "occupation_prior_to_disability",
+          "examples": [
+            "Construction Site Supervisor"
+          ],
+          "description": "Job title held immediately before becoming disabled.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_began_occupation",
+          "examples": [
+            "05/10/2010"
+          ],
+          "description": "Date when the insured started working in the listed occupation.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "unable_to_perform_duties",
+          "examples": [
+            "Heavy lifting, operating machinery, and working on scaffolding due to limited mobility and chronic pain."
+          ],
+          "description": "Specific job duties the insured is unable to perform as a result of the disability.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "prior_work_experience",
+          "examples": [
+            "Bachelor's Degree in Civil Engineering, 12 years of experience in construction site management."
+          ],
+          "description": "Details about prior work experience and educational background.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "remarks",
+          "examples": [
+            "Ongoing physical therapy and treatment plan in progress."
+          ],
+          "description": "Additional notes or remarks from the insured.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Initial Claimant's Statement for Income Replacement/Waiver of Premium Benefits",
+      "document_description": "This document is an initial claimant's statement used for requesting income replacement or a waiver of premium benefits due to a disabling condition. It includes fields for personal details, employment information, medical history, and occupational duties to assess eligibility for benefits.",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Initial_Claimants_Statement_for_Income_Replacement_Waiver_of_Premium_Benefits",
+        "columns": [
+          {
+            "name": "insured_full_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "insured_full_name"
+              ]
+            },
+            "description": "Full legal name of the insured individual filing the claim."
+          },
+          {
+            "name": "home_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "home_address"
+              ]
+            },
+            "description": "Residential address of the insured."
+          },
+          {
+            "name": "name_of_last_employer",
+            "type": "string",
+            "source": {
+              "field": [
+                "name_of_last_employer"
+              ]
+            },
+            "description": "Name of the insured's most recent employer."
+          },
+          {
+            "name": "business_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "business_address"
+              ]
+            },
+            "description": "Business address of the insured's last employer."
+          },
+          {
+            "name": "usaa_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "usaa_number"
+              ]
+            },
+            "description": "USAA membership identification number."
+          },
+          {
+            "name": "home_telephone_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "home_telephone_number"
+              ]
+            },
+            "description": "Primary contact phone number of the insured."
+          },
+          {
+            "name": "insured_birth_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "insured_birth_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date of birth of the insured individual."
+          },
+          {
+            "name": "business_telephone_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "business_telephone_number"
+              ]
+            },
+            "description": "Business contact phone number of the insured."
+          },
+          {
+            "name": "disabling_condition",
+            "type": "string",
+            "source": {
+              "field": [
+                "disabling_condition"
+              ]
+            },
+            "description": "Description of the current disabling condition and its cause."
+          },
+          {
+            "name": "month_of_accident_or_illness",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "month_of_accident_or_illness"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "month when the accident or illness occurred."
+          },
+          {
+            "name": "day_of_accident_or_illness",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "day_of_accident_or_illness"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "day when the accident or illness occurred."
+          },
+          {
+            "name": "year_of_accident_or_illness",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "year_of_accident_or_illness"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "year when the accident or illness occurred."
+          },
+          {
+            "name": "month_stopped_working",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "month_stopped_working"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "month when the insured completely stopped working due to the disability."
+          },
+          {
+            "name": "day_stopped_working",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "day_stopped_working"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "day when the insured completely stopped working due to the disability."
+          },
+          {
+            "name": "year_stopped_working",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "year_stopped_working"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "year when the insured completely stopped working due to the disability."
+          },
+          {
+            "name": "work_return_status",
+            "type": "string",
+            "source": {
+              "field": [
+                "work_return_status"
+              ]
+            },
+            "description": "Indicates whether the insured has returned to work, part-time, full-time, or has not returned."
+          },
+          {
+            "name": "physician_row_1_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "physician_row_1_name"
+              ]
+            },
+            "description": "Name of the first physician or medical practitioner consulted."
+          },
+          {
+            "name": "physician_row_1_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "physician_row_1_address"
+              ]
+            },
+            "description": "Address of the first physician or medical practitioner consulted."
+          },
+          {
+            "name": "physician_row_1_dates_consulted",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "physician_row_1_dates_consulted"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date of consultation with the first physician."
+          },
+          {
+            "name": "physician_row_2_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "physician_row_2_name"
+              ]
+            },
+            "description": "Name of the second physician or medical practitioner consulted."
+          },
+          {
+            "name": "physician_row_2_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "physician_row_2_address"
+              ]
+            },
+            "description": "Address of the second physician or medical practitioner consulted."
+          },
+          {
+            "name": "physician_row_2_dates_consulted",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "physician_row_2_dates_consulted"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date of consultation with the second physician."
+          },
+          {
+            "name": "physician_row_3_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "physician_row_3_name"
+              ]
+            },
+            "description": "Name of the third physician or medical practitioner consulted."
+          },
+          {
+            "name": "physician_row_3_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "physician_row_3_address"
+              ]
+            },
+            "description": "Address of the third physician or medical practitioner consulted."
+          },
+          {
+            "name": "physician_row_3_dates_consulted",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "physician_row_3_dates_consulted"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date of consultation with the third physician."
+          },
+          {
+            "name": "hospital_row_1_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "hospital_row_1_name"
+              ]
+            },
+            "description": "Name of the first hospital where the insured was confined."
+          },
+          {
+            "name": "hospital_row_1_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "hospital_row_1_address"
+              ]
+            },
+            "description": "Address of the first hospital where the insured was confined."
+          },
+          {
+            "name": "hospital_row_1_from",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "hospital_row_1_from"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Start date of the first hospital confinement."
+          },
+          {
+            "name": "hospital_row_1_to",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "hospital_row_1_to"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "End date of the first hospital confinement."
+          },
+          {
+            "name": "hospital_row_1_reason",
+            "type": "string",
+            "source": {
+              "field": [
+                "hospital_row_1_reason"
+              ]
+            },
+            "description": "Reason for the first hospital confinement."
+          },
+          {
+            "name": "hospital_row_2_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "hospital_row_2_name"
+              ]
+            },
+            "description": "Name of the second hospital where the insured was confined."
+          },
+          {
+            "name": "hospital_row_2_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "hospital_row_2_address"
+              ]
+            },
+            "description": "Address of the second hospital where the insured was confined."
+          },
+          {
+            "name": "hospital_row_2_from",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "hospital_row_2_from"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Start date of the second hospital confinement."
+          },
+          {
+            "name": "hospital_row_2_to",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "hospital_row_2_to"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "End date of the second hospital confinement."
+          },
+          {
+            "name": "hospital_row_2_reason",
+            "type": "string",
+            "source": {
+              "field": [
+                "hospital_row_2_reason"
+              ]
+            },
+            "description": "Reason for the second hospital confinement."
+          },
+          {
+            "name": "occupation_prior_to_disability",
+            "type": "string",
+            "source": {
+              "field": [
+                "occupation_prior_to_disability"
+              ]
+            },
+            "description": "Job title held immediately before becoming disabled."
+          },
+          {
+            "name": "date_began_occupation",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_began_occupation"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date when the insured started working in the listed occupation."
+          },
+          {
+            "name": "unable_to_perform_duties",
+            "type": "string",
+            "source": {
+              "field": [
+                "unable_to_perform_duties"
+              ]
+            },
+            "description": "Specific job duties the insured is unable to perform as a result of the disability."
+          },
+          {
+            "name": "prior_work_experience",
+            "type": "string",
+            "source": {
+              "field": [
+                "prior_work_experience"
+              ]
+            },
+            "description": "Details about prior work experience and educational background."
+          },
+          {
+            "name": "remarks",
+            "type": "string",
+            "source": {
+              "field": [
+                "remarks"
+              ]
+            },
+            "description": "Additional notes or remarks from the insured."
+          }
+        ],
+        "metadata": {},
+        "description": "This document is an initial claimant's statement used for requesting income replacement or a waiver of premium benefits due to a disabling condition. It includes fields for personal details, employment information, medical history, and occupational duties to assess eligibility for benefits."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

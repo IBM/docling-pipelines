@@ -7,7 +7,7 @@ Extracted from AbstractOrchestrator to improve separation of concerns.
 
 import os
 
-from common.constants.constants import DatasiftConstants
+from common.constants.constants import DatasiftConstants, ExecutionStatus
 from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.logging import get_logger
 from common.models.session_info import get_session_info
@@ -85,21 +85,14 @@ class NodeLogger:
             extra=self.common_log_arguments
         )
     
-    def log_skipped_execution(
-        self,
-        *,
-        node_id: str,
-        node_name: str,
-        operator_type: str,
-        global_config: dict
-    ):
+    def log_skipped_execution(self, *, node_id: str, node_name: str, operator: str, global_config: dict):
         """
         Log when a node execution is skipped due to no input data.
         
         Args:
             node_id: Unique identifier for the skipped node
             node_name: Human-readable name of the skipped node
-            operator_type: Type of operator being skipped
+            operator: Name of operator being skipped
             global_config: Global configuration containing job_id and job_run_id
         """
         op_logger = self.get_node_logger(
@@ -117,7 +110,7 @@ class NodeLogger:
         op_logger.info(
             ">>> Skipped execution for Step Name: %s, operator: %s because no input data available for processing.",
             node_name,
-            operator_type,
+            operator,
             extra=self.common_log_arguments,
         )
         op_logger.info(
@@ -151,29 +144,23 @@ class NodeLogger:
             extra=self.common_log_arguments
         )
     
-    def log_cancellation_or_abort(
-        self,
-        *,
-        node_id: str,
-        node_name: str,
-        is_cancelling: bool,
-        global_config: dict
-    ):
+    def log_cancellation_or_abort_if_needed(self, *, node_id, node_name, job_status: ExecutionStatus, global_config):
         """
         Log when execution is cancelled or aborted at a node.
         
         Args:
             node_id: Unique identifier for the node
             node_name: Human-readable name of the node
-            is_cancelling: True if cancelling, False if aborting
+            job_status: Execution status
             global_config: Global configuration containing job_id and job_run_id
         """
-        msg = "Cancelling" if is_cancelling else "Aborting"
-        node_logger = self.get_node_logger(
-            node_id=node_id,
-            node_name=node_name,
-            global_config=global_config
-        )
+        if job_status == ExecutionStatus.CANCELING:
+            msg = "Cancelling"
+        elif job_status == ExecutionStatus.FAILING:
+            msg = "Aborting"
+        else:
+            return
+        node_logger = self.get_node_logger(node_id=node_id, node_name=node_name, global_config=global_config)
         node_logger.info(
             ">>> %s the branch execution at node name: %s ",
             msg,

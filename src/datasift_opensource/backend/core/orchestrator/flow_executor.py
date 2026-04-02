@@ -65,7 +65,7 @@ class FlowExecutor:
         try:
             if self.__orchestrator.job_tracker.cancel_job_run_if_cancelling(
                     job_run_id=self.session_info.job_run_id,
-                    job_log_path=self.__orchestrator.job_log_path):
+                    job_log_path=self.__orchestrator.flow_execution_event_handler.job_log_path):
                 logger.info(
                     ">>> Cancelled the execution: %s",
                     params[DatasiftConstants.JOB_RUN_ID],

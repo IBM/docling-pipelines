@@ -166,13 +166,10 @@ class AbstractOperatorExecutor:
         job_run_id = self._params[DatasiftConstants.JOB_RUN_ID]
         logger.info(f"Updating final stats for node '{node_id}'.")
 
-        from common.util.job_tracker.tracker.job_tracker import (
-            ExecutionStatus,
-            JobTracker,
-            NodeStatsDto,
-        )
+        from common.util.job_tracker.tracker.job_tracker import ExecutionStatus, JobTracker, NodeStatsDto
 
-        job_stats = JobTracker().get_job(job_run_id=job_run_id)
+        job_tracker = JobTracker()
+        job_stats = job_tracker.get_job(job_run_id=job_run_id)
 
         # If no job stats found, log warning and return early
         if job_stats is None:
@@ -223,7 +220,7 @@ class AbstractOperatorExecutor:
                 break
 
         # Pass the final, updated dictionary to the update function
-        JobTracker().update_node_stats(job_run_id=job_run_id, node_id=node_id, node_stats=node_stats)
+        job_tracker.update_node_stats(job_run_id=job_run_id, node_id=node_id, node_stats=node_stats)
         logger.info(f"Final stats for node '{node_id}' stored successfully.")
 
     @staticmethod
