@@ -46,8 +46,22 @@ def main() -> int:
     # VLM Pipeline configuration (only used if use_vlm_pipeline=True)
     # Default: "granite_docling"
     vlm_preset: str = OperatorConstants.Config.VLM_PRESET_DEFAULT
-    # "transformers" or "mlx"
+
+    # VLM Engine Type - Choose one:
+    # Local engines:
+    #   - VLM_ENGINE_TRANSFORMERS: Local inference using Transformers (default)
+    #   - VLM_ENGINE_MLX: Local inference optimized for macOS (Apple Silicon)
+    # API-based engines:
+    #   - VLM_ENGINE_API: Generic API endpoint (requires vlm_api_base_url)
+    #   - VLM_ENGINE_API_LMSTUDIO: LMStudio API
+    #   - VLM_ENGINE_API_OLLAMA: Ollama API
+    #   - VLM_ENGINE_API_OPENAI: OpenAI API
+    #   - VLM_ENGINE_API_WATSONX: IBM watsonx.ai API (requires vlm_api_key)
     vlm_engine_type: str = OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
+
+    # API Configuration (only used for API-based engines)
+    vlm_api_base_url: str | None = None  # e.g., "http://localhost:1234/v1"
+    vlm_api_key: str | None = None  # Required for watsonx, optional for others
 
     # File pattern for directory processing (only used if input is a directory)
     file_pattern: str = "*.pdf"
@@ -81,6 +95,10 @@ def main() -> int:
         OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_engine_type
         if use_vlm_pipeline
         else None,
+        OperatorConstants.Config.VLM_API_BASE_URL: vlm_api_base_url
+        if use_vlm_pipeline
+        else None,
+        OperatorConstants.Config.VLM_API_KEY: vlm_api_key if use_vlm_pipeline else None,
     }
 
     operator: ExtractDoclingOperator = ExtractDoclingOperator(config)
@@ -180,6 +198,40 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+    # Example configurations for testing different VLM engines:
+    #
+    # 1. Local Transformers (default):
+    #    use_vlm_pipeline = True
+    #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
+    #
+    # 2. Local MLX (macOS Apple Silicon):
+    #    use_vlm_pipeline = True
+    #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_MLX
+    #
+    # 3. Generic API:
+    #    use_vlm_pipeline = True
+    #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API
+    #    vlm_api_base_url = "http://localhost:8000/v1"
+    #
+    # 4. LMStudio API:
+    #    use_vlm_pipeline = True
+    #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_LMSTUDIO
+    #
+    # 5. Ollama API:
+    #    use_vlm_pipeline = True
+    #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_OLLAMA
+    #
+    # 6. OpenAI API:
+    #    use_vlm_pipeline = True
+    #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_OPENAI
+    #
+    # 7. IBM watsonx.ai API:
+    #    use_vlm_pipeline = True
+    #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_WATSONX
+    #    vlm_api_base_url = "https://us-south.ml.cloud.ibm.com/ml/v1/..."
+    #    vlm_api_key = "your-ibm-cloud-api-key"  # pragma: allowlist secret
+
     sys.exit(main())
 
 # Made with Bob

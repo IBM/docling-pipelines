@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
+import requests
 from docling.datamodel.base_models import InputFormat
 from docling.document_converter import DocumentConverter
 
@@ -34,6 +35,30 @@ from core.operators.functional.doc_id_hash import DocIdHashOperator
 from core.operators.operator_utils import OperatorUtils
 
 logger: logging.Logger = get_logger()
+
+IBM_CLOUD_IAM_TOKEN_URL = "https://iam.cloud.ibm.com/identity/token"
+IAM_TOKEN_REQUEST_TIMEOUT = 30
+
+
+def _get_iam_access_token(api_key: str) -> str:
+    """
+    Exchange IBM Cloud API key for IAM access token.
+    """
+    try:
+        res = requests.post(
+            url=IBM_CLOUD_IAM_TOKEN_URL,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            data={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": api_key},
+            timeout=IAM_TOKEN_REQUEST_TIMEOUT,
+        )
+        res.raise_for_status()
+        token_data = res.json()
+        if "access_token" not in token_data:
+            raise ValueError("Invalid IAM token response")
+        return token_data["access_token"]
+    except Exception:
+        logger.error("IAM token exchange failed - authentication error occurred")
+        raise
 
 
 def _extract_with_template_worker(file_path: str, binary_content: bytes, template: dict | None) -> dict[str, Any]:
@@ -115,8 +140,96 @@ def _extract_with_template_worker(file_path: str, binary_content: bytes, templat
         }
 
 
+def _configure_vlm_engine(
+    *, vlm_engine_type: str | None, vlm_preset: str, vlm_api_base_url: str | None = None, vlm_api_key: str | None = None
+):
+    """
+    Configure VLM engine options based on engine type.
+
+    Args:
+        vlm_engine_type: Engine type ("transformers", "mlx", or "api" variants)
+        vlm_preset: VLM preset name (e.g., "granite_docling")
+        vlm_api_base_url: API base URL (required if engine_type="api")
+        vlm_api_key: API key (optional, for authenticated APIs)
+
+    Returns:
+        VlmConvertOptions configured with the appropriate engine
+
+    Raises:
+        ValueError: If required parameters are missing for the selected engine
+    """
+    from docling.datamodel.pipeline_options import VlmConvertOptions
+    from docling.datamodel.vlm_engine_options import ApiVlmEngineOptions, VlmEngineType
+
+    # Select engine based on type
+    if vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API:
+        # API-based inference
+        if not vlm_api_base_url:
+            raise ValueError("vlm_api_base_url required when vlm_engine_type='api'")
+
+        engine_options = ApiVlmEngineOptions(runtime_type=VlmEngineType.API, url=vlm_api_base_url, timeout=90)
+        vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+        logger.info(f"Using API engine with base URL: {vlm_api_base_url}")
+    elif vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_LMSTUDIO:
+        engine_options = ApiVlmEngineOptions(runtime_type=VlmEngineType.API_LMSTUDIO, timeout=90)
+        vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+        logger.info("Using LMStudio engine for remote inference")
+    elif vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_OLLAMA:
+        engine_options = ApiVlmEngineOptions(runtime_type=VlmEngineType.API_OLLAMA, timeout=90)
+        vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+        logger.info("Using Ollama engine for remote inference")
+    elif vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_OPENAI:
+        engine_options = ApiVlmEngineOptions(runtime_type=VlmEngineType.API_OPENAI, timeout=90)
+        vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+        logger.info("Using OpenAI engine for remote inference")
+    elif vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_WATSONX:
+        # Exchange API key for IAM access token
+        headers = {}
+        try:
+            access_token = _get_iam_access_token(vlm_api_key)
+            headers["Authorization"] = f"Bearer {access_token}"
+            logger.info("Successfully obtained IAM access token for watsonx")
+        except Exception as e:
+            logger.error(f"Failed to obtain IAM access token: {e}")
+            raise ValueError(f"Failed to authenticate with watsonx: {e}") from e
+        engine_options = ApiVlmEngineOptions(
+            runtime_type=VlmEngineType.API, url=vlm_api_base_url, headers=headers, timeout=90
+        )
+        vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+        logger.info("Using watsonx.ai engine for remote inference")
+    elif vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_MLX:
+        # Local MLX inference (macOS optimized)
+        from docling.datamodel.vlm_engine_options import MlxVlmEngineOptions
+
+        engine_options = MlxVlmEngineOptions()
+        vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+        logger.info("Using MLX engine for local inference")
+
+    elif vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS or vlm_engine_type is None:
+        # Local Transformers inference (default)
+        from docling.datamodel.vlm_engine_options import TransformersVlmEngineOptions
+
+        engine_options = TransformersVlmEngineOptions()
+        vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+        logger.info("Using Transformers engine for local inference")
+
+    else:
+        logger.warning(f"Unknown VLM engine type: {vlm_engine_type}. Using Transformers as default.")
+        from docling.datamodel.vlm_engine_options import TransformersVlmEngineOptions
+
+        engine_options = TransformersVlmEngineOptions()
+        vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
+
+    return vlm_options
+
+
 def _extract_vlm_worker(
-    file_path: str, binary_content: bytes, vlm_preset: str, vlm_engine_type: str | None = None
+    file_path: str,
+    binary_content: bytes,
+    vlm_preset: str,
+    vlm_engine_type: str | None = None,
+    vlm_api_base_url: str | None = None,
+    vlm_api_key: str | None = None,
 ) -> dict[str, Any]:
     """
     Worker function for VLM-based extraction using presets - designed to run in parallel.
@@ -125,12 +238,14 @@ def _extract_vlm_worker(
         file_path: Path to the document file
         binary_content: Binary content of the document
         vlm_preset: VLM preset name (e.g., "granite_docling")
-        vlm_engine_type: Optional engine type ("transformers" or "mlx")
+        vlm_engine_type: Engine type ("transformers", "mlx", or "api" ones)
+        vlm_api_base_url: API base URL (required if engine_type="api")
+        vlm_api_key: API key (optional, for authenticated APIs)
 
     Returns:
         Dictionary containing extracted markdown content
     """
-    logger.info(f"Processing file with VLM pipeline (preset: {vlm_preset}): {file_path}")
+    logger.info(f"Processing file with VLM pipeline (preset: {vlm_preset}, engine: {vlm_engine_type}): {file_path}")
 
     try:
         # Import VLM-specific classes
@@ -148,7 +263,6 @@ def _extract_vlm_worker(
         }
 
     # Determine the effective file extension
-    # When file_path is a URL or has no extension, fall back to magic-byte detection
     file_suffix = Path(file_path).suffix.lower()
     if not file_suffix:
         file_suffix = OperatorUtils.detect_extension_from_bytes(binary_content)
@@ -159,28 +273,15 @@ def _extract_vlm_worker(
         tmp_path = tmp_file.name
 
     try:
-        # Configure VLM options from preset
-        from docling.datamodel.pipeline_options import VlmConvertOptions
+        # Configure VLM options using extracted function
+        vlm_options = _configure_vlm_engine(
+            vlm_engine_type=vlm_engine_type,
+            vlm_preset=vlm_preset,
+            vlm_api_base_url=vlm_api_base_url,
+            vlm_api_key=vlm_api_key,
+        )
 
-        # If engine type is specified, create options with that engine type
-        # Otherwise use the preset's default engine
-        if vlm_engine_type:
-            from docling.datamodel.vlm_engine_options import MlxVlmEngineOptions, TransformersVlmEngineOptions
-
-            if vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS:
-                engine_options = TransformersVlmEngineOptions()
-                vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
-            elif vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_MLX:
-                engine_options = MlxVlmEngineOptions()
-                vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
-            else:
-                logger.warning(f"Unknown VLM engine type: {vlm_engine_type}. Using preset default.")
-                vlm_options = VlmConvertOptions.from_preset(vlm_preset)
-        else:
-            vlm_options = VlmConvertOptions.from_preset(vlm_preset)
-
-        # Set up converter with VLM pipeline for supported formats (PDF and IMAGE)
-        # VLM pipeline only supports formats that use PdfDocumentBackend
+        # Set up converter with VLM pipeline
         converter = DocumentConverter(
             format_options={
                 InputFormat.PDF: PdfFormatOption(
@@ -200,7 +301,7 @@ def _extract_vlm_worker(
         # Export to markdown
         markdown_text = result.document.export_to_markdown()
 
-        # Extract tables (VLM pipeline handles tables internally)
+        # Extract tables
         tables = []
         for item, _ in result.document.iterate_items():
             if isinstance(item, TableItem):
@@ -225,7 +326,7 @@ def _extract_vlm_worker(
                 "image_count": len(images),
                 "char_count": len(markdown_text),
                 "vlm_preset": vlm_preset,
-                "vlm_engine_type": vlm_engine_type or "auto",
+                "vlm_engine_type": vlm_engine_type or "transformers",
             },
         }
     except Exception as e:
@@ -292,7 +393,11 @@ class ExtractDoclingOperator(AbstractOperator):
         self.vlm_preset: str = config.get(
             OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
         )
-        self.vlm_engine_type: str | None = config.get(OperatorConstants.Config.VLM_ENGINE_TYPE)
+        self.vlm_engine_type: str | None = config.get(
+            OperatorConstants.Config.VLM_ENGINE_TYPE, OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
+        )
+        self.vlm_api_base_url: str | None = config.get(OperatorConstants.Config.VLM_API_BASE_URL)
+        self.vlm_api_key: str | None = config.get(OperatorConstants.Config.VLM_API_KEY)
 
         # Validate VLM preset if VLM pipeline is enabled
         if self.use_vlm_pipeline and self.vlm_preset:
@@ -309,14 +414,33 @@ class ExtractDoclingOperator(AbstractOperator):
                 ) from e
 
         # Validate VLM engine type
-        if self.vlm_engine_type and self.vlm_engine_type not in [
+        valid_engines = [
             OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS,
             OperatorConstants.Config.VLM_ENGINE_MLX,
-        ]:
-            raise ValueError(
-                f"Invalid vlm_engine_type: {self.vlm_engine_type}. "
-                f"Must be '{OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS}' or '{OperatorConstants.Config.VLM_ENGINE_MLX}'"
-            )
+            OperatorConstants.Config.VLM_ENGINE_API,
+            OperatorConstants.Config.VLM_ENGINE_API_LMSTUDIO,
+            OperatorConstants.Config.VLM_ENGINE_API_OLLAMA,
+            OperatorConstants.Config.VLM_ENGINE_API_OPENAI,
+            OperatorConstants.Config.VLM_ENGINE_API_WATSONX,
+        ]
+        if self.vlm_engine_type and self.vlm_engine_type not in valid_engines:
+            raise ValueError(f"Invalid vlm_engine_type: {self.vlm_engine_type}. Must be one of {valid_engines}")
+
+        # Validate API configuration
+        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API:
+            if not self.vlm_api_base_url:
+                raise ValueError(
+                    "vlm_api_base_url is required when vlm_engine_type='api'. "
+                    "Provide the API endpoint (e.g., 'https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29' for watsonx.ai)"
+                )
+
+        # Validate watsonx API key
+        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_WATSONX:
+            if not self.vlm_api_key:
+                raise ValueError(
+                    "vlm_api_key is required when vlm_engine_type='api_watsonx'. "
+                    "Provide the IBM Cloud API key for watsonx.ai authentication."
+                )
 
         # Validate mutually exclusive modes
         if self.use_vlm_pipeline and self.use_template:
@@ -519,6 +643,8 @@ class ExtractDoclingOperator(AbstractOperator):
                         task["binary_content"],
                         self.vlm_preset,
                         self.vlm_engine_type,
+                        self.vlm_api_base_url,
+                        self.vlm_api_key,
                     )
                 else:
                     future = executor.submit(
@@ -718,7 +844,21 @@ class ExtractDoclingOperator(AbstractOperator):
                 },
                 OperatorConstants.Config.VLM_ENGINE_TYPE: {
                     OperatorConstants.Misc.NAME: "VLM Engine Type",
-                    OperatorConstants.Config.DESCRIPTION: "VLM engine backend: 'transformers' (universal) or 'mlx' (macOS optimized). Auto-detect if not specified.",
+                    OperatorConstants.Config.DESCRIPTION: "VLM engine: 'transformers' (local, default), 'mlx' (macOS optimized), or 'api' (remote API)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.VLM_API_BASE_URL: {
+                    OperatorConstants.Misc.NAME: "VLM API Base URL",
+                    OperatorConstants.Config.DESCRIPTION: "API endpoint for remote VLM inference (required if engine_type='api'). Examples: 'http://localhost:11434' (Ollama), 'http://localhost:1234' (LM Studio)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.VLM_API_KEY: {
+                    OperatorConstants.Misc.NAME: "VLM API Key",
+                    OperatorConstants.Config.DESCRIPTION: "API key for authenticated remote APIs (optional, not needed for Ollama/LM Studio)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: None,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,

@@ -179,6 +179,13 @@ class OperatorConstants:
         VLM_ENGINE_TYPE: Final[str] = "vlm_engine_type"
         VLM_ENGINE_TRANSFORMERS: Final[str] = "transformers"
         VLM_ENGINE_MLX: Final[str] = "mlx"
+        VLM_ENGINE_API: Final[str] = "api"
+        VLM_ENGINE_API_LMSTUDIO: Final[str] = "api_lmstudio"
+        VLM_ENGINE_API_OLLAMA: Final[str] = "api_ollama"
+        VLM_ENGINE_API_OPENAI: Final[str] = "api_openai"
+        VLM_ENGINE_API_WATSONX: Final[str] = "api_watsonx"
+        VLM_API_BASE_URL: Final[str] = "vlm_api_base_url"
+        VLM_API_KEY: Final[str] = "vlm_api_key"
 
         # Processing Configuration
         ALWAYS_RETRIEVE_DOCUMENT: Final[str] = "always_retrieve_document"
