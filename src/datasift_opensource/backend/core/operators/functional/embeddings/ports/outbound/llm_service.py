@@ -1,0 +1,81 @@
+"""Port interface for LLM embedding services.
+
+This port defines the contract that all embedding service adapters must implement.
+It follows the hexagonal architecture pattern, keeping the interface minimal and
+focused on business logic only.
+"""
+
+from abc import ABC, abstractmethod
+
+
+class LLMServicePort(ABC):
+    """Port interface for LLM embedding services.
+
+    This interface defines the contract for embedding generation services.
+    Adapters implementing this port handle provider-specific details while
+    the operator depends only on this abstraction.
+
+    Attributes:
+        ADAPTER_NAME: Unique identifier for the adapter (e.g., 'ollama')
+        ADAPTER_DISPLAY_NAME: Human-readable name for UI display
+    """
+
+    ADAPTER_NAME: str
+    ADAPTER_DISPLAY_NAME: str
+
+    @abstractmethod
+    def generate_embeddings(self, text: str) -> list[float]:
+        """Generate embedding vector for text.
+
+        Args:
+            text: Input text to generate embeddings for
+
+        Returns:
+            List of floats representing the embedding vector
+
+        Raises:
+            Exception: If embedding generation fails
+        """
+        pass
+
+    @abstractmethod
+    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+        """Generate embedding vectors for multiple texts in batches.
+
+        This method enables efficient batch processing of embeddings, which can
+        significantly improve performance (30-50% faster depending on provider).
+
+        Args:
+            texts: List of input texts to generate embeddings for
+            batch_size: Number of texts to process in each batch (default: 32)
+
+        Returns:
+            List of embedding vectors, one per input text
+
+        Raises:
+            Exception: If embedding generation fails
+        """
+        pass
+
+    @abstractmethod
+    def get_model_token_limit(self) -> int:
+        """Get maximum token limit for the model.
+
+        Returns:
+            Maximum number of tokens the model can process
+        """
+        pass
+
+    def get_embedding_dimension(self) -> int | None:
+        """Get embedding vector dimension.
+
+        This is optional and may return None if the dimension is unknown
+        or cannot be determined without making an API call.
+
+        Returns:
+            Dimension of embedding vectors, or None if unknown
+        """
+        return None
+
+
+# Made with Bob

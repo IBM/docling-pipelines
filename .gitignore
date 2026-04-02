@@ -45,6 +45,7 @@ build/
 
 # Downloaded models
 src/datasift_opensource/backend/models/
+src/datasift_opensource/models/
 
 # Bob AI Assistant
 .bob/

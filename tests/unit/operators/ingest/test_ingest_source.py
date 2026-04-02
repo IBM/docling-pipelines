@@ -4,21 +4,10 @@ Unit tests for IngestSourceOperator.
 Tests the operator with various providers and configurations using mocks.
 """
 
-import sys
-from pathlib import Path
 import pyarrow as pa
 from unittest.mock import Mock, patch
 from langchain_core.documents import Document
 import pytest
-
-# Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "src"
-    / "datasift_opensource"
-    / "backend"
-)
-sys.path.insert(0, str(backend_dir))
 
 
 @pytest.fixture

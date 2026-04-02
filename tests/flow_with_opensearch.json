@@ -77,8 +77,8 @@
         "name": "generate_embeddings",
         "operator": "embeddings",
         "config": {
-          "embeddings_type": "ollama",
-          "embeddings_model_id": "nomic-embed-text",
+          "embeddings_type": "litellm",
+          "embeddings_model_id": "text-embedding-3-small",
           "doc_column": "content",
           "embeddings_column": "embeddings"
         },
@@ -100,8 +100,8 @@
           "opensearch_password": "MyStrongPass123!",
           "opensearch_use_ssl": false,
           "opensearch_verify_certs": false,
-          "index_name": "datasift_test_index",
-          "vector_dimension": 384,
+          "index_name": "datasift_test_litellm",
+          "vector_dimension": 1536,
           "doc_id_column": "doc_id_hash",
           "embeddings_column": "embeddings",
           "engine": "faiss",

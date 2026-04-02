@@ -126,3 +126,66 @@ class ValidationException(DatasiftException):
 
         self.errors = errors
         self.warnings = warnings
+
+
+class ConfigurationError(DatasiftException):
+    """
+    Exception raised for configuration errors.
+
+    Used when required configuration parameters are missing or invalid,
+    such as missing API keys, invalid credentials, or malformed settings.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        error_code: ErrorCode | None = ErrorCode.INVALID_CONFIGURATION,
+        status_code: int = 400,
+    ):
+        super().__init__(
+            message,
+            status_code=status_code,
+            error_code=error_code,
+        )
+
+
+class DependencyError(DatasiftException):
+    """
+    Exception raised when required dependencies are missing.
+
+    Used when optional packages or libraries are not installed
+    but are required for specific functionality.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        error_code: ErrorCode | None = ErrorCode.EXTERNAL_SERVICE_ERROR,
+        status_code: int = 500,
+    ):
+        super().__init__(
+            message,
+            status_code=status_code,
+            error_code=error_code,
+        )
+
+
+class ExternalServiceError(DatasiftException):
+    """
+    Exception raised when external service calls fail.
+
+    Used for API errors, network failures, authentication errors,
+    rate limits, and other external service-related issues.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        error_code: ErrorCode | None = ErrorCode.EXTERNAL_SERVICE_ERROR,
+        status_code: int = 502,
+    ):
+        super().__init__(
+            message,
+            status_code=status_code,
+            error_code=error_code,
+        )
