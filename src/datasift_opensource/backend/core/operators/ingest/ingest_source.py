@@ -660,6 +660,8 @@ class IngestSourceOperator(AbstractOperator):
             )
             return False
 
+    # Provides fallback if _binary_content is missing
+    # Provider specific logic can be removed after all the adapters have been migrated
     def _get_binary_content(self, doc: Document, source: str) -> bytes | None:
         """
         Get binary content from document using appropriate method based on provider.
@@ -677,17 +679,16 @@ class IngestSourceOperator(AbstractOperator):
             return binary_content
 
         # Try provider-specific download
-        if self.provider in ("onedrive", "sharepoint"):
-            binary_content = self._download_microsoft_content(doc, source)
-        elif self.provider in ("s3", "ibm_cos"):
+        if self.provider in ("s3", "ibm_cos"):
             binary_content = self._download_s3_content(doc, source)
 
         # Fallback to page_content
-        if binary_content is None:
+        elif binary_content is None:
             binary_content = self._fallback_to_page_content(doc, source)
 
         return binary_content
 
+    # Required for the new adapters
     def _check_adapter_binary_content(self, doc: Document, source: str) -> bytes | None:
         """Check if binary content is pre-fetched from adapter."""
         if hasattr(doc, "_binary_content") and doc._binary_content is not None:
@@ -707,66 +708,6 @@ class IngestSourceOperator(AbstractOperator):
             return None
 
         return None
-
-    def _download_microsoft_content(self, doc: Document, source: str) -> bytes | None:
-        """Download content from OneDrive or SharePoint."""
-        item_id = doc.metadata.get("item_id")
-        if not item_id:
-            return None
-
-        try:
-            import requests
-
-            access_token = self._get_microsoft_access_token()
-            download_url = self._get_microsoft_download_url(doc)
-            headers = {"Authorization": f"Bearer {access_token}"}
-
-            response = requests.get(download_url, headers=headers, allow_redirects=True)
-            response.raise_for_status()
-
-            logger.info(
-                f"Downloaded {len(response.content)} bytes from {self.provider} for: {source}",
-                extra=self.common_log_arguments,
-            )
-            return response.content
-
-        except Exception as err:
-            logger.warning(
-                f"Could not download binary from {self.provider} for {source}: {err}. "
-                "Falling back to page_content text.",
-                extra=self.common_log_arguments,
-            )
-            return None
-
-    def _get_microsoft_access_token(self) -> str:
-        """Get Microsoft Graph API access token."""
-        import requests
-
-        token_url = f"{MICROSOFT_LOGIN_URL}/{self.credentials.get('tenant_id')}{MICROSOFT_OAUTH_TOKEN_PATH}"
-        token_data = {
-            "client_id": self.credentials.get("client_id"),
-            "client_secret": self.credentials.get("client_secret"),
-            "scope": MICROSOFT_GRAPH_SCOPE,
-            "grant_type": "client_credentials",
-        }
-        token_response = requests.post(token_url, data=token_data)
-        token_response.raise_for_status()
-        return token_response.json()["access_token"]
-
-    def _get_microsoft_download_url(self, doc: Document) -> str:
-        """Get download URL for Microsoft document."""
-        download_url = doc.metadata.get("download_url")
-        if download_url:
-            return download_url
-
-        # Construct URL using drive_id and item_id
-        drive_id = (
-            doc.metadata.get("drive_id")
-            or self.connection_params.get("drive_id")
-            or self.connection_params.get("document_library_id")
-        )
-        item_id = doc.metadata.get("item_id")
-        return f"{MICROSOFT_GRAPH_API_BASE}/drives/{drive_id}/items/{item_id}/content"
 
     def _download_s3_content(self, doc: Document, source: str) -> bytes | None:
         """Download content from S3 or IBM COS."""

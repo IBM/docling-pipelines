@@ -193,12 +193,22 @@ def main():  # pragma: no cover
     logger.debug(flow.flow_def)
 
     orchestrator = OrchestratorFactory.create_orchestrator()
+    
+    # Initialize the flow execution event handler
+    job_id = "5df177f6-92bc-4465-826e-f4df207ffb71"
+    job_run_id = "5df177f6-92bc-4465-826e-f4df207ffb75"
+    orchestrator.flow_execution_event_handler.initialize(
+        job_id=job_id,
+        job_run_id=job_run_id,
+        common_log_arguments=flow.common_log_arguments
+    )
+    
     try:
         flow.execute(
             orchestrator=orchestrator,
             params={
-                DatasiftConstants.JOB_ID: "5df177f6-92bc-4465-826e-f4df207ffb71",
-                DatasiftConstants.JOB_RUN_ID: "5df177f6-92bc-4465-826e-f4df207ffb75",
+                DatasiftConstants.JOB_ID: job_id,
+                DatasiftConstants.JOB_RUN_ID: job_run_id,
             },
         )
         logger.info(f"Successfully completed flow execution in background thread. orchestrator: {orchestrator}")
