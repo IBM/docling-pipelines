@@ -86,7 +86,7 @@ def _mark_completed_documents(
     for node_id in destination_node_ids:
         node_stat = job_stats.node_stats.get(node_id)
         if not node_stat:
-            return
+            continue
 
         for doc_id in node_stat.docs_completed or []:
             if doc_id not in final_docs_status:
