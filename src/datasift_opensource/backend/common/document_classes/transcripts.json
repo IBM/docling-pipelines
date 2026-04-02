@@ -1,0 +1,238 @@
+{
+  "document_class_id": "3f6e7441-ea79-4160-98ab-1f28d74bca0e",
+  "document_class_name": "Transcripts",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "student_name",
+          "examples": [
+            "John Q. Public"
+          ],
+          "description": "Full legal name of the student.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "institution_name",
+          "examples": [
+            "State University"
+          ],
+          "description": "Name of the college or educational body issuing the transcript.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "student_id_number",
+          "examples": [
+            "S1234567"
+          ],
+          "description": "Institution-specific ID assigned to the student.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "date_of_issue",
+          "examples": [
+            "2023-07-15"
+          ],
+          "description": "Date the transcript was officially generated.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "academic_level",
+          "examples": [
+            "Undergraduate"
+          ],
+          "description": "Program level (Undergrad, Graduate, etc.).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "program_of_study",
+          "examples": [
+            "Bachelor of Science in Computer Science"
+          ],
+          "description": "Major, degree, or course of study.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "cumulative_gpa",
+          "examples": [
+            "3.75"
+          ],
+          "description": "Overall grade point average for the student.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "courses",
+          "examples": [
+            "CS101: Intro to Programming (A), MATH201: Calculus II (B+)"
+          ],
+          "description": "List of courses with grades, may be partial or complete.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "credit_hours_earned",
+          "examples": [
+            "120"
+          ],
+          "description": "Total academic credits successfully completed.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "official_seal_signature",
+          "examples": [
+            "University Registrar"
+          ],
+          "description": "Registrar or authorized signature plus the institutional seal.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Transcripts",
+      "document_description": "An academic transcript is an official record of a student\u2019s courses, grades, and credit hours earned at an educational institution. It is commonly used for admissions, job applications, and professional licensing requirements."
+    },
+    "target_tables": [
+      {
+        "name": "Transcripts",
+        "columns": [
+          {
+            "name": "student_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "student_name"
+              ]
+            },
+            "description": "Full legal name of the student."
+          },
+          {
+            "name": "institution_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "institution_name"
+              ]
+            },
+            "description": "Name of the college or educational body issuing the transcript."
+          },
+          {
+            "name": "student_id_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "student_id_number"
+              ]
+            },
+            "description": "Institution-specific ID assigned to the student."
+          },
+          {
+            "name": "date_of_issue",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "date_of_issue"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the transcript was officially generated."
+          },
+          {
+            "name": "academic_level",
+            "type": "string",
+            "source": {
+              "field": [
+                "academic_level"
+              ]
+            },
+            "description": "Program level (Undergrad, Graduate, etc.)."
+          },
+          {
+            "name": "program_of_study",
+            "type": "string",
+            "source": {
+              "field": [
+                "program_of_study"
+              ]
+            },
+            "description": "Major, degree, or course of study."
+          },
+          {
+            "name": "cumulative_gpa",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "cumulative_gpa"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Overall grade point average for the student."
+          },
+          {
+            "name": "courses",
+            "type": "string",
+            "source": {
+              "field": [
+                "courses"
+              ]
+            },
+            "description": "List of courses with grades, may be partial or complete."
+          },
+          {
+            "name": "credit_hours_earned",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "credit_hours_earned"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Total academic credits successfully completed."
+          },
+          {
+            "name": "official_seal_signature",
+            "type": "string",
+            "source": {
+              "field": [
+                "official_seal_signature"
+              ]
+            },
+            "description": "Registrar or authorized signature plus the institutional seal."
+          }
+        ],
+        "metadata": {},
+        "description": "An academic transcript is an official record of a student\u2019s courses, grades, and credit hours earned at an educational institution. It is commonly used for admissions, job applications, and professional licensing requirements."
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:59Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}

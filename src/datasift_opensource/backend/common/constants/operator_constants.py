@@ -82,6 +82,7 @@ class OperatorConstants:
         DOC_ID_HASH: Final[str] = "doc_id_hash_column"
         DOC_ID_HASH_DEFAULT: Final[str] = "doc_id_hash"
         DOCLING_DOCUMENT: Final[str] = "docling_document"
+        DOCUMENT_TYPE: Final[str] = "document_type"
         ID: Final[str] = "id"
         JSON_CONTENT: Final[str] = "json_content"
         KVP_COLUMN: Final[str] = "kvp_column"
@@ -123,7 +124,7 @@ class OperatorConstants:
 
         # Merge and Join Columns
         COLUMN_LIST: Final[str] = "column_list"
-        COLUMNS: Final[str] = "columns"
+        FEATURES: Final[str] = "columns"
         INNER_JOIN_DUPLICATE_COLUMN: Final[str] = "inner_join"
 
     class Config:
@@ -172,6 +173,19 @@ class OperatorConstants:
         TEMPLATE: Final[str] = "template"
         USE_PROCESSES: Final[str] = "use_processes"
         USE_TEMPLATE: Final[str] = "use_template"
+        USE_VLM_PIPELINE: Final[str] = "use_vlm_pipeline"
+        VLM_PRESET: Final[str] = "vlm_preset"
+        VLM_PRESET_DEFAULT: Final[str] = "granite_docling"
+        VLM_ENGINE_TYPE: Final[str] = "vlm_engine_type"
+        VLM_ENGINE_TRANSFORMERS: Final[str] = "transformers"
+        VLM_ENGINE_MLX: Final[str] = "mlx"
+        VLM_ENGINE_API: Final[str] = "api"
+        VLM_ENGINE_API_LMSTUDIO: Final[str] = "api_lmstudio"
+        VLM_ENGINE_API_OLLAMA: Final[str] = "api_ollama"
+        VLM_ENGINE_API_OPENAI: Final[str] = "api_openai"
+        VLM_ENGINE_API_WATSONX: Final[str] = "api_watsonx"
+        VLM_API_BASE_URL: Final[str] = "vlm_api_base_url"
+        VLM_API_KEY: Final[str] = "vlm_api_key"
 
         # Processing Configuration
         ALWAYS_RETRIEVE_DOCUMENT: Final[str] = "always_retrieve_document"

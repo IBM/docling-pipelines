@@ -855,7 +855,7 @@ class OperatorUtils:
         Returns:
             Dictionary containing extracted markdown content
         """
-        logger.info(f"Processing file: {file_path}")
+        logger.info("Processing file: %s", file_path)
 
         # Determine the effective file extension.
         # When file_path is a URL or has no extension (e.g. from IngestSourceOperator),

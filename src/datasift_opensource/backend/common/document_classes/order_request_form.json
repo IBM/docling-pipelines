@@ -1,0 +1,376 @@
+{
+  "document_class_id": "2d229cb0-d409-475e-83f9-4a1ce0b24989",
+  "document_class_name": "Order Request Form",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "major_category",
+          "examples": [
+            "\u52d8\u5b9a\u7cfb\u30b7\u30b9\u30c6\u30e0",
+            "\u60c5\u5831\u7cfb\u30b7\u30b9\u30c6\u30e0",
+            "\u30c1\u30e3\u30cd\u30eb\u7cfb\u30b7\u30b9\u30c6\u30e0"
+          ],
+          "description": "\u5927\u5206\u985e (Major Category)",
+          "extraction_instructions": "Extract the major category classification of the request in financial business systems context"
+        },
+        {
+          "name": "minor_category",
+          "examples": [
+            "\u9810\u91d1\u696d\u52d9",
+            "\u878d\u8cc7\u696d\u52d9",
+            "\u70ba\u66ff\u696d\u52d9"
+          ],
+          "description": "\u4e2d\u5206\u985e (Minor Category)",
+          "extraction_instructions": "Extract the minor category classification of the request in financial business systems context"
+        },
+        {
+          "name": "management_number",
+          "examples": [
+            "1-4-04-010",
+            "1-4-06-002",
+            "1-5-03-090"
+          ],
+          "description": "\u7ba1\u7406\u756a\u53f7 (Management Number)",
+          "extraction_instructions": "Extract the management number or document ID. This may be in formats like '1-4-04-010'"
+        },
+        {
+          "name": "request_name",
+          "examples": [
+            "\u9867\u5ba2\u7ba1\u7406\u30b7\u30b9\u30c6\u30e0\u6539\u4fee",
+            "\u8ca9\u58f2\u7ba1\u7406\u30b7\u30b9\u30c6\u30e0\u65b0\u898f\u958b\u767a"
+          ],
+          "description": "\u6848\u4ef6\u540d (Request Name)",
+          "extraction_instructions": "Extract the full name or title of the request"
+        },
+        {
+          "name": "request_date",
+          "examples": [
+            "2025-04-15",
+            "2025/04/15",
+            "\u4ee4\u548c7\u5e744\u670815\u65e5"
+          ],
+          "description": "\u4f9d\u983c\u65e5 (Request Date)",
+          "extraction_instructions": "Extract the date when the request was submitted. Accept various date formats"
+        },
+        {
+          "name": "requesting_department",
+          "examples": [
+            "\u60c5\u5831\u30b7\u30b9\u30c6\u30e0\u90e8",
+            "\u55b6\u696d\u90e8",
+            "\u7dcf\u52d9\u90e8"
+          ],
+          "description": "\u4f9d\u983c\u90e8 (Requesting Department)",
+          "extraction_instructions": "Extract the name of the department making the request"
+        },
+        {
+          "name": "department_code",
+          "examples": [
+            "1001",
+            "D-123",
+            "BR-456"
+          ],
+          "description": "\u90e8\u5e97\u30b3\u30fc\u30c9 (Department Code)",
+          "extraction_instructions": "Extract the department or branch code"
+        },
+        {
+          "name": "requester_name",
+          "examples": [
+            "\u5c71\u7530\u592a\u90ce",
+            "Yamada Taro"
+          ],
+          "description": "\u4f9d\u983c\u8005\u540d (Requester Name)",
+          "extraction_instructions": "Extract the full name of the person making the request"
+        },
+        {
+          "name": "phone_number",
+          "examples": [
+            "03-1234-5678",
+            "090-1234-5678"
+          ],
+          "description": "\u96fb\u8a71\u756a\u53f7 (Phone Number)",
+          "extraction_instructions": "Extract the phone number in any format present in the document"
+        },
+        {
+          "name": "request_content",
+          "examples": [
+            "\u9867\u5ba2\u7ba1\u7406\u30b7\u30b9\u30c6\u30e0\u306e\u691c\u7d22\u6a5f\u80fd\u5f37\u5316",
+            "\u30c7\u30fc\u30bf\u30d9\u30fc\u30b9\u306e\u30de\u30a4\u30b0\u30ec\u30fc\u30b7\u30e7\u30f3\u4f5c\u696d"
+          ],
+          "description": "\u4f9d\u983c\u5185\u5bb9 (Request Content)",
+          "extraction_instructions": "Extract the detailed description of the request content"
+        },
+        {
+          "name": "purpose",
+          "examples": [
+            "\u696d\u52d9\u52b9\u7387\u5316",
+            "\u30b7\u30b9\u30c6\u30e0\u306e\u5b89\u5b9a\u6027\u5411\u4e0a",
+            "\u6cd5\u4ee4\u5bfe\u5fdc"
+          ],
+          "description": "\u76ee\u7684 (Purpose)",
+          "extraction_instructions": "Extract the main purpose or objective of the request"
+        },
+        {
+          "name": "estimated_return_amount",
+          "examples": [
+            "5000000",
+            "\u00a55,000,000",
+            "5M"
+          ],
+          "description": "\u5b9a\u91cf\u52b9\u679c(\u91d1\u984d) (Estimated Quantitative Effect - Amount)",
+          "extraction_instructions": "Extract the estimated financial return or benefit. May include currency symbols or formatting"
+        },
+        {
+          "name": "estimated_value_basis",
+          "examples": [
+            "\u4f5c\u696d\u6642\u9593\u524a\u6e1b\u306b\u3088\u308b\u4eba\u4ef6\u8cbb\u524a\u6e1b",
+            "\u30a8\u30e9\u30fc\u524a\u6e1b\u306b\u3088\u308b\u640d\u5931\u56de\u907f"
+          ],
+          "description": "\u5b9a\u91cf\u52b9\u679c(\u7b97\u51fa\u6839\u62e0) (Estimated Value Basis)",
+          "extraction_instructions": "Extract the explanation or calculation basis for the estimated return amount"
+        },
+        {
+          "name": "estimated_qualitative_effect",
+          "examples": [
+            "\u5f93\u696d\u54e1\u6e80\u8db3\u5ea6\u306e\u5411\u4e0a",
+            "\u9867\u5ba2\u6e80\u8db3\u5ea6\u306e\u5411\u4e0a"
+          ],
+          "description": "\u5b9a\u6027\u52b9\u679c(\u4efb\u610f) (Estimated Qualitative Effect - Optional)",
+          "extraction_instructions": "Extract non-monetary benefits or qualitative improvements expected from the request"
+        },
+        {
+          "name": "target_delivery_date",
+          "examples": [
+            "2025-06-30",
+            "2025/06/30",
+            "\u4ee4\u548c7\u5e746\u670830\u65e5"
+          ],
+          "description": "\u5e0c\u671b\u7d0d\u671f (Target Delivery Date)",
+          "extraction_instructions": "Extract the desired or target completion date. Accept various date formats"
+        },
+        {
+          "name": "delivery_reason_basis",
+          "examples": [
+            "\u671f\u672b\u6c7a\u7b97\u5bfe\u5fdc\u306e\u305f\u3081",
+            "\u65b0\u30b5\u30fc\u30d3\u30b9\u958b\u59cb\u306b\u5408\u308f\u305b\u3066",
+            "\u6cd5\u6539\u6b63\u5bfe\u5fdc\u671f\u9650"
+          ],
+          "description": "\u7d0d\u671f\u4f9d\u983c\u6839\u62e0 (Delivery Date Reason/Basis)",
+          "extraction_instructions": "Extract the justification or reason for the requested delivery date"
+        }
+      ],
+      "document_type": "Order Request Form",
+      "document_description": "Purchase Order Request Form for Financial Systems",
+      "additional_prompt_instructions": "Extract all fields accurately from the document. For date fields, accept various formats including YYYY-MM-DD, YYYY/MM/DD, and Japanese date formats. For numeric fields, handle both plain numbers and formatted currency values. If a field is not present in the document, return null."
+    },
+    "target_tables": [
+      {
+        "name": "computer_processing_requests",
+        "columns": [
+          {
+            "name": "document_id",
+            "type": "string",
+            "source": {
+              "variable": "document_id"
+            },
+            "description": "Unique identifier for the document"
+          },
+          {
+            "name": "processed_date",
+            "type": "string",
+            "source": {
+              "variable": "processed_date"
+            },
+            "description": "Date when the document was processed"
+          },
+          {
+            "name": "major_category",
+            "type": "string",
+            "source": {
+              "field": [
+                "major_category"
+              ]
+            },
+            "description": "Major category classification"
+          },
+          {
+            "name": "minor_category",
+            "type": "string",
+            "source": {
+              "field": [
+                "minor_category"
+              ]
+            },
+            "description": "Minor category classification"
+          },
+          {
+            "name": "management_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "management_number"
+              ]
+            },
+            "description": "Management number or document ID"
+          },
+          {
+            "name": "request_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "request_name"
+              ]
+            },
+            "description": "Name of the request"
+          },
+          {
+            "name": "request_date",
+            "type": "string",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_string",
+                    "value": "request_date"
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date the request was made (ISO format)"
+          },
+          {
+            "name": "requesting_department",
+            "type": "string",
+            "source": {
+              "field": [
+                "requesting_department"
+              ]
+            },
+            "description": "Requesting department name"
+          },
+          {
+            "name": "department_code",
+            "type": "string",
+            "source": {
+              "field": [
+                "department_code"
+              ]
+            },
+            "description": "Department or branch code"
+          },
+          {
+            "name": "requester_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "requester_name"
+              ]
+            },
+            "description": "Name of the requester"
+          },
+          {
+            "name": "phone_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "phone_number"
+              ]
+            },
+            "description": "Phone number of the requester"
+          },
+          {
+            "name": "request_content",
+            "type": "string",
+            "source": {
+              "field": [
+                "request_content"
+              ]
+            },
+            "description": "Detailed description of request content"
+          },
+          {
+            "name": "purpose",
+            "type": "string",
+            "source": {
+              "field": [
+                "purpose"
+              ]
+            },
+            "description": "Purpose of the request"
+          },
+          {
+            "name": "estimated_return_amount",
+            "type": "float",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_string",
+                    "value": "estimated_return_amount"
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Estimated quantitative effect as numeric value"
+          },
+          {
+            "name": "estimated_value_basis",
+            "type": "string",
+            "source": {
+              "field": [
+                "estimated_value_basis"
+              ]
+            },
+            "description": "Basis for estimated value calculation"
+          },
+          {
+            "name": "estimated_qualitative_effect",
+            "type": "string",
+            "source": {
+              "field": [
+                "estimated_qualitative_effect"
+              ]
+            },
+            "description": "Qualitative effects or benefits"
+          },
+          {
+            "name": "target_delivery_date",
+            "type": "string",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_string",
+                    "value": "target_delivery_date"
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Target delivery date (ISO format)"
+          },
+          {
+            "name": "delivery_reason_basis",
+            "type": "string",
+            "source": {
+              "field": [
+                "delivery_reason_basis"
+              ]
+            },
+            "description": "Justification for the delivery date"
+          }
+        ],
+        "description": "Main table storing computer processing request information"
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2026-03-09T08:25:22Z",
+  "last_modified_time": "2026-03-09T08:25:22Z",
+  "created_by": "IBMid-270006EKFK",
+  "last_modified_by": "IBMid-270006EKFK",
+  "is_predefined": false,
+  "is_enabled": true
+}

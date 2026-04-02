@@ -131,10 +131,7 @@ class DocumentClassifierOperator(AbstractOperator):
             DOCUMENT_TYPES_KEY, []
         )
         if not self.document_types:
-            raise DatasiftException(
-                error_code=ErrorCode.INVALID_CONFIGURATION,
-                message="document_types must be provided (list of types or dict with descriptions)"
-            )
+            self.document_types = self._get_document_types()
 
         # Classification parameters
         self.confidence_threshold: float = config.get(
@@ -167,7 +164,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
         logger.info(
             f"Initialized DocumentClassifierOperator with provider={self.provider}, "
-            f"model={self.model_id}, types={len(self.document_types) if isinstance(self.document_types, list) else len(self.document_types.keys())}"
+            f"model={self.model_id}, types={len(self.document_types)}"
         )
 
     def validate(self, errors: List[str], warnings: List[str], available_features: List[str]) -> None:
@@ -241,6 +238,16 @@ class DocumentClassifierOperator(AbstractOperator):
                     message="api_base and api_key are required for watsonx provider"
                 )
             logger.info(f"Validated watsonx configuration for {self.api_base}")
+
+    @staticmethod
+    def _get_document_types() -> Dict[str, str]:
+        """
+        Returns:
+            Dictionary mapping document_type to document_description
+        """
+        from common.util.document_class_utils import DocumentClassUtils
+        return DocumentClassUtils.get_document_types()
+
 
     def _call_ollama_chat(self, messages: List[Dict[str, str]]) -> str:
         """
@@ -768,7 +775,7 @@ Example response:
                 DOCUMENT_TYPES_KEY: {
                     OperatorConstants.Misc.NAME: "Document Types",
                     OperatorConstants.Config.DESCRIPTION: "List of document types or dictionary with descriptions",
-                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
                 CONFIDENCE_THRESHOLD_KEY: {

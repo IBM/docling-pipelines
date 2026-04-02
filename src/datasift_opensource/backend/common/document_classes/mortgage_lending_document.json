@@ -1,0 +1,259 @@
+{
+  "document_class_id": "32031d3d-82fc-4c85-ad40-dbf9510c52d5",
+  "document_class_name": "Mortgage / Lending Document",
+  "document_class_schema": {
+    "document": {
+      "fields": [
+        {
+          "name": "loan_reference_number",
+          "examples": [
+            "LN-7890"
+          ],
+          "description": "Identifier or account number for the mortgage/loan.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "borrower_name",
+          "examples": [
+            "Jane Smith"
+          ],
+          "description": "Individual or entity receiving the loan.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "lender_name",
+          "examples": [
+            "ABC Bank"
+          ],
+          "description": "Financial institution or private lender providing the loan.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "property_address",
+          "examples": [
+            "123 Main St, Cityville, ST 12345"
+          ],
+          "description": "Real estate securing the mortgage/loan.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "loan_principal_amount",
+          "examples": [
+            "200000"
+          ],
+          "description": "Initial principal amount borrowed.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "interest_rate",
+          "examples": [
+            "3.5%"
+          ],
+          "description": "Annual interest rate applied to the loan.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "loan_term",
+          "examples": [
+            "30 years"
+          ],
+          "description": "Length of time over which loan is scheduled to be repaid.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "monthly_payment",
+          "examples": [
+            "900"
+          ],
+          "description": "Approximate monthly installment (principal + interest).",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "closing_date",
+          "examples": [
+            "2023-08-01"
+          ],
+          "description": "Date when the mortgage or loan transaction finalized.",
+          "extraction_instructions": ""
+        },
+        {
+          "name": "signatures_or_notary",
+          "examples": [
+            "Notary seal, borrower, and lender representative sign."
+          ],
+          "description": "Short acknowledgment referencing the signatures and notarization.",
+          "extraction_instructions": ""
+        }
+      ],
+      "document_type": "Mortgage / Lending Document",
+      "document_description": "Mortgage or lending documents typically outline loan terms, collateral (property), repayment schedules, and interest rates. ",
+      "additional_prompt_instructions": ""
+    },
+    "target_tables": [
+      {
+        "name": "Mortgage_Lending_Document",
+        "columns": [
+          {
+            "name": "loan_reference_number",
+            "type": "string",
+            "source": {
+              "field": [
+                "loan_reference_number"
+              ]
+            },
+            "description": "Identifier or account number for the mortgage/loan."
+          },
+          {
+            "name": "borrower_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "borrower_name"
+              ]
+            },
+            "description": "Individual or entity receiving the loan."
+          },
+          {
+            "name": "lender_name",
+            "type": "string",
+            "source": {
+              "field": [
+                "lender_name"
+              ]
+            },
+            "description": "Financial institution or private lender providing the loan."
+          },
+          {
+            "name": "property_address",
+            "type": "string",
+            "source": {
+              "field": [
+                "property_address"
+              ]
+            },
+            "description": "Real estate securing the mortgage/loan."
+          },
+          {
+            "name": "loan_principal_amount",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "loan_principal_amount"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Initial principal amount borrowed."
+          },
+          {
+            "name": "interest_rate",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "interest_rate"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Annual interest rate applied to the loan."
+          },
+          {
+            "name": "loan_term",
+            "type": "long",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "number_str",
+                    "value": {
+                      "field": [
+                        "loan_term"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "to_number"
+              }
+            },
+            "description": "Length of time over which loan is scheduled to be repaid."
+          },
+          {
+            "name": "monthly_payment",
+            "type": "decimal",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "amount",
+                    "value": {
+                      "field": [
+                        "monthly_payment"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "currency_to_numeric"
+              }
+            },
+            "description": "Approximate monthly installment (principal + interest)."
+          },
+          {
+            "name": "closing_date",
+            "type": "date",
+            "source": {
+              "transform": {
+                "arguments": [
+                  {
+                    "name": "date_str",
+                    "value": {
+                      "field": [
+                        "closing_date"
+                      ]
+                    }
+                  }
+                ],
+                "transform_name": "make_date_uniform"
+              }
+            },
+            "description": "Date when the mortgage or loan transaction finalized."
+          },
+          {
+            "name": "signatures_or_notary",
+            "type": "string",
+            "source": {
+              "field": [
+                "signatures_or_notary"
+              ]
+            },
+            "description": "Short acknowledgment referencing the signatures and notarization."
+          }
+        ],
+        "metadata": {},
+        "description": "Mortgage or lending documents typically outline loan terms, collateral (property), repayment schedules, and interest rates. "
+      }
+    ],
+    "document_class_schema_version": "1.0"
+  },
+  "created_time": "2025-10-17T19:47:33Z",
+  "last_modified_time": "2026-01-22T11:44:58Z",
+  "created_by": "System",
+  "last_modified_by": "IBMid-2700065J29",
+  "is_predefined": true,
+  "is_enabled": true
+}
