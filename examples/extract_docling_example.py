@@ -7,12 +7,14 @@ using the Docling extraction operator. Supports both basic markdown extraction
 and template-based structured extraction.
 """
 
+import json
 import logging
 import sys
 from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
+import requests
 
 # Add src to path for imports
 sys.path.insert(
@@ -23,6 +25,68 @@ from common.constants.operator_constants import OperatorConstants
 from core.operators.extract.extract_docling import ExtractDoclingOperator
 
 logger = logging.getLogger(__name__)
+
+
+def check_and_pull_ollama_model(
+    model_name: str, api_base_url: str = "http://localhost:11434"
+) -> bool:
+    """Check if model exists in Ollama and attempt to pull if not.
+
+    Args:
+        model_name: The model name to check/pull
+        api_base_url: Ollama API base URL (default: http://localhost:11434)
+
+    Returns:
+        True if model exists or successfully pulled, False otherwise
+    """
+    try:
+        # Check if model exists
+        response = requests.get(f"{api_base_url}/api/tags", timeout=2)
+        if response.status_code == 200:
+            models = response.json().get("models", [])
+            model_names = [m.get("name") for m in models]
+            # Check for exact match or with :latest tag
+            if model_name in model_names or f"{model_name}:latest" in model_names:
+                logger.info(f"Model '{model_name}' is already available in Ollama")
+                return True
+
+            # Try to pull the model using Ollama API
+            logger.info(f"Attempting to pull model '{model_name}' in Ollama...")
+            logger.info("This may take a few minutes...")
+
+            # Ollama pull API endpoint
+            pull_response = requests.post(
+                f"{api_base_url}/api/pull",
+                json={"name": model_name},
+                stream=True,
+                timeout=300,
+            )
+
+            if pull_response.status_code == 200:
+                # Stream the response to show progress
+                for line in pull_response.iter_lines():
+                    if line:
+                        try:
+                            data = json.loads(line)
+                            status = data.get("status", "")
+                            if status:
+                                print(f"  {status}", end="\r")
+                        except json.JSONDecodeError:
+                            pass
+                print()  # New line after progress
+                logger.info(f"Successfully pulled model '{model_name}'")
+                return True
+            else:
+                logger.error(f"Failed to pull model: HTTP {pull_response.status_code}")
+                return False
+        return False
+    except requests.exceptions.Timeout:
+        logger.error("Timeout while trying to pull model (this can take a while)")
+        logger.error(f"Please try pulling manually: ollama pull {model_name}")
+        return False
+    except Exception as e:
+        logger.error(f"Error checking/pulling model: {e}")
+        return False
 
 
 def main() -> int:
@@ -55,13 +119,23 @@ def main() -> int:
     #   - VLM_ENGINE_API: Generic API endpoint (requires vlm_api_base_url)
     #   - VLM_ENGINE_API_LMSTUDIO: LMStudio API
     #   - VLM_ENGINE_API_OLLAMA: Ollama API
-    #   - VLM_ENGINE_API_OPENAI: OpenAI API
+    #   - VLM_ENGINE_API_OPENAI: OpenAI API (requires vlm_api_key and model_name)
     #   - VLM_ENGINE_API_WATSONX: IBM watsonx.ai API (requires vlm_api_key)
-    vlm_engine_type: str = OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
+    vlm_engine_type: str = OperatorConstants.Config.VLM_ENGINE_API_WATSONX
 
-    # API Configuration (only used for API-based engines)
-    vlm_api_base_url: str | None = None  # e.g., "http://localhost:1234/v1"
-    vlm_api_key: str | None = None  # Required for watsonx, optional for others
+    # Common API Configuration (used by multiple API-based engines)
+    vlm_api_base_url: str | None = None
+    vlm_api_key: str | None = None  # pragma: allowlist secret
+
+    # OpenAI-specific Configuration
+    model_name: str | None = None  # Required for OpenAI (e.g., "gpt-4-vision-preview")
+
+    # WatsonX-specific Configuration
+    vlm_watsonx_container_kind: str | None = "project"  # Required for watsonx
+    vlm_watsonx_container_id: str | None = ""  # Required for watsonx
+    vlm_model_name: str | None = (
+        "meta-llama/llama-3-2-11b-vision-instruct"  # Required for watsonx
+    )
 
     # File pattern for directory processing (only used if input is a directory)
     file_pattern: str = "*.pdf"
@@ -82,6 +156,77 @@ def main() -> int:
         "grand_total": "float",
     }
 
+    # Build VLM provider config for API-based engines
+    vlm_provider_config: dict[str, Any] | None = None
+    if use_vlm_pipeline and vlm_engine_type:
+        # All API-based engines need provider config
+        if vlm_engine_type in [
+            OperatorConstants.Config.VLM_ENGINE_API,
+            OperatorConstants.Config.VLM_ENGINE_API_LMSTUDIO,
+            OperatorConstants.Config.VLM_ENGINE_API_OLLAMA,
+            OperatorConstants.Config.VLM_ENGINE_API_OPENAI,
+            OperatorConstants.Config.VLM_ENGINE_API_WATSONX,
+        ]:
+            vlm_provider_config = {}
+
+            # Add API base URL if provided
+            if vlm_api_base_url:
+                vlm_provider_config[OperatorConstants.Config.VLM_API_BASE_URL] = (
+                    vlm_api_base_url
+                )
+
+            # Add API key if provided (used by OpenAI, WatsonX, and generic API)
+            if vlm_api_key:
+                vlm_provider_config[OperatorConstants.Config.VLM_API_KEY] = vlm_api_key
+
+            # Add Ollama-specific configs
+            if vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_OLLAMA:
+                # Override model name to use Ollama format instead of preset default
+                vlm_provider_config[OperatorConstants.Config.VLM_MODEL_NAME] = (
+                    "ibm/granite-docling:258m"
+                )
+
+            # Add OpenAI-specific configs
+            if vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_OPENAI:
+                if model_name:
+                    vlm_provider_config[OperatorConstants.Config.MODEL_NAME] = (
+                        model_name
+                    )
+
+            # Add WatsonX-specific configs
+            if vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_WATSONX:
+                if vlm_watsonx_container_kind:
+                    vlm_provider_config[
+                        OperatorConstants.Config.VLM_WATSONX_CONTAINER_KIND
+                    ] = vlm_watsonx_container_kind
+                if vlm_watsonx_container_id:
+                    vlm_provider_config[
+                        OperatorConstants.Config.VLM_WATSONX_CONTAINER_ID
+                    ] = vlm_watsonx_container_id
+                if vlm_model_name:
+                    vlm_provider_config[OperatorConstants.Config.VLM_MODEL_NAME] = (
+                        vlm_model_name
+                    )
+
+    # Check and pull Ollama model if using VLM pipeline with Ollama
+    if (
+        use_vlm_pipeline
+        and vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_OLLAMA
+    ):
+        # Use the official Ollama model for granite-docling
+        ollama_model_name = "ibm/granite-docling:258m"
+        ollama_api_url = (
+            vlm_api_base_url if vlm_api_base_url else "http://localhost:11434"
+        )
+
+        logger.info(f"Checking Ollama model: {ollama_model_name}")
+        if not check_and_pull_ollama_model(ollama_model_name, ollama_api_url):
+            logger.error(f"Failed to ensure model '{ollama_model_name}' is available")
+            logger.error(
+                "Please install the model manually: ollama pull ibm/granite-docling:258m"
+            )
+            return 1
+
     # Initialize operator
     config: dict[str, Any] = {
         OperatorConstants.Columns.DOC_COLUMN: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
@@ -95,10 +240,7 @@ def main() -> int:
         OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_engine_type
         if use_vlm_pipeline
         else None,
-        OperatorConstants.Config.VLM_API_BASE_URL: vlm_api_base_url
-        if use_vlm_pipeline
-        else None,
-        OperatorConstants.Config.VLM_API_KEY: vlm_api_key if use_vlm_pipeline else None,
+        OperatorConstants.Config.VLM_PROVIDER_CONFIG: vlm_provider_config,
     }
 
     operator: ExtractDoclingOperator = ExtractDoclingOperator(config)
@@ -204,32 +346,43 @@ if __name__ == "__main__":
     # 1. Local Transformers (default):
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
+    #    # No vlm_provider_config needed for local engines
     #
     # 2. Local MLX (macOS Apple Silicon):
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_MLX
+    #    # No vlm_provider_config needed for local engines
     #
     # 3. Generic API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API
     #    vlm_api_base_url = "http://localhost:8000/v1"
+    #    vlm_api_key = "your-api-key"  # Optional  # pragma: allowlist secret
     #
     # 4. LMStudio API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_LMSTUDIO
+    #    vlm_api_base_url = "http://localhost:1234/v1"  # Optional, defaults to this
     #
     # 5. Ollama API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_OLLAMA
+    #    vlm_api_base_url = "http://localhost:11434"  # Optional, defaults to this
     #
     # 6. OpenAI API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_OPENAI
+    #    vlm_api_key = "sk-..."  # Required  # pragma: allowlist secret
+    #    vlm_model_name = "gpt-4-vision-preview"  # Required
+    #    vlm_api_base_url = "https://api.openai.com/v1/chat/completions"  # Optional
     #
     # 7. IBM watsonx.ai API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_WATSONX
-    #    vlm_api_base_url = "https://us-south.ml.cloud.ibm.com/ml/v1/..."
-    #    vlm_api_key = "your-ibm-cloud-api-key"  # pragma: allowlist secret
+    #    vlm_api_key = "your-ibm-cloud-api-key"  # Required  # pragma: allowlist secret
+    #    vlm_watsonx_container_kind = "project"  # Required
+    #    vlm_watsonx_container_id = "your-project-id"  # Required
+    #    vlm_model_name = "meta-llama/llama-3-2-11b-vision-instruct"  # Required
+    #    vlm_api_base_url = "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29"  # Optional
 
     sys.exit(main())

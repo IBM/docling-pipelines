@@ -185,7 +185,11 @@ class OperatorConstants:
         VLM_ENGINE_API_OPENAI: Final[str] = "api_openai"
         VLM_ENGINE_API_WATSONX: Final[str] = "api_watsonx"
         VLM_API_BASE_URL: Final[str] = "vlm_api_base_url"
+        VLM_WATSONX_CONTAINER_KIND: Final[str] = "vlm_watsonx_container_kind"
+        VLM_WATSONX_CONTAINER_ID: Final[str] = "vlm_watsonx_container_id"
+        VLM_MODEL_NAME: Final[str] = "vlm_model_name"
         VLM_API_KEY: Final[str] = "vlm_api_key"
+        VLM_PROVIDER_CONFIG: Final[str] = "vlm_provider_config"
 
         # Docling-Serve Configuration
         USE_DOCLING_SERVE: Final[str] = "use_docling_serve"
@@ -509,5 +513,7 @@ class OperatorConstants:
             "core.operators.vectordb",
         ]
 
-
-# Made with Bob
+    class ContainerKinds:
+        CATALOG: Final[str] = "catalog"
+        PROJECT: Final[str] = "project"
+        SPACE: Final[str] = "space"
