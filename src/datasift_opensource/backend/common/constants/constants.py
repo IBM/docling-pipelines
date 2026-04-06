@@ -73,9 +73,9 @@ class DatasiftConstants:
     BATCH_NUM = "batch_num"
     BATCH_COUNT = "batch_count"
     INGEST_NODE_ID = "ingest_node_id"
-    MAX_CONCURRENT_TASKS = "max_concurrent_tasks"
-    DEFAULT_MAX_CONCURRENT_TASKS = 10
-    OPERATOR_SEMAPHORE = "_operator_semaphore"
+    # Batch-level concurrency control
+    MAX_CONCURRENT_BATCHES = "max_concurrent_batches"
+    DEFAULT_MAX_CONCURRENT_BATCHES = 10
     BUILD_VERSION = "BUILD_VERSION"
     PARQUET_BATCH_SIZE = 1000
     LANGUAGE_LABEL = "language_label"

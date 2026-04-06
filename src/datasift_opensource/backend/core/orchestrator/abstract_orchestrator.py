@@ -64,13 +64,15 @@ class AbstractOrchestrator(ABC):
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
-        self.flow_execution_event_handler.initialize(job_id=job_id, job_run_id=job_run_id, common_log_arguments=self.common_log_arguments)
+        self.flow_execution_event_handler.initialize(
+            job_id=job_id, job_run_id=job_run_id, common_log_arguments=self.common_log_arguments
+        )
         self.flow_engine = PrefectEngine(
             orchestrator=self,
             batch_manager=self.batch_manager,
             job_id=job_id,
             job_run_id=job_run_id,
-            job_log_path=self.flow_execution_event_handler.job_log_path
+            job_log_path=self.flow_execution_event_handler.job_log_path,
         )
 
     def execute(self, *, flow_def: dict, params: dict):
@@ -78,10 +80,10 @@ class AbstractOrchestrator(ABC):
         Executes the given flow
         """
         job_id, job_run_id = itemgetter(DatasiftConstants.JOB_ID, DatasiftConstants.JOB_RUN_ID)(params)
-        
+
         # Initialize the orchestrator with job_id and job_run_id
         self.initialize(job_id=job_id, job_run_id=job_run_id)
- 
+
         global_config = (
             flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
             | params
@@ -116,7 +118,7 @@ class AbstractOrchestrator(ABC):
             node_id=op_def[OperatorConstants.Columns.ID],
             node_name=op_def[OperatorConstants.Columns.NAME],
             global_config=global_config,
-            e=e
+            e=e,
         )
 
     def _handle_active_execution(
@@ -163,7 +165,7 @@ class AbstractOrchestrator(ABC):
         executor: AbstractOperatorExecutor,
         prev_results: ExecuteStepResults | dict[str, ExecuteStepResults],
         global_config,
-        start
+        start,
     ):
         tables = (
             prev_results.tables
@@ -173,16 +175,21 @@ class AbstractOrchestrator(ABC):
         data_accesses = executor.create_data_accesses(tables)
         end_time = get_current_timestamp()
 
-        column_names = prev_results.tables[0].column_names \
-            if isinstance(prev_results, ExecuteStepResults) and len(prev_results.tables) == 1 else []
+        column_names = (
+            prev_results.tables[0].column_names
+            if isinstance(prev_results, ExecuteStepResults) and len(prev_results.tables) == 1
+            else []
+        )
 
-        self.flow_execution_event_handler.after_node_skipped(node_id=op_def.get(OperatorConstants.Columns.ID),
-                                                             node_name=op_def.get(OperatorConstants.Columns.NAME),
-                                                             operator=op_def.get(OperatorConstants.Misc.OPERATOR),
-                                                             global_config=global_config,
-                                                             start_time=start,
-                                                             end_time=end_time,
-                                                             column_names=column_names)
+        self.flow_execution_event_handler.after_node_skipped(
+            node_id=op_def.get(OperatorConstants.Columns.ID),
+            node_name=op_def.get(OperatorConstants.Columns.NAME),
+            operator=op_def.get(OperatorConstants.Misc.OPERATOR),
+            global_config=global_config,
+            start_time=start,
+            end_time=end_time,
+            column_names=column_names,
+        )
 
         return data_accesses, tables
 
@@ -230,7 +237,8 @@ class AbstractOrchestrator(ABC):
             global_config=global_config,
             is_last_step=not op_def.get(DatasiftConstants.OUTPUT_EDGES),
             metadata=metadata,
-            start_time=start)
+            start_time=start,
+        )
 
         self.job_status = self.job_tracker.get_job(job_run_id=self.job_run_id).status
 
@@ -361,14 +369,11 @@ class AbstractOrchestrator(ABC):
             node_name=op_def[OperatorConstants.Columns.NAME],
             global_config=global_config,
             job_status=self.job_status,
-            prev_results=prev_results
+            prev_results=prev_results,
         )
         if prev_results is None or self.job_status in (ExecutionStatus.FAILING or ExecutionStatus.CANCELING):
             return None
         set_session_info(session_info)
-
-        # Get operator semaphore from batch manager (for micro-batching)
-        operator_semaphore = self.batch_manager.get_operator_semaphore()
 
         try:
             if link_id and prev_results.internal_metadata:
@@ -386,38 +391,12 @@ class AbstractOrchestrator(ABC):
                 internal_metadata = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
                 prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
 
-            # If micro-batching enabled, acquire semaphore before executing operator
-            if operator_semaphore:  # pragma: no cover
-                operator_semaphore.acquire()
-                try:
-                    self.logger.debug(
-                        f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
-                        extra=self.common_log_arguments,
-                    )
-                    result = self._execute_step(
-                        op_def=op_def,
-                        global_config=global_config,
-                        prev_results=prev_results,
-                        deleted_docs_count=deleted_docs_count,
-                    )
-                finally:
-                    operator_semaphore.release()
-                    self.logger.debug(
-                        f"Operator {op_def[OperatorConstants.Columns.NAME]}: released semaphore slot",
-                        extra=self.common_log_arguments,
-                    )
-            else:
-                # No semaphore - execute normally
-                self.logger.debug(
-                    f"Operator {op_def[OperatorConstants.Columns.NAME]}: acquired semaphore slot",
-                    extra=self.common_log_arguments,
-                )
-                result = self._execute_step(
-                    op_def=op_def,
-                    global_config=global_config,
-                    prev_results=prev_results,
-                    deleted_docs_count=deleted_docs_count,
-                )
+            result = self._execute_step(
+                op_def=op_def,
+                global_config=global_config,
+                prev_results=prev_results,
+                deleted_docs_count=deleted_docs_count,
+            )
 
             return result
         except Exception as e:
@@ -427,9 +406,8 @@ class AbstractOrchestrator(ABC):
 
     def _finalize_dag_flow(self, *, op_flow):
         self.flow_execution_event_handler.after_flow_execution_complete(
-            op_flow=op_flow,
-            present_job_status=self.job_status,
-            message=self.message)
+            op_flow=op_flow, present_job_status=self.job_status, message=self.message
+        )
 
     # ??? insert some of the parameters to self.
     def execute_flow(self, *, op_flow, global_config):
@@ -501,4 +479,3 @@ class AbstractOrchestrator(ABC):
         data_access = data_access_factory.create_data_access()
         data_access.save_table(path="", table=pa.Table.from_arrays([], names=[]))
         return ExecuteStepResults([data_access], [pa.Table.from_arrays(arrays=[], names=[])], None)
-

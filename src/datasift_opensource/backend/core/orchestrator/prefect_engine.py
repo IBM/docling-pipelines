@@ -21,8 +21,8 @@ from common.exceptions.datasift_exceptions import (
 )
 from common.models.session_info import get_session_info
 from common.util.data.incremental_update import IncrementalUpdateUtil
-from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.infrastructure.logging import get_logger
+from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.orchestration.flow_utils import create_node_id_to_index_map
 from common.util.orchestration.prefect_config import set_prefect_env_variables
 from core.orchestrator.futured_list import FuturedList
@@ -65,7 +65,10 @@ class AbstractFlowEngine(ABC):
         self.job_id = job_id
         self.job_run_id = job_run_id
         self.job_log_path = job_log_path
-        self.common_log_arguments = {DatasiftConstants.JOB_ID: self.job_id, DatasiftConstants.JOB_RUN_ID: self.job_run_id}
+        self.common_log_arguments = {
+            DatasiftConstants.JOB_ID: self.job_id,
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
+        }
 
     @abstractmethod
     def execute_batch_flow(self, *, op_flow, batches, global_config):
@@ -88,18 +91,20 @@ class PrefectEngine(AbstractFlowEngine):
     """
 
     def __init__(self, *, orchestrator, batch_manager, job_id, job_run_id, job_log_path):
-        super().__init__(orchestrator=orchestrator,
+        super().__init__(
+            orchestrator=orchestrator,
             batch_manager=batch_manager,
             job_id=job_id,
             job_run_id=job_run_id,
-            job_log_path=job_log_path)
+            job_log_path=job_log_path,
+        )
 
     def execute_batch_flow(self, *, op_flow, batches, global_config):
         batch_outer_flow = self._build_flow(name="batch_outer_flow", flow_impl=self.batch_outer_flow_impl)
         batch_futures = batch_outer_flow(
             op_flow=op_flow[1:],  # Skip ingest operator
             batches=batches,
-            global_config=global_config
+            global_config=global_config,
         )
 
         # Wait for all sub-flows to complete
@@ -111,7 +116,6 @@ class PrefectEngine(AbstractFlowEngine):
 
         flow = self.build_non_execute_flow(flow_name=flow_name)
         flow(TaskType.VALIDATE_FLOW, task, dag, None)
-
 
     def _build_flow(self, *, name, flow_impl):
         """Build a Prefect flow for operator execution."""
@@ -145,15 +149,22 @@ class PrefectEngine(AbstractFlowEngine):
 
         Each batch executes as an independent Prefect sub-flow that processes
         the entire DAG with full operator-level parallelism.
+
+        Manages batch semaphore lifecycle:
+        - Initializes semaphore at start
+        - Resets semaphore in finally block (via _wait_for_sub_flows)
         """
-        # Initialize global operator semaphore (shared across all batches) via batch manager
-        max_concurrent_operators = global_config.get(
-            DatasiftConstants.MAX_CONCURRENT_TASKS,
-            DatasiftConstants.DEFAULT_MAX_CONCURRENT_TASKS,
+        # Initialize batch semaphore for batch-level concurrency control
+        max_concurrent_batches = global_config.get(
+            DatasiftConstants.MAX_CONCURRENT_BATCHES,
+            DatasiftConstants.DEFAULT_MAX_CONCURRENT_BATCHES,
         )
-        self.batch_manager.initialize_operator_semaphore(
-            max_concurrent_operators=max_concurrent_operators
-        )
+        if not isinstance(max_concurrent_batches, int) or max_concurrent_batches <= 0:
+            raise FlowExecutionFailedException(
+                f"{DatasiftConstants.MAX_CONCURRENT_BATCHES} must be a positive integer, got {max_concurrent_batches!r}"
+            )
+
+        self.batch_manager.initialize_batch_semaphore(max_concurrent_batches=max_concurrent_batches)
 
         # 1. Build the inner flow to execute a batch once (reusable for all batches)
         inner_flow = self._build_flow(name="batch_sub_flow", flow_impl=self.__flow_impl)
@@ -167,12 +178,33 @@ class PrefectEngine(AbstractFlowEngine):
         @task(cache_key_fn=batch_cache_key_fn)
         def batch_subflow_task(batch_num, op_flow, global_config, batch_data_access):
             """Execute a single batch as a Prefect subflow."""
-            logger.info("Inside batch_subflow_task()")
-            batch_global_config = global_config.copy()
-            if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
-                batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
+            batch_semaphore = self.batch_manager.get_batch_semaphore()
 
-            return inner_flow(op_flow=op_flow, data_access=batch_data_access,global_config=batch_global_config)
+            # Acquire batch semaphore before batch execution
+            if batch_semaphore:
+                batch_semaphore.acquire()
+                self.logger.info(
+                    f"Batch {batch_num}: acquired batch semaphore slot",
+                    extra=self.common_log_arguments,
+                )
+
+            try:
+                self.logger.info(f"Batch {batch_num}: starting execution", extra=self.common_log_arguments)
+                batch_global_config = global_config.copy()
+                if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
+                    batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
+
+                result = inner_flow(op_flow=op_flow, data_access=batch_data_access, global_config=batch_global_config)
+                self.logger.info(f"Batch {batch_num}: completed execution", extra=self.common_log_arguments)
+                return result
+            finally:
+                # Release batch semaphore in finally block to ensure cleanup
+                if batch_semaphore:
+                    batch_semaphore.release()
+                    self.logger.info(
+                        f"Batch {batch_num}: released batch semaphore slot",
+                        extra=self.common_log_arguments,
+                    )
 
         # Submit all batches as tasks
         batch_futures = []
@@ -182,10 +214,7 @@ class PrefectEngine(AbstractFlowEngine):
 
             # 3. Submit task that executes sub flow for each batch
             future = batch_subflow_task.submit(
-                batch_num=batch_num,
-                op_flow=op_flow,
-                global_config=global_config,
-                batch_data_access=batch_data_access
+                batch_num=batch_num, op_flow=op_flow, global_config=global_config, batch_data_access=batch_data_access
             )
             batch_futures.append((batch_num, future))
 
@@ -200,52 +229,81 @@ class PrefectEngine(AbstractFlowEngine):
         """
         failed_batch = None
         cancellation_event = threading.Event()
+        cancelled_futures: list[tuple[int, PrefectFuture]] = []
 
-        for batch_num, future in batch_futures:
-            # Check if another batch already failed
-            if cancellation_event.is_set():
-                try:
-                    future.cancel()
-                    self.logger.info(
-                        f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
-                        extra=self.common_log_arguments,
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Could not cancel batch {batch_num}: {e}")
-                continue
-
-            try:
-                future.result()
-                self.logger.info(
-                    f"Batch {batch_num} completed successfully",
-                    extra=self.common_log_arguments,
-                )
-
-            except Exception as e:
-                # Batch failed - trigger cancellation
-                cancellation_event.set()
-
-                self.logger.error(
-                    f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
-                    extra=self.common_log_arguments,
-                    exc_info=True,
-                )
-
-                for remaining_num, remaining_future in batch_futures[batch_num + 1 :]:
+        try:
+            for future_index, (batch_num, future) in enumerate(batch_futures):
+                # Check if another batch already failed
+                if cancellation_event.is_set():
                     try:
-                        remaining_future.cancel()
+                        future.cancel()
+                        cancelled_futures.append((batch_num, future))
                         self.logger.info(
-                            f"Cancelled batch {remaining_num}",
+                            f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
                             extra=self.common_log_arguments,
                         )
                     except Exception as cancel_error:
-                        self.logger.warning(f"Could not cancel batch {remaining_num}: {cancel_error}")
+                        self.logger.warning(
+                            f"Could not cancel batch {batch_num}: {cancel_error}",
+                            extra=self.common_log_arguments,
+                        )
+                    continue
 
-                self.batch_manager.reset_operator_semaphore()
-                # Re-raise the exception to fail the entire job
-                raise FlowExecutionFailedException(f"Batch {batch_num} failed, all batches cancelled") from e
+                try:
+                    future.result()
+                    self.logger.info(
+                        f"Batch {batch_num} completed successfully",
+                        extra=self.common_log_arguments,
+                    )
 
-        self.batch_manager.reset_operator_semaphore()
+                except Exception as e:
+                    # Batch failed - trigger cancellation
+                    failed_batch = batch_num
+                    cancellation_event.set()
+
+                    self.logger.error(
+                        f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
+                        extra=self.common_log_arguments,
+                        exc_info=True,
+                    )
+
+                    for remaining_num, remaining_future in batch_futures[future_index + 1 :]:
+                        try:
+                            remaining_future.cancel()
+                            cancelled_futures.append((remaining_num, remaining_future))
+                            self.logger.info(
+                                f"Cancelled batch {remaining_num}",
+                                extra=self.common_log_arguments,
+                            )
+                        except Exception as cancel_error:
+                            self.logger.warning(
+                                f"Could not cancel batch {remaining_num}: {cancel_error}",
+                                extra=self.common_log_arguments,
+                            )
+
+                    # Re-raise the exception to fail the entire job
+                    raise FlowExecutionFailedException(
+                        f"Batch {batch_num} failed during sub-flow execution: {e}"
+                    ) from e
+        finally:
+            for cancelled_batch_num, cancelled_future in cancelled_futures:
+                try:
+                    cancelled_future.wait()
+                    self.logger.info(
+                        f"Cancelled batch {cancelled_batch_num} reached terminal state before semaphore reset",
+                        extra=self.common_log_arguments,
+                    )
+                except Exception as wait_error:
+                    self.logger.warning(
+                        f"Error while waiting for cancelled batch {cancelled_batch_num} to finish: {wait_error}",
+                        extra=self.common_log_arguments,
+                    )
+
+            self.logger.info(
+                "Resetting batch semaphore after sub-flow completion",
+                extra=self.common_log_arguments,
+            )
+            self.batch_manager.reset_batch_semaphore()
 
     def __get_prefect_config(self) -> dict:
         """Get the default values for Prefect settings."""
@@ -379,7 +437,7 @@ class PrefectEngine(AbstractFlowEngine):
                     prev_results=prev_results,
                     session_info=session_info,
                     deleted_docs_count=deleted_docs_count,
-                    link_id=link_id
+                    link_id=link_id,
                 )
 
                 if is_sequential_flow:
@@ -520,5 +578,6 @@ class PrefectEngine(AbstractFlowEngine):
             if node_stats.failed_docs:
                 failed_doc_ids.extend(node_stats.failed_docs)
         return failed_doc_ids
+
 
 # Made with Bob
