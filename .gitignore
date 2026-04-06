@@ -42,6 +42,7 @@ build/
 *.parquet
 *.parquet.lock
 *.pkl
+docs/arch
 
 # Downloaded models
 src/datasift_opensource/backend/models/

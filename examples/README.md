@@ -46,6 +46,28 @@ Supports both basic markdown extraction and template-based structured extraction
 python examples/extract_docling_example.py
 ```
 
+#### [`extract_docling_serve_example.py`](extract_docling_serve_example.py)
+Demonstrates document extraction using the Docling-Serve REST API. Provides scalable document processing with support for OCR, table extraction, and multiple PDF backends.
+
+**Prerequisites:**
+```bash
+# Start docling-serve locally
+docker run -p 5001:5001 ds4sd/docling-serve:latest
+```
+
+**Usage:**
+```bash
+python examples/extract_docling_serve_example.py
+```
+
+**Features:**
+- REST API-based document processing
+- OCR support with EasyOCR and Tesseract engines
+- Multiple PDF backends (dlparse_v4, dlparse_v3, pypdfium2)
+- Configurable table extraction modes (accurate/fast)
+- Multi-language OCR support
+- Scalable for production workloads
+
 ### Functional Operators
 
 #### [`chunker_example.py`](chunker_example.py)

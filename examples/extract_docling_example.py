@@ -233,5 +233,3 @@ if __name__ == "__main__":
     #    vlm_api_key = "your-ibm-cloud-api-key"  # pragma: allowlist secret
 
     sys.exit(main())
-
-# Made with Bob

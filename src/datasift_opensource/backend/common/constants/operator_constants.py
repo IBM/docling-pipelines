@@ -187,6 +187,21 @@ class OperatorConstants:
         VLM_API_BASE_URL: Final[str] = "vlm_api_base_url"
         VLM_API_KEY: Final[str] = "vlm_api_key"
 
+        # Docling-Serve Configuration
+        USE_DOCLING_SERVE: Final[str] = "use_docling_serve"
+        DOCLING_SERVE_BASE_URL: Final[str] = "docling_serve_base_url"
+        DOCLING_SERVE_API_KEY: Final[str] = "docling_serve_api_key"
+        DOCLING_SERVE_TIMEOUT: Final[str] = "docling_serve_timeout"
+        DOCLING_SERVE_POLL_INTERVAL: Final[str] = "docling_serve_poll_interval"
+        DOCLING_SERVE_MAX_RETRIES: Final[str] = "docling_serve_max_retries"
+        DOCLING_SERVE_DO_OCR: Final[str] = "docling_serve_do_ocr"
+        DOCLING_SERVE_OCR_ENGINE: Final[str] = "docling_serve_ocr_engine"
+        DOCLING_SERVE_OCR_LANGUAGES: Final[str] = "docling_serve_ocr_languages"
+        DOCLING_SERVE_PDF_BACKEND: Final[str] = "docling_serve_pdf_backend"
+        DOCLING_SERVE_TABLE_MODE: Final[str] = "docling_serve_table_mode"
+        DOCLING_SERVE_IMAGE_EXPORT_MODE: Final[str] = "docling_serve_image_export_mode"
+        DOCLING_SERVE_OUTPUT_FORMATS: Final[str] = "docling_serve_output_formats"
+
         # Processing Configuration
         ALWAYS_RETRIEVE_DOCUMENT: Final[str] = "always_retrieve_document"
         COMPUTE_EMBEDDINGS: Final[str] = "compute_embeddings"

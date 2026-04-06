@@ -25,6 +25,7 @@ from common.constants.constants import (
     Metrics,
 )
 from common.constants.operator_constants import OperatorConstants
+from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 
 # Import TransformUtils from centralized location
 from common.util.data.transform import TransformUtils
@@ -54,7 +55,7 @@ def _get_iam_access_token(api_key: str) -> str:
         res.raise_for_status()
         token_data = res.json()
         if "access_token" not in token_data:
-            raise ValueError("Invalid IAM token response")
+            raise FlowExecutionFailedException("Invalid IAM token response")
         return token_data["access_token"]
     except Exception:
         logger.error("IAM token exchange failed - authentication error occurred")
@@ -159,13 +160,14 @@ def _configure_vlm_engine(
         ValueError: If required parameters are missing for the selected engine
     """
     from docling.datamodel.pipeline_options import VlmConvertOptions
-    from docling.datamodel.vlm_engine_options import ApiVlmEngineOptions, VlmEngineType
+    from docling.datamodel.vlm_engine_options import ApiVlmEngineOptions
+    from docling.models.inference_engines.vlm.base import VlmEngineType
 
     # Select engine based on type
     if vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API:
         # API-based inference
         if not vlm_api_base_url:
-            raise ValueError("vlm_api_base_url required when vlm_engine_type='api'")
+            raise FlowExecutionFailedException("vlm_api_base_url required when vlm_engine_type='api'")
 
         engine_options = ApiVlmEngineOptions(runtime_type=VlmEngineType.API, url=vlm_api_base_url, timeout=90)
         vlm_options = VlmConvertOptions.from_preset(vlm_preset, engine_options=engine_options)
@@ -186,12 +188,12 @@ def _configure_vlm_engine(
         # Exchange API key for IAM access token
         headers = {}
         try:
-            access_token = _get_iam_access_token(vlm_api_key)
+            access_token = _get_iam_access_token(vlm_api_key or "")
             headers["Authorization"] = f"Bearer {access_token}"
             logger.info("Successfully obtained IAM access token for watsonx")
         except Exception as e:
             logger.error(f"Failed to obtain IAM access token: {e}")
-            raise ValueError(f"Failed to authenticate with watsonx: {e}") from e
+            raise FlowExecutionFailedException(f"Failed to authenticate with watsonx: {e}") from e
         engine_options = ApiVlmEngineOptions(
             runtime_type=VlmEngineType.API, url=vlm_api_base_url, headers=headers, timeout=90
         )
@@ -344,6 +346,73 @@ def _extract_vlm_worker(
             logger.warning(f"Failed to cleanup temporary file {tmp_path}: {e}")
 
 
+def _extract_with_docling_serve_worker(
+    file_path: str, binary_content: bytes, docling_serve_config: dict[str, Any]
+) -> dict[str, Any]:
+    """
+    Worker function for docling-serve extraction - designed to run in parallel.
+
+    Args:
+        file_path: Path to the document file
+        binary_content: Binary content of the document
+        docling_serve_config: Configuration dict with base_url, api_key, timeout, etc.
+
+    Returns:
+        Dictionary containing extracted markdown content and metadata
+    """
+    logger.info(f"Processing file with docling-serve: {file_path}")
+
+    try:
+        from common.clients.docling_serve_client import DoclingServeClient
+
+        # Extract config parameters
+        base_url = docling_serve_config.get("base_url", "http://0.0.0.0:5001")
+        api_key = docling_serve_config.get("api_key")
+        timeout = docling_serve_config.get("timeout", 300)
+        poll_interval = docling_serve_config.get("poll_interval", 2)
+        max_retries = docling_serve_config.get("max_retries", 3)
+
+        # Build processing options
+        options = {
+            "do_ocr": docling_serve_config.get("do_ocr", True),
+            "pdf_backend": docling_serve_config.get("pdf_backend", "dlparse_v2"),
+        }
+        if "ocr_engine" in docling_serve_config:
+            options["ocr_engine"] = docling_serve_config["ocr_engine"]
+        if "ocr_languages" in docling_serve_config:
+            options["ocr_languages"] = docling_serve_config["ocr_languages"]
+        if "table_mode" in docling_serve_config:
+            options["table_mode"] = docling_serve_config["table_mode"]
+        if "image_export_mode" in docling_serve_config:
+            options["image_export_mode"] = docling_serve_config["image_export_mode"]
+
+        # Initialize client and process document
+        client = DoclingServeClient(base_url, api_key, timeout, poll_interval, max_retries)
+        result = client.process_document(binary_content=binary_content, options=options)
+
+        # Extract markdown and metadata from v1 API response format
+        # v1 API returns: {"document": {"md_content": "...", ...}, "processing_time": ..., ...}
+        document = result.get("document", {})
+        markdown_text = document.get("md_content", "")
+        metadata = {"processing_time": result.get("processing_time", 0)}
+        if "page_count" in result:
+            metadata["page_count"] = result["page_count"]
+
+        logger.info(f"Completed docling-serve extraction for {file_path}")
+        return {
+            OperatorConstants.Extraction.SUCCESS: True,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
+            OperatorConstants.Metadata.METADATA: metadata,
+        }
+    except Exception as e:
+        logger.error(f"Error extracting with docling-serve from {file_path}: {e!s}")
+        return {
+            OperatorConstants.Extraction.SUCCESS: False,
+            OperatorConstants.Extraction.ERROR: str(e),
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
+        }
+
+
 class ExtractDoclingOperator(AbstractOperator):
     """
     Operator for extracting content from documents using Docling.
@@ -372,6 +441,18 @@ class ExtractDoclingOperator(AbstractOperator):
                 - use_vlm_pipeline: Whether to use VLM pipeline for enhanced extraction (default: False)
                 - vlm_preset: VLM preset name (default: "granite_docling")
                 - vlm_engine_type: VLM engine type - "transformers" or "mlx" (default: None/auto)
+                - use_docling_serve: Whether to use docling-serve for remote extraction (default: False)
+                - docling_serve_base_url: Base URL for docling-serve service
+                - docling_serve_api_key: API key for docling-serve authentication (optional)
+                - docling_serve_timeout: Request timeout for docling-serve in seconds
+                - docling_serve_poll_interval: Poll interval for docling-serve task status in seconds
+                - docling_serve_max_retries: Maximum retries for docling-serve polling
+                - docling_serve_do_ocr: Whether to enable OCR in docling-serve
+                - docling_serve_ocr_engine: OCR engine for docling-serve
+                - docling_serve_ocr_languages: OCR languages for docling-serve
+                - docling_serve_pdf_backend: PDF backend for docling-serve
+                - docling_serve_table_mode: Table extraction mode for docling-serve
+                - docling_serve_image_export_mode: Image export mode for docling-serve
                 - max_workers: Maximum number of parallel workers (default: auto-detect)
                 - use_processes: Use ProcessPoolExecutor instead of ThreadPoolExecutor (default: False)
         """
@@ -399,52 +480,47 @@ class ExtractDoclingOperator(AbstractOperator):
         self.vlm_api_base_url: str | None = config.get(OperatorConstants.Config.VLM_API_BASE_URL)
         self.vlm_api_key: str | None = config.get(OperatorConstants.Config.VLM_API_KEY)
 
-        # Validate VLM preset if VLM pipeline is enabled
-        if self.use_vlm_pipeline and self.vlm_preset:
-            try:
-                from docling.datamodel.pipeline_options import VlmConvertOptions
+        # Docling-serve configuration
+        self.use_docling_serve: bool = config.get(OperatorConstants.Config.USE_DOCLING_SERVE, False)
 
-                # Test if preset is valid by attempting to load it
-                VlmConvertOptions.from_preset(self.vlm_preset)
-            except Exception as e:
-                raise ValueError(
-                    f"Invalid vlm_preset: '{self.vlm_preset}'. "
-                    f"Error: {e!s}. "
-                    f"Please verify the preset name is correct (e.g., 'granite_docling')."
-                ) from e
+        # Only read docling-serve config if use_docling_serve is True
+        if self.use_docling_serve:
+            self.docling_serve_base_url: str = config.get(OperatorConstants.Config.DOCLING_SERVE_BASE_URL, "")
+            self.docling_serve_api_key: str | None = config.get(OperatorConstants.Config.DOCLING_SERVE_API_KEY)
+            self.docling_serve_timeout: int = config.get(OperatorConstants.Config.DOCLING_SERVE_TIMEOUT, 300)
+            self.docling_serve_poll_interval: int = config.get(OperatorConstants.Config.DOCLING_SERVE_POLL_INTERVAL, 2)
+            self.docling_serve_max_retries: int = config.get(OperatorConstants.Config.DOCLING_SERVE_MAX_RETRIES, 3)
+            self.docling_serve_do_ocr: bool = config.get(OperatorConstants.Config.DOCLING_SERVE_DO_OCR, True)
+            self.docling_serve_ocr_engine: str = config.get(
+                OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE, "easyocr"
+            )
+            self.docling_serve_ocr_languages: list[str] = list(
+                config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES, [])
+            )
+            self.docling_serve_pdf_backend: str = config.get(
+                OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND, "dlparse_v2"
+            )
+            self.docling_serve_table_mode: str = config.get(OperatorConstants.Config.DOCLING_SERVE_TABLE_MODE, "fast")
+            self.docling_serve_image_export_mode: str = config.get(
+                OperatorConstants.Config.DOCLING_SERVE_IMAGE_EXPORT_MODE, "placeholder"
+            )
+        else:
+            # Set defaults when not using docling-serve
+            self.docling_serve_base_url = ""
+            self.docling_serve_api_key = None
+            self.docling_serve_timeout = 300
+            self.docling_serve_poll_interval = 2
+            self.docling_serve_max_retries = 3
+            self.docling_serve_do_ocr = True
+            self.docling_serve_ocr_engine = "easyocr"
+            self.docling_serve_ocr_languages = []
+            self.docling_serve_pdf_backend = "dlparse_v2"
+            self.docling_serve_table_mode = "fast"
+            self.docling_serve_image_export_mode = "placeholder"
 
-        # Validate VLM engine type
-        valid_engines = [
-            OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS,
-            OperatorConstants.Config.VLM_ENGINE_MLX,
-            OperatorConstants.Config.VLM_ENGINE_API,
-            OperatorConstants.Config.VLM_ENGINE_API_LMSTUDIO,
-            OperatorConstants.Config.VLM_ENGINE_API_OLLAMA,
-            OperatorConstants.Config.VLM_ENGINE_API_OPENAI,
-            OperatorConstants.Config.VLM_ENGINE_API_WATSONX,
-        ]
-        if self.vlm_engine_type and self.vlm_engine_type not in valid_engines:
-            raise ValueError(f"Invalid vlm_engine_type: {self.vlm_engine_type}. Must be one of {valid_engines}")
-
-        # Validate API configuration
-        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API:
-            if not self.vlm_api_base_url:
-                raise ValueError(
-                    "vlm_api_base_url is required when vlm_engine_type='api'. "
-                    "Provide the API endpoint (e.g., 'https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29' for watsonx.ai)"
-                )
-
-        # Validate watsonx API key
-        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_WATSONX:
-            if not self.vlm_api_key:
-                raise ValueError(
-                    "vlm_api_key is required when vlm_engine_type='api_watsonx'. "
-                    "Provide the IBM Cloud API key for watsonx.ai authentication."
-                )
-
-        # Validate mutually exclusive modes
-        if self.use_vlm_pipeline and self.use_template:
-            raise ValueError("Cannot use both VLM pipeline and template extraction simultaneously")
+        self._validate_extraction_modes()
+        self._validate_vlm_config()
+        self._validate_docling_serve_config()
 
         # Parallel processing configuration
         self.max_workers: int = config.get(
@@ -472,8 +548,118 @@ class ExtractDoclingOperator(AbstractOperator):
                 self.use_template = False
 
         logger.info(
-            f"Initialized ExtractDoclingOperator with {self.max_workers} workers "
-            f"using {'ProcessPoolExecutor' if self.use_processes else 'ThreadPoolExecutor'}"
+            "Initialized ExtractDoclingOperator with %s workers using %s (template=%s, vlm=%s, docling_serve=%s)",
+            self.max_workers,
+            "ProcessPoolExecutor" if self.use_processes else "ThreadPoolExecutor",
+            self.use_template,
+            self.use_vlm_pipeline,
+            self.use_docling_serve,
+        )
+
+    def _validate_extraction_modes(self) -> None:
+        enabled_modes = [self.use_template, self.use_vlm_pipeline, self.use_docling_serve]
+        if sum(enabled_modes) > 1:
+            raise FlowExecutionFailedException(
+                "use_docling_serve, use_vlm_pipeline, and use_template are mutually exclusive"
+            )
+
+    def _validate_vlm_config(self) -> None:
+        if self.use_vlm_pipeline and self.vlm_preset:
+            try:
+                from docling.datamodel.pipeline_options import VlmConvertOptions
+
+                VlmConvertOptions.from_preset(self.vlm_preset)
+            except Exception as e:
+                raise FlowExecutionFailedException(
+                    f"Invalid vlm_preset: '{self.vlm_preset}'. "
+                    f"Error: {e!s}. "
+                    f"Please verify the preset name is correct (e.g., 'granite_docling')."
+                ) from e
+
+        valid_engines = [
+            OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS,
+            OperatorConstants.Config.VLM_ENGINE_MLX,
+            OperatorConstants.Config.VLM_ENGINE_API,
+            OperatorConstants.Config.VLM_ENGINE_API_LMSTUDIO,
+            OperatorConstants.Config.VLM_ENGINE_API_OLLAMA,
+            OperatorConstants.Config.VLM_ENGINE_API_OPENAI,
+            OperatorConstants.Config.VLM_ENGINE_API_WATSONX,
+        ]
+        if self.vlm_engine_type and self.vlm_engine_type not in valid_engines:
+            raise FlowExecutionFailedException(
+                f"Invalid vlm_engine_type: {self.vlm_engine_type}. Must be one of {valid_engines}"
+            )
+        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API and not self.vlm_api_base_url:
+            raise FlowExecutionFailedException(
+                "vlm_api_base_url is required when vlm_engine_type='api'. "
+                "Provide the API endpoint (e.g., 'https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29' for watsonx.ai)"
+            )
+        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_WATSONX and not self.vlm_api_key:
+            raise FlowExecutionFailedException(
+                "vlm_api_key is required when vlm_engine_type='api_watsonx'. "
+                "Provide the IBM Cloud API key for watsonx.ai authentication."
+            )
+
+    def _validate_docling_serve_config(self) -> None:
+        if self.use_docling_serve and not self.docling_serve_base_url:
+            raise FlowExecutionFailedException("docling_serve_base_url is required when use_docling_serve=True")
+
+    def _get_docling_serve_config(self) -> dict[str, Any]:
+        return {
+            "base_url": self.docling_serve_base_url,
+            "api_key": self.docling_serve_api_key,
+            "timeout": self.docling_serve_timeout,
+            "poll_interval": self.docling_serve_poll_interval,
+            "max_retries": self.docling_serve_max_retries,
+            "do_ocr": self.docling_serve_do_ocr,
+            "ocr_engine": self.docling_serve_ocr_engine,
+            "ocr_languages": self.docling_serve_ocr_languages,
+            "pdf_backend": self.docling_serve_pdf_backend,
+            "table_mode": self.docling_serve_table_mode,
+            "image_export_mode": self.docling_serve_image_export_mode,
+        }
+
+    def _submit_extraction_task(
+        self,
+        executor: ProcessPoolExecutor | ThreadPoolExecutor,
+        task: dict[str, Any],
+        document_types: list[str],
+        template_cache: dict[str, dict],
+    ):
+        template_to_use = self.template
+        if self.use_template and document_types and template_cache:
+            row_doc_type = document_types[task["idx"]]
+            if row_doc_type and row_doc_type in template_cache:
+                template_to_use = template_cache[row_doc_type]
+                logger.debug("Using template for document type '%s' for %s", row_doc_type, task["doc_name"])
+
+        if self.use_template:
+            return executor.submit(
+                _extract_with_template_worker, task["doc_name"], task["binary_content"], template_to_use
+            )
+        if self.use_vlm_pipeline:
+            return executor.submit(
+                _extract_vlm_worker,
+                task["doc_name"],
+                task["binary_content"],
+                self.vlm_preset,
+                self.vlm_engine_type,
+                self.vlm_api_base_url,
+                self.vlm_api_key,
+            )
+        if self.use_docling_serve:
+            return executor.submit(
+                _extract_with_docling_serve_worker,
+                task["doc_name"],
+                task["binary_content"],
+                self._get_docling_serve_config(),
+            )
+        return executor.submit(
+            OperatorUtils.extract_basic_worker,
+            task["doc_name"],
+            task["binary_content"],
+            self.extract_tables,
+            self.extract_images,
         )
 
     @staticmethod
@@ -566,167 +752,97 @@ class ExtractDoclingOperator(AbstractOperator):
         Returns:
             Tuple of (list of transformed tables, metadata dictionary)
         """
-        # Initialize metadata using base method
         metadata = self.create_base_metadata(total_docs_count=table.num_rows)
-
         if table.num_rows == 0:
             return [table], metadata
-
         if self._check_existing_features(table=table):
             metadata[OperatorConstants.Extraction.MESSAGE] = (
                 "All requested features already present. Moving to next operator"
             )
             return [table], metadata
 
-        # Load templates based on document_type column if use_template is True
         document_types: list[str] = []
         template_cache: dict[str, dict] = {}
-
         if self.use_template and OperatorConstants.Columns.DOCUMENT_TYPE in table.column_names:
-            # Extract document types from table
             document_types = table.column(OperatorConstants.Columns.DOCUMENT_TYPE).to_pylist()
-
-            # Generate Docling templates for all unique document types
             DocumentClassUtils.generate_docling_templates_for_types(
-                document_types=document_types,
-                template_cache=template_cache,
-                include_nested=True,  # Include nested fields like line_items
+                document_types=document_types, template_cache=template_cache, include_nested=True
             )
-
             if not template_cache:
                 logger.warning("No templates could be loaded from document_type column, using default template")
 
-        # Prepare document data for parallel processing
         doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table)
-
-        # Process documents in parallel
         doc_contents = [None] * table.num_rows
         doc_metadata_list = [{}] * table.num_rows
         extracted_data_list = [None] * table.num_rows
-        failed_indices = []
-
-        # Choose executor based on configuration
         executor_class = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
 
-        logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
-
+        logger.info("Processing %s documents in parallel with %s workers", len(doc_tasks), self.max_workers)
         with executor_class(max_workers=self.max_workers) as executor:
-            # Submit all tasks
             future_to_task = {}
             for task in doc_tasks:
                 if "error" in task:
-                    # Skip tasks that had errors during preparation
-                    failed_indices.append(task["idx"])
                     self.record_failed_document(
                         metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=task["error"]
                     )
                     continue
-
-                # Determine which template to use for this document
-                template_to_use = self.template  # Default template from config
-
-                if self.use_template and document_types and template_cache:
-                    # Get document type for this row
-                    row_doc_type = document_types[task["idx"]]
-                    if row_doc_type and row_doc_type in template_cache:
-                        template_to_use = template_cache[row_doc_type]
-                        logger.debug("Using template for document type '%s' for %s", row_doc_type, task["doc_name"])
-
-                if self.use_template:
-                    future = executor.submit(
-                        _extract_with_template_worker, task["doc_name"], task["binary_content"], template_to_use
-                    )
-                elif self.use_vlm_pipeline:
-                    future = executor.submit(
-                        _extract_vlm_worker,
-                        task["doc_name"],
-                        task["binary_content"],
-                        self.vlm_preset,
-                        self.vlm_engine_type,
-                        self.vlm_api_base_url,
-                        self.vlm_api_key,
-                    )
-                else:
-                    future = executor.submit(
-                        OperatorUtils.extract_basic_worker,
-                        task["doc_name"],
-                        task["binary_content"],
-                        self.extract_tables,
-                        self.extract_images,
-                    )
-
+                future = self._submit_extraction_task(executor, task, document_types, template_cache)
                 future_to_task[future] = task
 
-            # Collect results as they complete
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
                 idx = task["idx"]
-
                 try:
                     result = future.result()
-
                     if result[OperatorConstants.Extraction.SUCCESS]:
                         doc_contents[idx] = result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
                         doc_metadata_list[idx] = result.get(OperatorConstants.Metadata.METADATA, {})
-
                         if self.use_template and OperatorConstants.Columns.STRUCTURED_DATA in result:
                             extracted_data_list[idx] = result[OperatorConstants.Columns.STRUCTURED_DATA]
-
                         metadata[Metrics.External.PROCESSED_DOCS] += 1
-                    else:
-                        failed_indices.append(idx)
-                        self.record_failed_document(
-                            metadata=metadata,
-                            doc_id=str(task["doc_id"]),
-                            doc_name=task["doc_name"],
-                            reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
-                        )
-                        logger.error(
-                            f"Failed to extract content from {task['doc_name']}: {result.get(OperatorConstants.Extraction.ERROR)}",
-                            extra=self.common_log_arguments,
-                        )
+                        continue
 
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
+                    )
+                    logger.error(
+                        "Failed to extract content from %s: %s",
+                        task["doc_name"],
+                        result.get(OperatorConstants.Extraction.ERROR),
+                        extra=self.common_log_arguments,
+                    )
                 except Exception as e:
-                    logger.error(f"Error processing document at index {idx}: {e!s}")
-                    failed_indices.append(idx)
+                    logger.error("Error processing document at index %s: %s", idx, e)
                     self.record_failed_document(
                         metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
                     )
 
-        # Add content column to table (markdown text from docling)
         if doc_contents:
             table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
-
-        # Add extracted_data column if template extraction was used
         if self.use_template and extracted_data_list:
             if self.expand_extracted_data:
-                # Expand extracted_data into individual columns
                 logger.info("Expanding extracted_data into individual columns")
                 table = self._expand_extracted_data_columns(table, extracted_data_list)
             else:
-                # Convert list of dicts to JSON strings for PyArrow compatibility
                 extracted_data_json = [json.dumps(data) if data is not None else None for data in extracted_data_list]
                 table = TransformUtils.add_column(
                     table=table, name=OperatorConstants.Columns.EXTRACTED_DATA, content=extracted_data_json
                 )
                 logger.info("Added extracted_data column with structured template extraction results")
 
-        # Add hash column using DocIdHashOperator (similar to extract_cpd_operator)
         logger.info("Generating hash id and adding it to table")
-        hash_operator = DocIdHashOperator(
-            {
-                OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
-            }
-        )
+        hash_operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: self.doc_column})
         table_list, _ = hash_operator.transform(table)
         table = table_list[0]
 
-        # Update metadata status
-        node_status = ExecutionStatus.COMPLETED.value
-        if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
-            node_status = ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        metadata[Metrics.External.NODE_STATUS] = node_status
-
+        metadata[Metrics.External.NODE_STATUS] = (
+            ExecutionStatus.COMPLETED_WITH_ERRORS.value
+            if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0
+            else ExecutionStatus.COMPLETED.value
+        )
         return [table], metadata
 
     def get_metadata(self) -> dict[str, Any]:
@@ -861,6 +977,90 @@ class ExtractDoclingOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "API key for authenticated remote APIs (optional, not needed for Ollama/LM Studio)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.USE_DOCLING_SERVE: {
+                    OperatorConstants.Misc.NAME: "Use Docling Serve",
+                    OperatorConstants.Config.DESCRIPTION: "Enable docling-serve based remote extraction. Mutually exclusive with template and VLM modes.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_BASE_URL: {
+                    OperatorConstants.Misc.NAME: "Docling Serve Base URL",
+                    OperatorConstants.Config.DESCRIPTION: "Base URL for the docling-serve service (required when use_docling_serve is True)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "http://0.0.0.0:5001",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_API_KEY: {
+                    OperatorConstants.Misc.NAME: "Docling Serve API Key",
+                    OperatorConstants.Config.DESCRIPTION: "Optional API key sent as X-API-KEY when calling docling-serve",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_TIMEOUT: {
+                    OperatorConstants.Misc.NAME: "Docling Serve Timeout",
+                    OperatorConstants.Config.DESCRIPTION: "Request timeout in seconds for docling-serve operations",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 300,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_POLL_INTERVAL: {
+                    OperatorConstants.Misc.NAME: "Docling Serve Poll Interval",
+                    OperatorConstants.Config.DESCRIPTION: "Polling interval in seconds when waiting for docling-serve task completion",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 2,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_MAX_RETRIES: {
+                    OperatorConstants.Misc.NAME: "Docling Serve Max Retries",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum retry attempts for docling-serve status polling",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 3,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_DO_OCR: {
+                    OperatorConstants.Misc.NAME: "Docling Serve OCR Enabled",
+                    OperatorConstants.Config.DESCRIPTION: "Whether OCR should be enabled when processing documents with docling-serve",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE: {
+                    OperatorConstants.Misc.NAME: "Docling Serve OCR Engine",
+                    OperatorConstants.Config.DESCRIPTION: "OCR engine name passed to docling-serve",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "easyocr",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES: {
+                    OperatorConstants.Misc.NAME: "Docling Serve OCR Languages",
+                    OperatorConstants.Config.DESCRIPTION: "List of OCR languages passed to docling-serve",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: [],
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND: {
+                    OperatorConstants.Misc.NAME: "Docling Serve PDF Backend",
+                    OperatorConstants.Config.DESCRIPTION: "PDF backend to use in docling-serve",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "dlparse_v2",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_TABLE_MODE: {
+                    OperatorConstants.Misc.NAME: "Docling Serve Table Mode",
+                    OperatorConstants.Config.DESCRIPTION: "Table structure extraction mode for docling-serve",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "fast",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_IMAGE_EXPORT_MODE: {
+                    OperatorConstants.Misc.NAME: "Docling Serve Image Export Mode",
+                    OperatorConstants.Config.DESCRIPTION: "Image export mode passed to docling-serve",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "placeholder",
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.MAX_WORKERS: {

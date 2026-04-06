@@ -21,6 +21,10 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ### Extract Operators
 
 - **Docling** - Extract content and structure from documents using Docling
+  - Basic markdown extraction
+  - VLM pipeline for enhanced extraction
+  - Template-based structured extraction
+  - Docling-Serve REST API integration for scalable processing
 
 ### Chunking Operators
 
