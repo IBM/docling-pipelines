@@ -297,3 +297,78 @@ class TestLiteLLMLLMClient:
         """Test token limit retrieval."""
         assert LiteLLMLLMClient.get_model_token_limit("gpt-4") == 8192
         assert LiteLLMLLMClient.get_model_token_limit("unknown-model") == 8191
+
+
+class TestLiteLLMAPIKeyValidation:
+    """Test API key validation for LiteLLM client."""
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_missing_api_key_raises_error(self):
+        """Test that missing API key raises ConfigurationError."""
+        with pytest.raises(ConfigurationError, match="API key required"):
+            LiteLLMLLMClient(model_name="text-embedding-3-small")
+
+    @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})  # pragma: allowlist secret
+    @patch("litellm.embedding")
+    def test_env_var_api_key_works(self, mock_embedding):
+        """Test that environment variable API key works."""
+        client = LiteLLMLLMClient(model_name="text-embedding-3-small")
+        assert client is not None
+        assert client.model_name == "text-embedding-3-small"
+
+    @patch("litellm.embedding")
+    def test_param_api_key_works(self, mock_embedding):
+        """Test that parameter API key works (with security warning logged)."""
+        client = LiteLLMLLMClient(
+            model_name="text-embedding-3-small",
+            api_key="test-key",  # pragma: allowlist secret
+        )
+        assert client is not None
+        assert client.api_key == "test-key"  # pragma: allowlist secret
+
+    @patch.dict(os.environ, {"OPENAI_API_KEY": "env-key"})  # pragma: allowlist secret
+    @patch("litellm.embedding")
+    def test_env_var_with_param_works(self, mock_embedding):
+        """Test that providing both env var and param works (param shows warning)."""
+        client = LiteLLMLLMClient(
+            model_name="text-embedding-3-small",
+            api_key="param-key",  # pragma: allowlist secret
+        )
+        assert client is not None
+        assert client.api_key == "param-key"  # pragma: allowlist secret
+
+    @patch.dict(os.environ, {"COHERE_API_KEY": "test-key"})  # pragma: allowlist secret
+    @patch("litellm.embedding")
+    def test_cohere_provider_validation(self, mock_embedding):
+        """Test validation for Cohere provider."""
+        client = LiteLLMLLMClient(model_name="embed-english-v3.0")
+        assert client is not None
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_cohere_missing_key_raises_error(self):
+        """Test that missing Cohere API key raises error."""
+        with pytest.raises(ConfigurationError, match="COHERE_API_KEY"):
+            LiteLLMLLMClient(model_name="embed-english-v3.0")
+
+    @patch.dict(
+        os.environ,
+        {"ANTHROPIC_API_KEY": "test-key"},  # pragma: allowlist secret
+    )
+    @patch("litellm.completion")
+    def test_anthropic_provider_validation(self, mock_completion):
+        """Test validation for Anthropic provider."""
+        client = LiteLLMLLMClient(model_name="claude-3-opus")
+        assert client is not None
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_anthropic_missing_key_raises_error(self):
+        """Test that missing Anthropic API key raises error."""
+        with pytest.raises(ConfigurationError, match="ANTHROPIC_API_KEY"):
+            LiteLLMLLMClient(model_name="claude-3-opus")
+
+    @patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})  # pragma: allowlist secret
+    @patch("litellm.embedding")
+    def test_provider_prefix_extraction(self, mock_embedding):
+        """Test provider extraction from model name with prefix."""
+        client = LiteLLMLLMClient(model_name="openai/text-embedding-3-small")
+        assert client is not None

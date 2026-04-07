@@ -198,6 +198,7 @@ export OPENAI_API_KEY=sk-proj-...
 - OpenAI (`text-embedding-3-small`, `text-embedding-3-large`)
 - Azure OpenAI (`azure/deployment-name`)
 - Cohere (`embed-english-v3.0`, `embed-multilingual-v3.0`)
+- IBM watsonx.ai (`watsonx/ibm/slate-30m-english-rtrvr`, `watsonx/ibm/slate-125m-english-rtrvr`)
 - AWS Bedrock (`bedrock/amazon.titan-embed-text-v1`)
 - Google Vertex AI (`vertex_ai/textembedding-gecko@001`)
 - And 100+ more...

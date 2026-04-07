@@ -54,20 +54,31 @@ class EmbeddingsOperator(AbstractOperator):
 
     This operator processes documents and generates vector embeddings using different
     embedding providers. It supports:
-    - Multiple embedding providers (Ollama, OpenAI, etc.)
+    - Multiple embedding providers (Ollama, HuggingFace, LiteLLM)
     - Multiple embedding models per provider
     - Automatic chunking for long text
     - Pre-chunked content processing
     - Document hash generation
     - Error handling per document
+    - Batch processing for improved performance
 
     Supported Providers:
-    - ollama: Local Ollama models (llama2, mistral, etc.)
-    - openai: OpenAI embedding models (text-embedding-ada-002, etc.)
+    - ollama: Local Ollama models (nomic-embed-text, llama2, etc.)
+    - huggingface: HuggingFace models (all-MiniLM-L6-v2, mpnet-base-v2, etc.)
+    - litellm: 100+ providers via LiteLLM (OpenAI, Azure, Anthropic, Cohere, etc.)
+
+    LiteLLM Provider Support:
+    Through the litellm provider, you can access embeddings from:
+    - OpenAI (text-embedding-3-small, text-embedding-ada-002)
+    - Azure OpenAI
+    - Cohere (embed-english-v3.0, embed-multilingual-v3.0)
+    - Bedrock (amazon.titan-embed-text-v1)
+    - Vertex AI (textembedding-gecko)
+    - And 100+ more providers
 
     To add a new provider:
-    1. Create a new provider class inheriting from EmbeddingProvider
-    2. Register it in providers/__init__.py using ProviderFactory.register()
+    1. Create a new adapter class implementing LLMServicePort
+    2. Register it using @register_llm_adapter decorator
     3. The provider will be automatically available through the factory pattern
     """
 
@@ -203,7 +214,7 @@ class EmbeddingsOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: OperatorCategory.Functional.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
             OperatorConstants.Misc.LABEL: "Embeddings",
-            OperatorConstants.Config.DESCRIPTION: "Generate vector embeddings using various providers (Ollama, OpenAI, etc.)",
+            OperatorConstants.Config.DESCRIPTION: "Generate vector embeddings using Ollama, HuggingFace, or 100+ providers via LiteLLM (OpenAI, Azure, Cohere, watsonx.ai, etc.)",
             OperatorConstants.Config.FEATURES: {
                 OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT: {
                     OperatorConstants.Misc.NAME: "Embeddings",
@@ -226,7 +237,7 @@ class EmbeddingsOperator(AbstractOperator):
             OperatorConstants.Config.ATTRIBUTES: {
                 EMBEDDINGS_TYPE_KEY: {
                     OperatorConstants.Misc.NAME: "Embeddings Provider",
-                    OperatorConstants.Config.DESCRIPTION: f"Embedding provider to use ({', '.join(SUPPORTED_EMBEDDINGS_TYPES)})",
+                    OperatorConstants.Config.DESCRIPTION: "Embedding provider: ollama (local), huggingface (local/remote), litellm (100+ providers including OpenAI, Azure, Cohere)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Config.DEFAULT: EMBEDDINGS_TYPE_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,

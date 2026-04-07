@@ -59,7 +59,7 @@ LiteLLM automatically detects API keys from environment variables based on the p
     "operator_params": {
         "provider": "litellm",
         "model_name": "text-embedding-3-small",
-        "api_key": "your-api-key-here",  # Optional
+        "api_key": "your-api-key-here",  # pragma: allowlist secret  # Optional
         "api_base": "https://custom-endpoint.com/v1"  # Optional: custom API endpoint
     }
 }
@@ -151,14 +151,80 @@ export AWS_SECRET_ACCESS_KEY=your-secret-key
 export AWS_REGION_NAME=us-east-1
 ```
 
-```python
+````python
 {
     "operator_params": {
         "provider": "litellm",
         "model_name": "bedrock/amazon.titan-embed-text-v1"
     }
 }
+
+### IBM watsonx.ai
+
+IBM watsonx.ai provides enterprise-grade embedding models optimized for retrieval tasks.
+
+**Environment Variables**:
+```bash
+export WATSONX_URL=https://us-south.ml.cloud.ibm.com  # Your watsonx instance URL
+export WATSONX_APIKEY=your-api-key                     # pragma: allowlist secret  # IBM Cloud API key
+export WATSONX_PROJECT_ID=your-project-id              # Project ID (optional if passed as param)
+````
+
+**Authentication Options**:
+
+- `WATSONX_APIKEY`: IBM Cloud API key (recommended)
+- `WATSONX_TOKEN`: IAM auth token (short-lived)
+- `WATSONX_ZENAPIKEY`: Zen API key (long-term authentication)
+
+**Flow Configuration**:
+
+```json
+{
+  "operator_type": "datasift_opensource.backend.core.operators.functional.embeddings.embeddings_operator.EmbeddingsOperator",
+  "operator_params": {
+    "provider": "litellm",
+    "model_name": "watsonx/ibm/slate-125m-english-rtrvr",
+    "project_id": "your-project-id"
+  }
+}
 ```
+
+**Available Models**:
+
+- `watsonx/ibm/slate-30m-english-rtrvr` - 30M parameter model
+- `watsonx/ibm/slate-125m-english-rtrvr` - 125M parameter model
+
+For all available models, see [watsonx.ai embedding documentation](https://dataplatform.cloud.ibm.com/docs/content/wsj/analyze-data/fm-models-embed.html?context=wx).
+
+**Python Example**:
+
+```python
+import pyarrow as pa
+from datasift_opensource.backend.core.operators.functional.embeddings.embeddings_operator import EmbeddingsOperator
+
+# Initialize operator
+operator = EmbeddingsOperator(
+    provider="litellm",
+    model_name="watsonx/ibm/slate-125m-english-rtrvr",
+    project_id="your-project-id"  # Optional if set in environment
+)
+
+# Create sample data
+table = pa.table({
+    "text": ["Enterprise document processing", "AI-powered embeddings"],
+    "doc_id": ["doc1", "doc2"]
+})
+
+# Generate embeddings
+result = operator.process(table)
+print(f"Generated {len(result)} embeddings")
+```
+
+**Notes**:
+
+- watsonx.ai models are optimized for enterprise use cases
+- Supports both cloud and on-premises deployments
+- Requires IBM Cloud account or watsonx.ai subscription
 
 ## Usage Examples
 
@@ -329,6 +395,74 @@ curl https://api.openai.com/v1/embeddings \
 - **OpenAI**: https://status.openai.com/
 - **Cohere**: https://status.cohere.com/
 - **Azure**: https://status.azure.com/
+
+## API Key Management and Security
+
+### Security Best Practices
+
+**✅ Recommended: Environment Variables**
+
+```bash
+export OPENAI_API_KEY=your-key-here
+export COHERE_API_KEY=your-key-here
+export WATSONX_APIKEY=your-key-here
+```
+
+**⚠️ Not Recommended: Flow Configuration**
+
+```json
+{
+  "operator_params": {
+    "provider": "litellm",
+    "model_name": "text-embedding-3-small",
+    "api_key": "sk-proj-..." // pragma: allowlist secret
+  }
+}
+```
+
+### Why Environment Variables?
+
+1. **Not Version Controlled**: Environment variables aren't committed to Git
+2. **Per-Environment**: Different keys for dev/staging/prod
+3. **Standard Practice**: Industry-standard approach
+4. **Audit Trail**: Easier to track and rotate keys
+
+### When Flow-Based Keys Are Acceptable
+
+- **Local development/testing only**
+- **Temporary test keys**
+- **Keys that will be immediately rotated**
+- **Never in production**
+
+### API Key Validation
+
+The operator validates API key presence before making calls:
+
+- Checks environment variables first
+- Falls back to flow configuration if provided
+- Shows security warning if API key is in flow
+- Fails fast with clear error message if missing
+
+Example error:
+
+```
+ConfigurationError: API key required for openai provider.
+Please set OPENAI_API_KEY environment variable or pass api_key parameter.
+Example: export OPENAI_API_KEY=your-key-here
+```
+
+### Provider-Specific Environment Variables
+
+| Provider     | Environment Variable             |
+| ------------ | -------------------------------- |
+| OpenAI       | `OPENAI_API_KEY`                 |
+| Azure OpenAI | `AZURE_API_KEY`                  |
+| Cohere       | `COHERE_API_KEY`                 |
+| Anthropic    | `ANTHROPIC_API_KEY`              |
+| Vertex AI    | `GOOGLE_APPLICATION_CREDENTIALS` |
+| Bedrock      | `AWS_ACCESS_KEY_ID`              |
+| watsonx      | `WATSONX_APIKEY`                 |
+| Hugging Face | `HUGGINGFACE_API_KEY`            |
 
 ## Security Best Practices
 

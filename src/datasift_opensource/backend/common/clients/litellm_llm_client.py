@@ -19,6 +19,19 @@ from common.util.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Provider to environment variable mapping
+PROVIDER_ENV_VARS = {
+    "openai": "OPENAI_API_KEY",
+    "azure": "AZURE_API_KEY",
+    "cohere": "COHERE_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "bedrock": "AWS_ACCESS_KEY_ID",
+    "vertex_ai": "GOOGLE_APPLICATION_CREDENTIALS",
+    "watsonx": "WATSONX_APIKEY",
+    "huggingface": "HUGGINGFACE_API_KEY",
+    "ollama": "OLLAMA_API_KEY",
+}
+
 # LiteLLM model configurations (conservative defaults)
 LITELLM_MODEL_TOKEN_LIMITS: dict[str, int] = {
     "text-embedding-ada-002": 8191,
@@ -56,6 +69,7 @@ class LiteLLMLLMClient(BaseLLMClient):
 
         Raises:
             ImportError: If litellm package is not installed
+            ConfigurationError: If API key is not available
         """
         super().__init__(model_name, **kwargs)
 
@@ -66,6 +80,9 @@ class LiteLLMLLMClient(BaseLLMClient):
         import litellm
 
         self.litellm = litellm
+
+        # Validate API key availability
+        self._validate_api_key()
 
         # Configure API base if provided
         if self.api_base:
@@ -81,7 +98,7 @@ class LiteLLMLLMClient(BaseLLMClient):
 
     def _get_provider_from_model(self, model_name: str) -> str:
         """
-        Determine provider from model name.
+        Extract provider name from model string.
 
         Args:
             model_name: Model name (may include provider prefix)
@@ -91,20 +108,49 @@ class LiteLLMLLMClient(BaseLLMClient):
         """
         # Check for explicit provider prefix
         if "/" in model_name:
-            return model_name.split("/")[0]
+            return model_name.split("/")[0].lower()
 
         # Infer from model name patterns
         if model_name.startswith("gpt-") or "text-embedding" in model_name:
             return "openai"
         elif model_name.startswith("claude-"):
             return "anthropic"
-        elif model_name.startswith("command-"):
+        elif model_name.startswith("command-") or model_name.startswith("embed-"):
             return "cohere"
         elif model_name.startswith("ollama/"):
             return "ollama"
 
         # Default to openai
         return "openai"
+
+    def _validate_api_key(self) -> None:
+        """
+        Validate that API key is available either from parameter or environment.
+
+        Raises:
+            ConfigurationError: If API key is not available
+        """
+        provider = self._get_provider_from_model(self.model_name)
+        env_var = PROVIDER_ENV_VARS.get(provider, f"{provider.upper()}_API_KEY")
+
+        # Check if API key is available
+        has_param_key = self.api_key is not None
+        has_env_key = os.getenv(env_var) is not None
+
+        if not has_param_key and not has_env_key:
+            raise ConfigurationError(
+                f"API key required for {provider} provider.\n"
+                f"Please set {env_var} environment variable or pass api_key parameter.\n"
+                f"Example: export {env_var}=your-key-here"
+            )
+
+        # Security warning if API key is in parameter (flow config)
+        if has_param_key:
+            logger.warning(
+                f"API key provided via parameter for {provider}. "
+                f"For better security, use environment variable {env_var} instead. "
+                f"API keys in flow files may be committed to version control."
+            )
 
     def _set_provider_api_key(self, provider: str, api_key: str) -> None:
         """
