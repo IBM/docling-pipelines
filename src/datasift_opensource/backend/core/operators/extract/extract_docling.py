@@ -574,16 +574,22 @@ class ExtractDoclingOperator(AbstractOperator):
             raise FlowExecutionFailedException(
                 f"Invalid vlm_engine_type: {self.vlm_engine_type}. Must be one of {valid_engines}"
             )
-        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API and not self.vlm_api_base_url:
-            raise FlowExecutionFailedException(
-                "vlm_api_base_url is required when vlm_engine_type='api'. "
-                "Provide the API endpoint (e.g., 'https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29' for watsonx.ai)"
-            )
-        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_WATSONX and not self.vlm_api_key:
-            raise FlowExecutionFailedException(
-                "vlm_api_key is required when vlm_engine_type='api_watsonx'. "
-                "Provide the IBM Cloud API key for watsonx.ai authentication."
-            )
+        # Validate provider config for API-based engines
+        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API:
+            if not self.vlm_provider_config or not self.vlm_provider_config.get(
+                OperatorConstants.Config.VLM_API_BASE_URL
+            ):
+                raise FlowExecutionFailedException(
+                    "vlm_api_base_url is required in vlm_provider_config when vlm_engine_type='api'. "
+                    "Provide the API endpoint (e.g., 'https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29' for watsonx.ai)"
+                )
+
+        if self.vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_WATSONX:
+            if not self.vlm_provider_config or not self.vlm_provider_config.get(OperatorConstants.Config.VLM_API_KEY):
+                raise FlowExecutionFailedException(
+                    "vlm_api_key is required in vlm_provider_config when vlm_engine_type='api_watsonx'. "
+                    "Provide the IBM Cloud API key for watsonx.ai authentication."
+                )
 
     def _validate_docling_serve_config(self) -> None:
         if self.use_docling_serve and not self.docling_serve_base_url:
@@ -611,6 +617,7 @@ class ExtractDoclingOperator(AbstractOperator):
         document_types: list[str],
         template_cache: dict[str, dict],
     ):
+        # Determine which template to use for this document
         template_to_use = self.template
         if self.use_template and document_types and template_cache:
             row_doc_type = document_types[task["idx"]]
@@ -629,8 +636,7 @@ class ExtractDoclingOperator(AbstractOperator):
                 task["binary_content"],
                 self.vlm_preset,
                 self.vlm_engine_type,
-                self.vlm_api_base_url,
-                self.vlm_api_key,
+                self.vlm_provider_config,
             )
         if self.use_docling_serve:
             return executor.submit(
@@ -772,38 +778,7 @@ class ExtractDoclingOperator(AbstractOperator):
                     )
                     continue
 
-                # Determine which template to use for this document
-                template_to_use = self.template  # Default template from config
-
-                if self.use_template and document_types and template_cache:
-                    # Get document type for this row
-                    row_doc_type = document_types[task["idx"]]
-                    if row_doc_type and row_doc_type in template_cache:
-                        template_to_use = template_cache[row_doc_type]
-                        logger.debug("Using template for document type '%s' for %s", row_doc_type, task["doc_name"])
-
-                if self.use_template:
-                    future = executor.submit(
-                        _extract_with_template_worker, task["doc_name"], task["binary_content"], template_to_use
-                    )
-                elif self.use_vlm_pipeline:
-                    future = executor.submit(
-                        _extract_vlm_worker,
-                        task["doc_name"],
-                        task["binary_content"],
-                        self.vlm_preset,
-                        self.vlm_engine_type,
-                        self.vlm_provider_config,
-                    )
-                else:
-                    future = executor.submit(
-                        OperatorUtils.extract_basic_worker,
-                        task["doc_name"],
-                        task["binary_content"],
-                        self.extract_tables,
-                        self.extract_images,
-                    )
-
+                future = self._submit_extraction_task(executor, task, document_types, template_cache)
                 future_to_task[future] = task
 
             for future in as_completed(future_to_task):

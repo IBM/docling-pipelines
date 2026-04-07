@@ -58,6 +58,31 @@ class VlmPipelineOptionsProvider(ABC):
         """
         pass
 
+    @staticmethod
+    def _ensure_markdown_format(*, vlm_options: Any, preset: str) -> None:
+        """
+        Ensure MARKDOWN format for API-based VLM engines.
+
+        DOCTAGS format is specific to IBM Granite models, while MARKDOWN is universally
+        supported by all VLM models (including Granite). This method converts DOCTAGS
+        to MARKDOWN for maximum compatibility across all API-based engines.
+
+        Args:
+            vlm_options: VLM options from preset
+            preset: Preset name for logging
+        """
+        from docling.datamodel.pipeline_options_vlm_model import ResponseFormat
+
+        if vlm_options.model_spec.response_format == ResponseFormat.DOCTAGS:
+            logger.info(
+                f"Preset '{preset}' uses DOCTAGS format. Converting to MARKDOWN for universal API compatibility."
+            )
+            vlm_options.model_spec.response_format = ResponseFormat.MARKDOWN
+            vlm_options.model_spec.prompt = (
+                "Convert this document page to markdown format. Include all text, tables, and structure."
+            )
+            vlm_options.model_spec.stop_strings = []
+
 
 class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
     """
@@ -211,21 +236,6 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
             logger.error("IAM token exchange failed - authentication error occurred")
             raise ValueError(f"Failed to authenticate with watsonx: {e}") from e
 
-    @staticmethod
-    def _ensure_markdown_format(*, vlm_options: Any, preset: str) -> None:
-        """Ensure MARKDOWN format for API-based VLM engines."""
-        from docling.datamodel.pipeline_options_vlm_model import ResponseFormat
-
-        if vlm_options.model_spec.response_format == ResponseFormat.DOCTAGS:
-            logger.info(
-                f"Preset '{preset}' uses DOCTAGS format. Converting to MARKDOWN for universal API compatibility."
-            )
-            vlm_options.model_spec.response_format = ResponseFormat.MARKDOWN
-            vlm_options.model_spec.prompt = (
-                "Convert this document page to markdown format. Include all text, tables, and structure."
-            )
-            vlm_options.model_spec.stop_strings = []
-
 
 class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
     """Pipeline options provider for OpenAI API."""
@@ -272,6 +282,9 @@ class OpenAIPipelineOptionsProvider(VlmPipelineOptionsProvider):
         )
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
+
+        # Ensure MARKDOWN format for API engines
+        self._ensure_markdown_format(vlm_options=vlm_options, preset=preset)
 
         return VlmPipelineOptions(vlm_options=vlm_options, enable_remote_services=True)
 
@@ -327,6 +340,9 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
 
+        # Ensure MARKDOWN format for API engines
+        self._ensure_markdown_format(vlm_options=vlm_options, preset=preset)
+
         logger.info(f"Using Ollama engine with API base URL: {api_base_url}")
 
         return VlmPipelineOptions(vlm_options=vlm_options, enable_remote_services=True)
@@ -346,7 +362,7 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
         Args:
             preset: VLM preset name
             config: Configuration containing:
-                - api_base_url: LM Studio API URL (optional, defaults to http://localhost:1234)
+                - api_base_url: LM Studio API URL (optional, defaults to http://localhost:1234/v1/chat/completions)
 
         Returns:
             VlmPipelineOptions configured for LM Studio
@@ -356,7 +372,9 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
 
         self.validate_config(config=config)
 
-        api_base_url = config.get(OperatorConstants.Config.VLM_API_BASE_URL, "http://localhost:1234")
+        api_base_url = config.get(
+            OperatorConstants.Config.VLM_API_BASE_URL, "http://localhost:1234/v1/chat/completions"
+        )
 
         engine_options = ApiVlmEngineOptions(
             runtime_type=VlmEngineType.API_LMSTUDIO,
@@ -365,6 +383,9 @@ class LMStudioPipelineOptionsProvider(VlmPipelineOptionsProvider):
         )
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
+
+        # Ensure MARKDOWN format for API engines (same as Watsonx)
+        self._ensure_markdown_format(vlm_options=vlm_options, preset=preset)
 
         logger.info(f"Using LM Studio engine with API base URL: {api_base_url}")
 
@@ -426,6 +447,9 @@ class GenericApiPipelineOptionsProvider(VlmPipelineOptionsProvider):
         )
 
         vlm_options = VlmConvertOptions.from_preset(preset, engine_options=engine_options)
+
+        # Ensure MARKDOWN format for API engines
+        self._ensure_markdown_format(vlm_options=vlm_options, preset=preset)
 
         logger.info(f"Using generic API engine with URL: {api_base_url}")
 

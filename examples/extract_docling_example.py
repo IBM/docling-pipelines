@@ -127,14 +127,11 @@ def main() -> int:
     vlm_api_base_url: str | None = None
     vlm_api_key: str | None = None  # pragma: allowlist secret
 
-    # OpenAI-specific Configuration
-    model_name: str | None = None  # Required for OpenAI (e.g., "gpt-4-vision-preview")
-
     # WatsonX-specific Configuration
     vlm_watsonx_container_kind: str | None = "project"  # Required for watsonx
     vlm_watsonx_container_id: str | None = ""  # Required for watsonx
     vlm_model_name: str | None = (
-        "meta-llama/llama-3-2-11b-vision-instruct"  # Required for watsonx
+        "meta-llama/llama-3-2-11b-vision-instruct"  # Required for watsonx and OpenAI
     )
 
     # File pattern for directory processing (only used if input is a directory)
@@ -188,9 +185,9 @@ def main() -> int:
 
             # Add OpenAI-specific configs
             if vlm_engine_type == OperatorConstants.Config.VLM_ENGINE_API_OPENAI:
-                if model_name:
-                    vlm_provider_config[OperatorConstants.Config.MODEL_NAME] = (
-                        model_name
+                if vlm_model_name:
+                    vlm_provider_config[OperatorConstants.Config.VLM_MODEL_NAME] = (
+                        vlm_model_name
                     )
 
             # Add WatsonX-specific configs
@@ -356,33 +353,44 @@ if __name__ == "__main__":
     # 3. Generic API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API
-    #    vlm_api_base_url = "http://localhost:8000/v1"
-    #    vlm_api_key = "your-api-key"  # Optional  # pragma: allowlist secret
+    #    vlm_provider_config = {
+    #        OperatorConstants.Config.VLM_API_BASE_URL: "http://localhost:8000/v1/chat",
+    #        OperatorConstants.Config.VLM_API_KEY: "your-api-key"  # Optional  # pragma: allowlist secret
+    #    }
     #
     # 4. LMStudio API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_LMSTUDIO
-    #    vlm_api_base_url = "http://localhost:1234/v1"  # Optional, defaults to this
+    #    vlm_provider_config = {
+    #        OperatorConstants.Config.VLM_API_BASE_URL: "http://localhost:1234/v1/chat/completions"  # Optional, defaults to this
+    #    }
     #
     # 5. Ollama API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_OLLAMA
-    #    vlm_api_base_url = "http://localhost:11434"  # Optional, defaults to this
+    #    vlm_provider_config = {
+    #        OperatorConstants.Config.VLM_API_BASE_URL: "http://localhost:11434/v1/chat/completions",  # Optional, defaults to this
+    #        OperatorConstants.Config.VLM_MODEL_NAME: "ibm/granite-docling:258m"  # Optional, overrides preset default
+    #    }
     #
     # 6. OpenAI API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_OPENAI
-    #    vlm_api_key = "sk-..."  # Required  # pragma: allowlist secret
-    #    vlm_model_name = "gpt-4-vision-preview"  # Required
-    #    vlm_api_base_url = "https://api.openai.com/v1/chat/completions"  # Optional
+    #    vlm_provider_config = {
+    #        OperatorConstants.Config.VLM_API_KEY: "sk-...",  # Required  # pragma: allowlist secret
+    #        OperatorConstants.Config.VLM_MODEL_NAME: "gpt-4-vision-preview",  # Required
+    #        OperatorConstants.Config.VLM_API_BASE_URL: "https://api.openai.com/v1/chat/completions"  # Optional
+    #    }
     #
     # 7. IBM watsonx.ai API:
     #    use_vlm_pipeline = True
     #    vlm_engine_type = OperatorConstants.Config.VLM_ENGINE_API_WATSONX
-    #    vlm_api_key = "your-ibm-cloud-api-key"  # Required  # pragma: allowlist secret
-    #    vlm_watsonx_container_kind = "project"  # Required
-    #    vlm_watsonx_container_id = "your-project-id"  # Required
-    #    vlm_model_name = "meta-llama/llama-3-2-11b-vision-instruct"  # Required
-    #    vlm_api_base_url = "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29"  # Optional
+    #    vlm_provider_config = {
+    #        OperatorConstants.Config.VLM_API_KEY: "your-ibm-cloud-api-key",  # Required  # pragma: allowlist secret
+    #        OperatorConstants.Config.VLM_WATSONX_CONTAINER_KIND: "project",  # Optional, defaults to this
+    #        OperatorConstants.Config.VLM_WATSONX_CONTAINER_ID: "your-project-id",  # Required
+    #        OperatorConstants.Config.VLM_MODEL_NAME: "meta-llama/llama-3-2-11b-vision-instruct",  # Required
+    #        OperatorConstants.Config.VLM_API_BASE_URL: "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29"  # Optional
+    #    }
 
     sys.exit(main())

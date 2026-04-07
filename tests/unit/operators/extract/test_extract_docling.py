@@ -517,38 +517,46 @@ def test_extract_docling_txt_with_special_characters():
         if os.path.exists(temp_file_path):
             os.unlink(temp_file_path)
 
+
 @pytest.mark.unit
 def test_extract_docling_with_existing_content():
     """Test that operator skips extraction if content column already exists."""
     import pyarrow as pa
     from core.operators.extract import ExtractDoclingOperator
+
     # Create table with existing content column
-    table = pa.table({
-        "id": ["doc1"],
-        "name": ["test.pdf"],
-        "path": ["/path/to/test.pdf"],
-        "content": ["Existing content"],
-        "doc_id_hash": ["existing_hash"]
-    })
-    
+    table = pa.table(
+        {
+            "id": ["doc1"],
+            "name": ["test.pdf"],
+            "path": ["/path/to/test.pdf"],
+            "content": ["Existing content"],
+            "doc_id_hash": ["existing_hash"],
+        }
+    )
+
     # Initialize operator
     config = {
         "doc_column": "content",
         "doc_id_hash": "doc_id_hash",
         "extract_tables": True,
-        "extract_images": True
+        "extract_images": True,
     }
-    
+
     operator = ExtractDoclingOperator(config)
-    
+
     # Transform the table
     result_tables, metadata = operator.transform(table)
     result_table = result_tables[0]
-    
+
     # Assertions - should return original table unchanged
     assert result_table.num_rows == 1, "Should have 1 row"
-    assert result_table["content"][0].as_py() == "Existing content", "Should keep existing content"
-    assert result_table["doc_id_hash"][0].as_py() == "existing_hash", "Should keep existing hash"
+    assert result_table["content"][0].as_py() == "Existing content", (
+        "Should keep existing content"
+    )
+    assert result_table["doc_id_hash"][0].as_py() == "existing_hash", (
+        "Should keep existing hash"
+    )
     assert "message" in metadata, "Should have message in metadata"
 
 
@@ -557,29 +565,33 @@ def test_extract_docling_parallel_processing():
     """Test the ExtractDoclingOperator with parallel processing configuration."""
     import pyarrow as pa
     from core.operators.extract import ExtractDoclingOperator
-    
+
     # Get test files
-    fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "customer_support_docs"
+    fixtures_dir = (
+        Path(__file__).parent.parent.parent.parent
+        / "fixtures"
+        / "customer_support_docs"
+    )
     test_files = list(fixtures_dir.glob("*.txt"))[:3]
-    
+
     if len(test_files) < 2:
         pytest.skip("Need at least 2 files for parallel processing test")
-    
+
     # Prepare data for PyArrow table
     file_data = {"id": [], "name": [], "path": [], "binary_content": []}
-    
+
     for file_path in test_files:
         with open(file_path, "rb") as f:
             binary_content = f.read()
-        
+
         file_data["id"].append(str(file_path))
         file_data["name"].append(file_path.name)
         file_data["path"].append(str(file_path))
         file_data["binary_content"].append(binary_content)
-    
+
     # Create PyArrow table
     table = pa.table(file_data)
-    
+
     # Test with ThreadPoolExecutor
     config_threads = {
         "doc_column": "content",
@@ -587,23 +599,527 @@ def test_extract_docling_parallel_processing():
         "extract_tables": False,
         "extract_images": False,
         "max_workers": 2,
-        "use_processes": False
+        "use_processes": False,
     }
-    
+
     operator_threads = ExtractDoclingOperator(config_threads)
     result_tables, metadata = operator_threads.transform(table)
     result_table = result_tables[0]
-    
+
     # Assertions
     assert result_table.num_rows == len(test_files), "Should process all files"
     assert metadata["processed_docs"] == len(test_files), "Should process all documents"
-    
+
     # Verify all content was extracted
     for idx in range(result_table.num_rows):
         content = result_table["content"][idx].as_py()
         assert content is not None, f"Content should not be None for row {idx}"
         assert len(content) > 0, f"Content should not be empty for row {idx}"
 
+
+# ============================================================================
+# VLM Pipeline Mode Tests
+# ============================================================================
+
+
+@pytest.mark.unit
+@pytest.mark.skip(reason="Requires docling[vlm] dependencies and model downloads")
+def test_extract_docling_vlm_transformers_engine(sample_pdf_files):
+    """Test VLM extraction with Transformers engine (local inference)."""
+    import pyarrow as pa
+    from core.operators.extract import ExtractDoclingOperator
+
+    # Check if VLM dependencies are available
+    try:
+        from docling.pipeline.vlm_pipeline import VlmPipeline  # noqa: F401
+    except ImportError:
+        pytest.skip(
+            "VLM pipeline dependencies not available. Install with: pip install docling[vlm]"
+        )
+
+    test_files = sample_pdf_files[:1]
+    if not test_files:
+        pytest.skip("No PDF files available for testing")
+
+    # Prepare data
+    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    for file_path in test_files:
+        with open(file_path, "rb") as f:
+            binary_content = f.read()
+        file_data["id"].append(str(file_path))
+        file_data["name"].append(file_path.name)
+        file_data["path"].append(str(file_path))
+        file_data["binary_content"].append(binary_content)
+
+    table = pa.table(file_data)
+
+    # Configure for VLM with Transformers engine
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "transformers",
+    }
+
+    operator = ExtractDoclingOperator(config)
+    result_tables, metadata = operator.transform(table)
+    result_table = result_tables[0]
+
+    # Assertions
+    assert "content" in result_table.column_names
+    assert result_table["content"][0].as_py() is not None
+    assert metadata["processed_docs"] > 0
+
+
+@pytest.mark.unit
+@pytest.mark.skip(reason="Requires docling[vlm] dependencies and MLX (macOS only)")
+def test_extract_docling_vlm_mlx_engine(sample_pdf_files):
+    """Test VLM extraction with MLX engine (macOS optimized)."""
+    import pyarrow as pa
+    from core.operators.extract import ExtractDoclingOperator
+    import platform
+
+    if platform.system() != "Darwin":
+        pytest.skip("MLX engine only available on macOS")
+
+    try:
+        from docling.pipeline.vlm_pipeline import VlmPipeline  # noqa: F401
+    except ImportError:
+        pytest.skip(
+            "VLM pipeline dependencies not available. Install with: pip install docling[vlm]"
+        )
+
+    test_files = sample_pdf_files[:1]
+    if not test_files:
+        pytest.skip("No PDF files available for testing")
+
+    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+    for file_path in test_files:
+        with open(file_path, "rb") as f:
+            binary_content = f.read()
+        file_data["id"].append(str(file_path))
+        file_data["name"].append(file_path.name)
+        file_data["path"].append(str(file_path))
+        file_data["binary_content"].append(binary_content)
+
+    table = pa.table(file_data)
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "mlx",
+    }
+
+    operator = ExtractDoclingOperator(config)
+    result_tables, metadata = operator.transform(table)
+    result_table = result_tables[0]
+
+    assert "content" in result_table.column_names
+    assert result_table["content"][0].as_py() is not None
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_ollama_engine_config():
+    """Test VLM extraction configuration with Ollama API engine."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_ollama",
+        "vlm_provider_config": {
+            "vlm_api_base_url": "http://localhost:11434/v1/chat/completions",
+            "vlm_model_name": "llava",
+        },
+    }
+
+    # Should initialize without errors
+    operator = ExtractDoclingOperator(config)
+    assert operator.use_vlm_pipeline is True
+    assert operator.vlm_engine_type == "api_ollama"
+    assert operator.vlm_preset == "granite_docling"
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_openai_engine_config():
+    """Test VLM extraction configuration with OpenAI API engine."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_openai",
+        "vlm_provider_config": {
+            "vlm_api_key": "test_key",  # pragma: allowlist secret
+            "vlm_model_name": "gpt-4-vision-preview",
+        },
+    }
+
+    operator = ExtractDoclingOperator(config)
+    assert operator.use_vlm_pipeline is True
+    assert operator.vlm_engine_type == "api_openai"
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_watsonx_engine_config():
+    """Test VLM extraction configuration with Watsonx API engine."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_watsonx",
+        "vlm_provider_config": {
+            "vlm_api_key": "test_key",  # pragma: allowlist secret
+            "vlm_watsonx_container_id": "12345678-1234-1234-1234-123456789abc",
+            "vlm_model_name": "ibm/granite-13b-chat-v2",
+        },
+    }
+
+    operator = ExtractDoclingOperator(config)
+    assert operator.use_vlm_pipeline is True
+    assert operator.vlm_engine_type == "api_watsonx"
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_lmstudio_engine_config():
+    """Test VLM extraction configuration with LM Studio API engine."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_lmstudio",
+        "vlm_provider_config": {
+            "vlm_api_base_url": "http://localhost:1234/v1/chat/completions"
+        },
+    }
+
+    operator = ExtractDoclingOperator(config)
+    assert operator.use_vlm_pipeline is True
+    assert operator.vlm_engine_type == "api_lmstudio"
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_generic_api_engine_config():
+    """Test VLM extraction configuration with generic API engine."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api",
+        "vlm_provider_config": {"vlm_api_base_url": "https://api.example.com/v1/chat"},
+    }
+
+    operator = ExtractDoclingOperator(config)
+    assert operator.use_vlm_pipeline is True
+    assert operator.vlm_engine_type == "api"
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_default_engine_config():
+    """Test VLM with no engine specified (defaults to transformers)."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        # No vlm_engine_type specified - defaults to transformers
+    }
+
+    operator = ExtractDoclingOperator(config)
+    assert operator.use_vlm_pipeline is True
+    assert operator.vlm_engine_type == "transformers"  # Default engine type
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_invalid_engine_type():
+    """Test VLM extraction with invalid engine type."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "invalid_engine",
+    }
+
+    # Should raise ValueError during initialization
+    with pytest.raises(ValueError, match="Invalid vlm_engine_type"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_with_different_presets():
+    """Test VLM extraction configuration with different presets."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    # Use valid presets from docling
+    presets = ["granite_docling", "qwen", "pixtral"]
+
+    for preset in presets:
+        config = {
+            "doc_column": "content",
+            "doc_id_hash": "doc_id_hash",
+            "use_vlm_pipeline": True,
+            "vlm_preset": preset,
+            "vlm_engine_type": "transformers",
+        }
+
+        operator = ExtractDoclingOperator(config)
+        assert operator.use_vlm_pipeline is True
+        assert operator.vlm_preset == preset
+
+
+# ============================================================================
+# VLM Pipeline Validation Tests - Missing Required Configuration
+# ============================================================================
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_watsonx_missing_api_key():
+    """Test Watsonx engine with missing API key."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_watsonx",
+        "vlm_provider_config": {
+            # Missing vlm_api_key
+            "vlm_watsonx_container_id": "12345678-1234-1234-1234-123456789abc",
+            "vlm_model_name": "ibm/granite-13b-chat-v2",
+        },
+    }
+
+    with pytest.raises(ValueError, match="missing required fields"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_watsonx_missing_container_id():
+    """Test Watsonx engine with missing container ID."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_watsonx",
+        "vlm_provider_config": {
+            "vlm_api_key": "test_key",  # pragma: allowlist secret
+            # Missing vlm_watsonx_container_id
+            "vlm_model_name": "ibm/granite-13b-chat-v2",
+        },
+    }
+
+    with pytest.raises(ValueError, match="missing required fields"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_watsonx_missing_model_name():
+    """Test Watsonx engine with missing model name."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_watsonx",
+        "vlm_provider_config": {
+            "vlm_api_key": "test_key",  # pragma: allowlist secret
+            "vlm_watsonx_container_id": "12345678-1234-1234-1234-123456789abc",
+            # Missing vlm_model_name
+        },
+    }
+
+    with pytest.raises(ValueError, match="missing required fields"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_watsonx_empty_provider_config():
+    """Test Watsonx engine with empty provider config."""
+    from core.operators.extract import ExtractDoclingOperator
+    from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_watsonx",
+        "vlm_provider_config": {},  # Empty config
+    }
+
+    with pytest.raises(FlowExecutionFailedException, match="vlm_api_key is required"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_openai_missing_api_key():
+    """Test OpenAI engine with missing API key."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_openai",
+        "vlm_provider_config": {
+            # Missing vlm_api_key
+            "vlm_model_name": "gpt-4-vision-preview"
+        },
+    }
+
+    with pytest.raises(ValueError, match="api_key is required"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_openai_missing_model_name():
+    """Test OpenAI engine with missing model name."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api_openai",
+        "vlm_provider_config": {
+            "vlm_api_key": "test_key"  # pragma: allowlist secret
+            # Missing vlm_model_name
+        },
+    }
+
+    with pytest.raises(ValueError, match="model_name is required"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_generic_api_missing_base_url():
+    """Test generic API engine with missing base URL."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "vlm_preset": "granite_docling",
+        "vlm_engine_type": "api",
+        "vlm_provider_config": {
+            # Missing vlm_api_base_url
+            "vlm_api_key": "test_key"  # pragma: allowlist secret
+        },
+    }
+
+    with pytest.raises(ValueError, match="vlm_api_base_url is required"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_validation_modes():
+    """Test that VLM mode is validated against other extraction modes."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    # VLM mode should be mutually exclusive with template mode
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "use_template": True,  # Should conflict
+        "vlm_preset": "granite_docling",
+    }
+
+    with pytest.raises(ValueError, match="Cannot use both VLM pipeline and template"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_validation_with_docling_serve():
+    """Test that VLM mode conflicts with docling_serve mode."""
+    from core.operators.extract import ExtractDoclingOperator
+    from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+
+    config = {
+        "doc_column": "content",
+        "doc_id_hash": "doc_id_hash",
+        "use_vlm_pipeline": True,
+        "use_docling_serve": True,  # Should conflict
+        "vlm_preset": "granite_docling",
+    }
+
+    with pytest.raises(FlowExecutionFailedException, match="mutually exclusive"):
+        ExtractDoclingOperator(config)
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_metadata_attributes():
+    """Test that VLM-related attributes are in operator metadata."""
+    from core.operators.extract import ExtractDoclingOperator
+
+    config = {"doc_column": "content", "doc_id_hash": "doc_id_hash"}
+
+    operator = ExtractDoclingOperator(config)
+    metadata = operator.get_metadata()
+
+    # Check VLM-related attributes exist
+    attributes = metadata["attributes"]
+    assert "use_vlm_pipeline" in attributes
+    assert "vlm_preset" in attributes
+    assert "vlm_engine_type" in attributes
+    assert "vlm_provider_config" in attributes
+
+    # Verify attribute details
+    vlm_attr = attributes["use_vlm_pipeline"]
+    assert vlm_attr["type"] == "boolean"
+    assert vlm_attr["default"] is False
+
+
+@pytest.mark.unit
+def test_extract_docling_vlm_configure_engine_function():
+    """Test _configure_vlm_engine function."""
+    from core.operators.extract.extract_docling import _configure_vlm_engine
+
+    # Test with no engine type (should return None for Docling defaults)
+    result = _configure_vlm_engine(
+        vlm_engine_type=None, vlm_preset="granite_docling", vlm_provider_config=None
+    )
+    assert result is None
+
+    # Test with transformers engine
+    result = _configure_vlm_engine(
+        vlm_engine_type="transformers",
+        vlm_preset="granite_docling",
+        vlm_provider_config={},
+    )
+    assert result is not None
+    from docling.datamodel.pipeline_options import VlmPipelineOptions
+
+    assert isinstance(result, VlmPipelineOptions)
 
 
 if __name__ == "__main__":

@@ -221,7 +221,7 @@ class TestLMStudioPipelineOptionsProvider:
     def test_validate_config_valid(self):
         """Test validation with valid config."""
         provider = LMStudioPipelineOptionsProvider()
-        config = {"api_base_url": "http://localhost:1234"}
+        config = {"api_base_url": "http://localhost:1234/v1/chat/completions"}
         # Should not raise
         provider.validate_config(config=config)
 
@@ -235,7 +235,7 @@ class TestLMStudioPipelineOptionsProvider:
     def test_create_pipeline_options(self):
         """Test creating pipeline options."""
         provider = LMStudioPipelineOptionsProvider()
-        config = {"api_base_url": "http://localhost:1234"}
+        config = {"api_base_url": "http://localhost:1234/v1/chat/completions"}
 
         options = provider.create_pipeline_options(
             preset="granite_docling", config=config

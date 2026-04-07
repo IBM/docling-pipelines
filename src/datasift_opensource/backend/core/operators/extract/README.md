@@ -38,31 +38,111 @@ config = {
 
 Enhanced extraction using Vision Language Models for better understanding of document structure and content.
 
-**Configuration:**
+**Basic Configuration (Local Inference):**
 ```python
+# Simplest form - uses all defaults (granite_docling preset, transformers engine)
+config = {
+    "doc_column": "content",
+    "use_vlm_pipeline": True
+}
+
+# With explicit preset
+config = {
+    "doc_column": "content",
+    "use_vlm_pipeline": True,
+    "vlm_preset": "granite_docling"  # Optional, defaults to "granite_docling"
+}
+
+# With explicit engine selection
 config = {
     "doc_column": "content",
     "use_vlm_pipeline": True,
     "vlm_preset": "granite_docling",
-    "vlm_engine_type": "transformers",  # or "mlx", "api", etc.
-    "vlm_api_base_url": None,  # Required for API engines
-    "vlm_api_key": None  # Required for some API engines
+    "vlm_engine_type": "mlx"  # Use MLX for macOS optimization
+}
+```
+
+**API-Based Configuration:**
+```python
+# Ollama
+config = {
+    "doc_column": "content",
+    "use_vlm_pipeline": True,
+    "vlm_engine_type": "api_ollama",
+    "vlm_provider_config": {
+        "api_base_url": "http://localhost:11434/v1/chat/completions",
+        "vlm_model_name": "llama3.2-vision"  # Optional: override preset model
+    }
+}
+
+# OpenAI
+config = {
+    "doc_column": "content",
+    "use_vlm_pipeline": True,
+    "vlm_engine_type": "api_openai",
+    "vlm_provider_config": {
+        "vlm_api_key": "your-api-key",  # pragma: allowlist secret
+        "vlm_model_name": "gpt-4-vision-preview"
+    }
+}
+
+# IBM watsonx.ai
+config = {
+    "doc_column": "content",
+    "use_vlm_pipeline": True,
+    "vlm_engine_type": "api_watsonx",
+    "vlm_provider_config": {
+        "vlm_api_key": "your-ibm-cloud-api-key",  # pragma: allowlist secret
+        "container_id": "your-project-id",
+        "vlm_model_name": "meta-llama/llama-3-2-11b-vision-instruct",
+        "container_kind": "project"  # or "space", "catalog"
+    }
+}
+
+# LM Studio
+config = {
+    "doc_column": "content",
+    "use_vlm_pipeline": True,
+    "vlm_engine_type": "api_lmstudio",
+    "vlm_provider_config": {
+        "api_base_url": "http://localhost:1234/v1/chat/completions"
+    }
+}
+
+# Generic API
+config = {
+    "doc_column": "content",
+    "use_vlm_pipeline": True,
+    "vlm_engine_type": "api",
+    "vlm_provider_config": {
+        "api_base_url": "https://your-api-endpoint.com",
+        "vlm_api_key": "your-api-key",  # pragma: allowlist secret
+        "headers": {},  # Optional custom headers
+        "parameters": {}  # Optional custom parameters
+    }
 }
 ```
 
 **Supported VLM Engines:**
-- `transformers`: Local inference using Transformers library
+- `transformers`: Local inference using Transformers library (default)
 - `mlx`: Local inference optimized for macOS (Apple Silicon)
 - `api`: Generic API endpoint
-- `api_lmstudio`: LMStudio API
+- `api_lmstudio`: LM Studio API
 - `api_ollama`: Ollama API
 - `api_openai`: OpenAI API
 - `api_watsonx`: IBM watsonx.ai API
+
+**Configuration Parameters:**
+- `use_vlm_pipeline`: Enable VLM pipeline mode (required)
+- `vlm_preset`: VLM preset name (optional, defaults to "granite_docling")
+- `vlm_engine_type`: Engine type (optional, defaults to "transformers")
+- `vlm_provider_config`: Provider-specific configuration dictionary (optional, required for API engines)
 
 **Use Cases:**
 - Complex document layouts
 - Documents with mixed content types
 - High-accuracy extraction requirements
+- Remote VLM inference via API
 
 ### 3. Template-Based Mode
 
