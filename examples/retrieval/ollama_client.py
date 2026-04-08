@@ -10,15 +10,15 @@ logger = get_logger()
 
 class InteractionMode(Enum):
     """Defines the interaction modes supported by the wrapper."""
+
     GENERATE = "generate"
     CHAT = "chat"
 
 
 class OllamaClient:
-    
     def __init__(
         self,
-        model: str = "llama2",
+        model_name: str = "llama2",
         mode: Union[str, InteractionMode] = InteractionMode.GENERATE,
         system_prompt: Optional[str] = None,
         max_history_size: int = 50,
@@ -36,14 +36,13 @@ class OllamaClient:
             tools: List of tool specifications for the model
             tool_registry: Mapping of tool names -> Python callables for execution
         """
-        
-        self.model = model
+
+        self.model = model_name
         self.mode = InteractionMode(mode)
         self.system_prompt = system_prompt
         self.max_history_size = max_history_size
         self.tools = tools if self.mode == InteractionMode.CHAT else []
         self.tool_registry = tool_registry if self.mode == InteractionMode.CHAT else {}
-
 
         self._history: List[Dict[str, str]] = []
         self._initialize_chat_mode()
@@ -59,7 +58,9 @@ class OllamaClient:
         if len(self._history) > self.max_history_size:
             self._history = self._history[-self.max_history_size :]
 
-    def run(self, prompt: str, system_prompt: Optional[str] = None, stream: bool = False) -> Union[str, Generator[str, None, None]]:
+    def run(
+        self, prompt: str, system_prompt: Optional[str] = None, stream: bool = False
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Execute the model with the given prompt.
 
@@ -71,7 +72,7 @@ class OllamaClient:
         Returns:
             Generated text (str) or generator yielding strings
         """
-        
+
         try:
             if self.mode == InteractionMode.CHAT:
                 return self._handle_chat(prompt, system_prompt, stream)
@@ -79,8 +80,10 @@ class OllamaClient:
         except Exception as e:
             logger.error(f"Error during model execution: {str(e)}")
             raise
-        
-    def run_json(self, prompt: str, system_prompt: Optional[str] = None, retries: int = 3) -> dict:
+
+    def run_json(
+        self, prompt: str, system_prompt: Optional[str] = None, retries: int = 3
+    ) -> dict:
         """
         Run the model and enforce JSON output with retries.
 
@@ -92,11 +95,11 @@ class OllamaClient:
         Returns:
             dict parsed from model JSON, or {"detections": [], "error": "..."}
         """
-        
+
         base_instruction = (
             "You must respond with ONLY valid JSON. "
             "Do not include natural language, markdown, or commentary. "
-            "If there are no detections, return: {\"detections\": []}"
+            'If there are no detections, return: {"detections": []}'
         )
 
         full_prompt = f"{base_instruction}\n\n{prompt}"
@@ -105,7 +108,7 @@ class OllamaClient:
         for _ in range(retries):
             raw = self.run(full_prompt, system_prompt=system_prompt, stream=False)
             last_raw = raw
-            
+
             try:
                 return json.loads(raw)
             except json.JSONDecodeError:
@@ -120,11 +123,15 @@ class OllamaClient:
 
         return {"error": "Failed to parse JSON from model", "raw_response": last_raw}
 
-
-    def _handle_chat(self, prompt: str, system_prompt: Optional[str], stream: bool,) -> Union[str, Generator[str, None, None]]:
+    def _handle_chat(
+        self,
+        prompt: str,
+        system_prompt: Optional[str],
+        stream: bool,
+    ) -> Union[str, Generator[str, None, None]]:
         """Handle chat interactions with history and tool execution."""
         import ollama
-        
+
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -132,10 +139,7 @@ class OllamaClient:
         messages.append({"role": "user", "content": prompt})
 
         response = ollama.chat(
-            model=self.model,
-            messages=messages,
-            stream=stream,
-            tools=self.tools
+            model=self.model, messages=messages, stream=stream, tools=self.tools
         )
 
         if stream:
@@ -150,27 +154,30 @@ class OllamaClient:
         if "tool_calls" in message:
             tool_outputs = self._execute_tool_calls(message["tool_calls"])
             self._manage_history(tool_outputs)
-            content += "\n".join([f"[Tool {out['name']} → {out['content']}]" for out in tool_outputs])
+            content += "\n".join(
+                [f"[Tool {out['name']} → {out['content']}]" for out in tool_outputs]
+            )
 
         return content
 
-
-    def _handle_generate(self, prompt: str, stream: bool, ) -> Union[str, Generator[str, None, None]]:
+    def _handle_generate(
+        self,
+        prompt: str,
+        stream: bool,
+    ) -> Union[str, Generator[str, None, None]]:
         import ollama
-        
-        response = ollama.generate(
-            model=self.model,
-            prompt=prompt,
-            stream=stream
-        )
+
+        response = ollama.generate(model=self.model, prompt=prompt, stream=stream)
 
         if stream:
             return self._stream_generate_response(response)
 
         return response.get("response", "")
 
-    def _stream_chat_response(self, response: Any, user_prompt: str) -> Generator[str, None, None]:
-        
+    def _stream_chat_response(
+        self, response: Any, user_prompt: str
+    ) -> Generator[str, None, None]:
+
         collected: List[Dict[str, str]] = []
 
         for chunk in response:
@@ -186,37 +193,53 @@ class OllamaClient:
                 tool_outputs = self._execute_tool_calls(message["tool_calls"])
                 for out in tool_outputs:
                     yield f"[Tool {out['name']} → {out['content']}]"
-                collected.extend([{"role": "tool", "content": out["content"]} for out in tool_outputs])
+                collected.extend(
+                    [
+                        {"role": "tool", "content": out["content"]}
+                        for out in tool_outputs
+                    ]
+                )
 
         self._manage_history([{"role": "user", "content": user_prompt}] + collected)
 
     def _stream_generate_response(self, response: Any) -> Generator[str, None, None]:
-        
+
         for chunk in response:
             text = chunk.get("response", "")
             if text:
                 yield text
 
-
-    def _execute_tool_calls(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    def _execute_tool_calls(
+        self, tool_calls: List[Dict[str, Any]]
+    ) -> List[Dict[str, str]]:
         """Execute tool calls against registered Python functions."""
-        
+
         results = []
         for tool_call in tool_calls:
-            tool_name = tool_call['function']['name']
-            tool_args = tool_call['function'].get('arguments', {})
+            tool_name = tool_call["function"]["name"]
+            tool_args = tool_call["function"].get("arguments", {})
             logger.info(f"Tool call: {tool_name} with args {tool_args}")
 
             if tool_name in self.tool_registry:
                 try:
                     result = self.tool_registry[tool_name](**tool_args)
-                    results.append({"role": "tool", "name": tool_name, "content": str(result)})
+                    results.append(
+                        {"role": "tool", "name": tool_name, "content": str(result)}
+                    )
                 except Exception as e:
                     logger.error(f"Error executing tool {tool_name}: {e}")
-                    results.append({"role": "tool", "name": tool_name, "content": f"Error: {e}"})
+                    results.append(
+                        {"role": "tool", "name": tool_name, "content": f"Error: {e}"}
+                    )
             else:
                 logger.warning(f"No registered tool found for {tool_name}")
-                results.append({"role": "tool", "name": tool_name, "content": "[Unregistered tool]"})
+                results.append(
+                    {
+                        "role": "tool",
+                        "name": tool_name,
+                        "content": "[Unregistered tool]",
+                    }
+                )
         return results
 
     def get_history(self) -> List[Dict[str, str]]:

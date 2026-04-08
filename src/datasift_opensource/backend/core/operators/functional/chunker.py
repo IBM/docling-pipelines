@@ -469,7 +469,7 @@ class ChunkerOperator(AbstractOperator):
         """
         if self._ollama_client is None:
             try:
-                self._ollama_client = OllamaClient(model=self.semantic_embeddings_model, validate_model=True)
+                self._ollama_client = OllamaClient(model_name=self.semantic_embeddings_model, validate_model=True)
                 logger.info(
                     f"Initialized OllamaClient with model: {self.semantic_embeddings_model}",
                     extra=self.common_log_arguments,

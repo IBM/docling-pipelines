@@ -35,7 +35,7 @@ class OllamaLLMAdapter(LLMServicePort):
             **adapter_config: Additional configuration (currently unused for Ollama)
         """
         self.model_name = model_name
-        self.client = OllamaClient(model=model_name, mode=InteractionMode.EMBEDDINGS)
+        self.client = OllamaClient(model_name=model_name, mode=InteractionMode.EMBEDDINGS)
         self._cached_dimension: int | None = None
 
     def generate_embeddings(self, text: str) -> list[float]:

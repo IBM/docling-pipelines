@@ -231,7 +231,7 @@ class TestOllamaClientIntegration:
         """Test OllamaClient.generate_embeddings() directly."""
         from common.clients.ollama_client import OllamaClient
 
-        client = OllamaClient(model=available_model)
+        client = OllamaClient(model_name=available_model)
 
         # Test with normal text
         embedding = client.generate_embeddings("This is a test.")
@@ -244,7 +244,7 @@ class TestOllamaClientIntegration:
         from common.clients.ollama_client import OllamaClient
         from unittest.mock import patch
 
-        client = OllamaClient(model=available_model)
+        client = OllamaClient(model_name=available_model)
 
         # Mock ollama.embeddings to return empty embedding
         with patch("ollama.embeddings") as mock_embeddings:
@@ -261,7 +261,7 @@ class TestOllamaClientIntegration:
         from common.clients.ollama_client import OllamaClient
         from unittest.mock import patch
 
-        client = OllamaClient(model=available_model)
+        client = OllamaClient(model_name=available_model)
 
         # Mock ollama.embeddings to return response without embedding key
         with patch("ollama.embeddings") as mock_embeddings:

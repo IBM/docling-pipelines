@@ -12,6 +12,7 @@ import json
 from enum import Enum
 from typing import Any
 
+from common.clients.base_llm_client import BaseLLMClient, retry_with_backoff
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
@@ -62,37 +63,42 @@ class InteractionMode(Enum):
     EMBEDDINGS = "embeddings"
 
 
-class OllamaClient:
+class OllamaClient(BaseLLMClient):
     """
     Wrapper for Ollama API interactions with JSON parsing support.
 
     This client provides a simplified interface for calling Ollama models
     with automatic JSON parsing and retry logic for robust operation.
+
+    Extends BaseLLMClient to provide consistent interface across all LLM clients.
     """
 
     def __init__(
         self,
-        model: str = "granite4",
+        model_name: str = "granite4",
         mode: InteractionMode = InteractionMode.GENERATE,
         system_prompt: str | None = None,
         validate_model: bool = True,
         timeout: float | None = None,
+        **kwargs,
     ):
         """
         Initialize the Ollama client.
 
         Args:
-            model: Name of the Ollama model to use (e.g., "granite4", "llama3")
-            mode: Interaction mode (GENERATE, CHAT, or EMBEDDINGS)
+            model_name: Name of the Ollama model to use (e.g., "granite4", "llama3")
+            mode: Interaction mode (GENERATE, CHAT, or EMBEDDINGS) - Ollama-specific
             system_prompt: Optional system-level instructions for chat mode
             validate_model: Whether to validate model availability on initialization
             timeout: Timeout in seconds for API calls (default: None, no timeout)
+            **kwargs: Additional configuration parameters
 
         Raises:
             ImportError: If ollama package is not installed
             ValueError: If model validation is enabled and model is not available
         """
-        self.model = model
+        super().__init__(model_name, **kwargs)
+
         self.mode = mode if isinstance(mode, InteractionMode) else InteractionMode(mode)
         self.system_prompt = system_prompt
         self.timeout = timeout
@@ -119,19 +125,19 @@ class OllamaClient:
             available_models = [m.model.split(":")[0] for m in models_response.get("models", [])]
 
             # Check if the requested model is available
-            model_base = self.model.split(":")[0]  # Handle model:tag format
+            model_base = self.model_name.split(":")[0]  # Handle model:tag format
             if model_base not in available_models:
                 raise DatasiftException(
                     message=(
-                        f"Model '{self.model}' is not available. "
+                        f"Model '{self.model_name}' is not available. "
                         f"Available models: {', '.join(available_models) if available_models else 'none'}. "
-                        f"Please pull the model using: ollama pull {self.model}"
+                        f"Please pull the model using: ollama pull {self.model_name}"
                     ),
                     status_code=404,
                     error_code=ErrorCode.OLLAMA_MODEL_NOT_FOUND,
                 )
 
-            logger.info(f"Model '{self.model}' validated successfully")
+            logger.info(f"Model '{self.model_name}' validated successfully")
         except DatasiftException:
             raise
         except (ConnectionError, TimeoutError) as exc:
@@ -171,7 +177,7 @@ class OllamaClient:
                     messages.append({"role": "system", "content": self.system_prompt})
                 messages.append({"role": "user", "content": prompt})
 
-                response = ollama.chat(model=self.model, messages=messages, stream=stream)
+                response = ollama.chat(model=self.model_name, messages=messages, stream=stream)
                 # When stream=False, response is a dict with the message content
                 # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
                 # Handle both dict and ChatResponse object
@@ -186,7 +192,7 @@ class OllamaClient:
                         return message.content or ""
                 return ""  # Fallback for unexpected response format
             else:
-                response = ollama.generate(model=self.model, prompt=prompt, stream=stream)
+                response = ollama.generate(model=self.model_name, prompt=prompt, stream=stream)
                 # When stream=False, response is a dict with the generated text
                 # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
                 if isinstance(response, dict):
@@ -202,7 +208,7 @@ class OllamaClient:
         except ValueError as exc:
             logger.error(f"Invalid model or parameters: {exc}")
             raise DatasiftException(
-                message=f"Model '{self.model}' not found or invalid parameters: {exc}",
+                message=f"Model '{self.model_name}' not found or invalid parameters: {exc}",
                 status_code=404,
                 error_code=ErrorCode.OLLAMA_MODEL_NOT_FOUND,
             ) from exc
@@ -286,18 +292,19 @@ class OllamaClient:
         # If all retries fail, raise an exception with the last response
         raise json.JSONDecodeError(
             f"Failed to parse JSON after {retries} attempts. "
-            f"Model: {self.model}, Mode: {self.mode.value}. "
+            f"Model: {self.model_name}, Mode: {self.mode.value}. "
             f"Last response: {last_raw[:200] if last_raw else 'None'}...",
             last_raw or "",
             0,
         )
 
-    def generate_embeddings(self, prompt: str) -> list[float]:
+    @retry_with_backoff(max_retries=3, initial_delay=1.0)
+    def generate_embeddings(self, text: str) -> list[float]:
         """
         Generate embeddings for the given text using Ollama.
 
         Args:
-            prompt: Text to generate embeddings for
+            text: Text to generate embeddings for
 
         Returns:
             List of floats representing the embedding vector
@@ -306,13 +313,14 @@ class OllamaClient:
             ImportError: If ollama package is not installed
             Exception: For other errors during embedding generation
         """
+        self._validate_text_input(text)
         try:
             import ollama
         except ImportError as exc:
             raise ImportError(f"ollama package not installed: {exc}") from exc
 
         try:
-            embedding_response = ollama.embeddings(model=self.model, prompt=prompt)
+            embedding_response = ollama.embeddings(model=self.model_name, prompt=text)
 
             # Handle both dict and EmbeddingsResponse object types
             if isinstance(embedding_response, dict):
@@ -322,18 +330,19 @@ class OllamaClient:
                 embedding = embedding_response.embedding
             else:
                 raise DatasiftException(
-                    message=f"Unexpected response type from model '{self.model}': {type(embedding_response).__name__}",
+                    message=f"Unexpected response type from model '{self.model_name}': {type(embedding_response).__name__}",
                     status_code=500,
                     error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
                 )
 
             if not isinstance(embedding, list) or not embedding:
                 raise DatasiftException(
-                    message=f"Empty or missing embedding in response from model '{self.model}'.",
+                    message=f"Empty or missing embedding in response from model '{self.model_name}'.",
                     status_code=500,
                     error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
                 )
 
+            self._validate_embeddings_output(embedding)
             return embedding
 
         except (ConnectionError, TimeoutError) as exc:
@@ -380,15 +389,13 @@ class OllamaClient:
         Raises:
             DatasiftException: If embedding generation fails
         """
+        from common.exceptions.datasift_exceptions import ConfigurationError
+
         if not texts or not isinstance(texts, list):
-            raise DatasiftException(
-                message="texts must be a non-empty list", status_code=400, error_code=ErrorCode.CONFIGURATION_ERROR
-            )
+            raise ConfigurationError("texts must be a non-empty list")
 
         if not all(isinstance(t, str) and t for t in texts):
-            raise DatasiftException(
-                message="all texts must be non-empty strings", status_code=400, error_code=ErrorCode.CONFIGURATION_ERROR
-            )
+            raise ConfigurationError("all texts must be non-empty strings")
 
         try:
             import ollama
@@ -401,13 +408,13 @@ class OllamaClient:
 
         # Limit concurrency to avoid overwhelming Ollama server
         max_workers = min(batch_size, 8)  # Cap at 8 concurrent requests
-        all_embeddings = [None] * len(texts)  # Pre-allocate list
+        all_embeddings: list[list[float] | None] = [None] * len(texts)  # Pre-allocate list
         lock = threading.Lock()
 
         def generate_single(index: int, text: str) -> tuple[int, list[float]]:
             """Generate embedding for a single text."""
             try:
-                embedding_response = ollama.embeddings(model=self.model, prompt=text)
+                embedding_response = ollama.embeddings(model=self.model_name, prompt=text)
 
                 # Handle both dict and EmbeddingsResponse object types
                 if isinstance(embedding_response, dict):
@@ -747,3 +754,84 @@ class OllamaClient:
             return False, model_msg
 
         return True, f"Ollama ready with model '{model_name}'"
+
+    @staticmethod
+    def get_model_token_limit(model_name: str) -> int:
+        """
+        Get the token limit for a specific Ollama model.
+
+        Args:
+            model_name: Name of the Ollama model
+
+        Returns:
+            Maximum token limit for the model
+        """
+        # Extract base model name (remove version tags)
+        base_model = model_name.split(":")[0]
+        return OLLAMA_MODEL_TOKEN_LIMITS.get(base_model, DEFAULT_TOKEN_LIMIT)
+
+    @staticmethod
+    def get_embedding_dimension(model_name: str) -> int:
+        """
+        Get the embedding dimension for a specific Ollama model.
+
+        Args:
+            model_name: Name of the Ollama model
+
+        Returns:
+            Embedding dimension (0 indicates runtime detection required)
+
+        Note:
+            Ollama embedding dimensions vary by model and require runtime detection.
+            The OllamaAdapter class handles dimension detection via _detect_dimension().
+        """
+        # Return 0 to indicate dimension should be determined at runtime
+        # This is consistent with LiteLLM's approach for models with unknown dimensions
+        return 0
+
+    def generate(self, prompt: str, **kwargs) -> str:
+        """
+        Generate text from a prompt (single-turn).
+
+        Delegates to run() method with current mode.
+
+        Args:
+            prompt: Input prompt for generation
+            **kwargs: Additional generation parameters (currently unused)
+
+        Returns:
+            Generated text as string
+        """
+        return self.run(prompt)
+
+    def chat(self, messages: list[dict[str, str]], **kwargs) -> str:
+        """
+        Generate response from chat messages (multi-turn).
+
+        Args:
+            messages: List of message dicts with 'role' and 'content' keys
+            **kwargs: Additional chat parameters (currently unused)
+
+        Returns:
+            Generated response as string
+        """
+        # Convert messages to prompt format
+        prompt_parts = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                # System messages handled via system_prompt in constructor
+                continue
+            prompt_parts.append(content)
+
+        prompt = "\n".join(prompt_parts)
+
+        # Temporarily switch to CHAT mode if not already
+        original_mode = self.mode
+        self.mode = InteractionMode.CHAT
+        try:
+            result = self.run(prompt)
+            return result
+        finally:
+            self.mode = original_mode

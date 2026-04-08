@@ -31,7 +31,7 @@ class SummarizationUtil:
 
         # Initialize Ollama client
         try:
-            self.client = OllamaClient(model=self.model, mode=InteractionMode.CHAT, validate_model=validate_model)
+            self.client = OllamaClient(model_name=self.model, mode=InteractionMode.CHAT, validate_model=validate_model)
             logger.info(f"Initialized Ollama model for summarization: {self.model}")
         except Exception as e:
             logger.error(f"Failed to initialize Ollama client: {e}")

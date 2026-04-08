@@ -91,7 +91,7 @@ def detect_pii_hap(request_data: dict[str, Any], model_name: str = "granite4") -
     full_prompt = static_prompt + dynamic_prompt
 
     try:
-        ollama_wrapper = OllamaClient(model=model_name, mode=InteractionMode.GENERATE)
+        ollama_wrapper = OllamaClient(model_name=model_name, mode=InteractionMode.GENERATE)
         result = ollama_wrapper.run_json(full_prompt)
         return result
     except json.JSONDecodeError as exc:
@@ -163,5 +163,3 @@ def detect_pii_hap_openai(
         raise DatasiftException(message=f"Failed to parse JSON from model: {exc!s}", status_code=500) from exc
     except Exception as exc:
         raise DatasiftException(message=f"Error calling OpenAI API: {exc!s}", status_code=500) from exc
-
-
