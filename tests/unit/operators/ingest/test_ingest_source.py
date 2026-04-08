@@ -254,8 +254,11 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
-        
-        with pytest.raises(ValueError, match="sharepoint provider should use _load_documents_via_adapter"):
+
+        with pytest.raises(
+            ValueError,
+            match="sharepoint provider should use _load_documents_via_adapter",
+        ):
             operator._get_loader()
 
     def test_get_loader_onedrive(self):
@@ -276,8 +279,10 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
-        
-        with pytest.raises(ValueError, match="onedrive provider should use _load_documents_via_adapter"):
+
+        with pytest.raises(
+            ValueError, match="onedrive provider should use _load_documents_via_adapter"
+        ):
             operator._get_loader()
 
     @patch("importlib.import_module")
@@ -768,25 +773,12 @@ class TestTransform:
         assert schema.field("modified_time").type == pa.int64()
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.create"
-    )
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.get_adapter_class"
-    )
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.is_registered",
-        return_value=True,
-    )
     @patch("os.path.exists")
     @patch("os.makedirs")
     def test_transform_google_drive(
         self,
         mock_makedirs,
         mock_path_exists,
-        mock_is_registered,
-        mock_get_adapter_class,
-        mock_factory_create,
         mock_incremental_util,
         mock_documents,
         empty_input_table,
@@ -802,34 +794,30 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock get_adapter_class to return a mock adapter class
-        mock_adapter_class = Mock()
-        mock_get_adapter_class.return_value = mock_adapter_class
-        
-        # Mock the adapter to return documents
-        mock_adapter_instance = Mock()
+        # Create properly mocked LangChain Documents with _binary_content attribute
+        def mock_load_documents_via_adapter():
+            """Mock implementation that returns LangChain Documents with _binary_content"""
+            langchain_docs = []
+            for idx, doc in enumerate(mock_documents):
+                # Create a mock LangChain Document that allows attribute assignment
+                langchain_doc = Mock(spec=Document)
+                langchain_doc.page_content = ""
+                langchain_doc.metadata = {
+                    "source": doc.metadata.get("source", f"test-file-{idx}.txt"),
+                    "name": doc.metadata.get("source", f"test-file-{idx}.txt"),
+                    "id": f"test-id-{idx}",
+                    "last_modified": None,
+                    "size": 100,
+                    "mimetype": "text/plain",
+                    "extension": ".txt",
+                    "has_binary_content": True,
+                    **doc.metadata,
+                }
+                # Set the _binary_content attribute that the operator expects
+                langchain_doc._binary_content = doc.page_content.encode("utf-8")
+                langchain_docs.append(langchain_doc)
+            return langchain_docs
 
-        # Create async generator that yields mock documents
-        async def mock_fetch_documents(config):
-            for doc in mock_documents:
-                # Create a mock domain document
-                domain_doc = Mock()
-                domain_doc.source_url = doc.metadata.get("source", "test-source")
-                domain_doc.name = doc.metadata.get("source", "test-file.txt")
-                domain_doc.id = "test-id"
-                domain_doc.modified_time = None
-                domain_doc.size = 100
-                domain_doc.mimetype = "text/plain"
-                domain_doc.extension = ".txt"
-                domain_doc.content = doc.page_content.encode('utf-8')  # Use actual content from mock_documents
-                domain_doc.metadata = doc.metadata
-                yield domain_doc
-
-        # Mock fetch_documents to return the async generator when called
-        mock_adapter_instance.fetch_documents = Mock(side_effect=lambda config: mock_fetch_documents(config))
-        mock_adapter_instance.supports_incremental = False
-        mock_factory_create.return_value = mock_adapter_instance
-        
         config = {
             "provider": "google_drive",
             "connection_params": {"folder_id": "test-folder-id", "recursive": True},
@@ -844,7 +832,17 @@ class TestTransform:
         }
 
         operator = IngestSourceOperator(config)
-        result_tables, metadata = operator.transform(empty_input_table)
+
+        # Patch the _load_documents_via_adapter method to return our mocked documents
+        with patch.object(
+            operator, "_load_documents_via_adapter", mock_load_documents_via_adapter
+        ):
+            # Also need to mock SourceAdapterFactory.is_registered to return True
+            with patch(
+                "core.operators.ingest.ingest_source.SourceAdapterFactory.is_registered",
+                return_value=True,
+            ):
+                result_tables, metadata = operator.transform(empty_input_table)
 
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == 3

@@ -1,8 +1,14 @@
+import sys
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 
 import pyarrow as pa
 import numpy as np
+
+# Mock langchain_experimental before any imports that might use it
+if "langchain_experimental" not in sys.modules:
+    sys.modules["langchain_experimental"] = Mock()
+    sys.modules["langchain_experimental.text_splitter"] = Mock()
 
 from core.operators.functional.chunker import (
     ChunkerOperator,
@@ -124,13 +130,37 @@ class TestChunkerOperator(unittest.TestCase):
             len(chunked_content), 1, "Long text should create multiple chunks"
         )
 
+    @patch("langchain_experimental.text_splitter.SemanticChunker")
     @patch("core.operators.functional.chunker.OllamaClient")
-    def test_semantic_chunking_transform(self, mock_ollama_client_class):
-        """Test semantic chunking with fully mocked Ollama client"""
+    def test_semantic_chunking_transform(
+        self, mock_ollama_client_class, mock_semantic_chunker_class
+    ):
+        """Test semantic chunking with fully mocked Ollama client and SemanticChunker"""
         # Mock the OllamaClient to avoid any real API calls
         mock_client = MagicMock()
-        mock_client.generate_embeddings.return_value = np.random.rand(384).tolist()
+        # Mock generate_embeddings to return different embeddings for each call
+        # This simulates semantic differences between sentences
+        mock_client.generate_embeddings.side_effect = lambda text: np.random.rand(
+            384
+        ).tolist()
         mock_ollama_client_class.return_value = mock_client
+
+        # Mock SemanticChunker to return mock chunks
+        mock_chunker = MagicMock()
+        from langchain_core.documents import Document as LCDocument
+
+        mock_chunks = [
+            LCDocument(
+                page_content="First topic sentence. Another first topic sentence.",
+                metadata={"start_index": 0},
+            ),
+            LCDocument(
+                page_content="Second topic sentence. Another second topic sentence.",
+                metadata={"start_index": 52},
+            ),
+        ]
+        mock_chunker.create_documents.return_value = mock_chunks
+        mock_semantic_chunker_class.return_value = mock_chunker
 
         # Create test data
         content = [
@@ -171,8 +201,9 @@ class TestChunkerOperator(unittest.TestCase):
         self.assertIsNotNone(chunked_content)
         self.assertGreater(len(chunked_content), 0)
 
-        # Verify mock was used (no real Ollama calls)
+        # Verify mocks were used (no real Ollama calls or SemanticChunker)
         mock_ollama_client_class.assert_called_once()
+        mock_semantic_chunker_class.assert_called_once()
 
 
 def test_operator_metadata():
@@ -376,13 +407,35 @@ class TestChunkerEdgeCases(unittest.TestCase):
         original_content = result_table["content"][0].as_py()
         self.assertEqual(original_content, "Test content for chunking.")
 
+    @patch("langchain_experimental.text_splitter.SemanticChunker")
     @patch("core.operators.functional.chunker.OllamaClient")
-    def test_chunker_different_breakpoint_types(self, mock_ollama_client_class):
+    def test_chunker_different_breakpoint_types(
+        self, mock_ollama_client_class, mock_semantic_chunker_class
+    ):
         """Test semantic chunking with different breakpoint types - fully mocked"""
         # Mock the OllamaClient to avoid any real API calls
         mock_client = MagicMock()
-        mock_client.generate_embeddings.return_value = np.random.rand(384).tolist()
+        # Mock generate_embeddings to return different embeddings for each call
+        mock_client.generate_embeddings.side_effect = lambda text: np.random.rand(
+            384
+        ).tolist()
         mock_ollama_client_class.return_value = mock_client
+
+        # Mock SemanticChunker to return mock chunks
+        mock_chunker = MagicMock()
+        from langchain_core.documents import Document as LCDocument
+
+        mock_chunks = [
+            LCDocument(
+                page_content="Test content with multiple sentences.",
+                metadata={"start_index": 0},
+            ),
+            LCDocument(
+                page_content="Another sentence here.", metadata={"start_index": 38}
+            ),
+        ]
+        mock_chunker.create_documents.return_value = mock_chunks
+        mock_semantic_chunker_class.return_value = mock_chunker
 
         data = {
             OperatorConstants.Columns.ID: ["doc1"],
@@ -416,8 +469,9 @@ class TestChunkerEdgeCases(unittest.TestCase):
                 OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names
             )
 
-        # Verify mock was used for all breakpoint types (no real Ollama calls)
+        # Verify mocks were used for all breakpoint types (no real Ollama calls)
         self.assertEqual(mock_ollama_client_class.call_count, len(breakpoint_types))
+        self.assertEqual(mock_semantic_chunker_class.call_count, len(breakpoint_types))
 
 
 class TestDoclingChunking(unittest.TestCase):
