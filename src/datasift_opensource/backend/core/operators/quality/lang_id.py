@@ -3,26 +3,52 @@ from typing import Any
 
 import pyarrow as pa
 from data_processing.utils.transform_utils import TransformUtils
-from langdetect import detect_langs
 
+# Import adapters to trigger registration
+import core.operators.quality.language_detection.adapters.outbound.langdetect_adapter  # noqa: F401
 from common.constants import OperatorConstants
 from common.constants.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
+from core.operators.quality.language_detection.adapters.outbound.factories.language_adapter_factory import (
+    LanguageAdapterFactory,
+)
+from core.operators.quality.language_detection.ports.outbound.language_service import LanguageServicePort
 
 logger: Logger = get_logger()
+
+# Default language detection provider
+DEFAULT_LANGUAGE_PROVIDER = "langdetect"
 
 
 class LanguageDetect(AbstractOperator):
     """
-    Detects langauge and score.
+    Language Detection Operator
+
+    This operator detects the language of document content and provides confidence scores.
+    It supports multiple language detection providers through a pluggable adapter system.
+
+    Features:
+    - Automatic language detection for documents
+    - Confidence scores for detection accuracy
+    - Optional filtering of documents with unknown languages
+    - Support for multiple language detection providers
     """
 
     short_name: str = OperatorConstants.Operators.LANG_DETECT
     category: OperatorCategory = OperatorCategory.Quality
 
     def __init__(self, config: dict[str, Any]) -> None:
+        """
+        Initialize the Language Detection Operator.
+
+        Args:
+            config: Configuration dictionary containing:
+                - doc_column: Input column containing document content (default: "content")
+                - filter_unknown_language: Whether to filter out documents with unknown language (default: False)
+                - language_provider: Language detection provider to use (default: "langdetect")
+        """
         super().__init__(config)
         self.doc_column_name: str = config.get(
             OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
@@ -32,6 +58,47 @@ class LanguageDetect(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
         self.filter_value: bool = config.get(OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE, False)
+
+        # Get language detection provider from config (default: langdetect)
+        self.language_provider: str = config.get("language_provider", DEFAULT_LANGUAGE_PROVIDER)
+
+        # Initialize language detection adapter
+        self.language_adapter: LanguageServicePort = self._initialize_language_adapter()
+
+        logger.info(
+            f"Initialized LanguageDetect operator with provider: {self.language_provider}",
+            extra=self.common_log_arguments,
+        )
+
+    def _initialize_language_adapter(self) -> LanguageServicePort:
+        """
+        Initialize the language detection adapter based on configuration.
+
+        This method creates and returns the appropriate adapter using LanguageAdapterFactory.
+        The adapter is stored as self.language_adapter for reuse across multiple
+        language detection operations.
+
+        Returns:
+            LanguageServicePort: Initialized language detection adapter
+
+        Raises:
+            ValueError: If the adapter cannot be initialized
+        """
+        try:
+            adapter = LanguageAdapterFactory.create(adapter_name=self.language_provider)
+            logger.info(
+                f"Successfully initialized {self.language_provider} adapter",
+                extra=self.common_log_arguments,
+            )
+            return adapter
+        except ValueError as e:
+            available_providers = LanguageAdapterFactory.list_adapters()
+            logger.error(
+                f"Failed to initialize language provider '{self.language_provider}': {e}. "
+                f"Available providers: {available_providers}",
+                extra=self.common_log_arguments,
+            )
+            raise
 
     def get_metadata(self) -> dict[str, Any]:
         operator_metadata = {
@@ -89,12 +156,9 @@ class LanguageDetect(AbstractOperator):
             file_name_list: list[Any] = table[OperatorConstants.Misc.NAME].to_pandas().to_list()
             file_name: Any = file_name_list[idx] if idx < len(file_name_list) else "unknown"
             try:
-                language: list[Any] = detect_langs(doc_content)
-                language_name: str
-                language_score: str
-                language_name, language_score = str(language[0]).split(":")
-                language_name_column.append(language_name)
-                language_score_column.append(float(language_score))
+                result = self.language_adapter.detect_language(doc_content)
+                language_name_column.append(result.language_code)
+                language_score_column.append(result.confidence)
             except Exception as e:
                 if self.filter_value:
                     logger.error(
@@ -150,5 +214,3 @@ class LanguageDetect(AbstractOperator):
             metadata[Metrics.External.PROCESSING_MESSAGE] = message
 
         return [table], metadata
-
-
