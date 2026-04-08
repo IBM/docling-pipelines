@@ -61,7 +61,7 @@ class DocumentClassUtils:
         if not doc_class_path.exists():
             raise FileNotFoundError(f"Document class file not found: {doc_class_path}")
 
-        with open(doc_class_path, "r", encoding="utf-8") as f:
+        with open(doc_class_path, encoding="utf-8") as f:
             return json.load(f)
 
     @staticmethod
@@ -76,7 +76,7 @@ class DocumentClassUtils:
         """Check if transform arguments contain matching field reference."""
         if "transform" not in source:
             return False
-        
+
         transform = source["transform"]
         for arg in transform.get("arguments", []):
             if "value" in arg and "field" in arg["value"]:
@@ -279,9 +279,9 @@ class DocumentClassUtils:
                 )
             else:
                 # Regular field - extract metadata
-                if "examples" in field and field["examples"]:
+                if field.get("examples"):
                     examples[full_name] = field["examples"]
-                if "description" in field and field["description"]:
+                if field.get("description"):
                     descriptions[full_name] = field["description"]
 
     @staticmethod
@@ -478,7 +478,7 @@ class DocumentClassUtils:
 
             for json_file in json_files:
                 try:
-                    with open(json_file, "r", encoding="utf-8") as f:
+                    with open(json_file, encoding="utf-8") as f:
                         data = json.load(f)
 
                     # Extract document_type and document_description from the schema
@@ -526,7 +526,7 @@ class DocumentClassUtils:
         doc_classes_dir = Path(DocumentClassUtils.DOCUMENT_CLASSES_PATH)
         schema_templates: dict[str, dict] = {}
 
-        
+
 
         for document_type in document_types:
             if not document_type or document_type in schema_templates:
@@ -534,7 +534,7 @@ class DocumentClassUtils:
 
             file_name = doc_classes_dir / f"{DocumentClassUtils.normalize_filename(document_type)}.json"
             try:
-                with open(file_name, "r", encoding="utf-8") as f:
+                with open(file_name, encoding="utf-8") as f:
                     doc_cls = json.load(f)
                     doc_cls = doc_cls.get("document_class_schema", {}).get(
                         "document", {}
@@ -572,48 +572,48 @@ class DocumentClassUtils:
             template_cache: Dictionary to update with generated templates (modified in-place)
             include_nested: Whether to include nested fields in templates
         """
- 
+
         doc_classes_dir = Path(DatasiftConstants.DOCUMENT_CLASSES_PATH)
-        
+
         # Get unique document types, excluding already cached ones
         unique_doc_types = set(dt for dt in document_types if dt and dt not in template_cache)
-        
+
         if not unique_doc_types:
             logger.debug("No new document types to process for template generation")
             return
-        
+
         logger.info("Generating Docling templates for document types: %s", unique_doc_types)
-    
-        
+
+
         for doc_type in unique_doc_types:
             try:
                 # Construct path to document class file
                 normalized_name = DocumentClassUtils.normalize_filename(doc_type)
                 doc_class_path = doc_classes_dir / f"{normalized_name}.json"
-                
+
                 if not doc_class_path.exists():
                     logger.warning(
                         f"Document class file not found for type '{doc_type}': {doc_class_path}"
                     )
                     continue
-                
+
                 # Generate Docling template from document class
                 template = DocumentClassUtils.generate_docling_template(
                     doc_class_path=doc_class_path,
                     include_nested=include_nested
                 )
-                
+
                 # Update cache in-place
                 template_cache[doc_type] = template
                 logger.info(
                     "Generated Docling template for '%s' with %s fields", doc_type, len(template)
                 )
-                
+
             except Exception as e:
                 logger.warning(
                     f"Failed to generate Docling template for '{doc_type}': {e}"
                 )
-        
+
         if template_cache:
             logger.info(
                 "Template cache now contains %s templates: %s", len(template_cache), list(template_cache.keys())

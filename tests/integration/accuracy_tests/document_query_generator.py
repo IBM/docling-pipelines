@@ -9,9 +9,7 @@ The queries are saved to a CSV file for use in accuracy testing.
 """
 
 import csv
-import random
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 
 
 class DocumentQueryGenerator:
@@ -391,12 +389,12 @@ class DocumentQueryGenerator:
             difficulty_counts[diff] = difficulty_counts.get(diff, 0) + 1
             doc_type_counts[dtype] = doc_type_counts.get(dtype, 0) + 1
         
-        print(f"\nQuery Summary:")
+        print("\nQuery Summary:")
         print(f"  Total Queries: {len(queries)}")
-        print(f"\n  By Difficulty:")
+        print("\n  By Difficulty:")
         for diff, count in sorted(difficulty_counts.items()):
             print(f"    {diff}: {count}")
-        print(f"\n  By Document Type:")
+        print("\n  By Document Type:")
         for dtype, count in sorted(doc_type_counts.items()):
             print(f"    {dtype}: {count}")
 

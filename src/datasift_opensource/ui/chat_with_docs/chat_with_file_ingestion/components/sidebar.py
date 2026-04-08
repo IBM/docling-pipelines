@@ -1,6 +1,5 @@
 import reflex as rx
 from chat_with_file_ingestion.states.file_state import FileUploadState, LogPollerState
-from chat_with_file_ingestion.states.theme_state import ThemeState
 
 
 def _status_badge() -> rx.Component:

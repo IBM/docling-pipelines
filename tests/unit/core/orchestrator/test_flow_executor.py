@@ -2,7 +2,7 @@
 
 import json
 import tempfile
-from unittest.mock import Mock, patch, MagicMock, mock_open
+from unittest.mock import Mock, patch
 
 import pytest
 

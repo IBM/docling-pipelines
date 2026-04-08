@@ -3,11 +3,7 @@ import datetime
 import json
 import os
 
-from common.constants.constants import (
-    DatasiftConstants,
-    ExecutionStatus,
-    Metrics
-)
+from common.constants.constants import DatasiftConstants, ExecutionStatus, Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.filesystem import get_data_path
 from common.util.job_tracker.model.models import NodeStatsDto

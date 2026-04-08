@@ -193,7 +193,7 @@ def main():  # pragma: no cover
     logger.debug(flow.flow_def)
 
     orchestrator = OrchestratorFactory.create_orchestrator()
-    
+
     # Initialize the flow execution event handler
     job_id = "5df177f6-92bc-4465-826e-f4df207ffb71"
     job_run_id = "5df177f6-92bc-4465-826e-f4df207ffb75"
@@ -202,7 +202,7 @@ def main():  # pragma: no cover
         job_run_id=job_run_id,
         common_log_arguments=flow.common_log_arguments
     )
-    
+
     try:
         flow.execute(
             orchestrator=orchestrator,

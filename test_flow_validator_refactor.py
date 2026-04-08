@@ -7,7 +7,7 @@ import os
 # Add backend to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src/datasift_opensource/backend'))
 
-from core.orchestrator.flow_validator import FlowValidator, ValidateStepResults
+from core.orchestrator.flow_validator import FlowValidator
 from core.orchestrator.abstract_orchestrator import AbstractOrchestrator
 
 def test_imports():

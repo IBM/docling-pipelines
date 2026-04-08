@@ -22,9 +22,9 @@ from common.exceptions.datasift_exceptions import DatasiftException
 from common.models.session_info import get_session_info
 from common.util.core.patterns import Singleton
 from common.util.infrastructure.filesystem import delete_folders, get_data_path
+from common.util.infrastructure.logging import get_logger
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.job_tracker.storage.job_stats_store import JobStatsStore
-from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 CANCELLED_MSG = ">>> Cancelled the execution: %s"
@@ -580,7 +580,7 @@ class JobTracker(metaclass=Singleton):
         if job_log_path is None:
             logger.warning(f"job_log_path is None, skipping job log write for job_run_id: {job_stats.job_run_id}")
             return
-        
+
         stats = deepcopy(job_stats)
         self._remove_node_metadata_from_node_stats(job_stats=stats)
         with open(job_log_path, "w") as file:

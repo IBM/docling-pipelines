@@ -1,9 +1,8 @@
 """Unit tests for operator_metadata module."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
-from common.constants.constants import OrchestratorType
 from common.constants.operator_constants import OperatorConstants
 from core.operators.operator_metadata import OperatorMetadata
 

@@ -10,8 +10,6 @@ from dataclasses import dataclass
 from opensearchpy import OpenSearch
 
 # Import existing modules
-import sys
-import os
 from ollama_client import OllamaClient, InteractionMode
 
 logger = logging.getLogger(__name__)
@@ -309,7 +307,7 @@ def example_basic_usage():
         print(f"Question: {result['user_question']}")
         print(f"\nSQL Query: {result['sql_query']}")
         print(f"\nAnswer:\n{result['answer']}")
-        print(f"\nMetadata:")
+        print("\nMetadata:")
         print(f"  - SQL Results: {result['sql_result_count']}")
         print(f"  - Hybrid Results: {result['hybrid_result_count']}")
         print(f"  - Model: {result['model_used']}")

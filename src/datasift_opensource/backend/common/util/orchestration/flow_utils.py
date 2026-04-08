@@ -108,11 +108,11 @@ def add_validation_alert(message: str | ValidationMessage, op_def: dict, alerts:
 
 
 __all__ = [
-    "create_node_id_to_index_map",
-    "create_log_folders",
-    "write_job_logs",
-    "construct_deleted_rows_table_path",
     "add_validation_alert",
+    "construct_deleted_rows_table_path",
+    "create_log_folders",
+    "create_node_id_to_index_map",
+    "write_job_logs",
 ]
 
 # Made with Bob

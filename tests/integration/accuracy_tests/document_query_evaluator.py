@@ -19,7 +19,7 @@ import csv
 import sys
 import os
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional
 from opensearchpy import OpenSearch
 import argparse
 from collections import defaultdict

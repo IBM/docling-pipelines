@@ -1,7 +1,7 @@
 """Unit tests for operator_display_utils module."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from common.constants.operator_constants import OperatorConstants
 from common.util.operators.display import (

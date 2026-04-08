@@ -1,11 +1,9 @@
     # Assisted by WCA@IBM
 # Latest GenAI contribution: ibm/granite-8b-code-instruct
-import json
 import unittest
 import uuid
-from datetime import timedelta
 from time import sleep
-from unittest.mock import MagicMock, Mock, mock_open, patch
+from unittest.mock import Mock, patch
 from uuid import uuid1
 
 from common.exceptions.datasift_exceptions import DatasiftException

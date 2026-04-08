@@ -10,8 +10,6 @@ This script demonstrates the complete workflow:
 """
 
 import logging
-import sys
-import os
 from typing import Dict, List, Any, Optional
 
 from opensearchpy import (
@@ -19,7 +17,7 @@ from opensearchpy import (
     ConnectionError as OSConnectionError,
     TransportError,
 )
-from opensearch_sql import OpenSearchSQLClient, SQLQueryResult
+from opensearch_sql import OpenSearchSQLClient
 from result_combiner import OpenSearchResultCombiner
 from ollama_nl_to_sql_converter import OllamaNLToSQLConverter
 

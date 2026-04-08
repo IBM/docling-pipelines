@@ -8,9 +8,9 @@ from filelock import FileLock
 
 from common.constants.constants import DatasiftConstants
 from common.util.infrastructure.filesystem import get_data_path
+from common.util.infrastructure.logging import get_logger
 from common.util.job_tracker.model.models import JobStatsDto, NodeStatsDto
 from common.util.job_tracker.storage.job_stats_store import JobStatsStore
-from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
 

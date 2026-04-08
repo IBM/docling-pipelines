@@ -49,9 +49,9 @@ def delete_folders(*, paths_list):
 
 
 __all__ = [
-    "get_data_path",
-    "delete_folders",
     "DEFAULT_DATA_ROOT_FOLDER",
+    "delete_folders",
+    "get_data_path",
 ]
 
 # Made with Bob

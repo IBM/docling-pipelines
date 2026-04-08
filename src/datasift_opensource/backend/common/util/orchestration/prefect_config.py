@@ -86,16 +86,16 @@ def _safe_rmtree(path: str, prefix: str = None) -> bool:
 
 
 __all__ = [
-    "PREFECT_HOME",
-    "PREFECT_HOME_PREFIX",
     "PREFECT_API_DATABASE_CONNECTION_URL",
     "PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED",
     "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY",
+    "PREFECT_DEBUG",
+    "PREFECT_HOME",
+    "PREFECT_HOME_PREFIX",
     "PREFECT_SERVER_ANALYTICS_ENABLED",
     "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS",
-    "PREFECT_DEBUG",
-    "set_prefect_env_variables",
     "clean_up_prefect_home",
+    "set_prefect_env_variables",
 ]
 
 # Made with Bob

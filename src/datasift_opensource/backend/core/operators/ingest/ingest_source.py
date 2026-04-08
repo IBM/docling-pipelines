@@ -3,6 +3,7 @@ import hashlib
 import importlib
 import json
 from typing import Any, ClassVar, Iterator
+
 import boto3
 import pyarrow as pa
 
@@ -180,7 +181,7 @@ class MicrosoftGraphLoader(BaseLoader):
             try:
                 # Download binary content immediately
                 binary_content = self._download_file(item)
-                
+
                 metadata = {
                     "source": item.get("name", ""),
                     "drive_id": self.drive_id,
@@ -191,7 +192,7 @@ class MicrosoftGraphLoader(BaseLoader):
                     "mime_type": item.get("file", {}).get("mimeType", ""),
                     "has_binary_content": True,
                 }
-                
+
                 # Create Document and attach binary content
                 doc = Document(page_content="", metadata=metadata)
                 doc._binary_content = binary_content
@@ -199,7 +200,7 @@ class MicrosoftGraphLoader(BaseLoader):
             except Exception as e:
                 import logging
                 logger = logging.getLogger(__name__)
-                logger.error(f"Failed to download file {item.get('name', '')}: {str(e)}", exc_info=True)
+                logger.error(f"Failed to download file {item.get('name', '')}: {e!s}", exc_info=True)
                 yield Document(
                     page_content="",
                     metadata={

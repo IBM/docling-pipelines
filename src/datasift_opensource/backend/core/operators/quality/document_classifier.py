@@ -8,18 +8,18 @@ Supports both watsonx-api and Ollama as LLM providers.
 import json
 import logging
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import pyarrow as pa
 import requests
-from common.constants import DatasiftConstants, OperatorConstants, Metrics, AttributeDataTypes
+from data_processing.utils import TransformUtils
+
+from common.constants import AttributeDataTypes, DatasiftConstants, Metrics, OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from common.util.infrastructure.logging import get_logger
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
-
-from data_processing.utils import TransformUtils 
 
 logger: logging.Logger = get_logger()
 
@@ -76,7 +76,7 @@ class DocumentClassifierOperator(AbstractOperator):
     short_name: str = OperatorConstants.Misc.DOCUMENT_CLASSIFIER
     category: OperatorCategory = OperatorCategory.Functional
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         """
         Initialize the document classifier operator.
 
@@ -98,10 +98,10 @@ class DocumentClassifierOperator(AbstractOperator):
 
         # Provider configuration
         self.provider: str = config.get(PROVIDER_KEY, DEFAULT_PROVIDER).lower()
-        self.api_base: Optional[str] = config.get(API_BASE_KEY)
-        self.api_key: Optional[str] = config.get(API_KEY_KEY, "not-needed")
-        self.model_id: Optional[str] = config.get(MODEL_ID_KEY)
-        self.project_id: Optional[str] = config.get(PROJECT_ID_KEY)
+        self.api_base: str | None = config.get(API_BASE_KEY)
+        self.api_key: str | None = config.get(API_KEY_KEY, "not-needed")
+        self.model_id: str | None = config.get(MODEL_ID_KEY)
+        self.project_id: str | None = config.get(PROJECT_ID_KEY)
         self.request_timeout: int = config.get("request_timeout", DEFAULT_REQUEST_TIMEOUT)
         self.extract_tables: bool = config.get(OperatorConstants.Config.EXTRACT_TABLES, True)
         self.extract_images: bool = config.get(OperatorConstants.Config.EXTRACT_IMAGES, True)
@@ -127,7 +127,7 @@ class DocumentClassifierOperator(AbstractOperator):
             )
 
         # Document types configuration
-        self.document_types: Union[List[str], Dict[str, str]] = config.get(
+        self.document_types: list[str] | dict[str, str] = config.get(
             DOCUMENT_TYPES_KEY, []
         )
         if not self.document_types:
@@ -157,7 +157,7 @@ class DocumentClassifierOperator(AbstractOperator):
                                            OperatorUtils.get_optimal_workers(is_cpu_intensive=False))
         self.use_processes: bool = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
-        self.common_log_arguments: Dict[str, Any] = {
+        self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id
         }
@@ -167,7 +167,7 @@ class DocumentClassifierOperator(AbstractOperator):
             f"model={self.model_id}, types={len(self.document_types)}"
         )
 
-    def validate(self, errors: List[str], warnings: List[str], available_features: List[str]) -> None:
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
         Validate operator configuration and dependencies.
 
@@ -229,7 +229,7 @@ class DocumentClassifierOperator(AbstractOperator):
                     message="ollama package not installed. Install with: pip install ollama"
                 )
             except Exception as e:
-                logger.warning(f"Could not connect to Ollama server: {str(e)}")
+                logger.warning(f"Could not connect to Ollama server: {e!s}")
         elif self.provider == "watsonx":
             # LATER: Validate watsonx configuration
             if not self.api_base or not self.api_key:
@@ -240,7 +240,7 @@ class DocumentClassifierOperator(AbstractOperator):
             logger.info(f"Validated watsonx configuration for {self.api_base}")
 
     @staticmethod
-    def _get_document_types() -> Dict[str, str]:
+    def _get_document_types() -> dict[str, str]:
         """
         Returns:
             Dictionary mapping document_type to document_description
@@ -249,7 +249,7 @@ class DocumentClassifierOperator(AbstractOperator):
         return DocumentClassUtils.get_document_types()
 
 
-    def _call_ollama_chat(self, messages: List[Dict[str, str]]) -> str:
+    def _call_ollama_chat(self, messages: list[dict[str, str]]) -> str:
         """
         Call Ollama chat API using native ollama package.
 
@@ -284,7 +284,7 @@ class DocumentClassifierOperator(AbstractOperator):
                 logger.debug("Successfully called ollama.chat")
             except Exception as e:
                 # Log detailed error information
-                logger.error(f"Ollama call failed: {str(e)}")
+                logger.error(f"Ollama call failed: {e!s}")
                 logger.error(f"Error type: {type(e).__name__}")
                 logger.error(f"Message preview: {str(messages[0])[:200] if messages else 'No messages'}")
                 raise
@@ -297,23 +297,23 @@ class DocumentClassifierOperator(AbstractOperator):
             elif content:
                 logger.debug(f"Received content length: {len(content)}")
                 return content
-            
+
             # Fallback: return empty JSON object
             logger.warning("No content in response, returning empty JSON")
             return "{}"
-            
+
         except Exception as e:
-            logger.error(f"Ollama chat API call failed: {str(e)}")
+            logger.error(f"Ollama chat API call failed: {e!s}")
             logger.error(f"Error type: {type(e).__name__}")
-            logger.error(f"Error details: {repr(e)}")
+            logger.error(f"Error details: {e!r}")
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise DatasiftException(
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                message=f"Ollama API call failed: {str(e)}"
+                message=f"Ollama API call failed: {e!s}"
             )
-    
-    def _call_openai_rest_api(self, messages: List[Dict[str, str]]) -> str:
+
+    def _call_openai_rest_api(self, messages: list[dict[str, str]]) -> str:
         """
         Call OpenAI-compatible REST API (for watsonx or OpenAI).
         
@@ -326,17 +326,17 @@ class DocumentClassifierOperator(AbstractOperator):
         try:
             # Build request URL
             url = f"{self.api_base}/chat/completions"
-            
+
             # Build headers
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.api_key}"
             }
-            
+
             # Add watsonx-specific headers
             if self.provider == "watsonx" and self.project_id:
                 headers["X-Project-Id"] = self.project_id
-            
+
             # Build request payload
             payload = {
                 "model": self.model_id,
@@ -344,7 +344,7 @@ class DocumentClassifierOperator(AbstractOperator):
                 "temperature": 0.0,
                 "response_format": {"type": "json_object"}
             }
-            
+
             # Make REST API call
             response = requests.post(
                 url,
@@ -352,22 +352,22 @@ class DocumentClassifierOperator(AbstractOperator):
                 json=payload,
                 timeout=self.request_timeout
             )
-            
+
             # Check for errors
             response.raise_for_status()
-            
+
             # Parse response
             result = response.json()
             return result.get("choices", [{}])[0].get("message", {}).get("content", "")
-            
+
         except requests.exceptions.RequestException as e:
-            logger.error(f"REST API call failed: {str(e)}")
+            logger.error(f"REST API call failed: {e!s}")
             raise DatasiftException(
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                message=f"REST API call failed: {str(e)}"
+                message=f"REST API call failed: {e!s}"
             )
-    
-    def _call_llm(self, messages: List[Dict[str, str]]) -> str:
+
+    def _call_llm(self, messages: list[dict[str, str]]) -> str:
         """
         Call the appropriate LLM API based on provider.
         
@@ -381,7 +381,7 @@ class DocumentClassifierOperator(AbstractOperator):
             return self._call_ollama_chat(messages)
         else:
             return self._call_openai_rest_api(messages)
-    
+
     def _build_classification_prompt(self, content: str) -> str:
         """
         Build the classification prompt for the LLM.
@@ -399,10 +399,10 @@ class DocumentClassifierOperator(AbstractOperator):
             ])
         else:
             types_desc = "\n".join([f"- {t}" for t in self.document_types])
-        
+
         # Sanitize and limit content length
         sanitized_content = content[:self.max_content_length] if content else ""
-        
+
         prompt = f"""Classify the following document into one of these types:
 
 {types_desc}
@@ -421,10 +421,10 @@ Example response:
   "confidence": 9,
   "reasoning": "Contains line items, totals, and payment terms typical of invoices"
 }}"""
-        
+
         return prompt
-    
-    def _classify_document(self, *, content: str, doc_name: Optional[str] = None) -> Dict[str, Any]:
+
+    def _classify_document(self, *, content: str, doc_name: str | None = None) -> dict[str, Any]:
         """
         Classify a single document using the LLM.
         
@@ -437,34 +437,34 @@ Example response:
         """
         try:
             prompt = self._build_classification_prompt(content)
-            
+
             # Build messages
             messages = [
                 {"role": "system", "content": "You are a document classification expert. Always respond with valid JSON."},
                 {"role": "user", "content": prompt}
             ]
-            
+
             # Call LLM
             result_text = self._call_llm(messages)
-            
+
             # Parse response
             result = json.loads(result_text)
             logger.info(f"Result from LLM: \n{result}")
             # Validate result
             if "document_type" not in result or "confidence" not in result:
                 raise ValueError("Invalid response format from LLM")
-            
+
             # Normalize document type
             result["document_type"] = result["document_type"].lower().replace(" ", "_")
-            
+
             # Ensure confidence is in range
             result["confidence"] = max(1, min(10, int(result["confidence"])))
-            
+
             logger.info(
                 f"Classified document {doc_name or 'unknown'}: "
                 f"type={result['document_type']}, confidence={result['confidence']}"
             )
-            
+
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
                 "document_type": result["document_type"],
@@ -472,18 +472,18 @@ Example response:
                 "reasoning": result.get("reasoning", ""),
                 "is_confident": result["confidence"] >= self.confidence_threshold
             }
-            
+
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM response as JSON: {str(e)}")
+            logger.error(f"Failed to parse LLM response as JSON: {e!s}")
             return {
                 OperatorConstants.Extraction.SUCCESS: False,
-                OperatorConstants.Extraction.ERROR: f"Invalid JSON response: {str(e)}",
+                OperatorConstants.Extraction.ERROR: f"Invalid JSON response: {e!s}",
                 "document_type": "unknown",
                 "confidence": 0,
                 "reasoning": ""
             }
         except Exception as e:
-            logger.error(f"Classification failed for {doc_name or 'unknown'}: {str(e)}")
+            logger.error(f"Classification failed for {doc_name or 'unknown'}: {e!s}")
             return {
                 OperatorConstants.Extraction.SUCCESS: False,
                 OperatorConstants.Extraction.ERROR: str(e),
@@ -491,8 +491,8 @@ Example response:
                 "confidence": 0,
                 "reasoning": ""
             }
-    
-    def transform(self, table: pa.Table, file_name: str = "") -> Tuple[List[pa.Table], Dict[str, Any]]:
+
+    def transform(self, table: pa.Table, file_name: str = "") -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Classify documents in the input table.
         
@@ -521,7 +521,7 @@ Example response:
         # Process documents in parallel
         doc_contents = []
         doc_metadata_list = []
-        
+
         if doc_column_exists:
             # Use existing content column
             doc_contents = table.column(self.doc_column).to_pylist()
@@ -591,7 +591,7 @@ Example response:
                         self.record_failed_document(
                             metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
                         )
-        
+
         # Process each document
         classifications: list = ([None] * table.num_rows)
         confidences: list = ([0] * table.num_rows)
@@ -668,39 +668,39 @@ Example response:
                     reasonings[idx]=str(e)
                     logger.error(f"Error processing document at index {idx}: {e!s}")
 
-        
+
         # Start with the original table
         output_table = table
-        
+
         # Add DOC_COLUMN_KEY if it was fetched
         if content_was_fetched:
             output_table = TransformUtils.add_column(
                 output_table, self.doc_column, doc_contents
             )
             logger.info(f"Added '{self.doc_column}' column to table")
-        
+
         # Add classification columns to table
         output_table = TransformUtils.add_column(
             output_table, self.output_column, classifications
         )
-        
+
         if self.include_confidence:
             output_table = TransformUtils.add_column(
                 output_table, f"{self.output_column}_confidence", confidences
             )
-        
+
         if self.include_reasoning:
             output_table = TransformUtils.add_column(
                 output_table, f"{self.output_column}_reasoning", reasonings
             )
-        
+
         logger.info(
             f"Classification complete: {metadata[Metrics.External.PROCESSED_DOCS]}/{total_docs} documents classified"
         )
-        
+
         return [output_table], metadata
-    
-    def get_metadata(self) -> Dict[str, Any]:
+
+    def get_metadata(self) -> dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
         

@@ -1,7 +1,7 @@
 """Unit tests for cmd_line_operator_executor module."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from core.orchestrator.cmdline.cmd_line_operator_executor import CommandLineOperatorExecutor
 

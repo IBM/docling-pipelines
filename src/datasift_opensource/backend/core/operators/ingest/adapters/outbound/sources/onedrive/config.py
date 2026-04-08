@@ -1,6 +1,5 @@
 """Configuration model for OneDrive source adapter."""
 
-import os
 from typing import ClassVar
 
 from pydantic import BaseModel, Field, field_validator

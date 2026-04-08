@@ -1,5 +1,5 @@
 import os
-from typing import Any, Optional
+from typing import Any
 
 import pyarrow as pa
 
@@ -89,7 +89,7 @@ class IngestLocalOperator(AbstractOperator):
         self.store_binary_content: bool = config.get("store_binary_content", True)
 
         # Will be initialized in transform method
-        self.previously_processed_docs_dict: Optional[dict[str, Any]] = None
+        self.previously_processed_docs_dict: dict[str, Any] | None = None
 
         # Validate input parameters
         self._validate_input_parameters()
@@ -142,10 +142,10 @@ class IngestLocalOperator(AbstractOperator):
         doc_data: list[dict[str, Any]]
         metadata: dict[str, Any]
         doc_data, metadata = self.process_files(self.input_folder)
-        
+
         # Create new table from ingested documents
         new_table = pa.Table.from_pylist(doc_data)
-        
+
         if table is None:
             # No input table, use the newly created table
             table = new_table

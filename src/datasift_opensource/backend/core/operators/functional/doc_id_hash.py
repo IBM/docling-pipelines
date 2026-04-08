@@ -3,16 +3,14 @@ from logging import Logger
 from typing import Any
 
 import pyarrow as pa
+from data_processing.utils import TransformUtils
+from dpk_doc_id import DocIDTransform, doc_column_name_key, hash_column_name_key
 
 from common.constants.constants import Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils
-from data_processing.utils import TransformUtils
-
-from dpk_doc_id import DocIDTransform, doc_column_name_key, hash_column_name_key
-
 
 logger: Logger = get_logger()
 
@@ -57,7 +55,7 @@ class DocIdHashOperator(AbstractOperator):
 
         # Initialize DocIDTransform if available
         self._doc_id_transform: Any | None = DocIDTransform(config)
-        
+
     def get_metadata(self) -> dict[str, Any]:
         return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False}
 

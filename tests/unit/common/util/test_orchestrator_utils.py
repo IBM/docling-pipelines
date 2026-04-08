@@ -4,12 +4,11 @@ import os
 import tempfile
 import shutil
 from queue import Queue
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 import pytest
 import pyarrow as pa
 
-from common.constants.operator_constants import OperatorConstants
 from common.util.orchestration.flow_utils import (
     create_node_id_to_index_map,
     create_log_folders,

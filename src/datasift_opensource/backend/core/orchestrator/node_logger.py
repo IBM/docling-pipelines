@@ -9,8 +9,8 @@ import os
 
 from common.constants.constants import DatasiftConstants, ExecutionStatus
 from common.constants.operator_constants import OperatorConstants
-from common.util.infrastructure.logging import get_logger
 from common.models.session_info import get_session_info
+from common.util.infrastructure.logging import get_logger
 
 
 class NodeLogger:
@@ -20,7 +20,7 @@ class NodeLogger:
     This class encapsulates all node logger creation and logging operations
     that were previously scattered in AbstractOrchestrator.
     """
-    
+
     def __init__(self, common_log_arguments: dict | None = None):
         """
         Initialize NodeLogger.
@@ -29,7 +29,7 @@ class NodeLogger:
             common_log_arguments: Common logging arguments (job_id, job_run_id)
         """
         self.common_log_arguments = common_log_arguments or {}
-    
+
     def get_node_logger(self, *, node_id: str, node_name: str, global_config: dict):
         """
         Create and return a node-specific logger.
@@ -54,7 +54,7 @@ class NodeLogger:
             is_pg=True,
             pg_params=pg_params,
         )
-    
+
     def log_node_failure(
         self,
         *,
@@ -84,7 +84,7 @@ class NodeLogger:
             get_session_info().transaction_id,
             extra=self.common_log_arguments
         )
-    
+
     def log_skipped_execution(self, *, node_id: str, node_name: str, operator: str, global_config: dict):
         """
         Log when a node execution is skipped due to no input data.
@@ -117,7 +117,7 @@ class NodeLogger:
             ">>> ================================================================",
             extra=self.common_log_arguments,
         )
-    
+
     def log_error_in_previous_step(
         self,
         *,
@@ -143,7 +143,7 @@ class NodeLogger:
             node_name,
             extra=self.common_log_arguments
         )
-    
+
     def log_cancellation_or_abort_if_needed(self, *, node_id, node_name, job_status: ExecutionStatus, global_config):
         """
         Log when execution is cancelled or aborted at a node.
@@ -167,7 +167,7 @@ class NodeLogger:
             node_name,
             extra=self.common_log_arguments
         )
-    
+
     def log_branch_completion(
         self,
         *,

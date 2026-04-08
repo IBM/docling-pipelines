@@ -6,12 +6,7 @@ from data_processing.utils.transform_utils import TransformUtils
 from langdetect import detect_langs
 
 from common.constants import OperatorConstants
-from common.constants.constants import (
-    AttributeDataTypes,
-    DatasiftConstants,
-    ExecutionStatus,
-    Metrics
-)
+from common.constants.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from core.operators.operator_utils import OperatorUtils

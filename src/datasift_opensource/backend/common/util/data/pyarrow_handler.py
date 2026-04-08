@@ -160,8 +160,8 @@ def get_parquet_table_handler() -> BaseParquetTableHandler:
 __all__ = [
     "BaseParquetTableHandler",
     "CpdParquetTableHandler",
-    "get_parquet_table_handler",
     "TransformUtils",
+    "get_parquet_table_handler",
 ]
 
 # Made with Bob

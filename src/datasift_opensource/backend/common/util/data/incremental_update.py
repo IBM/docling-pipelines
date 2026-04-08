@@ -8,12 +8,12 @@ import pyarrow.compute as pc
 from common.constants.constants import DatasiftConstants
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.util.infrastructure.filesystem import get_data_path
-from common.util.infrastructure.logging import get_logger
 from common.util.data.pyarrow_handler import (
     BaseParquetTableHandler,
     get_parquet_table_handler,
 )
+from common.util.infrastructure.filesystem import get_data_path
+from common.util.infrastructure.logging import get_logger
 
 logger = get_logger(f"{DatasiftConstants.LOGGER_NAME} : INCREMENTAL UPDATE")
 

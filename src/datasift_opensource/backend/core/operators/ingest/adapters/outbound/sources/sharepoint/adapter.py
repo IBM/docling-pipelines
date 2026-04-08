@@ -9,10 +9,10 @@ from core.operators.ingest.adapters.outbound.sources.factories.source_factory im
 )
 from core.operators.ingest.adapters.outbound.sources.sharepoint.config import SharePointSourceConfig
 from core.operators.ingest.domain.models import Document
-from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 
 # Import the MicrosoftGraphLoader from ingest_source.py
 from core.operators.ingest.ingest_source import MicrosoftGraphLoader
+from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 
 
 @register_source_adapter

@@ -14,7 +14,6 @@ from common.util.operators.logging import (
     epoch_to_datetime,
     _operator_log_split,
     get_log_and_job_file_path,
-    retrieve_operator_logs,
     read_json_if_exists,
     _parse_sequential_log_content,
     _handle_dict_with_logs_key,

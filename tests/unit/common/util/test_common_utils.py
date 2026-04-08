@@ -1,6 +1,5 @@
 import json
 import unittest
-from datetime import datetime
 
 from common.util.core.patterns import Singleton
 from common.util.core.collections import (

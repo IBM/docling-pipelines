@@ -13,11 +13,10 @@ Extended Features:
 import json
 import random
 from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 from faker import Faker
 from opensearchpy import OpenSearch, helpers
 import argparse
-import os
 from pathlib import Path
 
 
@@ -1089,7 +1088,7 @@ class OpenSearchDocumentInserter:
             "errors": error_count
         }
         
-        print(f"\nInsertion complete:")
+        print("\nInsertion complete:")
         print(f"  - Requested: {count}")
         print(f"  - Succeeded: {success_count}")
         print(f"  - Failed: {error_count}")
@@ -1203,7 +1202,7 @@ class OpenSearchDocumentInserter:
                     writer.writerow(row)
                     success_count += 1
             
-            print(f"\nCSV export complete:")
+            print("\nCSV export complete:")
             print(f"  - Requested: {count}")
             print(f"  - Succeeded: {success_count}")
             print(f"  - Failed: {error_count}")
@@ -1325,7 +1324,7 @@ class OpenSearchDocumentInserter:
             "errors": error_count
         }
         
-        print(f"\nExport complete:")
+        print("\nExport complete:")
         print(f"  - Requested: {count}")
         print(f"  - Succeeded: {success_count}")
         print(f"  - Failed: {error_count}")
