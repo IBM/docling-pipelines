@@ -40,7 +40,7 @@ class TestDoclingServeClient:
         assert client.timeout == 600
         assert client.poll_interval == 5
         assert client.max_retries == 5
-        assert client.headers["X-API-KEY"] == "test-key"
+        assert client.custom_headers["X-API-KEY"] == "test-key"
 
     def test_build_options_defaults(self):
         """Test default options building."""
@@ -77,8 +77,8 @@ class TestDoclingServeClient:
             client.submit_document()
 
     @patch("common.clients.docling_serve_client.Path")
-    @patch("common.clients.docling_serve_client.requests.post")
-    def test_submit_document_with_file_path(self, mock_post, mock_path):
+    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    def test_submit_document_with_file_path(self, mock_call_rest_json, mock_path):
         """Test submit_document with file path."""
         # Setup mocks
         mock_path_instance = MagicMock()
@@ -86,9 +86,7 @@ class TestDoclingServeClient:
         mock_path_instance.read_bytes.return_value = b"test content"
         mock_path.return_value = mock_path_instance
 
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"task_id": "test-task-123"}
-        mock_post.return_value = mock_response
+        mock_call_rest_json.return_value = {"task_id": "test-task-123"}
 
         # Execute
         client = DoclingServeClient()
@@ -96,18 +94,16 @@ class TestDoclingServeClient:
 
         # Verify
         assert task_id == "test-task-123"
-        mock_post.assert_called_once()
-        call_args = mock_post.call_args
-        assert "file_bytes" in call_args.kwargs["json"]
-        assert "options" in call_args.kwargs["json"]
+        mock_call_rest_json.assert_called_once()
+        call_args = mock_call_rest_json.call_args
+        assert "file_bytes" in call_args.kwargs["json_data"]
+        assert "options" in call_args.kwargs["json_data"]
 
-    @patch("common.clients.docling_serve_client.requests.post")
-    def test_submit_document_with_binary_content(self, mock_post):
+    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    def test_submit_document_with_binary_content(self, mock_call_rest_json):
         """Test submit_document with binary content."""
         # Setup mock
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"task_id": "test-task-456"}
-        mock_post.return_value = mock_response
+        mock_call_rest_json.return_value = {"task_id": "test-task-456"}
 
         # Execute
         client = DoclingServeClient()
@@ -116,30 +112,32 @@ class TestDoclingServeClient:
 
         # Verify
         assert task_id == "test-task-456"
-        call_args = mock_post.call_args
-        payload = call_args.kwargs["json"]
+        call_args = mock_call_rest_json.call_args
+        payload = call_args.kwargs["json_data"]
 
         # Verify base64 encoding
         decoded = base64.b64decode(payload["file_bytes"])
         assert decoded == binary_data
 
-    @patch("common.clients.docling_serve_client.requests.post")
-    def test_submit_document_http_error(self, mock_post):
+    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    def test_submit_document_http_error(self, mock_call_rest_json):
         """Test submit_document handles HTTP errors."""
-        mock_post.side_effect = Exception("Connection failed")
+        mock_call_rest_json.side_effect = DatasiftException(
+            message="Connection failed",
+            status_code=503,
+            error_code="CONNECTION_ERROR",
+        )
 
         client = DoclingServeClient()
-        with pytest.raises(DatasiftException, match="Unexpected error"):
+        with pytest.raises(DatasiftException, match="Connection failed"):
             client.submit_document(binary_content=b"data")
 
-    @patch("common.clients.docling_serve_client.requests.get")
+    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
     @patch("common.util.infrastructure.retry.time.sleep")
-    def test_poll_status_success(self, mock_sleep, mock_get):
+    def test_poll_status_success(self, mock_sleep, mock_call_rest_json):
         """Test poll_status with successful completion."""
         # Setup mock responses
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"state": "SUCCESS", "progress": 100}
-        mock_get.return_value = mock_response
+        mock_call_rest_json.return_value = {"state": "SUCCESS", "progress": 100}
 
         # Execute
         client = DoclingServeClient()
@@ -147,11 +145,11 @@ class TestDoclingServeClient:
 
         # Verify
         assert status["state"] == "SUCCESS"
-        mock_get.assert_called_once()
+        mock_call_rest_json.assert_called_once()
 
-    @patch("common.clients.docling_serve_client.requests.get")
+    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
     @patch("common.util.infrastructure.retry.time.sleep")
-    def test_poll_status_pending_then_success(self, mock_sleep, mock_get):
+    def test_poll_status_pending_then_success(self, mock_sleep, mock_call_rest_json):
         """Test poll_status with pending then success."""
         # Setup mock responses
         responses = [
@@ -159,9 +157,7 @@ class TestDoclingServeClient:
             {"state": "STARTED"},
             {"state": "SUCCESS"},
         ]
-        mock_response = MagicMock()
-        mock_response.json.side_effect = responses
-        mock_get.return_value = mock_response
+        mock_call_rest_json.side_effect = responses
 
         # Execute
         client = DoclingServeClient()
@@ -169,28 +165,24 @@ class TestDoclingServeClient:
 
         # Verify
         assert status["state"] == "SUCCESS"
-        assert mock_get.call_count == 3
+        assert mock_call_rest_json.call_count == 3
 
-    @patch("common.clients.docling_serve_client.requests.get")
-    def test_poll_status_failure(self, mock_get):
+    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    def test_poll_status_failure(self, mock_call_rest_json):
         """Test poll_status with task failure."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
+        mock_call_rest_json.return_value = {
             "state": "FAILURE",
             "error": "Processing failed",
         }
-        mock_get.return_value = mock_response
 
         client = DoclingServeClient()
         with pytest.raises(DatasiftException, match="Task failed"):
             client.poll_status("test-task-123")
 
-    @patch("common.clients.docling_serve_client.requests.get")
-    def test_get_result_success(self, mock_get):
+    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    def test_get_result_success(self, mock_call_rest_json):
         """Test get_result retrieves document data."""
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"document": "data", "metadata": {}}
-        mock_get.return_value = mock_response
+        mock_call_rest_json.return_value = {"document": "data", "metadata": {}}
 
         client = DoclingServeClient()
         result = client.get_result("test-task-123")
@@ -198,13 +190,17 @@ class TestDoclingServeClient:
         assert "document" in result
         assert result["document"] == "data"
 
-    @patch("common.clients.docling_serve_client.requests.get")
-    def test_get_result_http_error(self, mock_get):
+    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    def test_get_result_http_error(self, mock_call_rest_json):
         """Test get_result handles HTTP errors."""
-        mock_get.side_effect = Exception("Network error")
+        mock_call_rest_json.side_effect = DatasiftException(
+            message="Network error",
+            status_code=503,
+            error_code="CONNECTION_ERROR",
+        )
 
         client = DoclingServeClient()
-        with pytest.raises(DatasiftException, match="Unexpected error"):
+        with pytest.raises(DatasiftException, match="Network error"):
             client.get_result("test-task-123")
 
     @patch.object(DoclingServeClient, "submit_document")

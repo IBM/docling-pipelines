@@ -8,8 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
-import requests
-
+from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.constants import OperatorConstants
 from common.util.infrastructure.logging import get_logger
 
@@ -221,14 +220,24 @@ class WatsonxPipelineOptionsProvider(VlmPipelineOptionsProvider):
             ValueError: If token exchange fails
         """
         try:
-            res = requests.post(
-                url=IBM_CLOUD_IAM_TOKEN_URL,
-                headers={"Content-Type": "application/x-www-form-urlencoded"},
-                data={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": api_key},
+            # Create RestClient with appropriate configuration
+            config = RestClientConfig(
                 timeout=IAM_TOKEN_REQUEST_TIMEOUT,
+                retry_max_attempts=3,
+                retry_multiplier=2.0,
+                retry_min_wait=1.0,
+                retry_max_wait=10.0,
             )
-            res.raise_for_status()
-            token_data = res.json()
+            client = RestClient(config=config)
+
+            # Make POST request with form data
+            token_data = client.call_rest_json(
+                method=RestMethod.POST,
+                endpoint=IBM_CLOUD_IAM_TOKEN_URL,
+                form_data={"grant_type": "urn:ibm:params:oauth:grant-type:apikey", "apikey": api_key},
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+
             if "access_token" not in token_data:
                 raise ValueError("Invalid IAM token response")
             return token_data["access_token"]

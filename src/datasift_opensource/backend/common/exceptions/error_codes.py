@@ -23,3 +23,8 @@ class ErrorCode(StrEnum):
     # Configuration and external services
     INVALID_CONFIGURATION = "invalid_configuration"
     EXTERNAL_SERVICE_ERROR = "external_service_error"
+
+    # REST client errors
+    HTTP_ERROR = "http_error"
+    CONNECTION_ERROR = "connection_error"
+    INVALID_RESPONSE = "invalid_response"

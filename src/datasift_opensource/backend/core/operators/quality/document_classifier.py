@@ -11,9 +11,9 @@ from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_compl
 from typing import Any
 
 import pyarrow as pa
-import requests
 from data_processing.utils import TransformUtils
 
+from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.constants import AttributeDataTypes, DatasiftConstants, Metrics, OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
@@ -46,6 +46,7 @@ DEFAULT_OUTPUT_COLUMN: str = "document_type"
 DEFAULT_DOC_COLUMN: str = OperatorConstants.Columns.DOC_COLUMN_DEFAULT
 DEFAULT_REQUEST_TIMEOUT: int = 120
 DEFAULT_MAX_CONTENT_LENGTH: int = 2000
+
 
 class DocumentClassifierOperator(AbstractOperator):
     """
@@ -112,31 +113,25 @@ class DocumentClassifierOperator(AbstractOperator):
             self.model_id = self.model_id or DEFAULT_WATSONX_MODEL
             if not self.api_base:
                 raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message="api_base is required for watsonx provider"
+                    error_code=ErrorCode.INVALID_CONFIGURATION, message="api_base is required for watsonx provider"
                 )
             if not self.project_id:
                 raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message="project_id is required for watsonx provider"
+                    error_code=ErrorCode.INVALID_CONFIGURATION, message="project_id is required for watsonx provider"
                 )
         else:
             raise DatasiftException(
                 error_code=ErrorCode.INVALID_CONFIGURATION,
-                message=f"Unsupported provider: {self.provider}. Use 'watsonx' or 'ollama'"
+                message=f"Unsupported provider: {self.provider}. Use 'watsonx' or 'ollama'",
             )
 
         # Document types configuration
-        self.document_types: list[str] | dict[str, str] = config.get(
-            DOCUMENT_TYPES_KEY, []
-        )
+        self.document_types: list[str] | dict[str, str] = config.get(DOCUMENT_TYPES_KEY, [])
         if not self.document_types:
             self.document_types = self._get_document_types()
 
         # Classification parameters
-        self.confidence_threshold: float = config.get(
-            CONFIDENCE_THRESHOLD_KEY, DEFAULT_CONFIDENCE_THRESHOLD
-        )
+        self.confidence_threshold: float = config.get(CONFIDENCE_THRESHOLD_KEY, DEFAULT_CONFIDENCE_THRESHOLD)
 
         # Column configuration
         self.doc_column: str = config.get(DOC_COLUMN_KEY, DEFAULT_DOC_COLUMN)
@@ -149,17 +144,26 @@ class DocumentClassifierOperator(AbstractOperator):
         # Content length limit
         self.max_content_length: int = config.get(MAX_CONTENT_LENGTH_KEY, DEFAULT_MAX_CONTENT_LENGTH)
 
+        # Initialize RestClient for watsonx provider
+        self.rest_client: RestClient | None = None
+        if self.provider == "watsonx":
+            rest_config = RestClientConfig(
+                timeout=self.request_timeout, max_retries=3, retry_backoff_factor=2.0, verify_ssl=True
+            )
+            self.rest_client = RestClient(config=rest_config, base_url=self.api_base, auth_token=self.api_key)
+
         # Validate provider setup
         self._validate_provider_setup()
 
         # Parallel processing configuration
-        self.max_workers: int = config.get(OperatorConstants.Config.MAX_WORKERS,
-                                           OperatorUtils.get_optimal_workers(is_cpu_intensive=False))
+        self.max_workers: int = config.get(
+            OperatorConstants.Config.MAX_WORKERS, OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
+        )
         self.use_processes: bool = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
-            DatasiftConstants.JOB_RUN_ID: self.job_run_id
+            DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
         logger.info(
@@ -181,9 +185,7 @@ class DocumentClassifierOperator(AbstractOperator):
         # Validate provider
         if self.should_validate_field(field_value=self.provider):
             if self.provider not in ["ollama", "watsonx"]:
-                errors.append(
-                    f"Invalid provider '{self.provider}'. Must be 'ollama' or 'watsonx'."
-                )
+                errors.append(f"Invalid provider '{self.provider}'. Must be 'ollama' or 'watsonx'.")
 
         # Validate watsonx-specific requirements
         if self.provider == "watsonx":
@@ -219,15 +221,16 @@ class DocumentClassifierOperator(AbstractOperator):
         if self.provider == "ollama":
             try:
                 import ollama
+
                 # Test connection to Ollama server using thread-safe client
                 client = ollama.Client()
                 client.list()
                 logger.info("Validated Ollama connection")
-            except ImportError:
+            except ImportError as e:
                 raise DatasiftException(
                     error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                    message="ollama package not installed. Install with: pip install ollama"
-                )
+                    message="ollama package not installed. Install with: pip install ollama",
+                ) from e
             except Exception as e:
                 logger.warning(f"Could not connect to Ollama server: {e!s}")
         elif self.provider == "watsonx":
@@ -235,7 +238,7 @@ class DocumentClassifierOperator(AbstractOperator):
             if not self.api_base or not self.api_key:
                 raise DatasiftException(
                     error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message="api_base and api_key are required for watsonx provider"
+                    message="api_base and api_key are required for watsonx provider",
                 )
             logger.info(f"Validated watsonx configuration for {self.api_base}")
 
@@ -246,8 +249,8 @@ class DocumentClassifierOperator(AbstractOperator):
             Dictionary mapping document_type to document_description
         """
         from common.util.document_class_utils import DocumentClassUtils
-        return DocumentClassUtils.get_document_types()
 
+        return DocumentClassUtils.get_document_types()
 
     def _call_ollama_chat(self, messages: list[dict[str, str]]) -> str:
         """
@@ -276,10 +279,10 @@ class DocumentClassifierOperator(AbstractOperator):
                 response = client.chat(
                     model=self.model_id,
                     messages=messages,
-                    format='json',
+                    format="json",
                     options={
                         "temperature": 0.1,
-                    }
+                    },
                 )
                 logger.debug("Successfully called ollama.chat")
             except Exception as e:
@@ -307,31 +310,32 @@ class DocumentClassifierOperator(AbstractOperator):
             logger.error(f"Error type: {type(e).__name__}")
             logger.error(f"Error details: {e!r}")
             import traceback
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise DatasiftException(
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                message=f"Ollama API call failed: {e!s}"
-            )
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR, message=f"Ollama API call failed: {e!s}"
+            ) from e
 
     def _call_openai_rest_api(self, messages: list[dict[str, str]]) -> str:
         """
-        Call OpenAI-compatible REST API (for watsonx or OpenAI).
-        
+        Call OpenAI-compatible REST API (for watsonx or OpenAI) using RestClient.
+
         Args:
             messages: List of message dictionaries with role and content
-            
+
         Returns:
             Response content as string
         """
-        try:
-            # Build request URL
-            url = f"{self.api_base}/chat/completions"
+        # RestClient is only initialized for watsonx provider, not for ollama
+        if not self.rest_client:
+            raise DatasiftException(
+                error_code=ErrorCode.INVALID_CONFIGURATION,
+                message="RestClient not initialized. This method requires watsonx provider.",
+            )
 
+        try:
             # Build headers
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_key}"
-            }
+            headers = {"Content-Type": "application/json"}
 
             # Add watsonx-specific headers
             if self.provider == "watsonx" and self.project_id:
@@ -342,38 +346,34 @@ class DocumentClassifierOperator(AbstractOperator):
                 "model": self.model_id,
                 "messages": messages,
                 "temperature": 0.0,
-                "response_format": {"type": "json_object"}
+                "response_format": {"type": "json_object"},
             }
 
-            # Make REST API call
-            response = requests.post(
-                url,
+            # Make REST API call using RestClient
+            result = self.rest_client.call_rest_json(
+                method=RestMethod.POST,
+                endpoint="/chat/completions",
+                json_data=payload,
                 headers=headers,
-                json=payload,
-                timeout=self.request_timeout
             )
 
-            # Check for errors
-            response.raise_for_status()
-
-            # Parse response
-            result = response.json()
             return result.get("choices", [{}])[0].get("message", {}).get("content", "")
 
-        except requests.exceptions.RequestException as e:
+        except DatasiftException:
+            raise  # Re-raise DatasiftException as-is
+        except Exception as e:
             logger.error(f"REST API call failed: {e!s}")
             raise DatasiftException(
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                message=f"REST API call failed: {e!s}"
-            )
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR, message=f"REST API call failed: {e!s}"
+            ) from e
 
     def _call_llm(self, messages: list[dict[str, str]]) -> str:
         """
         Call the appropriate LLM API based on provider.
-        
+
         Args:
             messages: List of message dictionaries with role and content
-            
+
         Returns:
             Response content as string
         """
@@ -385,23 +385,21 @@ class DocumentClassifierOperator(AbstractOperator):
     def _build_classification_prompt(self, content: str) -> str:
         """
         Build the classification prompt for the LLM.
-        
+
         Args:
             content: Document content to classify
-            
+
         Returns:
             Formatted prompt string
         """
         # Build document types description
         if isinstance(self.document_types, dict):
-            types_desc = "\n".join([
-                f"- {name}: {desc}" for name, desc in self.document_types.items()
-            ])
+            types_desc = "\n".join([f"- {name}: {desc}" for name, desc in self.document_types.items()])
         else:
             types_desc = "\n".join([f"- {t}" for t in self.document_types])
 
         # Sanitize and limit content length
-        sanitized_content = content[:self.max_content_length] if content else ""
+        sanitized_content = content[: self.max_content_length] if content else ""
 
         prompt = f"""Classify the following document into one of these types:
 
@@ -427,11 +425,11 @@ Example response:
     def _classify_document(self, *, content: str, doc_name: str | None = None) -> dict[str, Any]:
         """
         Classify a single document using the LLM.
-        
+
         Args:
             content: Document content to classify
             doc_name: Optional document name for logging
-            
+
         Returns:
             Dictionary containing classification results
         """
@@ -440,8 +438,11 @@ Example response:
 
             # Build messages
             messages = [
-                {"role": "system", "content": "You are a document classification expert. Always respond with valid JSON."},
-                {"role": "user", "content": prompt}
+                {
+                    "role": "system",
+                    "content": "You are a document classification expert. Always respond with valid JSON.",
+                },
+                {"role": "user", "content": prompt},
             ]
 
             # Call LLM
@@ -470,7 +471,7 @@ Example response:
                 "document_type": result["document_type"],
                 "confidence": result["confidence"],
                 "reasoning": result.get("reasoning", ""),
-                "is_confident": result["confidence"] >= self.confidence_threshold
+                "is_confident": result["confidence"] >= self.confidence_threshold,
             }
 
         except json.JSONDecodeError as e:
@@ -480,7 +481,7 @@ Example response:
                 OperatorConstants.Extraction.ERROR: f"Invalid JSON response: {e!s}",
                 "document_type": "unknown",
                 "confidence": 0,
-                "reasoning": ""
+                "reasoning": "",
             }
         except Exception as e:
             logger.error(f"Classification failed for {doc_name or 'unknown'}: {e!s}")
@@ -489,17 +490,17 @@ Example response:
                 OperatorConstants.Extraction.ERROR: str(e),
                 "document_type": "unknown",
                 "confidence": 0,
-                "reasoning": ""
+                "reasoning": "",
             }
 
     def transform(self, table: pa.Table, file_name: str = "") -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Classify documents in the input table.
-        
+
         Args:
             table: Input PyArrow table with document content
             file_name: Optional file name (required by AbstractTableTransform signature)
-            
+
         Returns:
             Tuple of (list of output tables, metadata dictionary)
         """
@@ -534,21 +535,23 @@ Example response:
             doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table)
 
             # Choose executor based on configuration
-            ExtractionExecutor = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
+            extraction_executor = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
 
             logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
             # Process documents in parallel
             doc_contents.extend([None] * table.num_rows)
             doc_metadata_list.extend([{}] * table.num_rows)
-            with ExtractionExecutor(max_workers=self.max_workers) as executor:
+            with extraction_executor(max_workers=self.max_workers) as executor:
                 # Submit all tasks
                 future_to_task = {}
                 for task in doc_tasks:
                     if "error" in task:
                         # Skip tasks that had errors during preparation
                         self.record_failed_document(
-                            metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"],
-                            reason=task["error"]
+                            metadata=metadata,
+                            doc_id=str(task["doc_id"]),
+                            doc_name=task["doc_name"],
+                            reason=task["error"],
                         )
                         continue
 
@@ -593,12 +596,12 @@ Example response:
                         )
 
         # Process each document
-        classifications: list = ([None] * table.num_rows)
-        confidences: list = ([0] * table.num_rows)
-        reasonings: list = ([None] * table.num_rows)
+        classifications: list = [None] * table.num_rows
+        confidences: list = [0] * table.num_rows
+        reasonings: list = [None] * table.num_rows
 
-        ClassificationExecutor = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
-        with ClassificationExecutor(max_workers=self.max_workers) as executor:
+        classification_executor = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
+        with classification_executor(max_workers=self.max_workers) as executor:
             # Submit all tasks
             future_to_task = {}
             for idx, content in enumerate(doc_contents):
@@ -616,45 +619,38 @@ Example response:
                 if not content or (isinstance(content, str) and not content.strip()):
                     logger.warning(f"Empty content for document {doc_name}, skipping classification")
                     self.record_skipped_document(
-                        metadata=metadata,
-                        doc_id=str(idx),
-                        doc_name=doc_name,
-                        reason="Empty content"
+                        metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason="Empty content"
                     )
-                    classifications[idx]="unknown"
-                    reasonings[idx]="Empty content"
+                    classifications[idx] = "unknown"
+                    reasonings[idx] = "Empty content"
                     continue
 
-                future = executor.submit(
-                    self._classify_document,
-                    content=content,
-                    doc_name=doc_name
-                )
+                future = executor.submit(self._classify_document, content=content, doc_name=doc_name)
 
-                future_to_task[future] = {"idx": idx, "doc_name":doc_name, "doc_id":doc_id }
+                future_to_task[future] = {"idx": idx, "doc_name": doc_name, "doc_id": doc_id}
 
             # Collect results as they complete
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
-                idx=task["idx"]
+                idx = task["idx"]
 
                 try:
                     result = future.result()
 
                     if result[OperatorConstants.Extraction.SUCCESS]:
-                        classifications[idx]=result["document_type"]
-                        confidences[idx]=result["confidence"]
-                        reasonings[idx]=result.get("reasoning", "")
+                        classifications[idx] = result["document_type"]
+                        confidences[idx] = result["confidence"]
+                        reasonings[idx] = result.get("reasoning", "")
                         metadata[Metrics.External.PROCESSED_DOCS] += 1
                     else:
                         self.record_failed_document(
                             metadata=metadata,
                             doc_id=str(idx),
                             doc_name=doc_name,
-                            reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error")
+                            reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
                         )
-                        classifications[idx]="unknown"
-                        reasonings[idx]=result.get(OperatorConstants.Extraction.ERROR, "")
+                        classifications[idx] = "unknown"
+                        reasonings[idx] = result.get(OperatorConstants.Extraction.ERROR, "")
                         logger.error(
                             f"Failed to classify content from {task['doc_name']}: {result.get(OperatorConstants.Extraction.ERROR)}",
                             extra=self.common_log_arguments,
@@ -664,35 +660,26 @@ Example response:
                     self.record_failed_document(
                         metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
                     )
-                    classifications[idx]="unknown"
-                    reasonings[idx]=str(e)
+                    classifications[idx] = "unknown"
+                    reasonings[idx] = str(e)
                     logger.error(f"Error processing document at index {idx}: {e!s}")
-
 
         # Start with the original table
         output_table = table
 
         # Add DOC_COLUMN_KEY if it was fetched
         if content_was_fetched:
-            output_table = TransformUtils.add_column(
-                output_table, self.doc_column, doc_contents
-            )
+            output_table = TransformUtils.add_column(output_table, self.doc_column, doc_contents)
             logger.info(f"Added '{self.doc_column}' column to table")
 
         # Add classification columns to table
-        output_table = TransformUtils.add_column(
-            output_table, self.output_column, classifications
-        )
+        output_table = TransformUtils.add_column(output_table, self.output_column, classifications)
 
         if self.include_confidence:
-            output_table = TransformUtils.add_column(
-                output_table, f"{self.output_column}_confidence", confidences
-            )
+            output_table = TransformUtils.add_column(output_table, f"{self.output_column}_confidence", confidences)
 
         if self.include_reasoning:
-            output_table = TransformUtils.add_column(
-                output_table, f"{self.output_column}_reasoning", reasonings
-            )
+            output_table = TransformUtils.add_column(output_table, f"{self.output_column}_reasoning", reasonings)
 
         logger.info(
             f"Classification complete: {metadata[Metrics.External.PROCESSED_DOCS]}/{total_docs} documents classified"
@@ -703,7 +690,7 @@ Example response:
     def get_metadata(self) -> dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
-        
+
         Returns:
             dict: Operator metadata including features and attributes
         """

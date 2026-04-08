@@ -12,8 +12,7 @@ import base64
 from pathlib import Path
 from typing import Any
 
-import requests
-
+from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
@@ -26,7 +25,7 @@ def _should_retry_poll(result, exception):
     """
     Retry logic for docling serve status polling.
 
-    Retries on network errors (ConnectionError, Timeout) or when task is still in progress.
+    Retries on DatasiftException with CONNECTION_ERROR or when task is still in progress.
     Does not retry on SUCCESS or FAILURE states.
 
     Args:
@@ -36,9 +35,9 @@ def _should_retry_poll(result, exception):
     Returns:
         Tuple of (should_retry: bool, error_message: str)
     """
-    # Retry on network errors
+    # Retry on network errors (RestClient wraps these as DatasiftException with CONNECTION_ERROR)
     if exception:
-        if isinstance(exception, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+        if isinstance(exception, DatasiftException) and exception.error_code == ErrorCode.CONNECTION_ERROR:
             return True, f"Network error during polling: {exception}"
         # Don't retry on other exceptions (HTTP errors, DatasiftException for FAILURE state, etc.)
         return False, ""
@@ -88,10 +87,14 @@ class DoclingServeClient:
         self.poll_interval = poll_interval
         self.max_retries = max_retries
 
-        # Setup headers
-        self.headers = {"Content-Type": "application/json"}
+        # Initialize RestClient
+        rest_config = RestClientConfig(timeout=self.timeout, max_retries=self.max_retries)
+        self.rest_client = RestClient(config=rest_config, base_url=self.base_url)
+
+        # Setup custom headers for API key
+        self.custom_headers = {}
         if self.api_key:
-            self.headers["X-API-KEY"] = self.api_key
+            self.custom_headers["X-API-KEY"] = self.api_key
 
         logger.info(f"Initialized DoclingServeClient with base_url={self.base_url}")
 
@@ -171,15 +174,15 @@ class DoclingServeClient:
         }
 
         # Submit request
-        url = f"{self.base_url}/v1/convert/file/async"
-        return self._submit_request_json(url, payload)
+        endpoint = "/v1/convert/file/async"
+        return self._submit_request_json(endpoint, payload)
 
-    def _submit_request_json(self, url: str, payload: dict[str, Any]) -> str:
+    def _submit_request_json(self, endpoint: str, payload: dict[str, Any]) -> str:
         """
         Submit HTTP JSON request and extract task ID.
 
         Args:
-            url: API endpoint URL
+            endpoint: API endpoint path
             payload: JSON payload dictionary
 
         Returns:
@@ -188,47 +191,23 @@ class DoclingServeClient:
         Raises:
             DatasiftException: For HTTP or network errors
         """
-        try:
-            response = requests.post(url, json=payload, headers=self.headers, timeout=self.timeout)
-            response.raise_for_status()
+        result = self.rest_client.call_rest_json(
+            method=RestMethod.POST,
+            endpoint=endpoint,
+            json_data=payload,
+            headers=self.custom_headers,
+        )
 
-            result = response.json()
-            task_id = result.get("task_id")
-
-            if not task_id:
-                raise DatasiftException(
-                    message="No task_id in response",
-                    status_code=500,
-                    error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                )
-
-            logger.info(f"Document submitted successfully, task_id={task_id}")
-            return task_id
-
-        except requests.exceptions.Timeout as exc:
+        task_id = result.get("task_id")
+        if not task_id:
             raise DatasiftException(
-                message=f"Request timeout: {exc}",
-                status_code=504,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
-        except requests.exceptions.ConnectionError as exc:
-            raise DatasiftException(
-                message=f"Connection failed: {exc}",
-                status_code=503,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
-        except requests.exceptions.HTTPError as exc:
-            raise DatasiftException(
-                message=f"HTTP error: {exc}",
-                status_code=exc.response.status_code if exc.response else 500,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
-        except Exception as exc:
-            raise DatasiftException(
-                message=f"Unexpected error during submission: {exc}",
+                message="No task_id in response",
                 status_code=500,
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
+            )
+
+        logger.info(f"Document submitted successfully, task_id={task_id}")
+        return task_id
 
     def poll_status(
         self,
@@ -264,8 +243,8 @@ class DoclingServeClient:
         )
         def _poll_once() -> dict[str, Any]:
             """Single polling attempt that checks task status."""
-            url = f"{self.base_url}/v1/status/poll/{task_id}"
-            status = self._check_status(url)
+            endpoint = f"/v1/status/poll/{task_id}"
+            status = self._check_status(endpoint)
             state = status.get("state", "unknown")
 
             if state == "SUCCESS":
@@ -297,12 +276,12 @@ class DoclingServeClient:
             )
         return result
 
-    def _check_status(self, url: str) -> dict[str, Any]:
+    def _check_status(self, endpoint: str) -> dict[str, Any]:
         """
         Check task status via HTTP request.
 
         Args:
-            url: Status endpoint URL
+            endpoint: Status endpoint path
 
         Returns:
             Status response dictionary
@@ -310,17 +289,11 @@ class DoclingServeClient:
         Raises:
             DatasiftException: For HTTP errors
         """
-        try:
-            response = requests.get(url, headers=self.headers, timeout=self.timeout)
-            response.raise_for_status()
-            return response.json()
-
-        except requests.exceptions.HTTPError as exc:
-            raise DatasiftException(
-                message=f"HTTP error checking status: {exc}",
-                status_code=exc.response.status_code if exc.response else 500,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
+        return self.rest_client.call_rest_json(
+            method=RestMethod.GET,
+            endpoint=endpoint,
+            headers=self.custom_headers,
+        )
 
     def get_result(self, task_id: str) -> dict[str, Any]:
         """
@@ -335,41 +308,17 @@ class DoclingServeClient:
         Raises:
             DatasiftException: For HTTP or network errors
         """
-        url = f"{self.base_url}/v1/result/{task_id}"
+        endpoint = f"/v1/result/{task_id}"
         logger.info(f"Retrieving result for task_id={task_id}")
 
-        try:
-            response = requests.get(url, headers=self.headers, timeout=self.timeout)
-            response.raise_for_status()
+        result = self.rest_client.call_rest_json(
+            method=RestMethod.GET,
+            endpoint=endpoint,
+            headers=self.custom_headers,
+        )
 
-            result = response.json()
-            logger.info(f"Result retrieved successfully for task_id={task_id}")
-            return result
-
-        except requests.exceptions.Timeout as exc:
-            raise DatasiftException(
-                message=f"Timeout retrieving result: {exc}",
-                status_code=504,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
-        except requests.exceptions.ConnectionError as exc:
-            raise DatasiftException(
-                message=f"Connection failed retrieving result: {exc}",
-                status_code=503,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
-        except requests.exceptions.HTTPError as exc:
-            raise DatasiftException(
-                message=f"HTTP error retrieving result: {exc}",
-                status_code=exc.response.status_code if exc.response else 500,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
-        except Exception as exc:
-            raise DatasiftException(
-                message=f"Unexpected error retrieving result: {exc}",
-                status_code=500,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            ) from exc
+        logger.info(f"Result retrieved successfully for task_id={task_id}")
+        return result
 
     def process_document(
         self,

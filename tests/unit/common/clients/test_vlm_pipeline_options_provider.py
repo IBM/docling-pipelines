@@ -120,11 +120,11 @@ class TestWatsonxPipelineOptionsProvider:
             "vlm_api_base_url": "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat",
         }
 
-        # Mock the IAM token exchange
-        mock_response = mocker.Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"access_token": "mock_access_token"}
-        mocker.patch("requests.post", return_value=mock_response)
+        # Mock RestClient.call_rest_json to return fake IAM token
+        mocker.patch(
+            "common.clients.vlm_pipeline_options_provider.RestClient.call_rest_json",
+            return_value={"access_token": "fake_token_12345"},
+        )
 
         options = provider.create_pipeline_options(
             preset="granite_docling", config=config

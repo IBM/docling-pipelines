@@ -18,6 +18,7 @@ from langchain_core.documents import Document
 # These imports are necessary for the factory to discover available adapters
 # Note: Google Drive adapter import moved to lazy loading in _get_loader() to avoid
 # requiring google_auth_oauthlib dependency unless actually using Google Drive
+from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -90,6 +91,16 @@ class MicrosoftGraphLoader(BaseLoader):
         self.recursive = recursive
         self._token = None
 
+        # Initialize RestClient with appropriate configuration for Microsoft Graph API
+        rest_config = RestClientConfig(
+            timeout=60,  # Graph API can be slow for large files
+            retry_backoff_factor=2.0,
+        )
+        self._rest_client = RestClient(
+            config=rest_config,
+            base_url=MICROSOFT_GRAPH_API_BASE,
+        )
+
     def _get_token(self) -> str:
         """Acquire an app-only access token via MSAL client credentials flow."""
         if self._token:
@@ -113,68 +124,92 @@ class MicrosoftGraphLoader(BaseLoader):
 
     def _list_files(self, folder_item_id: str | None = None) -> list[dict]:
         """Recursively list all files in the drive (or a specific folder)."""
-        import requests
-
         token = self._get_token()
         headers = {"Authorization": f"Bearer {token}"}
 
         if folder_item_id:
-            url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/items/{folder_item_id}/children"
+            endpoint = f"/drives/{self.drive_id}/items/{folder_item_id}/children"
         else:
-            url = f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/root/children"
+            endpoint = f"/drives/{self.drive_id}/root/children"
 
         files = []
-        while url:
-            r = requests.get(url, headers=headers)
-            r.raise_for_status()
-            data = r.json()
+        while endpoint:
+            # Use RestClient for API call
+            data = self._rest_client.call_rest_json(
+                method=RestMethod.GET,
+                endpoint=endpoint,
+                headers=headers,
+            )
+
             for item in data.get("value", []):
                 if "folder" in item:
                     if self.recursive:
                         files.extend(self._list_files(folder_item_id=item["id"]))
                 else:
                     files.append(item)
-            url = data.get("@odata.nextLink")
+
+            # Handle pagination - extract endpoint from nextLink
+            next_link = data.get("@odata.nextLink")
+            if next_link:
+                # Extract the path after the base URL
+                endpoint = next_link.replace(MICROSOFT_GRAPH_API_BASE, "")
+            else:
+                endpoint = None
+
         return files
 
     def _download_file(self, item: dict) -> bytes:
         """Download file content from Graph API."""
-        import requests
-
         token = self._get_token()
         headers = {"Authorization": f"Bearer {token}"}
         download_url = item.get("@microsoft.graph.downloadUrl")
+
         if not download_url:
             # Fallback: get download URL via API
-            r = requests.get(
-                f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/items/{item['id']}/content",
+            endpoint = f"/drives/{self.drive_id}/items/{item['id']}/content"
+            response = self._rest_client.call_rest(
+                method=RestMethod.GET,
+                endpoint=endpoint,
                 headers=headers,
-                allow_redirects=True,
+                expected_status_codes=[200, 302],  # 302 for redirects
             )
-            r.raise_for_status()
-            return r.content
-        r = requests.get(download_url)
-        r.raise_for_status()
-        return r.content
+            return response.content
+
+        # For direct download URLs, create a temporary RestClient without base_url
+        # since download URLs are complete URLs
+        temp_config = RestClientConfig(
+            timeout=120,  # Longer timeout for file downloads
+            max_retries=3,
+            retry_backoff_factor=2.0,
+            verify_ssl=True,
+        )
+        temp_client = RestClient(config=temp_config)
+        response = temp_client.call_rest(
+            method=RestMethod.GET,
+            endpoint=download_url,
+        )
+        return response.content
 
     def lazy_load(self) -> Iterator[Document]:
         """Lazily load documents from the Microsoft Graph API drive."""
         # Resolve folder path to an item ID if specified
         folder_item_id = None
         if self.folder_path:
-            import requests
-
             token = self._get_token()
             headers = {"Authorization": f"Bearer {token}"}
             # Normalize path
             path = self.folder_path.strip("/")
-            r = requests.get(f"{MICROSOFT_GRAPH_API_BASE}/drives/{self.drive_id}/root:/{path}", headers=headers)
-            if r.status_code == 200:
-                folder_item_id = r.json().get("id")
-            else:
-                raise ValueError(
-                    f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {r.status_code} {r.text}"
+            endpoint = f"/drives/{self.drive_id}/root:/{path}"
+
+            try:
+                data = self._rest_client.call_rest_json(
+                    method=RestMethod.GET,
+                    endpoint=endpoint,
+                    headers=headers,
                 )
+                folder_item_id = data.get("id")
+            except Exception as e:
+                raise ValueError(f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {e!s}") from e
 
         files = self._list_files(folder_item_id=folder_item_id)
         for item in files:
@@ -199,6 +234,7 @@ class MicrosoftGraphLoader(BaseLoader):
                 yield doc
             except Exception as e:
                 import logging
+
                 logger = logging.getLogger(__name__)
                 logger.error(f"Failed to download file {item.get('name', '')}: {e!s}", exc_info=True)
                 yield Document(
@@ -737,8 +773,7 @@ class IngestSourceOperator(AbstractOperator):
 
         except Exception as err:
             logger.warning(
-                f"Could not download binary from S3/COS for {source}: {err}. "
-                "Falling back to page_content text.",
+                f"Could not download binary from S3/COS for {source}: {err}. Falling back to page_content text.",
                 extra=self.common_log_arguments,
             )
             return None
