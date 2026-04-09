@@ -6,7 +6,7 @@ The orchestrator mode is a strategic workflow coordinator designed to handle com
 ## Repository Context
 The datasift-opensource project is a modular, operator-based data processing framework designed for building flexible data pipelines. Key architectural characteristics:
 
-- **Operator-Based Architecture**: 17+ specialized operators organized into 9 categories (ingest, extract, chunk, embed, vectordb, filter, branching, utility, and language processing)
+- **Operator-Based Architecture**: 20+ specialized operators organized into 5 categories (Extract, Ingest, Functional, Quality, VectorDB)
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
 - **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator nodes
 - **Prefect Orchestration**: The orchestrator layer uses Prefect for managing workflow execution, parallel processing, and task dependencies
@@ -22,11 +22,17 @@ Strategic workflow coordinator that breaks down complex tasks and delegates to s
 - **Progress tracking and result synthesis**: Monitors subtask completion and combines results into cohesive outcomes
 - **Mode selection and task routing**: Intelligently selects the most appropriate mode for each subtask based on requirements
 - **Understanding JSON flow definitions**: Interprets DAG-structured flow configurations with operator nodes and dependencies
-- **Knowledge of 17+ available operators**: Familiar with ingest, extract, chunk, embed, vectordb, filter, branching, and utility operators
+- **Knowledge of 20+ available operators**: Familiar with Extract, Ingest, Functional, Quality, and VectorDB operators
 - **Flow validation and operator configuration**: Ensures proper operator parameters and data flow connections
 - **Integration awareness**: Understands requirements for Ollama, Docling, and OpenSearch integrations
 
 ## Available Operators
+
+Operators are organized by category as defined in the `OperatorCategory` enum:
+
+### Extract Operators
+- **ExtractDocling**: Extracts structured content from documents using Docling (PDFs, DOCX, etc.)
+- **ExtractEntitiesOllama**: Performs LLM-based entity extraction using Ollama models
 
 ### Ingest Operators
 - **IngestLocalFolder**: Reads files from local filesystem directories
@@ -34,29 +40,24 @@ Strategic workflow coordinator that breaks down complex tasks and delegates to s
 - **IngestCSV**: Processes CSV files into PyArrow tables
 - **IngestSource**: Multi-provider ingest supporting various data sources
 
-### Extract Operators
-- **ExtractDocling**: Extracts structured content from documents using Docling (PDFs, DOCX, etc.)
-- **ExtractEntitiesOllama**: Performs LLM-based entity extraction using Ollama models
-
-### Chunking Operators
-- **DoclingChunker**: Chunks documents using Docling's hierarchical chunking strategy
-- **SemanticChunker**: Creates semantically meaningful chunks based on content structure
-
-### Embeddings Operator
+### Functional Operators
+- **BranchingOperator**: Enables conditional workflow branching based on data characteristics
+- **Chunker**: Document chunking with multiple strategies (Simple, Semantic, Hybrid/Docling)
+- **DocIdHash**: Generates unique document identifiers using hash functions (internal operator)
+- **NoopOperator**: Pass-through operator for testing and debugging
 - **EmbeddingsOperator**: Generates vector embeddings using Ollama or Sentence Transformers models
 
-### Vector Database Operator
-- **OpenSearchOperator**: Stores and retrieves vectors in OpenSearch with support for multiple KNN engines (NMSLIB, Faiss, Lucene)
-
-### Utility Operators
-- **BranchingOperator**: Enables conditional workflow branching based on data characteristics
+### Quality Operators
+- **DocumentClassifier**: Classifies documents into predefined categories
+- **Dedup**: Deduplication of documents based on content similarity
+- **MLEnrichment**: ML-based document enrichment and feature extraction
+- **Readability**: Assesses document readability scores
+- **Redaction**: PII detection and redaction
 - **SQLFilter**: Filters PyArrow tables using SQL-like expressions
-- **DocIdHash**: Generates unique document identifiers using hash functions
-- **NoopOperator**: Pass-through operator for testing and debugging
+- **LanguageDetection**: Detects document language using FastText models
 
-### Language Processing Operators
-- **LanguageIdentification**: Detects document language
-- **ReadabilityOperator**: Assesses document readability scores
+### VectorDB Operators
+- **OpenSearchOperator**: Stores and retrieves vectors in OpenSearch with support for multiple KNN engines (NMSLIB, Faiss, Lucene)
 
 ## Common Workflow Patterns
 
@@ -64,13 +65,19 @@ Strategic workflow coordinator that breaks down complex tasks and delegates to s
 ```
 Ingest → Extract → Chunk → Embed → Store
 ```
-Example: `IngestLocalFolder → ExtractDocling → DoclingChunker → EmbeddingsOperator → OpenSearchOperator`
+Example: `IngestLocalFolder → ExtractDocling → Chunker → EmbeddingsOperator → OpenSearchOperator`
 
 ### Entity Extraction Workflow
 ```
 Ingest → Extract → ExtractEntitiesOllama
 ```
 Example: `IngestLocalFolder → ExtractDocling → ExtractEntitiesOllama` (extracts structured entities from documents)
+
+### Quality-Enhanced Pipeline
+```
+Ingest → Extract → Quality Checks → Chunk → Embed
+```
+Example: `IngestLocalFolder → ExtractDocling → LanguageDetection → Readability → Chunker → EmbeddingsOperator`
 
 ### Vector Search Pipeline
 ```
@@ -96,9 +103,10 @@ Example: Conditional processing based on document type, language, or custom crit
 - **Mode Selection Criteria**:
   - **Code mode**: For file editing, code changes, and direct implementation
     - Creating or modifying flow JSON files
-    - Implementing new operators or modifying existing ones
+    - Implementing new operators or modifying existing ones in `core/operators/`
     - Running test cases and executing datasift-orchestrator commands
     - File system operations and code refactoring
+    - Working with operator categories: Extract, Ingest, Functional, Quality, VectorDB
   - **Ask mode**: For explaining concepts and providing guidance
     - Explaining operator configurations and parameters
     - Describing flow patterns and best practices
