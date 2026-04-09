@@ -21,7 +21,7 @@ PREFECT_DEBUG = "PREFECT_DEBUG"
 def set_prefect_env_variables() -> None:
     """
     Configure Prefect environment variables for optimal operation.
-    
+
     Sets up Prefect to use in-memory SQLite database and disables telemetry
     unless PREFECT_DEBUG is set.
     """
@@ -40,7 +40,7 @@ def set_prefect_env_variables() -> None:
 def clean_up_prefect_home() -> None:
     """
     Clean up temporary Prefect home directory.
-    
+
     Removes the temporary directory created for Prefect unless PREFECT_DEBUG is set.
     """
     prefect_home = os.getenv(PREFECT_HOME)

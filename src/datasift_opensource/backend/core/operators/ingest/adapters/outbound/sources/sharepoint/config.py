@@ -24,9 +24,7 @@ class SharePointSourceConfig(BaseModel):
     tenant_id: str = Field(..., description="Azure AD tenant (directory) ID")
 
     # SharePoint configuration
-    document_library_id: str = Field(
-        ..., description="SharePoint document library ID (drive ID in Microsoft Graph)"
-    )
+    document_library_id: str = Field(..., description="SharePoint document library ID (drive ID in Microsoft Graph)")
 
     folder_path: str | None = Field(
         None, description="Folder path to ingest from (e.g., '/Shared Documents/Reports'). If None, starts from root"
@@ -47,9 +45,7 @@ class SharePointSourceConfig(BaseModel):
     max_file_size_mb: int | None = Field(None, description="Maximum file size in MB to process. None means no limit.")
 
     # Microsoft Graph API configuration
-    graph_api_version: str = Field(
-        "v1.0", description="Microsoft Graph API version to use (v1.0 or beta)"
-    )
+    graph_api_version: str = Field("v1.0", description="Microsoft Graph API version to use (v1.0 or beta)")
 
     @field_validator("client_id", "client_secret", "tenant_id", "document_library_id")
     @classmethod
@@ -97,7 +93,7 @@ class SharePointSourceConfig(BaseModel):
         json_schema_extra: ClassVar[dict] = {
             "example": {
                 "client_id": "12345678-1234-1234-1234-123456789012",
-                "client_secret": "your-client-secret",
+                "client_secret": "your-client-secret",  # pragma: allowlist secret
                 "tenant_id": "87654321-4321-4321-4321-210987654321",
                 "document_library_id": "b!abc123...",
                 "folder_path": "/Shared Documents",

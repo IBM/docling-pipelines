@@ -12,12 +12,12 @@ DEFAULT_DATA_ROOT_FOLDER = "./data"
 
 def get_data_path(*, sub_dir: str = "") -> str:
     """
-    Returns path from the root data directory with the given subdirectory. 
+    Returns path from the root data directory with the given subdirectory.
     It creates the directories, if does not exist.
-    
+
     Args:
         sub_dir: Subdirectory path to append to data root
-        
+
     Returns:
         Full path to the data directory
     """
@@ -29,7 +29,7 @@ def get_data_path(*, sub_dir: str = "") -> str:
 def delete_folders(*, paths_list):
     """
     Delete folders and log their contents before deletion.
-    
+
     Args:
         paths_list: List of folder paths to delete
     """

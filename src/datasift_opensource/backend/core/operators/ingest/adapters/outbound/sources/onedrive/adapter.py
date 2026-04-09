@@ -2,7 +2,9 @@
 
 import os
 from datetime import datetime
-from typing import AsyncGenerator
+from typing import AsyncGenerator, cast
+
+from pydantic import BaseModel
 
 from core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
     register_source_adapter,
@@ -49,7 +51,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from OneDrive using Microsoft Graph API"
     SOURCE_VERSION = "1.0.0"
 
-    async def fetch_documents(self, config: OneDriveSourceConfig) -> AsyncGenerator[Document, None]:
+    async def fetch_documents(self, config: BaseModel) -> AsyncGenerator[Document, None]:
         """
         Fetch documents from OneDrive using Microsoft Graph API.
 
@@ -63,6 +65,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             ImportError: If required dependencies (msal, requests) are not installed
             ValueError: If authentication fails or folder not found
         """
+        config = cast(OneDriveSourceConfig, config)
         try:
             # Create MicrosoftGraphLoader with configuration
             loader = MicrosoftGraphLoader(
@@ -109,9 +112,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                 if metadata.get("modified_time"):
                     try:
                         # Microsoft Graph returns ISO 8601 format
-                        modified_time = datetime.fromisoformat(
-                            metadata["modified_time"].replace("Z", "+00:00")
-                        )
+                        modified_time = datetime.fromisoformat(metadata["modified_time"].replace("Z", "+00:00"))
                     except (ValueError, AttributeError):
                         pass
 
@@ -138,13 +139,12 @@ class OneDriveSourceAdapter(DocumentSourcePort):
 
         except ImportError as e:
             raise ImportError(
-                "Microsoft Graph dependencies not installed. "
-                "Install with: pip install msal requests"
+                "Microsoft Graph dependencies not installed. Install with: pip install msal requests"
             ) from e
         except Exception as e:
             raise ValueError(f"Failed to fetch documents from OneDrive: {e!s}") from e
 
-    async def test_connection(self, config: OneDriveSourceConfig) -> tuple[bool, str]:
+    async def test_connection(self, config: BaseModel) -> tuple[bool, str]:
         """
         Test OneDrive connection using Microsoft Graph API.
 
@@ -154,6 +154,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         Returns:
             Tuple[bool, str]: (success, message)
         """
+        config = cast(OneDriveSourceConfig, config)
         try:
             # Create loader to test authentication
             loader = MicrosoftGraphLoader(
@@ -183,12 +184,12 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         except Exception as e:
             return False, f"Connection test failed: {e!s}"
 
-    def get_config_schema(self) -> type[OneDriveSourceConfig]:
+    def get_config_schema(self) -> type[BaseModel]:
         """
         Get the configuration schema for this adapter.
 
         Returns:
-            type[OneDriveSourceConfig]: The Pydantic configuration model
+            type[BaseModel]: The Pydantic configuration model
         """
         return OneDriveSourceConfig
 
@@ -197,7 +198,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
-    ) -> OneDriveSourceConfig:
+    ) -> BaseModel:
         """
         Build OneDrive configuration from operator parameters.
 

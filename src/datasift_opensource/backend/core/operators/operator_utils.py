@@ -271,7 +271,7 @@ class OperatorUtils:
         tables: pa.Table | list[pa.Table] | dict[str, pa.Table] | None,
         id_col=OperatorConstants.Misc.ID,
     ):
-        
+
         if not tables:  # empty list
             return []
 
@@ -280,7 +280,6 @@ class OperatorUtils:
             tables = [tables]
         elif isinstance(tables, dict):
             tables = list(tables.values())
-
 
         seen = set()
         unique_ids = []
@@ -366,7 +365,7 @@ class OperatorUtils:
 
     @staticmethod
     def find_doc_count_from_tables(*, tables: list[pa.Table]) -> int:
-        doc_names = set()
+        doc_names: set[str] = set()
         for table in tables:
             if table.num_rows > 0:
                 doc_names.update(table[OperatorConstants.Columns.NAME].unique())

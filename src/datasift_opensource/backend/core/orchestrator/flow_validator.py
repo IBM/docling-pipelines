@@ -208,7 +208,7 @@ class FlowValidator:
         Returns:
             Dictionary mapping node IDs to lists of connected node IDs
         """
-        graph = {n["id"]: [] for n in dag}
+        graph: dict[str, list[str]] = {n["id"]: [] for n in dag}
         for node in dag:
             for edge in node.get(DatasiftConstants.OUTPUT_EDGES, []):
                 graph[node["id"]].append(edge["node_id_ref"])
@@ -223,7 +223,7 @@ class FlowValidator:
         Returns:
             Undirected graph dictionary
         """
-        undirected = {n: set() for n in graph}
+        undirected: dict[str, set[str]] = {n: set() for n in graph}
         for src, outs in graph.items():
             for dst in outs:
                 undirected[src].add(dst)
@@ -364,7 +364,7 @@ class FlowValidator:
         try:
             operator = self.orchestrator.create_executor(op_def=op_def, global_config=global_config).get_operator()
         except DatasiftException:
-            errors = []
+            errors: list[ValidationAlert] = []
             add_validation_alert(
                 ValidationMessage(
                     message=ValidationCodeMessages.GET_OPERATOR_FAILED.value,
@@ -454,7 +454,8 @@ class FlowValidator:
         all_features = list(available_features.union(new_features))
         validate_results.available_features[node_id] = all_features
 
-        error_messages, warning_messages = [], []
+        error_messages: list[ValidationMessage] = []
+        warning_messages: list[ValidationMessage] = []
 
         if not output_refs:
             # If the operator does not have any output refs and it is not VectorDB operator, then add a warning

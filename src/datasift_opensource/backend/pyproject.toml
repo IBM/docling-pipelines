@@ -176,7 +176,52 @@ namespace_packages = true
 explicit_package_bases = true
 # Treat the backend directory as the source root
 files = ["."]
+# Disable import-untyped errors for third-party libraries without type stubs
+disable_error_code = ["import-untyped"]
+
+[[tool.mypy.overrides]]
+module = [
+    "pyarrow",
+    "pyarrow.*",
+    "data_processing",
+    "data_processing.*",
+    "nltk",
+    "nltk.*",
+    "fasttext",
+    "fasttext.*",
+    "langdetect",
+    "langdetect.*",
+    "dpk_enrichment",
+    "dpk_enrichment.*",
+    "dpk_doc_quality",
+    "dpk_doc_quality.*",
+    "dpk_readability",
+    "dpk_readability.*",
+    "dpk_ededup",
+    "dpk_ededup.*",
+    "dpk_doc_id",
+    "dpk_doc_id.*",
+    "msal",
+    "msal.*",
+    "psutil",
+    "psutil.*",
+    "cachetools",
+    "cachetools.*",
+    "langchain_google_community",
+    "langchain_google_community.*",
+    "google_auth_oauthlib",
+    "google_auth_oauthlib.*"
+]
+ignore_missing_imports = true
+follow_imports = "silent"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "types-boto3>=1.42.86",
+    "types-python-dateutil>=2.9.0.20260408",
+    "types-requests>=2.33.0.20260408",
+]

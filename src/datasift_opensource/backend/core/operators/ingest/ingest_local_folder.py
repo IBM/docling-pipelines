@@ -430,5 +430,3 @@ class IngestLocalOperator(AbstractOperator):
                 },
             },
         }
-
-

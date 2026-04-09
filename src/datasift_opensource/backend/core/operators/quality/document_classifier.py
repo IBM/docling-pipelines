@@ -521,7 +521,7 @@ Example response:
         content_was_fetched = False
         # Process documents in parallel
         doc_contents = []
-        doc_metadata_list = []
+        doc_metadata_list: list[dict[str, Any]] = []
 
         if doc_column_exists:
             # Use existing content column

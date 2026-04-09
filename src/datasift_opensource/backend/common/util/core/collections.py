@@ -7,11 +7,11 @@ from typing import Any
 def batch_list(*, input_list: list, batch_size=20):
     """
     Split a list into batches of specified size.
-    
+
     Args:
         input_list: The list to split into batches
         batch_size: Size of each batch (default: 20)
-        
+
     Returns:
         List of batches, where each batch is a list
     """
@@ -86,10 +86,10 @@ def get_index(*, items: list, key) -> int:
 def lowercase_keys(*, input_dict: dict[str, Any]):
     """
     Convert all keys in a dictionary to lowercase.
-    
+
     Args:
         input_dict: Dictionary with string keys
-        
+
     Returns:
         New dictionary with all keys converted to lowercase
     """
@@ -99,11 +99,11 @@ def lowercase_keys(*, input_dict: dict[str, Any]):
 def get_list_from_map(obj: dict[str, Any], key: str) -> list[dict[str, Any]]:
     """
     Extract a list of dictionaries from a dictionary.
-    
+
     Args:
         obj: Source dictionary
         key: Key to extract from
-        
+
     Returns:
         List of dictionaries, or empty list if key doesn't exist or value is not a list of dicts
     """
@@ -116,15 +116,16 @@ def get_list_from_map(obj: dict[str, Any], key: str) -> list[dict[str, Any]]:
 def get_map_from_map(obj: dict[str, Any], key: str) -> dict[str, Any]:
     """
     Extract a dictionary from a dictionary.
-    
+
     Args:
         obj: Source dictionary
         key: Key to extract from
-        
+
     Returns:
         Dictionary value, or empty dict if key doesn't exist or value is not a dict
     """
     val = obj.get(key)
     return val if isinstance(val, dict) else {}
+
 
 # Made with Bob

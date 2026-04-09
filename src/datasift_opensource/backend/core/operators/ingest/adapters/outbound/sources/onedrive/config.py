@@ -24,9 +24,7 @@ class OneDriveSourceConfig(BaseModel):
     tenant_id: str = Field(..., description="Azure AD tenant (directory) ID")
 
     # OneDrive configuration
-    drive_id: str | None = Field(
-        None, description="Specific OneDrive drive ID. If None, uses user's default drive"
-    )
+    drive_id: str | None = Field(None, description="Specific OneDrive drive ID. If None, uses user's default drive")
 
     folder_path: str | None = Field(
         None, description="Folder path to ingest from (e.g., '/Documents/Reports'). If None, starts from root"
@@ -47,9 +45,7 @@ class OneDriveSourceConfig(BaseModel):
     max_file_size_mb: int | None = Field(None, description="Maximum file size in MB to process. None means no limit.")
 
     # Microsoft Graph API configuration
-    graph_api_version: str = Field(
-        "v1.0", description="Microsoft Graph API version to use (v1.0 or beta)"
-    )
+    graph_api_version: str = Field("v1.0", description="Microsoft Graph API version to use (v1.0 or beta)")
 
     @field_validator("client_id", "client_secret", "tenant_id")
     @classmethod
@@ -97,7 +93,7 @@ class OneDriveSourceConfig(BaseModel):
         json_schema_extra: ClassVar[dict] = {
             "example": {
                 "client_id": "your-client-id",
-                "client_secret": "your-client-secret",
+                "client_secret": "your-client-secret",  # pragma: allowlist secret
                 "tenant_id": "your-tenant-id",
                 "drive_id": None,
                 "folder_path": "/Documents",

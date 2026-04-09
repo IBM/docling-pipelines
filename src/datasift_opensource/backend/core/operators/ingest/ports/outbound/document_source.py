@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from core.operators.ingest.domain.models import Document
 
 
-class DocumentSourcePort(ABC):
+class DocumentSourcePort[SourceConfig: BaseModel](ABC):
     """
     Outbound port for document sources.
 
@@ -28,7 +28,7 @@ class DocumentSourcePort(ABC):
     SOURCE_VERSION: str = "1.0.0"  # Semantic version
 
     @abstractmethod
-    async def fetch_documents(self, config: BaseModel) -> AsyncGenerator[Document, None]:
+    async def fetch_documents(self, config: SourceConfig) -> AsyncGenerator[Document, None]:
         """
         Fetch documents from the source.
 
@@ -46,7 +46,7 @@ class DocumentSourcePort(ABC):
         pass
 
     @abstractmethod
-    async def test_connection(self, config: BaseModel) -> tuple[bool, str]:
+    async def test_connection(self, config: SourceConfig) -> tuple[bool, str]:
         """
         Test connection to the document source.
 
@@ -76,7 +76,7 @@ class DocumentSourcePort(ABC):
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
-    ) -> BaseModel:
+    ) -> SourceConfig:
         """
         Build adapter-specific configuration from operator parameters.
 

@@ -78,33 +78,33 @@ class OpenSearchClient:
             raise DatasiftException(
                 message="opensearch_host is required",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
         if not isinstance(self.host, str) or not self.host.strip():
             raise DatasiftException(
                 message="opensearch_host must be a non-empty string",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
         if not isinstance(self.port, int):
             raise DatasiftException(
                 message="opensearch_port must be an integer",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
         if self.port < 1 or self.port > 65535:
             raise DatasiftException(
                 message="opensearch_port must be between 1 and 65535",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
         if self.aws_auth and not self.aws_region:
             raise DatasiftException(
                 message="aws_region is required when aws_auth is enabled",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
     def connect(self) -> OpenSearch:
@@ -125,7 +125,7 @@ class OpenSearchClient:
                 "use_ssl": self.use_ssl,
                 "verify_certs": self.verify_certs,
                 "connection_class": RequestsHttpConnection,
-                "timeout": self.timeout
+                "timeout": self.timeout,
             }
 
             # Add authentication
@@ -144,7 +144,7 @@ class OpenSearchClient:
             raise DatasiftException(
                 message=f"Failed to connect to OpenSearch at {self.host}:{self.port}: {exc}",
                 status_code=503,
-                error_code=ErrorCode.OPENSEARCH_CONNECTION_FAILED
+                error_code=ErrorCode.OPENSEARCH_CONNECTION_FAILED,
             ) from exc
 
     def get_client(self) -> OpenSearch:

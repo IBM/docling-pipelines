@@ -176,7 +176,7 @@ class AbstractOperatorExecutor:
             logger.warning(f"No job stats found for job_run_id: {job_run_id}. Cannot update final node stats.")
             return
 
-        existing_node = job_stats.node_stats.get(node_id, {})
+        existing_node: NodeStatsDto | dict[str, Any] = job_stats.node_stats.get(node_id, {})
 
         # Extract node stats based on type
         if isinstance(existing_node, NodeStatsDto):

@@ -150,7 +150,7 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
 def get_parquet_table_handler() -> BaseParquetTableHandler:
     """
     Get the default Parquet table handler implementation.
-    
+
     Returns:
         BaseParquetTableHandler: An instance of CpdParquetTableHandler
     """

@@ -330,7 +330,7 @@ class IncrementalUpdateUtil:
         Returns:
             set: A set of soft-deleted document IDs.
         """
-        soft_deleted_ids = set()
+        soft_deleted_ids: set[str] = set()
 
         if table is None or table.num_rows == 0:
             return soft_deleted_ids

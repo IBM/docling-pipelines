@@ -13,10 +13,10 @@ from common.util.infrastructure.logging import get_logger
 def combine_cumulative_deleted_rows(deleted_rows: Queue[pa.Table]) -> pa.Table:
     """
     Combine and align cumulative deleted rows from multiple steps.
-    
+
     Args:
         deleted_rows: Queue containing PyArrow tables of deleted rows
-        
+
     Returns:
         Combined PyArrow table with aligned schema
     """

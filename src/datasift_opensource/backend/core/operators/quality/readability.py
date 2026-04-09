@@ -198,5 +198,3 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
             warnings.append("At least one readability score must be selected")
         elif not set(self.score_list).issubset(set(DEFAULT_READABILITY_SCORES)):
             warnings.append("Invalid readability scores provided.")
-
-

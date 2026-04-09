@@ -1,5 +1,5 @@
 """Data transformation utilities for PyArrow table operations.
-   This class serves as a compatibility shim between datasift-opensource 
+   This class serves as a compatibility shim between datasift-opensource
    and the external data-prep-toolkit-transforms library. It:
 
 Primary mode: Imports TransformUtils from data_processing.utils (the external toolkit)

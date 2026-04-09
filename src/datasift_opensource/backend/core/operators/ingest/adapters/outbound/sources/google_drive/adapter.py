@@ -3,12 +3,13 @@
 import pickle
 from datetime import datetime
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import AsyncGenerator, cast
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from langchain_google_community import GoogleDriveLoader
+from pydantic import BaseModel
 
 from core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
@@ -116,7 +117,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
         return creds
 
-    async def fetch_documents(self, config: GoogleDriveSourceConfig) -> AsyncGenerator[Document, None]:
+    async def fetch_documents(self, config: BaseModel) -> AsyncGenerator[Document, None]:
         """
         Fetch documents from Google Drive using LangChain loader.
 
@@ -130,6 +131,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             ImportError: If langchain_google_community is not installed
             ValueError: If credentials are invalid or folder not found
         """
+        config = cast(GoogleDriveSourceConfig, config)
         try:
             # Get OAuth2 credentials
             creds = self._get_credentials(config)
@@ -213,7 +215,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         except Exception as e:
             raise ValueError(f"Failed to fetch documents from Google Drive: {e!s}") from e
 
-    async def test_connection(self, config: GoogleDriveSourceConfig) -> tuple[bool, str]:
+    async def test_connection(self, config: BaseModel) -> tuple[bool, str]:
         """
         Test Google Drive connection using LangChain loader.
 
@@ -223,6 +225,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         Returns:
             Tuple[bool, str]: (success, message)
         """
+        config = cast(GoogleDriveSourceConfig, config)
         try:
             # Get OAuth2 credentials
             creds = self._get_credentials(config)
@@ -245,12 +248,12 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         except Exception as e:
             return False, f"Connection test failed: {e!s}"
 
-    def get_config_schema(self) -> type[GoogleDriveSourceConfig]:
+    def get_config_schema(self) -> type[BaseModel]:
         """
         Get the configuration schema for this adapter.
 
         Returns:
-            type[GoogleDriveSourceConfig]: The Pydantic configuration model
+            type[BaseModel]: The Pydantic configuration model
         """
         return GoogleDriveSourceConfig
 
@@ -259,7 +262,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
-    ) -> GoogleDriveSourceConfig:
+    ) -> BaseModel:
         """
         Build Google Drive configuration from operator parameters.
 

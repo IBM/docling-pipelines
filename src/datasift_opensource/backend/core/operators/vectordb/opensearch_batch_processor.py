@@ -24,7 +24,7 @@ BULK_DELETE_BATCH_SIZE: int = 500
 class OpenSearchBatchProcessor:
     """
     Manages batch operations for OpenSearch including bulk indexing and deletes.
-    
+
     Responsibilities:
     - Size-aware batch processing
     - Bulk indexing with error tracking
@@ -60,10 +60,10 @@ class OpenSearchBatchProcessor:
     def prepare_document(self, row_data: dict[str, Any]) -> dict[str, Any]:
         """
         Prepare a document for indexing by mapping columns to index fields.
-        
+
         Args:
             row_data: Raw row data from PyArrow table
-            
+
         Returns:
             Prepared document ready for indexing
         """
@@ -101,10 +101,10 @@ class OpenSearchBatchProcessor:
     def calculate_batch_size_bytes(self, documents: list[dict[str, Any]]) -> int:
         """
         Calculate approximate size of documents in bytes.
-        
+
         Args:
             documents: List of documents
-            
+
         Returns:
             Size in bytes
         """
@@ -113,15 +113,13 @@ class OpenSearchBatchProcessor:
         except Exception:
             return 0
 
-    def bulk_index(
-        self, actions: list[dict[str, Any]]
-    ) -> tuple[int, list[dict[str, Any]]]:
+    def bulk_index(self, actions: list[dict[str, Any]]) -> tuple[int, list[dict[str, Any]]]:
         """
         Perform bulk indexing operation.
-        
+
         Args:
             actions: List of bulk actions
-            
+
         Returns:
             Tuple of (success_count, failed_items)
         """
@@ -140,15 +138,13 @@ class OpenSearchBatchProcessor:
             logger.error(f"Bulk indexing failed: {e!s}")
             return 0, actions
 
-    def process_batches(
-        self, all_actions: list[list[dict[str, Any]]]
-    ) -> tuple[int, list[dict[str, Any]]]:
+    def process_batches(self, all_actions: list[list[dict[str, Any]]]) -> tuple[int, list[dict[str, Any]]]:
         """
         Process multiple batches of actions.
-        
+
         Args:
             all_actions: List of batches, where each batch is a list of actions
-            
+
         Returns:
             Tuple of (total_success_count, all_failed_items)
         """
@@ -157,9 +153,7 @@ class OpenSearchBatchProcessor:
 
         for batch_idx, batch in enumerate(all_actions):
             try:
-                logger.info(
-                    f"Processing batch {batch_idx + 1}/{len(all_actions)} with {len(batch)} documents"
-                )
+                logger.info(f"Processing batch {batch_idx + 1}/{len(all_actions)} with {len(batch)} documents")
 
                 success: int
                 failed: list[dict[str, Any]]
@@ -176,15 +170,13 @@ class OpenSearchBatchProcessor:
         logger.info(f"Successfully indexed {success_count} documents in {len(all_actions)} batches")
         return success_count, all_failed
 
-    def create_batches(
-        self, documents: list[tuple[str, dict[str, Any]]]
-    ) -> list[list[dict[str, Any]]]:
+    def create_batches(self, documents: list[tuple[str, dict[str, Any]]]) -> list[list[dict[str, Any]]]:
         """
         Create size-aware batches from documents.
-        
+
         Args:
             documents: List of (doc_id, document) tuples
-            
+
         Returns:
             List of batches, where each batch is a list of actions
         """
@@ -203,8 +195,7 @@ class OpenSearchBatchProcessor:
             # Check batch size
             action_size: int = self.calculate_batch_size_bytes([action])
             if current_batch and (
-                current_batch_size + action_size > max_batch_size_bytes
-                or len(current_batch) >= self.batch_size
+                current_batch_size + action_size > max_batch_size_bytes or len(current_batch) >= self.batch_size
             ):
                 all_actions.append(current_batch)
                 current_batch = []
@@ -219,9 +210,7 @@ class OpenSearchBatchProcessor:
 
         return all_actions
 
-    def query_by_doc_names(
-        self, doc_names: list[str], fields: list[str] | None = None
-    ) -> list[dict[str, Any]]:
+    def query_by_doc_names(self, doc_names: list[str], fields: list[str] | None = None) -> list[dict[str, Any]]:
         """
         Query documents by their names.
 
@@ -277,15 +266,12 @@ class OpenSearchBatchProcessor:
 
                 # Build bulk delete actions
                 actions: list[dict[str, Any]] = [
-                    {"_op_type": "delete", "_index": self.index_name, "_id": doc_id}
-                    for doc_id in batch
+                    {"_op_type": "delete", "_index": self.index_name, "_id": doc_id} for doc_id in batch
                 ]
 
                 success: int
                 failed: list[dict[str, Any]]
-                success, failed = helpers.bulk(
-                    self.client, actions, raise_on_error=False, raise_on_exception=False
-                )
+                success, failed = helpers.bulk(self.client, actions, raise_on_error=False, raise_on_exception=False)
 
                 success_count += success
                 failed_count += len(failed)
@@ -301,7 +287,7 @@ class OpenSearchBatchProcessor:
     def get_document_count(self) -> int:
         """
         Get total document count in the index.
-        
+
         Returns:
             Number of documents in the index
         """

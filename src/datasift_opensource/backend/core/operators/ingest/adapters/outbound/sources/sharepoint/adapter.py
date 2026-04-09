@@ -2,7 +2,9 @@
 
 import os
 from datetime import datetime
-from typing import AsyncGenerator
+from typing import AsyncGenerator, cast
+
+from pydantic import BaseModel
 
 from core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
     register_source_adapter,
@@ -49,7 +51,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from SharePoint using Microsoft Graph API"
     SOURCE_VERSION = "1.0.0"
 
-    async def fetch_documents(self, config: SharePointSourceConfig) -> AsyncGenerator[Document, None]:
+    async def fetch_documents(self, config: BaseModel) -> AsyncGenerator[Document, None]:
         """
         Fetch documents from SharePoint using Microsoft Graph API.
 
@@ -63,6 +65,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
             ImportError: If required dependencies (msal, requests) are not installed
             ValueError: If authentication fails or document library not found
         """
+        config = cast(SharePointSourceConfig, config)
         try:
             # Create MicrosoftGraphLoader with configuration
             # Note: SharePoint uses document_library_id which is the drive_id in Graph API
@@ -110,9 +113,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                 if metadata.get("modified_time"):
                     try:
                         # Microsoft Graph returns ISO 8601 format
-                        modified_time = datetime.fromisoformat(
-                            metadata["modified_time"].replace("Z", "+00:00")
-                        )
+                        modified_time = datetime.fromisoformat(metadata["modified_time"].replace("Z", "+00:00"))
                     except (ValueError, AttributeError):
                         pass
 
@@ -139,13 +140,12 @@ class SharePointSourceAdapter(DocumentSourcePort):
 
         except ImportError as e:
             raise ImportError(
-                "Microsoft Graph dependencies not installed. "
-                "Install with: pip install msal requests"
+                "Microsoft Graph dependencies not installed. Install with: pip install msal requests"
             ) from e
         except Exception as e:
             raise ValueError(f"Failed to fetch documents from SharePoint: {e!s}") from e
 
-    async def test_connection(self, config: SharePointSourceConfig) -> tuple[bool, str]:
+    async def test_connection(self, config: BaseModel) -> tuple[bool, str]:
         """
         Test SharePoint connection using Microsoft Graph API.
 
@@ -155,6 +155,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
         Returns:
             Tuple[bool, str]: (success, message)
         """
+        config = cast(SharePointSourceConfig, config)
         try:
             # Create loader to test authentication
             loader = MicrosoftGraphLoader(
@@ -184,20 +185,21 @@ class SharePointSourceAdapter(DocumentSourcePort):
         except Exception as e:
             return False, f"Connection test failed: {e!s}"
 
-    def get_config_schema(self) -> type[SharePointSourceConfig]:
+    def get_config_schema(self) -> type[BaseModel]:
         """
         Get the configuration schema for this adapter.
 
         Returns:
-            type[SharePointSourceConfig]: The Pydantic configuration model
+            type[BaseModel]: The Pydantic configuration model
         """
         return SharePointSourceConfig
+
     def build_config_from_operator_params(
         self,
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
-    ) -> SharePointSourceConfig:
+    ) -> BaseModel:
         """
         Build SharePoint configuration from operator parameters.
 

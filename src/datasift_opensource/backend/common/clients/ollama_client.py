@@ -469,7 +469,8 @@ class OllamaClient(BaseLLMClient):
                     error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
                 )
 
-            return all_embeddings
+            # Type cast: after None check, we know all elements are list[float]
+            return all_embeddings  # type: ignore[return-value]
 
         except (ConnectionError, TimeoutError) as exc:
             logger.error(f"Connection failed during batch embedding generation: {exc}")
@@ -543,11 +544,13 @@ class OllamaClient(BaseLLMClient):
 
             if system == "Windows":
                 # Windows: Start in background using START command
+                # CREATE_NEW_PROCESS_GROUP is Windows-specific
+                creation_flags = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
                 subprocess.Popen(
                     ["cmd", "/c", "start", "/B", "ollama", "serve"],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                    creationflags=creation_flags,
                 )
             else:
                 # macOS/Linux: Start in background using nohup

@@ -83,7 +83,7 @@ def initialize_table_columns(
     Returns:
         Dictionary of column names to empty lists
     """
-    table_columns = {}
+    table_columns: dict[str, list[Any]] = {}
 
     for field in fields_to_redact:
         metadata[field] = 0
@@ -314,7 +314,7 @@ class GuardRailsPIIAndHAPExtractor:
         redaction_items.sort(key=lambda x: x["start"])
 
         # Merge overlapping detections
-        merged_items = []
+        merged_items: list[dict[str, Any]] = []
         for item in redaction_items:
             if not merged_items:
                 merged_items.append(item)

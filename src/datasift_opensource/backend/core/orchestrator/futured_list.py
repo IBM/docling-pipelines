@@ -1,12 +1,12 @@
-from typing import Any, Self
+from typing import Annotated, Any, Self
 
 from prefect.futures import PrefectFuture
-from pydantic import BaseModel, conint
+from pydantic import BaseModel, Field
 
 
 class _CountedTaskFuture(BaseModel):
     _future: PrefectFuture[Any] | None
-    _count: conint(ge=0)
+    _count: Annotated[int, Field(ge=0)]
 
     def __init__(self, future, count):
         self._future = None  # predeclare attributes

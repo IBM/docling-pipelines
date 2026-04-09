@@ -19,13 +19,15 @@ class AbstractFlowExecutionEventHandler(ABC):
         pass
 
     @abstractmethod
-    def after_step_execution_complete(self, *, node_id, node_name, operator_category, operator, global_config, is_last_step,
-                                      metadata, start_time):
+    def after_step_execution_complete(
+        self, *, node_id, node_name, operator_category, operator, global_config, is_last_step, metadata, start_time
+    ):
         pass
 
     @abstractmethod
-    def after_node_skipped(self, *, node_id, node_name, operator_type, global_config, start_time, end_time,
-                           column_names):
+    def after_node_skipped(
+        self, *, node_id, node_name, operator_type, global_config, start_time, end_time, column_names
+    ):
         pass
 
     @abstractmethod

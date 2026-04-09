@@ -7,6 +7,8 @@ from fnmatch import fnmatch
 from pathlib import Path
 from typing import AsyncGenerator, Generator
 
+from pydantic import BaseModel
+
 from core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from core.operators.ingest.domain.models import Document
 from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
@@ -15,7 +17,7 @@ from .config import FilesystemSourceConfig
 
 
 @register_source_adapter
-class FilesystemSourceAdapter(DocumentSourcePort):
+class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
     """
     Adapter for ingesting documents from local filesystem.
 
@@ -123,7 +125,7 @@ class FilesystemSourceAdapter(DocumentSourcePort):
         except Exception as e:
             return False, f"Connection test failed: {e!s}"
 
-    def get_config_schema(self) -> type[FilesystemSourceConfig]:
+    def get_config_schema(self) -> type[BaseModel]:
         """Get the configuration schema for this adapter."""
         return FilesystemSourceConfig
 

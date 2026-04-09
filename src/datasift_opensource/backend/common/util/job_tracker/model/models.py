@@ -1,6 +1,13 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, Field
 
 from common.constants.constants import ExecutionStatus, OrchestratorType
+
+if TYPE_CHECKING:
+    # Forward references for future database models
+    from typing import Any as JobRunStats
+    from typing import Any as NodeStats
 
 message_pattern = r"^[\x20-\x7E\n\r\t]*$"
 node_status_pattern = r"^[A-Za-z0-9 _\-.]+$"
@@ -105,7 +112,7 @@ class JobStatsDto(BaseModel):
         )
 
     @classmethod
-    def from_model(cls, model: "JobRunStats") -> "JobStatsDto":  # noqa: F821
+    def from_model(cls, model: "JobRunStats") -> "JobStatsDto":
         """
         Create a JobStatsDto instance from a JobRunStats model.
 
@@ -138,7 +145,7 @@ class JobStatsDto(BaseModel):
 
 class NodeStatsDto(BaseModel):
     @classmethod
-    def from_model(cls, model: "NodeStats") -> "NodeStatsDto":  # noqa: F821
+    def from_model(cls, model: "NodeStats") -> "NodeStatsDto":
         new_instance = cls(
             id=model.node_id,
             name=model.name,

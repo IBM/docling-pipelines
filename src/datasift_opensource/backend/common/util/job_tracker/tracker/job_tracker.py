@@ -172,7 +172,7 @@ class JobTracker(metaclass=Singleton):
 
         # Internal mapping of a job_run_id to its active orchestrator instance.
         # This is necessary for operations like cancellation.
-        self.__jobs_to_orchestrator = {}
+        self.__jobs_to_orchestrator: dict[str, Any] = {}
 
     def get_job(self, job_run_id: str | None, use_local_cache: bool = False) -> JobStatsDto | None:
         """
@@ -213,10 +213,12 @@ class JobTracker(metaclass=Singleton):
 
         # If the job is already marked for cancellation, finalize the process.
         if ExecutionStatus(job_stats.status) == ExecutionStatus.CANCELING:
-            self.end_job(job_run_id=job_run_id,
-                         job_log_path=job_log_path,
-                         status=ExecutionStatus.CANCELED,
-                         message="Job run Canceled")
+            self.end_job(
+                job_run_id=job_run_id,
+                job_log_path=job_log_path,
+                status=ExecutionStatus.CANCELED,
+                message="Job run Canceled",
+            )
             logger.info(CANCELLED_MSG, job_run_id)
             return True
         else:
@@ -591,5 +593,3 @@ class JobTracker(metaclass=Singleton):
         for node_id, node_stat in job_stats.node_stats.items():
             if hasattr(node_stat, OperatorConstants.Config.NODE_METADATA):
                 node_stat.node_metadata = None
-
-

@@ -11,7 +11,7 @@ logger = get_logger()
 
 
 class OperatorFactoryProvider:
-    operator_factories = {}
+    operator_factories: dict[str, "OperatorFactory"] = {}
 
     @staticmethod
     def get_operator_factory(*, orchestrator: str, package_names: list = OperatorConstants.Misc.ALL_OPERATORS_PATH):
@@ -58,7 +58,7 @@ class OperatorFactory:
         """
         self.orchestrator = orchestrator
         self.package_names = package_names
-        self.operators = {}
+        self.operators: dict[str, type] = {}
         self._load_classes_from_packages()
 
     def refresh_operators(self):

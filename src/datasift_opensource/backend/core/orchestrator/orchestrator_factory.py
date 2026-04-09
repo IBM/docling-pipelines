@@ -15,7 +15,9 @@ class OrchestratorFactory:
     """
 
     @staticmethod
-    def create_orchestrator(*, orchestrator_name: str = OrchestratorType.PYTHON) -> AbstractOrchestrator:  # pragma: no cover
+    def create_orchestrator(
+        *, orchestrator_name: str = OrchestratorType.PYTHON
+    ) -> AbstractOrchestrator:  # pragma: no cover
         """
         create an instance of the Python orchestrator
         """

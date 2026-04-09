@@ -16,6 +16,7 @@ class OpenSourceFlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
     """
     This class implement the methods that handles events triggered while flow is executed in open source version.
     """
+
     def __init__(self):
         self.job_tracker = JobTracker()
         self.node_logger: NodeLogger | None = None
@@ -53,25 +54,20 @@ class OpenSourceFlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         if prev_results is None:
             if self.node_logger:
                 self.node_logger.log_error_in_previous_step(
-                    node_id=node_id,
-                    node_name=node_name,
-                    global_config=global_config
+                    node_id=node_id, node_name=node_name, global_config=global_config
                 )
         self.node_logger.log_cancellation_or_abort_if_needed(
-                    node_id=node_id,
-                    node_name=node_name,
-                    job_status=job_status,
-                    global_config=global_config
-                )
+            node_id=node_id, node_name=node_name, job_status=job_status, global_config=global_config
+        )
 
-    def after_step_execution_complete(self, *, node_id, node_name, operator_category, operator, global_config, is_last_step, metadata, start_time):
+    def after_step_execution_complete(
+        self, *, node_id, node_name, operator_category, operator, global_config, is_last_step, metadata, start_time
+    ):
         """
         This method is called after a step is executed or skipped
         """
         self.job_tracker.update_doc_counts(
-            job_run_id=self.job_run_id,
-            metadata=metadata,
-            operator_category=operator_category
+            job_run_id=self.job_run_id, metadata=metadata, operator_category=operator_category
         )
         log_elapsed_time(start_time=start_time, operator=operator)
 
@@ -100,7 +96,7 @@ class OpenSourceFlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             "name": node_name,
             "node_status": ExecutionStatus.FAILED.value,
             "error": str(e),
-            "error_code": ErrorCode.OPERATOR_EXECUTION_FAILED.value
+            "error_code": ErrorCode.OPERATOR_EXECUTION_FAILED.value,
         }
         self.job_tracker.update_node_stats(
             job_run_id=self.job_run_id,
@@ -115,10 +111,7 @@ class OpenSourceFlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         # below logger will add failure reason in flow_execute.log
         if self.node_logger:
             self.node_logger.log_node_failure(
-                node_id=node_id,
-                node_name=node_name,
-                error=e,
-                global_config=global_config
+                node_id=node_id, node_name=node_name, error=e, global_config=global_config
             )
 
     def _create_log_folders(self, *, job_id, type_):

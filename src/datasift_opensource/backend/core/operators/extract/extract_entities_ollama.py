@@ -165,7 +165,7 @@ def _build_json_template(schema: dict[str, Any]) -> dict[str, Any]:
     nested_fields = {col_name for col_name, col_type in columns.items() if col_type == "NESTED"}
 
     # Track parent fields that should be lists (when all children share same parent)
-    parent_fields = {}
+    parent_fields: dict[str, list[str]] = {}
     for col_name in col_names:
         if "." in col_name:
             parent = col_name.split(".", 1)[0]

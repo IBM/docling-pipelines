@@ -53,7 +53,7 @@ def create_log_folders(job_id, job_run_id, type):
 def write_job_logs(job_stats, job_log_path):
     """
     Write job statistics to a JSON log file.
-    
+
     Args:
         job_stats: Job statistics object with __dict__ attribute
         job_log_path: Path to write the log file
@@ -65,11 +65,11 @@ def write_job_logs(job_stats, job_log_path):
 def construct_deleted_rows_table_path(*, job_id: str, job_run_id):
     """
     Construct the path for storing deleted rows table.
-    
+
     Args:
         job_id: Job identifier
         job_run_id: Job run identifier
-        
+
     Returns:
         Path to the deleted rows parquet file
     """
@@ -88,7 +88,7 @@ def add_validation_alert(message: str | ValidationMessage, op_def: dict, alerts:
         op_def: Dictionary with operator definition keys: ID, NAME, OPERATOR.
         alerts: List to which the new ValidationAlert will be appended.
         **kwargs: Optional extra parameters to include in the alert.
-        
+
     Returns
     -------
     instance of ValidationAlert model

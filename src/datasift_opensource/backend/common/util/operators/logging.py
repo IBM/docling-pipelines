@@ -2,6 +2,7 @@ import copy
 import datetime
 import json
 import os
+from typing import Any
 
 from common.constants.constants import DatasiftConstants, ExecutionStatus, Metrics
 from common.constants.operator_constants import OperatorConstants
@@ -176,7 +177,7 @@ def get_logs(*, content, job_log_final_path: str | None = None, nodes_metadata_f
     Returns:
         Dict with operator logs, node_sequence, job_stats, and nodes_metadata
     """
-    operator_logs_combined = {"node_sequence": []}
+    operator_logs_combined: dict[str, Any] = {"node_sequence": []}
     # Check if content is a dict with "logs" key (from get_non_branching_logs for Cloud/MCSP)
     if isinstance(content, dict) and "logs" in content:
         return _handle_dict_with_logs_key(content, operator_logs_combined)

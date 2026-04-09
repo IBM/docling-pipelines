@@ -349,7 +349,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
     def get_payload_for_detections(self, doc_contents: Any) -> dict[str, Any]:
         """Build request payload for detection API."""
         contents = doc_contents if isinstance(doc_contents, str) else doc_contents.as_py()
-        payload = {"input": contents, "detectors": {}}
+        payload: dict[str, Any] = {"input": contents, "detectors": {}}
         if OperatorConstants.PIIHAP.PII_FIELD_NAME in self.expected_redactions:
             payload["detectors"][OperatorConstants.PIIHAP.PII_FIELD_NAME] = {"threshold": self.pii_threshold}
         if OperatorConstants.PIIHAP.HAP_FIELD_NAME in self.expected_redactions:
@@ -394,7 +394,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
     def _perform_detections_for_single_document(self, doc_info: dict[str, Any]) -> dict[str, Any]:
         """Perform PII/HAP detection for a single document."""
         try:
-            processed_response = {}
+            processed_response: dict[str, Any] = {}
             doc_content_chunks = split_text_into_chunks(
                 text=doc_info["doc_contents"].as_py(),
                 min_size=self.min_chunk_size,
@@ -476,8 +476,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
             display_pii=self.display_pii,
         )
 
-        remove_row_idx = []
-        remove_row_id = []
+        remove_row_idx: list[int] = []
+        remove_row_id: list[str] = []
         new_doc_content = table[self.doc_column_name].to_pandas().to_list()
         doc_info_list = []
 

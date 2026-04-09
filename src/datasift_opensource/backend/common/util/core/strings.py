@@ -7,12 +7,12 @@ import re
 def split_text_into_chunks(*, text, min_size=3000, max_size=4000):
     """
     Split text into chunks based on paragraph boundaries.
-    
+
     Args:
         text: Text to split
         min_size: Minimum chunk size in characters (default: 3000)
         max_size: Maximum chunk size in characters (default: 4000)
-        
+
     Returns:
         List of text chunks
     """
@@ -105,13 +105,14 @@ def escape_query_value(value: str) -> str:
 def is_null_or_empty(value: str | None) -> bool:
     """
     Mimic Guava Strings.isNullOrEmpty (no trimming).
-    
+
     Args:
         value: String to check
-        
+
     Returns:
         True if value is None or empty string, False otherwise
     """
     return value is None or value == ""
+
 
 # Made with Bob

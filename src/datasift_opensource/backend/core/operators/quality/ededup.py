@@ -119,5 +119,3 @@ class EdedupOperator(AbstractOperator):
                 metadata[Metrics.External.REMOVED_DOCUMENTS] = 0
 
         return output_tables, metadata
-
-

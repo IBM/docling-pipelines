@@ -64,8 +64,9 @@ class FlowExecutor:
 
         try:
             if self.__orchestrator.job_tracker.cancel_job_run_if_cancelling(
-                    job_run_id=self.session_info.job_run_id,
-                    job_log_path=self.__orchestrator.flow_execution_event_handler.job_log_path):
+                job_run_id=self.session_info.job_run_id,
+                job_log_path=self.__orchestrator.flow_execution_event_handler.job_log_path,
+            ):
                 logger.info(
                     ">>> Cancelled the execution: %s",
                     params[DatasiftConstants.JOB_RUN_ID],
@@ -198,9 +199,7 @@ def main():  # pragma: no cover
     job_id = "5df177f6-92bc-4465-826e-f4df207ffb71"
     job_run_id = "5df177f6-92bc-4465-826e-f4df207ffb75"
     orchestrator.flow_execution_event_handler.initialize(
-        job_id=job_id,
-        job_run_id=job_run_id,
-        common_log_arguments=flow.common_log_arguments
+        job_id=job_id, job_run_id=job_run_id, common_log_arguments=flow.common_log_arguments
     )
 
     try:
