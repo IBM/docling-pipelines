@@ -23,7 +23,7 @@ from common.constants.operator_constants import (
 from common.exceptions.datasift_exceptions import (
     ExternalServiceError,
 )
-from core.operators.quality.lang_id import (
+from core.operators.quality.language_detection.lang_id import (
     DEFAULT_LANGUAGE_PROVIDER,
     LanguageDetect,
 )

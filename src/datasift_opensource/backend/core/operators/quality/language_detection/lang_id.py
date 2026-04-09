@@ -5,7 +5,7 @@ import pyarrow as pa
 from data_processing.utils.transform_utils import TransformUtils
 
 # Import adapters to trigger registration
-import core.operators.quality.language_detection.adapters.outbound.langdetect_adapter  # noqa: F401
+import core.operators.quality.language_detection.adapters.outbound  # noqa: F401
 from common.constants import OperatorConstants
 from common.constants.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics
 from common.util.infrastructure.logging import get_logger
@@ -136,6 +136,19 @@ class LanguageDetect(AbstractOperator):
 
     def get_required_features(self) -> list[str]:
         return [self.doc_column_name]
+
+    def cleanup(self) -> None:
+        """Release adapter resources.
+
+        This method is called by the orchestrator to ensure proper cleanup
+        of resources held by the language detection adapter.
+        """
+        if hasattr(self, "language_adapter") and self.language_adapter is not None:
+            self.language_adapter.cleanup()
+            logger.info(
+                f"Released resources for {self.language_provider} adapter",
+                extra=self.common_log_arguments,
+            )
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """

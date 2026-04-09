@@ -40,3 +40,13 @@ class LanguageServicePort(ABC):
             Exception: If language detection fails
         """
         pass
+
+    def cleanup(self) -> None:
+        """Optional cleanup method for adapters that manage resources.
+
+        This method is called by the operator's cleanup() to release any resources
+        held by the adapter (e.g., models, connections). Adapters that don't manage
+        resources can use the default no-op implementation.
+        """
+        # Default no-op implementation - subclasses can override if needed
+        return

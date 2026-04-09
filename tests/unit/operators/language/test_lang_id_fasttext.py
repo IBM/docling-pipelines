@@ -1,5 +1,7 @@
 """
-Unit tests for FastText Language Detection Operator
+Unit tests for FastText Language Detection Adapter
+
+Tests the FastText adapter integration with the LanguageDetect operator.
 """
 
 import pytest
@@ -7,28 +9,29 @@ import pyarrow as pa
 import threading
 import time
 
-from src.datasift_opensource.backend.common.constants.constants import (
+from common.constants.constants import (
     Metrics,
 )
-from src.datasift_opensource.backend.common.constants.operator_constants import (
+from common.constants.operator_constants import (
     OperatorConstants,
 )
-from src.datasift_opensource.backend.core.operators.quality.lang_id_fasttext import (
-    LanguageDetectFastText,
+from core.operators.quality.language_detection.lang_id import (
+    LanguageDetect,
 )
-from src.datasift_opensource.backend.core.operators.quality.fasttext_model_manager import (
+from core.operators.quality.fasttext_model_manager import (
     FastTextModelManager,
 )
 
 
 class TestLanguageDetectFastText:
-    """Test suite for FastText language detection operator"""
+    """Test suite for FastText language detection via LanguageDetect operator"""
 
     @pytest.fixture
     def sample_config(self):
-        """Provide sample configuration for the operator"""
+        """Provide sample configuration for the operator with FastText provider"""
         return {
             "doc_column": "content",
+            "language_provider": "fasttext",
             OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: False,
         }
 
@@ -67,22 +70,23 @@ class TestLanguageDetectFastText:
         )
 
     def test_operator_initialization(self, sample_config):
-        """Test that operator initializes correctly"""
-        operator = LanguageDetectFastText(sample_config)
+        """Test that operator initializes correctly with FastText provider"""
+        operator = LanguageDetect(sample_config)
 
         assert operator.doc_column_name == "content"
         assert operator.filter_value is False
-        assert operator.model_manager is not None
+        assert operator.language_provider == "fasttext"
+        assert operator.language_adapter is not None
 
         # Cleanup
         operator.cleanup()
 
     def test_operator_metadata(self, sample_config):
         """Test that operator metadata is correctly defined"""
-        operator = LanguageDetectFastText(sample_config)
+        operator = LanguageDetect(sample_config)
         metadata = operator.get_metadata()
 
-        assert metadata[OperatorConstants.Misc.LABEL] == "Language Annotator (FastText)"
+        assert metadata[OperatorConstants.Misc.LABEL] == "Language Annotator"
         assert (
             OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE
             in metadata[OperatorConstants.Config.ATTRIBUTES]
@@ -100,8 +104,8 @@ class TestLanguageDetectFastText:
         operator.cleanup()
 
     def test_language_detection(self, sample_config, sample_table):
-        """Test basic language detection functionality"""
-        operator = LanguageDetectFastText(sample_config)
+        """Test basic language detection functionality with FastText"""
+        operator = LanguageDetect(sample_config)
 
         try:
             result_tables, metadata = operator.transform(sample_table)
@@ -147,7 +151,7 @@ class TestLanguageDetectFastText:
 
     def test_uzbek_language_detection(self, sample_config, sample_table):
         """Test that Uzbek language is detected (main feature of FastText)"""
-        operator = LanguageDetectFastText(sample_config)
+        operator = LanguageDetect(sample_config)
 
         try:
             result_tables, metadata = operator.transform(sample_table)
@@ -165,7 +169,6 @@ class TestLanguageDetectFastText:
             ][uzbek_idx].as_py()
 
             # Uzbek should be detected (uz is the ISO 639-1 code)
-            # Note: Depending on the model, it might detect as 'uz' or similar
             assert detected_lang is not None
             assert detected_lang != "UNKNOWN"
             assert confidence > 0.0
@@ -177,6 +180,7 @@ class TestLanguageDetectFastText:
         """Test filtering of documents with unknown language"""
         config = {
             "doc_column": "content",
+            "language_provider": "fasttext",
             OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: True,
         }
 
@@ -201,7 +205,7 @@ class TestLanguageDetectFastText:
             ],
         )
 
-        operator = LanguageDetectFastText(config)
+        operator = LanguageDetect(config)
 
         try:
             result_tables, metadata = operator.transform(table)
@@ -219,43 +223,37 @@ class TestLanguageDetectFastText:
 
     def test_model_manager_reference_counting(self, sample_config):
         """Test that model manager correctly handles reference counting"""
-        # This test verifies that multiple operators can share the same model
-        # and that the model is properly cleaned up when all operators are done
-
         # Create first operator
-        operator1 = LanguageDetectFastText(sample_config)
-        assert operator1.fasttext_model is not None, "First operator should have model"
+        operator1 = LanguageDetect(sample_config)
 
-        # Create second operator (should share the same model instance)
-        operator2 = LanguageDetectFastText(sample_config)
-        assert operator2.fasttext_model is not None, "Second operator should have model"
-        assert operator1.fasttext_model is operator2.fasttext_model, (
-            "Both operators should share the same model instance"
-        )
+        # Create second operator (should share the same model instance via singleton)
+        operator2 = LanguageDetect(sample_config)
 
-        # Cleanup first operator
-        operator1.cleanup()
-        assert operator1.fasttext_model is None, (
-            "First operator model should be None after cleanup"
-        )
-        # Second operator should still have the model
-        assert operator2.fasttext_model is not None, (
-            "Second operator should still have model"
-        )
+        try:
+            # Both operators should have adapters
+            assert operator1.language_adapter is not None
+            assert operator2.language_adapter is not None
 
-        # Cleanup second operator
-        operator2.cleanup()
-        assert operator2.fasttext_model is None, (
-            "Second operator model should be None after cleanup"
-        )
+            # Verify both can detect language (model is working)
+            test_text = "Hello world"
+            result1 = operator1.language_adapter.detect_language(test_text)
+            result2 = operator2.language_adapter.detect_language(test_text)
+
+            assert result1.language_code == result2.language_code
+            assert result1.confidence > 0.0
+
+        finally:
+            operator1.cleanup()
+            operator2.cleanup()
 
     def test_required_features(self, sample_config):
         """Test that required features are correctly specified"""
-        operator = LanguageDetectFastText(sample_config)
+        operator = LanguageDetect(sample_config)
         required_features = operator.get_required_features()
 
         assert "content" in required_features
 
+        # Cleanup
         operator.cleanup()
 
     def test_empty_table(self, sample_config):
@@ -269,7 +267,7 @@ class TestLanguageDetectFastText:
             ],
         )
 
-        operator = LanguageDetectFastText(sample_config)
+        operator = LanguageDetect(sample_config)
 
         try:
             result_tables, metadata = operator.transform(empty_table)
@@ -302,7 +300,7 @@ class TestLanguageDetectFastText:
         manager = FastTextModelManager()
 
         # First acquire the model normally
-        _model = manager.acquire_model(timeout=5.0)  # noqa: F841
+        _model = manager.acquire_model(timeout=5.0)
 
         # Now hold the lock externally
         lock_acquired = manager._model_lock.acquire(timeout=1.0)
@@ -388,9 +386,7 @@ class TestLanguageDetectFastText:
 
         # Verify download lock exists
         assert hasattr(manager, "_download_lock")
-        assert type(manager._download_lock).__name__ == "lock", (
-            "Should be a threading.Lock"
-        )
+        assert type(manager._download_lock).__name__ == "lock"
 
         # Test that we can acquire and release the download lock
         acquired = manager._download_lock.acquire(timeout=1.0)

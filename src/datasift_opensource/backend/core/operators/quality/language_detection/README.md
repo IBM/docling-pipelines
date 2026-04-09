@@ -8,11 +8,24 @@ The Language Detection Operator identifies the language of document content and 
 
 ### Basic Configuration
 
+Default provider (langdetect):
 ```json
 {
-  "operator_type": "datasift_opensource.backend.core.operators.quality.lang_id.LanguageDetect",
-  "operator_params": {
+  "operator": "lang_detect",
+  "config": {
     "doc_column": "content",
+    "filter_unknown_language": false
+  }
+}
+```
+
+With FastText provider:
+```json
+{
+  "operator": "lang_detect",
+  "config": {
+    "doc_column": "content",
+    "language_provider": "fasttext",
     "filter_unknown_language": false
   }
 }
@@ -22,44 +35,52 @@ The Language Detection Operator identifies the language of document content and 
 
 ```json
 {
-  "nodes": [
-    {
-      "id": "ingest",
-      "operator_type": "datasift_opensource.backend.core.operators.ingest.ingest_local_folder.IngestLocalFolder",
-      "operator_params": {
-        "folder_path": "data/documents"
+  "flow": {
+    "name": "Language Detection Pipeline",
+    "flow_id": "lang-detect-example",
+    "description": "Example flow with language detection",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "dag": [
+      {
+        "id": "ingest",
+        "name": "ingest_documents",
+        "operator": "ingest_local",
+        "config": {
+          "input_folder": "data/documents"
+        }
+      },
+      {
+        "id": "extract",
+        "name": "extract_content",
+        "operator": "extract_docling",
+        "config": {}
+      },
+      {
+        "id": "language",
+        "name": "detect_language",
+        "operator": "lang_detect",
+        "config": {
+          "doc_column": "content",
+          "filter_unknown_language": false
+        }
+      },
+      {
+        "id": "chunk",
+        "name": "chunk_documents",
+        "operator": "chunker",
+        "config": {
+          "chunk_size": 512
+        }
       }
-    },
-    {
-      "id": "extract",
-      "operator_type": "datasift_opensource.backend.core.operators.extract.extract_docling.ExtractDocling",
-      "operator_params": {}
-    },
-    {
-      "id": "language",
-      "operator_type": "datasift_opensource.backend.core.operators.quality.lang_id.LanguageDetect",
-      "operator_params": {
-        "doc_column": "content",
-        "filter_unknown_language": false
-      }
-    },
-    {
-      "id": "chunk",
-      "operator_type": "datasift_opensource.backend.core.operators.functional.chunker.DoclingChunker",
-      "operator_params": {
-        "chunk_size": 512
-      }
-    }
-  ],
-  "edges": [
-    { "from": "ingest", "to": "extract" },
-    { "from": "extract", "to": "language" },
-    { "from": "language", "to": "chunk" }
-  ]
+    ]
+  }
 }
 ```
 
-## Features
+## Supported Providers
+
+### langdetect (Default)
 
 **Supported Languages**: 55+ languages including:
 - English (en), Spanish (es), French (fr), German (de)
@@ -78,6 +99,26 @@ The Language Detection Operator identifies the language of document content and 
 - ❌ Limited to 55 languages
 - ❌ Less accurate for very short texts (<20 characters)
 - ❌ May struggle with mixed-language content
+
+### fasttext
+
+**Supported Languages**: 176+ languages including all langdetect languages plus:
+- Uzbek (uz), Kazakh (kk), Azerbaijani (az)
+- Bengali (bn), Tamil (ta), Telugu (te)
+- Swahili (sw), Amharic (am), Yoruba (yo)
+- And 120+ more languages
+
+**Pros**:
+- ✅ 176+ language support (3x more than langdetect)
+- ✅ High accuracy for both long and short texts
+- ✅ Better handling of mixed-language content
+- ✅ Memory-efficient singleton model with reference counting
+- ✅ Thread-safe model management
+
+**Cons**:
+- ❌ Requires model download (~131MB) on first use
+- ❌ Slightly slower than langdetect for very short texts
+- ❌ Requires fasttext library installation
 
 ## Architecture
 
@@ -157,6 +198,21 @@ language_detection/
 └── README.md
 ```
 
+### Current Adapters
+
+#### LangdetectAdapter
+- **Location**: `adapters/outbound/langdetect_adapter.py`
+- **Provider**: langdetect library
+- **Languages**: 55+
+- **Use Case**: Fast detection for common languages, no setup required
+
+#### FastTextAdapter
+- **Location**: `adapters/outbound/fasttext_adapter.py`
+- **Provider**: Facebook's FastText model
+- **Languages**: 176+
+- **Use Case**: High accuracy, support for rare languages, production workloads
+- **Infrastructure**: Uses `FastTextModelManager` for singleton pattern and reference counting
+
 ### Adding a New Provider
 
 The architecture allows easy addition of new language detection providers:
@@ -186,16 +242,30 @@ class MyLanguageAdapter(LanguageServicePort):
 - `language_code`: ISO 639-1 language code (str)
 - `confidence`: Confidence score between 0.0 and 1.0 (float)
 
-2. **Register Adapter** (import in operator):
+2. **Register Adapter** (add to `adapters/outbound/__init__.py`):
 
 ```python
-# In lang_id.py
-import core.operators.quality.language_detection.adapters.outbound.mylang_adapter  # noqa: F401
+from .mylang_adapter import MyLanguageAdapter
+
+__all__ = [
+    "FastTextAdapter",
+    "LangdetectAdapter",
+    "MyLanguageAdapter",  # Add your adapter
+]
 ```
 
-3. **Use in Factory**:
+3. **Use in Configuration**:
 
-The adapter will be automatically available through the factory pattern.
+The adapter will be automatically available through the factory pattern:
+
+```json
+{
+  "operator": "lang_detect",
+  "config": {
+    "language_provider": "mylang"
+  }
+}
+```
 
 ## Configuration Reference
 
@@ -304,7 +374,7 @@ logging.basicConfig(level=logging.DEBUG)
 ### Verify Detection
 
 ```python
-from core.operators.quality.lang_id import LanguageDetect
+from core.operators.quality.language_detection.lang_id import LanguageDetect
 import pyarrow as pa
 
 # Create operator
