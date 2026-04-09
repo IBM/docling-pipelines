@@ -8,6 +8,7 @@ from pathlib import Path
 # Load environment variables from .env file in connectors directory
 try:
     from dotenv import load_dotenv
+
     env_path = Path(__file__).parent / ".env"
     if env_path.exists():
         load_dotenv(env_path)
@@ -17,7 +18,9 @@ except ImportError:
     print("Or set environment variables manually.")
 
 # Add the backend directory to Python path
-backend_path = Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
+backend_path = (
+    Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
+)
 sys.path.insert(0, str(backend_path))
 
 from core.operators.ingest.adapters.outbound.sources.onedrive.adapter import (

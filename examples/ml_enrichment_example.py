@@ -14,7 +14,9 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"))
+sys.path.insert(
+    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
+)
 
 from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.logging import get_logger
@@ -84,7 +86,9 @@ def main() -> None:  # pragma: no cover
 
     # Display results
     output_table = output_tables[0]
-    logger.info(f"\nOutput Table Shape: {output_table.num_rows} rows x {output_table.num_columns} columns")
+    logger.info(
+        f"\nOutput Table Shape: {output_table.num_rows} rows x {output_table.num_columns} columns"
+    )
     logger.info(f"Output Columns: {output_table.column_names}")
     logger.info(f"\nMetadata: {metadata}")
 

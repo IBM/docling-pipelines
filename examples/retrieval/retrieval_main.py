@@ -136,7 +136,6 @@ class CompleteQuerySystem:
                 f"Failed to initialise OllamaNLToSQLConverter: {exc}"
             ) from exc
 
-
     def query(
         self,
         user_question: str,
@@ -158,7 +157,7 @@ class CompleteQuerySystem:
         """
         logger.info(f"Processing query: {user_question[:100]}...")
         logger.info(f"Query options: use_sql={use_sql}, use_hybrid={use_hybrid}")
-        
+
         results = {
             "user_question": user_question,
             "sql_results": [],
@@ -189,7 +188,9 @@ class CompleteQuerySystem:
                     results["errors"].append(f"SQL Error: {sql_result.error}")
                 else:
                     results["sql_results"] = sql_result.to_dict_list()
-                    logger.info(f"SQL query returned {len(results['sql_results'])} results")
+                    logger.info(
+                        f"SQL query returned {len(results['sql_results'])} results"
+                    )
 
             except Exception as e:
                 logger.error(f"SQL exception: {str(e)}", exc_info=True)
@@ -219,9 +220,11 @@ class CompleteQuerySystem:
             if answer_result["success"]:
                 results["answer"] = answer_result["answer"]
                 results["model_used"] = answer_result["model_used"]
-                logger.info(f"Answer generated successfully using model: {answer_result['model_used']}")
+                logger.info(
+                    f"Answer generated successfully using model: {answer_result['model_used']}"
+                )
             else:
-                error_msg = answer_result.get('error', 'Unknown error')
+                error_msg = answer_result.get("error", "Unknown error")
                 logger.error(f"Answer generation failed: {error_msg}")
                 results["errors"].append(f"Answer Generation Error: {error_msg}")
 

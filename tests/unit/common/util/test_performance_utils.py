@@ -62,7 +62,6 @@ class TestGetPyarrowTableSizeMb:
         # Large table should have measurable size
         assert size > 0.01
 
-    
     def test_get_size_with_complex_types(self):
         """Test getting size of table with complex types."""
         complex_table = pa.table(

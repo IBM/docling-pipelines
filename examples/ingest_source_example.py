@@ -13,7 +13,9 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"))
+sys.path.insert(
+    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
+)
 
 from core.operators.ingest.ingest_source import IngestSourceOperator
 
@@ -69,7 +71,9 @@ def main() -> None:  # pragma: no cover
         result_table: pa.Table = output_tables[0]
         print("\nTable Schema:")
         print(result_table.schema)
-        print(f"\nTable Shape: {result_table.num_rows} rows x {result_table.num_columns} columns")
+        print(
+            f"\nTable Shape: {result_table.num_rows} rows x {result_table.num_columns} columns"
+        )
 
         if result_table.num_rows > 0:
             print(f"\nFirst {min(5, result_table.num_rows)} rows:")

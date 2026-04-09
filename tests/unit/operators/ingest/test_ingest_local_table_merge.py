@@ -73,10 +73,10 @@ class TestIngestLocalOperatorTableMerge:
         assert result_table.num_rows > input_table.num_rows, (
             "Result should have more rows than input table"
         )
-        
+
         # Verify input table rows are preserved
         assert result_table.num_rows >= 2, "Should have at least the 2 input rows"
-        
+
         # Verify schema is consistent
         assert "path" in result_table.column_names
         assert "binary_content" in result_table.column_names
@@ -108,21 +108,23 @@ class TestIngestLocalOperatorTableMerge:
 
         # Verify concatenation succeeded despite schema differences
         assert result_table.num_rows > input_table.num_rows
-        
+
         # Verify all columns from both tables are present
         assert "id" in result_table.column_names
         assert "name" in result_table.column_names
         assert "custom_field" in result_table.column_names  # From input table
         assert "path" in result_table.column_names  # From new data
         assert "binary_content" in result_table.column_names  # From new data
-        
+
         # Verify null handling for missing columns
         # First row should have custom_field value
         first_row_custom = result_table["custom_field"][0].as_py()
         assert first_row_custom == "custom_value"
-        
+
         # New rows should have null for custom_field
-        last_row_custom = result_table["custom_field"][result_table.num_rows - 1].as_py()
+        last_row_custom = result_table["custom_field"][
+            result_table.num_rows - 1
+        ].as_py()
         assert last_row_custom is None
 
     def test_transform_preserves_input_table_data(self, temp_test_dir):
@@ -161,7 +163,10 @@ class TestIngestLocalOperatorTableMerge:
                 # Verify all fields are preserved
                 assert result_table["name"][idx].as_py() == "/unique/path/test.txt"
                 assert result_table["size"][idx].as_py() == 999
-                assert result_table["binary_content"][idx].as_py() == b"unique test content"
+                assert (
+                    result_table["binary_content"][idx].as_py()
+                    == b"unique test content"
+                )
                 break
 
         assert found_original, "Original input table data should be preserved"
@@ -227,4 +232,3 @@ def test_table_concatenation_basic():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

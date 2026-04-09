@@ -13,9 +13,14 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"))
+sys.path.insert(
+    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
+)
 
-from core.operators.quality.readability import ReadabilityOperator, DEFAULT_READABILITY_SCORES
+from core.operators.quality.readability import (
+    ReadabilityOperator,
+    DEFAULT_READABILITY_SCORES,
+)
 
 
 def main() -> None:  # pragma: no cover

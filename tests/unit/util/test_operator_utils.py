@@ -174,14 +174,14 @@ def test_find_doc_count_from_tables_multiple():
             OperatorConstants.Columns.NAME: ["doc_b", "doc_c"],
         }
     )
-    count =  OperatorUtils.find_doc_count_from_tables(tables=[table1, table2])
+    count = OperatorUtils.find_doc_count_from_tables(tables=[table1, table2])
 
     assert count == 3  # Three unique documents
 
 
 def test_find_doc_count_from_tables_empty_list():
     """Count from empty list returns 0."""
-    count =  OperatorUtils.find_doc_count_from_tables(tables=[])
+    count = OperatorUtils.find_doc_count_from_tables(tables=[])
 
     assert count == 0
 
@@ -198,7 +198,7 @@ def test_find_doc_count_from_tables_with_empty_table():
             OperatorConstants.Columns.NAME: pa.array([], type=pa.string()),
         }
     )
-    count =  OperatorUtils.find_doc_count_from_tables(tables=[table1, table2])
+    count = OperatorUtils.find_doc_count_from_tables(tables=[table1, table2])
 
     assert count == 1
 
@@ -212,7 +212,9 @@ def test_validate_link_name_valid():
     """Valid link name passes validation."""
     existing = set()
     errors = []
-    OperatorUtils.validate_link_name(link_name="link1", existing_link_names=existing, errors=errors)
+    OperatorUtils.validate_link_name(
+        link_name="link1", existing_link_names=existing, errors=errors
+    )
 
     assert len(errors) == 0
     assert "link1" in existing
@@ -222,7 +224,9 @@ def test_validate_link_name_duplicate():
     """Duplicate link name adds error."""
     existing = {"link1"}
     errors = []
-    OperatorUtils.validate_link_name(link_name="Link1", existing_link_names=existing, errors=errors)
+    OperatorUtils.validate_link_name(
+        link_name="Link1", existing_link_names=existing, errors=errors
+    )
 
     assert len(errors) == 1
     assert "Duplicate link name" in errors[0]
@@ -232,7 +236,9 @@ def test_validate_link_name_case_insensitive():
     """Link name validation is case-insensitive."""
     existing = {"link1"}
     errors = []
-    OperatorUtils.validate_link_name(link_name="LINK1", existing_link_names=existing, errors=errors)
+    OperatorUtils.validate_link_name(
+        link_name="LINK1", existing_link_names=existing, errors=errors
+    )
 
     assert len(errors) == 1
 
@@ -241,7 +247,9 @@ def test_validate_link_name_empty():
     """Empty link name adds error."""
     existing = set()
     errors = []
-    OperatorUtils.validate_link_name(link_name="", existing_link_names=existing, errors=errors)
+    OperatorUtils.validate_link_name(
+        link_name="", existing_link_names=existing, errors=errors
+    )
 
     assert len(errors) == 1
     assert "Missing link name" in errors[0]
@@ -251,7 +259,9 @@ def test_validate_link_name_none():
     """None link name adds error."""
     existing = set()
     errors = []
-    OperatorUtils.validate_link_name(link_name=None, existing_link_names=existing, errors=errors)
+    OperatorUtils.validate_link_name(
+        link_name=None, existing_link_names=existing, errors=errors
+    )
 
     assert len(errors) == 1
 
@@ -558,7 +568,9 @@ def test_get_mandatory_features_empty_check_list():
         "field1": {OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY]},
     }
 
-    result = OperatorUtils.get_mandatory_features(check_features=[], input_features=input_features)
+    result = OperatorUtils.get_mandatory_features(
+        check_features=[], input_features=input_features
+    )
 
     assert result == []
 

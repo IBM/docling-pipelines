@@ -218,7 +218,9 @@ class TestListOperators:
 
         assert "AVAILABLE OPERATORS SUMMARY" in result
         assert "op1" in result
-        mock_metadata.get_operator_metadata.assert_called_once_with(internal_features=False)
+        mock_metadata.get_operator_metadata.assert_called_once_with(
+            internal_features=False
+        )
 
     @patch("core.operators.operator_metadata.OperatorMetadata")
     def test_list_operators_verbose(self, mock_metadata_class):
@@ -244,7 +246,9 @@ class TestListOperators:
 
         assert "op1" in result
         assert "Feature 1" in result
-        mock_metadata.get_operator_metadata.assert_called_once_with(internal_features=False)
+        mock_metadata.get_operator_metadata.assert_called_once_with(
+            internal_features=False
+        )
 
     @patch("core.operators.operator_metadata.OperatorMetadata")
     def test_list_operators_default_params(self, mock_metadata_class):

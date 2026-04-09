@@ -145,7 +145,7 @@ def test_ingest_local_operator_basic():
         "store_binary_content": True,
         "include_filter": "pdf",
         "max_files": 5,
-        "force_ingest": True
+        "force_ingest": True,
     }
 
     operator = IngestLocalOperator(config)

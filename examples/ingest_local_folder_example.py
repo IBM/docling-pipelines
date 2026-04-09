@@ -13,7 +13,9 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"))
+sys.path.insert(
+    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
+)
 
 from core.operators.ingest.ingest_local_folder import IngestLocalOperator
 

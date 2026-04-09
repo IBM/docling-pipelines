@@ -5,15 +5,14 @@ from common.util.infrastructure.caching import LRUCache
 
 
 class TestLRUCache(unittest.TestCase):
-
     def setUp(self):
         LRUCache._is_initialized = False
-        #if hasattr(LRUCache, "_cache"):
+        # if hasattr(LRUCache, "_cache"):
         #    del LRUCache._cache
 
     def tearDown(self):
         LRUCache._is_initialized = False
-        #if hasattr(LRUCache, "_LRUCache__instance"):
+        # if hasattr(LRUCache, "_LRUCache__instance"):
         #    del LRUCache._LRUCache__instance
 
     def test_initialization_valid(self):
@@ -81,6 +80,6 @@ class TestLRUCache(unittest.TestCase):
         # Verify TTL is 1 hour (3600 seconds)
         self.assertEqual(first=cache._cache.ttl, second=3600)
 
-    
+
 if __name__ == "__main__":
     unittest.main()

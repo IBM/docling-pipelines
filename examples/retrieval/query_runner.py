@@ -111,7 +111,7 @@ def _get_system(cfg: QueryConfig) -> CompleteQuerySystem:
             index_name=cfg.index,
             schema_name=cfg.schema,  # None → auto-inferred from index_name
         )
-        
+
     return _system_cache[cache_key]
 
 
@@ -205,7 +205,9 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Run a hybrid-search query against OpenSearch and answer with Ollama.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument("--query", default="List the invoices", help="Natural language question")
+    p.add_argument(
+        "--query", default="List the invoices", help="Natural language question"
+    )
     p.add_argument("--host", default="localhost", help="OpenSearch host")
     p.add_argument("--port", type=int, default=9200, help="OpenSearch port")
     p.add_argument("--username", default="admin", help="OpenSearch username")
@@ -254,7 +256,9 @@ def main() -> None:
     )
 
     result = run_query(cfg)
-    logger.info(f"Query execution completed: ok={result.ok}, sources={len(result.sources)}")
+    logger.info(
+        f"Query execution completed: ok={result.ok}, sources={len(result.sources)}"
+    )
     print(json.dumps(result.to_dict()), flush=True)
 
     if not result.ok:

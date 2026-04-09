@@ -117,7 +117,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         Test handling of flow execution failure
         """
-        
+
         # Create a simple flow definition
         flow_def = {
             "dag": [

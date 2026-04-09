@@ -44,9 +44,9 @@ class TestCreateNodeIdToIndexMap:
             {"id": "node_2", "name": "Node 2"},
             {"id": "node_3", "name": "Node 3"},
         ]
-        
+
         result = create_node_id_to_index_map(flow_def=flow_def)
-        
+
         assert result == {"node_1": 0, "node_2": 1, "node_3": 2}
 
     def test_create_node_id_to_index_map_empty(self):
@@ -69,9 +69,9 @@ class TestCreateLogFolders:
         """Test creating log folders for job type."""
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_data_path.return_value = tmpdir
-            
+
             result = create_log_folders("job_123", "run_456", "job")
-            
+
             assert "job_123" in result
             assert "run_456" in result
             assert "job_stats.json" in result
@@ -82,9 +82,9 @@ class TestCreateLogFolders:
         """Test creating log folders for aggregated logs type."""
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_data_path.return_value = tmpdir
-            
+
             result = create_log_folders("job_789", "run_012", "agg_logs")
-            
+
             assert "flow_execute_aggregated.json" in result
 
 
@@ -93,18 +93,19 @@ class TestWriteJobLogs:
 
     def test_write_job_logs(self):
         """Test writing job logs to file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             temp_path = f.name
-        
+
         try:
             job_stats = Mock()
             job_stats.__dict__ = {"status": "completed", "duration": 60.5}
-            
+
             write_job_logs(job_stats, temp_path)
-            
+
             assert os.path.exists(temp_path)
             with open(temp_path) as f:
                 import json
+
                 content = json.load(f)
                 assert content["status"] == "completed"
                 assert content["duration"] == 60.5
@@ -121,13 +122,16 @@ class TestSetPrefectEnvVariables:
         # Clear any existing PREFECT_DEBUG
         if PREFECT_DEBUG in os.environ:
             del os.environ[PREFECT_DEBUG]
-        
+
         set_prefect_env_variables()
-        
+
         assert PREFECT_HOME in os.environ
         assert PREFECT_API_DATABASE_CONNECTION_URL in os.environ
-        assert os.environ[PREFECT_API_DATABASE_CONNECTION_URL] == "sqlite+aiosqlite:///:memory:"
-        
+        assert (
+            os.environ[PREFECT_API_DATABASE_CONNECTION_URL]
+            == "sqlite+aiosqlite:///:memory:"
+        )
+
         # Cleanup
         if PREFECT_HOME in os.environ:
             prefect_home = os.environ[PREFECT_HOME]
@@ -138,16 +142,16 @@ class TestSetPrefectEnvVariables:
     def test_set_prefect_env_variables_with_debug(self):
         """Test setting Prefect env variables with debug mode."""
         os.environ[PREFECT_DEBUG] = "true"
-        
+
         # Clear PREFECT_HOME if it exists
         if PREFECT_HOME in os.environ:
             del os.environ[PREFECT_HOME]
-        
+
         set_prefect_env_variables()
-        
+
         # In debug mode, PREFECT_HOME should not be set to temp directory
         # and in-memory DB should not be forced
-        
+
         # Cleanup
         if PREFECT_DEBUG in os.environ:
             del os.environ[PREFECT_DEBUG]
@@ -161,14 +165,14 @@ class TestCleanUpPrefectHome:
         with tempfile.TemporaryDirectory() as tmpdir:
             prefect_temp = os.path.join(tmpdir, "prefect_test")
             os.makedirs(prefect_temp)
-            
+
             os.environ[PREFECT_HOME] = prefect_temp
-            
+
             clean_up_prefect_home()
-            
+
             # Directory should be removed
             assert not os.path.exists(prefect_temp)
-            
+
             # Cleanup env var
             if PREFECT_HOME in os.environ:
                 del os.environ[PREFECT_HOME]
@@ -178,15 +182,15 @@ class TestCleanUpPrefectHome:
         with tempfile.TemporaryDirectory() as tmpdir:
             prefect_temp = os.path.join(tmpdir, "prefect_test")
             os.makedirs(prefect_temp)
-            
+
             os.environ[PREFECT_HOME] = prefect_temp
             os.environ[PREFECT_DEBUG] = "true"
-            
+
             clean_up_prefect_home()
-            
+
             # Directory should still exist in debug mode
             assert os.path.exists(prefect_temp)
-            
+
             # Cleanup
             if PREFECT_HOME in os.environ:
                 del os.environ[PREFECT_HOME]
@@ -202,9 +206,9 @@ class TestSafeRmtree:
         temp_root = tempfile.gettempdir()
         test_dir = os.path.join(temp_root, "prefect_test_dir")
         os.makedirs(test_dir, exist_ok=True)
-        
+
         result = _safe_rmtree(test_dir, prefix="prefect_")
-        
+
         assert result is True
         assert not os.path.exists(test_dir)
 
@@ -214,9 +218,9 @@ class TestSafeRmtree:
             # Create a directory outside system temp
             test_dir = os.path.join(tmpdir, "test_dir")
             os.makedirs(test_dir)
-            
+
             result = _safe_rmtree(test_dir, prefix="prefect_")
-            
+
             # Should refuse to delete
             assert result is False
             assert os.path.exists(test_dir)
@@ -226,10 +230,10 @@ class TestSafeRmtree:
         temp_root = tempfile.gettempdir()
         test_dir = os.path.join(temp_root, "wrong_prefix_dir")
         os.makedirs(test_dir, exist_ok=True)
-        
+
         try:
             result = _safe_rmtree(test_dir, prefix="prefect_")
-            
+
             assert result is False
             assert os.path.exists(test_dir)
         finally:
@@ -240,9 +244,9 @@ class TestSafeRmtree:
         """Test with nonexistent path."""
         temp_root = tempfile.gettempdir()
         test_dir = os.path.join(temp_root, "prefect_nonexistent")
-        
+
         result = _safe_rmtree(test_dir, prefix="prefect_")
-        
+
         assert result is False
 
 
@@ -253,9 +257,9 @@ class TestAlignTableSchema:
         """Test that missing columns are added."""
         table = pa.table({"col1": [1, 2, 3]})
         all_cols = {"col1": pa.int64(), "col2": pa.string()}
-        
+
         result = align_table_schema(table, all_cols)
-        
+
         assert "col1" in result.column_names
         assert "col2" in result.column_names
         assert result.num_rows == 3
@@ -264,9 +268,9 @@ class TestAlignTableSchema:
         """Test that column order is maintained."""
         table = pa.table({"col2": [1, 2], "col1": [3, 4]})
         all_cols = {"col1": pa.int64(), "col2": pa.int64()}
-        
+
         result = align_table_schema(table, all_cols)
-        
+
         # Columns should be sorted
         assert result.column_names == ["col1", "col2"]
 
@@ -279,9 +283,9 @@ class TestCombineCumulativeDeletedRows:
         deleted_rows = Queue()
         deleted_rows.put(pa.table({"id": [1, 2], "name": ["a", "b"]}))
         deleted_rows.put(pa.table({"id": [3, 4], "name": ["c", "d"]}))
-        
+
         result = combine_cumulative_deleted_rows(deleted_rows)
-        
+
         assert result.num_rows == 4
         assert "id" in result.column_names
         assert "name" in result.column_names
@@ -291,9 +295,9 @@ class TestCombineCumulativeDeletedRows:
         deleted_rows = Queue()
         deleted_rows.put(pa.table({"id": [1, 2], "col1": ["a", "b"]}))
         deleted_rows.put(pa.table({"id": [3, 4], "col2": ["c", "d"]}))
-        
+
         result = combine_cumulative_deleted_rows(deleted_rows)
-        
+
         assert result.num_rows == 4
         assert "id" in result.column_names
         assert "col1" in result.column_names
@@ -302,9 +306,9 @@ class TestCombineCumulativeDeletedRows:
     def test_combine_cumulative_deleted_rows_empty(self):
         """Test with empty queue."""
         deleted_rows = Queue()
-        
+
         result = combine_cumulative_deleted_rows(deleted_rows)
-        
+
         assert result.num_rows == 0
 
 
@@ -317,9 +321,9 @@ class TestCombineTables:
             pa.table({"id": [1, 2], "value": [10, 20]}),
             pa.table({"id": [3, 4], "value": [30, 40]}),
         ]
-        
+
         result = _combine_tables(tables, "test tables")
-        
+
         assert result.num_rows == 4
         assert result.column_names == ["id", "value"]
 
@@ -334,9 +338,9 @@ class TestCombineTables:
             pa.table({"id": [1, 2], "value": [10, 20]}),
             pa.table({"id": [2, 3], "value": [25, 30]}),
         ]
-        
+
         result = _combine_tables(tables, "test tables")
-        
+
         # Should still combine but log warning about duplicates
         assert result.num_rows == 4
 
@@ -381,57 +385,48 @@ class TestUpdateDeletedRows:
         """Test when no rows are deleted."""
         prev_table = pa.table({"id": [1, 2, 3], "value": [10, 20, 30]})
         current_tables = [pa.table({"id": [1, 2, 3], "value": [10, 20, 30]})]
-        
+
         mock_op = Mock()
         mock_op.config = {}
         mock_op.id = "op1"
         mock_op.name = "Test Op"
-        
+
         result = update_deleted_rows(prev_table, current_tables, [], mock_op)
-        
+
         assert result.num_rows == 0
 
     def test_update_deleted_rows_with_deletions(self):
         """Test when rows are deleted."""
         prev_table = pa.table({"id": [1, 2, 3], "value": [10, 20, 30]})
         current_tables = [pa.table({"id": [1, 2], "value": [10, 20]})]
-        
+
         mock_op = Mock()
         mock_op.config = {}
         mock_op.id = "op1"
         mock_op.name = "Test Op"
-        
+
         result = update_deleted_rows(prev_table, current_tables, [], mock_op)
-        
+
         assert result.num_rows == 1
         assert result["id"].to_pylist() == [3]
         assert "deleted_at_step" in result.column_names
 
     def test_update_deleted_rows_skip_columns(self):
         """Test that specified columns are skipped."""
-        prev_table = pa.table({
-            "id": [1, 2, 3],
-            "content": ["a", "b", "c"],
-            "value": [10, 20, 30]
-        })
-        current_tables = [pa.table({
-            "id": [1, 2],
-            "content": ["a", "b"],
-            "value": [10, 20]
-        })]
-        
+        prev_table = pa.table(
+            {"id": [1, 2, 3], "content": ["a", "b", "c"], "value": [10, 20, 30]}
+        )
+        current_tables = [
+            pa.table({"id": [1, 2], "content": ["a", "b"], "value": [10, 20]})
+        ]
+
         mock_op = Mock()
         mock_op.config = {}
         mock_op.id = "op1"
         mock_op.name = "Test Op"
-        
-        result = update_deleted_rows(
-            prev_table,
-            current_tables,
-            ["content"],
-            mock_op
-        )
-        
+
+        result = update_deleted_rows(prev_table, current_tables, ["content"], mock_op)
+
         assert "content" not in result.column_names
         assert "id" in result.column_names
         assert "value" in result.column_names
@@ -443,14 +438,14 @@ class TestUpdateDeletedRows:
             "branch2": pa.table({"id": [3, 4], "value": [30, 40]}),
         }
         current_tables = [pa.table({"id": [1, 3], "value": [10, 30]})]
-        
+
         mock_op = Mock()
         mock_op.config = {}
         mock_op.id = "op1"
         mock_op.name = "Test Op"
-        
+
         result = update_deleted_rows(prev_tables, current_tables, [], mock_op)
-        
+
         assert result.num_rows == 2  # IDs 2 and 4 deleted
 
 
@@ -461,12 +456,11 @@ class TestConstructDeletedRowsTablePath:
     def test_construct_deleted_rows_table_path(self, mock_data_path):
         """Test constructing deleted rows table path."""
         mock_data_path.return_value = "/warehouse"
-        
+
         result = construct_deleted_rows_table_path(
-            job_id="job_123",
-            job_run_id="run_456"
+            job_id="job_123", job_run_id="run_456"
         )
-        
+
         assert "job_123" in result
         assert "run_456" in result
         assert "unprocessed_docs.parquet" in result
