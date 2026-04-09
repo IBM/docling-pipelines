@@ -27,6 +27,7 @@ ENV/
 htmlcov/
 *.cover
 .ruff_cache/
+.mypy_cache/
 
 # Distribution / packaging
 dist/
