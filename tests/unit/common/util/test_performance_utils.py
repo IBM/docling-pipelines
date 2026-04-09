@@ -62,15 +62,7 @@ class TestGetPyarrowTableSizeMb:
         # Large table should have measurable size
         assert size > 0.01
 
-    def test_get_size_with_spark_runtime(self):
-        """Test size calculation in Spark runtime mode."""
-        table = pa.table({"id": [1, 2, 3]})
-
-        with patch.dict(os.environ, {"IS_SPARK_RUNTIME": "TRUE"}):
-            size = get_pyarrow_table_size_mb(table)
-            # In Spark mode, returns minimal size
-            assert size > 0
-
+    
     def test_get_size_with_complex_types(self):
         """Test getting size of table with complex types."""
         complex_table = pa.table(

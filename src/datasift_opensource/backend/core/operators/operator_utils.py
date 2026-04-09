@@ -50,7 +50,7 @@ class OperatorUtils:
         table: pa.Table | list,
         required: list[str],
         operator_name: str,
-        error_messages: list = None,
+        error_messages: list | None = None,
     ) -> None:
         """
         Check if required columns exist in the provided available features or table.
@@ -271,14 +271,16 @@ class OperatorUtils:
         tables: pa.Table | list[pa.Table] | dict[str, pa.Table] | None,
         id_col=OperatorConstants.Misc.ID,
     ):
+        
+        if not tables:  # empty list
+            return []
+
         # wrap single table as list
         if isinstance(tables, pa.Table):
             tables = [tables]
         elif not isinstance(tables, list):
             tables = list(tables.values())
 
-        if not tables:  # empty list
-            return []
 
         seen = set()
         unique_ids = []
@@ -440,38 +442,7 @@ class OperatorUtils:
         return internal_metadata
 
     @staticmethod
-    def import_transforms_code_from_file(transforms_path: Path) -> dict[str, any]:
-        transforms_code = {}
-
-        # Normalize path for Spark runtime when running from zip file
-        # In Spark, the zip file is extracted to /datasift/storage/job-assets/
-        # So we need to replace the zip path with the extracted location
-        normalized_path = str(transforms_path)
-
-        # Replace zip path with extracted location (similar to doc_quality.py)
-        if "./datasift.zip" in normalized_path:
-            normalized_path = normalized_path.replace("./datasift.zip", "/datasift/storage/job-assets")
-        elif "datasift.zip" in normalized_path:
-            normalized_path = normalized_path.replace("datasift.zip", "/datasift/storage/job-assets")
-        else:
-            logger.info(
-                f"[DEBUG] import_transforms_code_from_file - No zip path found, using original: {normalized_path}"
-            )
-
-        normalized_path = Path(normalized_path)
-        for transformation_code_file in os.listdir(normalized_path):
-            if transformation_code_file.endswith(".py"):
-                transforms_code[transformation_code_file.replace(".py", "")] = open(
-                    normalized_path / transformation_code_file, encoding="utf-8"
-                ).read()
-            if transformation_code_file.endswith(".json"):
-                transforms_code[transformation_code_file] = open(
-                    normalized_path / transformation_code_file, encoding="utf-8"
-                ).read()
-        return transforms_code
-
-    @staticmethod
-    def drop_features_from_table(output_features_to_drop: list, table: Table):
+    def drop_features_from_table(output_features_to_drop: list, table: Table) -> Table:
         """
 
         Parameters

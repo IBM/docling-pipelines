@@ -9,7 +9,7 @@ This package contains shared utilities, models, and exceptions used across the d
 - Helper functions
 
 ## Components
-- Utility modules (excluding Spark-specific utilities)
+- Utility modules
 - Common models and data structures
 - Exception hierarchy
 - Logging utilities

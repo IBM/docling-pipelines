@@ -27,15 +27,11 @@ def get_pyarrow_table_size_mb(table: pa.Table) -> float:
     """
     if table is None:
         return 0.0
-    spark_runtime: str = os.environ.get("IS_SPARK_RUNTIME", "FALSE").upper()
+    
     try:
-        if spark_runtime == "TRUE":
-            return 1 / (1024 * 1024)
         return table.nbytes / (1024 * 1024)
     except Exception:
         # Fallback in case nbytes isn't available
-        if spark_runtime == "TRUE":
-            return sum(1 for _ in table.columns) / (1024 * 1024)
         return sum(c.nbytes for c in table.columns) / (1024 * 1024)
 
 

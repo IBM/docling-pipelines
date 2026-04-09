@@ -418,11 +418,9 @@ class AbstractOrchestrator(ABC):
         Batch Creation Rules:
         - Batches are created ONLY when ALL conditions are met:
           1. ENABLE_MICRO_BATCHING is True (batching feature enabled)
-          2. orchestrator_type is NOT SPARK (Spark doesn't support micro-batching)
         - When batching is enabled, MICRO_BATCH_SIZE is read (defaults to DEFAULT_MICRO_BATCH_SIZE)
         - Otherwise, entire ingested table is treated as single "batch" for unified execution
 
-        Note: Micro-batching is only applied for Python orchestrator, not for Spark.
         """
 
         # Configure prefect server logging

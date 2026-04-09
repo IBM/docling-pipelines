@@ -4,7 +4,7 @@ This document describes the architecture and organization of the datasift-open r
 
 ## Overview
 
-Datasift-open is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities.
+Datasift-open is a modular, operator-based data processing framework designed for building flexible document curation pipelines. It enables advanced RAG (Retrieval-Augmented Generation) workflows by combining structured data extraction, semantic chunking, vector embeddings, and hybrid search capabilities. It uses a mixed architecture approach comprising of dynamic plugin discovery across operators, hexagonal architecture in subsystems that need interchangeable external services. 
 
 ### Key Capabilities
 
@@ -66,7 +66,6 @@ datasift-opensource/
 - Common data models
 - Exception classes
 - Helper functions
-- **Note:** Excludes Spark-specific utilities
 
 ### 3. Core Framework (`src/datasift_opensource/backend/core/`)
 
@@ -95,7 +94,7 @@ datasift-opensource/
 
 ### 4. Operators (`src/datasift_opensource/backend/operators/`)
 
-Python-based operator implementations (non-Spark):
+Python-based operator implementations:
 
 - **Language Operators**: Language detection, text analysis, NLP
 - **Transform Operators**: Data mapping, format conversion, enrichment
@@ -110,7 +109,7 @@ Python-based operator implementations (non-Spark):
 
 ## Key Features
 
-1. **Lightweight Deployment**: No Spark dependency, runs locally
+1. **Lightweight Deployment**: Runs locally
 2. **Python-Based Execution**: Pure Python operator implementations
 3. **Plugin System**: Extensible with custom operators
 4. **Flow Configuration**: JSON-based flow definitions
@@ -161,5 +160,5 @@ AbstractOrchestrator (base class)
 - Additional operator types
 - Enhanced plugin system
 - Performance optimizations
-- Cloud deployment support (without Spark)
+- Cloud deployment support
 - Web UI for flow management

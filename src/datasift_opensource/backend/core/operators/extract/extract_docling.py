@@ -671,7 +671,7 @@ class ExtractDoclingOperator(AbstractOperator):
             return table
 
         # Collect all unique keys from all documents' extracted data
-        all_keys = set()
+        all_keys: set[Any] = set()
         for data in extracted_data_list:
             if data and isinstance(data, list):
                 # Handle list of pages - collect keys from first page's extracted_data
@@ -692,7 +692,7 @@ class ExtractDoclingOperator(AbstractOperator):
 
         # Create columns for each key
         for key in sorted(all_keys):
-            column_values = []
+            column_values: list[Any] = []
 
             for data in extracted_data_list:
                 value = None
@@ -762,7 +762,7 @@ class ExtractDoclingOperator(AbstractOperator):
             if not template_cache:
                 logger.warning("No templates could be loaded from document_type column, using default template")
 
-        doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table)
+        doc_tasks: list[Any] = OperatorUtils.prepare_document_content_fetch(table=table)
         doc_contents = [None] * table.num_rows
         doc_metadata_list = [{}] * table.num_rows
         extracted_data_list = [None] * table.num_rows

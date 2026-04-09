@@ -205,16 +205,7 @@ class BranchingOperator(AbstractOperator):
                     OperatorConstants.Filtering.FILTER_CRITERIA_JSON
                 ),
             }
-            filter_operator: Any
-            if spark_session:
-                from core.operators.quality.sql_filter import (
-                    SparkSQLFilterOperator,
-                )
-
-                config |= self._config
-                filter_operator = SparkSQLFilterOperator(config=config, spark_session=spark_session)
-            else:
-                filter_operator = SQLFilterOperator(config=config)
+            filter_operator: Any = SQLFilterOperator(config=config)
 
             branch_tables: list[pa.Table]
             metadata_filter_transform: dict[str, Any] | None

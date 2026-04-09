@@ -16,7 +16,7 @@ class OperatorFactoryProvider:
     @staticmethod
     def get_operator_factory(*, orchestrator: str, package_names: list = OperatorConstants.Misc.ALL_OPERATORS_PATH):
         key = orchestrator + "_" + "_".join(package_names)
-        logger.debug(f"000_Spark_Logger operator_factory_key:{key}")
+        logger.debug(f"operator_factory_key:{key}")
         if key in OperatorFactoryProvider.operator_factories:
             return OperatorFactoryProvider.operator_factories[key]
         operator_factory = OperatorFactory(orchestrator, package_names)
