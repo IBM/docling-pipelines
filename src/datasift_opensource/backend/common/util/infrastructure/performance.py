@@ -85,7 +85,7 @@ def log_memory_usage(
         return
 
     process_memory = get_process_memory_mb()
-    table_size = 0
+    table_size: float = 0.0
     no_of_tables = 0
     if isinstance(table, list):
         no_of_tables = len(table)

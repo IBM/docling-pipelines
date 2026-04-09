@@ -656,6 +656,7 @@ source = { editable = "." }
 dependencies = [
     { name = "botocore" },
     { name = "data-prep-toolkit-transforms" },
+    { name = "datatrove" },
     { name = "docling", extra = ["vlm"] },
     { name = "duckdb" },
     { name = "fastapi" },
@@ -664,8 +665,10 @@ dependencies = [
     { name = "ftfy" },
     { name = "ibm-cos-sdk" },
     { name = "langchain" },
+    { name = "langchain-classic" },
     { name = "langchain-community" },
     { name = "langchain-core" },
+    { name = "langchain-experimental" },
     { name = "langchain-google-community" },
     { name = "langchain-text-splitters" },
     { name = "langdetect" },
@@ -722,9 +725,6 @@ aws = [
 azure = [
     { name = "azure-storage-blob" },
 ]
-datatrove = [
-    { name = "datatrove" },
-]
 dev = [
     { name = "black" },
     { name = "detect-secrets" },
@@ -773,7 +773,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'aws'", specifier = "==1.42.55" },
     { name = "botocore", specifier = "==1.42.55" },
     { name = "data-prep-toolkit-transforms", specifier = "==1.1.7" },
-    { name = "datatrove", marker = "extra == 'datatrove'", specifier = "==0.3.0" },
+    { name = "datatrove", specifier = "==0.3.0" },
     { name = "detect-secrets", marker = "extra == 'dev'", specifier = "==1.5.0" },
     { name = "docling", extras = ["vlm"] },
     { name = "duckdb", specifier = "==1.3.2" },
@@ -795,16 +795,18 @@ requires-dist = [
     { name = "ibm-cos-sdk", specifier = "==2.14.3" },
     { name = "ibm-watsonx-ai", marker = "extra == 'dev'", specifier = ">=0.1.0" },
     { name = "ibm-watsonx-ai", marker = "extra == 'llm'", specifier = ">=0.1.0" },
-    { name = "langchain", specifier = ">=0.3.15" },
-    { name = "langchain-community", specifier = ">=0.3.27" },
-    { name = "langchain-community", marker = "extra == 'all-cloud'", specifier = ">=0.3.27" },
-    { name = "langchain-community", marker = "extra == 'aws'", specifier = ">=0.3.27" },
-    { name = "langchain-community", marker = "extra == 'microsoft'", specifier = ">=0.3.27" },
-    { name = "langchain-core", specifier = ">=1.2.27" },
-    { name = "langchain-google-community", specifier = ">=3.0.5" },
-    { name = "langchain-google-community", marker = "extra == 'all-cloud'", specifier = ">=3.0.5" },
-    { name = "langchain-google-community", marker = "extra == 'google-drive'", specifier = ">=3.0.5" },
-    { name = "langchain-text-splitters", specifier = ">=0.3.9" },
+    { name = "langchain", specifier = "==1.2.13" },
+    { name = "langchain-classic", specifier = "==1.0.3" },
+    { name = "langchain-community", specifier = "==0.4.1" },
+    { name = "langchain-community", marker = "extra == 'all-cloud'", specifier = "==0.4.1" },
+    { name = "langchain-community", marker = "extra == 'aws'", specifier = "==0.4.1" },
+    { name = "langchain-community", marker = "extra == 'microsoft'", specifier = "==0.4.1" },
+    { name = "langchain-core", specifier = "==1.2.27" },
+    { name = "langchain-experimental", specifier = "==0.4.1" },
+    { name = "langchain-google-community", specifier = "==3.0.5" },
+    { name = "langchain-google-community", marker = "extra == 'all-cloud'", specifier = "==3.0.5" },
+    { name = "langchain-google-community", marker = "extra == 'google-drive'", specifier = "==3.0.5" },
+    { name = "langchain-text-splitters", specifier = "==1.1.1" },
     { name = "langdetect", specifier = "==1.0.9" },
     { name = "litellm", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "litellm", marker = "extra == 'llm'", specifier = ">=1.0.0" },
@@ -855,7 +857,7 @@ requires-dist = [
     { name = "urllib3", specifier = "==2.6.3" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.40.0" },
 ]
-provides-extras = ["datatrove", "dev", "llm", "aws", "gcp", "azure", "google-drive", "microsoft", "all-cloud"]
+provides-extras = ["dev", "llm", "aws", "gcp", "azure", "google-drive", "microsoft", "all-cloud"]
 
 [[package]]
 name = "datatrove"
@@ -2165,6 +2167,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/13/5c/56d19a252bbb26247b7a7cd20821d48804d7ca03212fec709cd8db7c2516/langchain_core-1.2.27.tar.gz", hash = "sha256:c18372e4c4c1454d49bf23a2e484431e71bd39b64173a0f621f0fc283d7183a4", size = 844935, upload-time = "2026-04-07T14:56:32.364Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c1/c3/6e0865bc130c448270eb9511b47863a3f9145cdb519b19f6e4758fa63d6f/langchain_core-1.2.27-py3-none-any.whl", hash = "sha256:9ecd6b0393b969fe88f6b9b309367134080ab095946d79e6937dd3911aa42bd5", size = 508315, upload-time = "2026-04-07T14:56:30.93Z" },
+]
+
+[[package]]
+name = "langchain-experimental"
+version = "0.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "langchain-community" },
+    { name = "langchain-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a2/ec/6fe7b2e3c105b4f4fc6b943d8fc1b5b10f883429edc36c58a09fc2e28419/langchain_experimental-0.4.1.tar.gz", hash = "sha256:ab6b19a0b98fbc15225fbfcf096176fec339b7e3e930bcf328bb717985fc1da5", size = 170449, upload-time = "2025-12-11T05:30:48.455Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/fa/fb2c8b6418e1c9ef50c82b3b6e0184bce321582577240bb4b8ed3274a4aa/langchain_experimental-0.4.1-py3-none-any.whl", hash = "sha256:b6ee2f42b50aaadb45e581439ecf5ee50f3a6a0986d52e74d1e64721309e387d", size = 210096, upload-time = "2025-12-11T05:30:47.234Z" },
 ]
 
 [[package]]

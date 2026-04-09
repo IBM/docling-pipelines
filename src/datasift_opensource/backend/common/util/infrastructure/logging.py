@@ -130,6 +130,7 @@ def get_logger(
         console_handler = logging.StreamHandler(sys.stdout)
         timefmt = "%H:%M:%S"
 
+        console_format: logging.Formatter | ConditionalFormatter
         if use_json_format:
             # Use JSON format when explicitly enabled
             console_format = ConditionalFormatter(datefmt=timefmt)
@@ -147,6 +148,7 @@ def get_logger(
         if file:
             file_handler = logging.FileHandler(file)
 
+            file_log_format: logging.Formatter | ConditionalFormatter
             if use_json_format:
                 file_log_format = ConditionalFormatter(datefmt=timefmt)
             else:

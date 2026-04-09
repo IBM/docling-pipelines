@@ -407,7 +407,7 @@ class GuardRailsPIIAndHAPExtractor:
         Returns:
             Dictionary of column names to initial values
         """
-        columns_to_add = {}
+        columns_to_add: dict[str, int | list[Any]] = {}
 
         for field in fields_to_redact:
             column_name = DEFAULT_PII_TO_COLUMN_MAPPING.get(field)

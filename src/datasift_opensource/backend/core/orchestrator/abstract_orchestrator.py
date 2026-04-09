@@ -376,20 +376,30 @@ class AbstractOrchestrator(ABC):
         set_session_info(session_info)
 
         try:
-            if link_id and prev_results.internal_metadata:
-                if len(prev_results.tables) != len(prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)):
-                    raise FlowExecutionFailedException(
-                        f"Number of tables ({len(prev_results.tables)}) in previous operator output do not match branches ({len(prev_results.internal_metadata.get(Metrics.Internal.BRANCHES))}) created."
-                    )
-                result_index = (
-                    prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {})
-                    .get(link_id, {})
-                    .get("result_index")
-                )
-                table = prev_results.tables[result_index]
-                data_access = prev_results.data_accesses[result_index]
-                internal_metadata = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
-                prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
+            if link_id and isinstance(prev_results, ExecuteStepResults):
+                if isinstance(prev_results.internal_metadata, dict):
+                    branches = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)
+                    if branches is None or not isinstance(branches, list):
+                        raise FlowExecutionFailedException(
+                            "Expected branches metadata as a list but found None or wrong type"
+                        )
+
+                    if len(prev_results.tables) != len(branches):
+                        raise FlowExecutionFailedException(
+                            f"Number of tables ({len(prev_results.tables)}) in previous operator output "
+                            f"do not match branches ({len(branches)}) created."
+                        )
+
+                    branch_info = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES, {}).get(link_id, {})
+                    result_index = branch_info.get("result_index")
+                    if result_index is None:
+                        raise FlowExecutionFailedException(f"Result index not found for link_id {link_id}")
+
+                    table = prev_results.tables[result_index]
+                    data_access = prev_results.data_accesses[result_index]
+                    internal_metadata = branch_info
+
+                    prev_results = ExecuteStepResults([data_access], [table], internal_metadata)
 
             result = self._execute_step(
                 op_def=op_def,

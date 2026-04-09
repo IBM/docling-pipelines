@@ -13,7 +13,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, TypedDict
 
 import requests
 from requests import Response
@@ -40,8 +40,13 @@ class RestMethod(Enum):
     DELETE = "DELETE"
 
 
+class MethodConfig(TypedDict):
+    expected_status_codes: list[int]
+    supports_body: bool
+
+
 # Configuration for each HTTP method
-METHOD_CONFIG = {
+METHOD_CONFIG: dict[RestMethod, MethodConfig] = {
     RestMethod.GET: {
         "expected_status_codes": [200],
         "supports_body": False,
@@ -85,7 +90,7 @@ def sanitize_sensitive_data(data: dict[str, Any] | str) -> dict[str, Any] | str:
     ]
 
     if isinstance(data, dict):
-        sanitized = {}
+        sanitized: dict[str, Any] = {}
         for key, value in data.items():
             # Check if key contains sensitive keywords
             if any(keyword in key.lower() for keyword in ["token", "password", "key", "secret", "auth"]):
@@ -250,7 +255,7 @@ class RestClient:
         form_data: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
-        expected_status_codes: list | None = None,
+        expected_status_codes: list[Any] | None = None,
     ) -> Response:
         """
         Make a generic REST call.

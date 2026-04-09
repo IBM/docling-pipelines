@@ -11,6 +11,12 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, ParamSpec, TypeVar
 
+from prefect import flow, task
+from prefect.futures import PrefectFuture
+from prefect.runtime import task_run
+from prefect.states import Completed
+from prefect.task_runners import ThreadPoolTaskRunner
+
 from common.constants.constants import DatasiftConstants, TaskType
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import (
@@ -28,13 +34,6 @@ from common.util.orchestration.prefect_config import set_prefect_env_variables
 from core.orchestrator.futured_list import FuturedList
 
 set_prefect_env_variables()
-
-# Prefect imports
-from prefect import flow, task
-from prefect.futures import PrefectFuture
-from prefect.runtime import task_run
-from prefect.states import Completed
-from prefect.task_runners import ThreadPoolTaskRunner
 
 logger = get_logger()
 
@@ -532,12 +531,13 @@ class PrefectEngine(AbstractFlowEngine):
             except Exception as e:
                 error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{e!s}"
                 logger.error(error, stack_info=True, exc_info=True)
-                raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED)
+                raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED) from e
 
         self.__wait_for_tasks_with_exceptions(destinations=submitted_futures, task_type=task_type)
         self.__wait_for_tasks_with_exceptions(destinations=destinations, task_type=task_type)
         if stop_submission:
-            local_result.update_final_result(final_destination.result())
+            if final_destination is not None:
+                local_result.update_final_result(final_destination.result())
             return Completed(
                 message=f"Flow stopped after node but allowed {len(submitted_futures)} tasks to complete",
                 name="EarlyStopped",
@@ -563,7 +563,7 @@ class PrefectEngine(AbstractFlowEngine):
         except Exception as e:
             error = f"Branched flow task execution failed for {task_type.value} in non operator execution flow with error:{e!s}"
             logger.error(error, stack_info=True, exc_info=True)
-            raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED)
+            raise PrefectFlowFailed(message=error, error_code=ErrorCode.PREFECT_FLOW_TASK_FAILED) from e
 
     def _collect_failed_doc_ids(self) -> list[str]:
         """Collect all failed document IDs from node stats"""

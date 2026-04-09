@@ -420,10 +420,10 @@ class IngestSourceOperator(AbstractOperator):
                 documents: list[Document] = self._load_documents_via_adapter()
             # Special handling for S3 to filter hidden files before loading
             elif self.provider in ["s3", "ibm_cos"]:
-                documents: list[Document] = self._load_s3_documents()
+                documents = self._load_s3_documents()
             else:
                 loader: BaseLoader = self._get_loader()
-                documents: list[Document] = loader.load()
+                documents = loader.load()
 
             logger.info(
                 f"Loaded {len(documents)} documents from {self.provider}",

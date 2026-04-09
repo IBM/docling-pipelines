@@ -229,7 +229,7 @@ class OperatorUtils:
         """
         from common.util.operators.logging import get_log_and_job_file_path
 
-        log_final_path, _, _, aggregated_job_log_path = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
+        _log_final_path, _, _, aggregated_job_log_path = get_log_and_job_file_path(job_id=job_id, jobrun_id=jobrun_id)
 
         if os.path.exists(aggregated_job_log_path):
             with open(aggregated_job_log_path) as file:
@@ -278,7 +278,7 @@ class OperatorUtils:
         # wrap single table as list
         if isinstance(tables, pa.Table):
             tables = [tables]
-        elif not isinstance(tables, list):
+        elif isinstance(tables, dict):
             tables = list(tables.values())
 
 
@@ -897,7 +897,7 @@ class OperatorUtils:
                 # Extract tables
                 tables = []
                 if extract_tables:
-                    for item, level in result.document.iterate_items():
+                    for item, _level in result.document.iterate_items():
                         if isinstance(item, TableItem):
                             table_df = item.export_to_dataframe()
                             tables.append(
@@ -907,7 +907,7 @@ class OperatorUtils:
                 # Extract images
                 images = []
                 if extract_images:
-                    for item, level in result.document.iterate_items():
+                    for item, _level in result.document.iterate_items():
                         if isinstance(item, PictureItem):
                             images.append({"ref": item.self_ref, "caption": getattr(item, "caption", None)})
 

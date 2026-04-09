@@ -159,7 +159,7 @@ def _handle_string_logs(
     return operator_logs_combined
 
 
-def get_logs(*, content, job_log_final_path: str = None, nodes_metadata_final_path: str = None):
+def get_logs(*, content, job_log_final_path: str | None = None, nodes_metadata_final_path: str | None = None):
     """
     Processes log content from various sources and formats.
 
@@ -274,12 +274,9 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
     return json.dumps(new_node_stats, indent=6)
 
 
-def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list = None) -> str:
-    job_status = (
-        job_stats.get("status").value
-        if isinstance(job_stats.get("status"), ExecutionStatus)
-        else job_stats.get("status")
-    )
+def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | None = None) -> str:
+    status = job_stats.get("status")
+    job_status = status.value if status is not None and isinstance(status, ExecutionStatus) else status
 
     if node_sequence is None:
         node_sequence = retrieve_operators_sequence(
@@ -307,5 +304,6 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list = 
     >>> ===============================================================
     """
     return complete_message
+
 
 # Made with Bob

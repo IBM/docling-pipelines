@@ -145,7 +145,7 @@ class PickleJobStatsStore(JobStatsStore):
             file_response: dict[str, str] | None = _get_job_run_pickle_file(
                 file_path=job_run_to_job_id_pickle_file_path
             )
-            job_run_to_job_id_map: dict[str, str] = dict()
+            job_run_to_job_id_map: dict[str, str] = {}
             if file_response is None:
                 logger.info(
                     f"File {job_run_to_job_id_pickle_file_path} not found",
@@ -185,7 +185,7 @@ class PickleJobStatsStore(JobStatsStore):
         job_run_id = job_stats.job_run_id
         job_run_pickle_file_path = _construct_job_run_job_stats_pickle_file_path(job_id=job_id, job_run_id=job_run_id)
         file_response: dict[str, JobStatsDto] | None = _get_job_run_pickle_file(file_path=job_run_pickle_file_path)
-        job_run_to_job_stats: dict[str, JobStatsDto] = dict()
+        job_run_to_job_stats: dict[str, JobStatsDto] = {}
 
         if merge:
             # check if the statistics for this job run already exist
@@ -263,7 +263,7 @@ class PickleJobStatsStore(JobStatsStore):
             job_run_node_stats_pickle_file_path = _construct_job_run_node_stats_pickle_file_path(
                 job_id=job_id, job_run_id=job_run_id
             )
-            job_run_node_stats_pickle_file: dict[str, NodeStatsDto] = _get_job_run_pickle_file(
+            job_run_node_stats_pickle_file: dict[str, NodeStatsDto] | None = _get_job_run_pickle_file(
                 file_path=job_run_node_stats_pickle_file_path
             )
             if job_run_node_stats_pickle_file is None:
@@ -292,7 +292,7 @@ class PickleJobStatsStore(JobStatsStore):
                 job_id=job_id, job_run_id=job_run_id
             )
             job_run_pickle_file = _get_job_run_pickle_file(file_path=job_run_node_stats_pickle_file_path)
-            node_id_to_node_stats: dict[str, NodeStatsDto] = dict()
+            node_id_to_node_stats: dict[str, NodeStatsDto] = {}
             if job_run_pickle_file is None:
                 logger.debug(
                     f"Pickle file '{job_run_node_stats_pickle_file_path}' for job run node stats not found.",

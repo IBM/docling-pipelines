@@ -123,14 +123,14 @@ class OpenSearchIndexManager:
             raise DatasiftException(
                 message=f"Invalid engine '{self.engine}'. Supported: {OpenSearchEngineTypes.ALL_ENGINES}",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
         if self.algorithm not in OpenSearchAlgorithmTypes.ALL_ALGORITHMS:
             raise DatasiftException(
                 message=f"Invalid algorithm '{self.algorithm}'. Supported: {OpenSearchAlgorithmTypes.ALL_ALGORITHMS}",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
         supported_algorithms: list[str] = ENGINE_ALGORITHM_SUPPORT.get(self.engine, [])
@@ -139,7 +139,7 @@ class OpenSearchIndexManager:
                 message=f"Algorithm '{self.algorithm}' not supported by engine '{self.engine}'. "
                 f"Supported algorithms: {supported_algorithms}",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
     def _get_engine_parameters(self) -> dict[str, Any]:
@@ -194,14 +194,14 @@ class OpenSearchIndexManager:
                 if isinstance(embedding_value[0], list):
                     # Nested structure: [[emb1], [emb2], ...]
                     if len(embedding_value[0]) > 0:
-                        dimension: int = len(embedding_value[0])
-                        logger.info(f"Auto-detected vector dimension: {dimension} (from chunked embeddings)")
-                        return dimension
+                        nested_dimension: int = len(embedding_value[0])
+                        logger.info(f"Auto-detected vector dimension: {nested_dimension} (from chunked embeddings)")
+                        return nested_dimension
                 elif isinstance(embedding_value[0], (int, float)):
                     # Flat structure: [float1, float2, ...]
-                    dimension: int = len(embedding_value)
-                    logger.info(f"Auto-detected vector dimension: {dimension} (from flat embeddings)")
-                    return dimension
+                    flat_dimension: int = len(embedding_value)
+                    logger.info(f"Auto-detected vector dimension: {flat_dimension} (from flat embeddings)")
+                    return flat_dimension
                 else:
                     logger.warning(
                         f"Unexpected embedding structure at row {idx}: first element is {type(embedding_value[0])}"
@@ -299,7 +299,7 @@ class OpenSearchIndexManager:
                         "knn": True,
                         "knn.algo_param.ef_search": 100,
                         "number_of_shards": 2,
-                        "number_of_replicas": 1
+                        "number_of_replicas": 1,
                     }
                 }
 
@@ -313,7 +313,7 @@ class OpenSearchIndexManager:
             raise DatasiftException(
                 message=f"Failed to create OpenSearch index '{self.index_name}': {exc}",
                 status_code=500,
-                error_code=ErrorCode.OPENSEARCH_INDEX_ERROR
+                error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
             ) from exc
 
     def validate_existing_index(self) -> None:

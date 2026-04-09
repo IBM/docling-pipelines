@@ -44,7 +44,7 @@ class IncrementalUpdateUtil:
         return set(table[OperatorConstants.Misc.ID].to_pylist()) if table.num_rows != 0 else set()
 
     def save_metadata_for_incremental_update(
-        self, *, job_id, job_run_id, tables: list[pa.Table], failed_doc_ids: list = None
+        self, *, job_id, job_run_id, tables: list[pa.Table], failed_doc_ids: list[Any] | None = None
     ):
         """
         Save incremental metadata table to cloud storage.
@@ -74,13 +74,13 @@ class IncrementalUpdateUtil:
                 return
 
             table_to_save = self.filter_rows(table=table_to_save, ids_to_delete=failed_doc_ids)
-            table: pa.Table | None = self._get_table(path=table_path)
+            existing_table: pa.Table | None = self._get_table(path=table_path)
 
-            if not table:
+            if not existing_table:
                 self.parquet_table_handler.save_table(path=table_path, table=table_to_save)
             else:
                 # remove the redundant columns, if exist
-                updated_table = self._remove_columns_from_saved_table(table=table)
+                updated_table = self._remove_columns_from_saved_table(table=existing_table)
                 table_to_save = self.concatenate_tables(table1=table_to_save, table2=updated_table)
 
                 self.parquet_table_handler.save_table(path=table_path, table=table_to_save)
@@ -92,7 +92,7 @@ class IncrementalUpdateUtil:
         except Exception as exc:
             raise FlowExecutionFailedException(
                 f"Failed to save incremental metadata for job_id={job_id}, job_run_id={job_run_id} at {table_path}. Error: {exc!s}"
-            )
+            ) from exc
 
     def concatenate_tables(self, *, table1: pa.Table, table2: pa.Table):
         """Concatenates the 2 tables that have same schema.
@@ -141,7 +141,7 @@ class IncrementalUpdateUtil:
         except Exception as exc:
             raise FlowExecutionFailedException(
                 f"Failed to retrieved process document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
-            )
+            ) from exc
 
     def get_deleted_doc_ids_from_dict(self, *, previously_processed_docs_dict: dict, doc_ids):
         """Returns a list of deleted document ids that exist in previously_processed_docs_dict and not in doc_ids."""
@@ -197,7 +197,7 @@ class IncrementalUpdateUtil:
         except Exception as exc:
             raise FlowExecutionFailedException(
                 f"Failed to marked soft deleted document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
-            )
+            ) from exc
 
     def get_soft_deleted_doc_ids(self, *, job_id):
         """
@@ -223,7 +223,7 @@ class IncrementalUpdateUtil:
         except Exception as exc:
             raise FlowExecutionFailedException(
                 f"Failed to retrieved soft deleted document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
-            )
+            ) from exc
 
     def delete_docs_for_ids(self, *, doc_ids: list, job_id):
         """
@@ -251,7 +251,7 @@ class IncrementalUpdateUtil:
         except Exception as exc:
             raise FlowExecutionFailedException(
                 f"Failed to delete document ids for job_id={job_id} at {table_path}. Error: {exc!s}"
-            )
+            ) from exc
 
     def clear_incremental_table(self, *, job_id):
         table_path = self.construct_table_path(job_id=job_id)
@@ -268,7 +268,7 @@ class IncrementalUpdateUtil:
         except Exception as exc:
             raise FlowExecutionFailedException(
                 f"An error occurred while fetching the incremental metadata table at '{path}'. Error details: {exc!s}"
-            )
+            ) from exc
 
     def construct_table_path(self, *, job_id: str):
         return os.path.join(
@@ -389,4 +389,4 @@ class IncrementalUpdateUtil:
         except Exception as exc:
             raise FlowExecutionFailedException(
                 f"An error occurred while marking documents soft soft deletion. Error details: {exc!s}"
-            )
+            ) from exc

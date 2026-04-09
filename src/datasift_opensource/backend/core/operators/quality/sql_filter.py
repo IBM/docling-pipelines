@@ -120,7 +120,7 @@ class SQLFilterOperator(AbstractOperator):
                     errors.append(ValidationMessage(message=error_msg.value, message_code=error_msg.name))
 
         # Validate filter criteria columns - only if at least one is not parameterized
-        criteria_to_validate = None
+        criteria_to_validate: list[str] | dict[str, Any] | None = None
         if should_validate_json and self.filter_criteria_json:
             criteria_to_validate = self.filter_criteria_json
         elif should_validate_criteria and self.filter_criteria:
@@ -283,21 +283,21 @@ class SQLFilterOperator(AbstractOperator):
             try:
                 filtered_table: pa.Table = con.execute(sql_statement).arrow()
             except duckdb_binding_errors as ex:
-                err_msg: str = f"Filter condition is invalid due to mismatched data types. (e.g. comparing text to numbers). Please review the filter expression and table schema. {ex}"
+                binding_err_msg: str = f"Filter condition is invalid due to mismatched data types. (e.g. comparing text to numbers). Please review the filter expression and table schema. {ex}"
                 raise DatasiftException(
-                    message=err_msg,
+                    message=binding_err_msg,
                     status_code=400,
                     error_code=ErrorCode.SQL_FILTER_ERROR,
                 ) from ex
             except Exception as ex:
-                err_msg: str = f"An unexpected error occurred. Please review your filter logic. {ex}"
+                unexpected_err_msg: str = f"An unexpected error occurred. Please review your filter logic. {ex}"
                 raise DatasiftException(
-                    message=err_msg,
+                    message=unexpected_err_msg,
                     status_code=400,
                     error_code=ErrorCode.SQL_FILTER_ERROR,
                 ) from ex
         else:
-            filtered_table: pa.Table = table
+            filtered_table = table
 
         # drop any columns requested from the final result
         if len(self.columns_to_drop) > 0:
@@ -310,7 +310,7 @@ class SQLFilterOperator(AbstractOperator):
 
             filtered_table_cols_dropped: pa.Table = filtered_table.drop_columns(self.columns_to_drop)
         else:
-            filtered_table_cols_dropped: pa.Table = filtered_table
+            filtered_table_cols_dropped = filtered_table
 
         # add global filter stats to metadata
         metadata["docs_after_filter"] = filtered_table.num_rows
@@ -437,11 +437,11 @@ def format_value(value: Any) -> str:
             # Try to parse as number
             return str(float(value)) if "." in value else str(int(value))
         except ValueError:
-            escaped: str = value.replace("'", "''")
-            return f"'{escaped}'"
+            escaped_str: str = value.replace("'", "''")
+            return f"'{escaped_str}'"
     else:
-        escaped: str = str(value).replace("'", "''")
-        return f"'{escaped}'"
+        escaped_other: str = str(value).replace("'", "''")
+        return f"'{escaped_other}'"
 
 
 def process_condition(condition: dict[str, Any]) -> str:
@@ -465,9 +465,7 @@ def process_condition(condition: dict[str, Any]) -> str:
 
     if operator == "BETWEEN":
         if isinstance(value_raw, list) and len(value_raw) == 2:
-            lower: str = format_value(value_raw[0])
-            upper: str = format_value(value_raw[1])
-            return f"{variable} {operator} {lower} AND {upper}"
+            a, b = value_raw
         elif isinstance(value_raw, str):
             parts: list[str] = [v.strip() for v in value_raw.split(",")]
             if len(parts) != 2:
@@ -476,15 +474,17 @@ def process_condition(condition: dict[str, Any]) -> str:
                     status_code=400,
                     error_code=ErrorCode.SQL_FILTER_ERROR,
                 )
-            lower: str = format_value(parts[0])
-            upper: str = format_value(parts[1])
-            return f"{variable} {operator} {lower} AND {upper}"
+            a, b = parts
         else:
             raise DatasiftException(
                 message=f"BETWEEN operator requires a list or comma-separated string of 2 values, got: {value_raw}",
                 status_code=400,
                 error_code=ErrorCode.SQL_FILTER_ERROR,
             )
+
+        lower: str = format_value(a)
+        upper: str = format_value(b)
+        return f"{variable} {operator} {lower} AND {upper}"
 
     if operator in ["IN", "NOT IN"]:
         value_list: list[Any]
@@ -502,8 +502,8 @@ def process_condition(condition: dict[str, Any]) -> str:
         return f"{variable} {operator} {formatted_value}"
 
     # All other operators
-    formatted_value: str = format_value(value_raw)
-    return f"{variable} {operator} {formatted_value}"
+    default_formatted_value: str = format_value(value_raw)
+    return f"{variable} {operator} {default_formatted_value}"
 
 
 def process_criteria_group(group: dict[str, Any]) -> str:

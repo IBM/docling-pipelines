@@ -1,5 +1,5 @@
 import re
-from typing import Any
+from typing import Any, Pattern
 
 import pyarrow as pa
 
@@ -55,7 +55,7 @@ class RedactionOperator(AbstractOperator):
             except re.error:
                 regex = re.compile(re.escape(regex))
 
-            self.pattern = regex
+            self.pattern: Pattern[Any] | None = regex
         else:
             self.pattern = None
 

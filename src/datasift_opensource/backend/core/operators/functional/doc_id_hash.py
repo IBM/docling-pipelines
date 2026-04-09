@@ -82,23 +82,22 @@ class DocIdHashOperator(AbstractOperator):
         else:
             # Fallback: use hashlib.sha256 directly
             hash_ids: list[str] = []
+
             if self.doc_column in table.column_names:
-                for content in table[self.doc_column]:
-                    content_str: str = content.as_py() if content.as_py() else ""
-                    hash_id: str = hashlib.sha256(content_str.encode("utf-8")).hexdigest()
-                    hash_ids.append(hash_id)
+                values = ((content.as_py() if content.as_py() else "") for content in table[self.doc_column])
             else:
                 logger.warning(
                     f"Column '{self.doc_column}' not found in table. Generating hash IDs from row index.",
                     extra=self.common_log_arguments,
                 )
-                for idx in range(table.num_rows):
-                    hash_id: str = hashlib.sha256(str(idx).encode("utf-8")).hexdigest()
-                    hash_ids.append(hash_id)
+                values = (str(idx) for idx in range(table.num_rows))
+
+            for value in values:
+                hash_id: str = hashlib.sha256(value.encode("utf-8")).hexdigest()
+                hash_ids.append(hash_id)
 
             # Add hash column to table
             table = TransformUtils.add_column(table=table, name=self.hash_column, content=hash_ids)
-
         metadata["hashed_rows"] = total_docs
         metadata[Metrics.External.PROCESSED_DOCS] = total_docs
 

@@ -99,7 +99,7 @@ class OpenSearchOperator(AbstractOperator):
             raise DatasiftException(
                 message="opensearch_host is required",
                 status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
         if not self.index_name:
             raise DatasiftException(
@@ -171,14 +171,14 @@ class OpenSearchOperator(AbstractOperator):
 
         # Validate required columns
         if self.doc_id_column not in table.column_names:
-            error_msg: str = f"Required column '{self.doc_id_column}' not found in table"
-            logger.error(error_msg, extra=self.common_log_arguments)
+            missing_doc_id_error: str = f"Required column '{self.doc_id_column}' not found in table"
+            logger.error(missing_doc_id_error, extra=self.common_log_arguments)
             metadata[Metrics.External.NODE_STATUS] = "failed"
             return [table], metadata
 
         if self.embeddings_column not in table.column_names:
-            error_msg: str = f"Required column '{self.embeddings_column}' not found in table"
-            logger.error(error_msg, extra=self.common_log_arguments)
+            missing_embeddings_error: str = f"Required column '{self.embeddings_column}' not found in table"
+            logger.error(missing_embeddings_error, extra=self.common_log_arguments)
             metadata[Metrics.External.NODE_STATUS] = "failed"
             return [table], metadata
 
@@ -260,12 +260,12 @@ class OpenSearchOperator(AbstractOperator):
                         chunk_row_data[self.embeddings_column] = chunk_embedding
                         chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
 
-                        doc: dict[str, Any] = self.batch_processor.prepare_document(chunk_row_data)
-                        documents.append((chunk_doc_id, doc))
+                        prepared_chunk_doc: dict[str, Any] = self.batch_processor.prepare_document(chunk_row_data)
+                        documents.append((chunk_doc_id, prepared_chunk_doc))
                 else:
                     # Single embedding - process as before
-                    doc: dict[str, Any] = self.batch_processor.prepare_document(row_data)
-                    documents.append((doc_id, doc))
+                    prepared_doc: dict[str, Any] = self.batch_processor.prepare_document(row_data)
+                    documents.append((doc_id, prepared_doc))
 
             except Exception as e:
                 logger.error(
@@ -291,13 +291,13 @@ class OpenSearchOperator(AbstractOperator):
         # Record failed documents
         for item in failed_items:
             error_info: dict[str, Any] = item.get("index", {})
-            doc_id: str = error_info.get("_id", "unknown")
-            error_msg: str = error_info.get("error", {}).get("reason", "Unknown error")
+            failed_doc_id: str = error_info.get("_id", "unknown")
+            failure_reason: str = error_info.get("error", {}).get("reason", "Unknown error")
             self.record_failed_document(
                 metadata=metadata,
-                doc_id=doc_id,
-                doc_name=doc_id,
-                reason=error_msg[:100],
+                doc_id=failed_doc_id,
+                doc_name=failed_doc_id,
+                reason=failure_reason[:100],
             )
 
         metadata[Metrics.External.PROCESSED_DOCS] = success_count

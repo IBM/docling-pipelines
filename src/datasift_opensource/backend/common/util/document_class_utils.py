@@ -7,7 +7,7 @@ Converts document class JSON schemas to Docling extraction templates.
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 from common.constants.constants import DatasiftConstants
 from common.util.infrastructure.logging import get_logger
@@ -19,7 +19,7 @@ class DocumentClassUtils:
     """Utilities for document class schema operations."""
 
     # Type mapping from target_tables column types to Docling template types
-    TYPE_MAPPING = {
+    TYPE_MAPPING: ClassVar[dict[str, str]] = {
         "string": "string",
         "date": "string",  # Extract as string, parse later
         "decimal": "float",
@@ -85,9 +85,7 @@ class DocumentClassUtils:
         return False
 
     @staticmethod
-    def _get_field_type_from_target_tables(
-        field_path: list[str], target_tables: list[dict]
-    ) -> str | None:
+    def _get_field_type_from_target_tables(field_path: list[str], target_tables: list[dict]) -> str | None:
         """
         Get the type of a field from target_tables section.
 
@@ -127,7 +125,7 @@ class DocumentClassUtils:
         Returns:
             Template dictionary
         """
-        template = {}
+        template: dict[str, Any] = {}
         parent_path = parent_path or []
 
         for field in fields:
@@ -156,15 +154,11 @@ class DocumentClassUtils:
 
                 # Map to Docling type
                 if field_type:
-                    docling_type = DocumentClassUtils.TYPE_MAPPING.get(
-                        field_type.lower(), "string"
-                    )
+                    docling_type = DocumentClassUtils.TYPE_MAPPING.get(field_type.lower(), "string")
                     template[field_name] = docling_type
                 else:
                     # Default to string if type not found
-                    logger.warning(
-                        f"Type not found for field {'.'.join(field_path)}, defaulting to string"
-                    )
+                    logger.warning(f"Type not found for field {'.'.join(field_path)}, defaulting to string")
                     template[field_name] = "string"
 
         return template
@@ -219,46 +213,33 @@ class DocumentClassUtils:
             return {}
 
         if not target_tables:
-            logger.warning(
-                f"No target_tables found in document class: {doc_class_path}"
-            )
+            logger.warning(f"No target_tables found in document class: {doc_class_path}")
             return {}
 
         # Build template
-        template = DocumentClassUtils._build_template_from_fields(
-            fields=fields, target_tables=target_tables
-        )
+        template = DocumentClassUtils._build_template_from_fields(fields=fields, target_tables=target_tables)
 
         # Filter nested fields if requested
         if not include_nested:
-            template = {
-                k: v for k, v in template.items() if not isinstance(v, dict)
-            }
+            template = {k: v for k, v in template.items() if not isinstance(v, dict)}
 
         # Limit number of fields if requested
         if max_fields and len(template) > max_fields:
-            logger.info(
-                f"Limiting template to {max_fields} fields (from {len(template)})"
-            )
+            logger.info(f"Limiting template to {max_fields} fields (from {len(template)})")
             # Keep first max_fields items
             template = dict(list(template.items())[:max_fields])
 
-        logger.info(
-            f"Generated Docling template with {len(template)} fields from {Path(doc_class_path).name}"
-        )
+        logger.info(f"Generated Docling template with {len(template)} fields from {Path(doc_class_path).name}")
 
         return template
 
     @staticmethod
     def _extract_field_metadata(
-        fields_list: list[dict],
-        examples: dict[str, list],
-        descriptions: dict[str, str],
-        prefix: str = ""
+        fields_list: list[dict], examples: dict[str, list], descriptions: dict[str, str], prefix: str = ""
     ) -> None:
         """
         Recursively extract examples and descriptions from fields.
-        
+
         Args:
             fields_list: List of field definitions
             examples: Dictionary to populate with examples (modified in-place)
@@ -274,9 +255,7 @@ class DocumentClassUtils:
 
             if "fields" in field:
                 # Nested field - recurse
-                DocumentClassUtils._extract_field_metadata(
-                    field["fields"], examples, descriptions, f"{full_name}."
-                )
+                DocumentClassUtils._extract_field_metadata(field["fields"], examples, descriptions, f"{full_name}.")
             else:
                 # Regular field - extract metadata
                 if field.get("examples"):
@@ -285,9 +264,7 @@ class DocumentClassUtils:
                     descriptions[full_name] = field["description"]
 
     @staticmethod
-    def generate_template_with_examples(
-        doc_class_path: str | Path, include_nested: bool = True
-    ) -> dict[str, Any]:
+    def generate_template_with_examples(doc_class_path: str | Path, include_nested: bool = True) -> dict[str, Any]:
         """
         Generate Docling template with examples included as comments.
 
@@ -368,11 +345,8 @@ class DocumentClassUtils:
 
         return sorted(result, key=lambda x: x["name"])
 
-
     @staticmethod
-    def build_schema_description_from_fields(
-        fields: list[dict[str, Any]], indent: int = 0
-    ) -> str:
+    def build_schema_description_from_fields(fields: list[dict[str, Any]], indent: int = 0) -> str:
         """
         Build rich schema description from fields array format.
 
@@ -403,9 +377,7 @@ class DocumentClassUtils:
                 if len(examples) == 1:
                     line += f" (e.g., '{examples[0]}')"
                 else:
-                    examples_str = "', '".join(
-                        str(ex) for ex in examples[:3]
-                    )  # Show up to 3 examples
+                    examples_str = "', '".join(str(ex) for ex in examples[:3])  # Show up to 3 examples
                     line += f" (e.g., '{examples_str}')"
 
             lines.append(line)
@@ -413,11 +385,7 @@ class DocumentClassUtils:
             # Recursively handle nested fields
             if nested_fields:
                 lines.append(f"{prefix}  Contains:")
-                lines.append(
-                    DocumentClassUtils.build_schema_description_from_fields(
-                        nested_fields, indent + 2
-                    )
-                )
+                lines.append(DocumentClassUtils.build_schema_description_from_fields(nested_fields, indent + 2))
 
         return "\n".join(lines)
 
@@ -440,9 +408,7 @@ class DocumentClassUtils:
 
             if nested_fields:
                 # This is a nested object or array
-                nested_template = DocumentClassUtils.build_json_template_from_fields(
-                    nested_fields
-                )
+                nested_template = DocumentClassUtils.build_json_template_from_fields(nested_fields)
                 # Check if it's an array type (like line_items)
                 if isinstance(nested_fields, list):
                     template[name] = [nested_template]
@@ -472,9 +438,7 @@ class DocumentClassUtils:
 
             # Read all .json files in the directory
             json_files = list(doc_classes_dir.glob("*.json"))
-            logger.info(
-                "Found %s document class files in %s", len(json_files), doc_classes_dir
-            )
+            logger.info("Found %s document class files in %s", len(json_files), doc_classes_dir)
 
             for json_file in json_files:
                 try:
@@ -482,21 +446,15 @@ class DocumentClassUtils:
                         data = json.load(f)
 
                     # Extract document_type and document_description from the schema
-                    doc_schema = data.get("document_class_schema", {}).get(
-                        "document", {}
-                    )
+                    doc_schema = data.get("document_class_schema", {}).get("document", {})
                     doc_type = doc_schema.get("document_type")
                     doc_description = doc_schema.get("document_description")
 
                     if doc_type and doc_description:
                         document_types[doc_type] = doc_description
-                        logger.debug(
-                            f"Loaded document type '{doc_type}' from {json_file.name}"
-                        )
+                        logger.debug(f"Loaded document type '{doc_type}' from {json_file.name}")
                     else:
-                        logger.warning(
-                            f"Skipping {json_file.name}: missing document_type or document_description"
-                        )
+                        logger.warning(f"Skipping {json_file.name}: missing document_type or document_description")
 
                 except (OSError, json.JSONDecodeError) as e:
                     logger.warning("Failed to load %s: %s", json_file.name, str(e))
@@ -510,9 +468,7 @@ class DocumentClassUtils:
             return {}
 
     @staticmethod
-    def get_schema_templates(
-        document_types: list[str]
-    ) -> dict[str, dict]:
+    def get_schema_templates(document_types: list[str]) -> dict[str, dict]:
         """
         Load document class schemas for given document types.
 
@@ -526,8 +482,6 @@ class DocumentClassUtils:
         doc_classes_dir = Path(DocumentClassUtils.DOCUMENT_CLASSES_PATH)
         schema_templates: dict[str, dict] = {}
 
-
-
         for document_type in document_types:
             if not document_type or document_type in schema_templates:
                 continue
@@ -536,20 +490,14 @@ class DocumentClassUtils:
             try:
                 with open(file_name, encoding="utf-8") as f:
                     doc_cls = json.load(f)
-                    doc_cls = doc_cls.get("document_class_schema", {}).get(
-                        "document", {}
-                    )
+                    doc_cls = doc_cls.get("document_class_schema", {}).get("document", {})
                     if doc_cls:
                         schema_templates[document_type] = doc_cls
-                        logger.info(
-                            "Loaded schema for document type '%s' from %s", document_type, file_name
-                        )
+                        logger.info("Loaded schema for document type '%s' from %s", document_type, file_name)
                     else:
                         logger.warning("No valid schema found in %s", file_name)
             except (OSError, json.JSONDecodeError) as exc:
-                logger.warning(
-                    f"Failed to load schema for '{document_type}' from {file_name}: {exc}"
-                )
+                logger.warning(f"Failed to load schema for '{document_type}' from {file_name}: {exc}")
 
         return schema_templates
 
@@ -561,12 +509,12 @@ class DocumentClassUtils:
     ) -> None:
         """
         Generate Docling templates for document types and update template_cache in-place.
-        
+
         This method is optimized for performance by:
         - Processing only unique document types
         - Updating cache in-place to avoid memory overhead
         - Skipping already cached templates
-        
+
         Args:
             document_types: List of document type names (may contain duplicates)
             template_cache: Dictionary to update with generated templates (modified in-place)
@@ -576,14 +524,13 @@ class DocumentClassUtils:
         doc_classes_dir = Path(DatasiftConstants.DOCUMENT_CLASSES_PATH)
 
         # Get unique document types, excluding already cached ones
-        unique_doc_types = set(dt for dt in document_types if dt and dt not in template_cache)
+        unique_doc_types = {dt for dt in document_types if dt and dt not in template_cache}
 
         if not unique_doc_types:
             logger.debug("No new document types to process for template generation")
             return
 
         logger.info("Generating Docling templates for document types: %s", unique_doc_types)
-
 
         for doc_type in unique_doc_types:
             try:
@@ -592,27 +539,20 @@ class DocumentClassUtils:
                 doc_class_path = doc_classes_dir / f"{normalized_name}.json"
 
                 if not doc_class_path.exists():
-                    logger.warning(
-                        f"Document class file not found for type '{doc_type}': {doc_class_path}"
-                    )
+                    logger.warning(f"Document class file not found for type '{doc_type}': {doc_class_path}")
                     continue
 
                 # Generate Docling template from document class
                 template = DocumentClassUtils.generate_docling_template(
-                    doc_class_path=doc_class_path,
-                    include_nested=include_nested
+                    doc_class_path=doc_class_path, include_nested=include_nested
                 )
 
                 # Update cache in-place
                 template_cache[doc_type] = template
-                logger.info(
-                    "Generated Docling template for '%s' with %s fields", doc_type, len(template)
-                )
+                logger.info("Generated Docling template for '%s' with %s fields", doc_type, len(template))
 
             except Exception as e:
-                logger.warning(
-                    f"Failed to generate Docling template for '{doc_type}': {e}"
-                )
+                logger.warning(f"Failed to generate Docling template for '{doc_type}': {e}")
 
         if template_cache:
             logger.info(
