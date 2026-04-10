@@ -21,7 +21,7 @@ Run a comprehensive code quality analysis on the folder 'src/datasift_opensource
 - Identify top 5 critical type errors with file paths and line numbers
 
 ### 2. Linting (Ruff)
-- Run: `cd src/datasift_opensource/backend && uv run ruff check . --output-format=text 2>&1 | tee ruff_output.txt`
+- Run: `cd src/datasift_opensource/backend && uv run ruff check . --output-format=json 2>&1 | tee ruff_output.txt`
 - Count total issues
 - Categorize by severity (High/Medium/Low)
 - Group by rule category (UP, B, E402, RUF, C4, etc.)
@@ -44,7 +44,7 @@ Run a comprehensive code quality analysis on the folder 'src/datasift_opensource
 Generate a report with these sections:
 
 ### 📊 Executive Summary
-- Analysis date
+- Analysis date and time
 - Total Python files
 - Overall quality rating (0-10 scale)
 
