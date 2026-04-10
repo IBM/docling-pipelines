@@ -18,6 +18,7 @@ from langchain_core.documents import Document
 # These imports are necessary for the factory to discover available adapters
 # Note: Google Drive adapter import moved to lazy loading in _get_loader() to avoid
 # requiring google_auth_oauthlib dependency unless actually using Google Drive
+import core.operators.ingest.adapters.outbound.sources.s3.adapter  # noqa: F401
 from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.constants.constants import (
     AttributeDataTypes,
@@ -424,9 +425,6 @@ class IngestSourceOperator(AbstractOperator):
             # Try to use new adapter architecture first
             if SourceAdapterFactory.is_registered(self.provider):
                 documents: list[Document] = self._load_documents_via_adapter()
-            # Special handling for S3 to filter hidden files before loading
-            elif self.provider in ["s3", "ibm_cos"]:
-                documents = self._load_s3_documents()
             else:
                 loader: BaseLoader = self._get_loader()
                 documents = loader.load()
@@ -908,17 +906,16 @@ class IngestSourceOperator(AbstractOperator):
         """
         Factory method to initialize the correct LangChain loader.
 
-        Note: S3/IBM COS providers use _load_s3_documents() directly and should not call this method.
-        See process_documents() for the special S3 handling logic.
+        Note: Providers using hexagonal architecture adapters (S3, SharePoint, OneDrive, Google Drive)
+        should not call this method. They are handled via _load_documents_via_adapter().
         """
 
         # 1. Amazon S3 / IBM COS (S3 Compatible)
-        # Note: This case should never be reached as process_documents() calls _load_s3_documents()
-        # directly for S3/IBM COS providers. Keeping this for backward compatibility with tests.
+        # These providers now use the hexagonal architecture adapter
         if self.provider in ["s3", "ibm_cos"]:
             raise ValueError(
-                "S3/IBM COS providers should not call _get_loader(). "
-                "The process_documents() method uses _load_s3_documents() instead."
+                f"{self.provider} provider should use _load_documents_via_adapter(). "
+                "This provider is registered with SourceAdapterFactory and should be handled automatically."
             )
 
         # 2. Microsoft SharePoint, OneDrive & Google Drive

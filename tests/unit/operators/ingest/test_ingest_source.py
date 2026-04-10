@@ -187,7 +187,7 @@ class TestGetLoader:
         operator = IngestSourceOperator(config)
 
         with pytest.raises(
-            ValueError, match="S3/IBM COS providers should not call _get_loader"
+            ValueError, match="provider should use _load_documents_via_adapter"
         ):
             operator._get_loader()
 
@@ -211,7 +211,7 @@ class TestGetLoader:
         operator = IngestSourceOperator(config)
 
         with pytest.raises(
-            ValueError, match="S3/IBM COS providers should not call _get_loader"
+            ValueError, match="provider should use _load_documents_via_adapter"
         ):
             operator._get_loader()
 
@@ -532,45 +532,58 @@ class TestTransform:
     """Test cases for transform method."""
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch("boto3.client")
-    @patch("core.operators.ingest.ingest_source.S3FileLoader")
+    @patch("core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_success(
         self,
-        mock_s3_file_loader,
-        mock_boto_client,
+        mock_fetch_documents,
         mock_incremental_util,
         mock_documents,
         empty_input_table,
     ):
         """Test transform successfully processes documents."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.domain.models import Document as DomainDocument
+        from datetime import datetime
 
         # Mock incremental update utility
         mock_util_instance = Mock()
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock boto3 client for _get_s3_file_keys()
-        mock_s3 = Mock()
-        mock_paginator = Mock()
-        mock_boto_client.return_value = mock_s3
-        mock_s3.get_paginator.return_value = mock_paginator
-        mock_paginator.paginate.return_value = [
-            {
-                "Contents": [
-                    {"Key": "file1.txt", "Size": 100},
-                    {"Key": "file2.txt", "Size": 200},
-                    {"Key": "file3.txt", "Size": 300},
-                ]
-            }
+        # Create domain documents for the new adapter
+        domain_docs = [
+            DomainDocument(
+                id="file1.txt",
+                name="file1.txt",
+                content=b"This is the first document content.",
+                source_url="s3://test-bucket/test-prefix/file1.txt",
+                modified_time=datetime(2024, 1, 1, 12, 0, 0),
+                metadata={"bucket": "test-bucket", "key": "test-prefix/file1.txt"},
+            ),
+            DomainDocument(
+                id="file2.txt",
+                name="file2.txt",
+                content=b"This is the second document content.",
+                source_url="s3://test-bucket/test-prefix/file2.txt",
+                modified_time=datetime(2024, 1, 2, 12, 0, 0),
+                metadata={"bucket": "test-bucket", "key": "test-prefix/file2.txt"},
+            ),
+            DomainDocument(
+                id="file3.txt",
+                name="file3.txt",
+                content=b"This is the third document content.",
+                source_url="s3://test-bucket/test-prefix/file3.txt",
+                modified_time=datetime(2024, 1, 3, 12, 0, 0),
+                metadata={"bucket": "test-bucket", "key": "test-prefix/file3.txt"},
+            ),
         ]
 
-        # Mock S3FileLoader to return documents
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = [
-            mock_documents[0]
-        ]  # Return one doc per file
-        mock_s3_file_loader.return_value = mock_loader_instance
+        # Mock async generator for fetch_documents
+        async def mock_async_gen():
+            for doc in domain_docs:
+                yield doc
+
+        mock_fetch_documents.return_value = mock_async_gen()
 
         config = {
             "provider": "s3",
@@ -614,12 +627,10 @@ class TestTransform:
         assert metadata["total_docs_count"] == 3
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch("boto3.client")
-    @patch("core.operators.ingest.ingest_source.S3FileLoader")
+    @patch("core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_empty_documents(
         self,
-        mock_s3_file_loader,
-        mock_boto_client,
+        mock_fetch_documents,
         mock_incremental_util,
         empty_input_table,
     ):
@@ -631,12 +642,12 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock boto3 client to return no files
-        mock_s3 = Mock()
-        mock_paginator = Mock()
-        mock_boto_client.return_value = mock_s3
-        mock_s3.get_paginator.return_value = mock_paginator
-        mock_paginator.paginate.return_value = [{}]  # Empty response
+        # Mock async generator that yields no documents
+        async def mock_async_gen():
+            return
+            yield  # Make it a generator
+
+        mock_fetch_documents.return_value = mock_async_gen()
 
         config = {
             "provider": "s3",
@@ -849,41 +860,36 @@ class TestTransform:
         assert metadata["node_status"] == "Completed"
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch("boto3.client")
-    @patch("core.operators.ingest.ingest_source.S3FileLoader")
+    @patch("core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_document_without_source(
         self,
-        mock_s3_file_loader,
-        mock_boto_client,
+        mock_fetch_documents,
         mock_incremental_util,
         empty_input_table,
     ):
         """Test transform handles documents without source in metadata."""
         from core.operators.ingest.ingest_source import IngestSourceOperator
+        from core.operators.ingest.domain.models import Document as DomainDocument
 
         # Mock incremental update utility
         mock_util_instance = Mock()
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock boto3 client for _get_s3_file_keys()
-        mock_s3 = Mock()
-        mock_paginator = Mock()
-        mock_boto_client.return_value = mock_s3
-        mock_s3.get_paginator.return_value = mock_paginator
-        mock_paginator.paginate.return_value = [
-            {"Contents": [{"Key": "file1.txt", "Size": 100}]}
-        ]
-
-        # Document without source
-        doc_no_source = Document(
-            page_content="Content without source", metadata={"page": 1}
+        # Document without source (domain model)
+        doc_no_source = DomainDocument(
+            id="test-doc-1",
+            name="file1.txt",
+            content=b"Content without source",
+            source_url="s3://test-bucket/file1.txt",
+            metadata={"page": 1}
         )
 
-        # Mock S3FileLoader
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.return_value = [doc_no_source]
-        mock_s3_file_loader.return_value = mock_loader_instance
+        # Mock S3SourceAdapter.fetch_documents to return async generator
+        async def mock_async_gen():
+            yield doc_no_source
+        
+        mock_fetch_documents.return_value = mock_async_gen()
 
         config = {
             "provider": "s3",
@@ -902,19 +908,18 @@ class TestTransform:
 
         result_table = result_tables[0]
         source_ids = result_table["source_id"].to_pylist()
-        assert source_ids[0].startswith("unknown_")
+        # With the new adapter architecture, source_url is always provided
+        assert source_ids[0] == "s3://test-bucket/file1.txt"
 
 
 class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch("boto3.client")
-    @patch("core.operators.ingest.ingest_source.S3FileLoader")
+    @patch("core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_s3_to_pyarrow_pipeline(
         self,
-        mock_s3_file_loader,
-        mock_boto_client,
+        mock_fetch_documents,
         mock_incremental_util,
         empty_input_table,
     ):
@@ -926,36 +931,35 @@ class TestIntegrationScenarios:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock boto3 client for _get_s3_file_keys()
-        mock_s3 = Mock()
-        mock_paginator = Mock()
-        mock_boto_client.return_value = mock_s3
-        mock_s3.get_paginator.return_value = mock_paginator
-        mock_paginator.paginate.return_value = [
-            {
-                "Contents": [
-                    {"Key": "invoices/inv_001.pdf", "Size": 1000},
-                    {"Key": "invoices/inv_002.pdf", "Size": 2000},
-                ]
-            }
-        ]
+        from core.operators.ingest.domain.models import Document as DomainDocument
+        from datetime import datetime
 
-        # Simulate realistic S3 documents
-        documents = [
-            Document(
-                page_content="Invoice #12345\nTotal: $1000",
-                metadata={"source": "s3://bucket/invoices/inv_001.pdf", "page": 1},
+        # Create domain documents for the new adapter
+        domain_docs = [
+            DomainDocument(
+                id="invoices/inv_001.pdf",
+                name="inv_001.pdf",
+                content=b"Invoice #12345\nTotal: $1000",
+                source_url="s3://my-bucket/invoices/inv_001.pdf",
+                modified_time=datetime(2024, 1, 1, 12, 0, 0),
+                metadata={"bucket": "my-bucket", "key": "invoices/inv_001.pdf"},
             ),
-            Document(
-                page_content="Invoice #12346\nTotal: $2000",
-                metadata={"source": "s3://bucket/invoices/inv_002.pdf", "page": 1},
+            DomainDocument(
+                id="invoices/inv_002.pdf",
+                name="inv_002.pdf",
+                content=b"Invoice #12346\nTotal: $2000",
+                source_url="s3://my-bucket/invoices/inv_002.pdf",
+                modified_time=datetime(2024, 1, 2, 12, 0, 0),
+                metadata={"bucket": "my-bucket", "key": "invoices/inv_002.pdf"},
             ),
         ]
 
-        # Mock S3FileLoader to return one document per call
-        mock_loader_instance = Mock()
-        mock_loader_instance.load.side_effect = [[documents[0]], [documents[1]]]
-        mock_s3_file_loader.return_value = mock_loader_instance
+        # Mock async generator for fetch_documents
+        async def mock_async_gen():
+            for doc in domain_docs:
+                yield doc
+
+        mock_fetch_documents.return_value = mock_async_gen()
 
         config = {
             "provider": "s3",

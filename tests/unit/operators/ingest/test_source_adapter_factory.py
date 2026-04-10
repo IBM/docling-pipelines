@@ -18,6 +18,9 @@ from core.operators.ingest.adapters.outbound.sources.onedrive.adapter import (
 from core.operators.ingest.adapters.outbound.sources.sharepoint.adapter import (
     SharePointSourceAdapter,
 )
+from core.operators.ingest.adapters.outbound.sources.s3.adapter import (
+    S3SourceAdapter,
+)
 from core.operators.ingest.domain.models import Document
 from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 
@@ -33,6 +36,7 @@ class TestSourceAdapterFactory:
         assert "google_drive" in names
         assert "onedrive" in names
         assert "sharepoint" in names
+        assert "s3" in names
 
     def test_create_unknown_adapter_raises(self):
         with pytest.raises(ValueError, match="Unknown source adapter"):
@@ -67,6 +71,7 @@ class TestSourceAdapterFactory:
             SourceAdapterFactory.register(GoogleDriveSourceAdapter)
             SourceAdapterFactory.register(OneDriveSourceAdapter)
             SourceAdapterFactory.register(SharePointSourceAdapter)
+            SourceAdapterFactory.register(S3SourceAdapter)
 
     def test_register_duplicate_source_name_raises(self):
         class DuplicateAdapter(FilesystemSourceAdapter):
