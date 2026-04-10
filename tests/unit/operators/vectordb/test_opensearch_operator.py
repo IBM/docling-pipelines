@@ -623,7 +623,7 @@ class TestMetadata:
             metadata = operator.get_metadata()
 
         assert metadata["sdk"] is True
-        assert metadata["category"] == "vectordb"
+        assert metadata["category"] == "VectorDB"
         assert metadata["is_operator_available"] is True
         assert "features" in metadata
         assert "attributes" in metadata

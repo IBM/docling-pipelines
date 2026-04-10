@@ -9,7 +9,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.constants.constants import Metrics
+from common.constants.constants import AttributeDataTypes, Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
@@ -26,7 +26,7 @@ from core.operators.vectordb.opensearch_index_manager import (
 
 logger = get_logger()
 
-# Constants
+# Constants for keys not yet in OperatorConstants
 ENGINE_KEY: str = "engine"
 ALGORITHM_KEY: str = "algorithm"
 SPACE_TYPE_KEY: str = "space_type"
@@ -34,6 +34,7 @@ ENGINE_PARAMETERS_KEY: str = "engine_parameters"
 SPARSE_EMBEDDINGS_COLUMN_KEY: str = "sparse_embeddings_column"
 DEFAULT_BATCH_SIZE: int = 100
 DEFAULT_VECTOR_DIMENSION: int = 384
+NUMBER_OF_BATCHES_KEY: str = "number_of_batches"
 
 
 class OpenSearchOperator(AbstractOperator):
@@ -47,7 +48,7 @@ class OpenSearchOperator(AbstractOperator):
     - OpenSearchBatchProcessor: Bulk operations
     """
 
-    short_name: str = "opensearch"
+    short_name: str = OperatorConstants.Operators.OPENSEARCH
     category: OperatorCategory = OperatorCategory.VectorDB
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -163,7 +164,7 @@ class OpenSearchOperator(AbstractOperator):
         """
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
-        metadata["number_of_batches"] = 0
+        metadata[NUMBER_OF_BATCHES_KEY] = 0
 
         if table.num_rows == 0:
             logger.warning("Empty table provided", extra=self.common_log_arguments)
@@ -235,7 +236,7 @@ class OpenSearchOperator(AbstractOperator):
                         metadata=metadata,
                         doc_id=f"row_{idx}",
                         doc_name=f"row_{idx}",
-                        reason="Missing document ID",
+                        reason=f"Missing {self.doc_id_column}",
                     )
                     continue
 
@@ -281,7 +282,7 @@ class OpenSearchOperator(AbstractOperator):
 
         # Create batches and process
         all_actions: list[list[dict[str, Any]]] = self.batch_processor.create_batches(documents)
-        metadata["number_of_batches"] = len(all_actions)
+        metadata[NUMBER_OF_BATCHES_KEY] = len(all_actions)
 
         # Process batches
         success_count: int
@@ -343,102 +344,192 @@ class OpenSearchOperator(AbstractOperator):
     def get_metadata(self) -> dict[str, Any]:
         """Get metadata about the operator including features and attributes."""
         return {
-            "sdk": True,
-            "category": "vectordb",
-            "is_operator_available": True,
-            "label": "OpenSearch",
-            "description": "Store documents and embeddings in OpenSearch for vector similarity search with multiple engine support",
-            "features": {
-                "doc_id_hash": {
-                    "name": "Document ID",
-                    "description": "Unique identifier for the document",
-                    "available_for_vector_db": True,
-                    "mandatory_for_vector_db": True,
-                    "type": "string",
-                    "is_primary": True,
-                    "tags": ["mandatory", "primary"],
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: OperatorCategory.VectorDB,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+            OperatorConstants.Misc.LABEL: "OpenSearch",
+            OperatorConstants.Config.DESCRIPTION: "Store documents and embeddings in OpenSearch for vector similarity search with multiple engine support",
+            OperatorConstants.Config.FEATURES: {
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
+                    OperatorConstants.Misc.NAME: "Document ID",
+                    OperatorConstants.Config.DESCRIPTION: "Unique identifier for the document",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                    OperatorConstants.Misc.IS_PRIMARY: True,
+                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY, OperatorConstants.Misc.PRIMARY],
                 },
-                "embeddings": {
-                    "name": "Embeddings",
-                    "description": "Dense vector embeddings for similarity search",
-                    "available_for_vector_db": True,
-                    "mandatory_for_vector_db": True,
-                    "type": "vector",
-                    "tags": ["mandatory"],
+                OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT: {
+                    OperatorConstants.Misc.NAME: "Embeddings",
+                    OperatorConstants.Config.DESCRIPTION: "Dense vector embeddings for similarity search",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_VECTOR,
+                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
                 },
-                "sparse_embeddings": {
-                    "name": "Sparse Embeddings",
-                    "description": "Sparse vector embeddings for hybrid search",
-                    "available_for_vector_db": True,
-                    "type": "vector_sparse",
-                    "tags": [],
+                OperatorConstants.Columns.SPARSE_EMBEDDINGS_COLUMN_DEFAULT: {
+                    OperatorConstants.Misc.NAME: "Sparse Embeddings",
+                    OperatorConstants.Config.DESCRIPTION: "Sparse vector embeddings for hybrid search",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_VECTOR_SPARSE,
+                    OperatorConstants.Misc.TAGS: [],
                 },
-                "content": {
-                    "name": "Document Content",
-                    "description": "The text content of the document",
-                    "available_for_filter": True,
-                    "available_for_vector_db": True,
-                    "type": "string",
-                    "tags": [],
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: {
+                    OperatorConstants.Misc.NAME: "Document Content",
+                    OperatorConstants.Config.DESCRIPTION: "The text content of the document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                    OperatorConstants.Misc.TAGS: [],
                 },
             },
-            "attributes": {
-                "opensearch_host": {
-                    "name": "OpenSearch Host",
-                    "description": "OpenSearch server host address",
-                    "required": True,
-                    "type": "string",
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.VectorDB.OPENSEARCH_HOST: {
+                    OperatorConstants.Misc.NAME: "OpenSearch Host",
+                    OperatorConstants.Config.DESCRIPTION: "OpenSearch server host address",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                "opensearch_port": {
-                    "name": "OpenSearch Port",
-                    "description": "OpenSearch server port",
-                    "required": False,
-                    "default": 9200,
-                    "type": "integer",
+                OperatorConstants.VectorDB.OPENSEARCH_PORT: {
+                    OperatorConstants.Misc.NAME: "OpenSearch Port",
+                    OperatorConstants.Config.DESCRIPTION: "OpenSearch server port",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 9200,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
-                "index_name": {
-                    "name": "Index Name",
-                    "description": "Name of the OpenSearch index",
-                    "required": True,
-                    "type": "string",
+                OperatorConstants.VectorDB.OPENSEARCH_USERNAME: {
+                    OperatorConstants.Misc.NAME: "Username",
+                    OperatorConstants.Config.DESCRIPTION: "Username for OpenSearch authentication",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                "engine": {
-                    "name": "KNN Engine",
-                    "description": "KNN engine type (faiss, lucene, nmslib, jvector)",
-                    "required": False,
-                    "default": "faiss",
-                    "type": "select",
-                    "options": OpenSearchEngineTypes.ALL_ENGINES,
+                OperatorConstants.VectorDB.OPENSEARCH_PASSWORD: {
+                    OperatorConstants.Misc.NAME: "Password",
+                    OperatorConstants.Config.DESCRIPTION: "Password for OpenSearch authentication",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                "algorithm": {
-                    "name": "KNN Algorithm",
-                    "description": "KNN algorithm type (hnsw, ivf)",
-                    "required": False,
-                    "default": "hnsw",
-                    "type": "select",
-                    "options": OpenSearchAlgorithmTypes.ALL_ALGORITHMS,
+                OperatorConstants.VectorDB.OPENSEARCH_USE_SSL: {
+                    OperatorConstants.Misc.NAME: "Use SSL",
+                    OperatorConstants.Config.DESCRIPTION: "Use SSL/TLS for connection",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                "space_type": {
-                    "name": "Space Type",
-                    "description": "Vector similarity metric (l2, cosine, inner_product)",
-                    "required": False,
-                    "default": "l2",
-                    "type": "select",
-                    "options": VectorSimilarityTypes.ALL_TYPES,
+                OperatorConstants.VectorDB.OPENSEARCH_VERIFY_CERTS: {
+                    OperatorConstants.Misc.NAME: "Verify Certificates",
+                    OperatorConstants.Config.DESCRIPTION: "Verify SSL certificates",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                "vector_dimension": {
-                    "name": "Vector Dimension",
-                    "description": "Dimension of dense vector embeddings",
-                    "required": False,
-                    "default": 384,
-                    "type": "integer",
+                OperatorConstants.VectorDB.OPENSEARCH_AWS_AUTH: {
+                    OperatorConstants.Misc.NAME: "AWS Authentication",
+                    OperatorConstants.Config.DESCRIPTION: "Use AWS IAM authentication",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                "batch_size": {
-                    "name": "Batch Size",
-                    "description": "Number of documents to index in each batch",
-                    "required": False,
-                    "default": 100,
-                    "type": "integer",
+                OperatorConstants.VectorDB.OPENSEARCH_AWS_REGION: {
+                    OperatorConstants.Misc.NAME: "AWS Region",
+                    OperatorConstants.Config.DESCRIPTION: "AWS region for IAM authentication",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.VectorDB.INDEX_NAME: {
+                    OperatorConstants.Misc.NAME: "Index Name",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the OpenSearch index",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Columns.DOC_ID_COLUMN: {
+                    OperatorConstants.Misc.NAME: "Document ID Column",
+                    OperatorConstants.Config.DESCRIPTION: "Column containing document IDs",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Columns.EMBEDDINGS_COLUMN: {
+                    OperatorConstants.Misc.NAME: "Embeddings Column",
+                    OperatorConstants.Config.DESCRIPTION: "Column containing dense vector embeddings",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                SPARSE_EMBEDDINGS_COLUMN_KEY: {
+                    OperatorConstants.Misc.NAME: "Sparse Embeddings Column",
+                    OperatorConstants.Config.DESCRIPTION: "Column containing sparse vector embeddings for hybrid search",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.VectorDB.CREATE_INDEX: {
+                    OperatorConstants.Misc.NAME: "Create Index",
+                    OperatorConstants.Config.DESCRIPTION: "Create index if it doesn't exist",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                OperatorConstants.VectorDB.INDEX_SETTINGS: {
+                    OperatorConstants.Misc.NAME: "Index Settings",
+                    OperatorConstants.Config.DESCRIPTION: "Custom OpenSearch index settings (JSON object)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                },
+                ENGINE_KEY: {
+                    OperatorConstants.Misc.NAME: "KNN Engine",
+                    OperatorConstants.Config.DESCRIPTION: "KNN engine type (faiss, lucene, nmslib, jvector)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OpenSearchEngineTypes.FAISS,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.ENUM,
+                    OperatorConstants.Config.VALID_VALUES: OpenSearchEngineTypes.ALL_ENGINES,
+                },
+                ALGORITHM_KEY: {
+                    OperatorConstants.Misc.NAME: "KNN Algorithm",
+                    OperatorConstants.Config.DESCRIPTION: "KNN algorithm type (hnsw, ivf)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OpenSearchAlgorithmTypes.HNSW,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.ENUM,
+                    OperatorConstants.Config.VALID_VALUES: OpenSearchAlgorithmTypes.ALL_ALGORITHMS,
+                },
+                SPACE_TYPE_KEY: {
+                    OperatorConstants.Misc.NAME: "Space Type",
+                    OperatorConstants.Config.DESCRIPTION: "Vector similarity metric (l2, cosine, inner_product)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: VectorSimilarityTypes.L2,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.ENUM,
+                    OperatorConstants.Config.VALID_VALUES: VectorSimilarityTypes.ALL_TYPES,
+                },
+                OperatorConstants.VectorDB.VECTOR_DIMENSION: {
+                    OperatorConstants.Misc.NAME: "Vector Dimension",
+                    OperatorConstants.Config.DESCRIPTION: "Dimension of dense vector embeddings (auto-detected from data if not specified)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_VECTOR_DIMENSION,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                ENGINE_PARAMETERS_KEY: {
+                    OperatorConstants.Misc.NAME: "Engine Parameters",
+                    OperatorConstants.Config.DESCRIPTION: "Custom engine-specific parameters (JSON object, e.g., {'ef_construction': 128, 'm': 24} for HNSW)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                },
+                OperatorConstants.Config.BATCH_SIZE: {
+                    OperatorConstants.Misc.NAME: "Batch Size",
+                    OperatorConstants.Config.DESCRIPTION: "Number of documents to index in each batch",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_BATCH_SIZE,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                OperatorConstants.Config.FEATURE_MAPPINGS: {
+                    OperatorConstants.Misc.NAME: "Feature Mappings",
+                    OperatorConstants.Config.DESCRIPTION: "Map feature names to OpenSearch field names (JSON object)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                },
+                OperatorConstants.Config.AVAILABLE_FEATURES: {
+                    OperatorConstants.Misc.NAME: "Available Features",
+                    OperatorConstants.Config.DESCRIPTION: "Feature definitions for schema mapping (JSON object)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
             },
         }
