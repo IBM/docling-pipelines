@@ -32,7 +32,7 @@ class TestOperator(AbstractOperator):
         self.required_features = config.get("required_features", [])
 
     def transform(
-        self, table: pa.Table, file_name: str = None
+        self, table: pa.Table, file_name: str | None = None
     ) -> tuple[list[pa.Table], dict]:
         """Simple transform that returns input table unchanged."""
         metadata = self.create_base_metadata(total_docs_count=table.num_rows)
@@ -684,16 +684,6 @@ def test_operator_category_enum_values():
     assert OperatorCategory.Quality == "Quality"
     assert OperatorCategory.VectorDB == "VectorDB"
     assert OperatorCategory.Custom == "Custom"
-
-
-def test_abstract_operator_short_name_is_none():
-    """AbstractOperator.short_name is None by default."""
-    assert AbstractOperator.short_name is None
-
-
-def test_abstract_operator_category_is_none():
-    """AbstractOperator.category is None by default."""
-    assert AbstractOperator.category is None
 
 
 def test_concrete_operator_can_set_short_name():

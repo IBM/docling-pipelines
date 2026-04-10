@@ -280,10 +280,17 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | 
     job_status = status.value if status is not None and isinstance(status, ExecutionStatus) else status
 
     if node_sequence is None:
-        node_sequence = retrieve_operators_sequence(
-            job_id=job_id, job_run_id=job_stats.get(DatasiftConstants.JOB_RUN_ID)
-        )
-    node_stats = format_node_stats(node_stats=job_stats.get("node_stats"), node_sequence=node_sequence)
+        job_run_id_value = job_stats.get(DatasiftConstants.JOB_RUN_ID)
+        if job_run_id_value:
+            node_sequence = retrieve_operators_sequence(job_id=job_id, job_run_id=job_run_id_value)
+        else:
+            node_sequence = []
+
+    node_stats_value = job_stats.get("node_stats")
+    if node_stats_value:
+        node_stats = format_node_stats(node_stats=node_stats_value, node_sequence=node_sequence)
+    else:
+        node_stats = ""
     complete_message = f"""
 >>> The flow execution is {job_status}.
 >>> Job Statistics:
@@ -305,6 +312,3 @@ def format_operator_logs(*, job_id: str, job_stats: dict, node_sequence: list | 
     >>> ===============================================================
     """
     return complete_message
-
-
-# Made with Bob

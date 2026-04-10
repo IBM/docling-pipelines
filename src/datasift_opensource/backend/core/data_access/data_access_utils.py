@@ -14,7 +14,7 @@ class DataAccessConstants:
 
 
 # Key is storage type and value is config key
-data_access_config_key_map = {
+data_access_config_key_map: dict[str, str] = {
     DataAccessConstants.MEMORY: "data_config",
     DataAccessConstants.LOCAL: "data_local_config",
     DataAccessConstants.COS: "data_config",
@@ -28,7 +28,14 @@ class DataAccessUtils:
     def add_node_name_to_output_folder(*, params: dict, node_name):
         node_name = re.sub(r"\W+", "_", node_name)
         storage_type = params.get(DataAccessConstants.DATA_STORAGE_TYPE)
-        config = params.get(data_access_config_key_map.get(storage_type))
+        if not storage_type:
+            return
+
+        config_key = data_access_config_key_map.get(storage_type)
+        if not config_key:
+            return
+
+        config = params.get(config_key)
         if config:
             output_folder = config.get(DatasiftConstants.OUTPUT_FOLDER)
 

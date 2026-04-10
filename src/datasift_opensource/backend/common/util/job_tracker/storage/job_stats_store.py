@@ -17,7 +17,7 @@ class JobStatsStore(ABC):
     """
 
     @staticmethod
-    def _merge_status(old_stat: ExecutionStatus, new_stat: ExecutionStatus) -> str:
+    def _merge_status(old_stat: ExecutionStatus, new_stat: ExecutionStatus) -> ExecutionStatus:
         """
         Merge two execution statuses and return the one that is closer to failure.
 
@@ -26,7 +26,7 @@ class JobStatsStore(ABC):
             new_stat (ExecutionStatus): The new execution status to compare.
 
         Returns:
-            str: The execution status that is considered more severe (lower code).
+            ExecutionStatus: The execution status that is considered more severe (lower code).
         """
         status_codes = {
             ExecutionStatus.FAILED: 1,
@@ -86,7 +86,7 @@ class JobStatsStore(ABC):
         pass
 
     @abstractmethod
-    def get_job_stats(self, job_run_id: str) -> JobStatsDto:
+    def get_job_stats(self, job_run_id: str) -> JobStatsDto | None:
         """
         Retrieve job-level statistics for a given job run ID.
 
@@ -94,12 +94,15 @@ class JobStatsStore(ABC):
             job_run_id (str): The unique identifier for the job run.
 
         Returns:
+            JobStatsDto | None: The job statistics, or None if not found.
+
+        Returns:
             JobStatsDto: The retrieved job statistics.
         """
         pass
 
     @abstractmethod
-    def get_node_stats(self, job_id: str, job_run_id: str) -> dict[str, NodeStatsDto]:
+    def get_node_stats(self, job_id: str, job_run_id: str) -> dict[str, NodeStatsDto] | None:
         """
         Retrieve node-level statistics for a given job ID and job run ID.
 
@@ -108,7 +111,7 @@ class JobStatsStore(ABC):
             job_run_id (str): The job run identifier.
 
         Returns:
-            dict[str, NodeStatsDto]: A dictionary mapping node IDs to their statistics.
+            dict[str, NodeStatsDto] | None: A dictionary mapping node IDs to their statistics, or None if not found.
         """
         pass
 

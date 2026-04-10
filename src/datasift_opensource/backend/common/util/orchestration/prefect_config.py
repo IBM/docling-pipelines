@@ -48,7 +48,7 @@ def clean_up_prefect_home() -> None:
         _safe_rmtree(path=prefect_home, prefix=PREFECT_HOME_PREFIX)
 
 
-def _safe_rmtree(path: str, prefix: str = None) -> bool:
+def _safe_rmtree(path: str, prefix: str | None = None) -> bool:
     """
     Safely remove a directory if it's inside the system temp directory
     and optionally matches a given prefix.

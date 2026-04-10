@@ -237,14 +237,14 @@ class PickleJobStatsStore(JobStatsStore):
                 )
                 if job_run_job_stats_pickle_file is None:
                     return None
-                job_stats: JobStatsDto = job_run_job_stats_pickle_file.get(job_run_id, None)
-                if job_stats is None:
+                job_stats_value = job_run_job_stats_pickle_file.get(job_run_id)
+                if job_stats_value is None:
                     return None
                 logger.info(
-                    f"JobStats for the job run id : {job_run_id} :\n {job_stats}",
+                    f"JobStats for the job run id : {job_run_id} :\n {job_stats_value}",
                     extra=common_log_arguments,
                 )
-                return job_stats if isinstance(job_stats, JobStatsDto) else JobStatsDto(**job_stats)
+                return job_stats_value if isinstance(job_stats_value, JobStatsDto) else JobStatsDto(**job_stats_value)
         except Exception as exc:
             logger.error(
                 f"An error occurred while getting the job stats: {exc!s}",
@@ -252,6 +252,7 @@ class PickleJobStatsStore(JobStatsStore):
                 stack_info=True,
                 extra={DatasiftConstants.JOB_RUN_ID: job_run_id},
             )
+            return None
 
     def get_node_stats(self, job_id: str, job_run_id: str) -> dict[str, NodeStatsDto] | None:
         common_log_arguments = {
@@ -305,9 +306,12 @@ class PickleJobStatsStore(JobStatsStore):
                     extra=common_log_arguments,
                 )
                 node_id_to_node_stats = job_run_pickle_file
-            node_id_to_node_stats[node_stats.id] = (
-                node_stats.model_dump() if isinstance(node_stats, NodeStatsDto) else node_stats
-            )
+
+            if isinstance(node_stats, NodeStatsDto):
+                node_id_to_node_stats[node_stats.id] = node_stats
+            else:
+                # If it's a dict, convert it to NodeStatsDto
+                node_id_to_node_stats[node_stats.id] = NodeStatsDto(**node_stats)
             json_data = json.dumps(node_id_to_node_stats)
             _save_job_run_pickle_file(
                 data=node_id_to_node_stats,

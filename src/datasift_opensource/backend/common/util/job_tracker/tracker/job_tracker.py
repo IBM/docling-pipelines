@@ -53,7 +53,10 @@ def _identify_ingest_and_destination_nodes(*, dag_nodes: list[dict[str, Any]]) -
         dag_nodes (list): List of DAG nodes.
 
     Returns:
-        tuple: (ingest_node_id, list of destination_node_ids)
+        tuple[str, list[str]]: (ingest_node_id, list of destination_node_ids)
+
+    Raises:
+        ValueError: If no ingest node is found (invalid DAG structure)
     """
     logger.debug("Identifying ingest and destination nodes...")
     ingest_node_id = None
@@ -65,6 +68,10 @@ def _identify_ingest_and_destination_nodes(*, dag_nodes: list[dict[str, Any]]) -
         if not node.get(DatasiftConstants.OUTPUT_EDGES):
             destination_node_ids.append(node[OperatorConstants.Columns.ID])
             logger.debug(f"Destination node identified: {node[OperatorConstants.Columns.ID]}")
+
+    if ingest_node_id is None:
+        raise ValueError("Invalid DAG structure: No ingest node found (node with no input edges)")
+
     return ingest_node_id, destination_node_ids
 
 
@@ -186,6 +193,8 @@ class JobTracker(metaclass=Singleton):
         :return: A JobStatsDto object if found, otherwise None.
         """
         logger.info(f"Getting job stats by job_run_id: {job_run_id}")
+        if job_run_id is None:
+            return None
         return self.all_jobs.get(job_run_id, None)
 
     @staticmethod
@@ -590,6 +599,6 @@ class JobTracker(metaclass=Singleton):
 
     @staticmethod
     def _remove_node_metadata_from_node_stats(*, job_stats):
-        for node_id, node_stat in job_stats.node_stats.items():
+        for _, node_stat in job_stats.node_stats.items():
             if hasattr(node_stat, OperatorConstants.Config.NODE_METADATA):
                 node_stat.node_metadata = None

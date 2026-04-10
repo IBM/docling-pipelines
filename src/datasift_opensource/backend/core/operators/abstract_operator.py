@@ -26,8 +26,8 @@ class OperatorCategory(StrEnum):
 
 
 class AbstractOperator(AbstractTableTransform):
-    short_name = None
-    category = None
+    short_name: str
+    category: OperatorCategory
 
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
