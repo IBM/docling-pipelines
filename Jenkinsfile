@@ -138,6 +138,39 @@ timestamps {
 
       if (isReleaseBuild) {
         if (currentBuild.currentResult == 'SUCCESS') {
+          stage('Build and Push Wheel') {
+            script {
+              withCredentials([
+                usernamePassword(credentialsId: afaasCredentialsId, usernameVariable: 'ARTIFACTORY_USERNAME', passwordVariable: 'ARTIFACTORY_PASSWORD') // pragma: allowlist secret
+              ]) {
+                sh """
+                  # Setup Python environment
+                  export PATH=\${HOME}/miniconda3/bin:\$PATH
+                  eval "\$(conda shell.bash hook)"
+                  conda activate datasift_py312
+                  
+                  # Navigate to backend directory
+                  cd src/datasift_opensource/backend
+                  
+                  # Build the wheel using uv
+                  uv build --wheel
+                  
+                  # Find the generated wheel file
+                  WHEEL_FILE=\$(ls -t dist/*.whl | head -n 1)
+                  WHEEL_FILENAME=\$(basename "\$WHEEL_FILE")
+                  
+                  echo "Built wheel: \$WHEEL_FILENAME"
+                  
+                  # Push to Artifactory
+                  curl -u "\${ARTIFACTORY_USERNAME}:\${ARTIFACTORY_PASSWORD}" \\
+                    -T "\$WHEEL_FILE" \\
+                    "https://na-public.artifactory.swg-devops.com/artifactory/dataconn-maven-local/datasift-opensource/${VERSION}/\${WHEEL_FILENAME}"
+                  
+                  echo "Wheel file pushed to Artifactory successfully"
+                """
+              }
+            }
+          }
           stage('Publish') {
             script {
               withCredentials([

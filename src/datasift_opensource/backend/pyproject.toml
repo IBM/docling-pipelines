@@ -117,11 +117,34 @@ all-cloud = [
 ]
 
 [project.scripts]
-datasift-api = "app.main:app"
-datasift-orchestrator = "cli.datasift_cli:main"
+datasift-api = "datasift_opensource.app.main:app"
+datasift-orchestrator = "datasift_opensource.cli.datasift_cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["."]
+packages = ["common", "core", "app", "cli"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"__init__.py" = "datasift_opensource/__init__.py"
+"common" = "datasift_opensource/common"
+"core" = "datasift_opensource/core"
+"app" = "datasift_opensource/app"
+"cli" = "datasift_opensource/cli"
+
+[tool.hatch.build]
+exclude = [
+    ".venv/**",
+    ".vtest/**",
+    "**/__pycache__/**",
+    "**/*.pyc",
+]
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".venv/",
+    ".vtest/",
+    "*.pyc",
+    "__pycache__/"
+]
 
 [tool.uv]
 # Ensure uv resolves dependencies for Linux x86_64 environments (Jenkins CI)
