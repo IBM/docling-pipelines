@@ -1,6 +1,7 @@
 import importlib
 import inspect
 import pkgutil
+from typing import ClassVar
 
 from common.constants.constants import OrchestratorType
 from common.constants.operator_constants import OperatorConstants
@@ -11,7 +12,7 @@ logger = get_logger()
 
 
 class OperatorFactoryProvider:
-    operator_factories: dict[str, "OperatorFactory"] = {}
+    operator_factories: ClassVar[dict[str, "OperatorFactory"]] = {}
 
     @staticmethod
     def get_operator_factory(*, orchestrator: str, package_names: list = OperatorConstants.Misc.ALL_OPERATORS_PATH):
@@ -114,7 +115,7 @@ class OperatorFactory:
             logger.debug(f"Package {package_name} in {package} not found, skipping.")
             return
         logger.info(f">> loading packages from {package}")
-        for path, module_name, is_pkg in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
+        for path, module_name, _is_pkg in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
             try:
                 module = importlib.import_module(module_name)
                 module = importlib.reload(module)
@@ -127,13 +128,13 @@ class OperatorFactory:
                 logger.warning(f"Module {module_name} in {path} not loaded due to error {e}")
 
     def _process_module(self, *, module, module_name, temp_operator_dict):
-        for name, cls in inspect.getmembers(module):
+        for _name, cls in inspect.getmembers(module):
             if inspect.isclass(cls) and cls.__module__ == module_name:
                 short_name = getattr(cls, "short_name", None)
                 if short_name:
                     temp_operator_dict.setdefault(short_name, []).append(cls)
 
-    def get_operator(self, *, operator_name: str) -> type[AbstractOperator]:  # | Type[AbstractSparkOperator]:
+    def get_operator(self, *, operator_name: str) -> type[AbstractOperator] | None:  # | Type[AbstractSparkOperator]:
         return self.operators.get(operator_name)
 
 

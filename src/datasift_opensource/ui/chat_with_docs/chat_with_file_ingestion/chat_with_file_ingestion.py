@@ -9,8 +9,8 @@ from chat_with_file_ingestion.states.chat_state import ChatState
 # Configure logging to show INFO level logs in the console
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%H:%M:%S",
 )
 
 
@@ -94,8 +94,7 @@ def index() -> rx.Component:
                 init();
             }
             })();
-            """
-        ),
+            """),
         class_name=rx.cond(
             ThemeState.is_dark_mode, "dark font-['Inter']", "font-['Inter']"
         ),
@@ -113,4 +112,8 @@ app = rx.App(
         ),
     ],
 )
-app.add_page(index, route="/", on_load=[FileUploadState.on_load, ChatState.on_load, LogPollerState.clear_logs])
+app.add_page(
+    index,
+    route="/",
+    on_load=[FileUploadState.on_load, ChatState.on_load, LogPollerState.clear_logs],
+)

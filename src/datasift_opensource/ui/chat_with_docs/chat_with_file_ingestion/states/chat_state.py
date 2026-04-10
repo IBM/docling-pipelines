@@ -185,7 +185,7 @@ class ChatState(rx.State):
 
         # 3. Guard: documents must have been processed first
         file_state = await self.get_state(FileUploadState)
-        #if not file_state.pipeline_ran:
+        # if not file_state.pipeline_ran:
         #    self.messages.append(
         #        {
         #            "role": "assistant",
@@ -203,6 +203,7 @@ class ChatState(rx.State):
         # Get the index name from file_state (extracted from flow JSON)
         project_root = Path(__file__).parents[6]
         from .file_state import get_index_name_from_flow
+
         static_index_name = get_index_name_from_flow(project_root)
         index_name = file_state.datasift_index or static_index_name
 
@@ -230,6 +231,3 @@ class ChatState(rx.State):
         )
         self.is_processing = False
         yield rx.call_script(ChatState._scroll_js())
-
-
-# Made with Bob

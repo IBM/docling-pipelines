@@ -3,7 +3,6 @@ Unit tests for performance utilities.
 Tests for memory tracking and performance monitoring.
 """
 
-import os
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
@@ -339,6 +338,3 @@ class TestEdgeCases:
                 log_elapsed_time(start_time=100, operator="TestOperator")
 
                 assert mock_logger.info.called
-
-
-# Made with Bob

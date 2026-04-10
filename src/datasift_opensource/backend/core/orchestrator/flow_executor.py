@@ -25,7 +25,7 @@ class FlowExecutor:
     - flow_def: A dictionary containing the flow definition loaded from the JSON file.
     """
 
-    def __init__(self, flow_def_file: str = None, flow_def: dict = None, orchestrator=None):
+    def __init__(self, flow_def_file: str | None = None, flow_def: dict | None = None, orchestrator=None):
         """
         Loads the flow definition from the given JSON file and stores it in the `flow_def` attribute.
         Parameters:
@@ -69,7 +69,7 @@ class FlowExecutor:
             ):
                 logger.info(
                     ">>> Cancelled the execution: %s",
-                    params[DatasiftConstants.JOB_RUN_ID],
+                    params[DatasiftConstants.JOB_RUN_ID] if params else None,
                 )
                 return
             flow_validator = FlowValidator(self.__orchestrator)
@@ -141,25 +141,25 @@ class FlowExecutor:
             top_stats = snapshot.statistics(key_type)
 
             logger.info("-" * 80, extra=self.common_log_arguments)
-            logger.info("| Top %s lines" % limit, extra=self.common_log_arguments)
+            logger.info(f"| Top {limit} lines", extra=self.common_log_arguments)
             logger.info("=" * 80, extra=self.common_log_arguments)
             for index, stat in enumerate(top_stats[:limit], 1):
                 frame = stat.traceback[0]
                 # replace "/path/to/module/file.py" with "module/file.py"
                 filename = os.sep.join(frame.filename.split(os.sep)[-2:])
                 logger.info(
-                    "| #%s: %s:%s: %.1f KiB" % (index, filename, frame.lineno, stat.size / 1024),
+                    f"| #{index}: {filename}:{frame.lineno}: {stat.size / 1024:.1f} KiB",
                     extra=self.common_log_arguments,
                 )
                 line = linecache.getline(frame.filename, frame.lineno).strip()
                 if line:
-                    logger.info("|     %s" % line, extra=self.common_log_arguments)
+                    logger.info(f"|     {line}", extra=self.common_log_arguments)
 
             other = top_stats[limit:]
             if other:
                 size = sum(stat.size for stat in other)
                 logger.info(
-                    "| %s other: %.1f KiB" % (len(other), size / 1024),
+                    f"| {len(other)} other: {size / 1024:.1f} KiB",
                     extra=self.common_log_arguments,
                 )
             total = sum(stat.size for stat in top_stats)

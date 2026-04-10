@@ -51,11 +51,11 @@ class RedactionOperator(AbstractOperator):
         regex = config.get(OperatorConstants.PIIHAP.REDACTION_REGEX_KEY)
         if regex and len(regex):
             try:
-                regex = re.compile(regex)
+                compiled_regex: Pattern[str] = re.compile(regex)
             except re.error:
-                regex = re.compile(re.escape(regex))
+                compiled_regex = re.compile(re.escape(regex))
 
-            self.pattern: Pattern[Any] | None = regex
+            self.pattern: Pattern[Any] | None = compiled_regex
         else:
             self.pattern = None
 
@@ -182,6 +182,3 @@ class RedactionOperator(AbstractOperator):
 
     def get_required_features(self):
         return [self.doc_column]
-
-
-# Made with Bob

@@ -5,10 +5,12 @@ from pydantic import BaseModel, ConfigDict
 
 # --- 1. Configuration (Domain/Settings) ---
 
+
 class UIConfig(BaseModel):
     """Encapsulates UI constants and specific CSS styling."""
+
     model_config = ConfigDict(frozen=True)
-    
+
     APP_TITLE: str = "📄 Datasift DocuChat"
     # Target the button by its specific ID
     # Using a soft 'Light Sky Blue' (#87CEFA) for the 'lite blue' look
@@ -24,12 +26,15 @@ class UIConfig(BaseModel):
     """
     INDEX_BTN_ID: str = "build-index-btn"
 
+
 # --- 2. Application Services (Logic Layer) ---
+
 
 class DocumentService:
     @staticmethod
     def ingest_files(files: Optional[List[gr.File]]) -> str:
-        if not files: return "No files uploaded."
+        if not files:
+            return "No files uploaded."
         file_names = [f.name.split("/")[-1] for f in files]
         time.sleep(1.5)
         return f"Successfully indexed: {', '.join(file_names)}"
@@ -39,7 +44,9 @@ class DocumentService:
         time.sleep(1)
         return f"I've analyzed your documents. This is a placeholder response for: '{message}'"
 
+
 # --- 3. Presentation Layer (Gradio UI) ---
+
 
 def create_app() -> gr.Blocks:
     config = UIConfig()
@@ -49,20 +56,20 @@ def create_app() -> gr.Blocks:
     with gr.Blocks(title="Datasift DocuChat", css=config.CUSTOM_CSS) as demo:
         gr.Markdown(f"# {config.APP_TITLE}")
         gr.Markdown("Upload your documents on the left and ask questions on the right.")
-        
+
         with gr.Row():
             with gr.Column(scale=1):
                 gr.Markdown("### 1. Upload Knowledge Base")
                 file_input = gr.File(label="Upload files", file_count="multiple")
-                
+
                 # Assign the specific elem_id here
                 upload_button = gr.Button(
-                    "Build Index", 
-                    variant="primary", 
-                    elem_id=config.INDEX_BTN_ID
+                    "Build Index", variant="primary", elem_id=config.INDEX_BTN_ID
                 )
-                
-                status_output = gr.Textbox(label="System Status", placeholder="Waiting...")
+
+                status_output = gr.Textbox(
+                    label="System Status", placeholder="Waiting..."
+                )
 
             with gr.Column(scale=2):
                 gr.Markdown("### 2. Chat with your Docs")
@@ -71,12 +78,15 @@ def create_app() -> gr.Blocks:
                 clear = gr.ClearButton([msg, chatbot])
 
         # Event Handling
-        upload_button.click(fn=service.ingest_files, inputs=[file_input], outputs=[status_output])
-        msg.submit(fn=service.get_model_response, inputs=[msg, chatbot], outputs=[chatbot]).then(
-            lambda: "", None, [msg]
+        upload_button.click(
+            fn=service.ingest_files, inputs=[file_input], outputs=[status_output]
         )
+        msg.submit(
+            fn=service.get_model_response, inputs=[msg, chatbot], outputs=[chatbot]
+        ).then(lambda: "", None, [msg])
 
     return demo
+
 
 if __name__ == "__main__":
     create_app().launch()

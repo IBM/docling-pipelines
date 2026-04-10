@@ -27,7 +27,7 @@ def get_pyarrow_table_size_mb(table: pa.Table) -> float:
     """
     if table is None:
         return 0.0
-    
+
     try:
         return table.nbytes / (1024 * 1024)
     except Exception:

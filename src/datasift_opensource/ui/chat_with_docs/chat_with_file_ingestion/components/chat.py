@@ -161,7 +161,10 @@ def typing_indicator() -> rx.Component:
     return rx.el.div(
         rx.el.div(
             rx.el.div(
-                rx.icon("bot", class_name="h-4 w-4 text-indigo-500 dark:text-indigo-400 mr-2 flex-shrink-0"),
+                rx.icon(
+                    "bot",
+                    class_name="h-4 w-4 text-indigo-500 dark:text-indigo-400 mr-2 flex-shrink-0",
+                ),
                 rx.el.div(
                     rx.el.span(
                         class_name="w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full animate-bounce",

@@ -11,7 +11,10 @@ _ENV_FILE = _PROJECT_ROOT / ".env"
 if _ENV_FILE.exists():
     try:
         from dotenv import load_dotenv
-        load_dotenv(dotenv_path=_ENV_FILE, override=False)  # don't override explicit env vars
+
+        load_dotenv(
+            dotenv_path=_ENV_FILE, override=False
+        )  # don't override explicit env vars
     except ImportError:
         # dotenv not installed — fall back to manual parsing
         with _ENV_FILE.open() as _f:

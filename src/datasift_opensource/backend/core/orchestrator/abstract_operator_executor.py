@@ -101,7 +101,7 @@ class AbstractOperatorExecutor:
         """
         The concrete subclasses execute the given operator identified by _operator by passing the given tables
         """
-        pass
+        raise NotImplementedError("Subclasses must implement _execute_impl")
 
     def _get_input_tables(
         self,

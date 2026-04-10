@@ -10,7 +10,9 @@ def _status_badge() -> rx.Component:
             rx.cond(
                 FileUploadState.processing_failed,
                 rx.el.div(
-                    rx.icon("circle-x", class_name="h-3.5 w-3.5 text-red-400 flex-shrink-0"),
+                    rx.icon(
+                        "circle-x", class_name="h-3.5 w-3.5 text-red-400 flex-shrink-0"
+                    ),
                     rx.el.p(
                         FileUploadState.processing_status,
                         class_name="text-xs text-red-300 font-medium",
@@ -20,7 +22,10 @@ def _status_badge() -> rx.Component:
                 rx.cond(
                     FileUploadState.is_processing,
                     rx.el.div(
-                        rx.icon("loader", class_name="h-3.5 w-3.5 text-amber-400 animate-spin flex-shrink-0"),
+                        rx.icon(
+                            "loader",
+                            class_name="h-3.5 w-3.5 text-amber-400 animate-spin flex-shrink-0",
+                        ),
                         rx.el.p(
                             FileUploadState.processing_status,
                             class_name="text-xs text-amber-300 font-medium",
@@ -28,7 +33,10 @@ def _status_badge() -> rx.Component:
                         class_name="flex items-center gap-2",
                     ),
                     rx.el.div(
-                        rx.icon("circle-check", class_name="h-3.5 w-3.5 text-green-400 flex-shrink-0"),
+                        rx.icon(
+                            "circle-check",
+                            class_name="h-3.5 w-3.5 text-green-400 flex-shrink-0",
+                        ),
                         rx.el.p(
                             FileUploadState.processing_status,
                             class_name="text-xs text-green-300 font-medium",
@@ -51,13 +59,23 @@ def _log_line(line: str) -> rx.Component:
     return rx.el.p(
         line,
         class_name=rx.cond(
-            line.contains(" - ERROR - ") | line.contains(" ERROR ") | line.contains("ERROR:") | line.contains("Failed to") | line.contains("Traceback") | line.contains("Exception"),
+            line.contains(" - ERROR - ")
+            | line.contains(" ERROR ")
+            | line.contains("ERROR:")
+            | line.contains("Failed to")
+            | line.contains("Traceback")
+            | line.contains("Exception"),
             "text-[11px] font-mono text-red-400 leading-relaxed whitespace-pre-wrap break-all py-0.5",
             rx.cond(
-                line.contains(" - WARNING - ") | line.contains(" WARN ") | line.contains("WARNING:") | line.contains("Warning:"),
+                line.contains(" - WARNING - ")
+                | line.contains(" WARN ")
+                | line.contains("WARNING:")
+                | line.contains("Warning:"),
                 "text-[11px] font-mono text-amber-400 leading-relaxed whitespace-pre-wrap break-all py-0.5",
                 rx.cond(
-                    line.contains(" - INFO - ") | line.contains(" INFO ") | line.contains("INFO:"),
+                    line.contains(" - INFO - ")
+                    | line.contains(" INFO ")
+                    | line.contains("INFO:"),
                     "text-[11px] font-mono text-green-400 leading-relaxed whitespace-pre-wrap break-all py-0.5",
                     "text-[11px] font-mono text-gray-400 leading-relaxed whitespace-pre-wrap break-all py-0.5",
                 ),
@@ -205,7 +223,12 @@ def log_tearsheet() -> rx.Component:
             on_click=LogPollerState.close_logs,
             style=rx.cond(
                 LogPollerState.show_logs,
-                {"position": "absolute", "inset": "0", "background": "rgba(0,0,0,0.5)", "cursor": "pointer"},
+                {
+                    "position": "absolute",
+                    "inset": "0",
+                    "background": "rgba(0,0,0,0.5)",
+                    "cursor": "pointer",
+                },
                 {"display": "none"},
             ),
         ),
@@ -317,7 +340,9 @@ def document_sidebar() -> rx.Component:
                     rx.cond(
                         FileUploadState.is_processing,
                         rx.el.div(
-                            rx.icon("refresh-cw", class_name="h-4 w-4 animate-spin mr-2"),
+                            rx.icon(
+                                "refresh-cw", class_name="h-4 w-4 animate-spin mr-2"
+                            ),
                             "Processing...",
                             class_name="flex items-center justify-center",
                         ),
@@ -327,22 +352,32 @@ def document_sidebar() -> rx.Component:
                             class_name="flex items-center justify-center",
                         ),
                     ),
-                    on_click=[LogPollerState.start_polling, FileUploadState.process_documents],
+                    on_click=[
+                        LogPollerState.start_polling,
+                        FileUploadState.process_documents,
+                    ],
                     disabled=FileUploadState.is_processing | ~FileUploadState.has_files,
                     class_name="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all shadow-sm hover:shadow-md",
                 ),
                 # View Logs button — shown while processing or when logs exist
                 # Color: red=failed, amber=running, default gray otherwise
                 rx.cond(
-                    FileUploadState.is_processing | (LogPollerState.log_lines.length() > 0),
+                    FileUploadState.is_processing
+                    | (LogPollerState.log_lines.length() > 0),
                     rx.el.button(
                         rx.cond(
                             FileUploadState.processing_failed,
                             rx.icon("scroll-text", class_name="h-4 w-4 text-red-400"),
                             rx.cond(
                                 FileUploadState.is_processing,
-                                rx.icon("scroll-text", class_name="h-4 w-4 animate-pulse text-amber-500"),
-                                rx.icon("scroll-text", class_name="h-4 w-4 text-gray-600 dark:text-gray-300"),
+                                rx.icon(
+                                    "scroll-text",
+                                    class_name="h-4 w-4 animate-pulse text-amber-500",
+                                ),
+                                rx.icon(
+                                    "scroll-text",
+                                    class_name="h-4 w-4 text-gray-600 dark:text-gray-300",
+                                ),
                             ),
                         ),
                         on_click=LogPollerState.open_logs,

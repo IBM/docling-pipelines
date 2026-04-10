@@ -274,7 +274,7 @@ class SQLFilterOperator(AbstractOperator):
 
         if "WHERE" in sql_statement and con is not None:
             # filter using SQL statement
-            duckdb_binding_errors: tuple[type, ...] = (
+            duckdb_binding_errors = (
                 duckdb.BinderException,
                 duckdb.ConversionException,
                 duckdb.CatalogException,
@@ -282,7 +282,7 @@ class SQLFilterOperator(AbstractOperator):
 
             try:
                 filtered_table: pa.Table = con.execute(sql_statement).arrow()
-            except duckdb_binding_errors as ex:
+            except duckdb_binding_errors as ex:  # type: ignore[misc]
                 binding_err_msg: str = f"Filter condition is invalid due to mismatched data types. (e.g. comparing text to numbers). Please review the filter expression and table schema. {ex}"
                 raise DatasiftException(
                     message=binding_err_msg,
@@ -330,7 +330,7 @@ class SQLFilterOperator(AbstractOperator):
         if mode == Mode.COLUMNS_TO_DROP:
             filter_column_set = set(self.columns_to_drop)
         elif mode == Mode.FILTER_CRITERIA_JSON:
-            filter_column_set = extract_columns(self.filter_criteria_json)
+            filter_column_set = extract_columns(self.filter_criteria_json) if self.filter_criteria_json else set()
         else:
             filter_column_set = extract_columns(self.filter_criteria)
 

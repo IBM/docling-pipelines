@@ -469,7 +469,9 @@ class OperatorUtils:
         if not input_features or not updated_features:
             return None
 
-        existing_features = set(input_features.schema.names) if isinstance(input_features, Table) else input_features
+        existing_features: set | dict = (
+            set(input_features.schema.names) if isinstance(input_features, Table) else input_features
+        )
 
         rename_map = OperatorUtils._build_rename_map(
             updated_features=updated_features, existing_features=existing_features
@@ -484,11 +486,16 @@ class OperatorUtils:
             OperatorUtils._validate_dict_mandatory(rename_map, input_features)
             OperatorUtils._apply_dict_rename(input_features, rename_map)
 
+        return None
+
     @staticmethod
-    def _build_rename_map(*, updated_features: list | None = None, existing_features: set):
+    def _build_rename_map(*, updated_features: list | None = None, existing_features: set | dict) -> dict[str, str]:
         rename_map: dict[str, str] = {}
         seen_old: set = set()
         seen_new: set = set()
+
+        if updated_features is None:
+            return rename_map
 
         for idx, upd in enumerate(updated_features):
             OperatorUtils._validate_feature(upd, idx)
@@ -553,8 +560,9 @@ class OperatorUtils:
             )
 
     @staticmethod
-    def _validate_existing_features(rename_map: dict[str, str], existing_features: set):
-        missing_old = [old for old in rename_map if old not in existing_features]
+    def _validate_existing_features(rename_map: dict[str, str], existing_features: set | dict):
+        feature_set = existing_features if isinstance(existing_features, set) else set(existing_features.keys())
+        missing_old = [old for old in rename_map if old not in feature_set]
         if missing_old:
             error = f"Cannot rename non-existing column(s): {missing_old}"
             logger.error(error, stack_info=True, exc_info=True)

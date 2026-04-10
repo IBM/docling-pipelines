@@ -115,12 +115,18 @@ class MicrosoftGraphLoader(BaseLoader):
             client_credential=self.client_secret,
         )
         result = app.acquire_token_for_client(scopes=[MICROSOFT_GRAPH_SCOPE])
-        if "access_token" not in result:
+
+        if not isinstance(result, dict):
+            raise TypeError(f"Unexpected response type: {type(result).__name__}")
+
+        access_token = result.get("access_token")
+        if not access_token:
             raise ValueError(
                 f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
             )
-        self._token = result["access_token"]
-        return self._token
+
+        self._token = access_token
+        return access_token
 
     def _list_files(self, folder_item_id: str | None = None) -> list[dict]:
         """Recursively list all files in the drive (or a specific folder)."""
@@ -154,7 +160,7 @@ class MicrosoftGraphLoader(BaseLoader):
                 # Extract the path after the base URL
                 endpoint = next_link.replace(MICROSOFT_GRAPH_API_BASE, "")
             else:
-                endpoint = None
+                endpoint = None  # type: ignore[assignment]
 
         return files
 
@@ -790,7 +796,9 @@ class IngestSourceOperator(AbstractOperator):
         """
         Get list of S3 file keys, filtering out directories, hidden files, and applying include/exclude filters.
         """
-        bucket: str = self.connection_params.get("bucket")
+        bucket = self.connection_params.get("bucket")
+        if not bucket:
+            raise ValueError("S3 bucket name is required")
         prefix: str = self.connection_params.get("prefix", "")
 
         s3_client = self._create_s3_client()
@@ -873,7 +881,9 @@ class IngestSourceOperator(AbstractOperator):
 
         # Load each file individually
         documents: list[Document] = []
-        bucket: str = self.connection_params.get("bucket")
+        bucket = self.connection_params.get("bucket")
+        if not bucket:
+            raise ValueError("S3 bucket name is required")
 
         for key in file_keys:
             try:
@@ -923,7 +933,7 @@ class IngestSourceOperator(AbstractOperator):
         # 5. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         elif self.provider == "custom":
-            loader_path: str = self.connection_params.get("loader_class_path")
+            loader_path = self.connection_params.get("loader_class_path")
             if not loader_path:
                 raise ValueError("Provider is 'custom' but 'loader_class_path' is missing.")
 
