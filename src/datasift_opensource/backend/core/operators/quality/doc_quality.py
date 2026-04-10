@@ -80,7 +80,7 @@ class DocQuality(DocQualityTransform, AbstractOperator):
                 },
                 "docq_lorem_ipsum_ratio": {
                     OperatorConstants.Misc.NAME: "Lorem Ipsum Ratio",
-                    OperatorConstants.Config.DESCRIPTION: """The ratio between the number of occurrences of lorem ipsum over the text length. 
+                    OperatorConstants.Config.DESCRIPTION: """The ratio between the number of occurrences of lorem ipsum over the text length.
                         Lorem ipsum, or lipsum as it is sometimes known, is dummy text used in laying out print, graphic or web designs.""",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,

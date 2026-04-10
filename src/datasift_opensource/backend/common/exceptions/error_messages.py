@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
 
@@ -30,9 +30,9 @@ class ValidationMessage(BaseModel):
         return cls(message=message, message_code=message_code, **kwargs)
 
 
-class ValidationCodeMessages(str, Enum):
+class ValidationCodeMessages(StrEnum):
     MISSING_FEATURES = """Not all required features for {operator_name} operator are available - required: {missing_features},
-        Missing one or more operators:  {missing_operators}, 
+        Missing one or more operators:  {missing_operators},
         Please consider adding the missing operators to ensure full functionality
         """
 

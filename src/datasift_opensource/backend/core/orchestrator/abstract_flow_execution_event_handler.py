@@ -14,7 +14,7 @@ class AbstractFlowExecutionEventHandler(ABC):
     def after_flow_execution_complete(self, op_flow, present_job_status: str, message):
         pass
 
-    @staticmethod
+    @abstractmethod
     def before_step_execution_start(self, *, node_id, node_name, global_config, job_status, prev_results):
         pass
 

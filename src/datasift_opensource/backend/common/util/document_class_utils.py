@@ -134,7 +134,7 @@ class DocumentClassUtils:
                 continue
 
             # Build field path
-            field_path = parent_path + [field_name]
+            field_path = [*parent_path, field_name]
 
             # Check if field has nested fields (like line_items)
             if "fields" in field:

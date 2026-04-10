@@ -13,15 +13,15 @@ __all__ = [
     # PyArrow Handler
     "BaseParquetTableHandler",
     "CpdParquetTableHandler",
-    "get_parquet_table_handler",
-    # Transform Utils
-    "TransformUtils",
-    # Schema Utils
-    "align_table_schema",
-    "_combine_tables",
-    "_total_rows",
     # Incremental Update
     "IncrementalUpdateUtil",
+    # Transform Utils
+    "TransformUtils",
+    "_combine_tables",
+    "_total_rows",
+    # Schema Utils
+    "align_table_schema",
+    "get_parquet_table_handler",
 ]
 
 # Made with Bob

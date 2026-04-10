@@ -17,26 +17,26 @@ from .performance import (
 from .retry import retry_with_exponential_backoff, should_retry_on_result
 
 __all__ = [
+    "DEFAULT_DATA_ROOT_FOLDER",
+    # Caching
+    "LRUCache",
+    "delete_folders",
+    # Filesystem
+    "get_data_path",
     # Logging
     "get_logger",
     # Config
     "get_opensearch_config",
+    "get_process_memory_mb",
+    "get_pyarrow_table_size_mb",
     # Performance
     "log_elapsed_time",
-    "get_pyarrow_table_size_mb",
-    "get_process_memory_mb",
-    # Retry
-    "retry_with_exponential_backoff",
-    "should_retry_on_result",
-    # Caching
-    "LRUCache",
-    # Filesystem
-    "get_data_path",
-    "delete_folders",
-    "DEFAULT_DATA_ROOT_FOLDER",
     # Concurrency
     "process_batches_in_parallel",
+    # Retry
+    "retry_with_exponential_backoff",
     "run_with_session_info",
+    "should_retry_on_result",
     "submit_task_with_context_propagation",
 ]
 

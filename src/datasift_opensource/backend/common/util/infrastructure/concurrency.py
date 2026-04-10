@@ -28,7 +28,7 @@ def _append_result(batch_result, result_extractor, results):
         results.append(final_result)
 
 
-def process_batches_in_parallel(
+def process_batches_in_parallel[T, R](
     *,
     batches: list[T],
     worker_fn: Callable[[T], R],
@@ -66,7 +66,7 @@ def process_batches_in_parallel(
     return results
 
 
-def run_with_session_info(session_info: Any, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+def run_with_session_info[T](session_info: Any, func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
     """
     A utility function that runs a function with the given session_info in the current thread/context.
     This is particularly useful for ThreadPoolExecutor workers to ensure they have the correct session_info.

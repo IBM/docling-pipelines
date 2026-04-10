@@ -92,6 +92,7 @@ class BaseParquetTableHandler(ABC):
         self.save_table(path=path, table=updated_table)
         self.logger.info(f"Deleted {table.num_rows - updated_table.num_rows} rows.")
 
+    @abstractmethod
     def delete_file(self, *, path):
         """
         Delete Parquet file from the specified path.
