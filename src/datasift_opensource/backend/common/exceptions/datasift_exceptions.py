@@ -189,3 +189,131 @@ class ExternalServiceError(DatasiftException):
             status_code=status_code,
             error_code=error_code,
         )
+
+
+class FlowNotFoundException(DatasiftException):
+    """
+    Exception raised when a flow is not found.
+
+    Used in flow CRUD operations when attempting to retrieve, update,
+    or delete a flow that does not exist.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        flow_id: str | None = None,
+    ):
+        if flow_id and not message:
+            message = f"Flow {flow_id} not found"
+        super().__init__(
+            message,
+            status_code=404,
+            error_code=ErrorCode.FLOW_NOT_FOUND,
+        )
+        self.flow_id = flow_id
+
+
+class FlowAlreadyExistsException(DatasiftException):
+    """
+    Exception raised when attempting to create a flow that already exists.
+
+    Used in flow creation when a flow with the same name or ID already exists.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        flow_id: str | None = None,
+        flow_name: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=409,
+            error_code=ErrorCode.FLOW_ALREADY_EXISTS,
+        )
+        self.flow_id = flow_id
+        self.flow_name = flow_name
+
+
+class FlowInvalidDataException(DatasiftException):
+    """
+    Exception raised when flow data is invalid.
+
+    Used in flow CRUD operations when validation fails due to invalid
+    flow data, empty names, invalid field values, or malformed JSON.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        field_name: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=400,
+            error_code=ErrorCode.FLOW_INVALID_DATA,
+        )
+        self.field_name = field_name
+
+
+class FlowStorageException(DatasiftException):
+    """
+    Exception raised when flow storage operations fail.
+
+    Used in flow CRUD operations when file system errors occur,
+    such as permission errors, disk full, corrupted files, or I/O errors.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        operation: str | None = None,
+        flow_id: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=500,
+            error_code=ErrorCode.FLOW_STORAGE_ERROR,
+        )
+        self.operation = operation
+        self.flow_id = flow_id
+
+
+class RepositoryConfigurationException(DatasiftException):
+    """
+    Exception raised when repository configuration is invalid.
+
+    Used when repository type selection or repository-specific settings
+    are missing, unsupported, or malformed.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        repository_type: str | None = None,
+        valid_types: list[str] | None = None,
+        status_code: int = 400,
+    ):
+        super().__init__(message, status_code=status_code, error_code=ErrorCode.INVALID_CONFIGURATION)
+        self.repository_type = repository_type
+        self.valid_types = valid_types
+
+
+__all__ = [
+    "ConfigurationError",
+    "DatasiftException",
+    "DependencyError",
+    "ExternalServiceError",
+    "FlowAlreadyExistsException",
+    "FlowExecutionFailedException",
+    "FlowInvalidDataException",
+    "FlowNotFoundException",
+    "FlowStorageException",
+    "FlowValidationException",
+    "PrefectFlowFailed",
+    "RepositoryConfigurationException",
+    "ValidationAlert",
+    "ValidationAlertEncoder",
+    "ValidationException",
+]

@@ -1,0 +1,92 @@
+"""Pytest fixtures for routes tests."""
+
+from datetime import UTC, datetime
+from typing import Any
+
+import pytest
+
+from core.assets_management.domain.models.flow import Flow
+
+
+@pytest.fixture
+def sample_flow_data() -> dict[str, Any]:
+    """Sample flow data dictionary for testing."""
+    return {
+        "name": "Test Flow",
+        "description": "A test flow for unit testing",
+        "definition": {
+            "doc_type": "pipeline",
+            "version": "3.0",
+            "id": "test-pipeline-id",
+            "primary_pipeline": "test-pipeline-id",
+            "pipelines": [
+                {
+                    "id": "test-pipeline-id",
+                    "nodes": [
+                        {
+                            "id": "node1",
+                            "type": "execution_node",
+                            "op": "execute-notebook-node",
+                        }
+                    ],
+                    "app_data": {"ds_flow": {}, "ui_data": {}},
+                }
+            ],
+            "schemas": [],
+        },
+        "tags": ["test", "unit-test"],
+        "container_kind": "project",
+        "container_id": "550e8400-e29b-41d4-a716-446655440000",
+        "is_hidden": False,
+        "flow_version": "2.0",
+        "job_id": "660e8400-e29b-41d4-a716-446655440000",
+        "created_by": "test_user",
+    }
+
+
+@pytest.fixture
+def sample_flow_with_id(sample_flow_data) -> Flow:
+    """Sample Flow domain object with a specific flow_id for testing."""
+    flow = Flow(
+        flow_id="12345678-1234-1234-1234-123456789abc",
+        name=sample_flow_data["name"],
+        description=sample_flow_data["description"],
+        definition=sample_flow_data["definition"],
+        tags=sample_flow_data["tags"],
+        container_kind=sample_flow_data["container_kind"],
+        container_id=sample_flow_data["container_id"],
+        is_hidden=sample_flow_data["is_hidden"],
+        flow_version=sample_flow_data["flow_version"],
+        job_id=sample_flow_data["job_id"],
+        created_by=sample_flow_data["created_by"],
+        created_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
+        modified_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
+    )
+    return flow
+
+
+@pytest.fixture
+def multiple_sample_flows() -> list[Flow]:
+    """Multiple sample flows for testing list operations."""
+    flows = []
+    # Use valid UUIDs for flow IDs
+    flow_ids = [
+        "12345678-1234-1234-1234-12345678900",
+        "12345678-1234-1234-1234-123456789001",
+        "12345678-1234-1234-1234-123456789002",
+        "12345678-1234-1234-1234-123456789003",
+        "12345678-1234-1234-1234-123456789004",
+    ]
+    for i in range(5):
+        flow = Flow(
+            flow_id=flow_ids[i],
+            name=f"Test Flow {i}",
+            description=f"Description for flow {i}",
+            definition={"nodes": [], "edges": []},
+            tags=["test", f"tag-{i}"],
+            is_hidden=(i % 2 == 0),
+            created_on=datetime(2024, 1, i + 1, 12, 0, 0, tzinfo=UTC),
+            modified_on=datetime(2024, 1, i + 1, 12, 0, 0, tzinfo=UTC),
+        )
+        flows.append(flow)
+    return flows

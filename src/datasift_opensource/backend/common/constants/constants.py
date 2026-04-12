@@ -21,6 +21,7 @@ class DatasiftConstants:
     DAG = "dag"
     FLOW_ID = "flow_id"
     FLOW_NAME = "flow_name"
+    FIELD_NAME = "field_name"
     FLOW_DESCRIPTION = "flow_description"
     FLOW_DEFINITION = "flow_definition"
     JOB = "job"

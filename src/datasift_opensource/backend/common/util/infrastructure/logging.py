@@ -10,6 +10,14 @@
 # limitations under the License.
 ################################################################################
 
+"""Logging infrastructure with structured JSON formatting and transaction tracking.
+
+This module provides:
+- ConditionalFormatter: JSON formatter with transaction ID injection
+- get_logger: Factory function for creating configured loggers
+- get_log_level: Utility for resolving log levels from environment
+"""
+
 import json
 import logging
 import os
@@ -22,21 +30,76 @@ HEALTH_API_SUFFIX = "/health"
 
 
 class ConditionalFormatter(logging.Formatter):
+    """Logging formatter with conditional field inclusion and transaction tracking.
+
+    This formatter provides structured JSON logging with:
+    - Automatic transaction ID injection from session_info context
+    - Conditional field inclusion (job_id, job_run_id, track_perf)
+    - Enhanced debug logging with file location information
+    - Pretty-printed exceptions and stack traces for readability
+
+    Transaction ID Flow:
+    1. TransactionMiddleware extracts/generates X-Global-Transaction-Id from request headers
+    2. Middleware stores it in request.state.transaction_id
+    3. Middleware populates session_info context via create_session_info(transaction_id=...)
+    4. ConditionalFormatter retrieves transaction_id from session_info context
+
+    Fallback Behavior:
+    If session_info is not available or not populated (e.g., CLI operations),
+    the formatter uses a default transaction ID to maintain consistent log structure.
+    """
+
     fields_to_be_included: ClassVar[list[str]] = [
         DatasiftConstants.JOB_ID,
         DatasiftConstants.JOB_RUN_ID,
         DatasiftConstants.TRACK_PERF,
     ]
 
-    def format(self, record):
-        from common.models.session_info import get_session_info
+    def _get_transaction_id(self) -> str:
+        """Get transaction ID from session_info context.
 
-        session_info = get_session_info()
+        Retrieves the transaction ID from session_info context, which should be
+        populated by TransactionMiddleware via create_session_info(transaction_id=...).
+        This ensures all logs within a request include the same transaction ID for
+        distributed tracing.
+
+        Returns:
+            Transaction ID string from session_info, or default value if not available
+            (e.g., during CLI operations or when session_info is not initialized)
+        """
+        # Get transaction ID from session_info (set by TransactionMiddleware)
+        try:
+            from common.models.session_info import get_session_info
+
+            session_info = get_session_info()
+            if session_info and session_info.transaction_id:
+                return session_info.transaction_id
+        except Exception:
+            pass
+
+        # Fallback to default for non-API contexts (CLI, background jobs, etc.)
+        return DatasiftConstants.DEFAULT_TRANSACTION_ID
+
+    def format(self, record):
+        """Format log record as JSON with transaction ID and conditional fields.
+
+        Args:
+            record: LogRecord instance to format
+
+        Returns:
+            JSON string with structured log data, pretty-printed if exceptions present
+        """
+        # Get transaction ID with fallback support
+        transaction_id = self._get_transaction_id()
+
+        # Add transaction_id to the record for potential use by other handlers
+        record.transaction_id = transaction_id
+
         log_dict = {
             "time": self.formatTime(record, self.datefmt),
             "logger": record.name,
             "logLevel": record.levelname,
-            "transaction_ID": session_info.transaction_id,
+            "transaction_ID": transaction_id,
             "message": record.getMessage() if record.getMessage() else record.msg,
             "saveServiceCopy": "false",
             "appname": "datasift-api",
@@ -73,10 +136,13 @@ class ConditionalFormatter(logging.Formatter):
 
 
 def get_log_level(name: str | None = None):
-    """
-    When log level is None or str
-    :param name:
-    :return:
+    """Resolve log level from name or environment variable.
+
+    Args:
+        name: Log level name (e.g., "INFO", "DEBUG"). If None, reads from DS_LOG_LEVEL env var.
+
+    Returns:
+        Log level name string (uppercase)
     """
     if name is None:
         level_name = os.environ.get("DS_LOG_LEVEL", logging.INFO)

@@ -16,16 +16,21 @@ from .strings import (
     is_null_or_empty,
     split_text_into_chunks,
 )
-from .validation import is_date_time_as_per_format, is_value_in_range, to_bool
+from .validation import (
+    deduplicate_tags,
+    is_date_time_as_per_format,
+    is_value_in_range,
+    to_bool,
+    validate_container_kind,
+    validate_flow_definition,
+    validate_uuid_format,
+)
 
 __all__ = [
-    # Patterns
     "Singleton",
-    # Collections
     "batch_list",
-    # Strings
+    "deduplicate_tags",
     "escape_query_value",
-    # Datetime
     "get_current_timestamp",
     "get_index",
     "get_list_from_map",
@@ -39,6 +44,7 @@ __all__ = [
     "process_in_batches",
     "split_text_into_chunks",
     "to_bool",
+    "validate_container_kind",
+    "validate_flow_definition",
+    "validate_uuid_format",
 ]
-
-# Made with Bob
