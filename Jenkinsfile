@@ -87,7 +87,7 @@ timestamps {
               # Install pre-commit tools using uv
               uv pip install pre-commit ruff mypy detect-secrets types-requests types-cachetools
               
-              # Return to project root
+              # Return to project root for all checks
               cd ../../..
               
               echo "Running pre-commit checks..."
@@ -96,10 +96,10 @@ timestamps {
               CHECKS_FAILED=0
               FAILURE_SUMMARY=""
               
-              # Get list of changed Python files
+              # Get list of changed Python files (relative to project root)
               echo "Fetching changed files..."
               git fetch origin main:refs/remotes/origin/main || true
-              CHANGED_FILES=$(git diff --name-only origin/main...HEAD | grep '\\.py$' || true)
+              CHANGED_FILES=$(git diff --diff-filter=ACMR --name-only origin/main...HEAD | grep '\\.py$' || true)
               # Normalize whitespace: convert whitespace-only strings to empty strings
               CHANGED_PYTHON_FILES=$(echo "$CHANGED_FILES" | tr '\n' ' ' | xargs)
               CHANGED_BACKEND_FILES=$(echo "$CHANGED_FILES" | grep '^src/datasift_opensource/backend/' || true)
@@ -112,7 +112,7 @@ timestamps {
               echo "1/4 Running ruff-format..."
               RUFF_FORMAT_FAILED=0
               if [ -n "$CHANGED_PYTHON_FILES" ]; then
-                RUFF_FORMAT_OUTPUT=$(cd src/datasift_opensource/backend && uv run ruff format --check $(echo "$CHANGED_PYTHON_FILES" | sed 's|^|../../../|; s| | ../../../|g') 2>&1) || {
+                RUFF_FORMAT_OUTPUT=$(cd src/datasift_opensource/backend && uv run ruff format --check $CHANGED_PYTHON_FILES 2>&1) || {
                   RUFF_FORMAT_FAILED=1
                   CHECKS_FAILED=1
                 }
@@ -124,7 +124,7 @@ timestamps {
               echo "2/4 Running ruff linting..."
               RUFF_CHECK_FAILED=0
               if [ -n "$CHANGED_PYTHON_FILES" ]; then
-                RUFF_CHECK_OUTPUT=$(cd src/datasift_opensource/backend && uv run ruff check $(echo "$CHANGED_PYTHON_FILES" | sed 's|^|../../../|; s| | ../../../|g') 2>&1) || {
+                RUFF_CHECK_OUTPUT=$(cd src/datasift_opensource/backend && uv run ruff check $CHANGED_PYTHON_FILES 2>&1) || {
                   RUFF_CHECK_FAILED=1
                   CHECKS_FAILED=1
                 }
@@ -136,7 +136,7 @@ timestamps {
               echo "3/4 Running mypy type checking..."
               MYPY_FAILED=0
               if [ -n "$CHANGED_BACKEND_PYTHON_FILES" ]; then
-                MYPY_OUTPUT=$(cd src/datasift_opensource/backend && uv run mypy --ignore-missing-imports --config-file=pyproject.toml $(echo "$CHANGED_BACKEND_PYTHON_FILES" | sed 's|^|../../../|; s| | ../../../|g') 2>&1) || {
+                MYPY_OUTPUT=$(cd src/datasift_opensource/backend && uv run mypy --ignore-missing-imports --config-file=pyproject.toml $CHANGED_BACKEND_PYTHON_FILES 2>&1) || {
                   MYPY_FAILED=1
                   CHECKS_FAILED=1
                 }
@@ -148,7 +148,7 @@ timestamps {
               echo "4/4 Running detect-secrets..."
               SECRETS_FAILED=0
               if [ -n "$CHANGED_FILES" ]; then
-                SECRETS_OUTPUT=$(cd src/datasift_opensource/backend && uv run detect-secrets scan --baseline ../../../.secrets.baseline $(echo "$CHANGED_FILES" | tr '\n' ' ' | xargs | sed 's|^|../../../|; s| | ../../../|g') 2>&1) || {
+                SECRETS_OUTPUT=$(detect-secrets scan --baseline .secrets.baseline $CHANGED_FILES 2>&1) || {
                   SECRETS_FAILED=1
                   CHECKS_FAILED=1
                 }
