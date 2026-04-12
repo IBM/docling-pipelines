@@ -66,6 +66,212 @@ timestamps {
         checkout scm
       }
 
+      stage('Pre-commit Checks') {
+        script {
+          withCredentials([
+            usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
+          ]) {
+            sh '''
+              # Install uv
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.cargo/bin:$PATH"
+              
+              # Install system dependencies
+              sudo apt-get update
+              sudo apt-get install -y software-properties-common python3-dev gcc
+              
+              # Navigate to backend directory and sync dependencies
+              cd src/datasift_opensource/backend
+              uv sync --all-groups --all-extras
+              
+              # Install pre-commit tools using uv
+              uv pip install pre-commit ruff mypy detect-secrets types-requests types-cachetools
+              
+              # Return to project root
+              cd ../../..
+              
+              echo "Running pre-commit checks..."
+              
+              # Initialize failure tracking
+              CHECKS_FAILED=0
+              FAILURE_SUMMARY=""
+              
+              # Get list of changed Python files
+              echo "Fetching changed files..."
+              git fetch origin main:refs/remotes/origin/main || true
+              CHANGED_FILES=$(git diff --name-only origin/main...HEAD | grep '\\.py$' || true)
+              # Normalize whitespace: convert whitespace-only strings to empty strings
+              CHANGED_PYTHON_FILES=$(echo "$CHANGED_FILES" | tr '\n' ' ' | xargs)
+              CHANGED_BACKEND_FILES=$(echo "$CHANGED_FILES" | grep '^src/datasift_opensource/backend/' || true)
+              CHANGED_BACKEND_PYTHON_FILES=$(echo "$CHANGED_BACKEND_FILES" | tr '\n' ' ' | xargs)
+              
+              echo "Changed Python files: $CHANGED_PYTHON_FILES"
+              echo "Changed backend Python files: $CHANGED_BACKEND_PYTHON_FILES"
+              
+              # 1. Ruff Format - Check Python code formatting (only changed files)
+              echo "1/4 Running ruff-format..."
+              RUFF_FORMAT_FAILED=0
+              if [ -n "$CHANGED_PYTHON_FILES" ]; then
+                RUFF_FORMAT_OUTPUT=$(cd src/datasift_opensource/backend && uv run ruff format --check $(echo "$CHANGED_PYTHON_FILES" | sed 's|^|../../../|; s| | ../../../|g') 2>&1) || {
+                  RUFF_FORMAT_FAILED=1
+                  CHECKS_FAILED=1
+                }
+              else
+                echo "No Python files changed, skipping ruff format check"
+              fi
+              
+              # 2. Ruff - Lint Python code (only changed files)
+              echo "2/4 Running ruff linting..."
+              RUFF_CHECK_FAILED=0
+              if [ -n "$CHANGED_PYTHON_FILES" ]; then
+                RUFF_CHECK_OUTPUT=$(cd src/datasift_opensource/backend && uv run ruff check $(echo "$CHANGED_PYTHON_FILES" | sed 's|^|../../../|; s| | ../../../|g') 2>&1) || {
+                  RUFF_CHECK_FAILED=1
+                  CHECKS_FAILED=1
+                }
+              else
+                echo "No Python files changed, skipping ruff check"
+              fi
+              
+              # 3. MyPy - Type checking (only changed backend files)
+              echo "3/4 Running mypy type checking..."
+              MYPY_FAILED=0
+              if [ -n "$CHANGED_BACKEND_PYTHON_FILES" ]; then
+                MYPY_OUTPUT=$(cd src/datasift_opensource/backend && uv run mypy --ignore-missing-imports --config-file=pyproject.toml $(echo "$CHANGED_BACKEND_PYTHON_FILES" | sed 's|^|../../../|; s| | ../../../|g') 2>&1) || {
+                  MYPY_FAILED=1
+                  CHECKS_FAILED=1
+                }
+              else
+                echo "No backend Python files changed, skipping mypy check"
+              fi
+              
+              # 4. Detect Secrets - Check for secrets in code (only changed files)
+              echo "4/4 Running detect-secrets..."
+              SECRETS_FAILED=0
+              if [ -n "$CHANGED_FILES" ]; then
+                SECRETS_OUTPUT=$(cd src/datasift_opensource/backend && uv run detect-secrets scan --baseline ../../../.secrets.baseline $(echo "$CHANGED_FILES" | tr '\n' ' ' | xargs | sed 's|^|../../../|; s| | ../../../|g') 2>&1) || {
+                  SECRETS_FAILED=1
+                  CHECKS_FAILED=1
+                }
+              else
+                echo "No files changed, skipping detect-secrets check"
+              fi
+              
+              # Build failure summary if any checks failed
+              if [ $CHECKS_FAILED -eq 1 ]; then
+                echo ""
+                echo "========================================================================"
+                echo "                    PRE-COMMIT CHECKS FAILED"
+                echo "========================================================================"
+                echo ""
+                
+                # ruff-format failures
+                if [ $RUFF_FORMAT_FAILED -eq 1 ]; then
+                  echo "FAILED: ruff-format"
+                  echo "------------------------------------------------------------------------"
+                  # Parse files that would be reformatted
+                  PARSED_COUNT=0
+                  echo "$RUFF_FORMAT_OUTPUT" | grep -F "Would reformat:" | while read -r line; do
+                    FILE=$(echo "$line" | sed 's/^Would reformat: *//')
+                    if [ -n "$FILE" ]; then
+                      echo "  $FILE"
+                      PARSED_COUNT=$((PARSED_COUNT + 1))
+                    fi
+                  done
+                  # Fallback: if parsing yielded nothing, show raw output
+                  if [ $PARSED_COUNT -eq 0 ]; then
+                    echo "  [Unable to parse output, showing raw diagnostics]"
+                    echo "$RUFF_FORMAT_OUTPUT" | sed 's/^/  /'
+                  fi
+                  echo ""
+                  echo "  Fix: ruff format <file>"
+                  echo ""
+                fi
+                
+                # ruff-check failures
+                if [ $RUFF_CHECK_FAILED -eq 1 ]; then
+                  echo "FAILED: ruff-check"
+                  echo "------------------------------------------------------------------------"
+                  # Robust parsing: match standard Unix path patterns with line:col
+                  PARSED_COUNT=0
+                  echo "$RUFF_CHECK_OUTPUT" | grep -E '^[a-zA-Z0-9_./\\-]+\\.py:[0-9]+:[0-9]+:' | while read -r line; do
+                    # Extract file:line:col (everything before the 4th colon)
+                    FILE_LOC=$(echo "$line" | sed -E 's/^([^:]+:[0-9]+:[0-9]+):.*$/\\1/')
+                    # Extract error info (everything after file:line:col:)
+                    ERROR_INFO=$(echo "$line" | sed -E 's/^[^:]+:[0-9]+:[0-9]+: *//')
+                    if [ -n "$FILE_LOC" ] && [ -n "$ERROR_INFO" ]; then
+                      echo "  $FILE_LOC - $ERROR_INFO"
+                      PARSED_COUNT=$((PARSED_COUNT + 1))
+                    fi
+                  done
+                  # Fallback: if parsing yielded nothing, show raw output
+                  if [ $PARSED_COUNT -eq 0 ]; then
+                    echo "  [Unable to parse output, showing raw diagnostics]"
+                    echo "$RUFF_CHECK_OUTPUT" | sed 's/^/  /'
+                  fi
+                  echo ""
+                  echo "  Fix: ruff check --fix <file>"
+                  echo ""
+                fi
+                
+                # mypy failures
+                if [ $MYPY_FAILED -eq 1 ]; then
+                  echo "FAILED: mypy"
+                  echo "------------------------------------------------------------------------"
+                  # Robust parsing: match standard Unix path patterns with line number
+                  PARSED_COUNT=0
+                  echo "$MYPY_OUTPUT" | grep -E '^[a-zA-Z0-9_./\\-]+\\.py:[0-9]+:' | while read -r line; do
+                    # Extract file:line (everything before the 3rd colon)
+                    FILE_LOC=$(echo "$line" | sed -E 's/^([^:]+:[0-9]+):.*$/\\1/')
+                    # Extract error message (everything after file:line:)
+                    ERROR_MSG=$(echo "$line" | sed -E 's/^[^:]+:[0-9]+: *//')
+                    if [ -n "$FILE_LOC" ] && [ -n "$ERROR_MSG" ]; then
+                      echo "  $FILE_LOC - $ERROR_MSG"
+                      PARSED_COUNT=$((PARSED_COUNT + 1))
+                    fi
+                  done
+                  # Fallback: if parsing yielded nothing, show raw output
+                  if [ $PARSED_COUNT -eq 0 ]; then
+                    echo "  [Unable to parse output, showing raw diagnostics]"
+                    echo "$MYPY_OUTPUT" | sed 's/^/  /'
+                  fi
+                  echo ""
+                  echo "  Fix: Add type hints or adjust type annotations"
+                  echo ""
+                fi
+                
+                # detect-secrets failures
+                if [ $SECRETS_FAILED -eq 1 ]; then
+                  echo "FAILED: detect-secrets"
+                  echo "------------------------------------------------------------------------"
+                  # Safer parsing: use awk to extract filename field from JSON
+                  PARSED_COUNT=0
+                  echo "$SECRETS_OUTPUT" | awk -F'"' '/"filename":/ {print $4}' | sort -u | while read -r file; do
+                    if [ -n "$file" ]; then
+                      echo "  $file"
+                      PARSED_COUNT=$((PARSED_COUNT + 1))
+                    fi
+                  done
+                  # Fallback: if parsing yielded nothing, show raw output
+                  if [ $PARSED_COUNT -eq 0 ]; then
+                    echo "  [Unable to parse output, showing raw diagnostics]"
+                    echo "$SECRETS_OUTPUT" | sed 's/^/  /'
+                  fi
+                  echo ""
+                  echo "  Fix: Review and update .secrets.baseline"
+                  echo ""
+                fi
+                
+                echo "========================================================================"
+                echo ""
+                exit 1
+              fi
+              
+              echo "All pre-commit checks passed successfully!"
+            '''
+          }
+        }
+      }
+
       stage('Pytest') {
         script {
           withCredentials([
