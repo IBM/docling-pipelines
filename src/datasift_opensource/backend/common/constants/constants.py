@@ -19,6 +19,8 @@ class DatasiftConstants:
     DATA_FOLDER = "data_folder"
     OPERAND_NAMESPACE = "OPERAND_NAMESPACE"
     DAG = "dag"
+    DESCRIPTION = "description"
+    FLOW = "flow"
     FLOW_ID = "flow_id"
     FLOW_NAME = "flow_name"
     FIELD_NAME = "field_name"
@@ -46,12 +48,12 @@ class DatasiftConstants:
     LINK_NAME = "link_name"
     UPDATED_FEATURES = "updated_features"
     NAME = "name"
+    UNNAMED_FLOW = "Unnamed flow"
     UUID = "uuid"
     STATUS = "status"
     STATE = "state"
     MESSAGE = "message"
     LAST_UPDATED_AT = "last_updated_at"
-    FLOW = "flow"
     DETAILS = "details"
     JOBS = "jobs"
     RUNS = "runs"
@@ -63,6 +65,8 @@ class DatasiftConstants:
     SUMMARY = "summary"
     VALIDATION_FAILED = "validation_failed"
     PYTHON_PATH = "PYTHONPATH"
+    LOCAL = "local"
+    TRUE = "True"
     ABSTRACT_OPERATOR = "AbstractOperator"
     VALIDATING_FLOW = "validating_flow"
     SKIP_CUSTOM_OP_VALIDATION = "skip_custom_op_validation"
@@ -90,6 +94,9 @@ class DatasiftConstants:
     SUMMARY_SENTENCES_DEFAULT = 2
     SUMMARY_MAX_WORDS_DEFAULT = 20
     SUMMARY_MODEL_ID_DEFAULT = "granite4"
+    FLOW_EXECUTION_EVENT_HANDLER = "flow_execution_event_handler"
+    JOB_LOG_PATH = "job_log_path"
+    FLOW_EXECUTE_LOG = "flow_execute.log"
 
 
 class Metrics:
@@ -353,6 +360,3 @@ class LiteralConstants:
 
     NEWLINE: str = ProcessingConstants.NEWLINE
     SPACE: str = ProcessingConstants.SPACE
-
-
-# Made with Bob

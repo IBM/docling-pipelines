@@ -162,6 +162,34 @@ datasift-orchestrator status [service-name]
 # List all services
 datasift-orchestrator list
 ```
+### DatasiftFlowManager API
+
+Execute datasift flows programmatically using Python:
+
+```python
+from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager
+
+# Initialize executor
+executor = DatasiftFlowManager()
+
+# Execute flow from file
+result = executor.execute_flow("path/to/flow.json")
+
+# Execute flow from dictionary
+flow_dict = {
+    "nodes": [...],
+    "edges": [...]
+}
+result = executor.execute_flow(flow_dict)
+
+# List available operators
+operators = executor.list_operators()
+```
+
+For detailed examples and usage patterns, see:
+- [DatasiftFlowManager Examples](examples/datasift_flow_manager/) - Complete usage guide
+- [Quick Start Example](examples/datasift_flow_manager/01_execute_from_file.py) - Basic flow execution
+
 
 ## Docker
 

@@ -493,7 +493,6 @@ class OperatorConstants:
         NODE_IDS: Final[str] = "node_ids"
         REASON: Final[str] = "reason"
         RESOURCE_KEY: Final[str] = "resource_key"
-        RUNTIME: Final[str] = "runtime"
         SELECTED_PYTHON_FEATURES: Final[str] = "selected_python_features"
         SUPPORTED: Final[str] = "supported"
         TOTAL_FILE_COUNT: Final[str] = "file_count"

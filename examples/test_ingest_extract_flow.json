@@ -1,0 +1,38 @@
+{
+  "flow": {
+    "name": "Simple Ingest and Extract Flow",
+    "flow_id": "test-ingest-extract-001",
+    "description": "A simple flow demonstrating document ingestion and extraction using Docling",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "global_config": {
+      "doc_column": "content",
+      "disable_validation": "true",
+      "force_ingest": true
+    },
+    "dag": [
+      {
+        "id": "ingest-node",
+        "name": "ingest",
+        "operator": "ingest_local",
+        "config": {
+          "input_folder": "./tests/fixtures/invoices",
+          "include_filter": "pdf",
+          "store_binary_content": "false"
+        },
+        "input_edges": [],
+        "output_edges": [{"node_id_ref": "extract-node"}]
+      },
+      {
+        "id": "extract-node",
+        "name": "extract",
+        "operator": "extract_docling",
+        "config": {
+          "doc_column": "content"
+        },
+        "input_edges": [{"node_id_ref": "ingest-node"}],
+        "output_edges": []
+      }
+    ]
+  }
+}
