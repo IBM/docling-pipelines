@@ -205,12 +205,12 @@ class AbstractOrchestrator(ABC):
         executor = self.create_executor(op_def=op_def, global_config=global_config)
 
         if isinstance(prev_results, ExecuteStepResults):
-            prev_data_access = prev_results.data_accesses[0]
-            prev_table = prev_results.tables[0]
+            prev_data_access = prev_results.data_accesses[0] if prev_results.data_accesses else None
+            prev_table = prev_results.tables[0] if prev_results.tables else None
         else:
             # prev_results is a dictionary of [str, ExecuteStepResults]
-            prev_data_access = {link_name: res.data_accesses[0] for link_name, res in prev_results.items()}
-            prev_table = [res.tables[0] for res in prev_results.values()]
+            prev_data_access = {link_name: res.data_accesses[0] if res.data_accesses else None for link_name, res in prev_results.items()}
+            prev_table = [res.tables[0] if res.tables else None for res in prev_results.values()]
         skip = self.evaluate_execution_skip(executor=executor, tables=prev_table, deleted_docs_count=deleted_docs_count)
         metadata = {}
         internal_metadata = {}

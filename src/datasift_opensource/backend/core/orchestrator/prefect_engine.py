@@ -360,8 +360,9 @@ class PrefectEngine(AbstractFlowEngine):
             extra=self.common_log_arguments,
         )
 
-        def get_prev_results(op_definitions, results_: FuturedList) -> PrefectFuture | dict[str, PrefectFuture]:
+        def get_prev_results(op_definitions, results_: FuturedList, initial_batch_result) -> PrefectFuture | dict[str, PrefectFuture]:
             prev_res: dict[str, PrefectFuture] = {}
+            has_ingest_dependency = False
 
             for prev_node in op_definitions.get(DatasiftConstants.INPUT_EDGES, []):
                 node_id_ref = prev_node["node_id_ref"]
@@ -374,9 +375,10 @@ class PrefectEngine(AbstractFlowEngine):
 
                     if ingest_node_id and node_id_ref == ingest_node_id:
                         self.logger.debug(
-                            f"Skipping missing ingest node {node_id_ref} (unified batch approach)",
+                            f"Found ingest node dependency {node_id_ref} - will use batch data",
                             extra=self.common_log_arguments,
                         )
+                        has_ingest_dependency = True
                         continue
                     else:
                         self.logger.error(
@@ -388,8 +390,9 @@ class PrefectEngine(AbstractFlowEngine):
                 prev_index = node_id_to_index_map[node_id_ref]
                 prev_res[prev_node.get(DatasiftConstants.LINK_NAME)] = results_.get_future(prev_index)
 
-            if not prev_res and ingest_node_id:
-                return None
+            # If the only dependency is the ingest node, return the initial batch result
+            if not prev_res and has_ingest_dependency:
+                return initial_batch_result
 
             if len(prev_res) == 1:
                 return next(iter(prev_res.values()))
@@ -418,16 +421,19 @@ class PrefectEngine(AbstractFlowEngine):
         )
         prev_index = None
 
+        # Create initial batch result for first operator after ingest
+        batch_table = data_access.get_table("")[0]
+        initial_batch_result = ExecuteStepResults([data_access], [batch_table], {})
+
         for op_def in op_flow:
             index = node_id_to_index_map[op_def[OperatorConstants.Columns.ID]]
             try:
                 link_id = op_def.get(OperatorConstants.Misc.LINK_ID, None)
                 if prev_index is None:
-                    batch_table = data_access.get_table("")[0]
-                    prev_results = ExecuteStepResults([data_access], [batch_table], {})
+                    prev_results = initial_batch_result
                 else:
                     prev_results = (
-                        results.get_future(prev_index) if is_sequential_flow else get_prev_results(op_def, results)
+                        results.get_future(prev_index) if is_sequential_flow else get_prev_results(op_def, results, initial_batch_result)
                     )
 
                 future = inner_task.submit(

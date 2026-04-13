@@ -189,9 +189,10 @@ class AbstractOperatorExecutor:
         node_stats["end_time"] = end_time
         node_stats["time_taken"] = end_time - start_time
         node_stats["node_status"] = metadata.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value)
-        node_stats["col_names"] = tables[0].column_names
+        # Handle empty table list (e.g., from branching operators)
+        node_stats["col_names"] = tables[0].column_names if tables else []
         # Update document lists and counts
-        doc_ids_completed = OperatorUtils.get_unique_ids(tables=tables)
+        doc_ids_completed = OperatorUtils.get_unique_ids(tables=tables) if tables else []
         node_stats["docs_completed"] = doc_ids_completed
         node_stats["docs_completed_count"] = len(doc_ids_completed)
         node_stats["failed_docs"] = [
