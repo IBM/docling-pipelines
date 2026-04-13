@@ -137,9 +137,10 @@ cd ../../..  # Return to project root
 
 ## Running the Application
 
-### FastAPI Server
+### FastAPI Server (TODO)
+<details> FASTApi Server 
+<summary>Start the FastAPI server with uvicorn:</summary>
 
-Start the FastAPI server with uvicorn:
 
 ```bash
 # Using uvicorn from project root
@@ -155,6 +156,8 @@ The API will be available at:
 - API: http://localhost:8000
 - Interactive docs: http://localhost:8000/docs
 - Alternative docs: http://localhost:8000/redoc
+
+</details>
 
 ### CLI Orchestrator
 
