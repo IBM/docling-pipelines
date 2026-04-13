@@ -312,7 +312,12 @@ class PickleJobStatsStore(JobStatsStore):
             else:
                 # If it's a dict, convert it to NodeStatsDto
                 node_id_to_node_stats[node_stats.id] = NodeStatsDto(**node_stats)
-            json_data = json.dumps(node_id_to_node_stats)
+            json_data = json.dumps(
+                {
+                    key: value.model_dump() if isinstance(value, NodeStatsDto) else value
+                    for key, value in node_id_to_node_stats.items()
+                }
+            )
             _save_job_run_pickle_file(
                 data=node_id_to_node_stats,
                 json_data=json_data,
