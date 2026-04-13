@@ -9,7 +9,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from common.constants.constants import AttributeDataTypes, Metrics
+from common.constants.constants import AttributeDataTypes, ExecutionStatus, Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
@@ -174,13 +174,13 @@ class OpenSearchOperator(AbstractOperator):
         if self.doc_id_column not in table.column_names:
             missing_doc_id_error: str = f"Required column '{self.doc_id_column}' not found in table"
             logger.error(missing_doc_id_error, extra=self.common_log_arguments)
-            metadata[Metrics.External.NODE_STATUS] = "failed"
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED
             return [table], metadata
 
         if self.embeddings_column not in table.column_names:
             missing_embeddings_error: str = f"Required column '{self.embeddings_column}' not found in table"
             logger.error(missing_embeddings_error, extra=self.common_log_arguments)
-            metadata[Metrics.External.NODE_STATUS] = "failed"
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED
             return [table], metadata
 
         # Auto-detect vector dimension from embeddings data
@@ -211,7 +211,7 @@ class OpenSearchOperator(AbstractOperator):
                 self.index_manager.create_index()
             except Exception as e:
                 logger.error(f"Failed to create index: {e!s}", extra=self.common_log_arguments)
-                metadata[Metrics.External.NODE_STATUS] = "failed"
+                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED
                 return [table], metadata
 
         # Prepare documents for bulk indexing

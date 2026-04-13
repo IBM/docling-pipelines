@@ -36,7 +36,7 @@ from pathlib import Path
 backend_path = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from datasift_flow_manager import DatasiftFlowManager  # noqa: E402
+from lib.datasift_flow_manager import DatasiftFlowManager  # noqa: E402
 
 # Configure logging
 logging.basicConfig(

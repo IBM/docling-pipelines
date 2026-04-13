@@ -121,7 +121,7 @@ datasift-api = "datasift_opensource.app.main:app"
 datasift-orchestrator = "datasift_opensource.cli.datasift_cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["common", "core", "app", "cli"]
+packages = ["common", "core", "app", "cli", "lib"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "__init__.py" = "datasift_opensource/__init__.py"
@@ -129,6 +129,7 @@ packages = ["common", "core", "app", "cli"]
 "core" = "datasift_opensource/core"
 "app" = "datasift_opensource/app"
 "cli" = "datasift_opensource/cli"
+"lib" = "datasift_opensource/lib"
 
 [tool.hatch.build]
 exclude = [

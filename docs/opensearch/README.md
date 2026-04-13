@@ -1,13 +1,20 @@
 # OpenSearch Documentation
 
-The [`OpenSearchOperator`](../../src/datasift_opensource/backend/core/operators/universal/vectordb/opensearch_operator.py) stores document embeddings in OpenSearch for vector similarity search within datasift pipelines.
+> For setup and first-run instructions, start with [`USER_GUIDE_PIPELINE_SETUP.md`](../../USER_GUIDE_PIPELINE_SETUP.md). It covers prerequisites, dependency installation, OpenSearch startup, pipeline creation, execution, verification, and troubleshooting.
 
-## Contents
+This directory is a technical reference index for OpenSearch-related documentation in DataSift.
 
-| File | Description |
+The [`OpenSearchOperator`](../../src/datasift_opensource/backend/core/operators/vectordb/opensearch_operator.py) stores document embeddings in OpenSearch for vector similarity search within DataSift pipelines.
+
+## Reference Index
+
+| File | Purpose |
 |---|---|
-| [`DOCKER_SETUP.md`](DOCKER_SETUP.md) | Start/stop OpenSearch locally via Docker or Podman, health checks, and troubleshooting |
-| [`ENVIRONMENT_SETUP.md`](ENVIRONMENT_SETUP.md) | Complete environment variable reference and `.env` setup |
-| [`OPENSEARCH_QUICKSTART.md`](OPENSEARCH_QUICKSTART.md) | Install dependencies, run unit tests, and run the integration example |
+| [`OPENSEARCH_QUICKSTART.md`](OPENSEARCH_QUICKSTART.md) | OpenSearch-specific unit test command and links to related references |
+| [`ENVIRONMENT_SETUP.md`](ENVIRONMENT_SETUP.md) | Environment variable reference and `.env` setup details |
 
-For the full operator API reference — config parameters, engine/algorithm options, Python usage, flow JSON config, and performance tuning — see [`docs/operators/opensearch.md`](../operators/opensearch.md).
+## Additional References
+
+- Main user guide for setup and execution: [`../../USER_GUIDE_PIPELINE_SETUP.md`](../../USER_GUIDE_PIPELINE_SETUP.md)
+- Operator API reference: [`../operators/opensearch.md`](../operators/opensearch.md)
+- Example flow configuration: [`../../tests/flow_with_opensearch.json`](../../tests/flow_with_opensearch.json)

@@ -1,0 +1,125 @@
+{
+  "name": "complete-document-pipeline",
+  "flow_id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+  "description": "Complete document processing pipeline: Ingest -> Extract -> Chunk -> Embed -> Store in OpenSearch",
+  "storage": "in-memory",
+  "execute_type": "local",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true
+  },
+  "dag": [
+      {
+        "id": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
+        "name": "ingest_local_folder",
+        "operator": "ingest_local",
+        "config": {
+          "input_folder": "./sample_documents",
+          "include_filter": "pdf,txt,docx",
+          "store_binary_content": true,
+          "max_workers": 4
+        },
+        "input_edges": [],
+        "output_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}]
+      },
+      {
+        "id": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+        "name": "extract_with_docling",
+        "operator": "extract_docling",
+        "config": {
+          "doc_column": "content"
+        },
+        "input_edges": [{"node_id_ref": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c"}],
+        "output_edges": [{"node_id_ref": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"}]
+      },
+      {
+        "id": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+        "name": "semantic_chunker",
+        "operator": "chunker",
+        "config": {
+          "chunk_type": "semantic",
+          "chunk_size": 512,
+          "chunk_overlap": 50,
+          "retain_original_content": true
+        },
+        "input_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}],
+        "output_edges": [{"node_id_ref": "c4d5e6f7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"}]
+      },
+      {
+        "id": "c4d5e6f7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+        "name": "ollama_embeddings",
+        "operator": "embeddings",
+        "config": {
+          "embeddings_type": "ollama",
+          "embeddings_model_id": "nomic-embed-text",
+          "embeddings_column": "content",
+          "overlap_ratio": 0.1
+        },
+        "input_edges": [{"node_id_ref": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"}],
+        "output_edges": [{"node_id_ref": "b5d6e7f8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"}]
+      },
+      {
+        "id": "b5d6e7f8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+        "name": "opensearch_vector_store",
+        "operator": "opensearch",
+        "config": {
+          "opensearch_host": "localhost",
+          "opensearch_port": 9200,
+          "opensearch_username": "admin",
+          "opensearch_password": "MyStrongPass123!",
+          "opensearch_use_ssl": false,
+          "opensearch_verify_certs": false,
+          "index_name": "sample-documents-index",
+          "doc_id_column": "doc_id_hash",
+          "embeddings_column": "embeddings",
+          "vector_dimension": 768,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2",
+          "batch_size": 100,
+          "create_index": true,
+          "feature_mappings": {
+            "content": "content",
+            "doc_name": "doc_name",
+            "file_path": "file_path",
+            "doc_id_hash": "doc_id_hash",
+            "chunk_id": "chunk_id",
+            "chunk_index": "chunk_index"
+          },
+          "available_features": {
+            "embeddings": {
+              "type": "vector",
+              "available_for_vector_db": true
+            },
+            "content": {
+              "type": "string",
+              "available_for_vector_db": true
+            },
+            "doc_name": {
+              "type": "string",
+              "available_for_vector_db": true
+            },
+            "file_path": {
+              "type": "string",
+              "available_for_vector_db": true
+            },
+            "doc_id_hash": {
+              "type": "string",
+              "available_for_vector_db": true
+            },
+            "chunk_id": {
+              "type": "string",
+              "available_for_vector_db": true
+            },
+            "chunk_index": {
+              "type": "integer",
+              "available_for_vector_db": true
+            }
+          }
+        },
+        "input_edges": [{"node_id_ref": "c4d5e6f7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"}],
+        "output_edges": []
+      }
+    ]
+}

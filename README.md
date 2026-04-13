@@ -75,9 +75,30 @@ datasift-opensource/
 
 ## Setup
 
+### Quick Start (Automated Setup)
+
+**New users: Use the automated setup script to install everything in one command!**
+
+```bash
+./scripts/setup_datasift_environment.sh
+```
+
+This script automatically installs and configures:
+- Python 3.12 verification
+- uv package manager
+- Ollama with default models (granite4, llama2, nomic-embed-text)
+- OpenSearch with Dashboards
+- Python virtual environment and dependencies
+
+**For detailed setup options and troubleshooting, see [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md#quick-start-with-automated-setup)**
+
+---
+
+### Manual Setup
+
 This project uses [uv](https://docs.astral.sh/uv/) for fast Python package management.
 
-### Prerequisites
+#### Prerequisites
 
 Install uv if you haven't already:
 
@@ -85,7 +106,7 @@ Install uv if you haven't already:
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-### Installation
+#### Installation
 
 1. Clone the repository:
 

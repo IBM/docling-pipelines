@@ -33,7 +33,7 @@ backend_path = (
 )
 if backend_path.exists():
     sys.path.insert(0, str(backend_path))
-    from datasift_flow_manager import DatasiftFlowManager
+    from lib.datasift_flow_manager import DatasiftFlowManager
 else:
     # When installed as a package
     from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager

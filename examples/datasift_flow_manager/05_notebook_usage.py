@@ -65,7 +65,7 @@ from pathlib import Path
 # Add backend to path for local development
 backend_path = Path.cwd().parent.parent / "src" / "datasift_opensource" / "backend"
 sys.path.insert(0, str(backend_path))
-from datasift_flow_manager import DatasiftFlowManager
+from lib.datasift_flow_manager import DatasiftFlowManager
 
 # Cell 2: List available operators
 print(DatasiftFlowManager.list_operators())

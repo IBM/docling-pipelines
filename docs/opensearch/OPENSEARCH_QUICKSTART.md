@@ -1,34 +1,20 @@
 # OpenSearch Operator — Quick Start
 
-## 1. Install Dependencies
+> Start with the main setup guide: [`USER_GUIDE_PIPELINE_SETUP.md`](../../USER_GUIDE_PIPELINE_SETUP.md). It covers environment setup, OpenSearch startup, pipeline configuration, flow execution, verification, and troubleshooting.
+
+This page only keeps OpenSearch-specific test and reference pointers that are not covered in the main user guide.
+
+## 1. Run Unit Tests
 
 ```bash
 cd src/datasift_opensource/backend
-uv sync --extra dev
-```
-
-## 2. Run Unit Tests
-
-```bash
-# From the backend directory
-export PYTHONPATH="$(cd ../../.. && pwd)/src:${PYTHONPATH}"
+source .venv/bin/activate
+export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
 uv run pytest ../../../tests/unit/operators/vectordb/test_opensearch_operator.py -v
 ```
 
-## 3. Run the Integration Example
+## 2. Additional OpenSearch References
 
-Requires a running OpenSearch instance (see [`DOCKER_SETUP.md`](DOCKER_SETUP.md)).
-
-```bash
-python examples/opensearch_integration_example.py
-```
-
-## 4. Flow JSON Config Example
-
-A complete pipeline flow config is available at [`tests/flow_with_opensearch.json`](../../tests/flow_with_opensearch.json). Run it with:
-
-```bash
-datasift-orchestrator run --flow tests/flow_with_opensearch.json
-```
-
-> For operator configuration parameters, engine/algorithm options, and Python usage examples, see [`docs/operators/opensearch.md`](../operators/opensearch.md).
+- Operator API and configuration reference: [`../operators/opensearch.md`](../operators/opensearch.md)
+- OpenSearch environment variables: [`ENVIRONMENT_SETUP.md`](ENVIRONMENT_SETUP.md)
+- Example flow config: [`../../tests/flow_with_opensearch.json`](../../tests/flow_with_opensearch.json)

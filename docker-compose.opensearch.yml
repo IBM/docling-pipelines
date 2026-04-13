@@ -12,7 +12,7 @@ services:
       - plugins.security.ssl.http.enabled=false
       - plugins.security.ssl.transport.enabled=true
       - OPENSEARCH_INITIAL_ADMIN_PASSWORD=MyStrongPass123!
-      - OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
     ulimits:
       memlock:
         soft: -1

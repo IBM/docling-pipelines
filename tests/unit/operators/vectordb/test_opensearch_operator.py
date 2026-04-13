@@ -319,7 +319,9 @@ class TestBatchProcessing:
         operator = OpenSearchOperator(basic_config)
         result_tables, metadata = operator.transform(table)
 
-        assert metadata["node_status"] == "failed"
+        from common.constants.constants import ExecutionStatus
+
+        assert metadata["node_status"] == ExecutionStatus.FAILED
 
     @patch("core.operators.vectordb.opensearch_client.OpenSearch")
     def test_transform_empty_table(self, mock_opensearch, basic_config):

@@ -13,6 +13,17 @@ The datasift-opensource project is a modular, operator-based data processing fra
 - **Modern AI/ML Integrations**: Native support for Ollama (LLM operations), Docling (document processing), and OpenSearch (vector storage)
 - **Multi-Provider Support**: Flexible ingest operators supporting local files, S3, CSV, and multi-provider sources
 
+### User Guide Reference
+For new user setup and complete pipeline execution instructions, refer to [`USER_GUIDE_PIPELINE_SETUP.md`](USER_GUIDE_PIPELINE_SETUP.md). This comprehensive guide covers:
+- Prerequisites and installation (Python 3.12, uv, dependencies)
+- Ollama setup for LLM operations and embeddings
+- OpenSearch setup with Podman/Docker for vector storage
+- Flow configuration structure and operator examples
+- Step-by-step pipeline execution
+- Verification, testing, and troubleshooting
+
+**Note:** Consult this guide when helping users set up their environment or execute their first pipeline.
+
 ## Role
 Strategic workflow coordinator that breaks down complex tasks and delegates to specialized modes.
 
