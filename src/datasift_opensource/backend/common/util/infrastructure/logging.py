@@ -26,7 +26,61 @@ from typing import ClassVar
 
 from common.constants.constants import DatasiftConstants  # , Environments
 
+
+# ANSI color codes
+class Colors:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+
+    # Log level colors
+    DEBUG = "\033[36m"  # Cyan
+    INFO = "\033[32m"  # Green
+    WARNING = "\033[33m"  # Yellow
+    ERROR = "\033[31m"  # Red
+    CRITICAL = "\033[35m"  # Magenta
+
+    # Component colors
+    TIME = "\033[90m"  # Gray
+    NAME = "\033[94m"  # Blue
+
+
 HEALTH_API_SUFFIX = "/health"
+
+
+class ColoredFormatter(logging.Formatter):
+    """Formatter that adds color coding to log messages."""
+
+    LEVEL_COLORS: ClassVar[dict[int, str]] = {
+        logging.DEBUG: Colors.DEBUG,
+        logging.INFO: Colors.INFO,
+        logging.WARNING: Colors.WARNING,
+        logging.ERROR: Colors.ERROR,
+        logging.CRITICAL: Colors.CRITICAL,
+    }
+
+    def format(self, record):
+        # Get the color for this log level
+        level_color = self.LEVEL_COLORS.get(record.levelno, Colors.RESET)
+
+        # Format the message using parent formatter to populate record.asctime
+        super().format(record)
+
+        # Extract components directly from LogRecord attributes
+        # The parent format() call populates record.asctime
+        time_str = getattr(record, "asctime", "")
+        name_str = record.name
+        level_str = record.levelname
+        msg_str = record.getMessage()
+
+        # Construct colored message using LogRecord attributes
+        colored_message = (
+            f"{Colors.TIME}{time_str}{Colors.RESET} - "
+            f"{Colors.NAME}{name_str}{Colors.RESET} - "
+            f"{level_color}{Colors.BOLD}{level_str}{Colors.RESET} - "
+            f"{msg_str}"
+        )
+
+        return colored_message
 
 
 class ConditionalFormatter(logging.Formatter):
@@ -196,13 +250,12 @@ def get_logger(
         console_handler = logging.StreamHandler(sys.stdout)
         timefmt = "%H:%M:%S"
 
-        console_format: logging.Formatter | ConditionalFormatter
         if use_json_format:
             # Use JSON format when explicitly enabled
-            console_format = ConditionalFormatter(datefmt=timefmt)
+            console_format: logging.Formatter = ConditionalFormatter(datefmt=timefmt)
         else:
-            # Use normal logging format by default
-            console_format = logging.Formatter(
+            # Use colored logging format by default for console
+            console_format = ColoredFormatter(
                 fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                 datefmt=timefmt,
             )
@@ -214,10 +267,10 @@ def get_logger(
         if file:
             file_handler = logging.FileHandler(file)
 
-            file_log_format: logging.Formatter | ConditionalFormatter
             if use_json_format:
-                file_log_format = ConditionalFormatter(datefmt=timefmt)
+                file_log_format: logging.Formatter = ConditionalFormatter(datefmt=timefmt)
             else:
+                # Use plain format for file (no colors)
                 file_log_format = logging.Formatter(
                     fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
                     datefmt=timefmt,

@@ -147,20 +147,42 @@ uv run datasift-orchestrator --help
 datasift-orchestrator --help
 ```
 
-Available commands:
+#### Executing Flows
+
+Execute a flow definition from a JSON file:
 
 ```bash
-# Start a service
-datasift-orchestrator start <service-name> --config <config-file>
+datasift-orchestrator --flow-file path/to/flow.json
+```
 
-# Stop a service
-datasift-orchestrator stop <service-name>
+With custom log level:
 
-# Check service status
-datasift-orchestrator status [service-name]
+```bash
+datasift-orchestrator --flow-file flow.json --log-level debug
+```
 
-# List all services
-datasift-orchestrator list
+#### Validating Flows
+
+Validate a flow definition without executing it:
+
+```bash
+# Using --validate flag
+datasift-orchestrator --flow-file flow.json --validate
+
+# Using validate-flow command
+datasift-orchestrator validate-flow flow.json
+```
+
+#### Listing Operators
+
+List all available operators:
+
+```bash
+# Summary view
+datasift-orchestrator --list-operators
+
+# Detailed view with parameters
+datasift-orchestrator --list-operators --verbose
 ```
 ### DatasiftFlowManager API
 

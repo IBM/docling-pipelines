@@ -1,5 +1,7 @@
 """Design pattern implementations."""
 
+from typing import ClassVar
+
 
 class Singleton(type):
     """
@@ -10,12 +12,9 @@ class Singleton(type):
             pass
     """
 
-    _instances: dict[type, object] = {}
+    _instances: ClassVar[dict[type, object]] = {}
 
     def __call__(cls, *args, **kwargs):
         if cls not in cls._instances:
             cls._instances[cls] = super().__call__(*args, **kwargs)
         return cls._instances[cls]
-
-
-# Made with Bob

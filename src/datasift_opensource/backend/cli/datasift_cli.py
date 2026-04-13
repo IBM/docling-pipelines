@@ -3,7 +3,6 @@ import json
 import os
 import sys
 import uuid
-from logging import Logger
 from typing import Any
 
 from common.util.infrastructure.logging import get_logger
@@ -57,84 +56,219 @@ def load_flow_definition(file_path: str) -> dict[str, Any]:
     Returns:
         Dictionary containing the flow definition
 
-    Raises:
-        FileNotFoundError: If the file doesn't exist
-        json.JSONDecodeError: If the file contains invalid JSON
+    Exits:
+        Terminates process on file/JSON errors
     """
     try:
-        with open(file=file_path) as file:
-            flow_def = json.load(file)
+        with open(file_path, encoding="utf-8") as file:
+            flow_def: dict[str, Any] = json.load(file)
 
-        # Check if the flow definition is nested under a 'flow' key
-        if "flow" in flow_def:
-            return flow_def["flow"]
-        return flow_def
+        # Handle optional nesting under "flow"
+        return flow_def.get("flow", flow_def)
+
     except FileNotFoundError:
-        print(f"Error: Flow definition file '{file_path}' not found.")
+        cwd = os.getcwd()
+        abs_path = os.path.abspath(file_path)
+
+        logger.error("Flow definition file not found")
+        logger.error("  Searched for: %s", abs_path)
+        logger.error("  Current directory: %s", cwd)
+        logger.error("Suggestions:")
+        logger.error("  - Check if the file path is correct")
+        logger.error("  - Verify the file exists in the specified location")
+        logger.error("  - Use absolute path or path relative to: %s", cwd)
+
         sys.exit(1)
+
     except json.JSONDecodeError as e:
-        print(f"Error: Invalid JSON in flow definition file: {e}")
+        logger.error("Invalid JSON in flow definition file")
+        logger.error("  File: %s", file_path)
+        logger.error("  Line %d, Column %d: %s", e.lineno, e.colno, e.msg)
+        logger.error("Suggestions:")
+        logger.error("  - Validate JSON syntax using: python -m json.tool %s", file_path)
+        logger.error("  - Check for missing commas, brackets, or quotes")
+        logger.error("  - Use a JSON validator: https://jsonlint.com/")
+
         sys.exit(1)
 
 
-def main():  # pragma: no cover
+def validate_flow_definition(flow_file: str) -> bool:
+    from common.exceptions.datasift_exceptions import FlowValidationException
+    from common.models.session_info import create_session_info
+    from core.orchestrator.flow_validator import FlowValidator
+    from core.orchestrator.orchestrator_factory import OrchestratorFactory
+
+    try:
+        flow_def: dict[str, Any] = load_flow_definition(file_path=flow_file)
+        flow_name: str = flow_def.get("name", "Unnamed flow")
+
+        logger.info(
+            "Validating flow: '%s' number of operators: %d",
+            flow_name,
+            len(flow_def.get("dag", [])),
+        )
+
+        orchestrator = OrchestratorFactory.create_orchestrator()
+        validation_job_id = f"validation_{uuid.uuid4()}"
+        validation_job_run_id = f"validation_run_{uuid.uuid4()}"
+
+        create_session_info(
+            job_id=validation_job_id,
+            job_run_id=validation_job_run_id,
+            orchestrator=orchestrator,
+            flow_id="validation_flow",
+        )
+
+        orchestrator.initialize(job_id=validation_job_id, job_run_id=validation_job_run_id)
+
+        FlowValidator(orchestrator).validate(flow_def=flow_def, params={})
+
+        logger.info("Validation successful: '%s' is valid", flow_name)
+        return True
+
+    except FlowValidationException as e:
+        errors: list[Any] = e.errors or []
+        warnings: list[Any] = e.warnings or []
+
+        for i, err in enumerate(errors, 1):
+            logger.error("Error %d: %s", i, getattr(err, "message", str(err)))
+
+        for i, warn in enumerate(warnings, 1):
+            logger.warning("Warning %d: %s", i, getattr(warn, "message", str(warn)))
+
+        # Fail on both errors and warnings
+        return not (errors or warnings)
+
+    except Exception:
+        logger.exception("Validation failed with unexpected error")
+        return False
+
+
+def main() -> None:  # pragma: no cover
     os.environ["CMD_LINE"] = "True"
-    # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Execute a flow definition using the CommandLineOrchestrator.")
+
+    parser = argparse.ArgumentParser(
+        description="Execute or validate a flow definition using the CommandLineOrchestrator.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  datasift-orchestrator --flow-file flow.json
+  datasift-orchestrator --flow-file flow.json --validate
+  datasift-orchestrator validate-flow flow.json
+  datasift-orchestrator --list-operators
+        """,
+    )
+
+    subparsers = parser.add_subparsers(dest="command")
+
+    # -------------------------
+    # validate-flow subcommand
+    # -------------------------
+    validate_parser = subparsers.add_parser(
+        "validate-flow",
+        help="Validate a flow definition without executing it",
+    )
+    validate_parser.add_argument(
+        "flow_file",
+        help="Path to the flow definition JSON file to validate",
+    )
+
+    validate_parser.add_argument(
+        "--log-level",
+        "-l",
+        choices=["debug", "info", "warning", "error", "critical"],
+        default="info",
+        help="Set logging level (default: info)",
+    )
+
+    # -------------------------
+    # global args
+    # -------------------------
     parser.add_argument(
         "--flow-file",
         "-f",
-        required=False,
-        help="Path to the JSON file containing the flow definition",
+        help="Path to the flow definition JSON file",
     )
     parser.add_argument(
         "--log-level",
         "-l",
         choices=["debug", "info", "warning", "error", "critical"],
         default="info",
-        help="Set the logging level (default: info)",
+        help="Set logging level (default: info)",
     )
     parser.add_argument(
         "--list-operators",
         "-lo",
         action="store_true",
-        help="List all available operators with their details",
+        help="List all available operators and exit",
     )
     parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
-        help="Show detailed information (use with --list-operators)",
+        help="Enable verbose output (use with --list-operators)",
     )
+    parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="Validate the flow definition without executing it",
+    )
+
     args = parser.parse_args()
 
-    # Handle --list-operators command early (before heavy imports)
+    # Setup logger early
+    global logger
+    logger = get_logger(level=args.log_level.upper())
+
+    # -------------------------
+    # subcommand: validate-flow
+    # -------------------------
+    if args.command == "validate-flow":
+        success = validate_flow_definition(flow_file=args.flow_file)
+        sys.exit(0 if success else 1)
+
+    # -------------------------
+    # list operators (fast exit path)
+    # -------------------------
     if args.list_operators:
         from common.util.operators.display import list_operators
 
-        print(list_operators(verbose=args.verbose, summary_only=not args.verbose))
+        print(
+            list_operators(
+                verbose=args.verbose,
+                summary_only=not args.verbose,
+            )
+        )
         return
 
-    # Validate that flow-file is provided for execution
+    # -------------------------
+    # validation or execution requires flow file
+    # -------------------------
     if not args.flow_file:
-        parser.error("--flow-file is required unless using --list-operators")
+        parser.error("--flow-file is required unless using a subcommand or --list-operators")
 
-    log_level = args.log_level.upper()
-    logger: Logger = get_logger(level=log_level)
+    # -------------------------
+    # validation mode
+    # -------------------------
+    if args.validate:
+        success = validate_flow_definition(flow_file=args.flow_file)
+        sys.exit(0 if success else 1)
 
-    # Load the flow definition from the JSON file
-    print(f"Loading flow definition from {args.flow_file}")
+    # -------------------------
+    # execution mode
+    # -------------------------
+    logger.info("Loading flow definition from %s", args.flow_file)
+
     flow_def = load_flow_definition(file_path=args.flow_file)
 
-    logger.info(f"Loaded flow definition from {args.flow_file}")
-    logger.info(f"Flow name: {flow_def.get('name', 'Unnamed flow')}")
-    logger.info(f"Number of operators: {len(flow_def.get('sequence', flow_def.get('dag', [])))}")
+    logger.info("Loaded flow definition from %s", args.flow_file)
+    logger.info("Flow name: %s", flow_def.get("name", "Unnamed flow"))
+    logger.info("Number of operators: %d", len(flow_def.get("dag", [])))
 
-    # Execute the flow using the CommandLineOrchestrator
     run_command_line_executor(flow_def=flow_def)
-    logger.info(">>> Completed execution")
+
+    logger.info("Execution completed")
 
 
-# main entry point into the program; used for unit testing only
 if __name__ == "__main__":  # pragma: no cover
     main()
