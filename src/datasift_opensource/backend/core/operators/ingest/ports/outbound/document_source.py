@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -28,7 +29,7 @@ class DocumentSourcePort[SourceConfig: BaseModel](ABC):
     SOURCE_VERSION: str = "1.0.0"  # Semantic version
 
     @abstractmethod
-    def fetch_documents(self, config: SourceConfig) -> AsyncGenerator[Document, None]:
+    async def fetch_documents(self, config: Any) -> AsyncGenerator[Document, None]:
         """
         Fetch documents from the source.
 

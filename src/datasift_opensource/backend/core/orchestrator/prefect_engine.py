@@ -9,7 +9,7 @@ import copy
 import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from typing import Any, ParamSpec, TypeVar
+from typing import Any, Callable, ParamSpec, TypeVar
 
 from prefect import flow, task
 from prefect.futures import PrefectFuture

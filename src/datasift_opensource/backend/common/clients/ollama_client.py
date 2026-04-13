@@ -10,6 +10,8 @@ with support for JSON output parsing and retry logic.
 
 import json
 from enum import Enum
+from ollama import GenerateResponse
+from ollama._types import ChatResponse
 from typing import Any
 
 from common.clients.base_llm_client import BaseLLMClient, retry_with_backoff
@@ -184,7 +186,7 @@ class OllamaClient(BaseLLMClient):
                     messages.append({"role": "system", "content": self.system_prompt})
                 messages.append({"role": "user", "content": prompt})
 
-                response = ollama.chat(model=self.model_name, messages=messages)
+                response: ChatResponse | GenerateResponse = ollama.chat(model=self.model_name, messages=messages)
                 # When stream=False, response is a dict with the message content
                 # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
                 # Handle both dict and ChatResponse object

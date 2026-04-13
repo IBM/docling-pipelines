@@ -101,16 +101,18 @@ class DocumentClassifierOperator(AbstractOperator):
         self.provider: str = config.get(PROVIDER_KEY, DEFAULT_PROVIDER).lower()
         self.api_base: str | None = config.get(API_BASE_KEY)
         self.api_key: str | None = config.get(API_KEY_KEY, "not-needed")
-        self.model_id: str | None = config.get(MODEL_ID_KEY)
+        model_id_config: str | None = config.get(MODEL_ID_KEY)
         self.project_id: str | None = config.get(PROJECT_ID_KEY)
         self.request_timeout: int = config.get("request_timeout", DEFAULT_REQUEST_TIMEOUT)
         self.extract_tables: bool = config.get(OperatorConstants.Config.EXTRACT_TABLES, True)
         self.extract_images: bool = config.get(OperatorConstants.Config.EXTRACT_IMAGES, True)
-        # Set defaults based on provider
+        
+        # Set defaults based on provider - model_id is guaranteed to be str after this block
+        self.model_id: str
         if self.provider == "ollama":
-            self.model_id = self.model_id or DEFAULT_OLLAMA_MODEL
+            self.model_id = model_id_config or DEFAULT_OLLAMA_MODEL
         elif self.provider == "watsonx":
-            self.model_id = self.model_id or DEFAULT_WATSONX_MODEL
+            self.model_id = model_id_config or DEFAULT_WATSONX_MODEL
             if not self.api_base:
                 raise DatasiftException(
                     error_code=ErrorCode.INVALID_CONFIGURATION, message="api_base is required for watsonx provider"
@@ -252,7 +254,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
         return DocumentClassUtils.get_document_types()
 
-    def _call_ollama_chat(self, messages: list[dict[str, str]]) -> str:
+    def _call_ollama_chat(self, messages) -> str:
         """
         Call Ollama chat API using native ollama package.
 
