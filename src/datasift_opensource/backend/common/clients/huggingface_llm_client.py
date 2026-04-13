@@ -81,8 +81,8 @@ class HuggingFaceLLMClient(BaseLLMClient):
         self.use_local = use_local
         self.api_token = api_token or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
         self.device = device
-        self.model = None
-        self.client = None
+        self.model: Any = None
+        self.client: Any = None
 
         if self.use_local:
             self._initialize_local_model()

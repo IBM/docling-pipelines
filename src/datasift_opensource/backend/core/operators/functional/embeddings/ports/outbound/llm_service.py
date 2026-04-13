@@ -6,6 +6,7 @@ focused on business logic only.
 """
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class LLMServicePort(ABC):
@@ -22,6 +23,15 @@ class LLMServicePort(ABC):
 
     ADAPTER_NAME: str
     ADAPTER_DISPLAY_NAME: str
+
+    def __init__(self, model_name: str, **kwargs: Any) -> None:
+        """Initialize the LLM service adapter.
+
+        Args:
+            model_name: Name of the model to use
+            **kwargs: Additional adapter-specific configuration
+        """
+        self.model_name = model_name
 
     @abstractmethod
     def generate_embeddings(self, text: str) -> list[float]:

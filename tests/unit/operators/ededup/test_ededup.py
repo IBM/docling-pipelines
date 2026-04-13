@@ -115,6 +115,7 @@ class TestDatasiftEdedupOperator(unittest.TestCase):
                     "id": "102",
                     "name": "Doc 2",
                     "reason": "This document was identified as a duplicate and removed.",
+                    "document_url": "",
                 }
             ],
             Metrics.External.SKIPPED_DOCS_COUNT: 1,

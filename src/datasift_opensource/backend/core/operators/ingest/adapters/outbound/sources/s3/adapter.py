@@ -203,7 +203,7 @@ class S3SourceAdapter(DocumentSourcePort):
         Returns:
             boto3 S3 client
         """
-        client_kwargs = {
+        client_kwargs: dict[str, Any] = {
             "aws_access_key_id": config.access_key,
             "aws_secret_access_key": config.secret_key,
         }
@@ -377,5 +377,6 @@ class S3SourceAdapter(DocumentSourcePort):
         except Exception as e:
             logger.error(f"Failed to download {key}: {e}", exc_info=True)
             return None
+
 
 # Made with Bob

@@ -89,7 +89,9 @@ class OperatorUtils:
             else:
                 message = ValidationMessage.create(
                     message=ValidationCodeMessages.MISSING_COLUMNS.value.format(
-                        operator_name=operator_name, missing_features=missing_features
+                        operator_name=operator_name,
+                        missing_features=missing_features,
+                        missing_operators=missing_operators,
                     ),
                     message_code=ValidationCodeMessages.MISSING_COLUMNS.name,
                     missing_features=missing_features,
@@ -98,7 +100,7 @@ class OperatorUtils:
             if error_messages is not None:
                 error_messages.append(message)
             else:
-                raise FlowExecutionFailedException(message)
+                raise FlowExecutionFailedException(message.message or str(message))
 
     @staticmethod
     def merge_status(old_stat: ExecutionStatus, new_stat: ExecutionStatus) -> ExecutionStatus:
@@ -208,7 +210,7 @@ class OperatorUtils:
         for doc_id, doc_name in zip(input_ids, input_names, strict=False):
             # If the ID from the input is NOT in the output set, it was skipped.
             if doc_id not in output_ids_set:
-                skipped_docs_list.append({"id": doc_id, "name": doc_name, "reason": reason})
+                skipped_docs_list.append({"id": doc_id, "name": doc_name, "reason": reason, "document_url": ""})
 
         return {
             Metrics.External.SKIPPED_DOCS: skipped_docs_list,

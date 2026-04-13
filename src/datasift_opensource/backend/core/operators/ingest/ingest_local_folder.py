@@ -136,7 +136,9 @@ class IngestLocalOperator(AbstractOperator):
         incremental_update_util: IncrementalUpdateUtil = IncrementalUpdateUtil()
         # get all previously processed doc IDs with modification time
         self.previously_processed_docs_dict = (
-            None if self.force_ingest else incremental_update_util.get_all_processed_docs(job_id=self.context_id)
+            None
+            if self.force_ingest or not self.context_id
+            else incremental_update_util.get_all_processed_docs(job_id=str(self.context_id))
         )
 
         doc_data: list[dict[str, Any]]
@@ -217,7 +219,7 @@ class IngestLocalOperator(AbstractOperator):
             return None
         doc_id: str = str(stats.st_ino)
         modified_time: int = round(stats.st_mtime)
-        if is_doc_previously_processed(
+        if self.previously_processed_docs_dict and is_doc_previously_processed(
             previously_processed_docs_dict=self.previously_processed_docs_dict,
             doc_id=doc_id,
             modified_time=modified_time,

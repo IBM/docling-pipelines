@@ -1,7 +1,7 @@
 """Document source port - Interface for fetching documents from external sources."""
 
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
 from pydantic import BaseModel
 
@@ -28,7 +28,7 @@ class DocumentSourcePort[SourceConfig: BaseModel](ABC):
     SOURCE_VERSION: str = "1.0.0"  # Semantic version
 
     @abstractmethod
-    async def fetch_documents(self, config: SourceConfig) -> AsyncGenerator[Document, None]:
+    def fetch_documents(self, config: SourceConfig) -> AsyncGenerator[Document, None]:
         """
         Fetch documents from the source.
 

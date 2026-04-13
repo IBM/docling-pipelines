@@ -147,6 +147,9 @@ def detect_pii_hap_openai(
 
         raw_content = response.choices[0].message.content
 
+        if raw_content is None:
+            raise DatasiftException(message="Model returned empty response", status_code=500)
+
         # Try to parse JSON from response
         try:
             return json.loads(raw_content)

@@ -122,7 +122,15 @@ class OllamaClient(BaseLLMClient):
         try:
             # List available models
             models_response = ollama.list()
-            available_models = [m.model.split(":")[0] for m in models_response.get("models", [])]
+            # Handle both ListResponse object and dict formats for backward compatibility
+            if hasattr(models_response, "models"):
+                model_list = models_response.models
+            elif isinstance(models_response, dict) and "models" in models_response:
+                model_list = models_response["models"]
+            else:
+                model_list = []
+
+            available_models = [m.model.split(":")[0] for m in model_list if m.model]
 
             # Check if the requested model is available
             model_base = self.model_name.split(":")[0]  # Handle model:tag format
@@ -150,13 +158,12 @@ class OllamaClient(BaseLLMClient):
             logger.warning(f"Could not validate model availability: {exc!s}")
             # Don't fail initialization if validation check itself fails
 
-    def run(self, prompt: str, stream: bool = False) -> str:
+    def run(self, prompt: str) -> str:
         """
         Execute the model with the given prompt.
 
         Args:
             prompt: Input text for the model
-            stream: Enable streaming responses (not implemented)
 
         Returns:
             Generated text as string
@@ -177,7 +184,7 @@ class OllamaClient(BaseLLMClient):
                     messages.append({"role": "system", "content": self.system_prompt})
                 messages.append({"role": "user", "content": prompt})
 
-                response = ollama.chat(model=self.model_name, messages=messages, stream=stream)
+                response = ollama.chat(model=self.model_name, messages=messages)
                 # When stream=False, response is a dict with the message content
                 # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
                 # Handle both dict and ChatResponse object
@@ -192,7 +199,7 @@ class OllamaClient(BaseLLMClient):
                         return message.content or ""
                 return ""  # Fallback for unexpected response format
             else:
-                response = ollama.generate(model=self.model_name, prompt=prompt, stream=stream)
+                response = ollama.generate(model=self.model_name, prompt=prompt)
                 # When stream=False, response is a dict with the generated text
                 # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
                 if isinstance(response, dict):
@@ -591,7 +598,7 @@ class OllamaClient(BaseLLMClient):
         try:
             import ollama
 
-            models = ollama.list()
+            models: Any = ollama.list()
 
             # Check if model exists in the list
             if hasattr(models, "models"):
