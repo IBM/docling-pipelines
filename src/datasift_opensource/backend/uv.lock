@@ -927,7 +927,7 @@ requires-dist = [
     { name = "textstat", specifier = "==0.7.11" },
     { name = "toml", specifier = "==0.10.2" },
     { name = "unicategories", specifier = "==0.1.2" },
-    { name = "unicodedataplus", specifier = "==16.0.0" },
+    { name = "unicodedataplus", specifier = "==16.0.0.post1" },
     { name = "unstructured", extras = ["pdf"], marker = "extra == 'all-cloud'", specifier = ">=0.10.0" },
     { name = "unstructured", extras = ["pdf"], marker = "extra == 'google-drive'", specifier = ">=0.10.0" },
     { name = "urllib3", specifier = "==2.6.3" },
@@ -5381,9 +5381,18 @@ sdist = { url = "https://files.pythonhosted.org/packages/91/0a/3fb12e60f0a0cfe65
 
 [[package]]
 name = "unicodedataplus"
-version = "16.0.0"
+version = "16.0.0.post1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/70/6e/e7b4f723ff9127cc2b999b9be3ed8e021f6c233e1697b277586933fc092d/unicodedataplus-16.0.0.tar.gz", hash = "sha256:7821c635b936786f86bdd099a4fb9e4eed4795b30c270cf56c66628d677c811e", size = 762974, upload-time = "2024-09-20T22:06:43.539Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3b/12/7eb898d3659d81aad5d680d7d8f790fe4708f5d95f76d459e4a417dc8d32/unicodedataplus-16.0.0.post1.tar.gz", hash = "sha256:f8cd342d91c73b512c229976a82aeb7e448517969d611433a9ea825dc62fed84", size = 597852, upload-time = "2025-03-01T01:41:00.84Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c4/7f/8880b23cec40a7bf13d6c4d28b3f278eb7dcba3d63c59e2415fe7c43bd95/unicodedataplus-16.0.0.post1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a7137a6ad7a1c4fc8f702daa832aa647a555d8d5c9212b1c7484bd4cef420994", size = 424429, upload-time = "2025-03-01T01:40:11.706Z" },
+    { url = "https://files.pythonhosted.org/packages/5f/7c/52b0dafedf18b641b2200d4c0e871f63eb6fb033b285e67fe45573c72461/unicodedataplus-16.0.0.post1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:06873b54ae983c4bc08ad2d92bfee264b600fbc05efce66f8ccf05a80743e2c2", size = 525801, upload-time = "2025-03-01T01:40:13.273Z" },
+    { url = "https://files.pythonhosted.org/packages/64/d2/e230a34042d0256413c8c1fafe363d9d651ee487777054da9c9d74ac378c/unicodedataplus-16.0.0.post1-cp312-cp312-manylinux_2_5_i686.manylinux1_i686.manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:b5afed3758b7c8d5588568968d2ad1d4fd8ec377344b7307df9d348080a1922d", size = 517741, upload-time = "2025-03-01T01:40:14.949Z" },
+    { url = "https://files.pythonhosted.org/packages/91/a9/4cf20c8b1b77b32e585e7f495cadfd72074ba03bc880c6e4e02e29570373/unicodedataplus-16.0.0.post1-cp312-cp312-musllinux_1_2_i686.whl", hash = "sha256:95d1a608fb7b87db602f88e5eeef42c14a9c9da336fc148f5ce248f53fb55261", size = 518030, upload-time = "2025-03-01T01:40:17.02Z" },
+    { url = "https://files.pythonhosted.org/packages/74/5b/299cf948f30c6a3d1aa23299c4e3cd413f47892d1d2e273df746c5e6c720/unicodedataplus-16.0.0.post1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:96c1cdf0643c71ffd8357580e2ce65ed7b6187b511354d25ce696cb464c8e889", size = 522168, upload-time = "2025-03-01T01:40:18.985Z" },
+    { url = "https://files.pythonhosted.org/packages/96/6a/272ae48b2b2447dfb60f308babacdc0f4e69f431d1fb82b951ae93489cfe/unicodedataplus-16.0.0.post1-cp312-cp312-win32.whl", hash = "sha256:f697b5f43b71f07ccb8644d12a79478872d093ae9811279c384c214383586619", size = 415939, upload-time = "2025-03-01T01:40:20.618Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/9d/b48575e93cf8616cf5f817b832812cca47fe48ac86a64b4bd976cb1f15bb/unicodedataplus-16.0.0.post1-cp312-cp312-win_amd64.whl", hash = "sha256:302d5a5bf38962627539cbee1114759103ddcec57bef6c94151885f48bf623a3", size = 417117, upload-time = "2025-03-01T01:40:21.726Z" },
+]
 
 [[package]]
 name = "unstructured"

@@ -30,7 +30,7 @@
                 "operator": "extract_docling",
                 "config": {
                     "doc_column": "content",
-                    "use_template": true,
+                    "use_template": false,
                     "expand_extracted_data": true,
                     "template": {
                         "invoice_number": "string",
