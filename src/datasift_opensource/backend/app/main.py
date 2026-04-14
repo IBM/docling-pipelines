@@ -6,21 +6,27 @@ This module configures the FastAPI application with:
 - Security headers middleware for enhanced security
 - CORS middleware for cross-origin resource sharing
 - Standardized error handlers following IBM Cloud standards
+- OAuth2/OIDC authentication with LDAP support
 """
 
 import logging
 import os
 import sys
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api_router import api_router
+from app.auth.dependencies import get_current_user
+from app.auth.jwt_handler import JWTConfig, create_access_token
+from app.auth.ldap_auth import LDAPAuthenticator, LDAPConfig
+from app.auth.models import LoginRequest, TokenResponse, User
+from app.auth.oauth2_routes import router as oauth2_router
 from app.middleware import validate_payload_size
 from app.middleware.api_logging_middleware import ApiLoggingMiddleware
 from app.middleware.error_handler import (
@@ -78,6 +84,8 @@ uvicorn_access_logger = logging.getLogger("uvicorn.access")
 uvicorn_access_logger.handlers = []  # Clear existing handlers
 uvicorn_access_logger.addHandler(handler)
 uvicorn_access_logger.propagate = False  # Prevent duplicate logs
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="DataSift Opensource API",
@@ -228,6 +236,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Initialize authentication configurations
+try:
+    ldap_config: LDAPConfig | None = LDAPConfig()
+    jwt_config: JWTConfig | None = JWTConfig()
+    ldap_authenticator: LDAPAuthenticator | None = LDAPAuthenticator(ldap_config)
+    logger.info("Authentication configurations initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize authentication configurations: {e!s}")
+    ldap_config = None
+    jwt_config = None
+    ldap_authenticator = None
+
 # Register IBM Cloud standard error handlers
 # Order matters: more specific handlers first, then generic
 app.add_exception_handler(DatasiftException, cast(Any, datasift_exception_handler))
@@ -262,6 +282,85 @@ async def health_check():
     return HealthCheckResponse(status="healthy")
 
 
+@app.post("/auth/login", response_model=TokenResponse)
+async def login(credentials: LoginRequest):
+    """Authenticate user via LDAP and return JWT token.
+
+    Args:
+        credentials: Login credentials (username and password)
+
+    Returns:
+        TokenResponse with access token
+
+    Raises:
+        HTTPException: If authentication fails or LDAP is not configured
+    """
+    if ldap_authenticator is None or jwt_config is None:
+        logger.error("Authentication not configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service not configured",
+        )
+
+    try:
+        user: User | None = ldap_authenticator.authenticate(credentials.username, credentials.password)
+
+        if not user:
+            logger.warning(f"Failed login attempt for user: {credentials.username}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid username or password",
+            )
+
+        token_data = {
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+        }
+        access_token: str = create_access_token(token_data, jwt_config)
+
+        logger.info(f"User logged in successfully: {credentials.username}")
+        return TokenResponse(access_token=access_token)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error for user {credentials.username}: {e!s}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service error",
+        ) from e
+
+
+@app.get("/auth/me", response_model=User)
+async def get_current_user_info(current_user: Annotated[User, Depends(get_current_user)]):
+    """Get current authenticated user information.
+
+    Args:
+        current_user: Current authenticated user from JWT token
+
+    Returns:
+        User information
+    """
+    return current_user
+
+
+@app.get("/protected")
+async def protected_route(current_user: Annotated[User, Depends(get_current_user)]):
+    """Example protected endpoint requiring authentication.
+
+    Args:
+        current_user: Current authenticated user from JWT token
+
+    Returns:
+        Welcome message with username
+    """
+    return {"message": f"Hello {current_user.username}", "user": current_user}
+
+
+# Include OAuth2 router for OAuth2/OIDC authentication
+app.include_router(oauth2_router)
+
 # Register middleware
 app.middleware("http")(validate_payload_size)
 
@@ -276,3 +375,4 @@ if __name__ == "__main__":
         port=8080,
         reload=True,
     )
+

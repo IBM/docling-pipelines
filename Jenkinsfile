@@ -296,9 +296,9 @@ timestamps {
               curl -LsSf https://astral.sh/uv/install.sh | sh
               
               
-              # Install system dependencies
+              # Install system dependencies including LDAP libraries for python-ldap
               sudo apt-get update
-              sudo apt-get install -y software-properties-common python3-dev gcc
+              sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
               
               # Navigate to backend directory and install dependencies
               cd src/datasift_opensource/backend
