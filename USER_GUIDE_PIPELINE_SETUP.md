@@ -26,6 +26,29 @@ This comprehensive guide walks you through setting up and executing a complete D
 
 ---
 
+## Quick Reference
+
+> **⚠️ CRITICAL: Working Directory Requirements**
+>
+> All `datasift-orchestrator` commands **MUST** be run from the **project root directory** (`datasift-opensource/`).
+>
+> **Correct:**
+> ```bash
+> # From project root (datasift-opensource/)
+> datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+> ```
+>
+> **Incorrect:**
+> ```bash
+> # From backend directory - WILL FAIL with ModuleNotFoundError
+> cd src/datasift_opensource/backend
+> datasift-orchestrator --flow-file ...  # ERROR: No module named 'datasift_opensource'
+> ```
+>
+> **Why:** The PYTHONPATH must point to `src/datasift_opensource/backend` as the source root. Running from subdirectories breaks Python imports.
+
+---
+
 ## 1. Introduction
 
 ### Quick Start with Automated Setup
@@ -839,15 +862,26 @@ The repository includes a complete, ready-to-run pipeline in [`sample_flows/comp
 
 **To test your setup:**
 
+> **⚠️ Important:** Commands must be run from the **project root directory** (`datasift-opensource/`), not from subdirectories.
+
 1. Ensure you have sample documents in `./sample_documents/` directory (create it if needed)
 2. Run the sample flow:
    ```bash
+   # From project root (datasift-opensource/)
    datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
    ```
 
+**Additional sample flows for testing:**
+
+```bash
+# Invoice processing pipeline
+# From project root (datasift-opensource/)
+datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+```
+
 This validates that Ollama, OpenSearch, and all operators are working correctly before you create custom flows.
 
-For more sample flows and details, see [`sample_flows/README.md`](sample_flows/README.md).
+For more sample flows and details, see [`sample_flows/README.md`](sample_flows/README.md) and [`tests/sample_test_flows/README.md`](tests/sample_test_flows/README.md).
 
 ### Creating a Custom Flow
 
@@ -904,6 +938,8 @@ The repository includes sample invoice PDFs for testing in `tests/fixtures/invoi
 **Option B: Create your own test directory**
 
 ```bash
+# Working directory: project root (datasift-opensource)
+
 # Create test directory
 mkdir -p test-documents
 
@@ -921,6 +957,8 @@ cp /path/to/your/pdfs/*.pdf test-documents/
 Before creating your flow configuration, generate unique UUIDs for your operators using the helper function from the "Generating Operator IDs" section above:
 
 ```bash
+# Working directory: project root (datasift-opensource)
+
 python3 << 'EOF'
 import uuid
 
@@ -946,6 +984,8 @@ EOF
 
 **3. Create flow.json:**
 ```bash
+# Working directory: project root (datasift-opensource)
+
 cat > my-first-flow.json << 'EOF'
 {
   "flow": {
@@ -1074,6 +1114,8 @@ EOF
 
 **4. Validate JSON:**
 ```bash
+# Working directory: project root (datasift-opensource)
+
 python -m json.tool my-first-flow.json
 ```
 
@@ -1081,20 +1123,28 @@ python -m json.tool my-first-flow.json
 
 ## 7. Running the Pipeline
 
+> **🚨 CRITICAL REQUIREMENT: Working Directory**
+>
+> **ALL commands in this section MUST be run from the project root directory (`datasift-opensource/`).**
+>
+> Running from any subdirectory (e.g., `src/datasift_opensource/backend/`) will cause `ModuleNotFoundError: No module named 'datasift_opensource'`.
+
 ### Setting PYTHONPATH
 
 Before running any datasift-orchestrator commands, you must set the PYTHONPATH from the project root:
 
 ```bash
-# From the project root directory (datasift-opensource)
+# MUST be run from project root (datasift-opensource/)
+# Current directory: datasift-opensource/
 export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
 ```
 
-> **Warning:** This must be run from the project root directory (`datasift-opensource`), not from a subdirectory. The PYTHONPATH must point to the backend directory as the source root for Python imports to work correctly.
+> **⚠️ Warning:** This command MUST be run from the project root directory (`datasift-opensource/`), not from a subdirectory. The PYTHONPATH must point to the backend directory as the source root for Python imports to work correctly. If you run this from the wrong directory, you will get `ModuleNotFoundError` when executing flows.
 
 ### Activating the Virtual Environment
 
 ```bash
+# From project root (datasift-opensource/)
 source src/datasift_opensource/backend/.venv/bin/activate
 ```
 
@@ -1104,6 +1154,7 @@ source src/datasift_opensource/backend/.venv/bin/activate
 
 **1. Ensure services are running:**
 ```bash
+# From project root (datasift-opensource/)
 # Check Ollama
 curl http://localhost:11434/api/tags
 
@@ -1115,11 +1166,13 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health"
 
 **Option A: Run your custom flow**
 ```bash
+# From project root (datasift-opensource/)
 datasift-orchestrator --flow-file my-first-flow.json
 ```
 
 **Option B: Test with the sample flow first**
 ```bash
+# From project root (datasift-opensource/)
 datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
@@ -1127,6 +1180,7 @@ datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 
 **3. With debug logging:**
 ```bash
+# From project root (datasift-opensource/)
 datasift-orchestrator --flow-file my-first-flow.json --log-level debug
 ```
 
@@ -1196,6 +1250,36 @@ GET /my_documents/_search
 
 ### Common Issues
 
+**ModuleNotFoundError: No module named 'datasift_opensource'**
+
+This error occurs when running `datasift-orchestrator` from the wrong directory.
+
+**Symptoms:**
+```
+ModuleNotFoundError: No module named 'datasift_opensource'
+```
+
+**Cause:** You are running the command from a subdirectory (e.g., `src/datasift_opensource/backend/`) instead of the project root.
+
+**Solution:**
+```bash
+# 1. Navigate to project root
+cd /path/to/datasift-opensource/
+
+# 2. Verify you're in the correct directory (should show pyproject.toml, src/, tests/, etc.)
+ls
+
+# 3. Set PYTHONPATH from project root
+export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+
+# 4. Run datasift-orchestrator from project root
+datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
+```
+
+**Why this happens:** The PYTHONPATH must point to `src/datasift_opensource/backend` as the source root. When you run commands from subdirectories, the relative path calculation breaks, causing Python to be unable to find the `datasift_opensource` module.
+
+---
+
 **Ollama connection error:**
 ```bash
 # Start Ollama
@@ -1210,7 +1294,7 @@ podman-compose -f docker-compose.opensearch.yml up -d
 
 **Import errors:**
 ```bash
-# Set PYTHONPATH
+# Set PYTHONPATH from project root
 export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
 ```
 
