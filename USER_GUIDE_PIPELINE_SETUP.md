@@ -1220,6 +1220,75 @@ export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
 ollama pull nomic-embed-text
 ```
 
+**Setup Script: "externally-managed-environment" Error (macOS):**
+
+If you encounter this error when running `./scripts/setup_datasift_environment.sh` on macOS:
+```
+error: externally-managed-environment
+× This environment is externally managed
+```
+
+This is due to PEP 668 protection in Homebrew's Python. The updated script (as of 2026-04-13) now handles this automatically by using `pipx` or Homebrew instead of `pip` for installing `podman-compose`.
+
+**Solutions:**
+
+1. **Re-run the setup script** (recommended) - The updated script automatically uses the correct installation method:
+   ```bash
+   ./scripts/setup_datasift_environment.sh
+   ```
+
+2. **Manual installation using Homebrew:**
+   ```bash
+   brew install podman-compose
+   ```
+
+3. **Manual installation using pipx:**
+   ```bash
+   brew install pipx
+   pipx install podman-compose
+   ```
+
+After installation, verify podman-compose is available:
+```bash
+podman-compose --version
+```
+
+**Setup Script: Python 3.14 libexpat Error (macOS):**
+
+If you encounter this error when running the setup script on macOS with Python 3.14 installed:
+```
+ImportError: dlopen(...pyexpat.cpython-314-darwin.so, 0x0002): 
+Symbol not found: _XML_SetAllocTrackerActivationThreshold
+```
+
+This is a known compatibility issue between Python 3.14 and the `libexpat` library on macOS. Even if Python 3.12 is installed, `pip3` may default to Python 3.14.
+
+**Solutions:**
+
+1. **Re-run the setup script** (recommended) - The updated script (as of 2026-04-13) now explicitly uses Python 3.12 with pipx:
+   ```bash
+   ./scripts/setup_datasift_environment.sh
+   ```
+
+2. **Manual installation with Python 3.12:**
+   ```bash
+   brew install pipx
+   export PIPX_DEFAULT_PYTHON=python3.12
+   pipx install --python python3.12 podman-compose
+   ```
+
+3. **Alternative: Use Homebrew (avoids Python version issues):**
+   ```bash
+   brew install podman-compose
+   ```
+
+After installation, verify podman-compose is available:
+```bash
+podman-compose --version
+```
+
+
+
 ### Debug Logging
 
 ```bash

@@ -584,14 +584,47 @@ install_podman_compose() {
     
     log "Installing podman-compose..."
     
-    # Try pip3 first, then pip
-    if command_exists pip3; then
-        pip3 install podman-compose
-    elif command_exists pip; then
-        pip install podman-compose
+    local os=$(detect_os)
+    
+    # On macOS, prefer pipx or brew to avoid PEP 668 issues
+    if [ "$os" = "macos" ]; then
+        if command_exists brew; then
+            log "Using Homebrew to install podman-compose..."
+            brew install podman-compose
+        elif command_exists pipx; then
+            log "Using pipx to install podman-compose..."
+            # Set Python 3.12 explicitly to avoid Python 3.14 libexpat issues
+            log_info "Setting PIPX_DEFAULT_PYTHON to python3.12 to avoid compatibility issues..."
+            export PIPX_DEFAULT_PYTHON=python3.12
+            pipx install --python python3.12 podman-compose
+        else
+            log_warning "Neither Homebrew nor pipx found."
+            log_info "Installing pipx first..."
+            if command_exists brew; then
+                brew install pipx
+                # Set Python 3.12 explicitly to avoid Python 3.14 libexpat issues
+                log_info "Setting PIPX_DEFAULT_PYTHON to python3.12 to avoid compatibility issues..."
+                export PIPX_DEFAULT_PYTHON=python3.12
+                pipx install --python python3.12 podman-compose
+            else
+                log_error "Cannot install podman-compose. Please install manually:"
+                log_error "  Option 1: brew install podman-compose"
+                log_error "  Option 2: brew install pipx && PIPX_DEFAULT_PYTHON=python3.12 pipx install --python python3.12 podman-compose"
+                return 1
+            fi
+        fi
     else
-        log_error "pip not found. Cannot install podman-compose"
-        return 1
+        # On Linux, try pip3 with --user flag to avoid system package conflicts
+        if command_exists pip3; then
+            log "Using pip3 to install podman-compose..."
+            pip3 install --user podman-compose
+        elif command_exists pip; then
+            log "Using pip to install podman-compose..."
+            pip install --user podman-compose
+        else
+            log_error "pip not found. Cannot install podman-compose"
+            return 1
+        fi
     fi
     
     if command_exists podman-compose; then
@@ -599,6 +632,7 @@ install_podman_compose() {
         return 0
     else
         log_error "podman-compose installation failed"
+        log_info "You may need to restart your shell or add ~/.local/bin to PATH"
         return 1
     fi
 }
