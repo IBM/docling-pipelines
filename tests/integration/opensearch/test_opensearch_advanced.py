@@ -9,13 +9,15 @@ from pathlib import Path
 import pyarrow as pa
 import numpy as np
 
-from core.operators.vectordb.opensearch_operator import (
-    OpenSearchOperator,
-    OpenSearchEngineTypes,
+from common.constants.operator_constants import OperatorConstants
+from common.util.infrastructure.config import get_opensearch_config
+from core.operators.vectordb import VectorDBOperator
+from core.operators.vectordb.opensearch_client import OpenSearchClient
+from core.operators.vectordb.opensearch_index_manager import (
     OpenSearchAlgorithmTypes,
+    OpenSearchEngineTypes,
     VectorSimilarityTypes,
 )
-from common.util.infrastructure.config import get_opensearch_config
 
 
 # Check if .env file exists
@@ -59,11 +61,14 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
     # Override with test-specific settings
     config.update(
         {
+            "vector_db_type": "opensearch",
             "index_name": f"test_{engine}_{algorithm}_{space_type}",
             "vector_dimension": 128,
-            "engine": engine,
-            "algorithm": algorithm,
-            "space_type": space_type,
+            OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+                OperatorConstants.VectorDB.ENGINE: engine,
+                OperatorConstants.VectorDB.ALGORITHM: algorithm,
+                OperatorConstants.VectorDB.SPACE_TYPE: space_type,
+            },
             "available_features": {
                 "doc_id_hash": {
                     "available_for_vector_db": True,
@@ -90,8 +95,8 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
 
     try:
         # Initialize operator
-        operator = OpenSearchOperator(config)
-        print(f"  ✅ Operator initialized (version: {operator.os_version})")
+        operator = VectorDBOperator(config)
+        print("  ✅ Operator initialized")
 
         # Create sample data
         table = create_sample_data(5, 128)
@@ -107,7 +112,15 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
             print(f"  ✅ Verified count: {count} documents in index")
 
             # Cleanup
-            operator.client.indices.delete(index=config["index_name"])
+            os_client = OpenSearchClient(
+                host=config["host"],
+                port=config["port"],
+                username=config.get("username"),
+                password=config.get("password"),
+                use_ssl=config.get("use_ssl", True),
+                verify_certs=config.get("verify_certs", True),
+            )
+            os_client.get_client().indices.delete(index=config["index_name"])
             print("  ✅ Cleaned up index")
 
             return True, "Success"
@@ -176,11 +189,23 @@ def test_schema_evolution():
     base_config = get_opensearch_config()
     base_config.update(
         {
+            "vector_db_type": "opensearch",
             "index_name": "test_schema_evolution",
             "vector_dimension": 128,
             "create_index": True,
         }
     )
+
+    # Create OpenSearch client for cleanup
+    client_manager = OpenSearchClient(
+        host=base_config.get("host"),
+        port=base_config.get("port", 9200),
+        username=base_config.get("username"),
+        password=base_config.get("password"),
+        use_ssl=base_config.get("use_ssl", True),
+        verify_certs=base_config.get("verify_certs", True),
+    )
+    client = client_manager.get_client()
 
     try:
         # Step 1: Create index with initial schema
@@ -206,7 +231,7 @@ def test_schema_evolution():
             "embeddings": "vector",
         }
 
-        operator1 = OpenSearchOperator(config1)
+        operator1 = VectorDBOperator(config1)
         table1 = pa.table(
             {
                 "doc_id_hash": ["doc_1", "doc_2"],
@@ -245,7 +270,7 @@ def test_schema_evolution():
             "category": "cat",
         }
 
-        operator2 = OpenSearchOperator(config2)
+        operator2 = VectorDBOperator(config2)
         table2 = pa.table(
             {
                 "doc_id_hash": ["doc_3", "doc_4"],
@@ -263,7 +288,7 @@ def test_schema_evolution():
         print(f"  ✅ Total documents in index: {count}")
 
         # Cleanup
-        operator2.client.indices.delete(index=base_config["index_name"])
+        client.indices.delete(index=base_config["index_name"])
         print("  ✅ Cleaned up index")
 
         return True
@@ -281,6 +306,7 @@ def test_error_handling():
     base_config = get_opensearch_config()
     base_config.update(
         {
+            "vector_db_type": "opensearch",
             "vector_dimension": 128,
             "create_index": True,
             "available_features": {
@@ -307,7 +333,7 @@ def test_error_handling():
     try:
         config = base_config.copy()
         del config["opensearch_host"]
-        operator = OpenSearchOperator(config)
+        operator = VectorDBOperator(config)
         tests.append(("Missing host", False, "Should have raised ValueError"))
     except ValueError as e:
         if "opensearch_host is required" in str(e):
@@ -321,8 +347,10 @@ def test_error_handling():
     try:
         config = base_config.copy()
         config["index_name"] = "test_invalid_engine"
-        config["engine"] = "invalid_engine"
-        operator = OpenSearchOperator(config)
+        config[OperatorConstants.VectorDB.VECTORDB_PARAMETERS] = {
+            OperatorConstants.VectorDB.ENGINE: "invalid_engine"
+        }
+        operator = VectorDBOperator(config)
         tests.append(("Invalid engine", False, "Should have raised ValueError"))
     except ValueError as e:
         if "Invalid engine" in str(e):
@@ -336,9 +364,11 @@ def test_error_handling():
     try:
         config = base_config.copy()
         config["index_name"] = "test_incompatible"
-        config["engine"] = "lucene"
-        config["algorithm"] = "ivf"  # Lucene doesn't support IVF
-        operator = OpenSearchOperator(config)
+        config[OperatorConstants.VectorDB.VECTORDB_PARAMETERS] = {
+            OperatorConstants.VectorDB.ENGINE: "lucene",
+            OperatorConstants.VectorDB.ALGORITHM: "ivf",  # Lucene doesn't support IVF
+        }
+        operator = VectorDBOperator(config)
         tests.append(("Incompatible combo", False, "Should have raised ValueError"))
     except ValueError as e:
         if "not supported by engine" in str(e):
@@ -352,7 +382,18 @@ def test_error_handling():
     try:
         config = base_config.copy()
         config["index_name"] = "test_missing_ids"
-        operator = OpenSearchOperator(config)
+        operator = VectorDBOperator(config)
+
+        # Create OpenSearch client for cleanup
+        client_manager = OpenSearchClient(
+            host=config.get("host"),
+            port=config.get("port", 9200),
+            username=config.get("username"),
+            password=config.get("password"),
+            use_ssl=config.get("use_ssl", True),
+            verify_certs=config.get("verify_certs", True),
+        )
+        client = client_manager.get_client()
 
         table = pa.table(
             {
@@ -377,7 +418,7 @@ def test_error_handling():
         else:
             tests.append(("Missing IDs", False, f"Wrong counts: {metadata}"))
 
-        operator.client.indices.delete(index=config["index_name"])
+        client.indices.delete(index=config["index_name"])
 
     except Exception as e:
         tests.append(("Missing IDs", False, f"Unexpected error: {str(e)[:100]}"))
@@ -387,7 +428,7 @@ def test_error_handling():
     try:
         config = base_config.copy()
         config["index_name"] = "test_empty"
-        operator = OpenSearchOperator(config)
+        operator = VectorDBOperator(config)
 
         empty_table = pa.table({"doc_id_hash": [], "embeddings": []})
 

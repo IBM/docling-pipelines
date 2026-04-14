@@ -94,13 +94,19 @@ Update the model in the `generate-embeddings` node:
 }
 ```
 
-#### 4. Change OpenSearch Index
+#### 4. Change OpenSearch Configuration
 
-Modify the index name in the `store-in-opensearch` node:
+Modify connection settings and index name in the `store-in-opensearch` node:
 
 ```json
 "config": {
+  "vector_db_type": "opensearch",
   "index_name": "my-custom-index",
+  "vectordb_parameters": {
+    "host": "localhost",
+    "port": 9200,
+    ...
+  },
   ...
 }
 ```

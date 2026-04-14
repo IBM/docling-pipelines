@@ -67,41 +67,35 @@ class TestParameterValidation:
         """Test that missing host raises DatasiftException"""
         client = OpenSearchClient(host="", port=9200)
 
-        with pytest.raises(DatasiftException, match="opensearch_host is required"):
+        with pytest.raises(DatasiftException, match="host is required"):
             client.connect()
 
     def test_none_host_raises_error(self):
         """Test that None host raises DatasiftException"""
         client = OpenSearchClient(host=None, port=9200)
 
-        with pytest.raises(DatasiftException, match="opensearch_host is required"):
+        with pytest.raises(DatasiftException, match="host is required"):
             client.connect()
 
     def test_invalid_port_type_raises_error(self):
         """Test that non-integer port raises DatasiftException"""
         client = OpenSearchClient(host="localhost", port="9200")
 
-        with pytest.raises(
-            DatasiftException, match="opensearch_port must be an integer"
-        ):
+        with pytest.raises(DatasiftException, match="port must be an integer"):
             client.connect()
 
     def test_port_below_range_raises_error(self):
         """Test that port below valid range raises DatasiftException"""
         client = OpenSearchClient(host="localhost", port=0)
 
-        with pytest.raises(
-            DatasiftException, match="opensearch_port must be between 1 and 65535"
-        ):
+        with pytest.raises(DatasiftException, match="port must be between 1 and 65535"):
             client.connect()
 
     def test_port_above_range_raises_error(self):
         """Test that port above valid range raises DatasiftException"""
         client = OpenSearchClient(host="localhost", port=65536)
 
-        with pytest.raises(
-            DatasiftException, match="opensearch_port must be between 1 and 65535"
-        ):
+        with pytest.raises(DatasiftException, match="port must be between 1 and 65535"):
             client.connect()
 
     def test_aws_auth_without_region_raises_error(self):
@@ -414,9 +408,7 @@ class TestEdgeCases:
         """Test that whitespace-only host is rejected"""
         client = OpenSearchClient(host="   ", port=9200)
 
-        with pytest.raises(
-            DatasiftException, match="opensearch_host must be a non-empty string"
-        ):
+        with pytest.raises(DatasiftException, match="host must be a non-empty string"):
             client.connect()
 
     @patch("core.operators.vectordb.opensearch_client.OpenSearch")

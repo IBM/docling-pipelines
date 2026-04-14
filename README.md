@@ -523,9 +523,9 @@ pip install ollama
 
 > **Note**: If Ollama is not installed, the server is not running, or no model has been pulled, the operator will raise a [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py) at runtime.
 
-### OpenSearch Vector Store Operator
+### OpenSearch Vector Store
 
-The [`OpenSearchOperator`](src/datasift_opensource/backend/core/operators/universal/vectordb/opensearch_operator.py) requires a running OpenSearch instance. The quickest way to get one locally is via the provided Compose file.
+The [`VectorDBOperator`](src/datasift_opensource/backend/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter requires a running OpenSearch instance. The quickest way to get one locally is via the provided Compose file.
 
 #### Step 1 — Start OpenSearch
 

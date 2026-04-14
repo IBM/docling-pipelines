@@ -37,14 +37,15 @@ The OpenSearch operator stores documents and embeddings in OpenSearch for vector
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `opensearch_host` | string | Yes | - | OpenSearch server host |
-| `opensearch_port` | integer | No | 9200 | OpenSearch server port |
-| `opensearch_username` | string | No | - | Username for authentication |
-| `opensearch_password` | string | No | - | Password for authentication |
-| `opensearch_use_ssl` | boolean | No | false | Use SSL connection |
-| `opensearch_verify_certs` | boolean | No | false | Verify SSL certificates |
-| `opensearch_aws_auth` | boolean | No | false | Use AWS IAM authentication |
-| `opensearch_aws_region` | string | No | - | AWS region for authentication |
+| `vector_db_type` | string | No | "opensearch" | Vector database type |
+| `host` | string | Yes | - | OpenSearch server host |
+| `port` | integer | No | 9200 | OpenSearch server port |
+| `username` | string | No | - | Username for authentication |
+| `password` | string | No | - | Password for authentication |
+| `use_ssl` | boolean | No | false | Use SSL connection |
+| `verify_certs` | boolean | No | false | Verify SSL certificates |
+| `aws_auth` | boolean | No | false | Use AWS IAM authentication |
+| `aws_region` | string | No | - | AWS region for authentication |
 
 ### Index Settings
 
@@ -59,12 +60,22 @@ The OpenSearch operator stores documents and embeddings in OpenSearch for vector
 
 ### Engine Configuration
 
+Engine-specific parameters are configured using the `vectordb_parameters` nested dictionary for architectural separation between generic and provider-specific settings.
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `vectordb_parameters` | object | No | {} | Provider-specific configuration (see below) |
+
+#### vectordb_parameters Structure
+
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `engine` | string | No | "faiss" | KNN engine (faiss, lucene, nmslib, jvector) |
 | `algorithm` | string | No | "hnsw" | KNN algorithm (hnsw, ivf) |
 | `space_type` | string | No | "l2" | Similarity metric (l2, cosine, inner_product) |
 | `engine_parameters` | object | No | {} | Custom engine-specific parameters |
+| `aws_auth` | boolean | No | false | Use AWS IAM authentication |
+| `aws_region` | string | No | - | AWS region for authentication |
 
 ### Engine Parameters
 
@@ -97,21 +108,25 @@ The OpenSearch operator stores documents and embeddings in OpenSearch for vector
 ### Example 1: Basic Usage with FAISS
 
 ```python
-from core.operators.universal.vectordb.opensearch_operator import OpenSearchOperator
+from core.operators.vectordb import VectorDBOperator
+from common.constants.operator_constants import OperatorConstants
 import pyarrow as pa
 import numpy as np
 
 config = {
-    "opensearch_host": "localhost",
-    "opensearch_port": 9200,
-    "opensearch_username": "admin",
-    "opensearch_password": "admin",
-    "opensearch_use_ssl": False,
+    "vector_db_type": "opensearch",
+    "host": "localhost",
+    "port": 9200,
+    "username": "admin",
+    "password": "admin",
+    "use_ssl": False,
     "index_name": "my_documents",
-    "engine": "faiss",
-    "algorithm": "hnsw",
-    "space_type": "l2",
     "vector_dimension": 384,
+    OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+        OperatorConstants.VectorDB.ENGINE: "faiss",
+        OperatorConstants.VectorDB.ALGORITHM: "hnsw",
+        OperatorConstants.VectorDB.SPACE_TYPE: "l2"
+    },
     "available_features": {
         "doc_id_hash": {
             "available_for_vector_db": True,
@@ -146,7 +161,7 @@ data = {
 table = pa.table(data)
 
 # Index documents
-operator = OpenSearchOperator(config)
+operator = VectorDBOperator(config)
 result_tables, metadata = operator.transform(table)
 
 print(f"Indexed {metadata['processed_docs']} documents")
@@ -155,17 +170,22 @@ print(f"Indexed {metadata['processed_docs']} documents")
 ### Example 2: Lucene Engine with Cosine Similarity
 
 ```python
+from common.constants.operator_constants import OperatorConstants
+
 config = {
-    "opensearch_host": "localhost",
-    "opensearch_port": 9200,
+    "vector_db_type": "opensearch",
+    "host": "localhost",
+    "port": 9200,
     "index_name": "semantic_search",
-    "engine": "lucene",
-    "algorithm": "hnsw",
-    "space_type": "cosine",
     "vector_dimension": 768,
-    "engine_parameters": {
-        "ef_construction": 256,
-        "m": 32
+    OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+        OperatorConstants.VectorDB.ENGINE: "lucene",
+        OperatorConstants.VectorDB.ALGORITHM: "hnsw",
+        OperatorConstants.VectorDB.SPACE_TYPE: "cosine",
+        OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+            "ef_construction": 256,
+            "m": 32
+        }
     }
 }
 ```
@@ -173,15 +193,20 @@ config = {
 ### Example 3: AWS OpenSearch with IAM Authentication
 
 ```python
+from common.constants.operator_constants import OperatorConstants
+
 config = {
-    "opensearch_host": "search-mydomain.us-east-1.es.amazonaws.com",
-    "opensearch_port": 443,
-    "opensearch_use_ssl": True,
-    "opensearch_aws_auth": True,
-    "opensearch_aws_region": "us-east-1",
+    "vector_db_type": "opensearch",
+    "host": "search-mydomain.us-east-1.es.amazonaws.com",
+    "port": 443,
+    "use_ssl": True,
     "index_name": "production_docs",
-    "engine": "faiss",
-    "algorithm": "hnsw"
+    OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+        OperatorConstants.VectorDB.ENGINE: "faiss",
+        OperatorConstants.VectorDB.ALGORITHM: "hnsw",
+        OperatorConstants.VectorDB.AWS_AUTH: True,
+        OperatorConstants.VectorDB.AWS_REGION: "us-east-1"
+    }
 }
 ```
 
@@ -209,22 +234,26 @@ print(f"Deleted {success} documents, {failed} failed")
 {
   "id": "opensearch-node",
   "name": "Store in OpenSearch",
-  "operator": "opensearch",
+  "operator": "vectordb",
   "config": {
-    "opensearch_host": "localhost",
-    "opensearch_port": 9200,
-    "opensearch_username": "admin",
-    "opensearch_password": "admin",
-    "opensearch_use_ssl": false,
+    "vector_db_type": "opensearch",
     "index_name": "datasift_documents",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
-    "engine": "faiss",
-    "algorithm": "hnsw",
-    "space_type": "l2",
     "vector_dimension": 384,
-    "batch_size": 100,
     "create_index": true,
+    "vectordb_parameters": {
+      "host": "localhost",
+      "port": 9200,
+      "username": "admin",
+      "password": "admin",
+      "use_ssl": false,
+      "verify_certs": false,
+      "batch_size": 100,
+      "engine": "faiss",
+      "algorithm": "hnsw",
+      "space_type": "l2"
+    },
     "available_features": {
       "doc_id_hash": {
         "name": "Document ID",
@@ -271,25 +300,39 @@ config = {
 
 #### FAISS + HNSW (Balanced)
 ```python
-"engine_parameters": {
-    "ef_construction": 128,  # Higher = better accuracy, slower indexing
-    "m": 24                  # Higher = better accuracy, more memory
+from common.constants.operator_constants import OperatorConstants
+
+OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+    OperatorConstants.VectorDB.ENGINE: "faiss",
+    OperatorConstants.VectorDB.ALGORITHM: "hnsw",
+    OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+        "ef_construction": 128,  # Higher = better accuracy, slower indexing
+        "m": 24                  # Higher = better accuracy, more memory
+    }
 }
 ```
 
 #### FAISS + IVF (Speed Priority)
 ```python
-"engine_parameters": {
-    "nlist": 128,  # Number of clusters
-    "nprobe": 8    # Clusters to search (higher = more accurate, slower)
+OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+    OperatorConstants.VectorDB.ENGINE: "faiss",
+    OperatorConstants.VectorDB.ALGORITHM: "ivf",
+    OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+        "nlist": 128,  # Number of clusters
+        "nprobe": 8    # Clusters to search (higher = more accurate, slower)
+    }
 }
 ```
 
 #### Lucene + HNSW (Native)
 ```python
-"engine_parameters": {
-    "ef_construction": 128,
-    "m": 16  # Lucene typically uses lower m values
+OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+    OperatorConstants.VectorDB.ENGINE: "lucene",
+    OperatorConstants.VectorDB.ALGORITHM: "hnsw",
+    OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+        "ef_construction": 128,
+        "m": 16  # Lucene typically uses lower m values
+    }
 }
 ```
 

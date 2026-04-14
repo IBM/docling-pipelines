@@ -332,10 +332,14 @@ class TestBatchCreation:
 
     def test_create_batches_multiple_batches_by_size(self, mock_client):
         """Test creating multiple batches based on size limit"""
+        # Define features so documents aren't filtered out
+        features = {"content": {"available_for_vector_db": True, "type": "string"}}
+
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
             batch_size=1000,
+            available_features=features,
         )
 
         # Create large documents that exceed 3MB when combined
@@ -352,9 +356,13 @@ class TestBatchCreation:
 
     def test_create_batches_action_structure(self, mock_client):
         """Test batch action structure"""
+        # Define features so documents aren't filtered out
+        features = {"content": {"available_for_vector_db": True, "type": "string"}}
+
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
+            available_features=features,
         )
 
         documents = [("doc1", {"content": "test"})]

@@ -68,7 +68,8 @@ Operators are organized by category as defined in the `OperatorCategory` enum:
 - **LanguageDetection**: Detects document language using FastText models
 
 ### VectorDB Operators
-- **OpenSearchOperator**: Stores and retrieves vectors in OpenSearch with support for multiple KNN engines (NMSLIB, Faiss, Lucene)
+- **VectorDBOperator**: Generic vector database operator supporting multiple providers through adapters
+  - **OpenSearch Adapter**: Stores and retrieves vectors in OpenSearch with support for multiple KNN engines (NMSLIB, Faiss, Lucene)
 
 ## Common Workflow Patterns
 
@@ -76,7 +77,7 @@ Operators are organized by category as defined in the `OperatorCategory` enum:
 ```
 Ingest → Extract → Chunk → Embed → Store
 ```
-Example: `IngestLocalFolder → ExtractDocling → Chunker → EmbeddingsOperator → OpenSearchOperator`
+Example: `IngestLocalFolder → ExtractDocling → Chunker → EmbeddingsOperator → VectorDBOperator`
 
 ### Entity Extraction Workflow
 ```
@@ -140,8 +141,8 @@ Example: Conditional processing based on document type, language, or custom crit
 
 ### OpenSearch Integration
 - **Requirement**: OpenSearch must be running (default: `http://localhost:9200`)
-- **Used By**: `OpenSearchOperator` for vector storage and retrieval
-- **Configuration**: Requires index name, dimension, KNN engine selection (NMSLIB, Faiss, Lucene)
+- **Used By**: `VectorDBOperator` with OpenSearch adapter for vector storage and retrieval
+- **Configuration**: Requires `vector_db_type: "opensearch"`, index name, dimension, KNN engine selection (NMSLIB, Faiss, Lucene)
 - **Setup**: Use `docker-compose.opensearch.yml` for local development
 
 ### Environment Variables

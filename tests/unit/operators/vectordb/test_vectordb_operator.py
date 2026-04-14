@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+"""
+Unit tests for VectorDB operator with OpenSearch adapter
+"""
+
+import pytest
+import pyarrow as pa
+import numpy as np
+from unittest.mock import MagicMock, patch
+from common.exceptions.datasift_exceptions import DatasiftException
+from core.operators.vectordb import VectorDBOperator
+from common.constants.operator_constants import OperatorConstants
+from common.util.infrastructure.config import get_opensearch_config
+
+
+@pytest.fixture
+def basic_config():
+    """Basic configuration for VectorDB operator with OpenSearch adapter"""
+    env_config = get_opensearch_config()
+
+    config = {
+        **env_config,
+        "vector_db_type": "opensearch",
+        OperatorConstants.VectorDB.INDEX_NAME: "test_index",
+        OperatorConstants.VectorDB.CREATE_INDEX: True,
+        OperatorConstants.Config.AVAILABLE_FEATURES: {
+            "doc_id_hash": {
+                "name": "Document ID",
+                "available_for_vector_db": True,
+                "mandatory_for_vector_db": True,
+                "type": "string",
+                "is_primary": True,
+            },
+            "content": {
+                "name": "Content",
+                "available_for_vector_db": True,
+                "type": "string",
+            },
+            "embeddings": {
+                "name": "Embeddings",
+                "available_for_vector_db": True,
+                "mandatory_for_vector_db": True,
+                "type": "vector",
+            },
+        },
+        OperatorConstants.Config.FEATURE_MAPPINGS: {
+            "doc_id_hash": "pk",
+            "content": "text",
+            "embeddings": "vector_embeddings",
+        },
+    }
+    return config
+
+
+@pytest.fixture
+def sample_table():
+    """Sample PyArrow table with documents"""
+    data = {
+        "doc_id_hash": ["doc1", "doc2", "doc3"],
+        "content": [
+            "This is the first document",
+            "This is the second document",
+            "This is the third document",
+        ],
+        "embeddings": [
+            np.random.rand(384).tolist(),
+            np.random.rand(384).tolist(),
+            np.random.rand(384).tolist(),
+        ],
+    }
+    return pa.table(data)
+
+
+class TestVectorDBOperatorInitialization:
+    """Test operator initialization and configuration"""
+
+    def test_basic_initialization(self, basic_config):
+        """Test basic operator initialization"""
+        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
+            operator = VectorDBOperator(basic_config)
+            assert operator.index_name == "test_index"
+            assert operator.vector_db_type == "opensearch"
+            assert operator.adapter is not None
+
+    def test_missing_required_index_name(self, basic_config):
+        """Test that missing index name raises error"""
+        config = basic_config.copy()
+        del config[OperatorConstants.VectorDB.INDEX_NAME]
+
+        with pytest.raises(DatasiftException, match="index_name is required"):
+            VectorDBOperator(config)
+
+    def test_invalid_vector_db_type(self, basic_config):
+        """Test that invalid vector_db_type raises error"""
+        config = basic_config.copy()
+        config["vector_db_type"] = "invalid_db"
+
+        with pytest.raises(
+            DatasiftException, match="Failed to initialize vector database adapter"
+        ):
+            VectorDBOperator(config)
+
+
+class TestBatchProcessing:
+    """Test batch processing functionality through public interface"""
+
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    def test_transform_basic(
+        self, mock_bulk, mock_opensearch, basic_config, sample_table
+    ):
+        """Test basic transform operation"""
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+        mock_bulk.return_value = (3, [])
+
+        operator = VectorDBOperator(basic_config)
+        result_tables, metadata = operator.transform(sample_table)
+
+        assert len(result_tables) == 1
+        assert result_tables[0].num_rows == 3
+        assert metadata["total_docs_count"] == 3
+        assert metadata["processed_docs"] == 3
+        assert metadata["failed_docs_count"] == 0
+
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    def test_transform_missing_doc_id_column(self, mock_opensearch, basic_config):
+        """Test transform with missing doc_id column"""
+        mock_client = MagicMock()
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+
+        table = pa.table({"content": ["Test"], "embeddings": [[0.1, 0.2]]})
+
+        operator = VectorDBOperator(basic_config)
+        result_tables, metadata = operator.transform(table)
+
+        assert metadata["node_status"] == "failed"
+
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    def test_transform_empty_table(self, mock_opensearch, basic_config):
+        """Test transform with empty table"""
+        mock_client = MagicMock()
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+
+        empty_table = pa.table({"doc_id_hash": [], "content": [], "embeddings": []})
+
+        operator = VectorDBOperator(basic_config)
+        result_tables, metadata = operator.transform(empty_table)
+
+        assert metadata["total_docs_count"] == 0
+        assert metadata["processed_docs"] == 0
+
+
+class TestQueryCapabilities:
+    """Test query and delete capabilities through public interface"""
+
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    def test_query_by_doc_names(self, mock_opensearch, basic_config):
+        """Test querying documents by names"""
+        mock_client = MagicMock()
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_client.search.return_value = {
+            "hits": {
+                "hits": [
+                    {"_source": {"name": "doc1", "content": "Test 1"}},
+                    {"_source": {"name": "doc2", "content": "Test 2"}},
+                ]
+            }
+        }
+        mock_opensearch.return_value = mock_client
+
+        operator = VectorDBOperator(basic_config)
+        docs = operator.query_by_doc_names(["doc1", "doc2"])
+
+        assert len(docs) == 2
+        assert docs[0]["name"] == "doc1"
+        assert docs[1]["name"] == "doc2"
+
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    def test_delete_documents_by_ids(self, mock_bulk, mock_opensearch, basic_config):
+        """Test deleting documents by IDs"""
+        mock_client = MagicMock()
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+        mock_bulk.return_value = (2, [])
+
+        operator = VectorDBOperator(basic_config)
+        success, failed = operator.delete_documents_by_ids(["doc1", "doc2"])
+
+        assert success == 2
+        assert failed == 0
+
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    def test_get_document_count(self, mock_opensearch, basic_config):
+        """Test getting document count"""
+        mock_client = MagicMock()
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_client.count.return_value = {"count": 100}
+        mock_opensearch.return_value = mock_client
+
+        operator = VectorDBOperator(basic_config)
+        count = operator.get_document_count()
+
+        assert count == 100
+
+
+class TestMetadata:
+    """Test operator metadata"""
+
+    def test_get_metadata(self):
+        """Test get_metadata returns correct structure"""
+        config = {
+            "vector_db_type": "opensearch",
+            "host": "localhost",
+            "port": 9200,
+            "index_name": "test_index",
+            "doc_id_column": "doc_id_hash",
+            "embeddings_column": "embeddings",
+            "vector_dimension": 384,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+        }
+
+        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
+            operator = VectorDBOperator(config)
+            metadata = operator.get_metadata()
+
+        assert metadata["sdk"] is True
+        assert metadata["category"] == "VectorDB"
+        assert metadata["is_operator_available"] is True
+        assert "features" in metadata
+        assert "attributes" in metadata
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

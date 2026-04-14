@@ -7,6 +7,8 @@ import os
 
 from dotenv import load_dotenv
 
+from common.constants.operator_constants import OperatorConstants
+
 # Load .env file from project root
 load_dotenv()
 
@@ -16,29 +18,35 @@ def get_opensearch_config() -> dict:
     Load OpenSearch configuration from environment variables.
 
     Returns:
-        dict: Configuration dictionary with all OpenSearch settings
+        dict: Configuration dictionary with all OpenSearch settings using vectordb_parameters pattern
     """
 
     def str_to_bool(value: str) -> bool:
         """Convert string to boolean."""
         return value.lower() in ("true", "1", "yes", "on")
 
+    # OpenSearch-specific parameters go in vectordb_parameters
+    vectordb_parameters: dict[str, str | bool] = {
+        OperatorConstants.VectorDB.ENGINE: os.getenv("OPENSEARCH_ENGINE", "faiss"),
+        OperatorConstants.VectorDB.ALGORITHM: os.getenv("OPENSEARCH_ALGORITHM", "hnsw"),
+        OperatorConstants.VectorDB.SPACE_TYPE: os.getenv("OPENSEARCH_SPACE_TYPE", "l2"),
+    }
+
+    # Add AWS auth if configured
+    if str_to_bool(os.getenv("OPENSEARCH_AWS_AUTH", "false")):
+        vectordb_parameters[OperatorConstants.VectorDB.AWS_AUTH] = True
+        vectordb_parameters[OperatorConstants.VectorDB.AWS_REGION] = os.getenv("OPENSEARCH_AWS_REGION", "us-east-1")
+
     config = {
         # Connection settings
-        "opensearch_host": os.getenv("OPENSEARCH_HOST", "localhost"),
-        "opensearch_port": int(os.getenv("OPENSEARCH_PORT", "9200")),
-        "opensearch_use_ssl": str_to_bool(os.getenv("OPENSEARCH_USE_SSL", "false")),
-        "opensearch_verify_certs": str_to_bool(os.getenv("OPENSEARCH_VERIFY_CERTS", "false")),
+        "host": os.getenv("OPENSEARCH_HOST", "localhost"),
+        "port": int(os.getenv("OPENSEARCH_PORT", "9200")),
+        "use_ssl": str_to_bool(os.getenv("OPENSEARCH_USE_SSL", "false")),
+        "verify_certs": str_to_bool(os.getenv("OPENSEARCH_VERIFY_CERTS", "false")),
         # Authentication
-        "opensearch_username": os.getenv("OPENSEARCH_USERNAME"),
-        "opensearch_password": os.getenv("OPENSEARCH_PASSWORD"),
-        # AWS Authentication (optional)
-        "opensearch_aws_auth": str_to_bool(os.getenv("OPENSEARCH_AWS_AUTH", "false")),
-        "opensearch_aws_region": os.getenv("OPENSEARCH_AWS_REGION", "us-east-1"),
-        # Engine configuration
-        "engine": os.getenv("OPENSEARCH_ENGINE", "faiss"),
-        "algorithm": os.getenv("OPENSEARCH_ALGORITHM", "hnsw"),
-        "space_type": os.getenv("OPENSEARCH_SPACE_TYPE", "l2"),
+        "username": os.getenv("OPENSEARCH_USERNAME"),
+        "password": os.getenv("OPENSEARCH_PASSWORD"),
+        # Vector dimension
         "vector_dimension": int(os.getenv("OPENSEARCH_VECTOR_DIMENSION", "384")),
         # Performance settings
         "batch_size": int(os.getenv("OPENSEARCH_BATCH_SIZE", "100")),
@@ -47,6 +55,8 @@ def get_opensearch_config() -> dict:
         "index_name": os.getenv("OPENSEARCH_INDEX_NAME", "datasift_test"),
         "doc_id_column": os.getenv("OPENSEARCH_DOC_ID_COLUMN", "doc_id_hash"),
         "embeddings_column": os.getenv("OPENSEARCH_EMBEDDINGS_COLUMN", "embeddings"),
+        # OpenSearch-specific parameters
+        OperatorConstants.VectorDB.VECTORDB_PARAMETERS: vectordb_parameters,
     }
 
     # Remove None values for optional parameters

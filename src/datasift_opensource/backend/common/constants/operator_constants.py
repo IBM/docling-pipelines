@@ -230,15 +230,16 @@ class OperatorConstants:
     class VectorDB:
         """Vector database constants."""
 
-        # OpenSearch Connection Configuration
-        OPENSEARCH_AWS_AUTH: Final[str] = "opensearch_aws_auth"
-        OPENSEARCH_AWS_REGION: Final[str] = "opensearch_aws_region"
-        OPENSEARCH_HOST: Final[str] = "opensearch_host"
-        OPENSEARCH_PASSWORD: Final[str] = "opensearch_password"
-        OPENSEARCH_PORT: Final[str] = "opensearch_port"
-        OPENSEARCH_USERNAME: Final[str] = "opensearch_username"
-        OPENSEARCH_USE_SSL: Final[str] = "opensearch_use_ssl"
-        OPENSEARCH_VERIFY_CERTS: Final[str] = "opensearch_verify_certs"
+        # Vector Database Connection Configuration
+        VECTOR_DB_TYPE: Final[str] = "vector_db_type"
+        HOST: Final[str] = "host"
+        PORT: Final[str] = "port"
+        USERNAME: Final[str] = "username"
+        PASSWORD: Final[str] = "password"
+        USE_SSL: Final[str] = "use_ssl"
+        VERIFY_CERTS: Final[str] = "verify_certs"
+        AWS_AUTH: Final[str] = "aws_auth"
+        AWS_REGION: Final[str] = "aws_region"
 
         # OpenSearch Index Configuration
         CREATE_INDEX: Final[str] = "create_index"
@@ -260,6 +261,13 @@ class OperatorConstants:
         # Vector DB General
         OPENSEARCH: Final[str] = "opensearch"
         VECTOR_DB_NAME: Final[str] = "vector_db_name"
+        VECTORDB_PARAMETERS: Final[str] = "vectordb_parameters"
+
+        # OpenSearch-specific parameters
+        ENGINE: Final[str] = "engine"
+        ALGORITHM: Final[str] = "algorithm"
+        SPACE_TYPE: Final[str] = "space_type"
+        ENGINE_PARAMETERS: Final[str] = "engine_parameters"
 
     class Types:
         """Data type constants."""

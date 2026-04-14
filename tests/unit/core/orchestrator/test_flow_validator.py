@@ -543,10 +543,11 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "vectordb-1",
                     "name": "store_in_opensearch",
-                    "operator": "opensearch",
+                    "operator": "vectordb",
                     "config": {
-                        "opensearch_host": "localhost",
-                        "opensearch_port": 9200,
+                        "vector_db_type": "opensearch",
+                        "host": "localhost",
+                        "port": 9200,
                         "index_name": "test_index",
                         "vector_dimension": 384,
                         "doc_id_column": "id",
@@ -655,10 +656,11 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "vectordb-1",
                     "name": "store_in_opensearch",
-                    "operator": "opensearch",
+                    "operator": "vectordb",
                     "config": {
-                        "opensearch_host": "localhost",
-                        "opensearch_port": 9200,
+                        "vector_db_type": "opensearch",
+                        "host": "localhost",
+                        "port": 9200,
                         "index_name": "test_index",
                         "vector_dimension": 384,
                         "doc_id_column": "id",

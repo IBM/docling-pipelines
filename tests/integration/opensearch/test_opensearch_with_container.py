@@ -12,9 +12,7 @@ import pyarrow as pa
 import numpy as np
 from pathlib import Path
 
-from core.operators.vectordb.opensearch_operator import (
-    OpenSearchOperator,
-)
+from core.operators.vectordb import VectorDBOperator
 from common.constants.operator_constants import OperatorConstants
 
 
@@ -249,7 +247,7 @@ class TestOpenSearchWithDockerCompose:
         self, opensearch_config, sample_documents
     ):
         """Test creating index and inserting documents"""
-        operator = OpenSearchOperator(opensearch_config)
+        operator = VectorDBOperator(opensearch_config)
 
         # Transform should create index and insert documents
         result_tables, metadata = operator.transform(sample_documents)
@@ -267,7 +265,7 @@ class TestOpenSearchWithDockerCompose:
 
     def test_query_documents(self, opensearch_config, sample_documents):
         """Test querying documents from OpenSearch"""
-        operator = OpenSearchOperator(opensearch_config)
+        operator = VectorDBOperator(opensearch_config)
 
         # Insert documents
         operator.transform(sample_documents)
@@ -283,7 +281,7 @@ class TestOpenSearchWithDockerCompose:
 
     def test_delete_documents(self, opensearch_config, sample_documents):
         """Test deleting documents from OpenSearch"""
-        operator = OpenSearchOperator(opensearch_config)
+        operator = VectorDBOperator(opensearch_config)
 
         # Insert documents
         operator.transform(sample_documents)
@@ -300,7 +298,7 @@ class TestOpenSearchWithDockerCompose:
 
     def test_index_exists_check(self, opensearch_config):
         """Test checking if index exists"""
-        operator = OpenSearchOperator(opensearch_config)
+        operator = VectorDBOperator(opensearch_config)
 
         # Index should exist after operator initialization (if create_index=True)
         exists = operator.client.indices.exists(
@@ -310,7 +308,7 @@ class TestOpenSearchWithDockerCompose:
 
     def test_multiple_batch_inserts(self, opensearch_config):
         """Test inserting multiple batches of documents"""
-        operator = OpenSearchOperator(opensearch_config)
+        operator = VectorDBOperator(opensearch_config)
 
         # Create multiple batches
         for batch_num in range(3):

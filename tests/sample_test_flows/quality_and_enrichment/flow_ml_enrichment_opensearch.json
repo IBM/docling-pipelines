@@ -2,7 +2,7 @@
   "flow": {
     "name": "ML Enrichment with OpenSearch Pipeline",
     "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567891",
-    "description": "Complete pipeline: ingest → extract → language detection → ML enrichment → embeddings → OpenSearch indexing",
+    "description": "Complete pipeline: ingest \u2192 extract \u2192 language detection \u2192 ML enrichment \u2192 embeddings \u2192 OpenSearch indexing",
     "storage": "in-memory",
     "execute_type": "local",
     "global_config": {
@@ -23,7 +23,9 @@
         },
         "input_edges": [],
         "output_edges": [
-          { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
+          {
+            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
+          }
         ]
       },
       {
@@ -34,10 +36,14 @@
           "doc_column": "content"
         },
         "input_edges": [
-          { "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
+          {
+            "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "8def9abc-c1d2-4e3f-9a0b-1c2d3e4f5a6b" }
+          {
+            "node_id_ref": "8def9abc-c1d2-4e3f-9a0b-1c2d3e4f5a6b"
+          }
         ]
       },
       {
@@ -49,10 +55,14 @@
           "lang_column": "lang_name"
         },
         "input_edges": [
-          { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
+          {
+            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "9ef0abcd-d2e3-4f5a-0b1c-2d3e4f5a6b7c" }
+          {
+            "node_id_ref": "9ef0abcd-d2e3-4f5a-0b1c-2d3e4f5a6b7c"
+          }
         ]
       },
       {
@@ -66,10 +76,14 @@
           "error_column_name": "enrichment_error"
         },
         "input_edges": [
-          { "node_id_ref": "8def9abc-c1d2-4e3f-9a0b-1c2d3e4f5a6b" }
+          {
+            "node_id_ref": "8def9abc-c1d2-4e3f-9a0b-1c2d3e4f5a6b"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02" }
+          {
+            "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"
+          }
         ]
       },
       {
@@ -84,32 +98,39 @@
           "doc_column": "content"
         },
         "input_edges": [
-          { "node_id_ref": "9ef0abcd-d2e3-4f5a-0b1c-2d3e4f5a6b7c" }
+          {
+            "node_id_ref": "9ef0abcd-d2e3-4f5a-0b1c-2d3e4f5a6b7c"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "87249dbf-4a1a-433a-91da-ee5fb3244284" }
+          {
+            "node_id_ref": "87249dbf-4a1a-433a-91da-ee5fb3244284"
+          }
         ]
       },
       {
         "id": "87249dbf-4a1a-433a-91da-ee5fb3244284",
         "name": "vectordb",
-        "operator": "opensearch",
+        "operator": "vectordb",
         "config": {
-          "opensearch_host": "localhost",
-          "opensearch_port": 9200,
-          "opensearch_username": "admin",
-          "opensearch_password": "MyStrongPass123!",
-          "opensearch_use_ssl": false,
-          "opensearch_verify_certs": false,
+          "vector_db_type": "opensearch",
           "index_name": "ml_enriched_documents",
           "doc_id_column": "doc_id_hash",
           "embeddings_column": "embeddings",
           "vector_dimension": 2560,
-          "engine": "faiss",
-          "algorithm": "hnsw",
-          "space_type": "l2",
-          "batch_size": 100,
           "create_index": "true",
+          "vectordb_parameters": {
+            "host": "localhost",
+            "port": 9200,
+            "username": "admin",
+            "password": "MyStrongPass123!",
+            "use_ssl": false,
+            "verify_certs": false,
+            "batch_size": 100,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+            "space_type": "l2"
+          },
           "available_features": {
             "doc_id_hash": {
               "name": "Document ID",
@@ -185,7 +206,9 @@
           }
         },
         "input_edges": [
-          { "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02" }
+          {
+            "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"
+          }
         ],
         "output_edges": []
       }

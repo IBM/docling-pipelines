@@ -8,6 +8,16 @@ Uses environment variables from .env file for configuration.
 import sys
 from pathlib import Path
 
+import pyarrow as pa
+import numpy as np
+
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from core.operators.vectordb import VectorDBOperator
+from common.util.infrastructure.config import get_opensearch_config
+from common.constants.operator_constants import OperatorConstants
+
 # Check if .env file exists
 env_file = Path(__file__).parent.parent / ".env"
 if not env_file.exists():
@@ -16,17 +26,6 @@ if not env_file.exists():
     print(f"Please create {env_file} based on .env.example")
     print("\nSkipping example execution.")
     sys.exit(0)
-
-import pyarrow as pa
-import numpy as np
-
-# Add src to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from core.operators.vectordb.opensearch_operator import (
-    OpenSearchOperator,
-)
-from common.util.infrastructure.config import get_opensearch_config
 
 
 def create_sample_documents(num_docs=10, vector_dim=384):
@@ -102,9 +101,8 @@ def example_1_basic_indexing():
 
     # Initialize operator
     print("\n2. Initializing OpenSearch operator...")
-    operator = OpenSearchOperator(config)
-    print(f"   Connected to OpenSearch {operator.os_version}")
-    print(f"   Engine: {operator.engine}, Algorithm: {operator.algorithm}")
+    operator = VectorDBOperator(config)
+    print("   Operator initialized successfully")
 
     # Index documents
     print("\n3. Indexing documents...")
@@ -138,10 +136,15 @@ def example_2_lucene_engine():
     config.update(
         {
             "index_name": "datasift_example_lucene",
-            "engine": "lucene",
-            "space_type": "cosine",
             "batch_size": 50,
-            "engine_parameters": {"ef_construction": 256, "m": 32},
+            OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+                OperatorConstants.VectorDB.ENGINE: "lucene",
+                OperatorConstants.VectorDB.SPACE_TYPE: "cosine",
+                OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+                    "ef_construction": 256,
+                    "m": 32,
+                },
+            },
             "available_features": {
                 "doc_id_hash": {
                     "available_for_vector_db": True,
@@ -168,11 +171,20 @@ def example_2_lucene_engine():
     table = create_sample_documents(num_docs=20)
 
     print("\n2. Initializing OpenSearch operator with Lucene engine...")
-    operator = OpenSearchOperator(config)
-    print(f"   Engine: {operator.engine}")
-    print(f"   Algorithm: {operator.algorithm}")
-    print(f"   Space Type: {operator.space_type}")
-    print(f"   Custom Parameters: {operator.engine_parameters}")
+    operator = VectorDBOperator(config)
+    vectordb_parameters = config.get(OperatorConstants.VectorDB.VECTORDB_PARAMETERS, {})
+    print(
+        f"   Engine: {vectordb_parameters.get(OperatorConstants.VectorDB.ENGINE, 'N/A')}"
+    )
+    print(
+        f"   Algorithm: {vectordb_parameters.get(OperatorConstants.VectorDB.ALGORITHM, 'N/A')}"
+    )
+    print(
+        f"   Space Type: {vectordb_parameters.get(OperatorConstants.VectorDB.SPACE_TYPE, 'N/A')}"
+    )
+    print(
+        f"   Custom Parameters: {vectordb_parameters.get(OperatorConstants.VectorDB.ENGINE_PARAMETERS, {})}"
+    )
 
     print("\n3. Indexing documents...")
     result_tables, metadata = operator.transform(table)
@@ -257,7 +269,7 @@ def example_4_batch_processing():
     print(f"   Created {table.num_rows} documents")
 
     print("\n2. Initializing operator with batch size 50...")
-    operator = OpenSearchOperator(config)
+    operator = VectorDBOperator(config)
 
     print("\n3. Processing in batches...")
     result_tables, metadata = operator.transform(table)
@@ -311,7 +323,7 @@ def example_5_error_handling():
     table = pa.table({"doc_id_hash": doc_ids, "embeddings": embeddings})
 
     print("\n2. Processing documents with errors...")
-    operator = OpenSearchOperator(config)
+    operator = VectorDBOperator(config)
     result_tables, metadata = operator.transform(table)
 
     print("\n3. Error Handling Results:")

@@ -742,7 +742,7 @@ Generates vector embeddings:
 
 **Note:** Use `ollama list` to see available models on your system. Common embedding models include `granite4:latest`, `nomic-embed-text`, and `mxbai-embed-large`.
 
-#### Operator 5: opensearch
+#### Operator 5: vectordb
 
 Stores documents and embeddings in OpenSearch for vector similarity search.
 
@@ -751,23 +751,26 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 ```json
 {
   "id": "opensearch_node",
-  "operator": "opensearch",
+  "operator": "vectordb",
   "config": {
-    "opensearch_host": "localhost",
-    "opensearch_port": 9200,
-    "opensearch_username": "admin",
-    "opensearch_password": "MyStrongPass123!",  # pragma: allowlist secret
-    "opensearch_use_ssl": false,
-    "opensearch_verify_certs": false,
+    "vector_db_type": "opensearch",
     "index_name": "documents",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "create_index": true,
     "vector_dimension": 768,
-    "engine": "faiss",
-    "algorithm": "hnsw",
-    "space_type": "l2",
-    "batch_size": 100,
+    "vectordb_parameters": {
+      "host": "localhost",
+      "port": 9200,
+      "username": "admin",
+      "password": "MyStrongPass123!", # pragma: allowlist secret
+      "use_ssl": false,
+      "verify_certs": false,
+      "engine": "faiss",
+      "algorithm": "hnsw",
+      "space_type": "l2",
+      "batch_size": 100
+    },
     "feature_mappings": {
       "content": "content",
       "doc_name": "doc_name",
@@ -812,7 +815,7 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 
 **Required Parameters:**
 
-- **opensearch_host**: OpenSearch server address
+- **vector_db_type**: Type of vector database (currently "opensearch")
 - **index_name**: Name of the OpenSearch index
 - **available_features**: Defines which columns to store and their types. **Embeddings field is mandatory.**
   - Must include `embeddings` with `"type": "vector"` and `"available_for_vector_db": true`
@@ -822,12 +825,13 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
   - Format: `{"pyarrow_column": "opensearch_field"}`
   - Must include all fields defined in available_features
 
-**Optional Parameters:**
+**Optional Parameters (vectordb_parameters):**
 
-- **opensearch_port**: Server port (default: 9200)
-- **opensearch_username/password**: Authentication credentials
-- **opensearch_use_ssl**: Enable SSL (default: true)
-- **opensearch_verify_certs**: Verify SSL certificates (default: true)
+- **host**: OpenSearch server address (default: "localhost")
+- **port**: Server port (default: 9200)
+- **username/password**: Authentication credentials
+- **use_ssl**: Enable SSL (default: true)
+- **verify_certs**: Verify SSL certificates (default: true)
 - **create_index**: Auto-create index if missing (default: true)
 - **vector_dimension**: Embedding dimension (default: 384, auto-detected from data)
   - **Must match the embedding model's output dimension**
@@ -837,6 +841,7 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 - **algorithm**: KNN algorithm - hnsw, ivf (default: hnsw)
 - **space_type**: Distance metric - l2, cosine, inner_product (default: l2)
 - **batch_size**: Documents per batch (default: 100)
+- **engine_parameters**: Optional engine-specific parameters (e.g., {"ef_construction": 512, "m": 16} for HNSW)
 
 > **⚠️ Important**: The embeddings column is mandatory. The operator validates embeddings exist in the input table and will fail if missing. You must explicitly configure embeddings in `available_features` for them to be stored in OpenSearch.
 
@@ -1046,24 +1051,27 @@ cat > my-first-flow.json << 'EOF'
       },
       {
         "id": "opensearch-uuid",
-        "name": "opensearch",
-        "operator": "opensearch",
+        "name": "vectordb",
+        "operator": "vectordb",
         "config": {
-          "opensearch_host": "localhost",
-          "opensearch_port": 9200,
-          "opensearch_username": "admin",
-          "opensearch_password": "MyStrongPass123!",  # pragma: allowlist secret
-          "opensearch_use_ssl": false,
-          "opensearch_verify_certs": false,
+          "vector_db_type": "opensearch",
           "index_name": "my_documents",
           "doc_id_column": "doc_id_hash",
           "embeddings_column": "embeddings",
           "vector_dimension": 768,
-          "engine": "faiss",
-          "algorithm": "hnsw",
-          "space_type": "l2",
-          "batch_size": 100,
           "create_index": true,
+          "vectordb_parameters": {
+            "host": "localhost",
+            "port": 9200,
+            "username": "admin",
+            "password": "MyStrongPass123!", # pragma: allowlist secret
+            "use_ssl": false,
+            "verify_certs": false,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+            "space_type": "l2",
+            "batch_size": 100
+          },
           "feature_mappings": {
             "content": "content",
             "doc_name": "doc_name",
@@ -1570,16 +1578,26 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
             {
                 "id": "55555555-5555-4555-8555-555555555555",
                 "name": "store_vectors",
-                "operator": "opensearch",
+                "operator": "vectordb",
                 "config": {
-                    "opensearch_host": "localhost",
-                    "opensearch_port": 9200,
-                    "opensearch_username": "admin",
-                    "opensearch_password": "MyStrongPass123!",  # pragma: allowlist secret
+                    "vector_db_type": "opensearch",
                     "index_name": index_name,
+                    "doc_id_column": "doc_id_hash",
+                    "embeddings_column": "embeddings",
                     "vector_dimension": 768,
-                    "engine": "faiss",
                     "create_index": True,
+                    "vectordb_parameters": {
+                        "host": "localhost",
+                        "port": 9200,
+                        "username": "admin",
+                        "password": "MyStrongPass123!", # pragma: allowlist secret
+                        "use_ssl": False,
+                        "verify_certs": False,
+                        "engine": "faiss",
+                        "algorithm": "hnsw",
+                        "space_type": "l2",
+                        "batch_size": 100
+                    },
                 },
                 "input_edges": [{"node_id_ref": "44444444-4444-4444-8444-444444444444"}],
                 "output_edges": [],

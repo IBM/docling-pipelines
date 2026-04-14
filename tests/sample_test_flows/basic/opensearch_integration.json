@@ -92,26 +92,33 @@
       {
         "id": "87249dbf-4a1a-433a-91da-ee5fb3244284",
         "name": "store_in_opensearch",
-        "operator": "opensearch",
+        "operator": "vectordb",
         "config": {
-          "opensearch_host": "localhost",
-          "opensearch_port": 9200,
-          "opensearch_username": "admin",
-          "opensearch_password": "MyStrongPass123!",
-          "opensearch_use_ssl": false,
-          "opensearch_verify_certs": false,
+          "vector_db_type": "opensearch",
           "index_name": "datasift_test_litellm",
           "vector_dimension": 1536,
           "doc_id_column": "doc_id_hash",
           "embeddings_column": "embeddings",
-          "engine": "faiss",
-          "algorithm": "hnsw",
-          "space_type": "l2",
-          "ef_construction": 512,
-          "m": 16,
-          "ef_search": 512,
-          "number_of_shards": 1,
-          "number_of_replicas": 0,
+          "create_index": "true",
+          "vectordb_parameters": {
+            "host": "localhost",
+            "port": 9200,
+            "username": "admin",
+            "password": "MyStrongPass123!",
+            "use_ssl": false,
+            "verify_certs": false,
+            "batch_size": 100,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+            "space_type": "l2",
+            "engine_parameters": {
+              "ef_construction": 512,
+              "m": 16,
+              "ef_search": 512
+            },
+            "number_of_shards": 1,
+            "number_of_replicas": 0
+          },
           "available_features": {
             "id": {
               "name": "ID",

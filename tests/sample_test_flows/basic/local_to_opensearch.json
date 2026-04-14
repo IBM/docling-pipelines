@@ -43,7 +43,6 @@
           "retain_original_content": "true"
         }
       },
-
       {
         "id": "6de879bd-bbe0-4d60-998f-031f65472a02",
         "name": "embeddings",
@@ -59,23 +58,26 @@
       {
         "id": "87249dbf-4a1a-433a-91da-ee5fb3244284",
         "name": "vectordb",
-        "operator": "opensearch",
+        "operator": "vectordb",
         "config": {
-          "opensearch_host": "localhost",
-          "opensearch_port": 9200,
-          "opensearch_username": "admin",
-          "opensearch_password": "admin",
-          "opensearch_use_ssl": false,
-          "opensearch_verify_certs": false,
+          "vector_db_type": "opensearch",
           "index_name": "datasift_documents",
           "doc_id_column": "doc_id_hash",
           "embeddings_column": "embeddings",
           "vector_dimension": 384,
-          "engine": "faiss",
-          "algorithm": "hnsw",
-          "space_type": "l2",
-          "batch_size": 100,
           "create_index": "true",
+          "vectordb_parameters": {
+            "host": "localhost",
+            "port": 9200,
+            "username": "admin",
+            "password": "admin",
+            "use_ssl": false,
+            "verify_certs": false,
+            "batch_size": 100,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+            "space_type": "l2"
+          },
           "available_features": {
             "doc_id_hash": {
               "name": "Document ID",

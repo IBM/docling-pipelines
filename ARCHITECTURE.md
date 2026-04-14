@@ -160,7 +160,9 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 - **LanguageDetection**: Language identification
 
 #### VectorDB Operators (`vectordb/`)
-- **OpenSearchOperator**: OpenSearch vector storage and retrieval
+- **VectorDBOperator**: Generic vector database operator using hexagonal architecture (ports & adapters)
+  - Supports multiple vector databases through adapter pattern
+  - **OpenSearch Adapter**: OpenSearch vector storage and retrieval with multiple KNN engines
 
 ### 4. CLI Application (`src/datasift_opensource/backend/cli/`)
 - **datasift_cli.py**: Command-line interface implementation

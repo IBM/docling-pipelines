@@ -1,21 +1,30 @@
-# VectorDB operators
+"""VectorDB module with Hexagonal Architecture.
 
-from core.operators.vectordb.opensearch_batch_processor import OpenSearchBatchProcessor
-from core.operators.vectordb.opensearch_client import OpenSearchClient
-from core.operators.vectordb.opensearch_index_manager import (
-    OpenSearchAlgorithmTypes,
-    OpenSearchEngineTypes,
-    OpenSearchIndexManager,
-    VectorSimilarityTypes,
-)
-from core.operators.vectordb.opensearch_operator import OpenSearchOperator
+This module provides vector database operations using a hexagonal architecture
+pattern with ports and adapters for clean separation of concerns.
+
+Architecture:
+- Domain: Core business models (IndexRequest, IndexResult, QueryRequest, etc.)
+- Ports: Interface definitions (VectorStorePort)
+- Adapters: Concrete implementations (OpenSearchAdapter)
+- Application: Operator that orchestrates the workflow (VectorDBOperator)
+"""
+
+from .adapters.outbound.factories.vector_store_factory import VectorStoreFactory, register_vector_store
+from .domain import DeleteRequest, DeleteResult, IndexInfo, IndexRequest, IndexResult, QueryRequest, QueryResult
+from .ports.outbound.vector_store import VectorStorePort
+from .vectordb_operator import VectorDBOperator
 
 __all__ = [
-    "OpenSearchAlgorithmTypes",
-    "OpenSearchBatchProcessor",
-    "OpenSearchClient",
-    "OpenSearchEngineTypes",
-    "OpenSearchIndexManager",
-    "OpenSearchOperator",
-    "VectorSimilarityTypes",
+    "DeleteRequest",
+    "DeleteResult",
+    "IndexInfo",
+    "IndexRequest",
+    "IndexResult",
+    "QueryRequest",
+    "QueryResult",
+    "VectorDBOperator",
+    "VectorStoreFactory",
+    "VectorStorePort",
+    "register_vector_store",
 ]

@@ -186,10 +186,12 @@ class OpenSearchBatchProcessor:
         max_batch_size_bytes: int = MAX_BATCH_SIZE_MB * 1024 * 1024
 
         for doc_id, doc in documents:
+            prepared_doc = self.prepare_document(doc)
+
             action: dict[str, Any] = {
                 "_index": self.index_name,
                 "_id": doc_id,
-                "_source": doc,
+                "_source": prepared_doc,
             }
 
             # Check batch size

@@ -356,7 +356,7 @@ class TestIntegrationScenarios:
         assert "extract_docling" in operators
         assert "chunker" in operators
         assert "embeddings" in operators
-        assert "opensearch" in operators
+        assert "vectordb" in operators
 
     def test_create_and_validate_temporary_flow(
         self, tmp_path, fixtures_customer_support_dir

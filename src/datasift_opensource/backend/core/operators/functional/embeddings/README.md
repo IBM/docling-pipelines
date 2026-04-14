@@ -60,8 +60,9 @@ The Embeddings Operator generates vector embeddings from text using various AI p
     },
     {
       "id": "store",
-      "operator_type": "datasift_opensource.backend.core.operators.vectordb.opensearch_operator.OpenSearchOperator",
+      "operator_type": "datasift_opensource.backend.core.operators.vectordb.vectordb_operator.VectorDBOperator",
       "operator_params": {
+        "vector_db_type": "opensearch",
         "index_name": "documents",
         "dimension": 768
       }

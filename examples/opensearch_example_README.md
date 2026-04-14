@@ -191,7 +191,7 @@ opensearch_config.update({
     "feature_mappings": {...}
 })
 
-opensearch_op = OpenSearchOperator(opensearch_config)
+opensearch_op = VectorDBOperator(opensearch_config)
 result_tables, metadata = opensearch_op.transform(table)
 ```
 

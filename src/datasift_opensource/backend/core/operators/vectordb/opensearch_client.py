@@ -76,26 +76,26 @@ class OpenSearchClient:
         """
         if not self.host:
             raise DatasiftException(
-                message="opensearch_host is required",
+                message="host is required",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
         if not isinstance(self.host, str) or not self.host.strip():
             raise DatasiftException(
-                message="opensearch_host must be a non-empty string",
+                message="host must be a non-empty string",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
         if not isinstance(self.port, int):
             raise DatasiftException(
-                message="opensearch_port must be an integer",
+                message="port must be an integer",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
         if self.port < 1 or self.port > 65535:
             raise DatasiftException(
-                message="opensearch_port must be between 1 and 65535",
+                message="port must be between 1 and 65535",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
