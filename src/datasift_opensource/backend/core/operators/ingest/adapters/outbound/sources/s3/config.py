@@ -29,8 +29,7 @@ class S3SourceConfig(BaseModel):
     # S3-compatible storage configuration (optional)
     endpoint_url: str | None = Field(
         None,
-        description="Custom S3 endpoint URL for S3-compatible storage (e.g., IBM COS, MinIO). "
-        "Leave None for AWS S3.",
+        description="Custom S3 endpoint URL for S3-compatible storage (e.g., IBM COS, MinIO). Leave None for AWS S3.",
     )
 
     region: str | None = Field(None, description="AWS region (e.g., 'us-east-1'). Optional for S3-compatible storage.")
@@ -57,9 +56,7 @@ class S3SourceConfig(BaseModel):
     skip_empty_files: bool = Field(True, description="Whether to skip files with zero size")
 
     # Performance configuration
-    max_concurrent_downloads: int = Field(
-        5, description="Maximum number of concurrent S3 downloads", ge=1, le=20
-    )
+    max_concurrent_downloads: int = Field(5, description="Maximum number of concurrent S3 downloads", ge=1, le=20)
 
     download_timeout_seconds: int = Field(300, description="Timeout for downloading a single file in seconds", ge=30)
 
@@ -142,5 +139,6 @@ class S3SourceConfig(BaseModel):
                 "download_timeout_seconds": 300,
             }
         }
+
 
 # Made with Bob

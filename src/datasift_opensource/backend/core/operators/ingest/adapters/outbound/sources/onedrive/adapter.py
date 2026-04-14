@@ -210,12 +210,21 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         Returns:
             OneDriveSourceConfig: Validated configuration object
         """
-        return OneDriveSourceConfig(
-            client_id=credentials.get("client_id", ""),
-            client_secret=credentials.get("client_secret", ""),
-            tenant_id=credentials.get("tenant_id", ""),
-            drive_id=connection_params.get("drive_id"),
-            folder_path=connection_params.get("folder_path"),
-            recursive=connection_params.get("recursive", True),
-            file_extensions=included_extensions,
-        )
+        if included_extensions is None:
+            included_extensions = []
+
+        config_params = {
+            "client_id": credentials.get("client_id", ""),
+            "client_secret": credentials.get("client_secret", ""),
+            "tenant_id": credentials.get("tenant_id", ""),
+            "drive_id": connection_params.get("drive_id", ""),
+            "folder_path": connection_params.get("folder_path"),
+            "recursive": connection_params.get("recursive", True),
+            "file_extensions": included_extensions,
+            "max_file_size_mb": connection_params.get("max_file_size_mb"),
+        }
+
+        if "graph_api_version" in connection_params:
+            config_params["graph_api_version"] = connection_params["graph_api_version"]
+
+        return OneDriveSourceConfig(**config_params)

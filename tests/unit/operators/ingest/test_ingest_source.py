@@ -532,7 +532,9 @@ class TestTransform:
     """Test cases for transform method."""
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch("core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    @patch(
+        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
+    )
     def test_transform_success(
         self,
         mock_fetch_documents,
@@ -627,7 +629,9 @@ class TestTransform:
         assert metadata["total_docs_count"] == 3
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch("core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    @patch(
+        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
+    )
     def test_transform_empty_documents(
         self,
         mock_fetch_documents,
@@ -860,7 +864,9 @@ class TestTransform:
         assert metadata["node_status"] == "Completed"
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch("core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    @patch(
+        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
+    )
     def test_transform_document_without_source(
         self,
         mock_fetch_documents,
@@ -882,13 +888,13 @@ class TestTransform:
             name="file1.txt",
             content=b"Content without source",
             source_url="s3://test-bucket/file1.txt",
-            metadata={"page": 1}
+            metadata={"page": 1},
         )
 
         # Mock S3SourceAdapter.fetch_documents to return async generator
         async def mock_async_gen():
             yield doc_no_source
-        
+
         mock_fetch_documents.return_value = mock_async_gen()
 
         config = {
@@ -916,7 +922,9 @@ class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
 
     @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch("core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    @patch(
+        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
+    )
     def test_s3_to_pyarrow_pipeline(
         self,
         mock_fetch_documents,

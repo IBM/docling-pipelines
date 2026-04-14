@@ -197,9 +197,11 @@ class TestJobTracker(unittest.TestCase):
         global test_job_run_id, test_job_id
         test_job_run_id = str(uuid1())
         test_job_id = str(uuid1())
-        
+
         # Mock PickleJobStatsStore.store_job_id to prevent filesystem writes during tests
-        self.store_job_id_patcher = patch('common.util.job_tracker.storage.pickle_job_stats_store.PickleJobStatsStore.store_job_id')
+        self.store_job_id_patcher = patch(
+            "common.util.job_tracker.storage.pickle_job_stats_store.PickleJobStatsStore.store_job_id"
+        )
         self.mock_store_job_id = self.store_job_id_patcher.start()
 
         # Add mock methods that don't exist in JobTracker but are expected by some tests
@@ -212,7 +214,7 @@ class TestJobTracker(unittest.TestCase):
     def tearDown(self):
         # Stop the store_job_id patcher
         self.store_job_id_patcher.stop()
-        
+
         self.tracker.get_job = self.original_get_job
         self.tracker.end_job = self.original_end_job
         # Clear mock storage after each test
@@ -355,7 +357,7 @@ class TestJobTracker(unittest.TestCase):
         # Extra cleanup to ensure test isolation
         clear_mock_storage()
         self.tracker.all_jobs.clear()
-        
+
         orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
 

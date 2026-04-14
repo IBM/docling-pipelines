@@ -30,7 +30,7 @@ class TestOneDriveSourceConfig:
             client_id=" client ",
             client_secret=" secret ",  # pragma: allowlist secret
             tenant_id=" tenant ",
-            drive_id=None,
+            drive_id="test_drive_id",
             folder_path="Documents",
             recursive=True,
             file_extensions=["pdf", ".txt"],
@@ -49,7 +49,7 @@ class TestOneDriveSourceConfig:
                 client_id=" ",
                 client_secret="secret",  # pragma: allowlist secret
                 tenant_id="tenant",
-                drive_id=None,
+                drive_id="test_drive_id",
                 folder_path=None,
                 recursive=True,
                 max_file_size_mb=None,
@@ -62,7 +62,7 @@ class TestOneDriveSourceConfig:
                 client_id="client",
                 client_secret="secret",  # pragma: allowlist secret
                 tenant_id="tenant",
-                drive_id=None,
+                drive_id="test_drive_id",
                 folder_path=None,
                 recursive=True,
                 max_file_size_mb=None,

@@ -1,14 +1,13 @@
 """FastAPI dependencies for authentication."""
 
 import logging
-from typing import Annotated, Any, Optional
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer, OAuth2AuthorizationCodeBearer
 
 from .jwt_handler import JWTConfig, verify_token
 from .models import User
-from .oauth2_config import OAuth2Config
 
 logger = logging.getLogger(__name__)
 
@@ -77,30 +76,30 @@ async def get_current_user(
 
 
 async def get_current_user_oauth2(
-    token: Annotated[Optional[str], Depends(oauth2_scheme)],
+    token: Annotated[str | None, Depends(oauth2_scheme)],
     jwt_config: Annotated[JWTConfig, Depends(get_jwt_config)],
-) -> Optional[User]:
+) -> User | None:
     """FastAPI dependency to extract user from OAuth2 token.
-    
+
     Args:
         token: OAuth2 token from authorization header
         jwt_config: JWT configuration
-        
+
     Returns:
         User object if token is valid, None otherwise
     """
     if not token:
         return None
-    
+
     payload: dict[Any, Any] | None = verify_token(token, jwt_config)
-    
+
     if payload is None:
         return None
-    
+
     username = payload.get("username")
     if username is None:
         return None
-    
+
     return User(
         username=username,
         email=payload.get("email", ""),
@@ -109,27 +108,27 @@ async def get_current_user_oauth2(
 
 
 async def get_current_user_flexible(
-    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(security)],
-    oauth2_token: Annotated[Optional[str], Depends(oauth2_scheme)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+    oauth2_token: Annotated[str | None, Depends(oauth2_scheme)],
     jwt_config: Annotated[JWTConfig, Depends(get_jwt_config)],
 ) -> User:
     """FastAPI dependency supporting both Bearer token and OAuth2.
-    
+
     Args:
         credentials: HTTP authorization credentials (Bearer token)
         oauth2_token: OAuth2 token
         jwt_config: JWT configuration
-        
+
     Returns:
         User object from token payload
-        
+
     Raises:
         HTTPException: If no valid token provided
     """
     if credentials:
         token = credentials.credentials
         payload: dict[Any, Any] | None = verify_token(token, jwt_config)
-        
+
         if payload is not None:
             username = payload.get("username")
             if username is not None:
@@ -138,10 +137,10 @@ async def get_current_user_flexible(
                     email=payload.get("email", ""),
                     full_name=payload.get("full_name", ""),
                 )
-    
+
     if oauth2_token:
         payload = verify_token(oauth2_token, jwt_config)
-        
+
         if payload is not None:
             username = payload.get("username")
             if username is not None:
@@ -150,11 +149,10 @@ async def get_current_user_flexible(
                     email=payload.get("email", ""),
                     full_name=payload.get("full_name", ""),
                 )
-    
+
     logger.warning("No valid authentication token provided")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-

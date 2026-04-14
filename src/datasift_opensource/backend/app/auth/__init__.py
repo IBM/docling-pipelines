@@ -1,2 +1,1 @@
 """Authentication module for DataSift."""
-

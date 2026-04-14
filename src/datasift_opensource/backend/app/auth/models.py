@@ -23,4 +23,3 @@ class User(BaseModel):
     username: str = Field(..., description="Username")
     email: str = Field(default="", description="User email address")
     full_name: str = Field(default="", description="User full name")
-

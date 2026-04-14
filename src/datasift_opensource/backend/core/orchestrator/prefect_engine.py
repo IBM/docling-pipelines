@@ -372,7 +372,9 @@ class PrefectEngine(AbstractFlowEngine):
             extra=self.common_log_arguments,
         )
 
-        def get_prev_results(op_definitions, results_: FuturedList, initial_batch_result) -> PrefectFuture | dict[str, PrefectFuture]:
+        def get_prev_results(
+            op_definitions, results_: FuturedList, initial_batch_result
+        ) -> PrefectFuture | dict[str, PrefectFuture]:
             prev_res: dict[str, PrefectFuture] = {}
             has_ingest_dependency = False
 
@@ -445,7 +447,9 @@ class PrefectEngine(AbstractFlowEngine):
                     prev_results = initial_batch_result
                 else:
                     prev_results = (
-                        results.get_future(prev_index) if is_sequential_flow else get_prev_results(op_def, results, initial_batch_result)
+                        results.get_future(prev_index)
+                        if is_sequential_flow
+                        else get_prev_results(op_def, results, initial_batch_result)
                     )
 
                 future = inner_task.submit(

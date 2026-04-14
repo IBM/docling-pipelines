@@ -52,9 +52,9 @@ class TestCreateAccessToken:
             "email": "test@example.com",
             "full_name": "Test User",
         }
-        
+
         token = create_access_token(data, jwt_config)
-        
+
         assert token is not None
         assert isinstance(token, str)
         assert len(token) > 0
@@ -63,14 +63,14 @@ class TestCreateAccessToken:
         """Test that token contains expiration claim."""
         data = {"username": "testuser"}
         token = create_access_token(data, jwt_config)
-        
+
         # Decode without verification to check claims
         payload = jwt.decode(
             token,
             jwt_config.jwt_secret_key,
             algorithms=[jwt_config.jwt_algorithm],
         )
-        
+
         assert "exp" in payload
         assert "username" in payload
         assert payload["username"] == "testuser"
@@ -81,17 +81,21 @@ class TestCreateAccessToken:
         before_creation = datetime.now(timezone.utc)
         token = create_access_token(data, jwt_config)
         after_creation = datetime.now(timezone.utc)
-        
+
         payload = jwt.decode(
             token,
             jwt_config.jwt_secret_key,
             algorithms=[jwt_config.jwt_algorithm],
         )
-        
+
         exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        expected_min = before_creation + timedelta(minutes=jwt_config.jwt_access_token_expire_minutes)
-        expected_max = after_creation + timedelta(minutes=jwt_config.jwt_access_token_expire_minutes)
-        
+        expected_min = before_creation + timedelta(
+            minutes=jwt_config.jwt_access_token_expire_minutes
+        )
+        expected_max = after_creation + timedelta(
+            minutes=jwt_config.jwt_access_token_expire_minutes
+        )
+
         assert expected_min <= expected_max
 
     def test_token_preserves_data(self, jwt_config):
@@ -102,14 +106,14 @@ class TestCreateAccessToken:
             "full_name": "Test User",
             "custom_field": "custom_value",
         }
-        
+
         token = create_access_token(data, jwt_config)
         payload = jwt.decode(
             token,
             jwt_config.jwt_secret_key,
             algorithms=[jwt_config.jwt_algorithm],
         )
-        
+
         assert payload["username"] == data["username"]
         assert payload["email"] == data["email"]
         assert payload["full_name"] == data["full_name"]
@@ -123,9 +127,9 @@ class TestVerifyToken:
         """Test verifying a valid token."""
         data = {"username": "testuser", "email": "test@example.com"}
         token = create_access_token(data, jwt_config)
-        
+
         payload = verify_token(token, jwt_config)
-        
+
         assert payload is not None
         assert payload["username"] == "testuser"
         assert payload["email"] == "test@example.com"
@@ -134,9 +138,9 @@ class TestVerifyToken:
         """Test verifying token without username claim."""
         data = {"email": "test@example.com"}
         token = create_access_token(data, jwt_config)
-        
+
         payload = verify_token(token, jwt_config)
-        
+
         assert payload is None
 
     def test_verify_expired_token(self, jwt_config):
@@ -146,38 +150,38 @@ class TestVerifyToken:
         to_encode = data.copy()
         expire = datetime.now(timezone.utc) - timedelta(minutes=1)
         to_encode.update({"exp": expire})
-        
+
         token = jwt.encode(
             to_encode,
             jwt_config.jwt_secret_key,
             algorithm=jwt_config.jwt_algorithm,
         )
-        
+
         payload = verify_token(token, jwt_config)
-        
+
         assert payload is None
 
     def test_verify_token_wrong_secret(self, jwt_config):
         """Test verifying token with wrong secret."""
         data = {"username": "testuser"}
         token = create_access_token(data, jwt_config)
-        
+
         # Create config with different secret
         wrong_config = JWTConfig(
             jwt_secret_key="wrong-secret-key",
             jwt_algorithm="HS256",
         )
-        
+
         payload = verify_token(token, wrong_config)
-        
+
         assert payload is None
 
     def test_verify_malformed_token(self, jwt_config):
         """Test verifying a malformed token."""
         malformed_token = "not.a.valid.jwt.token"
-        
+
         payload = verify_token(malformed_token, jwt_config)
-        
+
         assert payload is None
 
     def test_verify_token_wrong_algorithm(self, jwt_config):
@@ -189,14 +193,13 @@ class TestVerifyToken:
             jwt_config.jwt_secret_key,
             algorithm="HS512",
         )
-        
+
         payload = verify_token(token, jwt_config)
-        
+
         assert payload is None
 
     def test_verify_empty_token(self, jwt_config):
         """Test verifying an empty token."""
         payload = verify_token("", jwt_config)
-        
-        assert payload is None
 
+        assert payload is None

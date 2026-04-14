@@ -53,7 +53,7 @@ class AbstractOrchestrator(ABC):
         self.batch_manager = BatchManager()
         self.job_tracker = JobTracker()
         # Initialize Prefect flow executor
-        self.flow_engine: AbstractFlowEngine = None
+        self.flow_engine: AbstractFlowEngine | None = None
         self.common_log_arguments = None
 
     def initialize(self, *, job_id, job_run_id):
@@ -209,7 +209,10 @@ class AbstractOrchestrator(ABC):
             prev_table = prev_results.tables[0] if prev_results.tables else None
         else:
             # prev_results is a dictionary of [str, ExecuteStepResults]
-            prev_data_access = {link_name: res.data_accesses[0] if res.data_accesses else None for link_name, res in prev_results.items()}
+            prev_data_access = {
+                link_name: res.data_accesses[0] if res.data_accesses else None
+                for link_name, res in prev_results.items()
+            }
             prev_table = [res.tables[0] if res.tables else None for res in prev_results.values()]
         skip = self.evaluate_execution_skip(executor=executor, tables=prev_table, deleted_docs_count=deleted_docs_count)
         metadata = {}

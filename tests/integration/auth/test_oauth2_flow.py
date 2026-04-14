@@ -37,36 +37,44 @@ class TestOAuth2AuthorizeEndpoint:
 
     def test_authorize_redirect(self, client, mock_oauth2_config):
         """Test authorize endpoint redirects to provider."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
-            
-            response = client.get("/auth/oauth2/authorize?provider=google", follow_redirects=False)
-            
+
+            response = client.get(
+                "/auth/oauth2/authorize?provider=google", follow_redirects=False
+            )
+
             assert response.status_code == 307  # Redirect
             assert "location" in response.headers
             assert "accounts.google.com" in response.headers["location"]
 
     def test_authorize_with_redirect_after(self, client, mock_oauth2_config):
         """Test authorize with redirect_after parameter."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
-            
+
             response = client.get(
                 "/auth/oauth2/authorize?provider=google&redirect_after=http://localhost:3000/dashboard",
-                follow_redirects=False
+                follow_redirects=False,
             )
-            
+
             assert response.status_code == 307
 
     def test_authorize_oauth2_disabled(self, client):
         """Test authorize when OAuth2 is disabled."""
         disabled_config = OAuth2Config(oauth2_enabled=False)
-        
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = disabled_config
-            
+
             response = client.get("/auth/oauth2/authorize?provider=google")
-            
+
             assert response.status_code == 503
             assert "not enabled" in response.json()["detail"].lower()
 
@@ -77,12 +85,14 @@ class TestOAuth2AuthorizeEndpoint:
             oauth2_client_id="",
             oauth2_client_secret="",
         )
-        
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = incomplete_config
-            
+
             response = client.get("/auth/oauth2/authorize?provider=google")
-            
+
             assert response.status_code == 503
             assert "not properly configured" in response.json()["detail"].lower()
 
@@ -93,63 +103,91 @@ class TestOAuth2CallbackEndpoint:
     @pytest.mark.asyncio
     async def test_callback_success(self, client, mock_oauth2_config):
         """Test successful OAuth2 callback."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config, \
-             patch('src.datasift_opensource.backend.app.auth.oauth2_routes._state_store') as mock_state_store:
-            
+        with (
+            patch(
+                "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+            ) as mock_get_config,
+            patch(
+                "src.datasift_opensource.backend.app.auth.oauth2_routes._state_store"
+            ) as mock_state_store,
+        ):
             mock_get_config.return_value = mock_oauth2_config
             mock_state_store.__contains__ = MagicMock(return_value=True)
             mock_state_store.pop = MagicMock(return_value="")
-            
+
             # Mock the provider's methods
-            with patch('src.datasift_opensource.backend.app.auth.oauth2_provider.GoogleOAuth2Provider.exchange_code_for_token') as mock_exchange, \
-                 patch('src.datasift_opensource.backend.app.auth.oauth2_provider.GoogleOAuth2Provider.extract_user_from_token') as mock_extract:
-                
+            with (
+                patch(
+                    "src.datasift_opensource.backend.app.auth.oauth2_provider.GoogleOAuth2Provider.exchange_code_for_token"
+                ) as mock_exchange,
+                patch(
+                    "src.datasift_opensource.backend.app.auth.oauth2_provider.GoogleOAuth2Provider.extract_user_from_token"
+                ) as mock_extract,
+            ):
                 mock_exchange.return_value = {
                     "access_token": "mock-access-token",
                     "id_token": "mock-id-token",
                 }
-                
+
                 from src.datasift_opensource.backend.app.auth.models import User
+
                 mock_extract.return_value = User(
                     username="test@gmail.com",
                     email="test@gmail.com",
                     full_name="Test User",
                 )
-                
-                response = client.get("/auth/oauth2/callback?code=test-code&state=test-state&provider=google")
-                
+
+                response = client.get(
+                    "/auth/oauth2/callback?code=test-code&state=test-state&provider=google"
+                )
+
                 assert response.status_code == 200
                 assert "access_token" in response.json()
 
     def test_callback_invalid_state(self, client, mock_oauth2_config):
         """Test callback with invalid state parameter."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config, \
-             patch('src.datasift_opensource.backend.app.auth.oauth2_routes._state_store') as mock_state_store:
-            
+        with (
+            patch(
+                "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+            ) as mock_get_config,
+            patch(
+                "src.datasift_opensource.backend.app.auth.oauth2_routes._state_store"
+            ) as mock_state_store,
+        ):
             mock_get_config.return_value = mock_oauth2_config
             mock_state_store.__contains__ = MagicMock(return_value=False)
-            
-            response = client.get("/auth/oauth2/callback?code=test-code&state=invalid-state&provider=google")
-            
+
+            response = client.get(
+                "/auth/oauth2/callback?code=test-code&state=invalid-state&provider=google"
+            )
+
             assert response.status_code == 400
             assert "invalid state" in response.json()["detail"].lower()
 
     def test_callback_missing_code(self, client, mock_oauth2_config):
         """Test callback without authorization code."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
-            
-            response = client.get("/auth/oauth2/callback?state=test-state&provider=google")
-            
+
+            response = client.get(
+                "/auth/oauth2/callback?state=test-state&provider=google"
+            )
+
             assert response.status_code == 422  # Validation error
 
     def test_callback_missing_state(self, client, mock_oauth2_config):
         """Test callback without state parameter."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
-            
-            response = client.get("/auth/oauth2/callback?code=test-code&provider=google")
-            
+
+            response = client.get(
+                "/auth/oauth2/callback?code=test-code&provider=google"
+            )
+
             assert response.status_code == 422  # Validation error
 
 
@@ -158,28 +196,34 @@ class TestOAuth2ProvidersEndpoint:
 
     def test_list_providers_empty(self, client):
         """Test listing providers when none are configured."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = OAuth2Config(oauth2_enabled=False)
-            
+
             response = client.get("/auth/oauth2/providers")
-            
+
             assert response.status_code == 200
             assert "providers" in response.json()
             assert len(response.json()["providers"]) == 0
 
     def test_list_providers_with_google(self, client, mock_oauth2_config):
         """Test listing providers with Google configured."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
-            
+
             response = client.get("/auth/oauth2/providers")
-            
+
             assert response.status_code == 200
             providers = response.json()["providers"]
             assert len(providers) > 0
-            
+
             # Check if Google is in the list
-            google_provider = next((p for p in providers if p["name"] == "google"), None)
+            google_provider = next(
+                (p for p in providers if p["name"] == "google"), None
+            )
             if google_provider:
                 assert google_provider["display_name"] == "Google"
                 assert "authorize_url" in google_provider
@@ -197,27 +241,33 @@ class TestOAuth2DiscoveryEndpoint:
             "token_endpoint": "https://oauth2.googleapis.com/token",
             "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
         }
-        
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
-            
-            with patch('src.datasift_opensource.backend.app.auth.oauth2_provider.GoogleOAuth2Provider.discover_endpoints') as mock_discover:
+
+            with patch(
+                "src.datasift_opensource.backend.app.auth.oauth2_provider.GoogleOAuth2Provider.discover_endpoints"
+            ) as mock_discover:
                 mock_discover.return_value = mock_discovery
-                
+
                 response = client.get("/auth/oauth2/discovery/google?provider=google")
-                
+
                 assert response.status_code == 200
                 assert response.json()["issuer"] == "https://accounts.google.com"
 
     def test_discovery_oauth2_disabled(self, client):
         """Test discovery when OAuth2 is disabled."""
         disabled_config = OAuth2Config(oauth2_enabled=False)
-        
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = disabled_config
-            
+
             response = client.get("/auth/oauth2/discovery/google?provider=google")
-            
+
             assert response.status_code == 503
 
 
@@ -227,25 +277,32 @@ class TestOAuth2EndToEndFlow:
     @pytest.mark.asyncio
     async def test_complete_flow(self, client, mock_oauth2_config):
         """Test complete OAuth2 flow from authorize to token."""
-        with patch('src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config') as mock_get_config:
+        with patch(
+            "src.datasift_opensource.backend.app.auth.oauth2_routes.get_oauth2_config"
+        ) as mock_get_config:
             mock_get_config.return_value = mock_oauth2_config
-            
+
             # Step 1: Initiate authorization
-            response = client.get("/auth/oauth2/authorize?provider=google", follow_redirects=False)
+            response = client.get(
+                "/auth/oauth2/authorize?provider=google", follow_redirects=False
+            )
             assert response.status_code == 307
-            
+
             # Extract state from redirect URL
             location = response.headers["location"]
             assert "state=" in location
-            
+
             # Step 2: Simulate callback (would normally come from OAuth provider)
             # This is tested separately in TestOAuth2CallbackEndpoint
 
     def test_flow_with_protected_endpoint(self, client, mock_oauth2_config):
         """Test using OAuth2 token with protected endpoint."""
         # Create a valid JWT token
-        from src.datasift_opensource.backend.app.auth.jwt_handler import JWTConfig, create_access_token
-        
+        from src.datasift_opensource.backend.app.auth.jwt_handler import (
+            JWTConfig,
+            create_access_token,
+        )
+
         jwt_config = JWTConfig(jwt_secret_key="test-secret-key")
         token_data = {
             "username": "test@gmail.com",
@@ -253,14 +310,12 @@ class TestOAuth2EndToEndFlow:
             "full_name": "Test User",
         }
         token = create_access_token(token_data, jwt_config)
-        
+
         # Use token to access protected endpoint
-        response = client.get(
-            "/auth/me",
-            headers={"Authorization": f"Bearer {token}"}
-        )
-        
+        response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
+
         assert response.status_code == 200
         assert response.json()["username"] == "test@gmail.com"
+
 
 # Made with Bob

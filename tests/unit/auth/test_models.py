@@ -16,7 +16,7 @@ class TestLoginRequest:
     def test_login_request_valid(self):
         """Test creating valid login request."""
         request = LoginRequest(username="testuser", password="testpass")
-        
+
         assert request.username == "testuser"
         assert request.password == "testpass"
 
@@ -33,7 +33,7 @@ class TestLoginRequest:
     def test_login_request_empty_values(self):
         """Test login request with empty values."""
         request = LoginRequest(username="", password="")
-        
+
         assert request.username == ""
         assert request.password == ""
 
@@ -44,14 +44,14 @@ class TestTokenResponse:
     def test_token_response_valid(self):
         """Test creating valid token response."""
         response = TokenResponse(access_token="test-token")
-        
+
         assert response.access_token == "test-token"
         assert response.token_type == "bearer"
 
     def test_token_response_custom_type(self):
         """Test token response with custom token type."""
         response = TokenResponse(access_token="test-token", token_type="custom")
-        
+
         assert response.access_token == "test-token"
         assert response.token_type == "custom"
 
@@ -63,7 +63,7 @@ class TestTokenResponse:
     def test_token_response_default_type(self):
         """Test token response has default type."""
         response = TokenResponse(access_token="test-token")
-        
+
         assert response.token_type == "bearer"
 
 
@@ -77,7 +77,7 @@ class TestUser:
             email="test@example.com",
             full_name="Test User",
         )
-        
+
         assert user.username == "testuser"
         assert user.email == "test@example.com"
         assert user.full_name == "Test User"
@@ -85,7 +85,7 @@ class TestUser:
     def test_user_minimal(self):
         """Test creating user with only username."""
         user = User(username="testuser")
-        
+
         assert user.username == "testuser"
         assert user.email == ""
         assert user.full_name == ""
@@ -98,7 +98,7 @@ class TestUser:
     def test_user_with_email_only(self):
         """Test user with username and email."""
         user = User(username="testuser", email="test@example.com")
-        
+
         assert user.username == "testuser"
         assert user.email == "test@example.com"
         assert user.full_name == ""
@@ -106,7 +106,7 @@ class TestUser:
     def test_user_with_full_name_only(self):
         """Test user with username and full name."""
         user = User(username="testuser", full_name="Test User")
-        
+
         assert user.username == "testuser"
         assert user.email == ""
         assert user.full_name == "Test User"
@@ -114,7 +114,7 @@ class TestUser:
     def test_user_empty_optional_fields(self):
         """Test user with empty optional fields."""
         user = User(username="testuser", email="", full_name="")
-        
+
         assert user.username == "testuser"
         assert user.email == ""
         assert user.full_name == ""
@@ -126,9 +126,9 @@ class TestUser:
             email="test@example.com",
             full_name="Test User",
         )
-        
+
         user_dict = user.model_dump()
-        
+
         assert user_dict["username"] == "testuser"
         assert user_dict["email"] == "test@example.com"
         assert user_dict["full_name"] == "Test User"
@@ -140,10 +140,9 @@ class TestUser:
             "email": "test@example.com",
             "full_name": "Test User",
         }
-        
+
         user = User(**user_data)
-        
+
         assert user.username == "testuser"
         assert user.email == "test@example.com"
         assert user.full_name == "Test User"
-

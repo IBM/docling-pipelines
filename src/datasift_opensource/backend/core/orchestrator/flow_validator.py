@@ -95,7 +95,7 @@ class FlowValidator:
         """
         logger.info("Validating DAG", extra=self.common_log_arguments)
         errors: list[Any] = []
-        warnings:list[Any] = []
+        warnings: list[Any] = []
 
         dag = flow_def.get(DatasiftConstants.DAG, [])
         if not dag:

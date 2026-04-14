@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal, cast
 
 import pyarrow as pa
 from data_processing.utils import TransformUtils
@@ -515,16 +515,24 @@ class ChunkerOperator(AbstractOperator):
         embeddings = OllamaClientEmbeddings(ollama_client)
 
         # Create semantic chunker with configured parameters
-        chunker_kwargs = {
-            "embeddings": embeddings,
-            "breakpoint_threshold_type": self.breakpoint_threshold_type,
-        }
-
-        # Only add breakpoint_threshold_amount if it's not None
+        # Use explicit parameters instead of **kwargs to satisfy mypy type checking
+        # Cast breakpoint_threshold_type to the expected Literal type for mypy
+        threshold_type = cast(
+            Literal["percentile", "standard_deviation", "interquartile", "gradient"],
+            self.breakpoint_threshold_type
+        )
+        
         if self.breakpoint_threshold_amount is not None:
-            chunker_kwargs["breakpoint_threshold_amount"] = self.breakpoint_threshold_amount
-
-        text_splitter = SemanticChunker(**chunker_kwargs)
+            text_splitter = SemanticChunker(
+                embeddings=embeddings,
+                breakpoint_threshold_type=threshold_type,
+                breakpoint_threshold_amount=self.breakpoint_threshold_amount,
+            )
+        else:
+            text_splitter = SemanticChunker(
+                embeddings=embeddings,
+                breakpoint_threshold_type=threshold_type,
+            )
 
         # Split the text semantically
         docs = text_splitter.create_documents([content])
@@ -770,13 +778,13 @@ class ChunkerOperator(AbstractOperator):
             )
             self.record_failed_document(
                 metadata=metadata,
-                doc_id=doc.get(OperatorConstants.Columns.ID),
-                doc_name=doc.get(OperatorConstants.Misc.NAME),
+                doc_id=str(doc.get(OperatorConstants.Columns.ID, "")),
+                doc_name=str(doc.get(OperatorConstants.Misc.NAME, "")),
                 reason=f"Failed to create a data chunk for the document '{doc.get(OperatorConstants.Misc.NAME)}' due to the following error: {getattr(exc, 'message', str(exc)) if getattr(exc, 'message', str(exc)) else getattr(exc, 'message', repr(exc))}",
             )
             metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
                 metadata[Metrics.External.NODE_STATUS],
-                ExecutionStatus.COMPLETED_WITH_ERRORS.value,
+                ExecutionStatus.COMPLETED_WITH_ERRORS,
             )
             return None, True
 

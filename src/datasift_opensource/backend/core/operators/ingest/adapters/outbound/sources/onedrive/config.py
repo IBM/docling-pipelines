@@ -24,7 +24,7 @@ class OneDriveSourceConfig(BaseModel):
     tenant_id: str = Field(..., description="Azure AD tenant (directory) ID")
 
     # OneDrive configuration
-    drive_id: str | None = Field(None, description="Specific OneDrive drive ID. If None, uses user's default drive")
+    drive_id: str = Field(..., description="Specific OneDrive drive ID. If None, uses user's default drive")
 
     folder_path: str | None = Field(
         None, description="Folder path to ingest from (e.g., '/Documents/Reports'). If None, starts from root"

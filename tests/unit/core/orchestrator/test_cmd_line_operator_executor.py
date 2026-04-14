@@ -33,9 +33,7 @@ class TestCommandLineOperatorExecutor:
         """Test initialization with empty params."""
         mock_parent_init.return_value = None
 
-        _ = CommandLineOperatorExecutor(
-            name="executor", operator="operator", params={}
-        )
+        _ = CommandLineOperatorExecutor(name="executor", operator="operator", params={})
 
         mock_parent_init.assert_called_once_with("executor", "operator", {})
 

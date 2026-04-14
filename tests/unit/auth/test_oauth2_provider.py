@@ -72,7 +72,7 @@ class TestGoogleOAuth2Provider:
         """Test authorization URL generation."""
         provider = GoogleOAuth2Provider(google_config)
         auth_url, state = provider.generate_authorization_url()
-        
+
         assert "accounts.google.com" in auth_url
         assert "client_id=google-client-id" in auth_url
         assert "redirect_uri=" in auth_url
@@ -86,7 +86,7 @@ class TestGoogleOAuth2Provider:
         provider = GoogleOAuth2Provider(google_config)
         custom_state = "custom-state-value"
         auth_url, state = provider.generate_authorization_url(custom_state)
-        
+
         assert state == custom_state
         assert f"state={custom_state}" in auth_url
 
@@ -94,18 +94,20 @@ class TestGoogleOAuth2Provider:
     async def test_extract_user_from_token(self, google_config):
         """Test extracting user from Google token."""
         provider = GoogleOAuth2Provider(google_config)
-        
+
         # Mock validate_id_token
-        with patch.object(provider, 'validate_id_token', new_callable=AsyncMock) as mock_validate:
+        with patch.object(
+            provider, "validate_id_token", new_callable=AsyncMock
+        ) as mock_validate:
             mock_validate.return_value = {
                 "email": "test@gmail.com",
                 "name": "Test User",
                 "sub": "google-user-id",
             }
-            
+
             token_data = {"id_token": "mock-id-token"}
             user = await provider.extract_user_from_token(token_data)
-            
+
             assert isinstance(user, User)
             assert user.username == "test@gmail.com"
             assert user.email == "test@gmail.com"
@@ -115,9 +117,9 @@ class TestGoogleOAuth2Provider:
     async def test_extract_user_no_id_token(self, google_config):
         """Test extracting user without ID token raises error."""
         provider = GoogleOAuth2Provider(google_config)
-        
+
         token_data = {"access_token": "mock-access-token"}
-        
+
         with pytest.raises(Exception, match="No ID token in response"):
             await provider.extract_user_from_token(token_data)
 
@@ -134,7 +136,7 @@ class TestAzureADOAuth2Provider:
         """Test authorization URL generation."""
         provider = AzureADOAuth2Provider(azure_config)
         auth_url, state = provider.generate_authorization_url()
-        
+
         assert "login.microsoftonline.com" in auth_url
         assert "test-tenant" in auth_url
         assert "client_id=azure-client-id" in auth_url
@@ -143,18 +145,20 @@ class TestAzureADOAuth2Provider:
     async def test_extract_user_from_token(self, azure_config):
         """Test extracting user from Azure AD token."""
         provider = AzureADOAuth2Provider(azure_config)
-        
-        with patch.object(provider, 'validate_id_token', new_callable=AsyncMock) as mock_validate:
+
+        with patch.object(
+            provider, "validate_id_token", new_callable=AsyncMock
+        ) as mock_validate:
             mock_validate.return_value = {
                 "preferred_username": "test@company.com",
                 "email": "test@company.com",
                 "name": "Test User",
                 "sub": "azure-user-id",
             }
-            
+
             token_data = {"id_token": "mock-id-token"}
             user = await provider.extract_user_from_token(token_data)
-            
+
             assert isinstance(user, User)
             assert user.username == "test@company.com"
             assert user.email == "test@company.com"
@@ -164,16 +168,18 @@ class TestAzureADOAuth2Provider:
     async def test_extract_user_fallback_to_email(self, azure_config):
         """Test extracting user falls back to email if no preferred_username."""
         provider = AzureADOAuth2Provider(azure_config)
-        
-        with patch.object(provider, 'validate_id_token', new_callable=AsyncMock) as mock_validate:
+
+        with patch.object(
+            provider, "validate_id_token", new_callable=AsyncMock
+        ) as mock_validate:
             mock_validate.return_value = {
                 "email": "test@company.com",
                 "name": "Test User",
             }
-            
+
             token_data = {"id_token": "mock-id-token"}
             user = await provider.extract_user_from_token(token_data)
-            
+
             assert user.username == "test@company.com"
 
 
@@ -189,18 +195,20 @@ class TestGenericOIDCProvider:
     async def test_extract_user_from_id_token(self, oauth2_config):
         """Test extracting user from ID token."""
         provider = GenericOIDCProvider(oauth2_config)
-        
-        with patch.object(provider, 'validate_id_token', new_callable=AsyncMock) as mock_validate:
+
+        with patch.object(
+            provider, "validate_id_token", new_callable=AsyncMock
+        ) as mock_validate:
             mock_validate.return_value = {
                 "preferred_username": "testuser",
                 "email": "test@example.com",
                 "name": "Test User",
                 "sub": "user-id",
             }
-            
+
             token_data = {"id_token": "mock-id-token"}
             user = await provider.extract_user_from_token(token_data)
-            
+
             assert user.username == "testuser"
             assert user.email == "test@example.com"
             assert user.full_name == "Test User"
@@ -209,17 +217,19 @@ class TestGenericOIDCProvider:
     async def test_extract_user_from_access_token(self, oauth2_config):
         """Test extracting user from access token via userinfo."""
         provider = GenericOIDCProvider(oauth2_config)
-        
-        with patch.object(provider, 'get_user_info', new_callable=AsyncMock) as mock_userinfo:
+
+        with patch.object(
+            provider, "get_user_info", new_callable=AsyncMock
+        ) as mock_userinfo:
             mock_userinfo.return_value = {
                 "email": "test@example.com",
                 "name": "Test User",
                 "sub": "user-id",
             }
-            
+
             token_data = {"access_token": "mock-access-token"}
             user = await provider.extract_user_from_token(token_data)
-            
+
             assert user.username == "test@example.com"
             assert user.email == "test@example.com"
 
@@ -227,26 +237,28 @@ class TestGenericOIDCProvider:
     async def test_extract_user_username_fallback(self, oauth2_config):
         """Test username fallback logic."""
         provider = GenericOIDCProvider(oauth2_config)
-        
-        with patch.object(provider, 'validate_id_token', new_callable=AsyncMock) as mock_validate:
+
+        with patch.object(
+            provider, "validate_id_token", new_callable=AsyncMock
+        ) as mock_validate:
             # Test fallback: preferred_username -> email -> sub
             mock_validate.return_value = {
                 "sub": "user-id-123",
                 "name": "Test User",
             }
-            
+
             token_data = {"id_token": "mock-id-token"}
             user = await provider.extract_user_from_token(token_data)
-            
+
             assert user.username == "user-id-123"
 
     @pytest.mark.asyncio
     async def test_extract_user_no_token(self, oauth2_config):
         """Test extracting user without any token raises error."""
         provider = GenericOIDCProvider(oauth2_config)
-        
+
         token_data = {}
-        
+
         with pytest.raises(Exception, match="No ID token or access token in response"):
             await provider.extract_user_from_token(token_data)
 
@@ -258,7 +270,7 @@ class TestOAuth2ProviderCommon:
     async def test_exchange_code_for_token(self, oauth2_config):
         """Test exchanging authorization code for token."""
         provider = GenericOIDCProvider(oauth2_config)
-        
+
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "access_token": "mock-access-token",
@@ -266,21 +278,25 @@ class TestOAuth2ProviderCommon:
             "token_type": "Bearer",
         }
         mock_response.raise_for_status = MagicMock()
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-            
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=mock_response
+            )
+
             token_data = await provider.exchange_code_for_token("auth-code")
-            
+
             assert token_data["access_token"] == "mock-access-token"
             assert token_data["id_token"] == "mock-id-token"
 
     @pytest.mark.asyncio
     async def test_discover_endpoints(self, oauth2_config):
         """Test OIDC discovery."""
-        oauth2_config.oauth2_discovery_url = "https://provider.com/.well-known/openid-configuration"
+        oauth2_config.oauth2_discovery_url = (
+            "https://provider.com/.well-known/openid-configuration"
+        )
         provider = GenericOIDCProvider(oauth2_config)
-        
+
         mock_response = MagicMock()
         mock_response.json.return_value = {
             "issuer": "https://provider.com",
@@ -289,27 +305,33 @@ class TestOAuth2ProviderCommon:
             "jwks_uri": "https://provider.com/jwks",
         }
         mock_response.raise_for_status = MagicMock()
-        
-        with patch('httpx.AsyncClient') as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
-            
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
+                return_value=mock_response
+            )
+
             discovery = await provider.discover_endpoints()
-            
+
             assert discovery["issuer"] == "https://provider.com"
-            assert discovery["authorization_endpoint"] == "https://provider.com/authorize"
+            assert (
+                discovery["authorization_endpoint"] == "https://provider.com/authorize"
+            )
 
     @pytest.mark.asyncio
     async def test_discover_endpoints_cached(self, oauth2_config):
         """Test that discovery results are cached."""
-        oauth2_config.oauth2_discovery_url = "https://provider.com/.well-known/openid-configuration"
+        oauth2_config.oauth2_discovery_url = (
+            "https://provider.com/.well-known/openid-configuration"
+        )
         provider = GenericOIDCProvider(oauth2_config)
-        
+
         # Set cache
         provider._discovery_cache = {"cached": "data"}
-        
+
         # Should return cached data without making HTTP request
         discovery = await provider.discover_endpoints()
-        
+
         assert discovery == {"cached": "data"}
 
 
@@ -319,21 +341,21 @@ class TestGetOAuth2Provider:
     def test_get_google_provider(self, google_config):
         """Test getting Google provider."""
         provider = get_oauth2_provider(google_config)
-        
+
         assert isinstance(provider, GoogleOAuth2Provider)
         assert provider.get_provider_name() == "google"
 
     def test_get_azure_provider(self, azure_config):
         """Test getting Azure provider."""
         provider = get_oauth2_provider(azure_config)
-        
+
         assert isinstance(provider, AzureADOAuth2Provider)
         assert provider.get_provider_name() == "azure"
 
     def test_get_generic_provider(self, oauth2_config):
         """Test getting generic provider."""
         provider = get_oauth2_provider(oauth2_config)
-        
+
         assert isinstance(provider, GenericOIDCProvider)
         assert provider.get_provider_name() == "generic"
 
@@ -341,6 +363,5 @@ class TestGetOAuth2Provider:
         """Test getting provider with unknown type."""
         config = OAuth2Config(oauth2_provider="unknown")
         provider = get_oauth2_provider(config)
-        
-        assert isinstance(provider, GenericOIDCProvider)
 
+        assert isinstance(provider, GenericOIDCProvider)
