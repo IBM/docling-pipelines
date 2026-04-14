@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -230,7 +230,7 @@ class NodeStatsDto(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "description": "This model defines the statistics of a node execution.",
             "example": {
                 "id": "62e29618-7942-4143-9ce4-ffe5744f4e88",

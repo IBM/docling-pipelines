@@ -269,11 +269,11 @@ class JobTracker(metaclass=Singleton):
         )
         # Add to the in-memory cache and persist.
         self.all_jobs[job_run_id] = stat
-        
+
         # Store the job_run_id to job_id mapping for future lookups
         from common.util.job_tracker.storage.pickle_job_stats_store import PickleJobStatsStore
         PickleJobStatsStore.store_job_id(job_id=job_id, job_run_id=job_run_id)
-        
+
         self.store_job_stats(stat)
 
         logger.info(

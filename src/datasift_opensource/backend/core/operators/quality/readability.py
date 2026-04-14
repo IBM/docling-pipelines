@@ -82,7 +82,7 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
             OperatorConstants.Config.FEATURES: {
                 FLESCH_EASE: {
                     OperatorConstants.Misc.NAME: "Flesch Reading Ease",
-                    OperatorConstants.Config.DESCRIPTION: "Rates text on a 0–100 scale where higher scores mean easier reading.",
+                    OperatorConstants.Config.DESCRIPTION: "Rates text on a 0 to 100 scale where higher scores mean easier reading.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },

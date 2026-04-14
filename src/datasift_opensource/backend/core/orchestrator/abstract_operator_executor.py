@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import copy
 import os
 import pprint
@@ -36,10 +37,12 @@ class AbstractOperatorExecutor:
         self._name = name
         self._operator = operator
         self._params = params | {OperatorConstants.Columns.NAME: name}
+        job_id: str = str(self._params.get(DatasiftConstants.JOB_ID))
+        job_run_id: str = str(self._params.get(DatasiftConstants.JOB_RUN_ID))
         DataAccessUtils.add_intermediate_storage_config(
             config=self._params,
-            job_id=self._params.get(DatasiftConstants.JOB_ID),
-            job_run_id=self._params.get(DatasiftConstants.JOB_RUN_ID),
+            job_id=job_id,
+            job_run_id=job_run_id,
         )
 
     def execute(
@@ -82,6 +85,7 @@ class AbstractOperatorExecutor:
             data_accesses.append(output_data_access)
         return data_accesses
 
+    @abstractmethod
     def get_operator(self) -> AbstractOperator:
         # The concrete class implements the method by returning the operator for the corresponding orchestrator.
         pass

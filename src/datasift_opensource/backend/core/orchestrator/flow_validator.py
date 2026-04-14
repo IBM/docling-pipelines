@@ -4,6 +4,7 @@ This module contains the FlowValidator class which handles all flow validation l
 that was previously embedded in AbstractOrchestrator.
 """
 
+from typing import List, Any
 from common.constants.constants import DatasiftConstants, OrchestratorType
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import (
@@ -92,7 +93,8 @@ class FlowValidator:
             FlowValidationException: If validation fails
         """
         logger.info("Validating DAG", extra=self.common_log_arguments)
-        errors, warnings = [], []
+        errors: List[Any] = []
+        warnings:List[Any] = []
 
         dag = flow_def.get(DatasiftConstants.DAG, [])
         if not dag:
@@ -364,7 +366,7 @@ class FlowValidator:
         try:
             operator = self.orchestrator.create_executor(op_def=op_def, global_config=global_config).get_operator()
         except DatasiftException:
-            errors: list[ValidationAlert] = []
+            errors: list[Any] = []
             add_validation_alert(
                 ValidationMessage(
                     message=ValidationCodeMessages.GET_OPERATOR_FAILED.value,

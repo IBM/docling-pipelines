@@ -8,8 +8,7 @@ separating these concerns from the main orchestrator logic.
 import copy
 import threading
 from abc import ABC, abstractmethod
-from collections.abc import Callable
-from typing import Any, Callable, ParamSpec, TypeVar
+from typing import Any, Callable, ParamSpec, Protocol, TypeVar
 
 from prefect import flow, task
 from prefect.futures import PrefectFuture
@@ -39,6 +38,10 @@ logger = get_logger()
 
 R = TypeVar("R")  # The return type of the user's function
 P = ParamSpec("P")
+
+
+class SupportsSubmit(Protocol):
+    def submit(self, *args: Any, **kwargs: Any) -> PrefectFuture: ...
 
 
 class ExecuteStepResults:
@@ -316,7 +319,13 @@ class PrefectEngine(AbstractFlowEngine):
             "timeout_seconds": 60000,
         }
 
-    def __create_task(self, *, task_func, retries=0, persist_result=False) -> task:
+    def __create_task(
+        self,
+        *,
+        task_func: Callable[..., Any],
+        retries: int = 0,
+        persist_result: bool = False,
+    ) -> SupportsSubmit:
         """Create a Prefect task for operator execution."""
 
         def generate_task_name():
@@ -324,13 +333,17 @@ class PrefectEngine(AbstractFlowEngine):
             return parameters["op_def"]["name"]
 
         return task(
-            task_func,
             task_run_name=generate_task_name,
             retries=retries,
             persist_result=persist_result,
-        )
+        )(task_func)
 
-    def __create_main_task(self, main_task, retries=0, persist_result=False) -> task:
+    def __create_main_task(
+        self,
+        main_task: Callable[..., Any],
+        retries: int = 0,
+        persist_result: bool = False,
+    ) -> SupportsSubmit:
         """Create a Prefect task for non-execution flows."""
 
         def generate_task_name():
@@ -338,11 +351,10 @@ class PrefectEngine(AbstractFlowEngine):
             return parameters["task_name"]
 
         return task(
-            main_task,
             task_run_name=generate_task_name,
             retries=retries,
             persist_result=persist_result,
-        )
+        )(main_task)
 
     def __flow_impl(self, op_flow, data_access, global_config):
         """

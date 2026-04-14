@@ -10,9 +10,10 @@ with support for JSON output parsing and retry logic.
 
 import json
 from enum import Enum
+from typing import Any
+
 from ollama import GenerateResponse
 from ollama._types import ChatResponse
-from typing import Any
 
 from common.clients.base_llm_client import BaseLLMClient, retry_with_backoff
 from common.exceptions.datasift_exceptions import DatasiftException

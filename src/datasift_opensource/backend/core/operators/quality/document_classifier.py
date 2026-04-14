@@ -106,7 +106,7 @@ class DocumentClassifierOperator(AbstractOperator):
         self.request_timeout: int = config.get("request_timeout", DEFAULT_REQUEST_TIMEOUT)
         self.extract_tables: bool = config.get(OperatorConstants.Config.EXTRACT_TABLES, True)
         self.extract_images: bool = config.get(OperatorConstants.Config.EXTRACT_IMAGES, True)
-        
+
         # Set defaults based on provider - model_id is guaranteed to be str after this block
         self.model_id: str
         if self.provider == "ollama":
