@@ -97,18 +97,6 @@ def fixtures_customer_support_dir(test_data_dir):
 
 
 @pytest.fixture(scope="session")
-def sample_pdf_files(fixtures_invoices_dir):
-    """
-    Return a list of sample PDF files from the invoices fixtures directory.
-    Skips the test if no PDF files are found.
-    """
-    pdf_files = list(fixtures_invoices_dir.glob("*.pdf"))
-    if not pdf_files:
-        pytest.skip(f"No PDF files found in {fixtures_invoices_dir}")
-    return pdf_files
-
-
-@pytest.fixture(scope="session")
 def temp_dir(tmp_path_factory):
     """Create a temporary directory for test outputs."""
     return tmp_path_factory.mktemp("test_outputs")

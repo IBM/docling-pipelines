@@ -110,7 +110,7 @@ def test_generate_docling_template_with_max_fields(invoice_doc_class_path):
     )
 
     # Count only top-level fields
-    top_level_fields = [k for k, v in template.items() if not isinstance(v, dict)]
+    _ = [k for k, v in template.items() if not isinstance(v, dict)]
     assert len(template) <= max_fields
 
 

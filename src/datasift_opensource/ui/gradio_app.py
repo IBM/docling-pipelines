@@ -75,7 +75,7 @@ def create_app() -> gr.Blocks:
                 gr.Markdown("### 2. Chat with your Docs")
                 chatbot = gr.Chatbot(height=500)
                 msg = gr.Textbox(label="Ask a question", placeholder="Type here...")
-                clear = gr.ClearButton([msg, chatbot])
+                _ = gr.ClearButton([msg, chatbot])
 
         # Event Handling
         upload_button.click(

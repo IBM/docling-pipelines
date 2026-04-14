@@ -3,7 +3,7 @@
 import unittest
 import uuid
 from time import sleep
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from uuid import uuid1
 
 from common.exceptions.datasift_exceptions import DatasiftException
@@ -355,8 +355,7 @@ class TestJobTracker(unittest.TestCase):
         # Extra cleanup to ensure test isolation
         clear_mock_storage()
         self.tracker.all_jobs.clear()
-        job_id = str(uuid1())  # Use unique job_id to avoid contamination
-
+        
         orch = OrchestratorFactory.create_orchestrator()
         create_session_info(orchestrator=orch, flow_id="flow1")
 

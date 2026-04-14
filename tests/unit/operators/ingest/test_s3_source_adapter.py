@@ -4,13 +4,11 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pytest
-import pytest_asyncio
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 
 from core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter
 from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
-from core.operators.ingest.domain.models import Document
 
 # Configure pytest-asyncio
 pytestmark = pytest.mark.asyncio

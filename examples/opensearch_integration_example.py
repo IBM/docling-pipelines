@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from core.operators.vectordb.opensearch_operator import (
     OpenSearchOperator,
 )
-from common.util.env_config import get_opensearch_config
+from common.util.infrastructure.config import get_opensearch_config
 
 
 def create_sample_documents(num_docs=10, vector_dim=384):
@@ -343,13 +343,13 @@ def main():
         operator1 = example_1_basic_indexing()
 
         # Example 2: Lucene engine
-        operator2 = example_2_lucene_engine()
+        _operator2 = example_2_lucene_engine()
 
         # Example 3: Query operations (using operator from example 1)
         example_3_query_operations(operator1)
 
         # Example 4: Batch processing
-        operator4 = example_4_batch_processing()
+        _operator4 = example_4_batch_processing()
 
         # Example 5: Error handling
         example_5_error_handling()

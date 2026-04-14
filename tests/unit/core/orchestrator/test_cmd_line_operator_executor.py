@@ -18,7 +18,7 @@ class TestCommandLineOperatorExecutor:
         """Test that initialization calls parent class."""
         mock_parent_init.return_value = None
 
-        executor = CommandLineOperatorExecutor(
+        _ = CommandLineOperatorExecutor(
             name="test_executor", operator="test_operator", params={"param1": "value1"}
         )
 
@@ -33,7 +33,7 @@ class TestCommandLineOperatorExecutor:
         """Test initialization with empty params."""
         mock_parent_init.return_value = None
 
-        executor = CommandLineOperatorExecutor(
+        _ = CommandLineOperatorExecutor(
             name="executor", operator="operator", params={}
         )
 
@@ -53,7 +53,7 @@ class TestCommandLineOperatorExecutor:
             "dict_param": {"nested": "value"},
         }
 
-        executor = CommandLineOperatorExecutor(
+        _ = CommandLineOperatorExecutor(
             name="complex_executor", operator="complex_operator", params=complex_params
         )
 
@@ -97,8 +97,8 @@ class TestCommandLineOperatorExecutor:
         """Test creating multiple instances."""
         mock_parent_init.return_value = None
 
-        executor1 = CommandLineOperatorExecutor("exec1", "op1", {"p1": "v1"})
-        executor2 = CommandLineOperatorExecutor("exec2", "op2", {"p2": "v2"})
+        _ = CommandLineOperatorExecutor("exec1", "op1", {"p1": "v1"})
+        _ = CommandLineOperatorExecutor("exec2", "op2", {"p2": "v2"})
 
         assert mock_parent_init.call_count == 2
 

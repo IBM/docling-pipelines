@@ -154,7 +154,7 @@ class TestFlowExecutor:
 
         params = {DatasiftConstants.JOB_RUN_ID: "run_123"}
         # Should not raise exception, just log warning
-        result = executor.execute(orchestrator=mock_orchestrator, params=params)
+        executor.execute(orchestrator=mock_orchestrator, params=params)
 
         mock_orchestrator.execute.assert_called_once()
 
