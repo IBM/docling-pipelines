@@ -359,7 +359,7 @@ python examples/language_detection_example.py
 ### Flow Testing
 
 ```bash
-datasift-orchestrator --flow-file tests/flow_local.json
+datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
 ```
 
 ## Troubleshooting

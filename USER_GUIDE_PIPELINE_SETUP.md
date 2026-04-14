@@ -133,7 +133,7 @@ The script creates two files:
 
 4. Run your first flow:
    ```bash
-   datasift-orchestrator --flow-file tests/flow_invoice.json
+   datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
    ```
 
 #### Troubleshooting the Setup Script
@@ -570,7 +570,7 @@ podman-compose -f docker-compose.opensearch.yml restart
 
 ## 5. Understanding Flow Configuration (flow.json)
 
-DataSift pipelines are defined using JSON configuration files. Let's understand the structure using the example from [`tests/flow_invoice.json`](../tests/flow_invoice.json).
+DataSift pipelines are defined using JSON configuration files. Let's understand the structure using the example from [`sample_flows/complete_pipeline_flow.json`](sample_flows/complete_pipeline_flow.json).
 
 ### Complete flow.json Structure
 

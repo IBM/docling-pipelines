@@ -46,13 +46,13 @@ Set environment variables directly in your shell:
 ```bash
 # OneDrive
 export ONEDRIVE_CLIENT_ID='your-client-id'
-export ONEDRIVE_CLIENT_SECRET='your-client-secret'
+export ONEDRIVE_CLIENT_SECRET='your-client-secret'  # pragma: allowlist secret
 export ONEDRIVE_TENANT_ID='your-tenant-id'
 python examples/connectors/test_onedrive_adapter.py
 
 # SharePoint
 export SHAREPOINT_CLIENT_ID='your-client-id'
-export SHAREPOINT_CLIENT_SECRET='your-client-secret'
+export SHAREPOINT_CLIENT_SECRET='your-client-secret'  # pragma: allowlist secret
 export SHAREPOINT_TENANT_ID='your-tenant-id'
 export SHAREPOINT_DOCUMENT_LIBRARY_ID='your-document-library-id'
 python examples/connectors/test_sharepoint_adapter.py
@@ -62,7 +62,7 @@ python examples/connectors/test_sharepoint_adapter.py
 
 - **Security**: The `.env` file is gitignored and should NEVER be committed to version control
 - **Scope**: These environment variables are only for testing the connector scripts, NOT for the main pipeline
-- **Pipeline Configuration**: The main datasift pipeline uses credentials embedded in flow JSON files (see `tests/flow_onedrive_to_opensearch.json`)
+- **Pipeline Configuration**: The main datasift pipeline uses credentials embedded in flow JSON files (see `tests/sample_test_flows/cloud_sources/flow_onedrive_to_opensearch.json`)
 
 ## Available Test Scripts
 

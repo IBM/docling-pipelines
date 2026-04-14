@@ -17,4 +17,4 @@ The [`OpenSearchOperator`](../../src/datasift_opensource/backend/core/operators/
 
 - Main user guide for setup and execution: [`../../USER_GUIDE_PIPELINE_SETUP.md`](../../USER_GUIDE_PIPELINE_SETUP.md)
 - Operator API reference: [`../operators/opensearch.md`](../operators/opensearch.md)
-- Example flow configuration: [`../../tests/flow_with_opensearch.json`](../../tests/flow_with_opensearch.json)
+- Example flow configuration: [`../../tests/sample_test_flows/basic/opensearch_integration.json`](../../tests/sample_test_flows/basic/opensearch_integration.json)

@@ -57,7 +57,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         from cli.datasift_cli import load_flow_definition
 
-        filepath = "../../../tests/flow_local.json"
+        filepath = "../../../tests/sample_test_flows/basic/local_to_opensearch.json"
 
         flow_def = load_flow_definition(file_path=filepath)
         assert flow_def is not None

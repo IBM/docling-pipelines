@@ -85,11 +85,11 @@ Change this path to point to any flow JSON file in the `tests/` directory:
 
 | Flow file | Description |
 |---|---|
-| `tests/flow_local_with_ui.json` | General documents — ingest → extract → chunk → embed → OpenSearch (`datasift_documents`) |
-| `tests/flow_invoice.json` | Invoice PDFs with template-based structured extraction |
-| `tests/flow_invoice_entities.json` | Invoice PDFs with Ollama entity extraction (schema-free) |
-| `tests/flow_invoice_entities_expanded.json` | Invoice PDFs with Ollama entity extraction (expanded schema) |
-| `tests/flow_invoice_entities_expanded_ui.json` | ✅ **Default** — UI-specific copy of the above; `input_folder` pre-set to `uploaded_files/` |
+| `tests/sample_test_flows/basic/local_to_opensearch_ui.json` | General documents — ingest → extract → chunk → embed → OpenSearch (`datasift_documents`) |
+| `tests/sample_test_flows/invoice_processing/flow_invoice.json` | Invoice PDFs with template-based structured extraction |
+| `tests/sample_test_flows/invoice_processing/flow_invoice_entities.json` | Invoice PDFs with Ollama entity extraction (schema-free) |
+| `tests/sample_test_flows/invoice_processing/flow_invoice_entities_expanded.json` | Invoice PDFs with Ollama entity extraction (expanded schema) |
+| `tests/sample_test_flows/invoice_processing/flow_invoice_entities_expanded_ui.json` | ✅ **Default** — UI-specific copy of the above; `input_folder` pre-set to `uploaded_files/` |
 
 **Example** — switch to the general document flow:
 
@@ -123,7 +123,7 @@ Every flow JSON used with the UI **must** have its `ingest` operator's `input_fo
 
 If you create a **new flow JSON** to use with the UI, make sure `input_folder` is set to exactly this relative path. The path is resolved relative to the project root (the directory where `uv run reflex run` is executed from, i.e. `src/datasift_opensource/ui/chat_with_docs/`, but the orchestrator is invoked with `cwd=project_root` so the path must be relative to the repo root).
 
-> **Tip:** Copy an existing UI flow file (e.g. `tests/flow_local_with_ui.json`) as a starting point — the `input_folder` is already correct.
+> **Tip:** Copy an existing UI flow file (e.g. `tests/sample_test_flows/basic/local_to_opensearch_ui.json`) as a starting point — the `input_folder` is already correct.
 
 ---
 

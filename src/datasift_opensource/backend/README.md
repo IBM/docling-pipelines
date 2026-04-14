@@ -105,7 +105,7 @@ Options:
 Example:
 
 ```bash
-datasift-orchestrator --flow-file tests/flow_local.json --log-level debug
+datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json --log-level debug
 ```
 
 ### Validating Flows

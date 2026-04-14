@@ -39,16 +39,16 @@ pip install boto3
 
 **Option A: Environment Variables**
 ```bash
-export AWS_ACCESS_KEY_ID='your-access-key'
-export AWS_SECRET_ACCESS_KEY='your-secret-key'
+export AWS_ACCESS_KEY_ID='your-access-key'  # pragma: allowlist secret
+export AWS_SECRET_ACCESS_KEY='your-secret-key'  # pragma: allowlist secret
 export AWS_DEFAULT_REGION='us-east-1'  # Optional
 ```
 
 **Option B: AWS Credentials File** (`~/.aws/credentials`)
 ```ini
 [default]
-aws_access_key_id = your-access-key
-aws_secret_access_key = your-secret-key
+aws_access_key_id = your-access-key  # pragma: allowlist secret
+aws_secret_access_key = your-secret-key  # pragma: allowlist secret
 region = us-east-1
 ```
 
@@ -56,8 +56,8 @@ region = us-east-1
 ```json
 {
   "credentials": {
-    "access_key": "your-access-key",
-    "secret_key": "your-secret-key"
+    "access_key": "your-access-key",  # pragma: allowlist secret
+    "secret_key": "your-secret-key"  # pragma: allowlist secret
   }
 }
 ```
@@ -66,8 +66,8 @@ region = us-east-1
 
 ```bash
 # Set environment variables
-export S3_ACCESS_KEY='your-access-key'
-export S3_SECRET_KEY='your-secret-key'
+export S3_ACCESS_KEY='your-access-key'  # pragma: allowlist secret
+export S3_SECRET_KEY='your-secret-key'  # pragma: allowlist secret
 export S3_BUCKET='your-bucket-name'
 export S3_PREFIX='documents/'
 
@@ -103,8 +103,8 @@ python examples/connectors/test_s3_adapter.py
 from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
 
 config = S3SourceConfig(
-    access_key="AKIAIOSFODNN7EXAMPLE",
-    secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    access_key="AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+    secret_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
     bucket="my-documents-bucket",
     prefix="documents/reports/",
     region="us-east-1",
@@ -119,8 +119,8 @@ config = S3SourceConfig(
 #### S3-Compatible Storage (IBM COS, MinIO)
 ```python
 config = S3SourceConfig(
-    access_key="your-access-key",
-    secret_key="your-secret-key",
+    access_key="your-access-key",  # pragma: allowlist secret
+    secret_key="your-secret-key",  # pragma: allowlist secret
     bucket="my-bucket",
     prefix="data/",
     endpoint_url="https://s3.us-south.cloud-object-storage.appdomain.cloud",
@@ -141,8 +141,8 @@ from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceCo
 async def main():
     # Create configuration
     config = S3SourceConfig(
-        access_key="your-access-key",
-        secret_key="your-secret-key",
+        access_key="your-access-key",  # pragma: allowlist secret
+        secret_key="your-secret-key",  # pragma: allowlist secret
         bucket="my-bucket",
         prefix="documents/",
         file_extensions=[".pdf", ".txt"],
@@ -180,8 +180,8 @@ if __name__ == "__main__":
                 "config": {
                     "provider": "s3",
                     "credentials": {
-                        "access_key": "AKIAIOSFODNN7EXAMPLE",
-                        "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                        "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+                        "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # pragma: allowlist secret
                     },
                     "connection_params": {
                         "bucket": "my-documents-bucket",
@@ -210,8 +210,8 @@ if __name__ == "__main__":
 {
     "provider": "s3",
     "credentials": {
-        "access_key": "your-cos-access-key",
-        "secret_key": "your-cos-secret-key"
+        "access_key": "your-cos-access-key",  # pragma: allowlist secret
+        "secret_key": "your-cos-secret-key"  # pragma: allowlist secret
     },
     "connection_params": {
         "bucket": "my-cos-bucket",
@@ -240,15 +240,15 @@ uv run pytest ../../../tests/unit/operators/ingest/test_s3_source_adapter.py --c
 
 ```bash
 # Set up test environment
-export S3_ACCESS_KEY='your-test-access-key'
-export S3_SECRET_KEY='your-test-secret-key'
+export S3_ACCESS_KEY='your-test-access-key'  # pragma: allowlist secret
+export S3_SECRET_KEY='your-test-secret-key'  # pragma: allowlist secret
 export S3_BUCKET='test-bucket'
 
 # Run integration test
 python examples/connectors/test_s3_adapter.py
 
 # Or run flow-based test
-datasift-orchestrator --flow-file tests/flow_s3_adapter_test.json
+datasift-orchestrator --flow-file tests/sample_test_flows/cloud_sources/flow_s3_adapter_test.json
 ```
 
 ## Architecture

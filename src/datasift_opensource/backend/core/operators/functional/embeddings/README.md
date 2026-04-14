@@ -434,7 +434,7 @@ uv run pytest ../../../tests/integration/test_embeddings_ollama_integration.py -
 ### Flow Testing
 
 ```bash
-datasift-orchestrator --flow-file tests/flow_with_opensearch.json
+datasift-orchestrator --flow-file tests/sample_test_flows/basic/opensearch_integration.json
 ```
 
 ## Troubleshooting
