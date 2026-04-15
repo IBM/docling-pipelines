@@ -247,6 +247,94 @@ class RestClient:
                 error_code=ErrorCode.INVALID_RESPONSE,
             ) from e
 
+    def call_rest_multipart(
+        self,
+        method: RestMethod,
+        endpoint: str,
+        files: dict[str, tuple[str, bytes, str]] | None = None,
+        data: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        expected_status_codes: list[int] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Make a REST call with multipart/form-data encoding expecting JSON response.
+
+        Args:
+            method: HTTP method to use
+            endpoint: API endpoint
+            files: Dictionary of files to upload {field_name: (filename, content, mime_type)}
+            data: Optional form data fields
+            params: Optional query parameters
+            headers: Optional request headers
+            expected_status_codes: Optional list of expected status codes
+
+        Returns:
+            Parsed JSON response as dictionary
+
+        Raises:
+            DatasiftException: If request fails or response is not valid JSON
+        """
+        url = self._build_url(endpoint)
+        request_headers = self._build_headers(headers)
+
+        if expected_status_codes is None:
+            expected_status_codes = METHOD_CONFIG[method]["expected_status_codes"]
+
+        # Log request details (don't log file content)
+        log_msg = f"Making {method.value} multipart request to {url}"
+        if params:
+            log_msg += f" with params: {sanitize_sensitive_data(params)}"
+        logger.info(log_msg)
+        logger.debug(f"Headers: {sanitize_sensitive_data(request_headers)}")
+        if data:
+            logger.debug(f"Form data: {sanitize_sensitive_data(data)}")
+        if files:
+            logger.debug(f"Files: {list(files.keys())}")
+
+        try:
+            response = self.session.request(
+                method=method.value,
+                url=url,
+                files=files,
+                data=data,
+                params=params,
+                headers=request_headers,
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
+            )
+
+            # Log response
+            logger.info(f"Response status: {response.status_code}")
+            logger.debug(f"Response headers: {dict(response.headers)}")
+
+            # Check status code
+            if expected_status_codes and response.status_code not in expected_status_codes:
+                error_msg = f"Unexpected status code {response.status_code}. Expected one of {expected_status_codes}. Response: {response.text[:500]}"
+                logger.error(error_msg)
+                raise ExternalServiceError(
+                    message=error_msg,
+                    error_code=ErrorCode.HTTP_ERROR,
+                    status_code=response.status_code,
+                )
+
+            # Parse JSON response
+            try:
+                return response.json()
+            except ValueError as e:
+                logger.error(f"Failed to parse JSON response: {e}")
+                raise ExternalServiceError(
+                    message=f"Response is not valid JSON: {e!s}",
+                    error_code=ErrorCode.INVALID_RESPONSE,
+                ) from e
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request failed: {e!s}")
+            raise ExternalServiceError(
+                message=f"REST request failed: {e!s}",
+                error_code=ErrorCode.CONNECTION_ERROR,
+            ) from e
+
     def call_rest(
         self,
         method: RestMethod,

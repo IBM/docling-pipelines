@@ -8,7 +8,7 @@ Provides async API support with submit → poll → retrieve pattern for
 processing documents through docling-serve service.
 """
 
-import base64
+import time
 from pathlib import Path
 from typing import Any
 
@@ -16,43 +16,8 @@ from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
-from common.util.infrastructure.retry import retry_with_exponential_backoff
 
 logger = get_logger(__name__)
-
-
-def _should_retry_poll(result, exception):
-    """
-    Retry logic for docling serve status polling.
-
-    Retries on DatasiftException with CONNECTION_ERROR or when task is still in progress.
-    Does not retry on SUCCESS or FAILURE states.
-
-    Args:
-        result: The status response dictionary or None if exception occurred
-        exception: Any exception that occurred during polling
-
-    Returns:
-        Tuple of (should_retry: bool, error_message: str)
-    """
-    # Retry on network errors (RestClient wraps these as DatasiftException with CONNECTION_ERROR)
-    if exception:
-        if isinstance(exception, DatasiftException) and exception.error_code == ErrorCode.CONNECTION_ERROR:
-            return True, f"Network error during polling: {exception}"
-        # Don't retry on other exceptions (HTTP errors, DatasiftException for FAILURE state, etc.)
-        return False, ""
-
-    # Check task state if we have a result
-    if result:
-        state = result.get("state", "unknown")
-        if state in ["PENDING", "STARTED", "unknown"]:
-            # Task still in progress or unknown state, continue polling
-            return True, f"Task still in progress (state={state})"
-        # For SUCCESS state, don't retry - result will be returned
-        return False, ""
-
-    # No result and no exception - shouldn't happen, but don't retry
-    return False, "No result or exception"
 
 
 class DoclingServeClient:
@@ -79,16 +44,15 @@ class DoclingServeClient:
             api_key: Optional API key for authentication via X-API-KEY header
             timeout: Request timeout in seconds (default: 300)
             poll_interval: Polling interval in seconds (default: 2)
-            max_retries: Maximum retry attempts for polling (default: 3)
+            max_retries: Maximum retry attempts for API call failures (default: 3)
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
         self.poll_interval = poll_interval
-        self.max_retries = max_retries
 
-        # Initialize RestClient
-        rest_config = RestClientConfig(timeout=self.timeout, max_retries=self.max_retries)
+        # Initialize RestClient with max_retries for actual API call failures
+        rest_config = RestClientConfig(timeout=self.timeout, max_retries=max_retries)
         self.rest_client = RestClient(config=rest_config, base_url=self.base_url)
 
         # Setup custom headers for API key
@@ -153,37 +117,39 @@ class DoclingServeClient:
 
         # Read file if path provided
         content: bytes
+        filename: str
         if file_path:
             path = Path(file_path)
             if not path.exists():
                 raise FileNotFoundError(f"File not found: {file_path}")
             content = path.read_bytes()
+            filename = path.name
             logger.info(f"Submitting document: {file_path}")
         else:
             # binary_content is guaranteed to be bytes here due to validation above
             content = binary_content  # type: ignore[assignment]
+            filename = "document.pdf"  # Default filename for binary content
             logger.info("Submitting document from binary content")
 
-        # Encode content as base64
-        file_bytes = base64.b64encode(content).decode("utf-8")
-
-        # Build JSON payload
-        payload = {
-            "file_bytes": file_bytes,
-            "options": self._build_options(options),
-        }
-
-        # Submit request
+        # Submit request using multipart/form-data
         endpoint = "/v1/convert/file/async"
-        return self._submit_request_json(endpoint, payload)
+        return self._submit_request_multipart(endpoint, content, filename, options)
 
-    def _submit_request_json(self, endpoint: str, payload: dict[str, Any]) -> str:
+    def _submit_request_multipart(
+        self,
+        endpoint: str,
+        file_content: bytes,
+        filename: str,
+        options: dict[str, Any] | None = None,
+    ) -> str:
         """
-        Submit HTTP JSON request and extract task ID.
+        Submit HTTP multipart/form-data request and extract task ID.
 
         Args:
             endpoint: API endpoint path
-            payload: JSON payload dictionary
+            file_content: Binary file content
+            filename: Name of the file
+            options: Processing options dictionary
 
         Returns:
             Task ID from response
@@ -191,10 +157,17 @@ class DoclingServeClient:
         Raises:
             DatasiftException: For HTTP or network errors
         """
-        result = self.rest_client.call_rest_json(
+        # Build multipart form data
+        files = {"files": (filename, file_content, "application/octet-stream")}
+
+        # Build form data with options as individual fields
+        data = self._build_options(options)
+
+        result = self.rest_client.call_rest_multipart(
             method=RestMethod.POST,
             endpoint=endpoint,
-            json_data=payload,
+            files=files,
+            data=data,
             headers=self.custom_headers,
         )
 
@@ -209,72 +182,100 @@ class DoclingServeClient:
         logger.info(f"Document submitted successfully, task_id={task_id}")
         return task_id
 
-    def poll_status(
+    def _poll_for_completion(
         self,
         task_id: str,
         poll_interval: int | None = None,
-        max_retries: int | None = None,
+        timeout: int = 7200,
     ) -> dict[str, Any]:
         """
-        Poll task status until completion with retry logic.
+        Poll task status until a terminal status is reached.
 
         Args:
             task_id: Task ID to poll
             poll_interval: Override default polling interval in seconds
-            max_retries: Override default max retry attempts
+            timeout: Maximum time to wait in seconds (default: 7200 = 2 hours)
 
         Returns:
-            Status response with state and progress information
+            Final status response dictionary
 
         Raises:
-            DatasiftException: For HTTP errors or max retries exceeded
+            DatasiftException: For failure status, HTTP errors, or timeout exceeded
         """
         interval = poll_interval if poll_interval is not None else self.poll_interval
-        retries = max_retries if max_retries is not None else self.max_retries
+        start_time = time.time()
 
-        logger.info(f"Polling status for task_id={task_id}")
+        logger.info(f"Polling status for task_id={task_id} with timeout={timeout}s")
 
-        # Use retry decorator with custom retry logic
-        @retry_with_exponential_backoff(
-            max_retries=retries,
-            initial_delay=interval,
-            max_delay=interval,  # Keep constant delay for polling
-            retry_logic=_should_retry_poll,
-        )
-        def _poll_once() -> dict[str, Any]:
-            """Single polling attempt that checks task status."""
-            endpoint = f"/v1/status/poll/{task_id}"
-            status = self._check_status(endpoint)
-            state = status.get("state", "unknown")
-
-            if state == "SUCCESS":
-                logger.info(f"Task {task_id} completed successfully")
-                return status
-            elif state == "FAILURE":
-                error_msg = status.get("error", "Unknown error")
+        while True:
+            elapsed = time.time() - start_time
+            if elapsed > timeout:
                 raise DatasiftException(
-                    message=f"Task failed: {error_msg}",
+                    message=f"Polling timeout after {timeout} seconds for task {task_id}",
                     status_code=500,
                     error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
                 )
-            elif state in ["PENDING", "STARTED"]:
-                logger.debug(f"Task {task_id} status={state}, polling...")
-                # Return status dict to trigger retry via retry_logic
-                return status
-            else:
-                logger.warning(f"Unknown task status: {state}")
-                # Return status dict to trigger retry via retry_logic
-                return status
 
-        result = _poll_once()
-        # Ensure we return a valid status dict
-        if result is None:
-            raise DatasiftException(
-                message=f"Polling failed for task {task_id}: no valid status returned",
-                status_code=500,
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-            )
-        return result
+            try:
+                endpoint = f"/v1/status/poll/{task_id}"
+                result = self._check_status(endpoint)
+                task_status = result.get("task_status", "unknown").upper()
+
+                logger.info(f"Polling task {task_id}: status={task_status}")
+
+                if task_status == "SUCCESS":
+                    logger.info(f"Task {task_id} completed successfully")
+                    return result
+
+                if task_status == "FAILURE":
+                    error_msg = result.get("error_message", "Unknown error")
+                    logger.error(
+                        f"Task {task_id} failed with error: {error_msg}",
+                        extra={"task_id": task_id, "full_response": result},
+                    )
+                    raise DatasiftException(
+                        message=f"Task {task_id} failed: {error_msg}",
+                        status_code=500,
+                        error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+                    )
+
+                # Continue polling for PENDING/STARTED/unknown statuses
+                logger.debug(f"Task {task_id} status: {task_status}, continuing to poll...")
+                time.sleep(interval)
+
+            except DatasiftException as e:
+                # Re-raise DatasiftException (including FAILURE status)
+                if e.error_code != ErrorCode.CONNECTION_ERROR:
+                    raise
+                # For connection errors, log and retry
+                logger.warning(f"Connection error during polling: {e}, retrying...")
+                time.sleep(interval)
+
+    def poll_status(
+        self,
+        task_id: str,
+        poll_interval: int | None = None,
+        timeout: int = 7200,
+    ) -> dict[str, Any]:
+        """
+        Poll task status until completion with timeout.
+
+        Args:
+            task_id: Task ID to poll
+            poll_interval: Override default polling interval in seconds
+            timeout: Maximum time to wait in seconds (default: 7200 = 2 hours)
+
+        Returns:
+            Final status response with terminal state information
+
+        Raises:
+            DatasiftException: For failure status, HTTP errors, or timeout exceeded
+        """
+        return self._poll_for_completion(
+            task_id=task_id,
+            poll_interval=poll_interval,
+            timeout=timeout,
+        )
 
     def _check_status(self, endpoint: str) -> dict[str, Any]:
         """
@@ -326,7 +327,7 @@ class DoclingServeClient:
         binary_content: bytes | None = None,
         options: dict[str, Any] | None = None,
         poll_interval: int | None = None,
-        max_retries: int | None = None,
+        timeout: int = 7200,
     ) -> dict[str, Any]:
         """
         Convenience method combining submit → poll → retrieve.
@@ -336,7 +337,7 @@ class DoclingServeClient:
             binary_content: Binary content of file
             options: Processing options
             poll_interval: Override default polling interval
-            max_retries: Override default max retry attempts
+            timeout: Maximum time to wait in seconds (default: 7200 = 2 hours)
 
         Returns:
             Processed document data as dictionary
@@ -349,8 +350,21 @@ class DoclingServeClient:
         # Submit document
         task_id = self.submit_document(file_path=file_path, binary_content=binary_content, options=options)
 
-        # Poll until completion
-        self.poll_status(task_id=task_id, poll_interval=poll_interval, max_retries=max_retries)
+        # Poll until completion and only retrieve result after SUCCESS
+        final_response = self._poll_for_completion(
+            task_id=task_id,
+            poll_interval=poll_interval,
+            timeout=timeout,
+        )
+        logger.info(f"Final Status before: {task_id}, {final_response}")
+        final_status = final_response.get("task_status")
+        logger.info(f"Final Status: {task_id}, {final_status}")
+        if final_status != "success":
+            error_message = final_response.get("error_message", "Unknown Error")
+            raise DatasiftException(
+                message=f"Task {task_id} did not complete successfully with error message: {error_message}",
+                status_code=500,
+                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+            )
 
-        # Retrieve result
         return self.get_result(task_id=task_id)

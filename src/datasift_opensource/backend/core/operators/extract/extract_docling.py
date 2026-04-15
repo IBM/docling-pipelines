@@ -335,10 +335,18 @@ def _extract_with_docling_serve_worker(
         client = DoclingServeClient(base_url, api_key, timeout, poll_interval, max_retries)
         result = client.process_document(binary_content=binary_content, options=options)
 
+        # Debug: Log the full result structure
+        logger.debug(f"Docling-serve result structure for {file_path}: {result}")
+        logger.debug(f"Docling-serve result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+
         # Extract markdown and metadata from v1 API response format
         # v1 API returns: {"document": {"md_content": "...", ...}, "processing_time": ..., ...}
         document = result.get("document", {})
+        logger.info(f"Document object keys: {list(document.keys()) if isinstance(document, dict) else 'Not a dict'}")
+
         markdown_text = document.get("md_content", "")
+        logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0}")
+
         metadata = {"processing_time": result.get("processing_time", 0)}
         if "page_count" in result:
             metadata["page_count"] = result["page_count"]
@@ -766,6 +774,7 @@ class ExtractDoclingOperator(AbstractOperator):
         doc_contents = [None] * table.num_rows
         doc_metadata_list: list[dict[str, Any]] = [{}] * table.num_rows
         extracted_data_list = [None] * table.num_rows
+        remove_row_idx: list[int] = []
         executor_class = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
 
         logger.info("Processing %s documents in parallel with %s workers", len(doc_tasks), self.max_workers)
@@ -787,7 +796,25 @@ class ExtractDoclingOperator(AbstractOperator):
                 try:
                     result = future.result()
                     if result[OperatorConstants.Extraction.SUCCESS]:
-                        doc_contents[idx] = result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+                        extracted_content = result.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+                        if not extracted_content or (
+                            isinstance(extracted_content, str) and not extracted_content.strip()
+                        ):
+                            self.record_skipped_document(
+                                metadata=metadata,
+                                doc_id=str(task["doc_id"]),
+                                doc_name=task["doc_name"],
+                                reason="Empty extracted content",
+                            )
+                            remove_row_idx.append(idx)
+                            logger.warning(
+                                "Skipping document %s due to empty extracted content",
+                                task["doc_name"],
+                                extra=self.common_log_arguments,
+                            )
+                            continue
+
+                        doc_contents[idx] = extracted_content
                         doc_metadata_list[idx] = result.get(OperatorConstants.Metadata.METADATA, {})
                         if self.use_template and OperatorConstants.Columns.STRUCTURED_DATA in result:
                             extracted_data_list[idx] = result[OperatorConstants.Columns.STRUCTURED_DATA]
@@ -811,6 +838,11 @@ class ExtractDoclingOperator(AbstractOperator):
                     self.record_failed_document(
                         metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
                     )
+
+        if remove_row_idx:
+            table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
+            doc_contents = [content for idx, content in enumerate(doc_contents) if idx not in remove_row_idx]
+            extracted_data_list = [data for idx, data in enumerate(extracted_data_list) if idx not in remove_row_idx]
 
         if doc_contents:
             table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)

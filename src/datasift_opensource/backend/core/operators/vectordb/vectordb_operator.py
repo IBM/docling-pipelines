@@ -8,7 +8,7 @@ import pyarrow as pa
 
 # Import adapters to trigger registration
 import core.operators.vectordb.adapters.outbound  # noqa: F401
-from common.constants.constants import AttributeDataTypes, Metrics
+from common.constants.constants import AttributeDataTypes, ExecutionStatus, Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
@@ -130,13 +130,13 @@ class VectorDBOperator(AbstractOperator):
         if self.doc_id_column not in table.column_names:
             missing_doc_id_msg: str = f"Required column '{self.doc_id_column}' not found in table"
             logger.error(missing_doc_id_msg, extra=self.common_log_arguments)
-            metadata[Metrics.External.NODE_STATUS] = "failed"
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             return [table], metadata
 
         if self.embeddings_column not in table.column_names:
             missing_embeddings_msg: str = f"Required column '{self.embeddings_column}' not found in table"
             logger.error(missing_embeddings_msg, extra=self.common_log_arguments)
-            metadata[Metrics.External.NODE_STATUS] = "failed"
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             return [table], metadata
 
         # Auto-detect vector dimension from embeddings data
@@ -167,7 +167,7 @@ class VectorDBOperator(AbstractOperator):
                 self.adapter.create_index(dimension_to_use)
             except Exception as e:
                 logger.error(f"Failed to create index: {e!s}", extra=self.common_log_arguments)
-                metadata[Metrics.External.NODE_STATUS] = "failed"
+                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
                 return [table], metadata
 
         # Prepare documents for bulk indexing
@@ -260,7 +260,7 @@ class VectorDBOperator(AbstractOperator):
 
         except Exception as e:
             logger.error(f"Failed to index documents: {e!s}", extra=self.common_log_arguments)
-            metadata[Metrics.External.NODE_STATUS] = "failed"
+            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             return [table], metadata
 
         # Refresh index
