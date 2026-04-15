@@ -238,9 +238,12 @@ app.add_middleware(
 
 # Initialize authentication configurations
 try:
+    ldap_authenticator: LDAPAuthenticator | None = None
     ldap_config: LDAPConfig | None = LDAPConfig()
+    if ldap_config:
+        ldap_authenticator = LDAPAuthenticator(ldap_config)
+
     jwt_config: JWTConfig | None = JWTConfig()
-    ldap_authenticator: LDAPAuthenticator | None = LDAPAuthenticator(ldap_config)
     logger.info("Authentication configurations initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize authentication configurations: {e!s}")
