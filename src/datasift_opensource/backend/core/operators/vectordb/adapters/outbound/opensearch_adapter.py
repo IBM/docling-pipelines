@@ -94,6 +94,7 @@ class OpenSearchAdapter(VectorStorePort):
         index_settings = vdb_params.get(OperatorConstants.VectorDB.INDEX_SETTINGS)
         aws_auth = vdb_params.get(OperatorConstants.VectorDB.AWS_AUTH, False)
         aws_region = vdb_params.get(OperatorConstants.VectorDB.AWS_REGION)
+        jwt_token = vdb_params.get(OperatorConstants.VectorDB.JWT_TOKEN)
 
         # Initialize OpenSearch client
         self.client_manager = OpenSearchClient(
@@ -105,6 +106,7 @@ class OpenSearchAdapter(VectorStorePort):
             verify_certs=verify_certs,
             aws_auth=aws_auth,
             aws_region=aws_region,
+            jwt_token=jwt_token,
         )
 
         # Get the OpenSearch client

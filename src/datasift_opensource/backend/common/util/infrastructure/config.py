@@ -37,6 +37,11 @@ def get_opensearch_config() -> dict:
         vectordb_parameters[OperatorConstants.VectorDB.AWS_AUTH] = True
         vectordb_parameters[OperatorConstants.VectorDB.AWS_REGION] = os.getenv("OPENSEARCH_AWS_REGION", "us-east-1")
 
+    # Add JWT token if configured
+    jwt_token = os.getenv("OPENSEARCH_JWT_TOKEN")
+    if jwt_token:
+        vectordb_parameters[OperatorConstants.VectorDB.JWT_TOKEN] = jwt_token
+
     config = {
         # Connection settings
         "host": os.getenv("OPENSEARCH_HOST", "localhost"),

@@ -240,6 +240,7 @@ class OperatorConstants:
         VERIFY_CERTS: Final[str] = "verify_certs"
         AWS_AUTH: Final[str] = "aws_auth"
         AWS_REGION: Final[str] = "aws_region"
+        JWT_TOKEN: Final[str] = "jwt_token"
 
         # OpenSearch Index Configuration
         CREATE_INDEX: Final[str] = "create_index"

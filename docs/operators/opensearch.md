@@ -1,8 +1,10 @@
-# OpenSearch Operator
+# VectorDB Operator - OpenSearch Configuration
 
 ## Overview
 
-The OpenSearch operator stores documents and embeddings in OpenSearch for vector similarity search. It supports multiple KNN engines, algorithms, incremental updates, and query capabilities.
+The VectorDB operator stores documents and embeddings in vector databases for similarity search. This document covers OpenSearch-specific configuration.
+
+When configured with `vector_db_type: "opensearch"`, the operator supports multiple KNN engines, algorithms, incremental updates, and query capabilities.
 
 ## Features
 
@@ -33,49 +35,40 @@ The OpenSearch operator stores documents and embeddings in OpenSearch for vector
 
 ## Configuration Parameters
 
-### Connection Settings
+### Operator-Level Settings
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `vector_db_type` | string | No | "opensearch" | Vector database type |
-| `host` | string | Yes | - | OpenSearch server host |
-| `port` | integer | No | 9200 | OpenSearch server port |
-| `username` | string | No | - | Username for authentication |
-| `password` | string | No | - | Password for authentication |
-| `use_ssl` | boolean | No | false | Use SSL connection |
-| `verify_certs` | boolean | No | false | Verify SSL certificates |
-| `aws_auth` | boolean | No | false | Use AWS IAM authentication |
-| `aws_region` | string | No | - | AWS region for authentication |
-
-### Index Settings
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
 | `index_name` | string | Yes | - | Name of the OpenSearch index |
 | `doc_id_column` | string | No | "doc_id_hash" | Column containing document IDs |
 | `embeddings_column` | string | No | "embeddings" | Column containing embeddings |
 | `vector_dimension` | integer | No | 384 | Dimension of vector embeddings |
 | `create_index` | boolean | No | true | Create index if it doesn't exist |
 | `batch_size` | integer | No | 100 | Documents per batch |
-
-### Engine Configuration
-
-Engine-specific parameters are configured using the `vectordb_parameters` nested dictionary for architectural separation between generic and provider-specific settings.
-
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
 | `vectordb_parameters` | object | No | {} | Provider-specific configuration (see below) |
 
-#### vectordb_parameters Structure
+### vectordb_parameters Structure
+
+Connection and engine-specific parameters are configured inside the `vectordb_parameters` nested dictionary for architectural separation between generic and provider-specific settings.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
+| `host` | string | Yes | - | OpenSearch server host |
+| `port` | integer | No | 9200 | OpenSearch server port |
+| `username` | string | No | - | Username for basic authentication |
+| `password` | string | No | - | Password for basic authentication |
+| `use_ssl` | boolean | No | false | Use SSL connection |
+| `verify_certs` | boolean | No | false | Verify SSL certificates |
+| `aws_auth` | boolean | No | false | Use AWS IAM authentication |
+| `aws_region` | string | No | - | AWS region for authentication |
+| `jwt_token` | string | No | - | JWT token for Bearer authentication |
 | `engine` | string | No | "faiss" | KNN engine (faiss, lucene, nmslib, jvector) |
 | `algorithm` | string | No | "hnsw" | KNN algorithm (hnsw, ivf) |
 | `space_type` | string | No | "l2" | Similarity metric (l2, cosine, inner_product) |
 | `engine_parameters` | object | No | {} | Custom engine-specific parameters |
-| `aws_auth` | boolean | No | false | Use AWS IAM authentication |
-| `aws_region` | string | No | - | AWS region for authentication |
+
+**Note**: Only one authentication method can be used at a time: basic auth (username/password), AWS IAM (aws_auth), or JWT token (jwt_token).
 
 ### Engine Parameters
 
@@ -115,14 +108,14 @@ import numpy as np
 
 config = {
     "vector_db_type": "opensearch",
-    "host": "localhost",
-    "port": 9200,
-    "username": "admin",
-    "password": "admin",
-    "use_ssl": False,
     "index_name": "my_documents",
     "vector_dimension": 384,
     OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+        "host": "localhost",
+        "port": 9200,
+        "username": "admin",
+        "password": "admin",
+        "use_ssl": False,
         OperatorConstants.VectorDB.ENGINE: "faiss",
         OperatorConstants.VectorDB.ALGORITHM: "hnsw",
         OperatorConstants.VectorDB.SPACE_TYPE: "l2"
@@ -174,11 +167,11 @@ from common.constants.operator_constants import OperatorConstants
 
 config = {
     "vector_db_type": "opensearch",
-    "host": "localhost",
-    "port": 9200,
     "index_name": "semantic_search",
     "vector_dimension": 768,
     OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+        "host": "localhost",
+        "port": 9200,
         OperatorConstants.VectorDB.ENGINE: "lucene",
         OperatorConstants.VectorDB.ALGORITHM: "hnsw",
         OperatorConstants.VectorDB.SPACE_TYPE: "cosine",
@@ -197,17 +190,56 @@ from common.constants.operator_constants import OperatorConstants
 
 config = {
     "vector_db_type": "opensearch",
-    "host": "search-mydomain.us-east-1.es.amazonaws.com",
-    "port": 443,
-    "use_ssl": True,
     "index_name": "production_docs",
     OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+        "host": "search-mydomain.us-east-1.es.amazonaws.com",
+        "port": 443,
+        "use_ssl": True,
         OperatorConstants.VectorDB.ENGINE: "faiss",
         OperatorConstants.VectorDB.ALGORITHM: "hnsw",
         OperatorConstants.VectorDB.AWS_AUTH: True,
         OperatorConstants.VectorDB.AWS_REGION: "us-east-1"
     }
 }
+
+### Example 4: JWT Token Authentication
+
+For AWS OpenSearch or custom deployments with JWT authentication:
+
+```python
+from common.constants.operator_constants import OperatorConstants
+import os
+
+config = {
+    "vector_db_type": "opensearch",
+    "index_name": "jwt_secured_docs",
+    "vector_dimension": 384,
+    OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+        "host": "search-mydomain.us-east-1.es.amazonaws.com",
+        "port": 443,
+        "use_ssl": True,
+        "verify_certs": True,
+        OperatorConstants.VectorDB.ENGINE: "faiss",
+        OperatorConstants.VectorDB.ALGORITHM: "hnsw",
+        OperatorConstants.VectorDB.JWT_TOKEN: os.getenv("OPENSEARCH_JWT_TOKEN")
+    }
+}
+```
+
+**Important**: Only one authentication method can be used at a time (basic auth, AWS IAM, or JWT token).
+
+**Environment Variable Setup**:
+```bash
+# pragma: allowlist secret
+export OPENSEARCH_JWT_TOKEN="your-jwt-token-here"
+```
+
+**Security Best Practices**:
+- Store JWT tokens in environment variables, never in code
+- Use short-lived tokens (< 1 hour recommended)
+- Rotate tokens regularly
+- Use HTTPS/SSL for all connections
+
 ```
 
 ### Example 4: Query Documents

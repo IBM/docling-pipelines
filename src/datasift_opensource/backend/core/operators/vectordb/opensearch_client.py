@@ -38,6 +38,7 @@ class OpenSearchClient:
         verify_certs: bool = True,
         aws_auth: bool = False,
         aws_region: str | None = None,
+        jwt_token: str | None = None,
         timeout: int = 60,
     ) -> None:
         """
@@ -52,6 +53,7 @@ class OpenSearchClient:
             verify_certs: Verify SSL certificates
             aws_auth: Use AWS IAM authentication
             aws_region: AWS region for authentication
+            jwt_token: JWT token for Bearer authentication
             timeout: Connection timeout in seconds
         """
         self.host = host
@@ -62,6 +64,7 @@ class OpenSearchClient:
         self.verify_certs = verify_certs
         self.aws_auth = aws_auth
         self.aws_region = aws_region
+        self.jwt_token = jwt_token
         self.timeout = timeout
 
         self._client: OpenSearch | None = None
@@ -107,6 +110,21 @@ class OpenSearchClient:
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
+        # Ensure only one authentication method is used
+        auth_methods_count = sum(
+            [
+                bool(self.username and self.password),
+                self.aws_auth,
+                bool(self.jwt_token),
+            ]
+        )
+        if auth_methods_count > 1:
+            raise DatasiftException(
+                message="Only one authentication method allowed: basic auth, AWS IAM, or JWT token",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
     def connect(self) -> OpenSearch:
         """
         Create and return an OpenSearch client with appropriate authentication.
@@ -133,6 +151,8 @@ class OpenSearchClient:
                 credentials: Credentials | None = boto3.Session().get_credentials()
                 auth: AWSV4SignerAuth = AWSV4SignerAuth(credentials, self.aws_region or "us-east-1")
                 connection_params["http_auth"] = auth
+            elif self.jwt_token:
+                connection_params["http_auth"] = ("Bearer", self.jwt_token)
             elif self.username and self.password:
                 connection_params["http_auth"] = (self.username, self.password)
 

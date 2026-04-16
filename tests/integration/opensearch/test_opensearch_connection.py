@@ -81,3 +81,29 @@ for config in configs:
         print(f"❌ FAILED: {type(e).__name__}: {str(e)[:100]}")
 
 print(f"\n{'=' * 60}")
+
+
+# JWT Authentication Tests
+def test_jwt_token_from_environment():
+    """Test loading JWT token from environment variable."""
+    import os
+
+    # pragma: allowlist secret
+    test_token = "test-jwt-token-for-testing-only"  # pragma: allowlist secret
+    os.environ["OPENSEARCH_JWT_TOKEN"] = test_token
+
+    from common.util.infrastructure.config import get_opensearch_config
+
+    config = get_opensearch_config()
+
+    # JWT token should be in vectordb_parameters
+    assert "vectordb_parameters" in config
+    assert "jwt_token" in config["vectordb_parameters"]
+    assert config["vectordb_parameters"]["jwt_token"] == test_token
+
+    # Clean up
+    del os.environ["OPENSEARCH_JWT_TOKEN"]
+
+
+print("\nJWT Authentication support added!")
+print("Set OPENSEARCH_JWT_TOKEN environment variable to use JWT authentication")
