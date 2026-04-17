@@ -37,6 +37,34 @@ from core.operators.operator_utils import OperatorUtils
 
 logger: logging.Logger = get_logger()
 
+# Docling-serve supported file extensions (as of v1 API)
+# Based on: docx, pptx, html, image, pdf, asciidoc, md, csv, xlsx, xml_*, audio, vtt, latex
+DOCLING_SERVE_SUPPORTED_EXTENSIONS = {
+    ".pdf",
+    ".docx",
+    ".pptx",
+    ".html",
+    ".htm",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".asciidoc",
+    ".adoc",
+    ".md",
+    ".csv",
+    ".xlsx",
+    ".xls",
+    ".xml",
+    ".json",
+    ".mp3",
+    ".wav",
+    ".vtt",
+    ".tex",
+    ".latex",
+}
+
 
 def _extract_with_template_worker(file_path: str, binary_content: bytes, template: dict | None) -> dict[str, Any]:
     """
@@ -307,6 +335,37 @@ def _extract_with_docling_serve_worker(
     """
     logger.info(f"Processing file with docling-serve: {file_path}")
 
+    # Check if file extension is supported by docling-serve BEFORE making API call
+    file_extension = file_path.lower().split(".")[-1] if "." in file_path else ""
+    file_ext_with_dot = f".{file_extension}"
+
+    if file_ext_with_dot not in DOCLING_SERVE_SUPPORTED_EXTENSIONS:
+        # For unsupported formats (e.g., .txt), decode binary content directly
+        logger.info(
+            f"File extension '{file_ext_with_dot}' not supported by docling-serve. Using direct text extraction for: {file_path}"
+        )
+        try:
+            text_content = binary_content.decode("utf-8", errors="ignore").strip()
+            if text_content:
+                return {
+                    OperatorConstants.Extraction.SUCCESS: True,
+                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: text_content,
+                    OperatorConstants.Metadata.METADATA: {"extraction_method": "direct_decode"},
+                }
+            else:
+                return {
+                    OperatorConstants.Extraction.SUCCESS: False,
+                    OperatorConstants.Extraction.ERROR: "Empty content after decoding",
+                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
+                }
+        except Exception as decode_error:
+            logger.error(f"Failed to decode unsupported file {file_path}: {decode_error}")
+            return {
+                OperatorConstants.Extraction.SUCCESS: False,
+                OperatorConstants.Extraction.ERROR: f"Decode error: {decode_error!s}",
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
+            }
+
     try:
         from common.clients.docling_serve_client import DoclingServeClient
 
@@ -332,7 +391,13 @@ def _extract_with_docling_serve_worker(
             options["image_export_mode"] = docling_serve_config["image_export_mode"]
 
         # Initialize client and process document
-        client = DoclingServeClient(base_url, api_key, timeout, poll_interval, max_retries)
+        client = DoclingServeClient(
+            base_url=base_url,
+            api_key=api_key,
+            timeout=timeout,
+            poll_interval=poll_interval,
+            max_retries=max_retries,
+        )
         result = client.process_document(binary_content=binary_content, options=options)
 
         # Debug: Log the full result structure
@@ -344,8 +409,15 @@ def _extract_with_docling_serve_worker(
         document = result.get("document", {})
         logger.info(f"Document object keys: {list(document.keys()) if isinstance(document, dict) else 'Not a dict'}")
 
-        markdown_text = document.get("md_content", "")
-        logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0}")
+        # Fallback strategy for content extraction: try md_content first, then text_content, then html_content
+        # Text files typically populate text_content instead of md_content in docling-serve responses
+        markdown_text = (
+            (document.get("md_content") or "").strip()
+            or (document.get("text_content") or "").strip()
+            or (document.get("html_content") or "").strip()
+            or ""
+        )
+        logger.info(f"Extracted content length: {len(markdown_text) if markdown_text else 0}")
 
         metadata = {"processing_time": result.get("processing_time", 0)}
         if "page_count" in result:
@@ -400,9 +472,8 @@ class ExtractDoclingOperator(AbstractOperator):
                 - docling_serve_timeout: Request timeout for docling-serve in seconds
                 - docling_serve_poll_interval: Poll interval for docling-serve task status in seconds
                 - docling_serve_max_retries: Maximum retries for docling-serve polling
-                - docling_serve_do_ocr: Whether to enable OCR in docling-serve
-                - docling_serve_ocr_engine: OCR engine for docling-serve
-                - docling_serve_ocr_languages: OCR languages for docling-serve
+                - docling_serve_ocr_preset: OCR preset for docling-serve (e.g., "auto", "tesseract", "easyocr")
+                - docling_serve_ocr_lang: OCR languages for docling-serve (list of language codes)
                 - docling_serve_pdf_backend: PDF backend for docling-serve
                 - docling_serve_table_mode: Table extraction mode for docling-serve
                 - docling_serve_image_export_mode: Image export mode for docling-serve
@@ -483,13 +554,19 @@ class ExtractDoclingOperator(AbstractOperator):
             self.docling_serve_timeout: int = config.get(OperatorConstants.Config.DOCLING_SERVE_TIMEOUT, 300)
             self.docling_serve_poll_interval: int = config.get(OperatorConstants.Config.DOCLING_SERVE_POLL_INTERVAL, 2)
             self.docling_serve_max_retries: int = config.get(OperatorConstants.Config.DOCLING_SERVE_MAX_RETRIES, 3)
+
+            # Support both old and new parameter names for backward compatibility
+            # New parameters take precedence
             self.docling_serve_do_ocr: bool = config.get(OperatorConstants.Config.DOCLING_SERVE_DO_OCR, True)
-            self.docling_serve_ocr_engine: str = config.get(
-                OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE, "easyocr"
+            self.docling_serve_ocr_preset: str = config.get(
+                OperatorConstants.Config.DOCLING_SERVE_OCR_PRESET,
+                config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE, "easyocr"),
             )
-            self.docling_serve_ocr_languages: list[str] = list(
-                config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES, [])
+            self.docling_serve_ocr_lang: list[str] | None = config.get(
+                OperatorConstants.Config.DOCLING_SERVE_OCR_LANG,
+                config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES, []),
             )
+
             self.docling_serve_pdf_backend: str = config.get(
                 OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND, "dlparse_v2"
             )
@@ -504,9 +581,8 @@ class ExtractDoclingOperator(AbstractOperator):
             self.docling_serve_timeout = 300
             self.docling_serve_poll_interval = 2
             self.docling_serve_max_retries = 3
-            self.docling_serve_do_ocr = True
-            self.docling_serve_ocr_engine = "easyocr"
-            self.docling_serve_ocr_languages = []
+            self.docling_serve_ocr_preset = "easyocr"
+            self.docling_serve_ocr_lang = None
             self.docling_serve_pdf_backend = "dlparse_v2"
             self.docling_serve_table_mode = "fast"
             self.docling_serve_image_export_mode = "placeholder"
@@ -611,8 +687,8 @@ class ExtractDoclingOperator(AbstractOperator):
             "poll_interval": self.docling_serve_poll_interval,
             "max_retries": self.docling_serve_max_retries,
             "do_ocr": self.docling_serve_do_ocr,
-            "ocr_engine": self.docling_serve_ocr_engine,
-            "ocr_languages": self.docling_serve_ocr_languages,
+            "ocr_preset": self.docling_serve_ocr_preset,
+            "ocr_lang": self.docling_serve_ocr_lang,
             "pdf_backend": self.docling_serve_pdf_backend,
             "table_mode": self.docling_serve_table_mode,
             "image_export_mode": self.docling_serve_image_export_mode,
@@ -1039,24 +1115,38 @@ class ExtractDoclingOperator(AbstractOperator):
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 OperatorConstants.Config.DOCLING_SERVE_DO_OCR: {
-                    OperatorConstants.Misc.NAME: "Docling Serve OCR Enabled",
-                    OperatorConstants.Config.DESCRIPTION: "Whether OCR should be enabled when processing documents with docling-serve",
+                    OperatorConstants.Misc.NAME: "Docling Serve OCR Enabled (Deprecated)",
+                    OperatorConstants.Config.DESCRIPTION: "DEPRECATED: Use docling_serve_ocr_preset instead. Whether OCR should be enabled when processing documents with docling-serve",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
                 OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE: {
-                    OperatorConstants.Misc.NAME: "Docling Serve OCR Engine",
-                    OperatorConstants.Config.DESCRIPTION: "OCR engine name passed to docling-serve",
+                    OperatorConstants.Misc.NAME: "Docling Serve OCR Engine (Deprecated)",
+                    OperatorConstants.Config.DESCRIPTION: "DEPRECATED: Use docling_serve_ocr_preset instead. OCR engine name passed to docling-serve",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: "easyocr",
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES: {
-                    OperatorConstants.Misc.NAME: "Docling Serve OCR Languages",
-                    OperatorConstants.Config.DESCRIPTION: "List of OCR languages passed to docling-serve",
+                    OperatorConstants.Misc.NAME: "Docling Serve OCR Languages (Deprecated)",
+                    OperatorConstants.Config.DESCRIPTION: "DEPRECATED: Use docling_serve_ocr_lang instead. List of OCR languages passed to docling-serve",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: [],
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_OCR_PRESET: {
+                    OperatorConstants.Misc.NAME: "Docling Serve OCR Preset",
+                    OperatorConstants.Config.DESCRIPTION: "OCR preset for docling-serve (e.g., 'auto', 'tesseract', 'easyocr')",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: "auto",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.DOCLING_SERVE_OCR_LANG: {
+                    OperatorConstants.Misc.NAME: "Docling Serve OCR Languages",
+                    OperatorConstants.Config.DESCRIPTION: "List of OCR language codes for docling-serve (e.g., ['eng', 'fra'])",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND: {

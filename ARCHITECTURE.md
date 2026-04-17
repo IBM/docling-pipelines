@@ -11,17 +11,17 @@ Datasift-open is a modular, operator-based data processing framework designed fo
 - **Operator-Based Architecture**: 17+ specialized operators organized into categories (ingest, extract, chunk, embed, vectordb, filter, branching and merging, utility, and language processing)
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
 - **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator nodes
-- **Prefect Orchestration**: Workflow execution managed by Prefect for parallel processing and task dependency management
+- **Prefect Orchestration**: Workflow execution managed by Prefect with support for both ephemeral (local) and distributed execution via work pools (Docker, Kubernetes)
 - **Modern AI/ML Integrations**: Native support for Ollama (LLM operations), Docling (document processing), and OpenSearch (vector and scalar storage)
 
 ### Architectural Patterns
 
 Datasift-opensource intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
 
-- **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable
+- **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes.
 - **Factory Pattern**: `OrchestratorFactory` and `OperatorFactory` provide centralized instantiation logic for orchestrators and operators
 - **Strategy Pattern**: Different operator implementations can be swapped based on configuration without changing the orchestration logic
-- **Observer Pattern**: Event handling system (`AbstractFlowExecutionEventHandler`, `OpenSourceFlowExecutionEventHandler`) enables monitoring and logging of flow execution
+- **Observer Pattern**: Event handling system (`AbstractFlowExecutionEventHandler`, `FlowExecutionEventHandler`) enables monitoring and logging of flow execution
 - **Template Method Pattern**: `AbstractOperator` defines the execution flow template while concrete operators implement specific behavior
 
 This architectural diversity is a deliberate design choice that supports the framework's goal of being extensible, testable, and adaptable to various data processing scenarios.
@@ -64,6 +64,11 @@ datasift-opensource/
 │   │   │   │   └── vectordb/         # Vector database operators
 │   │   │   └── orchestrator/         # Orchestration components
 │   │   │       ├── cmdline/          # Command-line executor
+│   │   │       ├── prefect/          # Prefect orchestration module
+│   │   │       │   ├── adapters/     # Batch execution adapters
+│   │   │       │   ├── config/       # Work pool configuration
+│   │   │       │   ├── domain/       # Domain models
+│   │   │       │   └── ports/        # Batch execution port
 │   │   │       └── python/           # Python orchestrator
 │   │   └── models/                   # ML models (FastText, etc.)
 │   └── ui/                           # User interface components
@@ -116,9 +121,18 @@ datasift-opensource/
 - **AbstractOperatorExecutor**: Base executor interface
 - **CommandLineOperatorExecutor**: CLI execution support
 - **PythonOperatorExecutor**: Python execution support
-- **Event Handling**: `AbstractFlowExecutionEventHandler`, `OpenSourceFlowExecutionEventHandler`
+- **Event Handling**: `AbstractFlowExecutionEventHandler`, `FlowExecutionEventHandler`
 - **NodeLogger**: Node-level logging
 - **FuturedList**: Async result handling
+
+**Prefect Module** (`prefect/`):
+- **PrefectEngine**: Main Prefect workflow execution engine
+- **BatchSubflow**: Standalone batch execution subflow
+- **BatchExecutionPort**: Port interface for batch execution strategies
+- **ThreadPoolAdapter**: Local thread-based batch execution
+- **WorkPoolAdapter**: Distributed batch execution via Prefect work pools
+- **WorkPoolConfig**: Configuration for Docker and Kubernetes work pools
+- **Domain Models**: Batch execution domain models and constants
 
 #### Operators (`core/operators/`)
 - **AbstractOperator**: Base operator class with template method pattern
@@ -176,6 +190,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 3. **Plugin System**: Extensible with custom operators
 4. **Flow Configuration**: JSON-based flow definitions
 5. **Local Data Processing**: File system and local storage support
+6. **Distributed Execution**: Support for scaling across multiple workers using Prefect work pools (Docker, Kubernetes)
 
 ## Operator Pattern
 
@@ -196,6 +211,10 @@ Supporting Components:
 ├── FlowExecutor (coordinates flow execution)
 ├── FlowValidator (validates flow configuration)
 ├── PrefectEngine (Prefect workflow engine)
+│   ├── BatchExecutionPort (strategy interface)
+│   │   ├── ThreadPoolAdapter (local execution)
+│   │   └── WorkPoolAdapter (distributed execution)
+│   └── BatchSubflow (worker-side batch processing)
 ├── BatchManager (batch processing)
 ├── OperatorFactory (operator instantiation)
 └── Event Handlers (execution monitoring)
@@ -230,5 +249,6 @@ Supporting Components:
 - Additional operator types
 - Enhanced plugin system
 - Performance optimizations
-- Cloud deployment support
+- Enhanced work pool types (e.g., ECS, Cloud Run)
+- Auto-scaling based on workload
 - Web UI for flow management

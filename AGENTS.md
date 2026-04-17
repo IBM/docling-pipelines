@@ -148,6 +148,96 @@ Example: Conditional processing based on document type, language, or custom crit
 ### Environment Variables
 - **PYTHONPATH**: Must include `src/datasift_opensource/backend` for imports to work
 
+
+## Python Coding Standards
+
+### Keyword-Only Arguments (MANDATORY)
+
+**ALL function arguments MUST be keyword-only using `*` separator.**
+
+This is a critical coding standard for the datasift-opensource project to prevent accidental positional argument bugs and improve code maintainability.
+
+#### Rules
+
+1. **Function Signatures**: ALL function arguments MUST use `*` to enforce keyword-only arguments
+   ```python
+   # ✅ CORRECT
+   def process_data(*, data: dict, config: dict, validate: bool = True) -> dict:
+       pass
+   
+   # ❌ WRONG
+   def process_data(data: dict, config: dict, validate: bool = True) -> dict:
+       pass
+   ```
+
+2. **Function Calls**: ALL function calls MUST use keyword arguments
+   ```python
+   # ✅ CORRECT
+   result = process_data(data=my_data, config=my_config, validate=False)
+   
+   # ❌ WRONG
+   result = process_data(my_data, my_config, False)
+   ```
+
+3. **Exceptions**: Only `self` and `cls` parameters in class methods are allowed before `*`
+   ```python
+   # ✅ CORRECT
+   class MyClass:
+       def __init__(self, *, param1: str, param2: int):
+           pass
+       
+       @classmethod
+       def create(cls, *, name: str, value: int):
+           pass
+   ```
+
+4. **Benefits**:
+   - Prevents accidental argument order bugs
+   - Makes code self-documenting
+   - Easier refactoring (can reorder parameters safely)
+   - Better IDE support and autocomplete
+   - Clearer code reviews
+
+5. **Reference**: [Python Glossary - Argument](https://docs.python.org/3/glossary.html#term-argument)
+
+#### Examples
+
+**Before (Wrong)**:
+```python
+def execute_batches(
+    self,
+    batches: List[pa.Table],
+    op_flow: List[dict],
+    global_config: dict,
+    job_run_id: str
+) -> None:
+    pass
+
+# Call
+strategy.execute_batches(batches, op_flow, config, job_id)
+```
+
+**After (Correct)**:
+```python
+def execute_batches(
+    self,
+    *,
+    batches: List[pa.Table],
+    op_flow: List[dict],
+    global_config: dict,
+    job_run_id: str
+) -> None:
+    pass
+
+# Call
+strategy.execute_batches(
+    batches=batches,
+    op_flow=op_flow,
+    global_config=config,
+    job_run_id=job_id
+)
+```
+
 ### File Path Requirements
 - All file paths in flow configurations must be relative to the workspace directory
 - Use forward slashes (`/`) for path separators, even on Windows

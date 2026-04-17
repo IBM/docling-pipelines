@@ -13,28 +13,71 @@ PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED = "PREFECT_API_SERVICES_FLOW
 PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY = "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY"
 PREFECT_SERVER_ANALYTICS_ENABLED = "PREFECT_SERVER_ANALYTICS_ENABLED"
 PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS = "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS"
+PREFECT_API_URL = "PREFECT_API_URL"
 # Set to "true" to use SQLite with persistent storage and the default Prefect home directory.
 # Allows accessing Prefect dashboard for flows review.
 PREFECT_DEBUG = "PREFECT_DEBUG"
+# Set to "server" to use persistent Prefect server with PostgreSQL backend
+PREFECT_MODE = "PREFECT_MODE"
 
 
 def set_prefect_env_variables() -> None:
     """
     Configure Prefect environment variables for optimal operation.
 
-    Sets up Prefect to use in-memory SQLite database and disables telemetry
-    unless PREFECT_DEBUG is set.
+    Supports two modes:
+    1. Ephemeral mode (default): In-memory SQLite, temporary directory
+    2. Server mode: Persistent PostgreSQL, connects to external Prefect server
+
+    Mode is determined by PREFECT_MODE environment variable:
+    - "server": Use persistent Prefect server (requires PREFECT_API_URL)
+    - "ephemeral" or unset: Use in-memory ephemeral mode
     """
+    logger = get_logger()
+
+    # Always disable telemetry and analytics
     os.environ[PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY] = "false"
     os.environ[PREFECT_SERVER_ANALYTICS_ENABLED] = "false"
     os.environ[PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS] = "120"
+
+    prefect_mode = os.getenv(PREFECT_MODE, "ephemeral").lower()
+
+    if prefect_mode == "server":
+        # SERVER MODE: Use persistent Prefect server
+        prefect_api_url = os.getenv(PREFECT_API_URL)
+
+        if not prefect_api_url:
+            logger.warning(
+                "PREFECT_MODE=server but PREFECT_API_URL not set. "
+                "Falling back to ephemeral mode. "
+                "Set PREFECT_API_URL to use persistent Prefect server."
+            )
+            _configure_ephemeral_mode()
+        else:
+            logger.info(f"Using Prefect server mode with API URL: {prefect_api_url}")
+            # In server mode, PREFECT_API_URL is already set
+            # No need to set database connection or home directory
+            # The server handles all persistence
+
+    else:
+        # EPHEMERAL MODE: In-memory SQLite (default)
+        _configure_ephemeral_mode()
+
+
+def _configure_ephemeral_mode() -> None:
+    """Configure Prefect for ephemeral in-memory mode."""
+    logger = get_logger()
+
     if not os.getenv(PREFECT_DEBUG):
+        logger.info("Using Prefect ephemeral mode (in-memory SQLite)")
         # See https://github.com/PrefectHQ/prefect/issues/10188
         os.environ[PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED] = "False"
         # Create a temporary directory for Prefect Home
         os.environ[PREFECT_HOME] = tempfile.mkdtemp(prefix=PREFECT_HOME_PREFIX)
         # force Prefect to use an in-memory SQLite DB
         os.environ[PREFECT_API_DATABASE_CONNECTION_URL] = "sqlite+aiosqlite:///:memory:"
+    else:
+        logger.info("Using Prefect debug mode (persistent SQLite)")
 
 
 def clean_up_prefect_home() -> None:
@@ -42,10 +85,15 @@ def clean_up_prefect_home() -> None:
     Clean up temporary Prefect home directory.
 
     Removes the temporary directory created for Prefect unless PREFECT_DEBUG is set.
+    Only cleans up in ephemeral mode.
     """
-    prefect_home = os.getenv(PREFECT_HOME)
-    if prefect_home and not os.getenv(PREFECT_DEBUG):
-        _safe_rmtree(path=prefect_home, prefix=PREFECT_HOME_PREFIX)
+    prefect_mode = os.getenv(PREFECT_MODE, "ephemeral").lower()
+
+    # Only cleanup in ephemeral mode
+    if prefect_mode == "ephemeral":
+        prefect_home = os.getenv(PREFECT_HOME)
+        if prefect_home and not os.getenv(PREFECT_DEBUG):
+            _safe_rmtree(path=prefect_home, prefix=PREFECT_HOME_PREFIX)
 
 
 def _safe_rmtree(path: str, prefix: str | None = None) -> bool:
@@ -88,10 +136,12 @@ def _safe_rmtree(path: str, prefix: str | None = None) -> bool:
 __all__ = [
     "PREFECT_API_DATABASE_CONNECTION_URL",
     "PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED",
+    "PREFECT_API_URL",
     "PREFECT_CLOUD_ENABLE_ORCHESTRATION_TELEMETRY",
     "PREFECT_DEBUG",
     "PREFECT_HOME",
     "PREFECT_HOME_PREFIX",
+    "PREFECT_MODE",
     "PREFECT_SERVER_ANALYTICS_ENABLED",
     "PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS",
     "clean_up_prefect_home",

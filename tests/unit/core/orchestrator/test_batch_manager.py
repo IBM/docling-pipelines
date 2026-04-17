@@ -355,7 +355,7 @@ class TestPrefectEngineValidation:
 
     def test_batch_outer_flow_rejects_non_positive_max_concurrent_batches(self):
         """Verify error when max_concurrent_batches is non-positive."""
-        from core.orchestrator.prefect_engine import PrefectEngine
+        from core.orchestrator.prefect.prefect_engine import PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
@@ -388,7 +388,7 @@ class TestPrefectEngineCleanup:
 
     def test_wait_for_sub_flows_waits_for_cancelled_futures_before_reset(self):
         """Verify cancelled futures are waited on before semaphore reset."""
-        from core.orchestrator.prefect_engine import PrefectEngine
+        from core.orchestrator.prefect.prefect_engine import PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
@@ -430,7 +430,7 @@ class TestPrefectEngineCleanup:
 
     def test_wait_for_sub_flows_resets_semaphore_when_cancelled_wait_errors(self):
         """Verify semaphore reset even when cancelled future wait fails."""
-        from core.orchestrator.prefect_engine import PrefectEngine
+        from core.orchestrator.prefect.prefect_engine import PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()

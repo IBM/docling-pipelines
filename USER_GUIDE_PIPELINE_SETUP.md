@@ -23,6 +23,7 @@ This comprehensive guide walks you through setting up and executing a complete D
     - [11.6 Validation Before Execution](#116-validation-before-execution)
     - [11.7 Advanced Features](#117-advanced-features)
     - [11.8 Error Handling and Debugging](#118-error-handling-and-debugging)
+12. [Execution Models](#12-execution-models)
 
 ---
 
@@ -1928,6 +1929,59 @@ for i, line in enumerate(logs):
 - Implement error handling
 - Add monitoring and logging
 - Scale with distributed execution
+
+---
+
+## 12. Execution Models
+
+DataSift uses Prefect as its orchestration engine and supports two Prefect execution modes:
+
+### Ephemeral Mode (Default)
+
+By default, DataSift runs Prefect in **ephemeral mode** with a temporary in-memory server. This mode is ideal for:
+
+- Development and testing
+- Small to medium workloads (< 1000 documents)
+- Single-machine processing
+- Quick prototyping and learning
+
+**How it works:**
+- Prefect server runs temporarily in-memory
+- No external Prefect server setup required
+- Automatic cleanup after execution
+- Zero configuration needed
+
+**Usage:**
+```bash
+# Simply run your flow - Prefect ephemeral mode is automatic
+datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+```
+
+### Distributed Execution with Prefect Work Pools (Optional)
+
+For production workloads and large-scale processing, DataSift supports **Prefect's distributed execution** using work pools and workers.
+
+**When to use:**
+- Processing large document collections (1000+ documents)
+- Horizontal scaling across multiple machines
+- Production deployments with high availability
+- Resource-intensive operations requiring distributed processing
+
+**Deployment options:**
+1. **Local POC**: Test distributed patterns with Prefect server and workers on a single machine
+2. **Docker Compose**: Multi-worker setup with containerized Prefect infrastructure
+3. **Kubernetes**: Production-grade Prefect deployment with auto-scaling
+
+For complete setup instructions, work pool configuration, and deployment guides, see:
+
+**[Prefect Distributed Execution Guide](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)**
+
+This guide covers:
+- Prefect server and work pool setup
+- Worker deployment for different environments
+- Batch storage strategies (inline, local filesystem, S3)
+- Docker and Kubernetes deployment configurations
+- Troubleshooting and performance tuning
 
 ---
 

@@ -150,7 +150,7 @@ class TestDoclingServeClient:
 
         # Execute
         client = DoclingServeClient()
-        status = client.poll_status("test-task-123")
+        status = client.poll_status(task_id="test-task-123")
 
         # Verify
         assert status["task_status"] == "SUCCESS"
@@ -170,7 +170,7 @@ class TestDoclingServeClient:
 
         # Execute
         client = DoclingServeClient()
-        status = client.poll_status("test-task-123")
+        status = client.poll_status(task_id="test-task-123")
 
         # Verify
         assert status["task_status"] == "SUCCESS"
@@ -186,7 +186,7 @@ class TestDoclingServeClient:
 
         client = DoclingServeClient()
         with pytest.raises(DatasiftException, match="Task test-task-123 failed"):
-            client.poll_status("test-task-123")
+            client.poll_status(task_id="test-task-123")
 
     @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
     def test_get_result_success(self, mock_call_rest_json):
@@ -194,7 +194,7 @@ class TestDoclingServeClient:
         mock_call_rest_json.return_value = {"document": "data", "metadata": {}}
 
         client = DoclingServeClient()
-        result = client.get_result("test-task-123")
+        result = client.get_result(task_id="test-task-123")
 
         assert "document" in result
         assert result["document"] == "data"
@@ -210,7 +210,7 @@ class TestDoclingServeClient:
 
         client = DoclingServeClient()
         with pytest.raises(DatasiftException, match="Network error"):
-            client.get_result("test-task-123")
+            client.get_result(task_id="test-task-123")
 
     @patch.object(DoclingServeClient, "submit_document")
     @patch.object(DoclingServeClient, "_poll_for_completion")

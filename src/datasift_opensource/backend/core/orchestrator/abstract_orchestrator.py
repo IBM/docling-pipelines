@@ -27,8 +27,8 @@ from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
 from core.orchestrator.batch_manager import BatchManager
-from core.orchestrator.open_source_flow_execution_event_handler import OpenSourceFlowExecutionEventHandler
-from core.orchestrator.prefect_engine import AbstractFlowEngine, ExecuteStepResults, PrefectEngine
+from core.orchestrator.flow_execution_event_handler import FlowExecutionEventHandler
+from core.orchestrator.prefect.prefect_engine import AbstractFlowEngine, ExecuteStepResults, PrefectEngine
 
 logger = get_logger()
 
@@ -48,7 +48,7 @@ class AbstractOrchestrator(ABC):
         self.message = ""
         self.flow_id = None
         self.deleted_rows_list: Queue[pa.Table] = Queue()
-        self.flow_execution_event_handler = OpenSourceFlowExecutionEventHandler()
+        self.flow_execution_event_handler = FlowExecutionEventHandler()
         # Initialize batch manager
         self.batch_manager = BatchManager()
         self.job_tracker = JobTracker()
@@ -122,7 +122,11 @@ class AbstractOrchestrator(ABC):
         )
 
     def _handle_active_execution(
-        self, *, op_def, executor: AbstractOperatorExecutor, prev_data_access: dict[str, DataAccess]
+        self,
+        *,
+        op_def,
+        executor: AbstractOperatorExecutor,
+        prev_data_access: dict[str, DataAccess | None] | DataAccess | None,
     ):
         if executor.get_operator().short_name == OperatorConstants.Operators.DESIGN_FLOW_OUTPUT_OPERATOR:
             # save the deleted rows as this is needed for DESIGN_FLOW_OUTPUT_OPERATOR
@@ -243,7 +247,15 @@ class AbstractOrchestrator(ABC):
             start_time=start,
         )
 
-        self.job_status = self.job_tracker.get_job(job_run_id=self.job_run_id).status
+        # POC: Handle missing job stats in distributed execution
+        job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
+        if job_stats and hasattr(job_stats, "status"):
+            self.job_status = job_stats.status
+        else:
+            self.logger.warning(
+                f"Job stats not available for job_run_id={self.job_run_id}, keeping current status={self.job_status}",
+                extra=self.common_log_arguments,
+            )
 
         return ExecuteStepResults(data_accesses, tables, internal_metadata)
 

@@ -1,0 +1,259 @@
+# OpenSearch - Vector Database (Optional)
+# Provides vector storage and similarity search capabilities
+# Only needed if using VectorDBOperator with OpenSearch adapter
+
+# PersistentVolumeClaim for OpenSearch data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: opensearch-data
+  namespace: datasift
+  labels:
+    app: datasift
+    component: opensearch
+spec:
+  accessModes:
+    - ReadWriteOnce
+  # CUSTOMIZE: Change storage class based on your cluster
+  storageClassName: local-path
+  resources:
+    requests:
+      # CUSTOMIZE: Adjust based on vector data volume
+      storage: 30Gi
+
+---
+# OpenSearch StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: opensearch
+  namespace: datasift
+  labels:
+    app: datasift
+    component: opensearch
+spec:
+  serviceName: opensearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opensearch
+  template:
+    metadata:
+      labels:
+        app: opensearch
+    spec:
+      # Init container to set required system settings
+      initContainers:
+      - name: sysctl
+        image: busybox:latest
+        command:
+        - sh
+        - -c
+        - |
+          sysctl -w vm.max_map_count=262144
+          chown -R 1000:1000 /usr/share/opensearch/data
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: opensearch-data
+          mountPath: /usr/share/opensearch/data
+      
+      containers:
+      - name: opensearch
+        image: opensearchproject/opensearch:2.11.0
+        ports:
+        - containerPort: 9200
+          name: http
+        - containerPort: 9600
+          name: performance
+        env:
+        - name: cluster.name
+          value: "datasift-cluster"
+        - name: node.name
+          value: "opensearch-node1"
+        - name: discovery.type
+          value: "single-node"
+        - name: bootstrap.memory_lock
+          value: "true"
+        # CUSTOMIZE: Adjust heap size based on available memory
+        # Rule of thumb: Set to 50% of container memory limit
+        - name: OPENSEARCH_JAVA_OPTS
+          value: "-Xms2g -Xmx2g"
+        # Disable security for simplified setup
+        # IMPORTANT: Enable security in production!
+        - name: DISABLE_SECURITY_PLUGIN
+          value: "true"
+        - name: DISABLE_INSTALL_DEMO_CONFIG
+          value: "true"
+        volumeMounts:
+        - name: opensearch-data
+          mountPath: /usr/share/opensearch/data
+        resources:
+          requests:
+            memory: "4Gi"
+            cpu: "1000m"
+          limits:
+            memory: "6Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health
+            port: 9200
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+      volumes:
+      - name: opensearch-data
+        persistentVolumeClaim:
+          claimName: opensearch-data
+
+---
+# OpenSearch Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch
+  namespace: datasift
+  labels:
+    app: datasift
+    component: opensearch
+spec:
+  selector:
+    app: opensearch
+  ports:
+  - port: 9200
+    targetPort: 9200
+    protocol: TCP
+    name: http
+  - port: 9600
+    targetPort: 9600
+    protocol: TCP
+    name: performance
+  type: ClusterIP
+
+---
+# Optional: NodePort Service for external access
+# Uncomment to access OpenSearch from outside the cluster
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: opensearch-external
+#   namespace: datasift
+#   labels:
+#     app: datasift
+#     component: opensearch
+# spec:
+#   selector:
+#     app: opensearch
+#   ports:
+#   - port: 9200
+#     targetPort: 9200
+#     nodePort: 30920  # Access via http://<node-ip>:30920
+#     protocol: TCP
+#     name: http
+#   type: NodePort
+
+---
+# OpenSearch Dashboards (Optional)
+# Provides web UI for visualizing and managing OpenSearch data
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opensearch-dashboards
+  namespace: datasift
+  labels:
+    app: datasift
+    component: opensearch-dashboards
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opensearch-dashboards
+  template:
+    metadata:
+      labels:
+        app: opensearch-dashboards
+    spec:
+      containers:
+      - name: opensearch-dashboards
+        image: opensearchproject/opensearch-dashboards:2.11.0
+        ports:
+        - containerPort: 5601
+          name: http
+        env:
+        - name: OPENSEARCH_HOSTS
+          value: '["http://opensearch:9200"]'
+        - name: DISABLE_SECURITY_DASHBOARDS_PLUGIN
+          value: "true"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/status
+            port: 5601
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /api/status
+            port: 5601
+          initialDelaySeconds: 30
+          periodSeconds: 5
+          timeoutSeconds: 3
+
+---
+# OpenSearch Dashboards Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: opensearch-dashboards
+  namespace: datasift
+  labels:
+    app: datasift
+    component: opensearch-dashboards
+spec:
+  selector:
+    app: opensearch-dashboards
+  ports:
+  - port: 5601
+    targetPort: 5601
+    protocol: TCP
+    name: http
+  type: ClusterIP
+
+---
+# Optional: NodePort Service for external dashboard access
+# Uncomment to access OpenSearch Dashboards from outside the cluster
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: opensearch-dashboards-external
+#   namespace: datasift
+#   labels:
+#     app: datasift
+#     component: opensearch-dashboards
+# spec:
+#   selector:
+#     app: opensearch-dashboards
+#   ports:
+#   - port: 5601
+#     targetPort: 5601
+#     nodePort: 30561  # Access via http://<node-ip>:30561
+#     protocol: TCP
+#     name: http
+#   type: NodePort
+
+# Made with Bob

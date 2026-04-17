@@ -12,7 +12,7 @@ from core.orchestrator.node_logger import NodeLogger
 logger = get_logger()
 
 
-class OpenSourceFlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
+class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
     """
     This class implement the methods that handles events triggered while flow is executed in open source version.
     """
@@ -41,9 +41,14 @@ class OpenSourceFlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             job_status = ExecutionStatus.FAILED
         else:
             job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
-            self.job_tracker.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=op_flow)
-            job_status = OperatorUtils.determine_final_job_status(node_stats_list=job_stats.node_stats)
-            job_stats.status = job_status
+            if job_stats and job_stats.node_stats:
+                self.job_tracker.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=op_flow)
+                job_status = OperatorUtils.determine_final_job_status(node_stats_list=job_stats.node_stats)
+                job_stats.status = job_status
+            else:
+                # POC: Job stats not available in distributed execution, default to completed
+                logger.warning(f"Job stats not available for job_run_id={self.job_run_id}, defaulting to COMPLETED")
+                job_status = ExecutionStatus.COMPLETED
 
         self.job_tracker.end_job(
             job_run_id=self.job_run_id, status=job_status, message=message, job_log_path=self.job_log_path

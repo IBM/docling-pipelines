@@ -1,0 +1,157 @@
+# Prefect Server Deployment
+# Runs the Prefect orchestration server that manages workflows and workers
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefect-server
+  namespace: datasift
+  labels:
+    app: datasift
+    component: prefect-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prefect-server
+  template:
+    metadata:
+      labels:
+        app: prefect-server
+        component: orchestration
+    spec:
+      containers:
+        - name: prefect-server
+          image: prefecthq/prefect:3-latest
+          command: ["prefect", "server", "start", "--host", "0.0.0.0"]
+          ports:
+            - containerPort: 4200
+              name: api
+              protocol: TCP
+          env:
+            # Server configuration
+            - name: PREFECT_SERVER_API_HOST
+              value: "0.0.0.0"
+            - name: PREFECT_SERVER_API_PORT
+              value: "4200"
+            
+            # Database connection
+            # CUSTOMIZE: Update credentials if you changed postgres.yaml
+            - name: PREFECT_API_DATABASE_CONNECTION_URL
+              value: "postgresql+asyncpg://prefect:prefect123@postgres:5432/prefect"  # pragma: allowlist secret
+            
+            # API URL for workers to connect (internal cluster DNS)
+            - name: PREFECT_API_URL
+              value: "http://prefect-server:4200/api"
+            
+            # UI API URL for browser access
+            # CUSTOMIZE: Replace with your cluster's external IP or domain
+            - name: PREFECT_UI_API_URL
+              value: "http://localhost:4200/api"
+            
+            # Optional: Disable analytics
+            - name: PREFECT_SERVER_ANALYTICS_ENABLED
+              value: "false"
+            
+            # Optional: Logging level (DEBUG, INFO, WARNING, ERROR)
+            - name: PREFECT_LOGGING_LEVEL
+              value: "INFO"
+          
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          
+          # Health checks - Kubernetes will restart pod if these fail
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 4200
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 4200
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+---
+# Prefect Server Service
+# Exposes Prefect Server API to workers and external clients
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefect-server
+  namespace: datasift
+  labels:
+    app: datasift
+    component: prefect-server
+spec:
+  selector:
+    app: prefect-server
+  ports:
+    - port: 4200
+      targetPort: 4200
+      protocol: TCP
+      name: api
+  type: ClusterIP
+
+---
+# Optional: NodePort Service for external access
+# Uncomment to expose Prefect UI externally via NodePort
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: prefect-server-external
+#   namespace: datasift
+#   labels:
+#     app: datasift
+#     component: prefect-server
+# spec:
+#   selector:
+#     app: prefect-server
+#   ports:
+#     - port: 4200
+#       targetPort: 4200
+#       nodePort: 30420  # Access via http://<node-ip>:30420
+#       protocol: TCP
+#       name: api
+#   type: NodePort
+
+---
+# Optional: Ingress for external access with custom domain
+# Uncomment and configure for your ingress controller
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: prefect-server-ingress
+#   namespace: datasift
+#   annotations:
+#     kubernetes.io/ingress.class: "nginx"
+#     # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+# spec:
+#   # tls:
+#   #   - hosts:
+#   #       - prefect.yourdomain.com
+#   #     secretName: prefect-tls  # pragma: allowlist secret
+#   rules:
+#     - host: prefect.yourdomain.com
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: prefect-server
+#                 port:
+#                   number: 4200
+
+# Made with Bob

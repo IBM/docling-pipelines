@@ -12,7 +12,9 @@ import time
 from pathlib import Path
 from typing import Any
 
+from common.clients.base_llm_client import retry_with_backoff
 from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
+from common.constants.constants import DoclingClientConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
@@ -30,6 +32,7 @@ class DoclingServeClient:
 
     def __init__(
         self,
+        *,
         base_url: str = "http://0.0.0.0:5001",
         api_key: str | None = None,
         timeout: int = 300,
@@ -74,7 +77,8 @@ class DoclingServeClient:
         """
         default_options = {
             "do_ocr": True,
-            "ocr_engine": "easyocr",
+            "ocr_preset": "auto",
+            "ocr_lang": None,
             "pdf_backend": "dlparse_v2",
             "table_mode": "accurate",
             "do_table_structure": True,
@@ -82,7 +86,7 @@ class DoclingServeClient:
             "include_images": True,
             "images_scale": 2.0,
             "image_export_mode": "embedded",
-            "to_formats": ["md"],
+            "to_formats": ["md", "text"],
         }
 
         if options:
@@ -92,6 +96,7 @@ class DoclingServeClient:
 
     def submit_document(
         self,
+        *,
         file_path: str | None = None,
         binary_content: bytes | None = None,
         options: dict[str, Any] | None = None,
@@ -133,10 +138,16 @@ class DoclingServeClient:
 
         # Submit request using multipart/form-data
         endpoint = "/v1/convert/file/async"
-        return self._submit_request_multipart(endpoint, content, filename, options)
+        return self._submit_request_multipart(
+            endpoint=endpoint,
+            file_content=content,
+            filename=filename,
+            options=options,
+        )
 
     def _submit_request_multipart(
         self,
+        *,
         endpoint: str,
         file_content: bytes,
         filename: str,
@@ -218,7 +229,7 @@ class DoclingServeClient:
 
             try:
                 endpoint = f"/v1/status/poll/{task_id}"
-                result = self._check_status(endpoint)
+                result = self._check_status(endpoint=endpoint)
                 task_status = result.get("task_status", "unknown").upper()
 
                 logger.info(f"Polling task {task_id}: status={task_status}")
@@ -253,6 +264,7 @@ class DoclingServeClient:
 
     def poll_status(
         self,
+        *,
         task_id: str,
         poll_interval: int | None = None,
         timeout: int = 7200,
@@ -277,9 +289,20 @@ class DoclingServeClient:
             timeout=timeout,
         )
 
-    def _check_status(self, endpoint: str) -> dict[str, Any]:
+    @retry_with_backoff(
+        max_retries=DoclingClientConstants.STATUS_404_MAX_RETRIES,
+        initial_delay=DoclingClientConstants.STATUS_404_BACKOFF_BASE,
+        backoff_factor=2.0,
+        exceptions=(DatasiftException,),
+    )
+    def _check_status(self, *, endpoint: str) -> dict[str, Any]:
         """
-        Check task status via HTTP request.
+        Check task status via HTTP request with retry logic for 404 errors.
+
+        Retries on 404 errors to handle:
+        - Pod restarts/terminations during HPA scaling
+        - Load balancer routing issues during pod lifecycle events
+        - Transient network issues
 
         Args:
             endpoint: Status endpoint path
@@ -288,15 +311,26 @@ class DoclingServeClient:
             Status response dictionary
 
         Raises:
-            DatasiftException: For HTTP errors
+            DatasiftException: For HTTP errors (after retries for 404)
         """
-        return self.rest_client.call_rest_json(
-            method=RestMethod.GET,
-            endpoint=endpoint,
-            headers=self.custom_headers,
-        )
+        try:
+            return self.rest_client.call_rest_json(
+                method=RestMethod.GET,
+                endpoint=endpoint,
+                headers=self.custom_headers,
+            )
+        except DatasiftException as e:
+            # Only retry on 404 errors (task not found during pod transitions)
+            if e.status_code == 404:
+                logger.warning(
+                    f"Task not found (404) at {endpoint}. "
+                    f"This may occur during pod restarts or HPA scaling. Retrying..."
+                )
+                raise  # Let decorator handle retry
+            # For other errors, raise immediately without retry
+            raise
 
-    def get_result(self, task_id: str) -> dict[str, Any]:
+    def get_result(self, *, task_id: str) -> dict[str, Any]:
         """
         Retrieve processed document result.
 
@@ -323,6 +357,7 @@ class DoclingServeClient:
 
     def process_document(
         self,
+        *,
         file_path: str | None = None,
         binary_content: bytes | None = None,
         options: dict[str, Any] | None = None,
@@ -348,7 +383,11 @@ class DoclingServeClient:
             DatasiftException: For HTTP, network, or processing errors
         """
         # Submit document
-        task_id = self.submit_document(file_path=file_path, binary_content=binary_content, options=options)
+        task_id = self.submit_document(
+            file_path=file_path,
+            binary_content=binary_content,
+            options=options,
+        )
 
         # Poll until completion and only retrieve result after SUCCESS
         final_response = self._poll_for_completion(
@@ -357,9 +396,9 @@ class DoclingServeClient:
             timeout=timeout,
         )
         logger.info(f"Final Status before: {task_id}, {final_response}")
-        final_status = final_response.get("task_status")
+        final_status = str(final_response.get("task_status", "")).upper()
         logger.info(f"Final Status: {task_id}, {final_status}")
-        if final_status != "success":
+        if final_status != "SUCCESS":
             error_message = final_response.get("error_message", "Unknown Error")
             raise DatasiftException(
                 message=f"Task {task_id} did not complete successfully with error message: {error_message}",

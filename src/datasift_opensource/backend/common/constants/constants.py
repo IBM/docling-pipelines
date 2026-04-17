@@ -99,6 +99,15 @@ class DatasiftConstants:
     FLOW_EXECUTE_LOG = "flow_execute.log"
 
 
+class DoclingClientConstants:
+    """Constants for Docling Serve client retry logic"""
+
+    # Retry configuration for 404 errors during polling
+    # These handle pod restarts, HPA scaling, and load balancer routing issues
+    STATUS_404_MAX_RETRIES = 3
+    STATUS_404_BACKOFF_BASE = 1.0  # seconds
+
+
 class Metrics:
     class External:
         JOB_RUN_STATUS = "job_run_status"

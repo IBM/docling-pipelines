@@ -198,9 +198,13 @@ class OperatorConstants:
         DOCLING_SERVE_TIMEOUT: Final[str] = "docling_serve_timeout"
         DOCLING_SERVE_POLL_INTERVAL: Final[str] = "docling_serve_poll_interval"
         DOCLING_SERVE_MAX_RETRIES: Final[str] = "docling_serve_max_retries"
-        DOCLING_SERVE_DO_OCR: Final[str] = "docling_serve_do_ocr"
-        DOCLING_SERVE_OCR_ENGINE: Final[str] = "docling_serve_ocr_engine"
-        DOCLING_SERVE_OCR_LANGUAGES: Final[str] = "docling_serve_ocr_languages"
+        DOCLING_SERVE_DO_OCR: Final[str] = "docling_serve_do_ocr"  # Deprecated: use DOCLING_SERVE_OCR_PRESET
+        DOCLING_SERVE_OCR_ENGINE: Final[str] = "docling_serve_ocr_engine"  # Deprecated: use DOCLING_SERVE_OCR_PRESET
+        DOCLING_SERVE_OCR_LANGUAGES: Final[str] = (
+            "docling_serve_ocr_languages"  # Deprecated: use DOCLING_SERVE_OCR_LANG
+        )
+        DOCLING_SERVE_OCR_PRESET: Final[str] = "docling_serve_ocr_preset"
+        DOCLING_SERVE_OCR_LANG: Final[str] = "docling_serve_ocr_lang"
         DOCLING_SERVE_PDF_BACKEND: Final[str] = "docling_serve_pdf_backend"
         DOCLING_SERVE_TABLE_MODE: Final[str] = "docling_serve_table_mode"
         DOCLING_SERVE_IMAGE_EXPORT_MODE: Final[str] = "docling_serve_image_export_mode"

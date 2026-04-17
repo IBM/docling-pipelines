@@ -31,6 +31,9 @@ from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.orchestration.flow_utils import create_node_id_to_index_map
 from common.util.orchestration.prefect_config import set_prefect_env_variables
 from core.orchestrator.futured_list import FuturedList
+from core.orchestrator.prefect.ports.batch_execution_port import (
+    BatchExecutionPort,
+)
 
 set_prefect_env_variables()
 
@@ -80,6 +83,18 @@ class AbstractFlowEngine(ABC):
     def execute_non_execute_flow(self, *, flow_name=None, task, dag):
         pass
 
+    @abstractmethod
+    def execute_operator_flow(self, *, op_flow, data_access, global_config):
+        """
+        Execute operator flow - used by batch workers.
+
+        Args:
+            op_flow: List of operator definitions
+            data_access: DataAccess object containing batch data
+            global_config: Global configuration dictionary
+        """
+        pass
+
 
 class PrefectEngine(AbstractFlowEngine):
     """
@@ -102,17 +117,30 @@ class PrefectEngine(AbstractFlowEngine):
         )
 
     def execute_batch_flow(self, *, op_flow, batches, global_config):
-        batch_outer_flow = self._build_flow(name="batch_outer_flow", flow_impl=self.batch_outer_flow_impl)
-        batch_futures = batch_outer_flow(
-            op_flow=op_flow[1:],  # Skip ingest operator
-            batches=batches,
-            global_config=global_config,
+        """
+        Execute batches using configured strategy (ThreadPool or WorkPool).
+
+        Strategy is selected based on global_config.prefect.batch_execution.strategy:
+        - "thread-pool" (default): Local execution using ThreadPoolTaskRunner
+        - "work-pool-*": Distributed execution via Prefect work pools
+
+        The strategy pattern enables seamless switching between local and distributed
+        execution without changing the orchestrator code.
+        """
+        from core.orchestrator.prefect.adapters.factories.batch_execution_factory import BatchExecutionFactory
+
+        # Create appropriate strategy based on configuration
+        strategy: BatchExecutionPort = BatchExecutionFactory.create_strategy(
+            config=global_config, prefect_engine=self, batch_manager=self.batch_manager
         )
 
-        # Wait for all sub-flows to complete
-        # Note: Metadata is saved incrementally by each sub-flow in inner_flow() at line 1194
-        # so we don't need to merge and save results here
-        self._wait_for_sub_flows(batch_futures=batch_futures)
+        # Execute batches using the selected strategy
+        strategy.execute_batches(
+            batches=batches,
+            op_flow=op_flow[1:],  # Skip ingest operator
+            global_config=global_config,
+            job_run_id=self.job_run_id,
+        )
 
     def execute_non_execute_flow(self, *, flow_name=None, task, dag):
 
@@ -356,6 +384,20 @@ class PrefectEngine(AbstractFlowEngine):
             persist_result=persist_result,
         )(main_task)
 
+    def execute_operator_flow(self, *, op_flow, data_access, global_config):
+        """
+        Public method to execute operator flow - used by batch workers.
+
+        This is the entry point for distributed batch workers to execute
+        operator flows using the same logic as local execution.
+
+        Args:
+            op_flow: List of operator definitions
+            data_access: DataAccess object containing batch data
+            global_config: Global configuration dictionary
+        """
+        return self.__flow_impl(op_flow=op_flow, data_access=data_access, global_config=global_config)
+
     def __flow_impl(self, op_flow, data_access, global_config):
         """
         Execute the inner flow with Prefect task orchestration.
@@ -592,7 +634,11 @@ class PrefectEngine(AbstractFlowEngine):
 
         job_tracker = JobTracker()
         job_stats = job_tracker.get_job(job_run_id=self.job_run_id)
-        if not job_stats:
+        if not job_stats or not job_stats.node_stats:
+            self.logger.warning(
+                f"Job stats not available for job_run_id={self.job_run_id}, cannot collect failed doc IDs",
+                extra=self.common_log_arguments,
+            )
             return []
 
         failed_doc_ids: list[str] = []

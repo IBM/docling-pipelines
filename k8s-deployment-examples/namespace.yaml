@@ -1,0 +1,11 @@
+# Namespace for DataSift components
+# Creates an isolated environment for all DataSift resources
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: datasift
+  labels:
+    app: datasift
+    environment: production
+
+# Made with Bob

@@ -238,7 +238,7 @@ def get_logger(
     if isinstance(level, int):
         logger.setLevel(level)
     else:
-        level = level.upper() if isinstance(level, str) else "INFO"
+        level = level.upper() if isinstance(level, str) else get_log_level()
         logger.setLevel(logging.getLevelName(level))
 
     # Use JSON format only if explicitly enabled via environment variable
