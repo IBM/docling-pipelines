@@ -53,7 +53,7 @@
         "config": {
           "embeddings_type": "ollama",
           "embeddings_model_id": "nomic-embed-text",
-          "embeddings_column": "content",
+          "embeddings_column": "embeddings",
           "overlap_ratio": 0.1
         },
         "input_edges": [{"node_id_ref": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"}],

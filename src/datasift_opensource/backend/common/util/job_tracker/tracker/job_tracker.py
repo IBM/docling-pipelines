@@ -151,7 +151,7 @@ def _log_inconsistencies(*, job_stats: JobStatsDto):
 
     total = job_stats.total_docs
     sum_parts = job_stats.processed_docs + job_stats.failed_docs + job_stats.skipped_docs
-    if total != sum_parts:
+    if total != sum_parts and sum_parts > 0:
         logger.error(
             f"Total number of docs {total} does not match the sum of processed ({job_stats.processed_docs}), "
             f"skipped ({job_stats.skipped_docs}), and failed ({job_stats.failed_docs}) docs.",

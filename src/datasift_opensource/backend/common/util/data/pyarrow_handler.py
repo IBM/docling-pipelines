@@ -119,7 +119,7 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
         lock = FileLock(_lock_path(path=path), timeout=LOCK_TIMEOUT)
         with lock:
             if not os.path.exists(path):
-                self.logger.error(f"Table not found from: {path}")
+                self.logger.debug(f"Table not found from: {path}")
                 return None
             table = pq.read_table(path, columns=columns, filters=filters)
             return table
