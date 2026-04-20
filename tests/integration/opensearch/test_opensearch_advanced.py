@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 import pyarrow as pa
 import numpy as np
+import pytest
 
 from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.config import get_opensearch_config
@@ -23,11 +24,11 @@ from core.operators.vectordb.opensearch_index_manager import (
 # Check if .env file exists
 env_file = Path(".env")
 if not env_file.exists():
-    print("❌ .env file not found!")
-    print("   This test requires OpenSearch connection details in .env file")
-    print("   Copy .env.example to .env and update with your connection details")
-    print("\n   Skipping advanced integration tests...")
-    sys.exit(0)
+    pytest.skip(
+        ".env file not found. This test requires OpenSearch connection details. "
+        "Copy .env.example to .env and update with your connection details.",
+        allow_module_level=True
+    )
 
 
 def print_section(title):

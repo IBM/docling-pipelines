@@ -6,6 +6,7 @@ Requires .env file with connection details
 
 import sys
 from pathlib import Path
+import pytest
 
 from opensearchpy import OpenSearch
 from common.util.infrastructure.config import get_env_var, get_env_bool, get_env_int
@@ -14,10 +15,11 @@ from common.util.infrastructure.config import get_env_var, get_env_bool, get_env
 # Check if .env file exists
 env_file = Path(".env")
 if not env_file.exists():
-    print("❌ .env file not found!")
-    print("   This test requires OpenSearch connection details in .env file")
-    print("   Copy .env.example to .env and update with your connection details")
-    sys.exit(0)
+    pytest.skip(
+        ".env file not found. This test requires OpenSearch connection details. "
+        "Copy .env.example to .env and update with your connection details.",
+        allow_module_level=True
+    )
 
 # Load connection details from environment
 host = get_env_var("OPENSEARCH_HOST")

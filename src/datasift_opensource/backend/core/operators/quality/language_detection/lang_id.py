@@ -19,7 +19,7 @@ from core.operators.quality.language_detection.ports.outbound.language_service i
 logger: Logger = get_logger()
 
 # Default language detection provider
-DEFAULT_LANGUAGE_PROVIDER = "langdetect"
+DEFAULT_LANGUAGE_PROVIDER = "fasttext"
 
 
 class LanguageDetect(AbstractOperator):
@@ -47,7 +47,7 @@ class LanguageDetect(AbstractOperator):
             config: Configuration dictionary containing:
                 - doc_column: Input column containing document content (default: "content")
                 - filter_unknown_language: Whether to filter out documents with unknown language (default: False)
-                - language_provider: Language detection provider to use (default: "langdetect")
+                - language_provider: Language detection provider to use (default: "fasttext")
         """
         super().__init__(config)
         self.doc_column_name: str = config.get(
@@ -59,7 +59,7 @@ class LanguageDetect(AbstractOperator):
         }
         self.filter_value: bool = config.get(OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE, False)
 
-        # Get language detection provider from config (default: langdetect)
+        # Get language detection provider from config (default: fasttext)
         self.language_provider: str = config.get("language_provider", DEFAULT_LANGUAGE_PROVIDER)
 
         # Initialize language detection adapter

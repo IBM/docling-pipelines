@@ -3,7 +3,7 @@
 Example: Language Detection
 
 This example demonstrates how to detect the language of documents
-using the LanguageDetect operator with different providers (langdetect and fasttext).
+using the LanguageDetect operator with the default FastText provider and with an explicit langdetect override.
 """
 
 import sys
@@ -85,22 +85,22 @@ def main() -> None:
             "Hello, world! This is an English text.",
             "Bonjour, monde! Ceci est un texte français.",
             "¡Hola, mundo! Este es un texto en español.",
-            "Salom dunyo! Bu o'zbek tilidagi matn.",  # Uzbek (only FastText supports this)
+            "Сәлем, әлем! Бұл қазақ тіліндегі мәтін.",  # Kazakh: FastText detects `kk`, langdetect misclassifies it
             "Contact support: support@example.com, Phone: 08012345678",
         ]
     )
     names: pa.Array = pa.array(
-        ["english.txt", "french.txt", "spanish.txt", "uzbek.txt", "mixed.txt"]
+        ["english.txt", "french.txt", "spanish.txt", "kazakh.txt", "mixed.txt"]
     )
     doc_ids: pa.Array = pa.array(["1", "2", "3", "4", "5"])
 
-    # Test with langdetect (default provider - 55 languages)
+    # Test with explicit langdetect provider (55 languages)
     try:
         run_with_provider("langdetect", content, names, doc_ids)
     except Exception as e:
         print(f"\nError with langdetect: {e}")
 
-    # Test with fasttext (176+ languages)
+    # Test with explicit fasttext provider (default provider, 176+ languages)
     try:
         run_with_provider("fasttext", content, names, doc_ids)
     except Exception as e:

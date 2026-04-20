@@ -226,7 +226,7 @@ class TestLanguageDetectOperator:
         )
 
     def test_operator_initialization_default_provider(self, sample_config):
-        """Test that operator initializes with default langdetect provider"""
+        """Test that operator initializes with default fasttext provider"""
         operator = LanguageDetect(sample_config)
 
         assert operator.language_provider == DEFAULT_LANGUAGE_PROVIDER

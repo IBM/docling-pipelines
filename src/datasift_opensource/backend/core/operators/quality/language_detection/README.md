@@ -8,7 +8,7 @@ The Language Detection Operator identifies the language of document content and 
 
 ### Basic Configuration
 
-Default provider (langdetect):
+Default provider (fasttext):
 ```json
 {
   "operator": "lang_detect",
@@ -19,13 +19,13 @@ Default provider (langdetect):
 }
 ```
 
-With FastText provider:
+With langdetect provider:
 ```json
 {
   "operator": "lang_detect",
   "config": {
     "doc_column": "content",
-    "language_provider": "fasttext",
+    "language_provider": "langdetect",
     "filter_unknown_language": false
   }
 }
@@ -80,27 +80,7 @@ With FastText provider:
 
 ## Supported Providers
 
-### langdetect (Default)
-
-**Supported Languages**: 55+ languages including:
-- English (en), Spanish (es), French (fr), German (de)
-- Chinese (zh-cn, zh-tw), Japanese (ja), Korean (ko)
-- Arabic (ar), Russian (ru), Portuguese (pt)
-- Italian (it), Dutch (nl), Polish (pl)
-
-**Pros**:
-- ✅ No setup required
-- ✅ Fast detection
-- ✅ Good accuracy for common languages
-- ✅ No external dependencies
-- ✅ Probabilistic approach
-
-**Cons**:
-- ❌ Limited to 55 languages
-- ❌ Less accurate for very short texts (<20 characters)
-- ❌ May struggle with mixed-language content
-
-### fasttext
+### fasttext (Default)
 
 **Supported Languages**: 176+ languages including all langdetect languages plus:
 - Uzbek (uz), Kazakh (kk), Azerbaijani (az)
@@ -119,6 +99,26 @@ With FastText provider:
 - ❌ Requires model download (~131MB) on first use
 - ❌ Slightly slower than langdetect for very short texts
 - ❌ Requires fasttext library installation
+
+### langdetect
+
+**Supported Languages**: 55+ languages including:
+- English (en), Spanish (es), French (fr), German (de)
+- Chinese (zh-cn, zh-tw), Japanese (ja), Korean (ko)
+- Arabic (ar), Russian (ru), Portuguese (pt)
+- Italian (it), Dutch (nl), Polish (pl)
+
+**Pros**:
+- ✅ No setup required
+- ✅ Fast detection
+- ✅ Good accuracy for common languages
+- ✅ No external dependencies
+- ✅ Probabilistic approach
+
+**Cons**:
+- ❌ Limited to 55 languages
+- ❌ Less accurate for very short texts (<20 characters)
+- ❌ May struggle with mixed-language content
 
 ## Architecture
 
@@ -275,7 +275,7 @@ The adapter will be automatically available through the factory pattern:
 | ------------------------- | ------- | -------- | ------------------------------------------------- |
 | `doc_column`              | string  | No       | Column containing text (default: `content`)       |
 | `filter_unknown_language` | boolean | No       | Filter out unknown languages (default: false)     |
-| `language_provider`       | string  | No       | Language detection provider (default: `langdetect`) |
+| `language_provider`       | string  | No       | Language detection provider (default: `fasttext`) |
 
 ### Output Columns
 

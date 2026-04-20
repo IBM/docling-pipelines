@@ -103,7 +103,7 @@ python examples/deduplication_example.py
 ```
 
 #### [`language_detection_example.py`](language_detection_example.py)
-Shows basic language detection for documents.
+Shows basic language detection for documents using the default FastText provider.
 
 ```bash
 python examples/language_detection_example.py
