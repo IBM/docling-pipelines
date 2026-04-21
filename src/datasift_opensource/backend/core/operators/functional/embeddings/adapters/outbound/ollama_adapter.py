@@ -1,6 +1,7 @@
 """Ollama LLM adapter for embedding generation."""
 
 from common.clients.ollama_client import OLLAMA_MODEL_TOKEN_LIMITS, InteractionMode, OllamaClient
+from common.constants.constants import ServiceConstants
 from common.exceptions.datasift_exceptions import ExternalServiceError
 from common.util.infrastructure.logging import get_logger
 from core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
@@ -127,7 +128,7 @@ class OllamaLLMAdapter(LLMServicePort):
                 raise ExternalServiceError(
                     f"{error_msg}\n"
                     f"Ensure Ollama server is running: ollama serve\n"
-                    f"Check server status: curl http://localhost:11434/api/tags"
+                    f"Check server status: curl {ServiceConstants.DEFAULT_OLLAMA_HOST}/api/tags"
                 ) from e
             elif "not found" in str(e).lower():
                 raise ExternalServiceError(

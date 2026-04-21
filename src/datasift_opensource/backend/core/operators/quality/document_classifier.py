@@ -13,6 +13,7 @@ from typing import Any
 import pyarrow as pa
 from data_processing.utils import TransformUtils
 
+from common.clients.ollama_client import OllamaClient
 from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.constants import AttributeDataTypes, DatasiftConstants, Metrics, OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
@@ -222,19 +223,23 @@ class DocumentClassifierOperator(AbstractOperator):
         """Validate provider-specific setup and dependencies."""
         if self.provider == "ollama":
             try:
-                import ollama
-
-                # Test connection to Ollama server using thread-safe client
-                client = ollama.Client()
-                client.list()
-                logger.info("Validated Ollama connection")
+                # Use OllamaClient static methods for validation
+                if not OllamaClient.is_server_running():
+                    logger.warning("Ollama server is not running")
+                    return
+                
+                if not OllamaClient.is_model_available(model_name=self.model_id):
+                    logger.warning(f"Model '{self.model_id}' is not available in Ollama")
+                    return
+                
+                logger.info("Validated Ollama connection and model availability")
             except ImportError as e:
                 raise DatasiftException(
                     error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
                     message="ollama package not installed. Install with: pip install ollama",
                 ) from e
             except Exception as e:
-                logger.warning(f"Could not connect to Ollama server: {e!s}")
+                logger.warning(f"Could not validate Ollama setup: {e!s}")
         elif self.provider == "watsonx":
             # LATER: Validate watsonx configuration
             if not self.api_base or not self.api_key:
@@ -256,7 +261,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
     def _call_ollama_chat(self, messages) -> str:
         """
-        Call Ollama chat API using native ollama package.
+        Call Ollama chat API using OllamaClient wrapper.
 
         Args:
             messages: List of message dictionaries with role and content
@@ -265,43 +270,42 @@ class DocumentClassifierOperator(AbstractOperator):
             Response content as string (JSON formatted)
         """
         try:
-            import ollama
-
             # Log message details for debugging
             total_content_length = sum(len(msg.get("content", "")) for msg in messages)
             logger.debug(f"Total message content length: {total_content_length} characters")
             logger.debug(f"Number of messages: {len(messages)}")
 
-            # Create a new client instance for thread safety
-            try:
-                logger.debug("Creating new Ollama client for thread safety")
-                client = ollama.Client()
+            # Extract system prompt and user message from messages
+            system_prompt = None
+            user_content = ""
+            
+            for msg in messages:
+                role = msg.get("role", "")
+                content = msg.get("content", "")
+                
+                if role == "system":
+                    system_prompt = content
+                elif role == "user":
+                    user_content = content
 
-                logger.debug("Attempting ollama.chat without format parameter")
-                response = client.chat(
-                    model=self.model_id,
-                    messages=messages,
-                    format="json",
-                    options={
-                        "temperature": 0.1,
-                    },
-                )
-                logger.debug("Successfully called ollama.chat")
-            except Exception as e:
-                # Log detailed error information
-                logger.error(f"Ollama call failed: {e!s}")
-                logger.error(f"Error type: {type(e).__name__}")
-                logger.error(f"Message preview: {str(messages[0])[:200] if messages else 'No messages'}")
-                raise
+            # Create OllamaClient instance with CHAT mode
+            from common.clients.ollama_client import InteractionMode
+            
+            client = OllamaClient(
+                model_name=self.model_id,
+                mode=InteractionMode.CHAT,
+                system_prompt=system_prompt,
+                validate_model=False,  # Already validated in _validate_provider_setup
+            )
 
-            content = response.get("message", {}).get("content", "")
-            # Extract content from response
-            if isinstance(content, dict):
-                logger.debug(f"Received content length: {len(content)}")
-                return json.dumps(content)
-            elif content:
-                logger.debug(f"Received content length: {len(content)}")
-                return content
+            logger.debug("Calling OllamaClient.run() for chat interaction")
+            response = client.run(prompt=user_content)
+            logger.debug("Successfully called OllamaClient.run()")
+
+            # Response is already a string
+            if response:
+                logger.debug(f"Received content length: {len(response)}")
+                return response
 
             # Fallback: return empty JSON object
             logger.warning("No content in response, returning empty JSON")

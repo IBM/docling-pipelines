@@ -1,3 +1,4 @@
+import os
 from enum import Enum, StrEnum
 from pathlib import Path
 from typing import TypedDict
@@ -97,6 +98,13 @@ class DatasiftConstants:
     FLOW_EXECUTION_EVENT_HANDLER = "flow_execution_event_handler"
     JOB_LOG_PATH = "job_log_path"
     FLOW_EXECUTE_LOG = "flow_execute.log"
+
+
+class ServiceConstants:
+    """Constants for external service configurations"""
+
+    # Ollama service configuration
+    DEFAULT_OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
 
 
 class DoclingClientConstants:

@@ -16,6 +16,7 @@ from ollama import GenerateResponse
 from ollama._types import ChatResponse
 
 from common.clients.base_llm_client import BaseLLMClient, retry_with_backoff
+from common.constants.constants import ServiceConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_codes import ErrorCode
 from common.util.infrastructure.logging import get_logger
@@ -78,7 +79,9 @@ class OllamaClient(BaseLLMClient):
 
     def __init__(
         self,
+        *,
         model_name: str = "granite4",
+        host: str | None = None,
         mode: InteractionMode = InteractionMode.GENERATE,
         system_prompt: str | None = None,
         validate_model: bool = True,
@@ -90,6 +93,7 @@ class OllamaClient(BaseLLMClient):
 
         Args:
             model_name: Name of the Ollama model to use (e.g., "granite4", "llama3")
+            host: Ollama server host URL (default: from OLLAMA_HOST env var or "http://localhost:11434")
             mode: Interaction mode (GENERATE, CHAT, or EMBEDDINGS) - Ollama-specific
             system_prompt: Optional system-level instructions for chat mode
             validate_model: Whether to validate model availability on initialization
@@ -100,8 +104,9 @@ class OllamaClient(BaseLLMClient):
             ImportError: If ollama package is not installed
             ValueError: If model validation is enabled and model is not available
         """
-        super().__init__(model_name, **kwargs)
+        super().__init__(model_name=model_name, **kwargs)
 
+        self.host = host if host is not None else ServiceConstants.DEFAULT_OLLAMA_HOST
         self.mode = mode if isinstance(mode, InteractionMode) else InteractionMode(mode)
         self.system_prompt = system_prompt
         self.timeout = timeout
@@ -118,13 +123,19 @@ class OllamaClient(BaseLLMClient):
             DatasiftException: If the model is not available or connection fails
         """
         try:
+            import httpx
             import ollama
         except ImportError as exc:
-            raise ImportError(f"ollama package not installed: {exc}") from exc
+            raise ImportError(f"ollama or httpx package not installed: {exc}") from exc
 
         try:
+            # Create client with trust_env=False to avoid proxy issues
+            client = ollama.Client(
+                host=self.host,
+                trust_env=False
+            )
             # List available models
-            models_response = ollama.list()
+            models_response = client.list()
             # Handle both ListResponse object and dict formats for backward compatibility
             if hasattr(models_response, "models"):
                 model_list = models_response.models
@@ -161,7 +172,7 @@ class OllamaClient(BaseLLMClient):
             logger.warning(f"Could not validate model availability: {exc!s}")
             # Don't fail initialization if validation check itself fails
 
-    def run(self, prompt: str) -> str:
+    def run(self, *, prompt: str) -> str:
         """
         Execute the model with the given prompt.
 
@@ -176,18 +187,25 @@ class OllamaClient(BaseLLMClient):
             Exception: For other errors during model execution
         """
         try:
+            import httpx
             import ollama
         except ImportError as exc:
-            raise ImportError(f"ollama package not installed: {exc}") from exc
+            raise ImportError(f"ollama or httpx package not installed: {exc}") from exc
 
         try:
+            # Create client with trust_env=False to avoid proxy issues
+            client = ollama.Client(
+                host=self.host,
+                trust_env=False
+            )
+            
             if self.mode == InteractionMode.CHAT:
                 messages = []
                 if self.system_prompt:
                     messages.append({"role": "system", "content": self.system_prompt})
                 messages.append({"role": "user", "content": prompt})
 
-                response: ChatResponse | GenerateResponse = ollama.chat(model=self.model_name, messages=messages)
+                response: ChatResponse | GenerateResponse = client.chat(model=self.model_name, messages=messages)
                 # When stream=False, response is a dict with the message content
                 # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
                 # Handle both dict and ChatResponse object
@@ -202,7 +220,7 @@ class OllamaClient(BaseLLMClient):
                         return message.content or ""
                 return ""  # Fallback for unexpected response format
             else:
-                response = ollama.generate(model=self.model_name, prompt=prompt)
+                response = client.generate(model=self.model_name, prompt=prompt)
                 # When stream=False, response is a dict with the generated text
                 # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
                 if isinstance(response, dict):
@@ -259,7 +277,7 @@ class OllamaClient(BaseLLMClient):
 
         return None
 
-    def run_json(self, prompt: str, system_prompt: str | None = None, retries: int = 3) -> dict[str, Any]:
+    def run_json(self, *, prompt: str, system_prompt: str | None = None, retries: int = 3) -> dict[str, Any]:
         """
         Run the model and enforce JSON output with retries.
 
@@ -285,7 +303,7 @@ class OllamaClient(BaseLLMClient):
 
         for attempt in range(retries):
             full_prompt = "\n".join(prompt_parts)
-            raw = self.run(full_prompt)
+            raw = self.run(prompt=full_prompt)
             last_raw = raw
 
             # Try parsing JSON
@@ -323,14 +341,20 @@ class OllamaClient(BaseLLMClient):
             ImportError: If ollama package is not installed
             Exception: For other errors during embedding generation
         """
-        self._validate_text_input(text)
+        self._validate_text_input(text=text)
         try:
+            import httpx
             import ollama
         except ImportError as exc:
-            raise ImportError(f"ollama package not installed: {exc}") from exc
+            raise ImportError(f"ollama or httpx package not installed: {exc}") from exc
 
         try:
-            embedding_response = ollama.embeddings(model=self.model_name, prompt=text)
+            # Create client with trust_env=False to avoid proxy issues
+            client = ollama.Client(
+                host=self.host,
+                trust_env=False
+            )
+            embedding_response = client.embeddings(model=self.model_name, prompt=text)
 
             # Handle both dict and EmbeddingsResponse object types
             if isinstance(embedding_response, dict):
@@ -408,13 +432,20 @@ class OllamaClient(BaseLLMClient):
             raise ConfigurationError("all texts must be non-empty strings")
 
         try:
+            import httpx
             import ollama
         except ImportError as exc:
-            raise ImportError(f"ollama package not installed: {exc}") from exc
+            raise ImportError(f"ollama or httpx package not installed: {exc}") from exc
 
         # Use ThreadPoolExecutor for concurrent requests
         import threading
         from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Create client with trust_env=False to avoid proxy issues
+        client = ollama.Client(
+            host=self.host,
+            trust_env=False
+        )
 
         # Limit concurrency to avoid overwhelming Ollama server
         max_workers = min(batch_size, 8)  # Cap at 8 concurrent requests
@@ -424,7 +455,7 @@ class OllamaClient(BaseLLMClient):
         def generate_single(index: int, text: str) -> tuple[int, list[float]]:
             """Generate embedding for a single text."""
             try:
-                embedding_response = ollama.embeddings(model=self.model_name, prompt=text)
+                embedding_response = client.embeddings(model=self.model_name, prompt=text)
 
                 # Handle both dict and EmbeddingsResponse object types
                 if isinstance(embedding_response, dict):
@@ -518,18 +549,29 @@ class OllamaClient(BaseLLMClient):
             return False
 
     @staticmethod
-    def is_server_running() -> bool:
+    def is_server_running(*, host: str | None = None) -> bool:
         """
         Check if Ollama server is running and accessible.
+
+        Args:
+            host: Ollama server host URL (default: from OLLAMA_HOST env var or "http://localhost:11434")
 
         Returns:
             bool: True if Ollama server is accessible, False otherwise
         """
+        if host is None:
+            host = ServiceConstants.DEFAULT_OLLAMA_HOST
         try:
+            import httpx
             import ollama
 
+            # Create client with trust_env=False to avoid proxy issues
+            client = ollama.Client(
+                host=host,
+                trust_env=False
+            )
             # Try to list models - this will fail if server is not running
-            ollama.list()
+            client.list()
             return True
         except Exception:
             return False
@@ -588,20 +630,29 @@ class OllamaClient(BaseLLMClient):
             return False
 
     @staticmethod
-    def is_model_available(model_name: str) -> bool:
+    def is_model_available(model_name: str, *, host: str | None = None) -> bool:
         """
         Check if a model is already pulled in Ollama.
 
         Args:
             model_name: Name of the model to check
+            host: Ollama server host URL (default: from OLLAMA_HOST env var or "http://localhost:11434")
 
         Returns:
             bool: True if model is available, False otherwise
         """
+        if host is None:
+            host = ServiceConstants.DEFAULT_OLLAMA_HOST
         try:
+            import httpx
             import ollama
 
-            models: Any = ollama.list()
+            # Create client with trust_env=False to avoid proxy issues
+            client = ollama.Client(
+                host=host,
+                trust_env=False
+            )
+            models: Any = client.list()
 
             # Check if model exists in the list
             if hasattr(models, "models"):
@@ -815,7 +866,7 @@ class OllamaClient(BaseLLMClient):
         Returns:
             Generated text as string
         """
-        return self.run(prompt)
+        return self.run(prompt=prompt)
 
     def chat(self, messages: list[dict[str, str]], **kwargs) -> str:
         """
@@ -844,7 +895,7 @@ class OllamaClient(BaseLLMClient):
         original_mode = self.mode
         self.mode = InteractionMode.CHAT
         try:
-            result = self.run(prompt)
+            result = self.run(prompt=prompt)
             return result
         finally:
             self.mode = original_mode

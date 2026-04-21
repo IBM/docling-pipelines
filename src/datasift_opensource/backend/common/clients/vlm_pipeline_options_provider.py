@@ -10,6 +10,7 @@ from typing import Any, ClassVar
 
 from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.constants import OperatorConstants
+from common.constants.constants import ServiceConstants
 from common.util.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
@@ -315,7 +316,7 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
         Args:
             preset: VLM preset name
             config: Configuration containing:
-                - api_base_url: Ollama API URL (optional, defaults to http://localhost:11434/v1/chat/completions)
+                - api_base_url: Ollama API URL (optional, defaults to {OLLAMA_HOST}/v1/chat/completions from env)
                 - vlm_model_name: Ollama model name (optional, overrides preset default)
 
         Returns:
@@ -327,7 +328,7 @@ class OllamaPipelineOptionsProvider(VlmPipelineOptionsProvider):
         self.validate_config(config=config)
 
         api_base_url = config.get(
-            OperatorConstants.Config.VLM_API_BASE_URL, "http://localhost:11434/v1/chat/completions"
+            OperatorConstants.Config.VLM_API_BASE_URL, f"{ServiceConstants.DEFAULT_OLLAMA_HOST}/v1/chat/completions"
         )
 
         # Get model name from config if provided (to override preset default)
