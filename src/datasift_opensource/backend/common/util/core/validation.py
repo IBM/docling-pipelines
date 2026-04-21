@@ -345,7 +345,7 @@ def _validate_elyra_format(value: dict[str, Any]) -> None:
 def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | None:
     """Validate flow definition structure with comprehensive structural validation.
 
-    Performs deep validation of flow definitions used throughout the datasift-opensource
+    Performs deep validation of flow definitions used throughout the datasift
     framework. This is a shared validator used by Flow domain models, DTOs, and API
     endpoints to ensure consistent validation across all layers.
 

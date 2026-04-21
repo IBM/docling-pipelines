@@ -286,7 +286,7 @@ pytest tests/unit/operators/ingest/ tests/integration/test_ingest_extract_integr
 
 - **ExtractDoclingOperator**: Advanced extraction using Docling library
 - **DoclingChunkerOperator**: Chunks extracted content for vector databases
-- **IngestLocalS3Operator**: Similar operator for S3 storage
+- **IngestSourceOperator**: Multi-provider ingest supporting S3, IBM COS, SharePoint, OneDrive, Google Drive, and custom loaders
 
 ## Support
 

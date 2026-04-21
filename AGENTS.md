@@ -4,7 +4,7 @@
 The orchestrator mode is a strategic workflow coordinator designed to handle complex, multi-faceted tasks by intelligently breaking them down into manageable subtasks and delegating them to specialized modes. It acts as a high-level project manager, ensuring efficient task execution through proper mode selection and coordination.
 
 ## Repository Context
-The datasift-opensource project is a modular, operator-based data processing framework designed for building flexible data pipelines. Key architectural characteristics:
+The datasift project is a modular, operator-based data processing framework designed for building flexible data pipelines. Key architectural characteristics:
 
 - **Operator-Based Architecture**: 20+ specialized operators organized into 5 categories (Extract, Ingest, Functional, Quality, VectorDB)
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
@@ -46,10 +46,8 @@ Operators are organized by category as defined in the `OperatorCategory` enum:
 - **ExtractEntitiesOllama**: Performs LLM-based entity extraction using Ollama models
 
 ### Ingest Operators
-- **IngestLocalFolder**: Reads files from local filesystem directories
-- **IngestLocalS3**: Ingests data from S3-compatible storage (AWS S3, MinIO, etc.)
-- **IngestCSV**: Processes CSV files into PyArrow tables
-- **IngestSource**: Multi-provider ingest supporting various data sources
+- **IngestLocalOperator**: Reads files from local filesystem directories
+- **IngestSourceOperator**: Multi-provider ingest supporting various data sources (S3, IBM COS, SharePoint, OneDrive, Google Drive, custom loaders)
 
 ### Functional Operators
 - **BranchingOperator**: Enables conditional workflow branching based on data characteristics
@@ -155,7 +153,7 @@ Example: Conditional processing based on document type, language, or custom crit
 
 **ALL function arguments MUST be keyword-only using `*` separator.**
 
-This is a critical coding standard for the datasift-opensource project to prevent accidental positional argument bugs and improve code maintainability.
+This is a critical coding standard for the datasift project to prevent accidental positional argument bugs and improve code maintainability.
 
 #### Rules
 
@@ -247,6 +245,7 @@ strategy.execute_batches(
 
 ### Command-Line Execution
 Flows are executed using the `datasift-orchestrator` CLI tool:
+This command needs to be executed from the workspace root after setting the .venv in the backend folder
 
 ```bash
 datasift-orchestrator --flow-file <path-to-flow.json>

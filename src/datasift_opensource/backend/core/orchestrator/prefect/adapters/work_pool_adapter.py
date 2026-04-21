@@ -450,7 +450,11 @@ class WorkPoolAdapter(BatchExecutionPort):
                     self.prefect_engine.logger.info(
                         f"Batch {batch_num} completed (flow_run={flow_run.id})", extra={"job_run_id": job_run_id}
                     )
-                elif isinstance(result, FlowRun) and result.state is not None and (result.state.is_failed() or result.state.is_crashed()):
+                elif (
+                    isinstance(result, FlowRun)
+                    and result.state is not None
+                    and (result.state.is_failed() or result.state.is_crashed())
+                ):
                     # Handle both Failed and Crashed states as failures
                     state_type = "CRASHED" if result.state.is_crashed() else "FAILED"
                     failed_info.append(
@@ -703,7 +707,7 @@ class WorkPoolAdapter(BatchExecutionPort):
 
         For docker/kubernetes work pools:
             Users provide their image via work_pool_config["image"].
-            The image must have datasift-opensource and all dependencies installed.
+            The image must have datasift and all dependencies installed.
 
         This is called once during __init__, not per-batch.
         """

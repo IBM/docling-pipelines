@@ -61,7 +61,7 @@ Distributed execution allows DataSift pipelines to process data across multiple 
         │                      │
         │              ┌─────────────┐
         └─────────────▶│   Storage   │
-                       │ (S3/Local)  │
+                       │ (Local)     │
                        └─────────────┘
 ```
 
@@ -71,7 +71,7 @@ Distributed execution allows DataSift pipelines to process data across multiple 
 2. **Work Pool**: Named queue where flow runs wait for execution
 3. **Workers**: Processes that poll the work pool and execute batches
 4. **Submitter**: Your machine that submits flow runs to the work pool
-5. **Batch Storage**: Shared storage (S3 or local filesystem) for transferring data between submitter and workers
+5. **Batch Storage**: Shared local filesystem storage for transferring data between submitter and workers
 
 ### Prerequisites
 
@@ -615,8 +615,7 @@ Batch storage determines how PyArrow table data is transferred between submitter
 | Type | Use Case | Size Limit | Network Required | Shared Storage |
 |------|----------|------------|------------------|----------------|
 | `inline` | Small batches, testing | ~512KB | No | No |
-| `local` | Docker Compose, same machine | Unlimited | No | Yes (filesystem) |
-| `s3` | Production, cross-machine | Unlimited | Yes | Yes (S3 bucket) |
+| `local` | Docker Compose, same machine, shared volumes | Unlimited | No | Yes (filesystem) |
 
 #### Inline Storage
 
@@ -694,60 +693,6 @@ volumes:
   batch-data:
 ```
 
-#### S3 Storage
-
-**Description**: Writes batch data to S3-compatible object storage. Recommended for production.
-
-**Configuration:**
-
-```json
-{
-  "batch_storage": {
-    "type": "s3",
-    "bucket": "my-datasift-batches",
-    "prefix": "tmp/batches/",
-    "access_key": "your-access-key-id",
-    "secret_key": "your-secret-access-key",  <!-- pragma: allowlist secret -->
-    "endpoint_url": "https://s3.amazonaws.com",
-    "region": "us-east-1"
-  }
-}
-```
-
-**Configuration options:**
-
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `bucket` | string | Yes | S3 bucket name |
-| `prefix` | string | No | Key prefix (default: `"tmp/batches/"`) |
-| `access_key` | string | Yes | AWS access key ID |
-| `secret_key` | string | Yes | AWS secret access key |
-| `endpoint_url` | string | No | S3 endpoint URL (for MinIO, etc.) |
-| `region` | string | No | AWS region (default: `"us-east-1"`) |
-
-**Credential aliases:**
-- `access_key` or `access_key_id`
-- `secret_key` or `secret_access_key`
-
-**Use cases:**
-- Production deployments
-- Cross-machine distributed execution
-- Cloud-native architectures
-- Workers in different regions/zones
-
-**S3-compatible storage:**
-- AWS S3
-- MinIO
-- IBM Cloud Object Storage
-- DigitalOcean Spaces
-- Wasabi
-
-**Example with MinIO:**
-
-```json
-{
-  "batch_storage": {
-    "type": "s3",
     "bucket": "datasift-batches",
     "prefix": "tmp/batches/",
     "access_key": "minioadmin",
@@ -823,13 +768,13 @@ volumes:
 }
 ```
 
-#### Example 2: Kubernetes Work Pool with S3 Storage
+#### Example 2: Kubernetes Work Pool with Local Shared Storage
 
 ```json
 {
   "name": "kubernetes-production-pipeline",
   "flow_id": "k8s-prod-001",
-  "description": "Production pipeline using Kubernetes with S3",
+  "description": "Production pipeline using Kubernetes with shared local storage",
   "storage": "in-memory",
   "execute_type": "local",
   "global_config": {
@@ -958,14 +903,13 @@ Docker-based distributed execution uses `docker-compose.distributed.yml` to run:
 - Prefect workers (4 replicas for distributed batch processing)
 
 **Optional Services:**
-- MinIO (S3-compatible storage) - *Optional: Skip if using local storage (shared PVC) or existing S3 service (AWS S3, IBM COS, etc.)*
 - Ollama (LLM operations) - *Optional: Skip if you provide `OLLAMA_HOST` pointing to existing instance*
 - Docling Serve (document processing) - *Optional: Skip if you provide `DOCLING_SERVE_URL` pointing to existing instance*
 - OpenSearch (vector storage) - *Optional: Skip if you provide `OPENSEARCH_HOST` pointing to existing instance*
 
 **Note:** The optional services are included for convenience in local/POC setups. In production:
 - Use existing Ollama, Docling, and OpenSearch deployments by configuring environment variables
-- Use local storage (shared filesystem/PVC) or existing S3-compatible storage (AWS S3, IBM COS, MinIO, etc.) by configuring batch storage settings
+- Use local storage (shared filesystem/PVC) for batch data exchange between submitter and workers
 
 #### Architecture
 
@@ -1097,9 +1041,9 @@ datasift-orchestrator --flow-file your-flow.json
 
 **Shared Storage:**
 
-Batch data must be accessible to both the submitter and all workers. The compose file uses:
-1. MinIO (S3-compatible) for batch tables
-2. Shared volumes for input/output data
+Batch data must be accessible to both the submitter and all workers. The compose file uses shared volumes for:
+1. Batch tables
+2. Input/output data
 
 ```yaml
 volumes:
@@ -1136,10 +1080,10 @@ Kubernetes deployment provides production-grade distributed execution with horiz
 
 #### Prerequisites
 
-1. Kubernetes cluster (EKS, GKE, AKS, or local like minikube)
+1. Kubernetes cluster (any conformant distribution or local environment like minikube)
 2. `kubectl` configured to access cluster
-3. Container registry (Docker Hub, ECR, GCR, etc.)
-4. S3-compatible storage (AWS S3, MinIO, etc.)
+3. Container registry
+4. Shared storage available through a PersistentVolumeClaim or equivalent filesystem
 
 #### Step-by-Step Setup
 
@@ -1220,7 +1164,7 @@ kubectl port-forward -n datasift svc/prefect-server 4200:4200
 
 **8. Configure Flow**
 
-See [Example 2: Kubernetes Work Pool with S3 Storage](#example-2-kubernetes-work-pool-with-s3-storage) above.
+See [Example 2: Kubernetes Work Pool with Local Shared Storage](#example-2-kubernetes-work-pool-with-local-shared-storage) above.
 
 **9. Run Flow**
 
@@ -1249,9 +1193,9 @@ spec:
       storage: 100Gi
 ```
 
-**Option 2: S3 Storage (Recommended)**
+**Option 2: Shared Filesystem Storage**
 
-Use S3-compatible storage for cross-region/cross-cluster deployments. Configure in flow JSON as shown in examples above.
+Use shared filesystem storage for distributed deployments. Configure the shared path in flow JSON and back it with a suitable PVC or network filesystem.
 
 #### Resource Management
 
@@ -1318,12 +1262,6 @@ prefect worker ls
 ```
 
 #### Batch Storage Errors
-
-**For S3 storage:**
-```bash
-# Test S3 credentials
-aws s3 ls s3://your-bucket-name/ --endpoint-url http://minio:9000
-```
 
 **For local storage:**
 ```bash
@@ -1473,11 +1411,6 @@ Worker should show "Worker started" message.
 
 #### Verify Batch Storage Access
 
-**For S3:**
-```bash
-aws s3 ls s3://your-bucket-name/
-```
-
 **For local:**
 ```bash
 ls -la /data/batches
@@ -1492,7 +1425,7 @@ ls -la /data/batches
 **Possible causes:**
 1. Insufficient worker resources (CPU/memory)
 2. Network latency between submitter and workers
-3. Slow batch storage (S3 transfer speeds)
+3. Slow shared storage I/O
 4. Too many batches for available workers
 
 **Solutions:**
@@ -1694,14 +1627,14 @@ export PREFECT_API_URL=http://localhost:4200/api
 1. Build Docker image
 2. Start docker-compose stack
 3. Update flow JSON with Docker configuration
-4. Change batch storage to S3 (MinIO)
+4. Configure shared local filesystem storage
 
 **From Docker to Kubernetes:**
 1. Push image to registry
 2. Deploy Kubernetes manifests
 3. Create Kubernetes work pool
 4. Update flow JSON with Kubernetes configuration
-5. Configure S3 storage for production
+5. Configure shared filesystem storage for production
 
 ---
 
@@ -1721,7 +1654,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 | `OPENSEARCH_USE_SSL` | For OpenSearch | Use SSL | `false` |
 | `OPENSEARCH_VERIFY_CERTS` | For OpenSearch | Verify certificates | `false` |
 
-**Note**: S3 credentials are configured in flow JSON `batch_storage` section, not via environment variables.
+**Note**: Batch storage for distributed execution is configured in the flow JSON `batch_storage` section.
 
 ### 7.2 Configuration Schema
 
@@ -1853,7 +1786,7 @@ The following features are planned for future releases to enhance distributed ex
 **Supported Backends** (planned):
 - PostgreSQL
 - MySQL
-- S3-compatible storage
+- Shared filesystem-backed storage
 - Other persistent storage solutions
 
 **Benefits**:
@@ -1905,18 +1838,6 @@ ValueError: batch_storage.path is required when batch_storage.type is 'local'
 }
 ```
 
-#### S3 Credentials Missing
-
-**Error:**
-```
-ValueError: S3 credentials are required when batch_storage.type is 's3'
-```
-
-**Solution**: Provide credentials:
-```json
-{
-  "batch_storage": {
-    "type": "s3",
     "bucket": "my-bucket",
     "access_key": "your-access-key-id",
     "secret_key": "your-secret-access-key"
@@ -1970,12 +1891,6 @@ Worker should show "Worker started" message.
 
 #### Verify Batch Storage Access
 
-**For S3:**
-```bash
-aws s3 ls s3://your-bucket-name/
-```
-
-**For local:**
 ```bash
 ls -la /data/batches
 ```
@@ -1989,7 +1904,7 @@ ls -la /data/batches
 **Possible causes:**
 1. Insufficient worker resources (CPU/memory)
 2. Network latency between submitter and workers
-3. Slow batch storage (S3 transfer speeds)
+3. Slow shared storage I/O
 4. Too many batches for available workers
 
 **Solutions:**
@@ -2191,14 +2106,14 @@ export PREFECT_API_URL=http://localhost:4200/api
 1. Build Docker image
 2. Start docker-compose stack
 3. Update flow JSON with Docker configuration
-4. Change batch storage to S3 (MinIO)
+4. Configure shared local filesystem storage
 
 **From Docker to Kubernetes:**
 1. Push image to registry
 2. Deploy Kubernetes manifests
 3. Create Kubernetes work pool
 4. Update flow JSON with Kubernetes configuration
-5. Configure S3 storage for production
+5. Configure shared filesystem storage for production
 
 ---
 
@@ -2218,7 +2133,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 | `OPENSEARCH_USE_SSL` | For OpenSearch | Use SSL | `false` |
 | `OPENSEARCH_VERIFY_CERTS` | For OpenSearch | Verify certificates | `false` |
 
-**Note**: S3 credentials are configured in flow JSON `batch_storage` section, not via environment variables.
+**Note**: Batch storage for distributed execution is configured in the flow JSON `batch_storage` section.
 
 ### 7.2 Configuration Schema
 
@@ -2331,7 +2246,6 @@ Use descriptive names indicating environment and type:
 - Never commit credentials to version control
 - Store credentials securely (environment variables, secret managers)
 - For Kubernetes: Use service accounts and RBAC
-- For S3: Use IAM roles when possible (ECS, EKS)
 - Rotate credentials regularly
 
 #### Monitoring
@@ -2351,7 +2265,7 @@ Distributed execution in DataSift enables horizontal scaling and improved throug
 
 1. **Start Simple**: Begin with ephemeral mode, progress to local POC, then Docker/Kubernetes
 2. **PREFECT_MODE is Critical**: Always set `PREFECT_MODE=server` for distributed execution
-3. **Choose Right Storage**: Use inline for testing, local for Docker Compose, S3 for production
+3. **Choose Right Storage**: Use inline for testing and local shared filesystem storage for distributed execution
 4. **Monitor and Scale**: Add workers as needed, monitor performance metrics
 5. **Follow Best Practices**: Use descriptive names, set resource limits, secure credentials
 

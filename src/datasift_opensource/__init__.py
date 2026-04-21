@@ -1,5 +1,5 @@
 def main():
-    print("Hello from datasift-opensource!")
+    print("Hello from datasift!")
 
 
 if __name__ == "__main__":

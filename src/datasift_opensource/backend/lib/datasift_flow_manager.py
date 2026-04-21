@@ -1,5 +1,5 @@
 """
-Programmatic DatasiftFlowManager for embedding datasift-opensource in notebooks and applications.
+Programmatic DatasiftFlowManager for embedding datasift in notebooks and applications.
 
 This module provides a high-level API for executing datasift flows programmatically,
 wrapping the CLI functionality in a class suitable for notebook and embedded usage.

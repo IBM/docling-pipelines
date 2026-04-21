@@ -1,6 +1,6 @@
 # Examples
 
-This directory contains example scripts demonstrating various operators in the datasift-opensource project.
+This directory contains example scripts demonstrating various operators in the datasift project.
 
 ## Operator Examples
 

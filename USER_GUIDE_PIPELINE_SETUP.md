@@ -1979,7 +1979,7 @@ For complete setup instructions, work pool configuration, and deployment guides,
 This guide covers:
 - Prefect server and work pool setup
 - Worker deployment for different environments
-- Batch storage strategies (inline, local filesystem, S3)
+- Batch storage strategies (inline and local filesystem)
 - Docker and Kubernetes deployment configurations
 - Troubleshooting and performance tuning
 
