@@ -13,6 +13,7 @@ import os
 from typing import Any
 
 from common.clients.ollama_client import InteractionMode, OllamaClient
+from common.constants import OperatorConstants
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.util.infrastructure.logging import get_logger
 
@@ -48,7 +49,7 @@ def _load_static_prompt() -> str:
     return prompt
 
 
-def detect_pii_hap(request_data: dict[str, Any], model_name: str = "granite4") -> dict[str, Any]:
+def detect_pii_hap_ollama(request_data: dict[str, Any], model_name: str = "granite4") -> dict[str, Any]:
     """
     Detect PII and HAP in text using Ollama model.
 
@@ -98,20 +99,22 @@ def detect_pii_hap(request_data: dict[str, Any], model_name: str = "granite4") -
         raise DatasiftException(message=f"Failed to parse JSON from model: {exc!s}", status_code=500) from exc
 
 
-def detect_pii_hap_openai(
+def detect_pii_hap_litellm(
     request_data: dict[str, Any],
     model_name: str,
-    base_url: str,
-    api_key: str = "not-needed",
+    api_key: str | None = None,
+    api_base: str | None = None,
+    **litellm_config: Any,
 ) -> dict[str, Any]:
     """
-    Detect PII and HAP using OpenAI-compatible API (e.g., vLLM).
+    Detect PII and HAP using LiteLLM (supports 100+ providers).
 
     Args:
         request_data: Dictionary containing input text and detector thresholds
-        model_name: Name of the model to use
-        base_url: Base URL of the OpenAI-compatible API
-        api_key: API key (often not needed for local servers)
+        model_name: Model identifier in LiteLLM format (e.g., "gpt-4", "claude-3-opus-20240229")
+        api_key: Optional API key (falls back to provider-specific env vars)
+        api_base: Optional custom API base URL
+        **litellm_config: Additional LiteLLM configuration parameters
 
     Returns:
         Dictionary with 'detections' key containing list of detected items
@@ -120,11 +123,11 @@ def detect_pii_hap_openai(
         DatasiftException: If JSON parsing fails or API call fails
     """
     try:
-        from openai import OpenAI
+        from common.clients.litellm_llm_client import LiteLLMLLMClient
     except ImportError as exc:
-        raise DatasiftException(message=f"openai package not installed: {exc}", status_code=500) from exc
+        raise DatasiftException(message=f"litellm package not installed: {exc}", status_code=500) from exc
 
-    text = request_data.get("input", "")
+    text = request_data.get(OperatorConstants.PIIHAP.INPUT_FIELD, "")
     detectors = request_data.get("detectors", {})
     hap_threshold = detectors.get("hap", {}).get("threshold", 0.8)
     pii_threshold = detectors.get("pii", {}).get("threshold", 0.5)
@@ -137,17 +140,12 @@ def detect_pii_hap_openai(
     full_prompt = static_prompt + dynamic_prompt
 
     try:
-        client = OpenAI(base_url=base_url, api_key=api_key)
+        client = LiteLLMLLMClient(model_name=model_name, api_key=api_key, api_base=api_base, **litellm_config)
 
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[{"role": "user", "content": full_prompt}],
-            temperature=0.0,
-        )
+        messages = [{"role": "user", "content": full_prompt}]
+        raw_content = client.chat(messages=messages, temperature=0.0)
 
-        raw_content = response.choices[0].message.content
-
-        if raw_content is None:
+        if not raw_content:
             raise DatasiftException(message="Model returned empty response", status_code=500)
 
         # Try to parse JSON from response
@@ -165,4 +163,4 @@ def detect_pii_hap_openai(
     except json.JSONDecodeError as exc:
         raise DatasiftException(message=f"Failed to parse JSON from model: {exc!s}", status_code=500) from exc
     except Exception as exc:
-        raise DatasiftException(message=f"Error calling OpenAI API: {exc!s}", status_code=500) from exc
+        raise DatasiftException(message=f"Error calling LiteLLM API: {exc!s}", status_code=500) from exc

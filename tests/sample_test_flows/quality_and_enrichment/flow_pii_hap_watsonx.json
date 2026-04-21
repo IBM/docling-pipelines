@@ -1,8 +1,8 @@
 {
   "flow": {
-    "name": "PII and HAP Detection Flow with Ollama",
-    "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "description": "Flow to detect PII and HAP in documents using Ollama LLM",
+    "name": "PII and HAP Detection Flow - WatsonX.ai Provider",
+    "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567891",
+    "description": "Flow to test PII and HAP detection using hexagonal architecture with WatsonX.ai provider",
     "storage": "in-memory",
     "execute_type": "local",
     "global_config": {
@@ -42,11 +42,16 @@
       },
       {
         "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
-        "name": "pii_and_hap_detection",
+        "name": "pii_and_hap_detection_watsonx",
         "operator": "pii_and_hap",
         "config": {
-          "provider": "ollama",
-          "model_name": "llama3.2:3b",
+          "provider": "watsonx",
+          "provider_config": {
+            "api_key": "<your api key>",
+            "url": "https://wxai-qa.ml.cloud.ibm.com",
+            "container_kind": "project",
+            "container_id": "<your project id>"
+          },
           "pii_threshold": 0.5,
           "hap_threshold": 0.75,
           "expected_redactions": ["pii", "hap"],
@@ -63,8 +68,9 @@
           "hap_redaction": true,
           "hap_redaction_character": "#",
           "display_pii": true,
-          "max_workers": 4,
-          "chunk_size": 50000,
+          "batch_size": 4,
+          "min_chunk_size_kb": 51200,
+          "max_chunk_size_kb": 102400,
           "doc_column": "content"
         },
         "input_edges": [

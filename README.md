@@ -105,6 +105,13 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 - **Language Detection** - Detect document language
 - **Readability** - Assess document readability scores
 
+### Quality Operators
+
+- **PII and HAP Detection** - Detect Personally Identifiable Information and Hate/Abuse/Profanity content
+  - See [PII and HAP Documentation](docs/operators/pii_and_hap.md) - Complete setup and usage guide
+  - Multiple provider support: Ollama (local), WatsonX.ai (enterprise), LiteLLM (100+ providers)
+  - Hexagonal architecture with pluggable adapters
+
 ### Utility Operators
 
 - **Branching** - Conditional flow branching

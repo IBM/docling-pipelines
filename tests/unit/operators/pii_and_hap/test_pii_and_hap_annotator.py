@@ -20,7 +20,7 @@ import pytest
 
 
 from common.constants.operator_constants import OperatorConstants  # noqa: E402
-from core.operators.quality.pii_and_hap_annotator import (  # noqa: E402
+from core.operators.quality.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
     PIIAndHAPAnnotator,
 )
 
@@ -141,19 +141,23 @@ def mock_detect_pii_hap(request_data: dict, model_name: str = "granite4"):
 def mock_detection():
     """Mock the detection function for all tests."""
     with patch(
-        "core.operators.quality.pii_and_hap_annotator.detect_pii_hap",
+        "core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter.detect_pii_hap_ollama",
         side_effect=mock_detect_pii_hap,
     ):
         yield
 
 
-def test_both_pii_and_hap_redactions(mock_detection):
+@patch(
+    "core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter.detect_pii_hap_ollama",
+    side_effect=mock_detect_pii_hap,
+)
+def test_both_pii_and_hap_redactions(mock_detect):
     """Test PII and HAP detection with redaction enabled for both."""
     # 1. Construct the operator with the required configuration
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
             "redaction": True,
             "redaction_character": "*",
@@ -258,7 +262,7 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_detection):
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
             "redaction": False,
             "redaction_character": "",
@@ -415,7 +419,7 @@ def test_pii_extraction_with_redaction(mock_detection):
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
             "redaction": True,
             "redaction_character": "*",
@@ -455,7 +459,7 @@ def test_hap_extraction_with_redaction(mock_detection):
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
             "hap_redaction": True,
             "hap_redaction_character": "*",
@@ -497,7 +501,7 @@ def test_hap_extraction_without_redaction(mock_detection):
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
             "hap_redaction": False,
             "hap_redaction_character": "",
@@ -540,7 +544,7 @@ def test_empty_input_table(mock_detection):
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
         }
     )
@@ -567,7 +571,7 @@ def test_configuration_validation():
     try:
         operator = PIIAndHAPAnnotator(
             {
-                "pii_detection_type": "ollama",
+                "provider": "ollama",
                 "model_name": "granite4",
             }
         )
@@ -580,14 +584,16 @@ def test_configuration_validation():
         operator = PIIAndHAPAnnotator(
             {
                 "doc_column": "text",
-                "pii_detection_type": "openai",
+                "provider": "litellm",
                 "model_name": "gpt-3.5-turbo",
-                "openai_base_url": "http://localhost:8000/v1",
-                "openai_api_key": "test-key",  # pragma: allowlist secret
+                "provider_config": {
+                    "base_url": "http://localhost:8000/v1",
+                    "api_key": "test-key",  # pragma: allowlist secret
+                },
             }
         )
         assert operator.doc_column_name == "text"
-        assert operator.detection_type == "openai"
+        assert operator.provider == "litellm"
     except Exception as e:
         pytest.fail(f"Unexpected exception with custom configuration: {str(e)}")
 

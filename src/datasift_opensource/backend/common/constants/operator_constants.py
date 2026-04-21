@@ -317,6 +317,11 @@ class OperatorConstants:
     class PIIHAP:
         """PII/HAP constants."""
 
+        # Payload field constants
+        INPUT_FIELD: Final[str] = "input"
+        DETECTIONS_FIELD: Final[str] = "detections"
+        DEFAULT_MODEL_NAME: Final[str] = "granite4"
+
         # PII Configuration
         PII_AND_HAP_EXTRACT_REDACT: Final[str] = "pii_and_hap_extract_redact"
         PII_FIELD_NAME: Final[str] = "pii"

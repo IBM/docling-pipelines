@@ -12,7 +12,8 @@ This directory contains comprehensive documentation for the datasift-open projec
 ### User Guide
 - Flow configuration
 - Operator reference
-  - [Ingest Source](operators/ingest_source.md) - Multi-provider document 
+  - [Ingest Source](operators/ingest_source.md) - Multi-provider document
+  - [PII and HAP Detection](operators/pii_and_hap.md) - PII and HAP detection with multiple providers
 - CLI usage
 - Python API usage
 

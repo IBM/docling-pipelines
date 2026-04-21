@@ -15,7 +15,7 @@ import pytest
 import requests
 
 
-from core.operators.quality.pii_and_hap_annotator import (  # noqa: E402
+from core.operators.quality.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
     PIIAndHAPAnnotator,
 )
 
@@ -41,10 +41,11 @@ def test_real_pii_detection_with_ollama():
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
             "redaction": True,
             "redaction_character": "*",
+            "validate_model": False,
         }
     )
 
@@ -75,11 +76,12 @@ def test_real_hap_detection_with_ollama():
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
             "hap_redaction": True,
             "hap_redaction_character": "*",
             "hap_threshold": 0.8,
+            "validate_model": False,
         }
     )
 
@@ -111,7 +113,7 @@ def test_real_combined_pii_and_hap_with_ollama():
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "ollama",
+            "provider": "ollama",
             "model_name": "granite4",
             "redaction": True,
             "redaction_character": "*",
@@ -119,6 +121,7 @@ def test_real_combined_pii_and_hap_with_ollama():
             "hap_redaction_character": "*",
             "hap_threshold": 0.8,
             "display_pii": True,
+            "validate_model": False,
         }
     )
 
@@ -168,10 +171,12 @@ def test_real_openai_compatible_api():
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "pii_detection_type": "openai",
+            "provider": "openai",
             "model_name": "llama-3-8b",
-            "openai_base_url": "http://localhost:8000/v1",
-            "openai_api_key": "not-needed",  # pragma: allowlist secret
+            "provider_config": {
+                "base_url": "http://localhost:8000/v1",
+                "api_key": "not-needed",  # pragma: allowlist secret
+            },
             "redaction": True,
             "redaction_character": "*",
         }

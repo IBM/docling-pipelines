@@ -18,12 +18,30 @@ def test_pii_hap_with_ollama():
     os.environ["DATA_FOLDER"] = "/tmp/datasift_test"
 
     # Load the flow definition
-    flow_file = Path(__file__).parent / "flow_pii_hap_example.json"
+    # Navigate: tests/unit/operators/pii_and_hap -> tests (up 3 levels using resolve().parents)
+    tests_root = Path(__file__).resolve().parents[3]
+    flow_file = (
+        tests_root
+        / "sample_test_flows"
+        / "quality_and_enrichment"
+        / "flow_pii_hap_example.json"
+    )
 
     with open(flow_file, "r") as f:
         flow_config = json.load(f)
 
     flow_def = flow_config["flow"]
+
+    # Fix the input_folder path to be absolute
+    project_root = Path(__file__).resolve().parents[4]
+    for node in flow_def["dag"]:
+        if node.get("operator") == "ingest_local" and "input_folder" in node.get(
+            "config", {}
+        ):
+            relative_path = node["config"]["input_folder"]
+            absolute_path = str(project_root / relative_path)
+            node["config"]["input_folder"] = absolute_path
+            print(f"Updated input_folder to: {absolute_path}")
 
     print("=" * 80)
     print("Testing PII and HAP Detection Operator")
@@ -59,5 +77,3 @@ def test_pii_hap_with_ollama():
 
 if __name__ == "__main__":
     test_pii_hap_with_ollama()
-
-# Made with Bob

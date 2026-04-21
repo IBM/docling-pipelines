@@ -1256,7 +1256,179 @@ sequenceDiagram
 4. Error handling and logging
 5. Timeout management
 
-### 6. IngestSource Multi-Provider Pattern
+### 6. PIIAndHAPAnnotator Hexagonal Architecture Pattern
+
+The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using Large Language Models. It implements hexagonal architecture to support multiple detection providers through a pluggable adapter system.
+
+```mermaid
+graph TB
+    subgraph "Datasift Layer"
+        PIIHAP[PIIAndHAPAnnotator]
+    end
+    
+    subgraph "Adapter Architecture"
+        PORT[PIIHAPServicePort<br/>Interface]
+        FACTORY[PIIHAPAdapterFactory]
+        OLLAMA[Ollama Adapter]
+        WATSONX[WatsonX Adapter]
+        LITELLM[LiteLLM Adapter]
+    end
+    
+    subgraph "External Services"
+        OLLAMASRV[Ollama Server<br/>Local LLM]
+        WATSONXAPI[WatsonX.ai API<br/>IBM Cloud]
+        LITELLMAPI[LiteLLM API<br/>100+ Providers]
+    end
+    
+    PIIHAP --> PORT
+    PORT --> FACTORY
+    FACTORY --> OLLAMA
+    FACTORY --> WATSONX
+    FACTORY --> LITELLM
+    
+    OLLAMA --> OLLAMASRV
+    WATSONX --> WATSONXAPI
+    LITELLM --> LITELLMAPI
+    
+    style PIIHAP fill:#ffe1e1
+    style PORT fill:#fff4e1
+    style FACTORY fill:#fff4e1
+    style OLLAMA fill:#e1ffe1
+    style WATSONX fill:#e1ffe1
+    style LITELLM fill:#e1ffe1
+```
+
+**Supported Providers:**
+
+1. **Ollama**: Local LLM models for privacy-sensitive deployments
+   - Local inference without API costs
+   - Models: granite3.1-dense:8b, llama3.2, etc.
+   - Complete data privacy
+   - Offline capability
+
+2. **WatsonX.ai**: IBM's enterprise AI platform
+   - IAM-based authentication
+   - Enterprise-grade SLAs
+   - Compliance certifications
+   - Managed infrastructure
+
+3. **LiteLLM**: Multi-provider unified interface
+   - 100+ LLM providers supported
+   - OpenAI (gpt-4, gpt-3.5-turbo)
+   - Anthropic (claude-3-opus, claude-3-sonnet)
+   - Azure OpenAI, Cohere, AWS Bedrock, Google Vertex AI
+   - Easy provider switching
+
+**Configuration Examples:**
+
+**Ollama (Local):**
+```json
+{
+  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
+  "operator_params": {
+    "provider": "ollama",
+    "model_name": "granite3.1-dense:8b",
+    "provider_config": {}
+  }
+}
+```
+
+**WatsonX.ai (Enterprise):**
+```json
+{
+  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
+  "operator_params": {
+    "provider": "watsonx",
+    "provider_config": {
+      "api_key": "your-ibm-cloud-api-key",  # pragma: allowlist secret
+      "url": "https://us-south.ml.cloud.ibm.com",
+      "container_id": "your-project-id",
+      "container_kind": "project",
+      "timeout": 300
+    }
+  }
+}
+```
+
+**LiteLLM (Multi-Provider):**
+```json
+{
+  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
+  "operator_params": {
+    "provider": "litellm",
+    "model_name": "gpt-4",
+    "provider_config": {
+      "api_key": "sk-..."  # pragma: allowlist secret
+    }
+  }
+}
+```
+
+**Key Features:**
+
+1. **Detection Types**:
+   - **PII**: Email, phone, SSN, credit cards, addresses, names, DOB, medical records
+   - **HAP**: Hate speech, abuse, profanity, discrimination, threats, harassment
+
+2. **Output Format**:
+   - Structured JSON with detection type, score, location (start/end), and matched text
+   - Confidence scores for each detection
+   - Compatible with downstream redaction operators
+
+3. **Provider Flexibility**:
+   - Switch providers without code changes
+   - Configuration-driven provider selection
+   - Easy testing with local Ollama
+   - Production deployment with WatsonX or LiteLLM
+
+4. **Extensibility**:
+   - Add new providers by implementing `PIIHAPServicePort`
+   - Register adapters via decorator pattern
+   - Factory automatically discovers new adapters
+
+**Use Cases:**
+
+1. **Compliance Scanning**: Detect PII in documents for GDPR/CCPA compliance
+2. **Content Moderation**: Identify HAP content in user-generated content
+3. **Data Loss Prevention**: Prevent sensitive information leakage
+4. **Document Sanitization**: Prepare documents for public release
+5. **Risk Assessment**: Evaluate content risk before processing
+6. **Audit Trail**: Track PII/HAP detections for compliance reporting
+
+**Integration with Other Operators:**
+
+```mermaid
+graph LR
+    A[IngestSource] --> B[ExtractDocling]
+    B --> C[PIIAndHAPAnnotator]
+    C --> D[Redaction]
+    D --> E[Chunker]
+    E --> F[EmbeddingsOperator]
+    F --> G[VectorDBOperator]
+    
+    style A fill:#e1f5ff
+    style B fill:#ffe1f5
+    style C fill:#f5ffe1
+    style D fill:#fff5e1
+    style E fill:#e1fff5
+    style F fill:#ffe1e1
+    style G fill:#e1ffe1
+```
+
+**Typical Pipeline:**
+1. **IngestSource**: Load documents from storage
+2. **ExtractDocling**: Extract text content
+3. **PIIAndHAPAnnotator**: Detect sensitive content
+4. **Redaction**: Mask or remove detected PII/HAP
+5. **Chunker**: Split sanitized documents into chunks
+6. **EmbeddingsOperator**: Generate vector embeddings
+7. **VectorDBOperator**: Store embeddings in vector database
+
+See [PII and HAP Operator Documentation](../docs/operators/pii_and_hap.md) for detailed usage guide.
+
+---
+
+### 7. IngestSource Multi-Provider Pattern
 
 The IngestSource operator provides a unified interface for ingesting documents from multiple storage providers and data sources. It uses an adapter-based architecture for extensibility and supports both LangChain loaders and custom adapters.
 
@@ -2240,7 +2412,8 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 - **Readability**: Readability scoring
 - **Redaction**: PII redaction
 - **SQLFilter**: SQL-based filtering
-- **LanguageDetection**: Language identification
+- **LanguageDetection**: Language identification (hexagonal architecture with FastText adapter)
+- **PIIAndHAPAnnotator**: PII and HAP detection (hexagonal architecture with Ollama, WatsonX, and LiteLLM adapters)
 
 #### VectorDB Operators (`vectordb/`)
 - **VectorDBOperator**: Generic vector database operator using hexagonal architecture (ports & adapters)

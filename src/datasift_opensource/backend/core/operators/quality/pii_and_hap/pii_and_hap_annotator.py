@@ -2,12 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-PII and HAP Detection Annotator using Ollama or OpenAI-compatible APIs.
+PII and HAP Detection Annotator using Ollama/OpenAI-compatible/WatsonX APIs.
 
 Detects Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP)
-content in documents using local LLM models via Ollama or OpenAI-compatible APIs (like vLLM).
-
-This implementation follows the enterprise pattern but is adapted for opensource use.
+content in documents using local LLM models via Ollama or OpenAI-compatible APIs (like vLLM) or WatsonX APIs..
 """
 
 from __future__ import annotations
@@ -17,6 +15,8 @@ from typing import Any
 
 import pyarrow as pa
 
+# Import adapters to trigger registration
+import core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
 from common.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -27,9 +27,10 @@ from common.constants.operator_constants import OperatorConstants
 from common.util.core.strings import split_text_into_chunks
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-
-from .local_pii_hap_detect import detect_pii_hap, detect_pii_hap_openai
-from .pii_and_hap_helper import (
+from core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_hap_adapter_factory import (
+    PIIHAPAdapterFactory,
+)
+from core.operators.quality.pii_and_hap.pii_and_hap_helper import (
     DEFAULT_HAP_THRESHOLD_VALUE,
     DEFAULT_PII_THRESHOLD_VALUE,
     DEFAULT_PII_TYPES_OF_CONCERN,
@@ -41,40 +42,36 @@ from .pii_and_hap_helper import (
     initialize_table_columns,
     update_table,
 )
+from core.operators.quality.pii_and_hap.ports.outbound.pii_hap_service import PIIHAPServicePort
 
 logger = get_logger(__name__)
 
 # Chunking configuration defaults
-# These values balance memory usage with processing efficiency:
-# - MIN_CHUNK_SIZE: Ensures chunks are large enough for meaningful context
-# - MAX_CHUNK_SIZE: Prevents excessive memory consumption during LLM processing
-DEFAULT_MIN_CHUNK_SIZE_IN_KB = 50 * 1024  # 50 KB - minimum chunk size for context
-DEFAULT_MAX_CHUNK_SIZE_IN_KB = 100 * 1024  # 100 KB - maximum chunk size to limit memory usage
+DEFAULT_MIN_CHUNK_SIZE_IN_KB = 50 * 1024  # 50 KB
+DEFAULT_MAX_CHUNK_SIZE_IN_KB = 100 * 1024  # 100 KB
 DEFAULT_BATCH_SIZE = 4
 
-# Detection types
-PII_DETECTION_TYPE = "pii_detection_type"
-PII_DETECTION_TYPE_DEFAULT = "ollama"
-PII_DETECTION_TYPE_OLLAMA = "ollama"
-PII_DETECTION_TYPE_OPENAI = "openai"
+# Provider types
+PROVIDER = "provider"
+PROVIDER_DEFAULT = "ollama"
+PROVIDER_OLLAMA = "ollama"
+PROVIDER_WATSONX = "watsonx"
+PROVIDER_LITELLM = "litellm"
 
-# Configuration keys for magic strings
+# Configuration keys
 DISPLAY_PII_KEY = "display_pii"
 BATCH_SIZE_KEY = "batch_size"
 MIN_CHUNK_SIZE_KEY = "min_chunk_size_kb"
 MAX_CHUNK_SIZE_KEY = "max_chunk_size_kb"
-OPENAI_BASE_URL_KEY = "openai_base_url"
-OPENAI_API_KEY_KEY = "openai_api_key"  # pragma: allowlist secret
-OPENAI_API_KEY_DEFAULT = "not-needed"  # pragma: allowlist secret
+PROVIDER_CONFIG_KEY = "provider_config"
 
 
 class PIIAndHAPAnnotator(AbstractOperator):
     """
     Extract PII and HAP information from ingested documents.
 
-    This operator uses local LLM models (via Ollama or OpenAI-compatible APIs)
-    for both PII and HAP detection. It follows the enterprise pattern but is
-    adapted for opensource use without external services.
+    This operator uses local LLM models (via Ollama/WatsonX/LiteLLM APIs)
+    for both PII and HAP detection.
     """
 
     short_name: str = "pii_and_hap"
@@ -82,7 +79,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
     # Type hints for instance attributes
     doc_column_name: str
-    detection_type: str
+    provider: str
     model_name: str
     redaction: bool
     redaction_character: str
@@ -97,10 +94,10 @@ class PIIAndHAPAnnotator(AbstractOperator):
     batch_size: int
     min_chunk_size: int
     max_chunk_size: int
-    openai_base_url: str | None
-    openai_api_key: str
+    provider_config: dict[str, Any]
     extractor: GuardRailsPIIAndHAPExtractor
     common_log_arguments: dict[str, Any]
+    pii_hap_adapter: PIIHAPServicePort
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
@@ -114,7 +111,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
             ),
             # Detection configuration
-            ("detection_type", PII_DETECTION_TYPE, PII_DETECTION_TYPE_DEFAULT),
+            ("provider", PROVIDER, PROVIDER_DEFAULT),
             ("model_name", OperatorConstants.Config.MODEL_NAME, "granite4"),
             # Redaction configuration
             (
@@ -162,9 +159,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
             # Chunking configuration - configurable for performance tuning
             ("min_chunk_size", MIN_CHUNK_SIZE_KEY, DEFAULT_MIN_CHUNK_SIZE_IN_KB),
             ("max_chunk_size", MAX_CHUNK_SIZE_KEY, DEFAULT_MAX_CHUNK_SIZE_IN_KB),
-            # OpenAI-specific configuration
-            ("openai_base_url", OPENAI_BASE_URL_KEY, None),
-            ("openai_api_key", OPENAI_API_KEY_KEY, OPENAI_API_KEY_DEFAULT),
+            # Provider-specific configuration (generic dictionary)
+            ("provider_config", PROVIDER_CONFIG_KEY, {}),
         ]
 
         # Apply all configurations
@@ -177,12 +173,59 @@ class PIIAndHAPAnnotator(AbstractOperator):
         # Validate configuration
         self._validate_config()
 
+        # Initialize adapter
+        self.pii_hap_adapter = self._initialize_pii_hap_adapter()
+
         # Initialize extractor and logging
         self.extractor = GuardRailsPIIAndHAPExtractor(config)
         self.common_log_arguments = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
+
+    def _initialize_pii_hap_adapter(self) -> PIIHAPServicePort:
+        """Initialize the PII/HAP detection adapter based on configuration.
+
+        Returns:
+            PIIHAPServicePort: Initialized detection adapter
+
+        Raises:
+            ValueError: If the adapter cannot be initialized
+        """
+        try:
+            # Extract provider-specific config from provider_config dictionary
+            adapter_config: dict[str, Any] = dict(self.provider_config)
+
+            # Add provider-specific configuration
+            if self.provider == PROVIDER_WATSONX:
+                # Validate required WatsonX parameters
+                required_keys = ["api_key", "url", "container_kind", "container_id"]
+                missing_keys = [key for key in required_keys if key not in adapter_config]
+                if missing_keys:
+                    raise ValueError(
+                        f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
+                        f"Missing: {', '.join(missing_keys)}"
+                    )
+                # Add default timeout if not specified
+                adapter_config.setdefault("timeout", 300)
+            else:
+                # Ollama and LiteLLM providers need model_name
+                adapter_config.setdefault(OperatorConstants.Config.MODEL_NAME, self.model_name)
+
+            adapter = PIIHAPAdapterFactory.create(adapter_name=self.provider, **adapter_config)
+            logger.info(
+                f"Successfully initialized {self.provider} adapter",
+                extra=self.common_log_arguments,
+            )
+            return adapter
+        except ValueError as e:
+            available_providers = PIIHAPAdapterFactory.list_adapters()
+            logger.error(
+                f"Failed to initialize PII/HAP provider '{self.provider}': {e}. "
+                f"Available providers: {available_providers}",
+                extra=self.common_log_arguments,
+            )
+            raise
 
     def _validate_config(self) -> None:
         """Validate configuration values to ensure they are within acceptable ranges."""
@@ -311,30 +354,31 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     OperatorConstants.Filtering.MAX_VALUE: 1.0,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
-                PII_DETECTION_TYPE: {
-                    OperatorConstants.Misc.NAME: "Detection Type",
-                    OperatorConstants.Config.DESCRIPTION: "Backend to use (ollama or openai)",
+                PROVIDER: {
+                    OperatorConstants.Misc.NAME: "Provider",
+                    OperatorConstants.Config.DESCRIPTION: f"Detection provider to use ({PROVIDER_OLLAMA}, {PROVIDER_WATSONX}, {PROVIDER_LITELLM})",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: PII_DETECTION_TYPE_DEFAULT,
-                    OperatorConstants.Config.VALID_VALUES: [
-                        PII_DETECTION_TYPE_OLLAMA,
-                        PII_DETECTION_TYPE_OPENAI,
-                    ],
+                    OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
+                    OperatorConstants.Config.VALID_VALUES: PIIHAPAdapterFactory.list_adapters(),
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.MODEL_NAME: {
                     OperatorConstants.Misc.NAME: "Model Name",
-                    OperatorConstants.Config.DESCRIPTION: "Name of the model to use",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the model to use (for Ollama provider)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: "granite4",
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                "openai_base_url": {
-                    OperatorConstants.Misc.NAME: "OpenAI Base URL",
-                    OperatorConstants.Config.DESCRIPTION: "Base URL for OpenAI-compatible API",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: None,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                PROVIDER_CONFIG_KEY: {
+                    OperatorConstants.Misc.NAME: "Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Provider-specific configuration dictionary. "
+                        "For WatsonX: {'api_key': '...', 'url': '...', 'container_kind': '...', 'container_id': '...'}. "
+                        "For OpenAI: {'base_url': '...', 'api_key': '...'}. "
+                    ),
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DEFAULT: {},
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
             },
         }
@@ -392,9 +436,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     )
 
     def _perform_detections_for_single_document(self, doc_info: dict[str, Any]) -> dict[str, Any]:
-        """Perform PII/HAP detection for a single document."""
+        """Perform PII/HAP detection for a single document using the configured adapter."""
         try:
-            processed_response: dict[str, Any] = {}
+            all_detections: list[Any] = []
             doc_content_chunks = split_text_into_chunks(
                 text=doc_info["doc_contents"].as_py(),
                 min_size=self.min_chunk_size,
@@ -402,36 +446,40 @@ class PIIAndHAPAnnotator(AbstractOperator):
             )
 
             for doc_content_chunk in doc_content_chunks:
-                contents = self.get_payload_for_detections(doc_content_chunk)
+                payload = self.get_payload_for_detections(doc_content_chunk)
 
-                if self.detection_type == PII_DETECTION_TYPE_OLLAMA:
-                    logger.info(
-                        f"Processing PII/HAP detection with Ollama using model: '{self.model_name}'.",
-                        extra=self.common_log_arguments,
-                    )
-                    chunk_response = detect_pii_hap(contents, self.model_name)
-                elif self.detection_type == PII_DETECTION_TYPE_OPENAI:
-                    logger.info(
-                        f"Processing PII/HAP detection with OpenAI API using model: '{self.model_name}'.",
-                        extra=self.common_log_arguments,
-                    )
-                    chunk_response = detect_pii_hap_openai(
-                        contents,
-                        self.model_name,
-                        self.openai_base_url or "",
-                        self.openai_api_key,
-                    )
-                else:
-                    raise ValueError(f"Unsupported detection type: {self.detection_type}")
+                # Log detection processing
+                logger.info(
+                    f"Processing PII/HAP detection with {self.provider} provider.",
+                    extra=self.common_log_arguments,
+                )
 
-                if not chunk_response.get("detections"):
-                    logger.warning(
-                        "No detections returned from model",
-                        extra=self.common_log_arguments,
-                    )
+                # Use adapter for detection
+                response = self.pii_hap_adapter.detect_pii_hap(payload)
 
-                processed_response.setdefault("detections", []).extend(chunk_response.get("detections", []))
+                # Log detection count for this chunk
+                detection_count = len(response.detections) if response.detections else 0
+                logger.debug(
+                    f"Chunk returned {detection_count} detections",
+                    extra=self.common_log_arguments,
+                )
 
+                # Convert domain models back to dict format for compatibility with existing code
+                for detection in response.detections:
+                    detection_dict = {
+                        "detection": detection.detection,
+                        "detection_type": detection.detection_type,
+                        "score": detection.score,
+                        "start": detection.start,
+                        "end": detection.end,
+                    }
+                    if detection.text:
+                        detection_dict["text"] = detection.text
+                    if detection.evidences:
+                        detection_dict["evidences"] = detection.evidences
+                    all_detections.append(detection_dict)
+
+            processed_response = {"detections": all_detections}
             doc_info.update({"processed_response": processed_response, "success": True})
             return doc_info
 
@@ -618,12 +666,16 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     f"Please use values from {DEFAULT_PII_TYPES_OF_CONCERN}."
                 )
 
-        if (
-            self.detection_type == PII_DETECTION_TYPE_OPENAI
-            and self.should_validate_field(field_value=self.openai_base_url)
-            and not self.openai_base_url
-        ):
-            errors.append("openai_base_url is required when detection_type is 'openai'")
+        # Validate provider-specific requirements from provider_config
+        if self.should_validate_field(field_value=self.provider_config):
+            if self.provider == PROVIDER_WATSONX:
+                required_keys = ["api_key", "url", "container_kind", "container_id"]
+                missing_keys = [key for key in required_keys if key not in self.provider_config]
+                if missing_keys:
+                    errors.append(
+                        f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
+                        f"Missing: {', '.join(missing_keys)}"
+                    )
 
         if len(errors) > 0:
             logger.error(errors)
