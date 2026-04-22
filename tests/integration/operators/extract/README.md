@@ -1,281 +1,333 @@
-# Docling-Serve Integration Tests
+# ExtractOperator Integration Tests
 
-This directory contains integration tests for the `ExtractDoclingOperator` with docling-serve functionality.
+This directory contains integration tests for the unified `ExtractOperator` that uses hexagonal architecture to support multiple extraction strategies.
 
-> **Docling-Serve API compatibility:** These integration tests assume the Docling-Serve v1 API. Validation and troubleshooting steps below use the current v1 async endpoints and response fields.
+## Overview
+
+The ExtractOperator supports two types of extraction:
+- **Text Extraction**: Converting documents to markdown (docling_library or docling_serve modes)
+- **Entity Extraction**: Extracting structured data from text (ollama, docling, or litellm modes)
+
+These integration tests verify the operator works with real extraction scenarios, including actual document processing and parallel execution.
+
+## Architecture
+
+The operator follows hexagonal architecture:
+- **Operator**: Thin wrapper handling configuration and delegation
+- **Ports**: Define extraction interfaces (TextExtractionPort, EntityExtractionPort)
+- **Adapters**: Implement specific extraction strategies
+- **Factories**: Create appropriate adapters based on mode
+
+## Test Coverage
+
+The integration test suite (`test_extract_operator_integration.py`) covers:
+
+### Basic Integration Tests
+- ✅ Basic text extraction with PyArrow tables
+- ✅ Template-based entity extraction
+- ✅ VLM-enhanced text extraction
+- ✅ Docling Serve remote API extraction
+- ✅ Parallel processing with multiple workers
+- ✅ Error handling with invalid documents
+- ✅ Metadata propagation through pipeline
+
+### Real-World Tests
+- ✅ Extraction from real PDF documents
+- ✅ Docling Serve with OCR on scanned documents
+- ✅ VLM extraction on complex layouts
+- ✅ Template extraction with data expansion
 
 ## Prerequisites
 
-### 1. Start Docling-Serve
+### For Text Extraction Tests
 
-You need a running docling-serve instance. The easiest way is using Docker:
+**Docling Library Mode (Default):**
+- No external dependencies required
+- Docling library installed via project dependencies
+
+**Docling Serve Mode:**
+- Docling Serve running on `http://localhost:5001`
 
 ```bash
-# Start docling-serve on default port 5001
+# Start docling-serve
 docker run -p 5001:5001 ds4sd/docling-serve:latest
+
+# Verify it's running
+curl http://localhost:5001/health
 ```
 
-### 2. Verify Docling-Serve is Running
+### For Entity Extraction Tests
+
+**Ollama Mode:**
+- Ollama server running on `http://localhost:11434`
+- Required model pulled
 
 ```bash
-# Check health endpoint
-curl http://0.0.0.0:5001/health
+# Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
 
-# Optional: verify the v1 async API accepts file uploads
-curl -X POST http://0.0.0.0:5001/v1/convert/file/async \
-  -F "files=@/path/to/document.pdf" \
-  -F "to_formats=md"
+# Pull model
+ollama pull llama3.2
+
+# Verify Ollama is running
+curl http://localhost:11434/api/tags
 ```
 
-The v1 submit request should return a JSON payload containing a `task_id`.
+**Docling Mode:**
+- No external dependencies required
+- Uses Docling's template-based extraction
 
-### 3. Set Environment Variables (Optional)
-
-If using a remote docling-serve instance:
-
-```bash
-export DOCLING_SERVE_URL="https://your-docling-serve.example.com"
-```
+**LiteLLM Mode:**
+- Currently a placeholder implementation
+- Will require API keys when fully implemented
 
 ## Running the Tests
 
-### Run All Integration Tests
+### Setup Environment
 
 ```bash
-# From the backend directory
+# Navigate to backend directory
 cd src/datasift_opensource/backend
 
-# Activate the virtual environment
+# Activate virtual environment
 source .venv/bin/activate
 
 # Set PYTHONPATH
 export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
 
-# Run all docling-serve integration tests
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py -v
+# Sync dependencies (if needed)
+uv sync --extra dev
+```
+
+### Run All Integration Tests
+
+```bash
+# Run all extract operator integration tests
+uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py -v
+
+# Run with integration marker
+uv run pytest ../../../tests/integration/operators/extract/ -v -m integration
 ```
 
 ### Run Specific Test Classes
 
 ```bash
-# Test basic extraction
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeBasicExtraction -v
+# Basic integration tests
+uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration -v
 
-# Test OCR functionality
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeOCR -v
-
-# Test table extraction
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeTableExtraction -v
-
-# Test batch processing
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeBatchProcessing -v
-
-# Test error handling
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeErrorHandling -v
-
-# Test configuration options
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeConfiguration -v
+# Real-world integration tests
+uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorRealWorld -v
 ```
 
 ### Run Specific Test Methods
 
 ```bash
 # Test basic extraction
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeBasicExtraction::test_docling_serve_basic_extraction -v
+uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_basic_extraction_integration -v
 
-# Test OCR with enabled
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeOCR::test_docling_serve_with_ocr_enabled -v
+# Test parallel processing
+uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_parallel_processing_with_multiple_workers -v
 
-# Test multiple documents
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py::TestDoclingServeBatchProcessing::test_docling_serve_multiple_documents -v
-```
+# Test error handling
+uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_error_handling_with_invalid_documents -v
 
-### Run with Integration Marker
-
-```bash
-# Run all tests marked as integration
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py -v -m integration
+# Test template extraction with expansion
+uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorRealWorld::test_template_extraction_with_expansion -v
 ```
 
 ### Run with Verbose Output
 
 ```bash
 # Show detailed output including print statements
-uv run pytest ../../../tests/integration/operators/extract/test_extract_docling_serve_integration.py -v -s
+uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py -v -s
 ```
 
-## v1 API Expectations
+## Test Fixtures
 
-These tests rely on the following Docling-Serve v1 behavior:
-
-- **Submit endpoint:** `/v1/convert/file/async`
-- **Status endpoint:** `/v1/status/poll/{task_id}`
-- **Result endpoint:** `/v1/result/{task_id}`
-- **Request format:** multipart/form-data file upload
-- **Status field:** `task_status` with lowercase values such as `pending`, `processing`, and `success`
-- **Result field:** extracted markdown under `document.md_content`
-
-If your environment still exposes only the older `/convert/...` routes or expects base64 JSON payloads, these integration tests will not match the current client behavior.
-
-## Test Coverage
-
-The integration tests cover the following scenarios:
-
-### 1. Basic Extraction (`TestDoclingServeBasicExtraction`)
-- ✅ Basic document extraction
-- ✅ Content validation
-- ✅ Metadata verification
-- ✅ Document hash generation
-
-### 2. OCR Functionality (`TestDoclingServeOCR`)
-- ✅ OCR-enabled extraction
-- ✅ OCR-disabled extraction
-- ✅ OCR engine configuration
-- ✅ Language settings
-
-### 3. Table Extraction (`TestDoclingServeTableExtraction`)
-- ✅ Fast table extraction mode
-- ✅ Accurate table extraction mode
-- ✅ Table structure preservation
-
-### 4. Batch Processing (`TestDoclingServeBatchProcessing`)
-- ✅ Multiple document processing
-- ✅ Unique document hashing
-- ✅ Batch metadata tracking
-
-### 5. Error Handling (`TestDoclingServeErrorHandling`)
-- ✅ Invalid file handling
-- ✅ Connection error handling
-- ✅ Timeout handling
-- ✅ Graceful failure recovery
-
-### 6. Configuration Options (`TestDoclingServeConfiguration`)
-- ✅ PDF backend selection (`dlparse_v4`, `dlparse_v3`, `pypdfium2`)
-- ✅ Image export modes (`embedded`, `referenced`, `none`)
-- ✅ Custom timeout values
-- ✅ Polling interval configuration
+Tests use sample documents from `tests/fixtures/`:
+- `tests/fixtures/invoices/TR-INV_044_1_1.1.pdf` - Primary test document
+- `tests/fixtures/invoices/TR-INV_001_3_2.1.pdf` - Secondary test document
+- `tests/fixtures/invoices/TR-INV_003_3_2.1.pdf` - Tertiary test document
 
 ## Skip Conditions
 
-Tests will be automatically skipped if:
+Many tests are skipped by default because they require external dependencies:
 
-1. **Docling-serve is not running**: All tests require a running docling-serve instance
-2. **Sample PDFs not found**: Tests requiring specific fixtures will skip if files are missing
-3. **Insufficient test files**: Batch processing tests need at least 2 PDF files
+1. **Docling Library Tests**: Skipped if Docling dependencies not available
+2. **VLM Tests**: Skipped - require VLM models and GPU resources
+3. **Docling Serve Tests**: Skipped - require Docling Serve running on localhost:5001
+4. **Real PDF Tests**: Skipped - require actual PDF files and Docling installation
+
+To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.skip` decorator.
+
+## Extraction Modes
+
+### Text Extraction Modes
+
+**1. Docling Library (Default)**
+```json
+{
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "none",
+    "doc_column": "document",
+    "extract_tables": true,
+    "extract_images": false,
+    "max_workers": 4
+}
+```
+
+**2. Docling Library with VLM Pipeline**
+```json
+{
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "none",
+    "use_vlm_pipeline": true,
+    "vlm_preset": "granite_docling",
+    "vlm_engine_type": "transformers",
+    "doc_column": "document",
+    "max_workers": 1
+}
+```
+
+**3. Docling Serve**
+```json
+{
+    "text_extraction_mode": "docling_serve",
+    "entity_extraction_mode": "none",
+    "docling_serve_base_url": "http://localhost:5001",
+    "docling_serve_timeout": 300,
+    "docling_serve_do_ocr": true,
+    "doc_column": "document"
+}
+```
+
+### Entity Extraction Modes
+
+**1. None (Default)**
+```json
+{
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "none"
+}
+```
+
+**2. Ollama**
+```json
+{
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "ollama",
+    "model_name": "llama3.2",
+    "temperature": 0.0,
+    "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "float"
+    }
+}
+```
+
+**3. Docling (Template-Based)**
+```json
+{
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "docling",
+    "custom_schema": {
+        "type": "object",
+        "properties": {
+            "invoice_number": {"type": "string"},
+            "total_amount": {"type": "number"}
+        }
+    }
+}
+```
 
 ## Troubleshooting
 
 ### Tests are Skipped
 
-If tests are being skipped, check:
+Most integration tests are skipped by default. To run them:
 
-```bash
-# Verify docling-serve is running
-curl http://0.0.0.0:5001/health
+1. **Install required dependencies**:
+   ```bash
+   cd src/datasift_opensource/backend
+   uv sync --extra dev
+   ```
 
-# Check if it's running on a different port
-docker ps | grep docling-serve
+2. **Start external services** (if needed):
+   ```bash
+   # For Docling Serve tests
+   docker run -p 5001:5001 ds4sd/docling-serve:latest
+   
+   # For Ollama tests
+   ollama serve
+   ollama pull llama3.2
+   ```
 
-# Restart docling-serve if needed
-docker run -p 5001:5001 ds4sd/docling-serve:latest
-```
-
-### Validate the v1 API Manually
-
-If the tests cannot talk to docling-serve, verify the full v1 async flow:
-
-```bash
-# Submit a file
-curl -X POST http://0.0.0.0:5001/v1/convert/file/async \
-  -F "files=@/path/to/document.pdf" \
-  -F "to_formats=md"
-
-# Poll task status
-curl http://0.0.0.0:5001/v1/status/poll/<task_id>
-
-# Fetch result
-curl http://0.0.0.0:5001/v1/result/<task_id>
-```
-
-Expected checks:
-- submit returns a `task_id`
-- polling returns `task_status`
-- completed tasks report `task_status: "success"`
-- markdown is returned under `document.md_content`
+3. **Remove skip decorators** from tests you want to run
 
 ### Connection Errors
 
-If you see connection errors:
+**Docling Serve Connection Issues:**
+```bash
+# Verify service is running
+curl http://localhost:5001/health
 
-1. Verify docling-serve is accessible:
-   ```bash
-   curl -v http://0.0.0.0:5001/health
-   ```
+# Check if port is in use
+lsof -i :5001
 
-2. Confirm the v1 submit endpoint responds:
-   ```bash
-   curl -X POST http://0.0.0.0:5001/v1/convert/file/async \
-     -F "files=@/path/to/document.pdf" \
-     -F "to_formats=md"
-   ```
+# Restart service
+docker restart <container-id>
+```
 
-3. Check firewall settings
+**Ollama Connection Issues:**
+```bash
+# Verify Ollama is running
+curl http://localhost:11434/api/tags
 
-4. Try using localhost instead:
-   ```bash
-   export DOCLING_SERVE_URL="http://localhost:5001"
-   ```
+# Check if model is available
+ollama list
 
-### Timeout Errors
-
-If tests timeout:
-
-1. Increase timeout in test configuration
-2. Check docling-serve logs for processing issues
-3. Confirm polling responses return `task_status` updates
-4. Try with smaller or simpler PDF files
+# Restart Ollama
+ollama serve
+```
 
 ### Import Errors
-
-If you see import errors:
 
 ```bash
 # Ensure PYTHONPATH is set correctly
 export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
 
-# Verify from backend directory
+# Verify imports work
 cd src/datasift_opensource/backend
-source .venv/bin/activate
-python -c "from common.constants.operator_constants import OperatorConstants; print('OK')"
+python -c "from core.operators.extract.extract_operator import ExtractOperator; print('OK')"
 ```
 
-## Test Fixtures
+### Timeout Errors
 
-Tests use sample PDFs from `tests/fixtures/invoices/`:
-- `TR-INV_044_1_1.1.pdf` - Primary test document
-- `TR-INV_001_3_2.1.pdf` - Secondary test document
-- `TR-INV_003_3_2.1.pdf` - Tertiary test document
+If tests timeout:
+1. Increase timeout values in test configuration
+2. Check service logs for processing issues
+3. Try with smaller or simpler documents
+4. Reduce `max_workers` to avoid overwhelming services
 
 ## Performance Notes
 
-- Basic extraction: ~2-5 seconds per document
-- OCR-enabled extraction: ~5-15 seconds per document
-- Accurate table mode: ~10-30 seconds per document
-- Fast table mode: ~2-5 seconds per document
+- **Basic extraction**: ~2-5 seconds per document
+- **VLM extraction**: ~10-30 seconds per document (GPU-dependent)
+- **Docling Serve with OCR**: ~5-15 seconds per document
+- **Entity extraction with Ollama**: ~2-10 seconds per document
 
 Actual times depend on:
 - Document complexity
 - Number of pages
-- Table count
-- Image count
+- Table/image count
 - OCR requirements
 - Server resources
+- Model size (for LLM-based extraction)
 
-## Additional Resources
+## Related Documentation
 
-- [Docling-Serve Documentation](https://github.com/DS4SD/docling-serve)
-- [ExtractDoclingOperator Source](../../../../src/datasift_opensource/backend/core/operators/extract/extract_docling.py)
-- [DoclingServeClient Source](../../../../src/datasift_opensource/backend/common/clients/docling_serve_client.py)
-- [Example Usage](../../../../examples/extract_docling_serve_example.py)
-
-## Made with Bob
+- [ExtractOperator README](../../../../src/datasift_opensource/backend/core/operators/extract/README.md) - Complete operator documentation
+- [ExtractOperator Source](../../../../src/datasift_opensource/backend/core/operators/extract/extract_operator.py) - Operator implementation
+- [Sample Flows](../../../../tests/sample_test_flows/extract/) - Example flow configurations
+- [Docling Documentation](https://github.com/DS4SD/docling) - Docling library docs
+- [Ollama Documentation](https://ollama.com/docs) - Ollama setup and usage

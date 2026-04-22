@@ -1,8 +1,5 @@
 """Extract operators for document content extraction."""
 
-from core.operators.extract.extract_docling import ExtractDoclingOperator
-from core.operators.extract.extract_entities_ollama import (
-    ExtractEntitiesOllamaOperator,
-)
+from core.operators.extract.extract_operator import ExtractOperator
 
-__all__ = ["ExtractDoclingOperator", "ExtractEntitiesOllamaOperator"]
+__all__ = ["ExtractOperator"]

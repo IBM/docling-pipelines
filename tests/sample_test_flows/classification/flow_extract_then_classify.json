@@ -30,10 +30,11 @@
       {
         "id": "20fd7577-b061-4fc9-92d5-120ae0fbde89",
         "name": "extract",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "docling",
             "doc_column": "content",
-            "use_template": true,
             "expand_extracted_data": true,
             "template": {
                 "invoice_number": "string",

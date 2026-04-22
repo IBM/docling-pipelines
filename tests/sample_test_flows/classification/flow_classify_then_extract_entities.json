@@ -53,9 +53,11 @@
       {
         "id": "40a1b2c3-d4e5-4f67-8901-234567890abc",
         "name": "extract_entities",
-        "operator": "extract_entities_ollama",
+        "operator": "extract_operator",
         "config": {
-          "ollama_model": "granite4:latest",
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "ollama",
+          "model_name": "granite4:latest",
           "doc_column": "content",
           "output_column": "entities",
           "max_doc_chars": 8000,

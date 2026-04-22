@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Integration tests for IngestLocalOperator + ExtractDoclingOperator sequence
+Integration tests for IngestLocalOperator + ExtractOperator sequence
 Tests the complete flow from file ingestion to content extraction
 """
 
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from core.operators.ingest.ingest_local_folder import IngestLocalOperator
-from core.operators.extract.extract_docling import ExtractDoclingOperator
+from core.operators.extract.extract_operator import ExtractOperator
 
 
 class TestIngestExtractIntegration:
@@ -23,7 +23,7 @@ class TestIngestExtractIntegration:
         return str(fixtures_path)
 
     def test_metadata_only_to_extract_sequence(self, fixtures_dir):
-        """Test the complete sequence: IngestLocal (metadata-only) -> ExtractDocling"""
+        """Test the complete sequence: IngestLocal (metadata-only) -> ExtractOperator"""
         # Step 1: Ingest with metadata-only mode
         ingest_config = {
             "input_folder": fixtures_dir,
@@ -33,7 +33,7 @@ class TestIngestExtractIntegration:
             "force_ingest": True,  # Skip incremental processing for tests
         }
 
-        ingest_operator = IngestLocalOperator(ingest_config)
+        ingest_operator = IngestLocalOperator(config=ingest_config)
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
@@ -43,23 +43,24 @@ class TestIngestExtractIntegration:
         assert "binary_content" in ingest_table.column_names, (
             "Should have binary_content column"
         )
-        assert "content" not in ingest_table.column_names, "Should NOT have content yet"
+        assert "doc_content" not in ingest_table.column_names, "Should NOT have doc_content yet"
 
-        # Step 2: Extract content using Docling
+        # Step 2: Extract content using unified ExtractOperator
         extract_config = {
-            "doc_column": "content",
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "doc_column": "doc_content",
             "extract_tables": True,
             "extract_images": True,
-            "use_template": False,
         }
 
-        extract_operator = ExtractDoclingOperator(extract_config)
+        extract_operator = ExtractOperator(config=extract_config)
         extract_tables, extract_metadata = extract_operator.transform(ingest_table)
         extract_table = extract_tables[0]
 
         # Verify extract output
         assert extract_table.num_rows > 0, "Should have extracted content"
-        assert "content" in extract_table.column_names, "Should have content column"
+        assert "doc_content" in extract_table.column_names, "Should have doc_content column"
         assert "doc_id_hash" in extract_table.column_names, (
             "Should have doc_id_hash column"
         )
@@ -67,7 +68,7 @@ class TestIngestExtractIntegration:
         # Verify content was actually extracted
         content_count = 0
         for idx in range(extract_table.num_rows):
-            content = extract_table["content"][idx].as_py()
+            content = extract_table["doc_content"][idx].as_py()
             if content and len(content) > 0:
                 content_count += 1
 
@@ -89,7 +90,7 @@ class TestIngestExtractIntegration:
             "force_ingest": True,  # Skip incremental processing for tests
         }
 
-        ingest_operator = IngestLocalOperator(ingest_config)
+        ingest_operator = IngestLocalOperator(config=ingest_config)
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
@@ -102,24 +103,25 @@ class TestIngestExtractIntegration:
 
         # Step 2: Extract content using paths
         extract_config = {
-            "doc_column": "content",
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "doc_column": "doc_content",
             "extract_tables": True,
             "extract_images": False,
-            "use_template": False,
         }
 
-        extract_operator = ExtractDoclingOperator(extract_config)
+        extract_operator = ExtractOperator(config=extract_config)
         extract_tables, extract_metadata = extract_operator.transform(ingest_table)
         extract_table = extract_tables[0]
 
         # Verify extract output
         assert extract_table.num_rows > 0, "Should have extracted content"
-        assert "content" in extract_table.column_names, "Should have content column"
+        assert "doc_content" in extract_table.column_names, "Should have doc_content column"
 
         # Verify content was extracted from paths
         content_count = 0
         for idx in range(extract_table.num_rows):
-            content = extract_table["content"][idx].as_py()
+            content = extract_table["doc_content"][idx].as_py()
             if content and len(content) > 0:
                 content_count += 1
 
@@ -136,7 +138,7 @@ class TestIngestExtractIntegration:
             "force_ingest": True,  # Skip incremental processing for tests
         }
 
-        ingest_operator = IngestLocalOperator(ingest_config)
+        ingest_operator = IngestLocalOperator(config=ingest_config)
         ingest_tables, _ = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
@@ -145,12 +147,14 @@ class TestIngestExtractIntegration:
 
         # Step 2: Extract
         extract_config = {
-            "doc_column": "content",
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "doc_column": "doc_content",
             "extract_tables": False,
             "extract_images": False,
         }
 
-        extract_operator = ExtractDoclingOperator(extract_config)
+        extract_operator = ExtractOperator(config=extract_config)
         extract_tables, _ = extract_operator.transform(ingest_table)
         extract_table = extract_tables[0]
 
@@ -161,7 +165,7 @@ class TestIngestExtractIntegration:
         )
 
         # Verify new columns were added
-        assert "content" in final_columns, "Content column should be added"
+        assert "doc_content" in final_columns, "Content column should be added"
         assert "doc_id_hash" in final_columns, "Hash column should be added"
 
         # Verify row count is preserved
@@ -186,18 +190,24 @@ def test_basic_integration():
         "force_ingest": True,  # Skip incremental processing for tests
     }
 
-    ingest_op = IngestLocalOperator(ingest_config)
+    ingest_op = IngestLocalOperator(config=ingest_config)
     ingest_tables, _ = ingest_op.transform(None)
 
-    extract_config = {"doc_column": "content"}
+    extract_config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "doc_column": "doc_content",
+    }
 
-    extract_op = ExtractDoclingOperator(extract_config)
+    extract_op = ExtractOperator(config=extract_config)
     extract_tables, _ = extract_op.transform(ingest_tables[0])
 
     assert extract_tables[0].num_rows > 0
-    assert "content" in extract_tables[0].column_names
+    assert "doc_content" in extract_tables[0].column_names
 
 
 if __name__ == "__main__":
     # Run tests
     pytest.main([__file__, "-v"])
+
+# Made with Bob

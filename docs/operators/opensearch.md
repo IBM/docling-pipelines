@@ -419,7 +419,7 @@ See [`docs/opensearch/DOCKER_SETUP.md`](../opensearch/DOCKER_SETUP.md) for troub
 ## Related Operators
 
 - **IngestLocalOperator**: Ingest documents from local filesystem
-- **ExtractDoclingOperator**: Extract content from documents
+- **ExtractOperator**: Extract content from documents
 - **DoclingChunkerOperator**: Chunk documents for vector storage
 - **EmbeddingsOperator**: Generate embeddings from text
 

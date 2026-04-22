@@ -227,11 +227,11 @@ class DocumentClassifierOperator(AbstractOperator):
                 if not OllamaClient.is_server_running():
                     logger.warning("Ollama server is not running")
                     return
-                
+
                 if not OllamaClient.is_model_available(model_name=self.model_id):
                     logger.warning(f"Model '{self.model_id}' is not available in Ollama")
                     return
-                
+
                 logger.info("Validated Ollama connection and model availability")
             except ImportError as e:
                 raise DatasiftException(
@@ -278,11 +278,11 @@ class DocumentClassifierOperator(AbstractOperator):
             # Extract system prompt and user message from messages
             system_prompt = None
             user_content = ""
-            
+
             for msg in messages:
                 role = msg.get("role", "")
                 content = msg.get("content", "")
-                
+
                 if role == "system":
                     system_prompt = content
                 elif role == "user":
@@ -290,7 +290,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
             # Create OllamaClient instance with CHAT mode
             from common.clients.ollama_client import InteractionMode
-            
+
             client = OllamaClient(
                 model_name=self.model_id,
                 mode=InteractionMode.CHAT,
@@ -485,7 +485,7 @@ Example response:
             return {
                 OperatorConstants.Extraction.SUCCESS: False,
                 OperatorConstants.Extraction.ERROR: f"Invalid JSON response: {e!s}",
-                "document_type": "unknown",
+                "document_type": None,
                 "confidence": 0,
                 "reasoning": "",
             }
@@ -494,7 +494,7 @@ Example response:
             return {
                 OperatorConstants.Extraction.SUCCESS: False,
                 OperatorConstants.Extraction.ERROR: str(e),
-                "document_type": "unknown",
+                "document_type": None,
                 "confidence": 0,
                 "reasoning": "",
             }
@@ -562,7 +562,7 @@ Example response:
                         continue
 
                     future = executor.submit(
-                        OperatorUtils.extract_basic_worker,
+                        OperatorUtils.extract_content,
                         task["doc_name"],
                         task["binary_content"],
                         self.extract_tables,
@@ -627,7 +627,7 @@ Example response:
                     self.record_skipped_document(
                         metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason="Empty content"
                     )
-                    classifications[idx] = "unknown"
+                    classifications[idx] = None
                     reasonings[idx] = "Empty content"
                     continue
 
@@ -655,7 +655,7 @@ Example response:
                             doc_name=doc_name,
                             reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
                         )
-                        classifications[idx] = "unknown"
+                        classifications[idx] = None
                         reasonings[idx] = result.get(OperatorConstants.Extraction.ERROR, "")
                         logger.error(
                             f"Failed to classify content from {task['doc_name']}: {result.get(OperatorConstants.Extraction.ERROR)}",
@@ -666,7 +666,7 @@ Example response:
                     self.record_failed_document(
                         metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
                     )
-                    classifications[idx] = "unknown"
+                    classifications[idx] = None
                     reasonings[idx] = str(e)
                     logger.error(f"Error processing document at index {idx}: {e!s}")
 

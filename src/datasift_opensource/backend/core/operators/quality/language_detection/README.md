@@ -53,7 +53,7 @@ With langdetect provider:
       {
         "id": "extract",
         "name": "extract_content",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {}
       },
       {

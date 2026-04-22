@@ -31,44 +31,26 @@
       {
         "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
         "name": "extract",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
-          "doc_column": "content"
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "ollama",
+          "doc_column": "content",
+          "model_name": "granite4",
+          "max_doc_chars": 8000,
+          "temperature": 0.0,
+          "expand_extracted_data": true,
+          "custom_schema": {
+            "vendor_name": "string",
+            "invoice_date": "string",
+            "invoice_number": "string",
+            "total_amount": "float",
+            "grand_total": "float"
+          }
         },
         "input_edges": [
           {
             "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80"
-          }
-        ]
-      },
-      {
-        "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
-        "name": "extract_entities",
-        "operator": "extract_entities_ollama",
-        "config": {
-          "doc_column": "content",
-          "ollama_model": "granite4",
-          "max_doc_chars": 8000,
-          "temperature": 0.0,
-          "expand_extracted_data": true,
-          "schema": {
-            "columns": {
-              "vendor_name": "STRING",
-              "invoice_date": "STRING",
-              "invoice_number": "STRING",
-              "total_amount": "DOUBLE",
-              "grand_total": "DOUBLE"
-            }
-          }
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
           }
         ],
         "output_edges": [
@@ -90,7 +72,7 @@
         },
         "input_edges": [
           {
-            "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80"
+            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
           }
         ],
         "output_edges": [

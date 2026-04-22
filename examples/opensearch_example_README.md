@@ -159,10 +159,10 @@ ingest_op = IngestLocalFolderOperator(ingest_config)
 table = ingest_op.transform()
 
 # 2. Extract content
-from core.operators.universal.extract.extract_docling import ExtractDoclingOperator
+from core.operators.universal.extract.extract_operator import ExtractOperator
 
 extract_config = {}
-extract_op = ExtractDoclingOperator(extract_config)
+extract_op = ExtractOperator(extract_config)
 table, _ = extract_op.transform(table)
 
 # 3. Chunk documents

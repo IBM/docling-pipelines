@@ -353,7 +353,7 @@ class TestIntegrationScenarios:
         # Verify operators
         operators = [node["operator"] for node in flow_def["dag"]]
         assert "ingest_local" in operators
-        assert "extract_docling" in operators
+        assert "extract_operator" in operators
         assert "chunker" in operators
         assert "embeddings" in operators
         assert "vectordb" in operators

@@ -78,7 +78,7 @@ def main():
             {
                 "id": "extract-node",
                 "name": "extract",
-                "operator": "extract_docling",
+                "operator": "extract_operator",
                 "config": {"doc_column": "content"},
                 "input_edges": [{"node_id_ref": "ingest-node"}],
                 "output_edges": [],

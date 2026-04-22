@@ -152,7 +152,7 @@ class TestValidateFlowDefinition:
         definition = {
             "nodes": [
                 {"id": "node1", "operator": "ingest_local"},
-                {"id": "node2", "operator": "extract_docling"},
+                {"id": "node2", "operator": "extract_operator"},
             ],
             "edges": [{"source": "node1", "target": "node2"}],
         }

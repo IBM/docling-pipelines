@@ -182,6 +182,7 @@ ignore = [
     "E501",   # Line too long (let formatter handle line length)
     "SIM",    # flake8-simplify - ignore all simplification suggestions (nested structures, etc.)
     "N818",   # Exception name should end with Error suffix
+    "B027",   # Empty method in abstract base class without abstract decorator (intentional for optional overrides)
 ]
 
 [tool.ruff.lint.isort]

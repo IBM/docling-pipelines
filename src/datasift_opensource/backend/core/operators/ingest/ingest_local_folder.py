@@ -39,7 +39,7 @@ class IngestLocalOperator(AbstractOperator):
 
     This operator discovers files, collects metadata, and optionally stores binary content
     for downstream extraction operators. It does NOT extract text content - that is handled
-    by specialized extraction operators like ExtractDoclingOperator.
+    by specialized extraction operators like ExtractOperator.
 
     Supports:
     - Recursive directory traversal

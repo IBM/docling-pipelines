@@ -141,7 +141,7 @@ def main() -> int:
 
     # Import required operators
     try:
-        from core.operators.extract.extract_docling import ExtractDoclingOperator
+        from core.operators.extract.extract_operator import ExtractOperator
         from core.operators.functional.chunker import ChunkerOperator
         from core.operators.ingest.ingest_local_folder import IngestLocalOperator
     except ImportError as e:
@@ -279,7 +279,7 @@ def main() -> int:
     }
 
     try:
-        extract_operator: Any = ExtractDoclingOperator(extract_config)
+        extract_operator: Any = ExtractOperator(extract_config)
         extract_tables: list[pa.Table]
         extract_metadata: dict[str, Any]
         extract_tables, extract_metadata = extract_operator.transform(ingest_table)

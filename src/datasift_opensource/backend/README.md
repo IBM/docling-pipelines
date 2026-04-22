@@ -171,7 +171,7 @@ AVAILABLE OPERATORS SUMMARY
 Operator                  Category        Status       Features
 --------------------------------------------------------------------------------
 ingest_local              Ingest          Available    3
-extract_docling           Extract         Available    5
+extract_operator           Extract         Available    5
 docling_chunker           Functional      Available    2
 ...
 ```

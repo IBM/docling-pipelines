@@ -123,17 +123,13 @@ class OllamaClient(BaseLLMClient):
             DatasiftException: If the model is not available or connection fails
         """
         try:
-            import httpx
             import ollama
         except ImportError as exc:
-            raise ImportError(f"ollama or httpx package not installed: {exc}") from exc
+            raise ImportError(f"ollama package not installed: {exc}") from exc
 
         try:
             # Create client with trust_env=False to avoid proxy issues
-            client = ollama.Client(
-                host=self.host,
-                trust_env=False
-            )
+            client = ollama.Client(host=self.host, trust_env=False)
             # List available models
             models_response = client.list()
             # Handle both ListResponse object and dict formats for backward compatibility
@@ -187,18 +183,14 @@ class OllamaClient(BaseLLMClient):
             Exception: For other errors during model execution
         """
         try:
-            import httpx
             import ollama
         except ImportError as exc:
-            raise ImportError(f"ollama or httpx package not installed: {exc}") from exc
+            raise ImportError(f"ollama package not installed: {exc}") from exc
 
         try:
             # Create client with trust_env=False to avoid proxy issues
-            client = ollama.Client(
-                host=self.host,
-                trust_env=False
-            )
-            
+            client = ollama.Client(host=self.host, trust_env=False)
+
             if self.mode == InteractionMode.CHAT:
                 messages = []
                 if self.system_prompt:
@@ -343,17 +335,13 @@ class OllamaClient(BaseLLMClient):
         """
         self._validate_text_input(text=text)
         try:
-            import httpx
             import ollama
         except ImportError as exc:
-            raise ImportError(f"ollama or httpx package not installed: {exc}") from exc
+            raise ImportError(f"ollama package not installed: {exc}") from exc
 
         try:
             # Create client with trust_env=False to avoid proxy issues
-            client = ollama.Client(
-                host=self.host,
-                trust_env=False
-            )
+            client = ollama.Client(host=self.host, trust_env=False)
             embedding_response = client.embeddings(model=self.model_name, prompt=text)
 
             # Handle both dict and EmbeddingsResponse object types
@@ -432,20 +420,16 @@ class OllamaClient(BaseLLMClient):
             raise ConfigurationError("all texts must be non-empty strings")
 
         try:
-            import httpx
             import ollama
         except ImportError as exc:
-            raise ImportError(f"ollama or httpx package not installed: {exc}") from exc
+            raise ImportError(f"ollama package not installed: {exc}") from exc
 
         # Use ThreadPoolExecutor for concurrent requests
         import threading
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # Create client with trust_env=False to avoid proxy issues
-        client = ollama.Client(
-            host=self.host,
-            trust_env=False
-        )
+        client = ollama.Client(host=self.host, trust_env=False)
 
         # Limit concurrency to avoid overwhelming Ollama server
         max_workers = min(batch_size, 8)  # Cap at 8 concurrent requests
@@ -562,14 +546,10 @@ class OllamaClient(BaseLLMClient):
         if host is None:
             host = ServiceConstants.DEFAULT_OLLAMA_HOST
         try:
-            import httpx
             import ollama
 
             # Create client with trust_env=False to avoid proxy issues
-            client = ollama.Client(
-                host=host,
-                trust_env=False
-            )
+            client = ollama.Client(host=host, trust_env=False)
             # Try to list models - this will fail if server is not running
             client.list()
             return True
@@ -644,14 +624,10 @@ class OllamaClient(BaseLLMClient):
         if host is None:
             host = ServiceConstants.DEFAULT_OLLAMA_HOST
         try:
-            import httpx
             import ollama
 
             # Create client with trust_env=False to avoid proxy issues
-            client = ollama.Client(
-                host=host,
-                trust_env=False
-            )
+            client = ollama.Client(host=host, trust_env=False)
             models: Any = client.list()
 
             # Check if model exists in the list

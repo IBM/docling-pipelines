@@ -2390,8 +2390,7 @@ datasift/
 Operators are organized by category (defined in `OperatorCategory` enum):
 
 #### Extract Operators (`extract/`)
-- **ExtractDocling**: Document content extraction using Docling
-- **ExtractEntitiesOllama**: LLM-based entity extraction
+- **ExtractOperator**: Unified extraction operator supporting multiple text extraction modes (Docling Library with optional VLM pipeline, Docling Serve) and entity extraction modes (Ollama, Docling template-based, LiteLLM)
 
 #### Ingest Operators (`ingest/`)
 - **IngestLocalOperator**: Local filesystem ingestion

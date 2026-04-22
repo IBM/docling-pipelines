@@ -4,7 +4,7 @@
 
 The `IngestLocalOperator` is a metadata-only operator for ingesting documents from local file systems. It discovers files, collects metadata, and optionally stores binary content for downstream extraction operators.
 
-**Key Principle**: This operator does NOT extract text content. Content extraction is handled by specialized operators like `ExtractDoclingOperator`.
+**Key Principle**: This operator does NOT extract text content. Content extraction is handled by specialized operators like `ExtractOperator`.
 
 ## Features
 
@@ -82,7 +82,7 @@ tables, metadata = operator.transform(None)
 
 ```python
 from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
-from operators.universal.extract.extract_docling_operator import ExtractDoclingOperator
+from operators.universal.extract.extract_operator_operator import ExtractOperator
 
 # Step 1: Ingest metadata
 ingest_config = {
@@ -101,7 +101,7 @@ extract_config = {
     "extract_images": True
 }
 
-extract_op = ExtractDoclingOperator(extract_config)
+extract_op = ExtractOperator(extract_config)
 extract_tables, _ = extract_op.transform(ingest_tables[0])
 
 result_table = extract_tables[0]
@@ -204,7 +204,7 @@ For very large datasets, consider:
                             │
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
-│ ExtractDoclingOperator                                       │
+│ ExtractOperator                                       │
 │                                                              │
 │ Input: PyArrow Table from IngestLocal                       │
 │ Output: PyArrow Table with:                                 │
@@ -284,7 +284,7 @@ pytest tests/unit/operators/ingest/ tests/integration/test_ingest_extract_integr
 
 ## Related Operators
 
-- **ExtractDoclingOperator**: Advanced extraction using Docling library
+- **ExtractOperator**: Advanced extraction using Docling library
 - **DoclingChunkerOperator**: Chunks extracted content for vector databases
 - **IngestSourceOperator**: Multi-provider ingest supporting S3, IBM COS, SharePoint, OneDrive, Google Drive, and custom loaders
 

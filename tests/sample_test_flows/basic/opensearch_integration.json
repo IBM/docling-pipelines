@@ -23,22 +23,30 @@
         },
         "input_edges": [],
         "output_edges": [
-          { "node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71" }
+          {
+            "node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71"
+          }
         ]
       },
       {
         "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
         "name": "extract_documents",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
           "doc_column": "content",
-          "use_template": false
+          "use_template": false,
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
         },
         "input_edges": [
-          { "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
+          {
+            "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71" }
+          {
+            "node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71"
+          }
         ]
       },
       {
@@ -50,10 +58,14 @@
           "doc_id_column": "id"
         },
         "input_edges": [
-          { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
+          {
+            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500" }
+          {
+            "node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500"
+          }
         ]
       },
       {
@@ -66,10 +78,14 @@
           "chunk_overlap": 50
         },
         "input_edges": [
-          { "node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71" }
+          {
+            "node_id_ref": "5df177f6-92bc-4465-826e-f4df107ffb71"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02" }
+          {
+            "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"
+          }
         ]
       },
       {
@@ -83,10 +99,14 @@
           "embeddings_column": "embeddings"
         },
         "input_edges": [
-          { "node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500" }
+          {
+            "node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "87249dbf-4a1a-433a-91da-ee5fb3244284" }
+          {
+            "node_id_ref": "87249dbf-4a1a-433a-91da-ee5fb3244284"
+          }
         ]
       },
       {
@@ -185,7 +205,9 @@
           }
         },
         "input_edges": [
-          { "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02" }
+          {
+            "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"
+          }
         ],
         "output_edges": []
       }

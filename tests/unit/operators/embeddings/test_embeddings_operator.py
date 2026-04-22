@@ -810,7 +810,7 @@ class TestEmbeddingsErrorHandling:
                     text=["test"], model_name="llama3", overlap_ratio=0.2
                 )
 
-            assert "ollama or httpx package not installed" in str(exc_info.value)
+            assert "ollama package not installed" in str(exc_info.value)
 
 
 # Chunked Content Tests

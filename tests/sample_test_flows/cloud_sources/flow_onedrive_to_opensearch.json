@@ -39,12 +39,14 @@
       {
         "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz",
         "name": "extract_text",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
           "doc_column": "content",
           "extract_tables": true,
           "extract_images": true,
-          "max_workers": 4
+          "max_workers": 4,
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
         },
         "input_edges": [
           {

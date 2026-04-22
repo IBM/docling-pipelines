@@ -21,17 +21,31 @@
           "store_binary_content": "false"
         },
         "input_edges": [],
-        "output_edges": [{"node_id_ref": "10000000-0000-0000-0000-000000000002"}]
+        "output_edges": [
+          {
+            "node_id_ref": "10000000-0000-0000-0000-000000000002"
+          }
+        ]
       },
       {
         "id": "10000000-0000-0000-0000-000000000002",
         "name": "extract",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
-          "doc_column": "content"
+          "doc_column": "content",
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
         },
-        "input_edges": [{"node_id_ref": "10000000-0000-0000-0000-000000000001"}],
-        "output_edges": [{"node_id_ref": "10000000-0000-0000-0000-000000000003"}]
+        "input_edges": [
+          {
+            "node_id_ref": "10000000-0000-0000-0000-000000000001"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "10000000-0000-0000-0000-000000000003"
+          }
+        ]
       },
       {
         "id": "10000000-0000-0000-0000-000000000003",
@@ -43,8 +57,16 @@
           "chunk_overlap": 128,
           "doc_column": "content"
         },
-        "input_edges": [{"node_id_ref": "10000000-0000-0000-0000-000000000002"}],
-        "output_edges": [{"node_id_ref": "10000000-0000-0000-0000-000000000004"}]
+        "input_edges": [
+          {
+            "node_id_ref": "10000000-0000-0000-0000-000000000002"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "10000000-0000-0000-0000-000000000004"
+          }
+        ]
       },
       {
         "id": "10000000-0000-0000-0000-000000000004",
@@ -56,7 +78,11 @@
           "embeddings_column": "embeddings",
           "doc_column": "content"
         },
-        "input_edges": [{"node_id_ref": "10000000-0000-0000-0000-000000000003"}],
+        "input_edges": [
+          {
+            "node_id_ref": "10000000-0000-0000-0000-000000000003"
+          }
+        ],
         "output_edges": []
       }
     ]

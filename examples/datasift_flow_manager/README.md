@@ -217,8 +217,8 @@ The framework includes 17+ operators organized into categories:
 - `ingest_source` - Multi-provider ingest
 
 **Extract Operators:**
-- `extract_docling` - Extract structured content from documents
-- `extract_entities_ollama` - LLM-based entity extraction
+- `extract_operator` - Extract structured content from documents
+- `extract_operator` - LLM-based entity extraction
 
 **Chunking Operators:**
 - `chunker` - Chunk documents (hybrid, semantic, fixed-size)

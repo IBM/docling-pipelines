@@ -22,7 +22,7 @@ sys.path.insert(
     0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
 )
 
-from core.operators.extract.extract_docling import ExtractDoclingOperator
+from core.operators.extract.extract_operator import ExtractOperator
 from core.operators.functional.chunker import ChunkerOperator, ChunkType
 from core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
@@ -70,8 +70,10 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
     print(f">>>>>>>>>>>>> Number of rows after ingest: {table.num_rows}")
 
     # 2. Extract text content from binary
-    extract_operator: ExtractDoclingOperator = ExtractDoclingOperator(
+    extract_operator: ExtractOperator = ExtractOperator(
         {
+            "text_extraction_mode": "basic",
+            "entity_extraction_mode": "none",
             "doc_column": "content",
         }
     )
@@ -191,8 +193,10 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
     print(f">>>>>>>>>>>>> Number of rows after ingest: {table.num_rows}")
 
     # 2. Extract text content from binary
-    extract_operator: ExtractDoclingOperator = ExtractDoclingOperator(
+    extract_operator: ExtractOperator = ExtractOperator(
         {
+            "text_extraction_mode": "basic",
+            "entity_extraction_mode": "none",
             "doc_column": "content",
         }
     )

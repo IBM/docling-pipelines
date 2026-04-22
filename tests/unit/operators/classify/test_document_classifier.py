@@ -7,12 +7,13 @@ Tests the operator with sample documents from the fixtures directory.
 import pytest
 import pyarrow as pa
 from pathlib import Path
+from unittest.mock import patch, Mock
+import json
 
 from core.operators.quality.document_classifier import DocumentClassifierOperator
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="Requires Ollama server running with granite4:latest model")
 def test_document_classifier_basic():
     """Test the DocumentClassifierOperator with basic classification."""
 
@@ -62,46 +63,75 @@ def test_document_classifier_basic():
         "include_reasoning": True,
     }
 
-    operator = DocumentClassifierOperator(config)
+    # Mock responses for each document
+    mock_responses = [
+        json.dumps({
+            "document_type": "invoice",
+            "confidence": 9,
+            "reasoning": "Document contains invoice number, date, bill to information, line items with quantities and prices, and total amount."
+        }),
+        json.dumps({
+            "document_type": "contract",
+            "confidence": 8,
+            "reasoning": "Document is a legal agreement between two parties with terms and conditions including payment terms, delivery schedule, and warranty provisions."
+        }),
+        json.dumps({
+            "document_type": "receipt",
+            "confidence": 9,
+            "reasoning": "Document is a payment receipt with store name, transaction ID, itemized purchases with prices, total amount, and payment method."
+        })
+    ]
 
-    # Transform the table
-    result_tables, metadata = operator.transform(table)
-    result_table = result_tables[0]
+    # Mock the Ollama client
+    with patch('ollama.Client') as mock_client_class:
+        mock_client = Mock()
+        # Mock the chat method to return different responses for each call
+        mock_client.chat.side_effect = [
+            {"message": {"content": resp}} for resp in mock_responses
+        ]
+        # Mock list method for validation
+        mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
+        mock_client_class.return_value = mock_client
 
-    # Assertions
-    assert "document_type" in result_table.column_names, (
-        "document_type column should exist"
-    )
-    assert "document_type_confidence" in result_table.column_names, (
-        "confidence column should exist"
-    )
-    assert "document_type_reasoning" in result_table.column_names, (
-        "reasoning column should exist"
-    )
+        operator = DocumentClassifierOperator(config)
 
-    # Check classifications
-    doc_types = result_table["document_type"].to_pylist()
-    confidences = result_table["document_type_confidence"].to_pylist()
+        # Transform the table
+        result_tables, metadata = operator.transform(table)
+        result_table = result_tables[0]
 
-    assert doc_types[0] == "invoice", "First document should be classified as invoice"
-    assert doc_types[1] == "contract", (
-        "Second document should be classified as contract"
-    )
-    assert doc_types[2] == "receipt", "Third document should be classified as receipt"
-
-    # Check confidence scores
-    for confidence in confidences:
-        assert 1 <= confidence <= 10, (
-            f"Confidence should be between 1 and 10, got {confidence}"
+        # Assertions
+        assert "document_type" in result_table.column_names, (
+            "document_type column should exist"
+        )
+        assert "document_type_confidence" in result_table.column_names, (
+            "confidence column should exist"
+        )
+        assert "document_type_reasoning" in result_table.column_names, (
+            "reasoning column should exist"
         )
 
-    # Check metadata
-    assert metadata["total_docs_count"] == 3, "Should have 3 documents"
-    assert metadata["processed_docs"] == 3, "Should have processed 3 documents"
+        # Check classifications
+        doc_types = result_table["document_type"].to_pylist()
+        confidences = result_table["document_type_confidence"].to_pylist()
+
+        assert doc_types[0] == "invoice", "First document should be classified as invoice"
+        assert doc_types[1] == "contract", (
+            "Second document should be classified as contract"
+        )
+        assert doc_types[2] == "receipt", "Third document should be classified as receipt"
+
+        # Check confidence scores
+        for confidence in confidences:
+            assert 1 <= confidence <= 10, (
+                f"Confidence should be between 1 and 10, got {confidence}"
+            )
+
+        # Check metadata
+        assert metadata["total_docs_count"] == 3, "Should have 3 documents"
+        assert metadata["processed_docs"] == 3, "Should have processed 3 documents"
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="Requires Ollama server running with granite4:latest model")
 def test_document_classifier_without_content_column():
     """Test the DocumentClassifierOperator when content column doesn't exist (should fetch from binary)."""
 
@@ -143,32 +173,57 @@ def test_document_classifier_without_content_column():
         "include_reasoning": False,
     }
 
-    operator = DocumentClassifierOperator(config)
+    # Mock responses for documents
+    mock_responses = [
+        json.dumps({
+            "document_type": "email",
+            "confidence": 8,
+            "reasoning": "Document appears to be an email communication."
+        }),
+        json.dumps({
+            "document_type": "letter",
+            "confidence": 7,
+            "reasoning": "Document appears to be a formal letter."
+        })
+    ]
 
-    # Transform the table
-    result_tables, metadata = operator.transform(table)
-    result_table = result_tables[0]
+    # Mock the Ollama client
+    with patch('ollama.Client') as mock_client_class:
+        mock_client = Mock()
+        # Mock the chat method to return different responses for each call
+        mock_client.chat.side_effect = [
+            {"message": {"content": resp}} for resp in mock_responses
+        ]
+        # Mock list method for validation
+        mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
+        mock_client_class.return_value = mock_client
 
-    # Assertions
-    assert "content" in result_table.column_names, "content column should be added"
-    assert "document_type" in result_table.column_names, (
-        "document_type column should exist"
-    )
-    assert "document_type_confidence" in result_table.column_names, (
-        "confidence column should exist"
-    )
-    assert "document_type_reasoning" not in result_table.column_names, (
-        "reasoning column should not exist"
-    )
+        operator = DocumentClassifierOperator(config)
 
-    # Check that content was extracted
-    for idx in range(result_table.num_rows):
-        content = result_table["content"][idx].as_py()
-        assert content is not None, f"Content should not be None for row {idx}"
-        assert len(content) > 0, f"Content should not be empty for row {idx}"
+        # Transform the table
+        result_tables, metadata = operator.transform(table)
+        result_table = result_tables[0]
 
-    # Check metadata
-    assert metadata["processed_docs"] > 0, "Should have processed at least one document"
+        # Assertions
+        assert "content" in result_table.column_names, "content column should be added"
+        assert "document_type" in result_table.column_names, (
+            "document_type column should exist"
+        )
+        assert "document_type_confidence" in result_table.column_names, (
+            "confidence column should exist"
+        )
+        assert "document_type_reasoning" not in result_table.column_names, (
+            "reasoning column should not exist"
+        )
+
+        # Check that content was extracted
+        for idx in range(result_table.num_rows):
+            content = result_table["content"][idx].as_py()
+            assert content is not None, f"Content should not be None for row {idx}"
+            assert len(content) > 0, f"Content should not be empty for row {idx}"
+
+        # Check metadata
+        assert metadata["processed_docs"] > 0, "Should have processed at least one document"
 
 
 @pytest.mark.unit
@@ -287,7 +342,6 @@ def test_document_classifier_with_existing_classification():
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="Requires Ollama server running with granite4:latest model")
 def test_document_classifier_list_document_types():
     """Test the DocumentClassifierOperator with list of document types (no descriptions)."""
 
@@ -311,18 +365,34 @@ def test_document_classifier_list_document_types():
         "include_reasoning": False,
     }
 
-    operator = DocumentClassifierOperator(config)
+    # Mock response for the document
+    mock_response = json.dumps({
+        "document_type": "invoice",
+        "confidence": 9,
+        "reasoning": "Document contains invoice number and total amount."
+    })
 
-    # Transform the table
-    result_tables, metadata = operator.transform(table)
-    result_table = result_tables[0]
+    # Mock the Ollama client
+    with patch('ollama.Client') as mock_client_class:
+        mock_client = Mock()
+        # Mock the chat method
+        mock_client.chat.return_value = {"message": {"content": mock_response}}
+        # Mock list method for validation
+        mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
+        mock_client_class.return_value = mock_client
 
-    # Assertions
-    assert "document_type" in result_table.column_names, (
-        "document_type column should exist"
-    )
-    assert result_table["document_type"][0].as_py() == "invoice", (
-        "Should classify as invoice"
+        operator = DocumentClassifierOperator(config)
+
+        # Transform the table
+        result_tables, metadata = operator.transform(table)
+        result_table = result_tables[0]
+
+        # Assertions
+        assert "document_type" in result_table.column_names, (
+            "document_type column should exist"
+        )
+        assert result_table["document_type"][0].as_py() == "invoice", (
+            "Should classify as invoice"
     )
 
 

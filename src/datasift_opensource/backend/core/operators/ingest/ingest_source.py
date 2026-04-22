@@ -621,7 +621,7 @@ class IngestSourceOperator(AbstractOperator):
                 "modified_time": modified_time if isinstance(modified_time, int) else 0,
             }
 
-            # Download binary content so downstream ExtractDoclingOperator can process it
+            # Download binary content so downstream ExtractOperator can process it
             if not self.extract_content(
                 doc=doc,
                 source=source,
@@ -660,7 +660,7 @@ class IngestSourceOperator(AbstractOperator):
     ) -> bool:
         """
         Download and store binary content for a document so that downstream operators
-        (e.g. ExtractDoclingOperator) can process it.  Mirrors the pattern used by
+        (e.g. ExtractOperator) can process it.  Mirrors the pattern used by
         IngestLocalOperator.extract_content().
 
         For providers that expose a file_id / object key in the document metadata the

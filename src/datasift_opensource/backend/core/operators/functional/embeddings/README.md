@@ -40,7 +40,7 @@ The Embeddings Operator generates vector embeddings from text using various AI p
     },
     {
       "id": "extract",
-      "operator_type": "datasift_opensource.backend.core.operators.extract.extract_docling.ExtractDocling",
+      "operator_type": "datasift_opensource.backend.core.operators.extract.extract_operator.ExtractDocling",
       "operator_params": {}
     },
     {

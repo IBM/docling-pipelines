@@ -10,6 +10,11 @@ import threading
 from abc import ABC, abstractmethod
 from typing import Any, Callable, ParamSpec, Protocol, TypeVar
 
+# CRITICAL: Set Prefect env vars BEFORE importing Prefect modules
+from common.util.orchestration.prefect_config import set_prefect_env_variables
+
+set_prefect_env_variables()
+
 from prefect import flow, task
 from prefect.futures import PrefectFuture
 from prefect.runtime import task_run
@@ -29,13 +34,10 @@ from common.util.data.incremental_update import IncrementalUpdateUtil
 from common.util.infrastructure.logging import get_logger
 from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.orchestration.flow_utils import create_node_id_to_index_map
-from common.util.orchestration.prefect_config import set_prefect_env_variables
 from core.orchestrator.futured_list import FuturedList
 from core.orchestrator.prefect.ports.batch_execution_port import (
     BatchExecutionPort,
 )
-
-set_prefect_env_variables()
 
 logger = get_logger()
 
@@ -646,6 +648,3 @@ class PrefectEngine(AbstractFlowEngine):
             if node_stats.failed_docs:
                 failed_doc_ids.extend(node_stats.failed_docs)
         return failed_doc_ids
-
-
-# Made with Bob

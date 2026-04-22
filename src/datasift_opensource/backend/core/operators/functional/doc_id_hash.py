@@ -22,8 +22,8 @@ class DocIdHashOperator(AbstractOperator):
     hashlib.sha256 to generate a hash of the document content column.
 
     This is an internal operator (IS_OPERATOR_AVAILABLE = False).
-    It is used internally by other operators (e.g., ExtractDoclingOperator,
-    ChunkerOperator, EmbeddingsOperator) to generate document hash IDs.
+    It is used internally by other operators (e.g.,ExtractOperator, ChunkerOperator,
+    EmbeddingsOperator) to generate document hash IDs.
     """
 
     short_name: str = OperatorConstants.Operators.DOC_ID_OPERATOR

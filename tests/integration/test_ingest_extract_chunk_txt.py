@@ -10,7 +10,7 @@ import pytest
 
 from common.constants.constants import Metrics
 from core.operators.ingest.ingest_local_folder import IngestLocalOperator
-from core.operators.extract.extract_docling import ExtractDoclingOperator
+from core.operators.extract.extract_operator import ExtractOperator
 from core.operators.functional.chunker import ChunkerOperator
 
 
@@ -28,7 +28,7 @@ class TestIngestExtractChunkTxtIntegration:
         return str(fixtures_path)
 
     def test_txt_ingest_extract_chunk_sequence(self, txt_fixtures_dir):
-        """Test the complete sequence: IngestLocal -> ExtractDocling -> DoclingChunker for .txt files"""
+        """Test the complete sequence: IngestLocal -> ExtractOperator -> ChunkerOperator for .txt files"""
 
         # Step 1: Ingest .txt files
         print("\n=== Step 1: Ingesting .txt files ===")
@@ -40,7 +40,7 @@ class TestIngestExtractChunkTxtIntegration:
             "force_ingest": True,  # Skip incremental processing for tests
         }
 
-        ingest_operator = IngestLocalOperator(ingest_config)
+        ingest_operator = IngestLocalOperator(config=ingest_config)
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
@@ -50,27 +50,28 @@ class TestIngestExtractChunkTxtIntegration:
         assert "binary_content" in ingest_table.column_names, (
             "Should have binary_content column"
         )
-        assert "content" not in ingest_table.column_names, "Should NOT have content yet"
+        assert "doc_content" not in ingest_table.column_names, "Should NOT have doc_content yet"
 
         print(f"Ingested {ingest_table.num_rows} .txt files")
         print(f"Ingest metadata: {ingest_metadata}")
 
-        # Step 2: Extract content using Docling (with .txt file handling)
+        # Step 2: Extract content using unified ExtractOperator (docling_library mode)
         print("\n=== Step 2: Extracting content from .txt files ===")
         extract_config = {
-            "doc_column": "content",
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "doc_column": "doc_content",
             "extract_tables": False,  # No tables in .txt files
             "extract_images": False,  # No images in .txt files
-            "use_template": False,
         }
 
-        extract_operator = ExtractDoclingOperator(extract_config)
+        extract_operator = ExtractOperator(config=extract_config)
         extract_tables, extract_metadata = extract_operator.transform(ingest_table)
         extract_table = extract_tables[0]
 
         # Verify extract output
         assert extract_table.num_rows > 0, "Should have extracted content"
-        assert "content" in extract_table.column_names, "Should have content column"
+        assert "doc_content" in extract_table.column_names, "Should have doc_content column"
         assert "doc_id_hash" in extract_table.column_names, (
             "Should have doc_id_hash column"
         )
@@ -81,7 +82,7 @@ class TestIngestExtractChunkTxtIntegration:
         # Verify content was actually extracted from .txt files
         content_count = 0
         for idx in range(extract_table.num_rows):
-            content = extract_table["content"][idx].as_py()
+            content = extract_table["doc_content"][idx].as_py()
 
             if content and len(content) > 0:
                 content_count += 1
@@ -101,13 +102,13 @@ class TestIngestExtractChunkTxtIntegration:
         print("\n=== Step 3: Chunking .txt file content ===")
         chunk_config = {
             "chunk_type": "hybrid",
-            "doc_column": "content",
+            "doc_column": "doc_content",
             "chunk_size": 256,  # Smaller chunks for testing
             "chunk_overlap": 50,
             "retain_original_content": True,
         }
 
-        chunker_operator = ChunkerOperator(chunk_config)
+        chunker_operator = ChunkerOperator(config=chunk_config)
         chunk_tables, chunk_metadata = chunker_operator.transform(extract_table)
         chunk_table = chunk_tables[0]
 
@@ -170,7 +171,7 @@ class TestIngestExtractChunkTxtIntegration:
             "force_ingest": True,
         }
 
-        ingest_operator = IngestLocalOperator(ingest_config)
+        ingest_operator = IngestLocalOperator(config=ingest_config)
         ingest_tables, ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
@@ -179,15 +180,16 @@ class TestIngestExtractChunkTxtIntegration:
 
         print(f"Ingested {ingest_table.num_rows} files (mixed .txt and .pdf)")
 
-        # Step 2: Extract content
+        # Step 2: Extract content using unified ExtractOperator
         extract_config = {
-            "doc_column": "content",
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "doc_column": "doc_content",
             "extract_tables": True,
             "extract_images": True,
-            "use_template": False,
         }
 
-        extract_operator = ExtractDoclingOperator(extract_config)
+        extract_operator = ExtractOperator(config=extract_config)
         extract_tables, extract_metadata = extract_operator.transform(ingest_table)
         extract_table = extract_tables[0]
 
@@ -202,12 +204,12 @@ class TestIngestExtractChunkTxtIntegration:
         # Step 3: Chunk the content
         chunk_config = {
             "chunk_type": "hybrid",
-            "doc_column": "content",
+            "doc_column": "doc_content",
             "chunk_size": 256,
             "chunk_overlap": 50,
         }
 
-        chunker_operator = ChunkerOperator(chunk_config)
+        chunker_operator = ChunkerOperator(config=chunk_config)
         chunk_tables, chunk_metadata = chunker_operator.transform(extract_table)
         _chunk_table = chunk_tables[0]  # noqa: F841
 
@@ -238,17 +240,25 @@ def test_basic_txt_integration():
         "force_ingest": True,
     }
 
-    ingest_op = IngestLocalOperator(ingest_config)
+    ingest_op = IngestLocalOperator(config=ingest_config)
     ingest_tables, _ = ingest_op.transform(None)
 
-    extract_config = {"doc_column": "content"}
+    extract_config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "doc_column": "doc_content",
+    }
 
-    extract_op = ExtractDoclingOperator(extract_config)
+    extract_op = ExtractOperator(config=extract_config)
     extract_tables, _ = extract_op.transform(ingest_tables[0])
 
-    chunk_config = {"chunk_type": "hybrid", "doc_column": "content", "chunk_size": 256}
+    chunk_config = {
+        "chunk_type": "hybrid",
+        "doc_column": "doc_content",
+        "chunk_size": 256,
+    }
 
-    chunk_op = ChunkerOperator(chunk_config)
+    chunk_op = ChunkerOperator(config=chunk_config)
     chunk_tables, chunk_metadata = chunk_op.transform(extract_tables[0])
 
     assert chunk_tables[0].num_rows > 0
@@ -259,3 +269,5 @@ def test_basic_txt_integration():
 if __name__ == "__main__":
     # Run tests
     pytest.main([__file__, "-v", "-s"])
+
+# Made with Bob

@@ -93,7 +93,7 @@ def detect_pii_hap_ollama(request_data: dict[str, Any], model_name: str = "grani
 
     try:
         ollama_wrapper = OllamaClient(model_name=model_name, mode=InteractionMode.GENERATE)
-        result = ollama_wrapper.run_json(full_prompt)
+        result = ollama_wrapper.run_json(prompt=full_prompt)
         return result
     except json.JSONDecodeError as exc:
         raise DatasiftException(message=f"Failed to parse JSON from model: {exc!s}", status_code=500) from exc

@@ -306,7 +306,7 @@ class FileUploadState(rx.State):
         Runs as a background task so the state lock is released between updates,
         allowing ThemeState.open_logs and LogPollerState to respond while running.
         Logs are written to _LOG_FILE which LogPollerState polls every second.
-        Flow: ingest_local → extract_docling → extract_entities_ollama → docling_chunker → embeddings → opensearch
+        Flow: ingest_local → extract_operator → extract_operator → docling_chunker → embeddings → opensearch
         """
         async with self:
             self.is_processing = True

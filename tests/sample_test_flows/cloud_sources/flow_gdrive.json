@@ -38,9 +38,11 @@
       {
         "id": "22222222-2222-2222-2222-222222222222",
         "name": "extract",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
-          "doc_column": "content"
+          "doc_column": "content",
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
         },
         "input_edges": [
           {

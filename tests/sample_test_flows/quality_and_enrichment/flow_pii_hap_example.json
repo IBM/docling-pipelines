@@ -23,21 +23,29 @@
         },
         "input_edges": [],
         "output_edges": [
-          { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
+          {
+            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
+          }
         ]
       },
       {
         "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
         "name": "extract",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
-          "doc_column": "content"
+          "doc_column": "content",
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
         },
         "input_edges": [
-          { "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
+          {
+            "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"
+          }
         ],
         "output_edges": [
-          { "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
+          {
+            "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80"
+          }
         ]
       },
       {
@@ -49,7 +57,10 @@
           "model_name": "llama3.2:3b",
           "pii_threshold": 0.5,
           "hap_threshold": 0.75,
-          "expected_redactions": ["pii", "hap"],
+          "expected_redactions": [
+            "pii",
+            "hap"
+          ],
           "pii_list": [
             "EmailAddress",
             "PhoneNumber",
@@ -68,7 +79,9 @@
           "doc_column": "content"
         },
         "input_edges": [
-          { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
+          {
+            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
+          }
         ],
         "output_edges": []
       }

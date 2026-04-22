@@ -13,6 +13,7 @@ All constants must be accessed through their nested class structure:
     - OperatorConstants.VectorDB.* for vector database settings
     - OperatorConstants.Types.* for data types
     - OperatorConstants.Extraction.* for extraction settings
+    - OperatorConstants.ExtractionModes.* for extraction mode settings
     - OperatorConstants.PIIHAP.* for PII/HAP settings
     - OperatorConstants.Filtering.* for filtering settings
     - OperatorConstants.Processing.* for processing settings
@@ -39,9 +40,8 @@ class OperatorConstants:
         EMBEDDINGS: Final[str] = "embeddings"
 
         # Extraction Operators
+        EXTRACT_OPERATOR: Final[str] = "extract_operator"
         ENTITY_EXTRACT: Final[str] = "extract_entity"
-        EXTRACT_DOCLING: Final[str] = "extract_docling"
-        EXTRACT_ENTITIES_OLLAMA: Final[str] = "extract_entities_ollama"
         EXTRACT_JSON: Final[str] = "extract_json"
 
         # Processing Operators
@@ -116,6 +116,7 @@ class OperatorConstants:
 
         # ML Enrichment Columns
         LANG_COLUMN = "lang_column"
+        OUTPUT_COLUMN = "output_column"
         OUTPUT_COLUMN_PREFIX = "output_column_prefix"
         NEWLINE_NORMALIZED_COLUMN_NAME = "newline_normalized_column_name"
         ERROR_COLUMN_NAME = "error_column_name"
@@ -313,6 +314,34 @@ class OperatorConstants:
         EXTRACTION_REQUIRED_FILE_EXTENSIONS: Final[list[str]] = [".pdf", ".docx", ".pptx", ".doc", ".ppt"]
         ACCEPTED_FILE_EXTENSIONS: Final[list[str]] = [*EXTRACTION_REQUIRED_FILE_EXTENSIONS, ".md", ".txt"]
         INGEST_FILE_EXTENSIONS: Final[list[str]] = [*ACCEPTED_FILE_EXTENSIONS, ".json"]
+
+    class ExtractionModes:
+        """Extraction mode constants for ExtractOperator."""
+
+        # Configuration Parameter Names
+        TEXT_EXTRACTION_MODE: Final[str] = "text_extraction_mode"
+        ENTITY_EXTRACTION_MODE: Final[str] = "entity_extraction_mode"
+
+        # Text Extraction Mode Values
+        TEXT_MODE_DOCLING_LIBRARY: Final[str] = "docling_library"
+        TEXT_MODE_DOCLING_SERVE: Final[str] = "docling_serve"
+
+        # Entity Extraction Mode Values
+        ENTITY_MODE_OLLAMA: Final[str] = "ollama"
+        ENTITY_MODE_DOCLING: Final[str] = "docling"
+        ENTITY_MODE_LITELLM: Final[str] = "litellm"
+        ENTITY_MODE_NONE: Final[str] = "none"
+
+        # Entity Extraction Configuration
+        ENTITY_MODEL_NAME: Final[str] = "entity_model_name"
+        ENTITY_TEMPERATURE: Final[str] = "entity_temperature"
+        ENTITY_MAX_TOKENS: Final[str] = "entity_max_tokens"
+
+        # Entity Data Expansion (applies to entity extraction only)
+        EXPAND_EXTRACTED_DATA: Final[str] = "expand_extracted_data"
+
+        # Document Type Configuration
+        DOCUMENT_TYPE_COLUMN: Final[str] = "document_type_column"
 
     class PIIHAP:
         """PII/HAP constants."""

@@ -1,0 +1,122 @@
+{
+  "flow": {
+    "name": "Complete Extraction Pipeline Flow",
+    "flow_id": "extract-complete-001",
+    "description": "Complete extraction pipeline with text, entities, chunking, and embeddings",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "global_config": {
+      "doc_column": "content",
+      "disable_validation": "false",
+      "force_ingest": true
+    },
+    "dag": [
+      {
+        "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+        "name": "ingest",
+        "operator": "ingest_local",
+        "config": {
+          "input_folder": "/Users/anudeep/Documents/GitHub/datasift-opensource/tests/fixtures/invoices",
+          "include_filter": "pdf,docx",
+          "store_binary_content": "true"
+        },
+        "input_edges": [],
+        "output_edges": [
+          {
+            "node_id_ref": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80"
+          }
+        ]
+      },
+      {
+        "id": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
+        "name": "classify",
+        "operator": "document_classifier",
+        "config": {
+          "provider": "ollama",
+          "model_id": "granite4:latest",
+          "confidence_threshold": 7.0,
+          "doc_column": "content",
+          "output_column": "document_type",
+          "include_confidence": true,
+          "include_reasoning": true,
+          "max_content_length": 8000,
+          "extract_tables": true,
+          "extract_images": true
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e"
+          }
+        ]
+      },
+      {
+        "id": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e",
+        "name": "extract",
+        "operator": "extract_operator",
+        "config": {
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "ollama",
+          "doc_column": "content",
+          "extract_tables": true,
+          "extract_images": true,
+          "model_name": "granite4:latest",
+          "temperature": 0.0,
+          "max_tokens": 4096,
+          "max_doc_chars": 8000,
+          "max_workers": 2
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "c3d4e5f6-a7b8-4c5d-9e0f-1a2b3c4d5e6f"
+          }
+        ]
+      },
+      {
+        "id": "c3d4e5f6-a7b8-4c5d-9e0f-1a2b3c4d5e6f",
+        "name": "chunk",
+        "operator": "chunker",
+        "config": {
+          "chunk_size": 512,
+          "chunk_overlap": 50,
+          "chunking_strategy": "simple"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "d4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a"
+          }
+        ]
+      },
+      {
+        "id": "d4e5f6a7-b8c9-4d5e-0f1a-2b3c4d5e6f7a",
+        "name": "embed",
+        "operator": "embeddings",
+        "config": {
+          "model_name": "nomic-embed-text",
+          "embedding_provider": "ollama",
+          "ollama_base_url": "http://localhost:11434"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "c3d4e5f6-a7b8-4c5d-9e0f-1a2b3c4d5e6f"
+          }
+        ],
+        "output_edges": []
+      }
+    ]
+  }
+}

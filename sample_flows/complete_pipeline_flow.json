@@ -26,8 +26,10 @@
       {
         "id": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
         "name": "extract_with_docling",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none",
           "doc_column": "content"
         },
         "input_edges": [{"node_id_ref": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c"}],

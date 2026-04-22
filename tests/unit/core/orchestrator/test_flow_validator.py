@@ -535,7 +535,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "extract-1",
                     "name": "extract_documents",
-                    "operator": "extract_docling",
+                    "operator": "extract_operator",
                     "config": {"doc_column": "content"},
                     "input_edges": [{"node_id_ref": "ingest-1"}],
                     "output_edges": [{"node_id_ref": "vectordb-1"}],
@@ -607,7 +607,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "extract-1",
                     "name": "extract_documents",
-                    "operator": "extract_docling",
+                    "operator": "extract_operator",
                     "config": {"doc_column": "content"},
                     "input_edges": [{"node_id_ref": "ingest-1"}],
                     "output_edges": [{"node_id_ref": "chunker-1"}],
@@ -640,7 +640,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "extract-1",
                     "name": "extract_documents",
-                    "operator": "extract_docling",
+                    "operator": "extract_operator",
                     "config": {"doc_column": "content"},
                     "input_edges": [],
                     "output_edges": [{"node_id_ref": "chunker-1"}],
@@ -712,7 +712,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "extract-1",
                     "name": "duplicate_name",
-                    "operator": "extract_docling",
+                    "operator": "extract_operator",
                     "config": {"doc_column": "content"},
                     "input_edges": [{"node_id_ref": "ingest-1"}],
                     "output_edges": [],
@@ -747,7 +747,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "extract-1",
                     "name": "extract_documents",
-                    "operator": "extract_docling",
+                    "operator": "extract_operator",
                     "config": {"doc_column": "content"},
                     "input_edges": [],
                     "output_edges": [],
@@ -782,7 +782,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "extract-1",
                     "name": "extract_documents_1",
-                    "operator": "extract_docling",
+                    "operator": "extract_operator",
                     "config": {"doc_column": "content"},
                     "input_edges": [{"node_id_ref": "ingest-1"}],
                     "output_edges": [{"node_id_ref": "extract-2"}],
@@ -790,7 +790,7 @@ class TestFlowValidatorIntegration:
                 {
                     "id": "extract-2",
                     "name": "extract_documents_2",
-                    "operator": "extract_docling",
+                    "operator": "extract_operator",
                     "config": {"doc_column": "content"},
                     "input_edges": [{"node_id_ref": "extract-1"}],
                     "output_edges": [],

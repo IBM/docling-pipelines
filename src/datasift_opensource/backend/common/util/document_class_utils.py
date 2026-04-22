@@ -504,9 +504,8 @@ class DocumentClassUtils:
     @staticmethod
     def generate_docling_templates_for_types(
         document_types: list[str],
-        template_cache: dict[str, dict],
         include_nested: bool = True,
-    ) -> None:
+    ) -> dict[str, dict]:
         """
         Generate Docling templates for document types and update template_cache in-place.
 
@@ -517,18 +516,17 @@ class DocumentClassUtils:
 
         Args:
             document_types: List of document type names (may contain duplicates)
-            template_cache: Dictionary to update with generated templates (modified in-place)
             include_nested: Whether to include nested fields in templates
         """
 
         doc_classes_dir = Path(DatasiftConstants.DOCUMENT_CLASSES_PATH)
-
+        schema_templates: dict[str, dict] = {}
         # Get unique document types, excluding already cached ones
-        unique_doc_types = {dt for dt in document_types if dt and dt not in template_cache}
+        unique_doc_types = {dt for dt in document_types if dt}
 
         if not unique_doc_types:
             logger.debug("No new document types to process for template generation")
-            return
+            return schema_templates
 
         logger.info("Generating Docling templates for document types: %s", unique_doc_types)
 
@@ -548,13 +546,10 @@ class DocumentClassUtils:
                 )
 
                 # Update cache in-place
-                template_cache[doc_type] = template
+                schema_templates[doc_type] = template
                 logger.info("Generated Docling template for '%s' with %s fields", doc_type, len(template))
 
             except Exception as e:
                 logger.warning(f"Failed to generate Docling template for '{doc_type}': {e}")
 
-        if template_cache:
-            logger.info(
-                "Template cache now contains %s templates: %s", len(template_cache), list(template_cache.keys())
-            )
+        return schema_templates

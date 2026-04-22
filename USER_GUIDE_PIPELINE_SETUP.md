@@ -654,7 +654,7 @@ Reads files from a local directory:
 
 **Note:** Extension names should include the dot prefix and be comma-separated (e.g., `".pdf,.txt,.docx"` not `"*.pdf,*.txt"` or `"pdf,txt"`). The operator will also accept extensions without dots for backward compatibility.
 
-#### Operator 2: extract_docling
+#### Operator 2: extract_operator
 
 Extracts structured content using Docling. By default, it performs basic text extraction:
 
@@ -663,7 +663,7 @@ Extracts structured content using Docling. By default, it performs basic text ex
 {
   "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
   "name": "extract",
-  "operator": "extract_docling",
+  "operator": "extract_operator",
   "config": {
     "doc_column": "content"
   },
@@ -680,7 +680,7 @@ For structured data extraction with predefined schemas, you can enable template-
 {
   "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
   "name": "extract",
-  "operator": "extract_docling",
+  "operator": "extract_operator",
   "config": {
     "doc_column": "content",
     "use_template": true,
@@ -1020,7 +1020,7 @@ cat > my-first-flow.json << 'EOF'
       {
         "id": "extract-uuid",
         "name": "extract",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
           "doc_column": "content"
         },
@@ -1546,8 +1546,8 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
             },
             {
                 "id": "22222222-2222-4222-8222-222222222222",
-                "name": "extract_docling",
-                "operator": "extract_docling",
+                "name": "extract_operator",
+                "operator": "extract_operator",
                 "config": {"doc_column": "content"},
                 "input_edges": [{"node_id_ref": "11111111-1111-4111-8111-111111111111"}],
                 "output_edges": [{"node_id_ref": "33333333-3333-4333-8333-333333333333"}],

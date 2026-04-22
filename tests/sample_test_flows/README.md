@@ -31,7 +31,7 @@ Simple, foundational flows demonstrating core pipeline patterns.
 - Testing basic pipeline functionality
 - Learning operator chaining patterns
 
-**Key Operators:** `ingest_local`, `extract_docling`, `chunker`, `embeddings`, `opensearch`
+**Key Operators:** `ingest_local`, `extract_operator`, `chunker`, `embeddings`, `opensearch`
 
 ---
 
@@ -50,7 +50,7 @@ Specialized flows for invoice document processing with entity extraction.
 - Financial document processing
 - Structured data extraction from invoices
 
-**Key Operators:** `extract_docling`, `extract_entities_ollama`, `chunker`, `embeddings`, `opensearch`
+**Key Operators:** `extract_operator`, `extract_operator`, `chunker`, `embeddings`, `opensearch`
 
 **Entity Fields Extracted:**
 - Invoice number, date, payment due
@@ -75,7 +75,7 @@ Document classification and categorization workflows.
 - Routing documents based on classification
 - Type-specific processing workflows
 
-**Key Operators:** `document_classifier`, `extract_docling`, `extract_entities_ollama`
+**Key Operators:** `document_classifier`, `extract_operator`, `extract_operator`
 
 **Document Types Supported:**
 - Invoice, Receipt, Contract
@@ -153,7 +153,7 @@ Advanced, domain-specific document processing flows.
 - Schema-driven entity extraction
 - Custom document type processing
 
-**Key Operators:** `extract_entities_ollama` (with schema file)
+**Key Operators:** `extract_operator` (with schema file)
 
 **Purchase Order Fields:**
 - PO number, order date, delivery date

@@ -42,8 +42,7 @@ Strategic workflow coordinator that breaks down complex tasks and delegates to s
 Operators are organized by category as defined in the `OperatorCategory` enum:
 
 ### Extract Operators
-- **ExtractDocling**: Extracts structured content from documents using Docling (PDFs, DOCX, etc.)
-- **ExtractEntitiesOllama**: Performs LLM-based entity extraction using Ollama models
+- **ExtractOperator**: Unified extraction operator supporting multiple text extraction modes (basic, VLM, Docling Serve) and entity extraction modes (Ollama, Docling template-based, LiteLLM)
 
 ### Ingest Operators
 - **IngestLocalOperator**: Reads files from local filesystem directories
@@ -75,19 +74,19 @@ Operators are organized by category as defined in the `OperatorCategory` enum:
 ```
 Ingest → Extract → Chunk → Embed → Store
 ```
-Example: `IngestLocalFolder → ExtractDocling → Chunker → EmbeddingsOperator → VectorDBOperator`
+Example: `IngestLocalFolder → ExtractOperator → Chunker → EmbeddingsOperator → VectorDBOperator`
 
 ### Entity Extraction Workflow
 ```
-Ingest → Extract → ExtractEntitiesOllama
+Ingest → Extract (with entity extraction)
 ```
-Example: `IngestLocalFolder → ExtractDocling → ExtractEntitiesOllama` (extracts structured entities from documents)
+Example: `IngestLocalFolder → ExtractOperator` (with both text and entity extraction modes enabled)
 
 ### Quality-Enhanced Pipeline
 ```
 Ingest → Extract → Quality Checks → Chunk → Embed
 ```
-Example: `IngestLocalFolder → ExtractDocling → LanguageDetection → Readability → Chunker → EmbeddingsOperator`
+Example: `IngestLocalFolder → ExtractOperator → LanguageDetection → Readability → Chunker → EmbeddingsOperator`
 
 ### Vector Search Pipeline
 ```
@@ -133,7 +132,7 @@ Example: Conditional processing based on document type, language, or custom crit
 
 ### Ollama Integration
 - **Requirement**: Ollama server must be running on `http://localhost:11434`
-- **Used By**: `ExtractEntitiesOllama`, `EmbeddingsOperator` (when using Ollama models)
+- **Used By**: `ExtractOperator` (when using Ollama entity extraction mode), `EmbeddingsOperator` (when using Ollama models)
 - **Configuration**: Operators accept `model_name` parameter (e.g., `llama3.2`, `nomic-embed-text`)
 - **Verification**: Test with `curl http://localhost:11434/api/tags` to list available models
 

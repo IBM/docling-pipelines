@@ -45,11 +45,11 @@ template = generate_docling_template(
 # }
 ```
 
-### Use with ExtractDoclingOperator
+### Use with ExtractOperator
 
 ```python
 from common.util.document_class_utils import generate_docling_template
-from core.operators.extract.extract_docling import ExtractDoclingOperator
+from core.operators.extract.extract_operator import ExtractOperator
 
 # Generate template
 template = generate_docling_template(
@@ -65,7 +65,7 @@ config = {
     "expand_extracted_data": True  # Creates individual columns
 }
 
-operator = ExtractDoclingOperator(config)
+operator = ExtractOperator(config)
 result_tables, metadata = operator.transform(input_table)
 ```
 

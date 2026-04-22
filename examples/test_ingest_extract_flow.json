@@ -21,16 +21,26 @@
           "store_binary_content": "false"
         },
         "input_edges": [],
-        "output_edges": [{"node_id_ref": "extract-node"}]
+        "output_edges": [
+          {
+            "node_id_ref": "extract-node"
+          }
+        ]
       },
       {
         "id": "extract-node",
         "name": "extract",
-        "operator": "extract_docling",
+        "operator": "extract_operator",
         "config": {
-          "doc_column": "content"
+          "doc_column": "content",
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
         },
-        "input_edges": [{"node_id_ref": "ingest-node"}],
+        "input_edges": [
+          {
+            "node_id_ref": "ingest-node"
+          }
+        ],
         "output_edges": []
       }
     ]

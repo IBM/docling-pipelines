@@ -74,7 +74,6 @@ def _configure_ephemeral_mode() -> None:
         os.environ[PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED] = "False"
         # Create a temporary directory for Prefect Home
         os.environ[PREFECT_HOME] = tempfile.mkdtemp(prefix=PREFECT_HOME_PREFIX)
-        # force Prefect to use an in-memory SQLite DB
         os.environ[PREFECT_API_DATABASE_CONNECTION_URL] = "sqlite+aiosqlite:///:memory:"
     else:
         logger.info("Using Prefect debug mode (persistent SQLite)")
@@ -147,5 +146,3 @@ __all__ = [
     "clean_up_prefect_home",
     "set_prefect_env_variables",
 ]
-
-# Made with Bob
