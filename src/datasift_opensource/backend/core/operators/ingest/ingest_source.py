@@ -4,13 +4,9 @@ import importlib
 import json
 from typing import Any, ClassVar, Iterator
 
-import boto3
 import pyarrow as pa
 
 # Import standard LangChain loaders
-from langchain_community.document_loaders import (
-    S3FileLoader,
-)
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 
@@ -718,17 +714,9 @@ class IngestSourceOperator(AbstractOperator):
         binary_content = self._check_adapter_binary_content(doc, source)
         if binary_content is not None:
             return binary_content
-
-        # Try provider-specific download
-        if self.provider in ("s3", "ibm_cos"):
-            binary_content = self._download_s3_content(doc, source)
-            # Fallback to page_content
-            if binary_content is None:
-                binary_content = self._fallback_to_page_content(doc, source)
         else:
-            # For non-S3 providers, use page_content
+            # when binary content is not available, use the fallback method
             binary_content = self._fallback_to_page_content(doc, source)
-
         return binary_content
 
     # Required for the new adapters
@@ -752,36 +740,6 @@ class IngestSourceOperator(AbstractOperator):
 
         return None
 
-    def _download_s3_content(self, doc: Document, source: str) -> bytes | None:
-        """Download content from S3 or IBM COS."""
-        bucket = self.connection_params.get("bucket")
-        key = doc.metadata.get("source", source)
-
-        try:
-            client_config = {
-                "aws_access_key_id": self.credentials.get("access_key"),
-                "aws_secret_access_key": self.credentials.get("secret_key"),
-            }
-            if self.provider == "ibm_cos":
-                client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
-
-            s3_client = boto3.client("s3", **client_config)
-            response = s3_client.get_object(Bucket=bucket, Key=key)
-            s3_bytes = response["Body"].read()
-
-            logger.info(
-                f"Downloaded {len(s3_bytes)} bytes from S3/COS for: {source}",
-                extra=self.common_log_arguments,
-            )
-            return s3_bytes
-
-        except Exception as err:
-            logger.warning(
-                f"Could not download binary from S3/COS for {source}: {err}. Falling back to page_content text.",
-                extra=self.common_log_arguments,
-            )
-            return None
-
     def _fallback_to_page_content(self, doc: Document, source: str) -> bytes:
         """Fallback to encoding page_content as UTF-8 bytes."""
         logger.info(
@@ -790,117 +748,10 @@ class IngestSourceOperator(AbstractOperator):
         )
         return (doc.page_content or "").encode("utf-8")
 
-    def _get_s3_file_keys(self) -> list[str]:
-        """
-        Get list of S3 file keys, filtering out directories, hidden files, and applying include/exclude filters.
-        """
-        bucket = self.connection_params.get("bucket")
-        if not bucket:
-            raise ValueError("S3 bucket name is required")
-        prefix: str = self.connection_params.get("prefix", "")
-
-        s3_client = self._create_s3_client()
-        pages = s3_client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix)
-
-        file_keys: list[str] = []
-        for page in pages:
-            if "Contents" in page:
-                file_keys.extend(self._filter_s3_objects(page["Contents"]))
-
-        return file_keys
-
-    def _create_s3_client(self) -> Any:
-        """Create and configure boto3 S3 client."""
-        client_config: dict[str, Any] = {
-            "aws_access_key_id": self.credentials.get("access_key"),
-            "aws_secret_access_key": self.credentials.get("secret_key"),
-        }
-
-        if self.provider == "ibm_cos":
-            client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
-
-        return boto3.client("s3", **client_config)
-
-    def _filter_s3_objects(self, objects: list[dict[str, Any]]) -> list[str]:
-        """Filter S3 objects to get valid file keys."""
-        file_keys: list[str] = []
-
-        for obj in objects:
-            key: str = obj["Key"]
-
-            if self._should_skip_s3_object(key, obj):
-                continue
-
-            file_keys.append(key)
-
-        return file_keys
-
-    def _should_skip_s3_object(self, key: str, obj: dict[str, Any]) -> bool:
-        """Check if S3 object should be skipped based on filters."""
-        # Skip directory markers
-        if key.endswith("/"):
-            return True
-
-        # Skip hidden files/directories
-        if self._is_hidden_path(key):
-            return True
-
-        # Skip empty files
-        if obj.get("Size", 0) == 0:
-            return True
-
-        # Skip based on extension filters
-        if filter_based_on_extension(key, self.excluded_extensions, self.included_extensions):
-            return True
-
-        return False
-
     def _is_hidden_path(self, key: str) -> bool:
         """Check if any path component is hidden (starts with .)."""
         path_parts: list[str] = key.split("/")
         return any(part.startswith(".") and part not in [".", ".."] for part in path_parts)
-
-    def _load_s3_documents(self) -> list[Document]:
-        """
-        Load S3 documents with hidden file filtering.
-        Uses S3FileLoader to load each file individually, avoiding temp directory issues.
-        """
-        # Get S3 file keys using existing method (already filters hidden files)
-        file_keys: list[str] = self._get_s3_file_keys()
-
-        # Apply max_files limit to file keys
-        if self.max_files > 0:
-            file_keys = file_keys[: self.max_files]
-
-        # Setup client config
-        client_config: dict[str, Any] = {}
-        if self.provider == "ibm_cos":
-            client_config["endpoint_url"] = self.connection_params.get("endpoint_url")
-
-        # Load each file individually
-        documents: list[Document] = []
-        bucket = self.connection_params.get("bucket")
-        if not bucket:
-            raise ValueError("S3 bucket name is required")
-
-        for key in file_keys:
-            try:
-                loader = S3FileLoader(
-                    bucket=bucket,
-                    key=key,
-                    aws_access_key_id=self.credentials.get("access_key"),
-                    aws_secret_access_key=self.credentials.get("secret_key"),
-                    **client_config,
-                )
-                documents.extend(loader.load())
-            except Exception as e:
-                logger.warning(
-                    f"Failed to load {key}: {e!s}",
-                    extra=self.common_log_arguments,
-                )
-                continue
-
-        return documents
 
     def _get_loader(self) -> BaseLoader:
         """
