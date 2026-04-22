@@ -45,8 +45,8 @@ class LiteLLMEntityAdapter(EntityExtractionPort):
             config: Configuration dictionary
         """
         self.model_name = config.get(OperatorConstants.Config.MODEL_NAME, "gpt-3.5-turbo")
-        self.temperature = config.get(OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0)
-        self.max_tokens = config.get(OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 2000)
+        self.temperature = config.get("temperature", 0.0)
+        self.max_tokens = config.get("max_tokens", 2000)
         # TODO: Implement LiteLLM client initialization
 
     def extract_entities_single(

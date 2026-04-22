@@ -98,7 +98,7 @@ class EntityExtractionAdapterFactory:
                     "model_name": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME, "llama3.2"),
                     "temperature": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0),
                     "max_tokens": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 4096),
-                    "max_doc_chars": operator_config.get("max_doc_chars", 8000),
+                    "max_doc_chars": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS, 8000),
                 }
             )
 
@@ -199,11 +199,7 @@ class EntityExtractionAdapterFactory:
             raise ValueError("OllamaEntityAdapter 'model_name' must be a string")
 
         # Validate numeric parameters if present
-        for param in [
-            OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE,
-            OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS,
-            "max_doc_chars",
-        ]:
+        for param in ["temperature", "max_tokens", "max_doc_chars"]:
             value = config.get(param)
             if value is not None and not isinstance(value, (int, float)):
                 raise ValueError(f"OllamaEntityAdapter '{param}' must be a number")
@@ -248,10 +244,7 @@ class EntityExtractionAdapterFactory:
             raise ValueError("LiteLLMEntityAdapter 'model_name' must be a string")
 
         # Validate numeric parameters if present
-        for param in [
-            OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE,
-            OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS,
-        ]:
+        for param in ["temperature", "max_tokens"]:
             value = config.get(param)
             if value is not None and not isinstance(value, (int, float)):
                 raise ValueError(f"LiteLLMEntityAdapter '{param}' must be a number")

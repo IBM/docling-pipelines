@@ -16,7 +16,7 @@
         "name": "ingest",
         "operator": "ingest_local",
         "config": {
-          "input_folder": "/Users/anudeep/Documents/GitHub/datasift-opensource/tests/fixtures/invoices",
+          "input_folder": "../../../tests/fixtures/invoices",
           "include_filter": "pdf,docx,txt",
           "store_binary_content": "true"
         },

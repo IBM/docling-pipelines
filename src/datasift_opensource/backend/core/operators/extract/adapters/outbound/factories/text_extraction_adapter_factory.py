@@ -92,8 +92,12 @@ class TextExtractionAdapterFactory:
         # Common configuration for all text modes
         adapter_config: dict[str, Any] = {
             "doc_column": operator_config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT),
-            "extract_tables": operator_config.get("extract_tables", True),
-            "extract_images": operator_config.get("extract_images", True),
+            OperatorConstants.Config.EXTRACT_TABLES: operator_config.get(
+                OperatorConstants.Config.EXTRACT_TABLES, True
+            ),
+            OperatorConstants.Config.EXTRACT_IMAGES: operator_config.get(
+                OperatorConstants.Config.EXTRACT_IMAGES, True
+            ),
             "common_log_arguments": operator_config.get("common_log_arguments", {}),
         }
 
@@ -102,33 +106,47 @@ class TextExtractionAdapterFactory:
             # VLM configuration is now part of docling_library mode
             adapter_config.update(
                 {
-                    "use_vlm_pipeline": operator_config.get("use_vlm_pipeline", False),
-                    "vlm_preset": operator_config.get("vlm_preset", "granite_docling"),
-                    "vlm_engine_type": operator_config.get("vlm_engine_type"),
-                    "vlm_provider_config": operator_config.get("vlm_provider_config"),
+                    OperatorConstants.Config.USE_VLM_PIPELINE: operator_config.get(
+                        OperatorConstants.Config.USE_VLM_PIPELINE, False
+                    ),
+                    OperatorConstants.Config.VLM_PRESET: operator_config.get(
+                        OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
+                    ),
+                    OperatorConstants.Config.VLM_ENGINE_TYPE: operator_config.get(
+                        OperatorConstants.Config.VLM_ENGINE_TYPE
+                    ),
+                    OperatorConstants.Config.VLM_PROVIDER_CONFIG: operator_config.get(
+                        OperatorConstants.Config.VLM_PROVIDER_CONFIG
+                    ),
                 }
             )
 
         elif mode == TextExtractionMode.DOCLING_SERVE:
             # Build docling_serve_config dictionary
             docling_serve_config = {
-                "base_url": operator_config.get("docling_serve_base_url", "http://localhost:5001"),
-                "timeout": operator_config.get("docling_serve_timeout", 300),
-                "poll_interval": operator_config.get("docling_serve_poll_interval", 2),
-                "max_retries": operator_config.get("docling_serve_max_retries", 3),
-                "do_ocr": operator_config.get("docling_serve_do_ocr", True),
-                "ocr_engine": operator_config.get("docling_serve_ocr_engine", "easyocr"),
-                "pdf_backend": operator_config.get("docling_serve_pdf_backend", "dlparse_v2"),
-                "table_mode": operator_config.get("docling_serve_table_mode", "fast"),
-                "image_export_mode": operator_config.get("docling_serve_image_export_mode", "placeholder"),
+                "base_url": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_BASE_URL, "http://localhost:5001"),
+                "timeout": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_TIMEOUT, 300),
+                "poll_interval": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_POLL_INTERVAL, 2),
+                "max_retries": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_MAX_RETRIES, 3),
+                "do_ocr": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_DO_OCR, True),
+                "ocr_engine": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE, "easyocr"),
+                "pdf_backend": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND, "dlparse_v2"),
+                "table_mode": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_TABLE_MODE, "fast"),
+                "image_export_mode": operator_config.get(
+                    OperatorConstants.Config.DOCLING_SERVE_IMAGE_EXPORT_MODE, "placeholder"
+                ),
             }
 
             # Add optional parameters if provided
-            if operator_config.get("docling_serve_api_key"):
-                docling_serve_config["api_key"] = operator_config["docling_serve_api_key"]
+            if operator_config.get(OperatorConstants.Config.DOCLING_SERVE_API_KEY):
+                docling_serve_config[OperatorConstants.Config.API_KEY] = operator_config[
+                    OperatorConstants.Config.DOCLING_SERVE_API_KEY
+                ]
 
-            if operator_config.get("docling_serve_ocr_languages"):
-                docling_serve_config["ocr_languages"] = operator_config["docling_serve_ocr_languages"]
+            if operator_config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES):
+                docling_serve_config["ocr_languages"] = operator_config[
+                    OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES
+                ]
 
             adapter_config["docling_serve_config"] = docling_serve_config
 
@@ -171,7 +189,7 @@ class TextExtractionAdapterFactory:
                 TextExtractionAdapterFactory._validate_vlm_config(adapter_config)
                 logger.info(
                     "Creating DoclingAdapter with VLM enabled (preset: %s) and %s workers",
-                    adapter_config.get("vlm_preset", "granite_docling"),
+                    adapter_config.get("vlm_preset", OperatorConstants.Config.VLM_PRESET_DEFAULT),
                     max_workers,
                 )
             else:
@@ -205,10 +223,10 @@ class TextExtractionAdapterFactory:
         """
         # Optional parameters - no strict validation needed
         # DoclingAdapter handles defaults internally
-        use_template = config.get("use_template", False)
+        use_template = config.get(OperatorConstants.Config.USE_TEMPLATE, False)
 
         if use_template:
-            template = config.get("template")
+            template = config.get(OperatorConstants.Config.TEMPLATE)
             if template is not None and not isinstance(template, dict):
                 raise ValueError("DoclingAdapter 'template' must be a dictionary when provided")
 

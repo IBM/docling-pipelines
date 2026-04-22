@@ -360,9 +360,26 @@ class TestExtractOperatorRealWorld:
             "binary_content": [b"dummy content 1", b"dummy content 2"],
         })
         
-        with patch("core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter") as mock_create:
-            # Setup mock adapter to return structured data
-            mock_adapter = MagicMock()
+        with patch("core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory.TextExtractionAdapterFactory.create_adapter") as mock_text_create, \
+             patch("core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory.EntityExtractionAdapterFactory.create_adapter") as mock_entity_create:
+            
+            # Setup mock text extraction adapter
+            mock_text_adapter = MagicMock()
+            mock_text_table = pa.table({
+                "id": ["invoice1", "invoice2"],
+                "name": ["invoice1.pdf", "invoice2.pdf"],
+                "content": ["extracted content 1", "extracted content 2"],
+            })
+            mock_text_metadata = {
+                "processed_docs": 2,
+                "total_docs": 2,
+                "failed_docs_count": 0,
+            }
+            mock_text_adapter.transform.return_value = ([mock_text_table], mock_text_metadata)
+            mock_text_create.return_value = mock_text_adapter
+            
+            # Setup mock entity extraction adapter
+            mock_entity_adapter = MagicMock()
             
             # Simulate extracted structured data
             extracted_data_list = [
@@ -370,7 +387,7 @@ class TestExtractOperatorRealWorld:
                 {"invoice_number": "INV-002", "total_amount": "2000.00", "vendor": "XYZ Inc"},
             ]
             
-            # Create result table with extracted_data column
+            # Create result table with extracted_data column and expanded columns
             import json
             mock_result_table = pa.table({
                 "id": ["invoice1", "invoice2"],
@@ -384,14 +401,14 @@ class TestExtractOperatorRealWorld:
                 "extracted_vendor": ["Acme Corp", "XYZ Inc"],
             })
             
-            mock_metadata = {
+            mock_entity_metadata = {
                 "processed_docs": 2,
                 "total_docs": 2,
                 "failed_docs_count": 0,
             }
             
-            mock_adapter.transform.return_value = ([mock_result_table], mock_metadata)
-            mock_create.return_value = mock_adapter
+            mock_entity_adapter.transform.return_value = ([mock_result_table], mock_entity_metadata)
+            mock_entity_create.return_value = mock_entity_adapter
             
             # Create operator with expand_extracted_data enabled
             config = {
@@ -407,6 +424,7 @@ class TestExtractOperatorRealWorld:
                 },
                 "expand_extracted_data": True,
                 "doc_column": "content",
+                "output_column": "extracted_data",
                 "max_workers": 2,
             }
             
@@ -417,7 +435,7 @@ class TestExtractOperatorRealWorld:
             assert len(result_tables) > 0
             result_table = result_tables[0]
             
-            # Verify extracted_data column exists
+            # Verify extracted_data column exists (configured via output_column)
             assert "extracted_data" in result_table.column_names
             
             # Verify expanded columns exist

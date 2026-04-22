@@ -336,6 +336,7 @@ class OperatorConstants:
         ENTITY_MODEL_NAME: Final[str] = "entity_model_name"
         ENTITY_TEMPERATURE: Final[str] = "entity_temperature"
         ENTITY_MAX_TOKENS: Final[str] = "entity_max_tokens"
+        ENTITY_MAX_DOC_CHARS: Final[str] = "entity_max_doc_chars"
 
         # Entity Data Expansion (applies to entity extraction only)
         EXPAND_EXTRACTED_DATA: Final[str] = "expand_extracted_data"

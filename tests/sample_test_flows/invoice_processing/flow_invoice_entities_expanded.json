@@ -36,9 +36,9 @@
           "text_extraction_mode": "docling_library",
           "entity_extraction_mode": "ollama",
           "doc_column": "content",
-          "model_name": "granite4",
+          "entity_model_name": "granite4",
           "max_doc_chars": 8000,
-          "temperature": 0.0,
+          "entity_temperature": 0.0,
           "expand_extracted_data": true,
           "custom_schema": {
             "vendor_name": "string",

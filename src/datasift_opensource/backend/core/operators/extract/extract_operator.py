@@ -43,7 +43,7 @@ Example Usage:
         "operator_params": {
             "text_extraction_mode": "docling_library",
             "entity_extraction_mode": "ollama",
-            "model_name": "llama3.2",
+            "entity_model_name": "llama3.2",
             "doc_column": "document",
             "max_workers": 4
         }
@@ -168,18 +168,18 @@ class ExtractOperator(AbstractOperator):
                 - docling_serve_image_export_mode: Image export mode (default: "placeholder")
 
                 Ollama entity extraction parameters:
-                - model_name: Ollama model name (default: "llama3.2")
-                - temperature: Sampling temperature 0.0-1.0 (default: 0.0)
-                - max_tokens: Maximum response tokens (default: 4096)
-                - max_doc_chars: Maximum document characters to send to LLM (default: 8000)
+                - entity_model_name: Ollama model name (default: "llama3.2")
+                - entity_temperature: Sampling temperature 0.0-1.0 (default: 0.0)
+                - entity_max_tokens: Maximum response tokens (default: 4096)
+                - entity_max_doc_chars: Maximum document characters to send to LLM (default: 8000)
 
                 Docling entity extraction parameters:
                 - No additional parameters required (uses template-based extraction)
 
                 LiteLLM entity extraction parameters:
-                - model_name: LLM model identifier (default: "gpt-3.5-turbo")
-                - temperature: Sampling temperature (default: 0.0)
-                - max_tokens: Maximum tokens in response (default: 2000)
+                - entity_model_name: LLM model identifier (default: "gpt-3.5-turbo")
+                - entity_temperature: Sampling temperature (default: 0.0)
+                - entity_max_tokens: Maximum tokens in response (default: 2000)
 
         Raises:
             FlowExecutionFailedException: If extraction_mode is invalid or configuration is incomplete
@@ -220,7 +220,7 @@ class ExtractOperator(AbstractOperator):
         default_entity_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=True)
         text_max_workers = config.get(OperatorConstants.Config.MAX_WORKERS, default_text_workers)
         entity_max_workers = config.get(OperatorConstants.Config.MAX_WORKERS, default_entity_workers)
-        use_processes = config.get("use_processes", False)
+        use_processes = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         # Create text extraction adapter
         try:
@@ -634,7 +634,7 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.Config.MODEL_NAME: {
+                OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME: {
                     OperatorConstants.Misc.NAME: "Model Name",
                     OperatorConstants.Config.DESCRIPTION: (
                         "LLM model name for entity extraction (ollama: 'llama3.2', litellm: 'gpt-3.5-turbo')"
@@ -655,6 +655,13 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Maximum tokens for entity extraction LLM response",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: 4096,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS: {
+                    OperatorConstants.Misc.NAME: "Max doc chars",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum chars to pass for entity extraction",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: 8000,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
                 OperatorConstants.Columns.DOC_COLUMN: {

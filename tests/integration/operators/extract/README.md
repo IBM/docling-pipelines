@@ -216,8 +216,8 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 {
     "text_extraction_mode": "docling_library",
     "entity_extraction_mode": "ollama",
-    "model_name": "llama3.2",
-    "temperature": 0.0,
+    "entity_model_name": "llama3.2",
+    "entity_temperature": 0.0,
     "custom_schema": {
         "invoice_number": "string",
         "total_amount": "float"

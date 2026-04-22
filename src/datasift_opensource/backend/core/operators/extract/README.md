@@ -208,9 +208,9 @@ LLM-based entity extraction using locally running Ollama models.
 {
   "text_extraction_mode": "docling_library",
   "entity_extraction_mode": "ollama",
-  "model_name": "llama3.2",
-  "temperature": 0.0,
-  "max_tokens": 4096,
+  "entity_model_name": "llama3.2",
+  "entity_temperature": 0.0,
+  "entity_max_tokens": 4096,
   "max_doc_chars": 8000,
   "custom_schema": {
     "invoice_number": "string",
@@ -222,10 +222,10 @@ LLM-based entity extraction using locally running Ollama models.
 ```
 
 **Parameters:**
-- `model_name`: Ollama model to use (default: "llama3.2")
-- `temperature`: Sampling temperature 0.0-1.0 (default: 0.0, deterministic)
-- `max_tokens`: Maximum response tokens (default: 4096)
-- `max_doc_chars`: Maximum document characters to send to LLM (default: 8000)
+- `entity_model_name`: Ollama model to use (default: "llama3.2")
+- `entity_temperature`: Sampling temperature 0.0-1.0 (default: 0.0, deterministic)
+- `entity_max_tokens`: Maximum response tokens (default: 4096)
+- `entity_max_doc_chars`: Maximum document characters to send to LLM (default: 8000)
 - `custom_schema`: Optional schema dictionary defining expected entity structure
 
 **Prerequisites:**
@@ -288,9 +288,9 @@ Multi-provider LLM extraction using LiteLLM (currently a placeholder implementat
 {
   "text_extraction_mode": "docling_library",
   "entity_extraction_mode": "litellm",
-  "model_name": "gpt-3.5-turbo",
-  "temperature": 0.0,
-  "max_tokens": 2000
+  "entity_model_name": "gpt-3.5-turbo",
+  "entity_temperature": 0.0,
+  "entity_max_tokens": 2000
 }
 ```
 
@@ -339,18 +339,18 @@ Multi-provider LLM extraction using LiteLLM (currently a placeholder implementat
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `model_name` | string | `"llama3.2"` | Ollama model name |
-| `temperature` | float | `0.0` | Sampling temperature (0.0-1.0) |
-| `max_tokens` | integer | `4096` | Maximum response tokens |
-| `max_doc_chars` | integer | `8000` | Maximum document characters to send to LLM |
+| `entity_model_name` | string | `"llama3.2"` | Ollama model name |
+| `entity_temperature` | float | `0.0` | Sampling temperature (0.0-1.0) |
+| `entity_max_tokens` | integer | `4096` | Maximum response tokens |
+| `entity_max_doc_chars` | integer | `8000` | Maximum document characters to send to LLM |
 
 ### LiteLLM Entity Extraction Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `model_name` | string | `"gpt-3.5-turbo"` | LLM model identifier |
-| `temperature` | float | `0.0` | Sampling temperature |
-| `max_tokens` | integer | `2000` | Maximum response tokens |
+| `entity_model_name` | string | `"gpt-3.5-turbo"` | LLM model identifier |
+| `entity_temperature` | float | `0.0` | Sampling temperature |
+| `entity_max_tokens` | integer | `2000` | Maximum response tokens |
 
 ## Input/Output Data Formats
 
@@ -408,9 +408,9 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
     "text_extraction_mode": "docling_library",
     "entity_extraction_mode": "ollama",
     "doc_column": "content",
-    "model_name": "llama3.2",
-    "temperature": 0.0,
-    "max_tokens": 4096,
+    "entity_model_name": "llama3.2",
+    "entity_temperature": 0.0,
+    "entity_max_tokens": 4096,
     "custom_schema": {
       "invoice_number": "string",
       "vendor_name": "string",
@@ -492,8 +492,8 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
     "use_vlm_pipeline": true,
     "vlm_preset": "granite_docling",
     "vlm_engine_type": "transformers",
-    "model_name": "llama3.2",
-    "temperature": 0.0,
+    "entity_model_name": "llama3.2",
+    "entity_temperature": 0.0,
     "max_workers": 1
   }
 }
@@ -614,7 +614,7 @@ curl http://localhost:5001/health
    - VLM extraction: Use 1 worker due to high memory requirements
 
 2. **Document Size:**
-   - For large documents with entity extraction, adjust `max_doc_chars` to control LLM input size
+   - For large documents with entity extraction, adjust `entity_max_doc_chars` to control LLM input size
    - Consider chunking very large documents before extraction
 
 3. **Parallel Processing:**
@@ -658,7 +658,7 @@ Complete sample flows are available in [`tests/sample_test_flows/extract/`](../.
 
 **Issue: "Entity extraction returns empty results"**
 - Verify document content is not empty after text extraction
-- Check `max_doc_chars` is not too restrictive
+- Check `entity_max_doc_chars` is not too restrictive
 - For schema-based extraction, ensure the schema matches the document structure
 - Review LLM model capabilities for the extraction task
 

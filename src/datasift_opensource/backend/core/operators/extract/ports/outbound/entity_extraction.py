@@ -305,11 +305,12 @@ class EntityExtractionPort(ABC):
         if self.expand_extracted_data and entities_list:
             table = self._expand_entities_columns(table=table, entities_list=entities_list)
 
-        # check if content_list isn't empty and table doesn't already have content column then add it
-        if content_list and len(content_list) > 0 and self.doc_column not in table.column_names:
+        # check table doesn't already have content column then add it
+        if self.doc_column not in table.column_names:
             content_col_list: list[str] = [""] * table.num_rows
-            for idx_key, content in content_list.items():
-                content_col_list[int(idx_key)] = content
+            if content_list:
+                for idx_key, content in content_list.items():
+                    content_col_list[int(idx_key)] = content
             table = TransformUtils.add_column(table=table, name=self.doc_column, content=content_col_list)
 
         # Add entities column - convert to JSON strings for PyArrow compatibility

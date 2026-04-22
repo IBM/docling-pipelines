@@ -82,8 +82,8 @@ class OllamaEntityAdapter(EntityExtractionPort):
                 - max_doc_chars: Maximum document characters (default: 8000)
         """
         self.model_name = config.get(OperatorConstants.Config.MODEL_NAME, "llama3.2")
-        self.temperature = float(config.get(OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0))
-        self.max_tokens = int(config.get(OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 4096))
+        self.temperature = float(config.get("temperature", 0.0))
+        self.max_tokens = int(config.get("max_tokens", 4096))
         self.max_doc_chars = int(config.get("max_doc_chars", 8000))
 
         # Initialize Ollama client (lazy import to avoid breaking ollama due to import chain issues)

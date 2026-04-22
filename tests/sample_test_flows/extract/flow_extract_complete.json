@@ -16,7 +16,7 @@
         "name": "ingest",
         "operator": "ingest_local",
         "config": {
-          "input_folder": "/Users/anudeep/Documents/GitHub/datasift-opensource/tests/fixtures/invoices",
+          "input_folder": "../../../tests/fixtures/invoices",
           "include_filter": "pdf,docx",
           "store_binary_content": "true"
         },
@@ -64,9 +64,9 @@
           "doc_column": "content",
           "extract_tables": true,
           "extract_images": true,
-          "model_name": "granite4:latest",
-          "temperature": 0.0,
-          "max_tokens": 4096,
+          "entity_model_name": "granite4:latest",
+          "entity_temperature": 0.0,
+          "entity_max_tokens": 4096,
           "max_doc_chars": 8000,
           "max_workers": 2
         },

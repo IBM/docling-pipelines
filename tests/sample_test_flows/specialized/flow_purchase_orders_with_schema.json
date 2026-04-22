@@ -38,10 +38,10 @@
           "doc_column": "content",
           "extract_tables": false,
           "extract_images": false,
-          "model_name": "granite4",
+          "entity_model_name": "granite4",
           "output_column": "entities",
           "max_doc_chars": 8000,
-          "temperature": 0.0,
+          "entity_temperature": 0.0,
           "expand_extracted_data": true,
           "schema_file": "tests/purchase_order_schema.json"
         },

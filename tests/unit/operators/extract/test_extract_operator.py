@@ -374,7 +374,7 @@ def test_extract_operator_get_metadata():
     assert "text_extraction_mode" in attributes
     assert "entity_extraction_mode" in attributes
     assert "docling_serve_base_url" in attributes
-    assert "model_name" in attributes
+    assert "entity_model_name" in attributes
     assert "max_workers" in attributes
 
     # Verify docling_serve parameters
@@ -1112,98 +1112,108 @@ def test_prepare_document_content_fetch_uses_path_when_id_missing():
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="Metadata consolidation logic needs refactoring to handle duplicate document IDs across failed/skipped lists")
 def test_consolidate_metadata_merges_document_in_both_failed_lists():
     """Test that a document failing in both text and entity extraction has merged reasons."""
+    from unittest.mock import patch, MagicMock
     from core.operators.extract.extract_operator import ExtractOperator
 
-    operator = ExtractOperator(
-        config={
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
+    # Mock Ollama client to avoid connection requirement
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama:
+        mock_instance = MagicMock()
+        mock_ollama.return_value = mock_instance
+        
+        operator = ExtractOperator(
+            config={
+                "text_extraction_mode": "docling_library",
+                "entity_extraction_mode": "ollama",
+            }
+        )
+
+        text_metadata = {
+            Metrics.External.TOTAL_DOCS: 3,
+            Metrics.External.FAILED_DOCS: [
+                {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "text extraction timeout"},
+                {OperatorConstants.Columns.ID: "doc-2", OperatorConstants.Misc.REASON: "text parsing error"},
+            ],
+            Metrics.External.SKIPPED_DOCS: [],
         }
-    )
+        entity_metadata = {
+            Metrics.External.FAILED_DOCS: [
+                {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "entity model unavailable"},
+            ],
+            Metrics.External.SKIPPED_DOCS: [],
+        }
 
-    text_metadata = {
-        Metrics.External.TOTAL_DOCS: 3,
-        Metrics.External.FAILED_DOCS: [
-            {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "text extraction timeout"},
-            {OperatorConstants.Columns.ID: "doc-2", OperatorConstants.Misc.REASON: "text parsing error"},
-        ],
-        Metrics.External.SKIPPED_DOCS: [],
-    }
-    entity_metadata = {
-        Metrics.External.FAILED_DOCS: [
-            {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "entity model unavailable"},
-        ],
-        Metrics.External.SKIPPED_DOCS: [],
-    }
+        consolidated = operator._consolidate_metadata(
+            text_metadata=text_metadata,
+            entity_metadata=entity_metadata,
+        )
 
-    consolidated = operator._consolidate_metadata(
-        text_metadata=text_metadata,
-        entity_metadata=entity_metadata,
-    )
+        failed_docs = {
+            doc[OperatorConstants.Columns.ID]: doc
+            for doc in consolidated[Metrics.External.FAILED_DOCS]
+        }
 
-    failed_docs = {
-        doc[OperatorConstants.Columns.ID]: doc
-        for doc in consolidated[Metrics.External.FAILED_DOCS]
-    }
-
-    # Verify doc-1 appears once with merged reasons
-    assert len(consolidated[Metrics.External.FAILED_DOCS]) == 2
-    assert "doc-1" in failed_docs
-    assert failed_docs["doc-1"][OperatorConstants.Misc.REASON] == (
-        "Text extraction: text extraction timeout | Entity extraction: entity model unavailable"
-    )
-    # Verify doc-2 appears with only text reason
-    assert "doc-2" in failed_docs
-    assert failed_docs["doc-2"][OperatorConstants.Misc.REASON] == "text parsing error"
+        # Verify doc-1 appears once with merged reasons
+        assert len(consolidated[Metrics.External.FAILED_DOCS]) == 2
+        assert "doc-1" in failed_docs
+        assert failed_docs["doc-1"][OperatorConstants.Misc.REASON] == (
+            "Text extraction: text extraction timeout | Entity extraction: entity model unavailable"
+        )
+        # Verify doc-2 appears with only text reason
+        assert "doc-2" in failed_docs
+        assert failed_docs["doc-2"][OperatorConstants.Misc.REASON] == "text parsing error"
 
 
 @pytest.mark.unit
-@pytest.mark.skip(reason="Metadata consolidation logic needs refactoring to handle duplicate document IDs across failed/skipped lists")
 def test_consolidate_metadata_merges_document_in_both_skipped_lists():
     """Test that a document skipped in both text and entity extraction has merged reasons."""
+    from unittest.mock import patch, MagicMock
     from core.operators.extract.extract_operator import ExtractOperator
 
-    operator = ExtractOperator(
-        config={
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
+    # Mock Ollama client to avoid connection requirement
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama:
+        mock_instance = MagicMock()
+        mock_ollama.return_value = mock_instance
+        
+        operator = ExtractOperator(
+            config={
+                "text_extraction_mode": "docling_library",
+                "entity_extraction_mode": "ollama",
+            }
+        )
+
+        text_metadata = {
+            Metrics.External.TOTAL_DOCS: 3,
+            Metrics.External.FAILED_DOCS: [],
+            Metrics.External.SKIPPED_DOCS: [
+                {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "text unsupported format"},
+                {OperatorConstants.Columns.ID: "doc-2", OperatorConstants.Misc.REASON: "text empty content"},
+            ],
         }
-    )
+        entity_metadata = {
+            Metrics.External.FAILED_DOCS: [],
+            Metrics.External.SKIPPED_DOCS: [
+                {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "entity no schema match"},
+            ],
+        }
 
-    text_metadata = {
-        Metrics.External.TOTAL_DOCS: 3,
-        Metrics.External.FAILED_DOCS: [],
-        Metrics.External.SKIPPED_DOCS: [
-            {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "text unsupported format"},
-            {OperatorConstants.Columns.ID: "doc-2", OperatorConstants.Misc.REASON: "text empty content"},
-        ],
-    }
-    entity_metadata = {
-        Metrics.External.FAILED_DOCS: [],
-        Metrics.External.SKIPPED_DOCS: [
-            {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "entity no schema match"},
-        ],
-    }
+        consolidated = operator._consolidate_metadata(
+            text_metadata=text_metadata,
+            entity_metadata=entity_metadata,
+        )
 
-    consolidated = operator._consolidate_metadata(
-        text_metadata=text_metadata,
-        entity_metadata=entity_metadata,
-    )
+        skipped_docs = {
+            doc[OperatorConstants.Columns.ID]: doc
+            for doc in consolidated[Metrics.External.SKIPPED_DOCS]
+        }
 
-    skipped_docs = {
-        doc[OperatorConstants.Columns.ID]: doc
-        for doc in consolidated[Metrics.External.SKIPPED_DOCS]
-    }
-
-    # Verify doc-1 appears once with merged reasons
-    assert len(consolidated[Metrics.External.SKIPPED_DOCS]) == 2
-    assert "doc-1" in skipped_docs
-    assert skipped_docs["doc-1"][OperatorConstants.Misc.REASON] == (
-        "Text extraction: text unsupported format | Entity extraction: entity no schema match"
-    )
-    # Verify doc-2 appears with only text reason
-    assert "doc-2" in skipped_docs
-    assert skipped_docs["doc-2"][OperatorConstants.Misc.REASON] == "text empty content"
+        # Verify doc-1 appears once with merged reasons
+        assert len(consolidated[Metrics.External.SKIPPED_DOCS]) == 2
+        assert "doc-1" in skipped_docs
+        assert skipped_docs["doc-1"][OperatorConstants.Misc.REASON] == (
+            "Text extraction: text unsupported format | Entity extraction: entity no schema match"
+        )
+        # Verify doc-2 appears with only text reason
+        assert "doc-2" in skipped_docs
+        assert skipped_docs["doc-2"][OperatorConstants.Misc.REASON] == "text empty content"
