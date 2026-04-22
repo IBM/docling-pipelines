@@ -1,4 +1,27 @@
+"""Domain layer for operator metadata extraction and management.
+
+This module provides the core functionality for discovering and extracting metadata
+from all registered operators in the system. It dynamically instantiates operators
+and retrieves their configuration, features, and requirements.
+
+Architecture:
+    This is the domain layer that contains the business logic for operator metadata
+    extraction. It is wrapped by the application service layer
+    (OperatorMetadataService) which handles exception translation and logging.
+
+Usage:
+    >>> metadata = OperatorMetadata()
+    >>> all_metadata = metadata.get_operator_metadata(internal_features=False)
+    >>> features = metadata.get_features(short_name="extract_docling")
+    >>> required = metadata.required_feature_names(short_name="chunker")
+
+Note:
+    This class caches metadata after first retrieval. Subsequent calls return
+    cached data unless explicitly refreshed.
+"""
+
 from collections import defaultdict
+from typing import Any
 
 from common.constants.constants import OrchestratorType
 from common.constants.operator_constants import OperatorConstants
@@ -10,24 +33,90 @@ logger = get_logger()
 
 
 class OperatorMetadata:
-    def __init__(self):
-        self.session_info = get_session_info()
-        self.operator_metadata = {}
+    """Manages operator metadata extraction and caching.
 
-    def get_operator_metadata(self, *, internal_features=False):
-        refresh_operator_metadata = {}
-        config = {}
-        failed_operator_list = {}
+    This class is responsible for:
+    - Discovering all registered operators via OperatorFactoryProvider
+    - Instantiating operators and extracting their metadata
+    - Filtering internal features based on configuration
+    - Caching metadata for performance
+    - Providing utility methods for feature queries
+
+    Attributes:
+        session_info: Current session information
+        operator_metadata: Cached metadata dictionary mapping operator short names
+                          to their metadata dictionaries
+
+    Thread Safety:
+        This class is not thread-safe. Create separate instances for concurrent use.
+    """
+
+    def __init__(self) -> None:
+        """Initialize operator metadata manager with empty cache."""
+        self.session_info = get_session_info()
+        self.operator_metadata: dict[str, dict[str, Any]] = {}
+
+    def get_operator_metadata(self, *, internal_features: bool = False) -> dict[str, dict[str, Any]]:
+        """Extract and return metadata for all registered operators.
+
+        This method:
+        1. Discovers all operators via OperatorFactoryProvider
+        2. Instantiates each operator with empty config
+        3. Calls get_metadata() and get_required_features() on each
+        4. Filters internal features if requested
+        5. Handles initialization failures gracefully
+        6. Caches results for subsequent calls
+
+        Args:
+            internal_features: If False (default), filters out features tagged as
+                             'internal'. If True, includes all features including
+                             internal ones like doc_id_hash.
+
+        Returns:
+            Dictionary mapping operator short names (e.g., 'extract_docling') to
+            their metadata dictionaries containing:
+            - label: Human-readable operator name
+            - category: Operator category (Extract, Ingest, Functional, Quality, VectorDB)
+            - description: Operator description
+            - features: Dict of feature definitions
+            - required_features: List of required input feature names
+
+        Example:
+            >>> metadata = OperatorMetadata()
+            >>> all_ops = metadata.get_operator_metadata(internal_features=False)
+            >>> print(all_ops['extract_docling']['label'])
+            'Extract Docling'
+            >>> print(all_ops['extract_docling']['required_features'])
+            []
+
+        Note:
+            - Operators that fail to initialize return empty metadata dict
+            - Failed operators are logged as warnings if they claim to be available
+            - Results are cached in self.operator_metadata
+        """
+        refresh_operator_metadata: dict[str, dict[str, Any]] = {}
+        config: dict[str, Any] = {}
+        failed_operator_list: dict[str, Exception] = {}
+
+        # Get operator factory for Python orchestrator (used for metadata extraction)
         operator_factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
-        logger.info(f"Available Operators: {operator_factory.operators.keys()}")
+        logger.info(f"Discovering operators: {list(operator_factory.operators.keys())}")
+
+        # Iterate through all registered operators
         for short_name, cls in operator_factory.operators.items():
             try:
+                # Instantiate operator with empty config (sufficient for metadata)
                 op = cls(config)
+
+                # Extract metadata from operator
                 config_values = op.get_metadata()
                 required_features = op.get_required_features()
                 config_values["required_features"] = required_features
+
+                # Filter internal features if requested
                 if not internal_features:
                     features = config_values.get(OperatorConstants.Config.FEATURES, {})
+                    # Keep only features that don't have 'internal' tag
                     filtered_features = {
                         k: v
                         for k, v in features.items()
@@ -36,58 +125,126 @@ class OperatorMetadata:
                     config_values[OperatorConstants.Config.FEATURES] = filtered_features
 
                 refresh_operator_metadata[short_name] = config_values
+
             except Exception as e:
+                # Operator failed to initialize - store empty metadata
                 refresh_operator_metadata[short_name] = {}
                 failed_operator_list[short_name] = e
+                logger.debug(f"Operator '{short_name}' failed to initialize: {e}", exc_info=True)
                 continue
+
+        # Update cached metadata
         self.operator_metadata.update(refresh_operator_metadata)
 
+        # Log warnings for operators that claim to be available but failed
         if len(failed_operator_list) > 0:
-            # Below dict would be used for metadata missing log.
-            updated_operator_list = {}
+            # Filter to only operators that claim to be available
+            updated_operator_list: dict[str, Exception] = {}
 
             for op_name, exception in failed_operator_list.items():
                 operator = operator_factory.get_operator(operator_name=op_name)
-                if operator.is_available():
+                if operator is not None and operator.is_available():
                     updated_operator_list[op_name] = exception
 
-            logger.warning(f"Metadata missing for {updated_operator_list}")
+            if updated_operator_list:
+                logger.warning(f"Metadata missing for available operators: {list(updated_operator_list.keys())}")
 
         return self.operator_metadata
 
-    def get_features(self, *, short_name: str, purpose: str | None = None) -> dict:
+    def get_features(self, *, short_name: str, purpose: str | None = None) -> dict[str, Any]:
+        """Get features from a specific operator, optionally filtered by purpose.
+
+        Args:
+            short_name: Operator short name (e.g., 'extract_docling', 'chunker')
+            purpose: Optional purpose filter. Valid values:
+                    - OperatorConstants.Config.AVAILABLE_FOR_FILTER: Features usable in SQL filters
+                    - OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: Features storable in vector DBs
+                    - None: Return all features (default)
+
+        Returns:
+            Dictionary of features matching the criteria. Each feature contains:
+            - type: Data type (string, int64, double, boolean, list)
+            - description: Feature description
+            - required: Whether feature is required
+            - default: Default value
+            - available_for_filter: Can be used in SQL WHERE clauses
+            - available_for_vector_db: Can be stored in vector databases
+
+        Example:
+            >>> metadata = OperatorMetadata()
+            >>> metadata.get_operator_metadata()
+            >>> # Get all features
+            >>> all_features = metadata.get_features(short_name="extract_docling")
+            >>> # Get only filterable features
+            >>> filterable = metadata.get_features(
+            ...     short_name="extract_docling",
+            ...     purpose=OperatorConstants.Config.AVAILABLE_FOR_FILTER
+            ... )
+
+        Note:
+            Returns empty dict if operator not found or has no features.
         """
-        Returns the features from the given operator for the purpose of
-         a) filtering (OperatorConstants.Config.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB)`
-        """
-        if (
-            self.operator_metadata.get(short_name) is not None
-            and self.operator_metadata.get(short_name).get(OperatorConstants.Config.FEATURES) is not None
-        ):
-            features: dict = self.operator_metadata.get(short_name).get(OperatorConstants.Config.FEATURES)
-            if purpose is None:
-                return dict(features.items())
-            else:
-                return {k: v for k, v in features.items() if v.get(purpose, False)}
-        else:
-            return {}
+        # Check if operator exists and has features
+        operator_meta = self.operator_metadata.get(short_name)
+        if operator_meta is not None:
+            features_data = operator_meta.get(OperatorConstants.Config.FEATURES)
+            if features_data is not None:
+                features: dict[str, Any] = features_data
+
+                if purpose is None:
+                    # Return all features
+                    return dict(features.items())
+                else:
+                    # Filter by purpose (e.g., available_for_filter, available_for_vector_db)
+                    return {k: v for k, v in features.items() if v.get(purpose, False)}
+
+        return {}
 
     def get_features_from_input_output_features(
         self,
         *,
         purpose: str | None = None,
-        input_features: dict | None = None,
-        output_features: dict | None = None,
-    ) -> dict:
+        input_features: dict[str, Any] | None = None,
+        output_features: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Merge and filter features from input and output feature dictionaries.
+
+        This utility method combines input and output features (with output taking
+        precedence for duplicate keys) and optionally filters by purpose.
+
+        Args:
+            purpose: Optional purpose filter (same as get_features)
+            input_features: Dictionary of input features
+            output_features: Dictionary of output features (overrides input on conflict)
+
+        Returns:
+            Merged and filtered feature dictionary
+
+        Example:
+            >>> metadata = OperatorMetadata()
+            >>> input_feats = {"doc_id": {"type": "string"}}
+            >>> output_feats = {"content": {"type": "string"}}
+            >>> merged = metadata.get_features_from_input_output_features(
+            ...     input_features=input_feats,
+            ...     output_features=output_feats
+            ... )
+            >>> print(list(merged.keys()))
+            ['doc_id', 'content']
+
+        Note:
+            Output features override input features for duplicate keys.
         """
-        Returns the features from the given operator for the purpose of
-         a) filtering (OperatorConstants.Config.AVAILABLE_FOR_FILTER) or b) Vector DB (OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB)`
-        """
-        features: dict = {}
+        features: dict[str, Any] = {}
+
+        # Start with input features
         if input_features:
             features = input_features.copy()
+
+        # Merge output features (overrides input on conflict)
         if output_features:
             features.update(output_features)
+
+        # Apply purpose filter if specified
         if len(features) > 0:
             if purpose is None:
                 return dict(features.items())
@@ -96,21 +253,67 @@ class OperatorMetadata:
         else:
             return features
 
-    def required_feature_names(self, *, short_name):
+    def required_feature_names(self, *, short_name: str) -> list[str]:
+        """Get list of required input feature names for an operator.
+
+        Args:
+            short_name: Operator short name (e.g., 'chunker', 'embeddings')
+
+        Returns:
+            List of required feature names. Empty list if operator not found
+            or has no requirements.
+
+        Example:
+            >>> metadata = OperatorMetadata()
+            >>> metadata.get_operator_metadata()
+            >>> required = metadata.required_feature_names(short_name="chunker")
+            >>> print(required)
+            ['content']  # Chunker requires 'content' feature as input
+
+        Note:
+            This is used during flow validation to ensure operators receive
+            required inputs from previous operators in the pipeline.
+        """
         return self.operator_metadata.get(short_name, {}).get("required_features", [])
 
-    def get_feature_operators_map(self):
+    def get_feature_operators_map(self) -> dict[str, list[str]]:
+        """Build reverse mapping from features to operators that produce them.
+
+        This creates a dictionary mapping each feature name to a list of operator
+        labels that produce that feature. Useful for discovering which operators
+        can provide a specific feature.
+
+        Returns:
+            Dictionary mapping feature names to lists of operator labels
+
+        Example:
+            >>> metadata = OperatorMetadata()
+            >>> feature_map = metadata.get_feature_operators_map()
+            >>> print(feature_map['content'])
+            ['Extract Docling', 'Extract Entities (Ollama)']
+            >>> print(feature_map['embeddings'])
+            ['Embeddings Operator']
+
+        Note:
+            - Automatically calls get_operator_metadata(internal_features=True)
+            - Only includes operators that have a label defined
+            - Multiple operators may produce the same feature
+        """
+        # Ensure metadata is loaded (with internal features)
         _ = self.get_operator_metadata(internal_features=True)
+
         operator_short_names = list(self.operator_metadata.keys())
-        feature_operators_map = defaultdict(list)
+        feature_operators_map: dict[str, list[str]] = defaultdict(list)
+
+        # Build reverse mapping: feature -> [operator labels]
         for short_name in operator_short_names:
             op_features = list(self.get_features(short_name=short_name).keys())
+
             for feature in op_features:
-                label = self.operator_metadata.get(short_name).get(OperatorConstants.Misc.LABEL, None)
-                if label:
-                    feature_operators_map[feature].append(label)
+                operator_meta = self.operator_metadata.get(short_name)
+                if operator_meta is not None:
+                    label = operator_meta.get(OperatorConstants.Misc.LABEL, None)
+                    if label:
+                        feature_operators_map[feature].append(label)
 
         return feature_operators_map
-
-
-# Made with Bob

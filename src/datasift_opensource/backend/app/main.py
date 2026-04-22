@@ -100,11 +100,15 @@ app = FastAPI(
     ],
     openapi_tags=[
         {
-            "name": "flows",
+            "name": "Flows",
             "description": "Flow management operations for creating, reading, updating, and deleting data processing flows",
         },
         {
-            "name": "system",
+            "name": "Operators",
+            "description": "Operator metadata operations for retrieving information about available operators, their configurations, and capabilities",
+        },
+        {
+            "name": "System",
             "description": "System health and status endpoints",
         },
     ],

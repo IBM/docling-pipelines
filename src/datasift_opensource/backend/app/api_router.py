@@ -7,9 +7,11 @@ for including them in the FastAPI application.
 from fastapi import APIRouter
 
 from app.routes.flows import flows_router
+from app.routes.operators import operators_router
 
 # Create main API router with /api/v1 prefix
 api_router = APIRouter(prefix="/api/v1")
 
 # Include all sub-routers with their specific prefixes
 api_router.include_router(flows_router)
+api_router.include_router(operators_router)

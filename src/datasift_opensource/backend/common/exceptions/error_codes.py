@@ -16,6 +16,7 @@ class ErrorCode(StrEnum):
     # Operator errors
     OPERATOR_CONFIGURATION_INVALID = "operator_configuration_invalid"
     OPERATOR_EXECUTION_FAILED = "operator_execution_failed"
+    OPERATOR_METADATA_FAILED = "operator_metadata_failed"
     SQL_FILTER_ERROR = "sql_filter_error"
 
     # Ollama integration

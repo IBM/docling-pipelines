@@ -144,6 +144,40 @@ Examples:
   - 2026-04-01T11:00:00 (no timezone)
 """
 
+# Operator Patterns
+OPERATOR_TYPE_PATTERN = r"^(boolean|crn|date|double|float|sfloat|enum|int32|int64|json|list|string|time|timestamp)$"
+"""Operator type pattern (exact match for DataTypes enum values and common aliases).
+
+Rationale: Operator types are predefined enums from DataTypes (AttributeDataTypes).
+Includes common aliases used in operators: "float" (alias for "sfloat"), "int32" (alias for "int64")
+Allowed values: "boolean", "crn", "date", "double", "float", "sfloat", "enum", "int32", "int64", "json", "list", "string", "time", "timestamp"
+Example: "string", "int64", "int32", "double", "float", "sfloat", "boolean", "list", "json"
+"""
+
+OPERATOR_LABEL_PATTERN = r"^[\w\s\-\(\)]+$"
+"""Operator label pattern (alphanumeric with spaces, hyphens, parentheses).
+
+Rationale: Labels are human-readable names that may include special characters.
+Allows: word characters, spaces, hyphens, parentheses
+Example: "Entity Extraction (Ollama)", "ML Text Enrichment", "Document Classifier"
+"""
+
+OPERATOR_CATEGORY_PATTERN = r"^(Extract|Ingest|Functional|Quality|VectorDB|Custom)$"
+"""Operator category pattern (exact match for OperatorCategory enum values).
+
+Rationale: Categories are predefined enums from OperatorCategory.
+Allowed values: "Extract", "Ingest", "Functional", "Quality", "VectorDB", "Custom"
+Example: "Extract", "Ingest", "Functional", "Quality", "VectorDB", "Custom"
+"""
+
+OPERATOR_FEATURE_NAME_PATTERN = r"^[\w_]+$"
+"""Operator feature name pattern (alphanumeric with underscores).
+
+Rationale: Feature names are internal identifiers.
+Allows: word characters and underscores
+Example: "content", "doc_id_hash", "num_words", "avg_word_length"
+"""
+
 # ============================================================================
 # LENGTH CONSTRAINTS
 # ============================================================================
@@ -194,6 +228,26 @@ LIMIT_MIN = 1  # At least one item per page
 LIMIT_MAX = 100  # Prevents excessive page sizes
 TOTAL_COUNT_MIN = 0  # Empty collections are valid
 TOTAL_COUNT_MAX = 1000000  # Reasonable upper limit
+
+# Operator Field Lengths
+OPERATOR_TYPE_MIN_LENGTH = 1
+OPERATOR_TYPE_MAX_LENGTH = 50
+OPERATOR_LABEL_MIN_LENGTH = 1
+OPERATOR_LABEL_MAX_LENGTH = 256
+OPERATOR_CATEGORY_MIN_LENGTH = 1
+OPERATOR_CATEGORY_MAX_LENGTH = 50
+OPERATOR_DESCRIPTION_MIN_LENGTH = 1
+OPERATOR_DESCRIPTION_MAX_LENGTH = 10000
+OPERATOR_FEATURE_DESCRIPTION_MIN_LENGTH = 1
+OPERATOR_FEATURE_DESCRIPTION_MAX_LENGTH = 10000
+OPERATOR_FEATURE_NAME_MIN_LENGTH = 1
+OPERATOR_FEATURE_NAME_MAX_LENGTH = 100
+
+# Operator Array Constraints
+OPERATOR_FEATURES_MIN = 0  # Some operators have no features
+OPERATOR_FEATURES_MAX = 100  # Maximum features per operator
+OPERATOR_REQUIRED_FEATURES_MIN = 0  # Most operators have no required features
+OPERATOR_REQUIRED_FEATURES_MAX = 50  # Maximum required features
 
 # ============================================================================
 # EXAMPLE VALUES
@@ -303,6 +357,19 @@ LIMIT_DESC = "Maximum number of flows per page"
 FIRST_URL_DESC = "URL to the first page of results"
 NEXT_URL_DESC = "URL to the next page of results (null if no more pages)"
 PREV_URL_DESC = "URL to the previous page of results (null if on first page)"
+
+# Operator Field Descriptions
+OPERATOR_TYPE_DESC = "Data type of the feature (e.g., 'string', 'int64', 'double', 'float', 'int32', 'boolean', 'list')"
+OPERATOR_FEATURE_DESCRIPTION_DESC = "Human-readable description of the feature"
+OPERATOR_FEATURE_REQUIRED_DESC = "Whether this feature is required"
+OPERATOR_FEATURE_DEFAULT_DESC = "Default value for the feature"
+OPERATOR_FEATURE_FILTER_DESC = "Whether this feature can be used for filtering"
+OPERATOR_FEATURE_VECTOR_DB_DESC = "Whether this feature can be used in vector database operations"
+OPERATOR_LABEL_DESC = "Human-readable label for the operator"
+OPERATOR_CATEGORY_DESC = "Category of the operator"
+OPERATOR_DESCRIPTION_DESC = "Detailed description of the operator's functionality"
+OPERATOR_FEATURES_DESC = "Dictionary of features provided by this operator"
+OPERATOR_REQUIRED_FEATURES_DESC = "List of feature names required by this operator"
 
 # ============================================================================
 # FIELD FACTORY FUNCTIONS

@@ -47,7 +47,7 @@ from core.assets_management.domain.ports.flow_repository import FlowRepository
 logger = logging.getLogger(__name__)
 
 # Create router
-flows_router = APIRouter(prefix="/flows", tags=["flows"])
+flows_router = APIRouter(prefix="/flows", tags=["Flows"])
 
 # Path parameter type definitions
 FlowIdPath = Annotated[

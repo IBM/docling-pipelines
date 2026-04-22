@@ -321,10 +321,10 @@ def test_get_operator_metadata_logs_available_operators(
                 metadata = OperatorMetadata()
                 metadata.get_operator_metadata()
 
-                # Should log available operators
+                # Should log discovering operators
                 mock_logger.info.assert_called()
                 call_args = str(mock_logger.info.call_args)
-                assert "Available Operators" in call_args
+                assert "Discovering operators" in call_args
 
 
 def test_get_operator_metadata_logs_warning_for_unavailable_operators(

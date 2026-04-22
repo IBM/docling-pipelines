@@ -47,6 +47,8 @@ ErrorCode = Literal[
     "flow_storage_error",
     # Configuration error codes
     "invalid_configuration",
+    # Operator error codes
+    "operator_metadata_failed",
 ]
 
 
@@ -202,7 +204,7 @@ class ErrorResponse(BaseModel):
                             "message": "Flow with ID '550e8400-e29b-41d4-a716-446655440000' not found",
                         }
                     ],
-                    "trace": "req-abc-123",
+                    "trace": "550e8400-e29b-41d4-a716-446655440000",
                     "status_code": 404,
                 },
                 {
@@ -218,7 +220,7 @@ class ErrorResponse(BaseModel):
                             "target": {"type": "field", "name": "definition"},
                         },
                     ],
-                    "trace": "req-def-456",
+                    "trace": "98765432-1098-7654-3210-987654321098",
                     "status_code": 400,
                 },
                 {
@@ -229,7 +231,7 @@ class ErrorResponse(BaseModel):
                             "more_info": "https://docs.example.com/errors/internal_error",
                         }
                     ],
-                    "trace": "req-ghi-789",
+                    "trace": "12345678-9abc-def0-1234-56789abcdef0",
                     "status_code": 500,
                 },
             ]
