@@ -155,6 +155,71 @@ class TestBatchProcessing:
         assert metadata["processed_docs"] == 0
 
 
+class TestChunkedEmbeddings:
+    """Test chunked embeddings produce correct OpenSearch documents"""
+
+    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    def test_chunks_store_chunk_specific_text(
+        self, mock_bulk, mock_opensearch, basic_config
+    ):
+        """Verify OpenSearch documents contain chunk-specific text, not full document content"""
+        # Real scenario: 2 documents with 3 chunks each = 6 total chunks
+        data = {
+            "doc_id_hash": ["doc1_hash", "doc2_hash"],
+            "content": [
+                "Full content of document 1 that should NOT be in chunks",
+                "Full content of document 2 that should NOT be in chunks",
+            ],
+            "chunked_content": [
+                [
+                    {"chunk": "First chunk of doc1", "start_index": 0},
+                    {"chunk": "Second chunk of doc1", "start_index": 100},
+                    {"chunk": "Third chunk of doc1", "start_index": 200},
+                ],
+                [
+                    {"chunk": "First chunk of doc2", "start_index": 0},
+                    {"chunk": "Second chunk of doc2", "start_index": 100},
+                    {"chunk": "Third chunk of doc2", "start_index": 200},
+                ],
+            ],
+            "embeddings": [
+                [np.random.rand(384).tolist() for _ in range(3)],
+                [np.random.rand(384).tolist() for _ in range(3)],
+            ],
+        }
+        table = pa.table(data)
+
+        mock_client = MagicMock()
+        mock_client.indices.exists.return_value = True
+        mock_client.info.return_value = {"version": {"number": "2.11.0"}}
+        mock_opensearch.return_value = mock_client
+        mock_bulk.return_value = (6, [])
+
+        operator = VectorDBOperator(basic_config)
+        operator.transform(table)
+
+        # Extract documents sent to OpenSearch (like real query results)
+        all_actions = []
+        for call in mock_bulk.call_args_list:
+            all_actions.extend(call[0][1])
+
+        assert len(all_actions) == 6, "Should create 6 chunk documents"
+
+        # Verify structure matches real OpenSearch output
+        for action in all_actions:
+            assert "_id" in action
+            assert "_source" in action
+            assert "text" in action["_source"]
+            assert "vector_embeddings" in action["_source"]
+            assert "pk" in action["_source"]
+
+            # Key assertion: text field contains chunk content, not full document
+            text_content = action["_source"]["text"]
+            assert "Full content of document" not in text_content
+            assert "chunk of doc" in text_content
+
+
 class TestQueryCapabilities:
     """Test query and delete capabilities through public interface"""
 

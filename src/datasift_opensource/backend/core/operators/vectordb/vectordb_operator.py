@@ -97,6 +97,12 @@ class VectorDBOperator(AbstractOperator):
             adapter_config[OperatorConstants.VectorDB.INDEX_NAME] = self.index_name
             adapter_config[OperatorConstants.VectorDB.VECTOR_DIMENSION] = self.config_vector_dimension
             adapter_config[OperatorConstants.Columns.EMBEDDINGS_COLUMN] = self.embeddings_column
+            adapter_config[OperatorConstants.Config.AVAILABLE_FEATURES] = self.config.get(
+                OperatorConstants.Config.AVAILABLE_FEATURES, {}
+            )
+            adapter_config[OperatorConstants.Config.FEATURE_MAPPINGS] = self.config.get(
+                OperatorConstants.Config.FEATURE_MAPPINGS, {}
+            )
 
             self.adapter: VectorStorePort = VectorStoreFactory.create(self.vector_db_type, **adapter_config)
         except Exception as e:
@@ -213,10 +219,23 @@ class VectorDBOperator(AbstractOperator):
                             )
 
                 if is_chunked:
+                    # Get chunked_content if available
+                    chunked_content_list: list[dict[str, Any]] = row_data.get(
+                        OperatorConstants.Columns.CHUNKED_CONTENT, []
+                    )
+
                     # Create separate documents for each chunk
                     for chunk_idx, chunk_embedding in enumerate(embeddings_value):
                         chunk_row_data: dict[str, Any] = row_data.copy()
                         chunk_row_data[self.embeddings_column] = chunk_embedding
+
+                        # Replace content field with chunk-specific text
+                        if chunk_idx < len(chunked_content_list):
+                            chunk_text: str = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
+                            if chunk_text:
+                                # Update the content column with chunk text instead of full document
+                                chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
+
                         chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
                         documents.append((chunk_doc_id, chunk_row_data))
                 else:

@@ -61,6 +61,10 @@ class OpenSearchBatchProcessor:
         """
         Prepare a document for indexing by mapping columns to index fields.
 
+        Only fields explicitly listed in feature_mappings will be included in the
+        indexed document. This ensures predictable behavior and matches the
+        documented configuration pattern.
+
         Args:
             row_data: Raw row data from PyArrow table
 
@@ -69,32 +73,39 @@ class OpenSearchBatchProcessor:
         """
         doc: dict[str, Any] = {}
 
-        for feature_name, feature_config in self.available_features.items():
-            if not feature_config.get("available_for_vector_db", False):
+        # Process only fields defined in feature_mappings
+        for feature_name, mapped_name in self.feature_mappings.items():
+            # Get value from row data
+            value = row_data.get(feature_name)
+
+            if value is None:
                 continue
 
-            mapped_name: str = self.feature_mappings.get(feature_name, feature_name)
+            # Get feature config for type information and validation
+            feature_config: dict[str, Any] = self.available_features.get(feature_name, {})
 
-            if feature_name in row_data:
-                value: Any = row_data[feature_name]
+            # Skip if explicitly marked as unavailable for vector db
+            if feature_config.get("available_for_vector_db") is False:
+                continue
 
-                if value is None:
-                    continue
+            # Skip binary data types that cannot be JSON serialized
+            if isinstance(value, (bytes, bytearray)):
+                continue
 
-                # Convert numpy arrays to lists
-                if hasattr(value, "tolist"):
-                    value = value.tolist()
+            # Convert numpy arrays to lists for JSON serialization
+            if hasattr(value, "tolist"):
+                value = value.tolist()
 
-                # Parse JSON strings for object/nested types
-                feature_type: str = feature_config.get("type", "text")
-                if feature_type in ("object", "nested", "json") and isinstance(value, str):
-                    try:
-                        value = json.loads(value)
-                    except (json.JSONDecodeError, TypeError):
-                        # If parsing fails, keep as string
-                        pass
+            # Parse JSON strings for object/nested types if type is specified
+            feature_type: str = feature_config.get("type", "text")
+            if feature_type in ("object", "nested", "json") and isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except (json.JSONDecodeError, TypeError):
+                    # If parsing fails, keep as string
+                    pass
 
-                doc[mapped_name] = value
+            doc[mapped_name] = value
 
         return doc
 

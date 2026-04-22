@@ -225,10 +225,17 @@ class TestDocumentPreparation:
             "excluded": {"available_for_vector_db": False, "type": "string"},
         }
 
+        # feature_mappings defines which fields to include
+        mappings = {
+            "included": "included",
+            "excluded": "excluded",
+        }
+
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
             available_features=features,
+            feature_mappings=mappings,
         )
 
         row_data = {
@@ -334,12 +341,14 @@ class TestBatchCreation:
         """Test creating multiple batches based on size limit"""
         # Define features so documents aren't filtered out
         features = {"content": {"available_for_vector_db": True, "type": "string"}}
+        mappings = {"content": "content"}
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
             batch_size=1000,
             available_features=features,
+            feature_mappings=mappings,
         )
 
         # Create large documents that exceed 3MB when combined
@@ -358,11 +367,13 @@ class TestBatchCreation:
         """Test batch action structure"""
         # Define features so documents aren't filtered out
         features = {"content": {"available_for_vector_db": True, "type": "string"}}
+        mappings = {"content": "content"}
 
         processor = OpenSearchBatchProcessor(
             client=mock_client,
             index_name="test_index",
             available_features=features,
+            feature_mappings=mappings,
         )
 
         documents = [("doc1", {"content": "test"})]
