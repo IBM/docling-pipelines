@@ -59,3 +59,5 @@ Thumbs.db
 
 # Connector credentials
 examples/connectors/.env
+examples/connectors/*-service-account.json
+examples/connectors/google-service-account.json

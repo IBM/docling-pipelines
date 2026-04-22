@@ -2,7 +2,7 @@
   "flow": {
     "name": "google drive ingest flow",
     "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "description": "a sample flow to demonstrate ingesting documents from Google Drive using the ingest_source operator",
+    "description": "a sample flow to demonstrate ingesting documents from Google Drive using the ingest_source operator  with OAuth or Service Account authentication",
     "storage": "in-memory",
     "execute_type": "local",
     "global_config": {
@@ -18,11 +18,19 @@
         "config": {
           "provider": "google_drive",
           "connection_params": {
-            "folder_id": "<Folder ID>",
-            "recursive": false
+            "folder_id": "${GOOGLE_DRIVE_FOLDER_ID}",
+            "recursive": true
           },
           "credentials": {
-            "credentials_json_path": "<Credentials path>"
+            "_comment": "Use EITHER OAuth credentials OR service account, not both",
+            "_oauth_example": {
+              "credentials_json_path": "${GOOGLE_DRIVE_CREDENTIALS_PATH}",
+              "token_path": "${GOOGLE_DRIVE_TOKEN_PATH}"
+            },
+            "_service_account_example": {
+              "service_account_json_path": "${GOOGLE_DRIVE_SERVICE_ACCOUNT_PATH}"
+            },
+            "service_account_json_path": "${GOOGLE_DRIVE_SERVICE_ACCOUNT_PATH}"
           },
           "max_files": 100,
           "force_ingest": true,

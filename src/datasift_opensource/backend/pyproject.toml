@@ -26,6 +26,7 @@ dependencies = [
     "langchain-text-splitters==1.1.1",
     "langchain-experimental==0.4.1",
     "langchain-community==0.4.1",
+    "lxml==6.1.0",
     "pandas==2.3.3",
     "prefect==3.4.23",
     "pyiceberg[glue]==0.9.1",
@@ -49,6 +50,8 @@ dependencies = [
     "datatrove==0.3.0",
     "nltk==3.9.3",
     "langchain-google-community==3.0.5",
+    "google-auth-oauthlib==1.2.4",
+    "pypdf==6.10.0",
     "msal==1.35.1",
     "tenacity>=8.1.0,<8.4.0",
     "pyjwt==2.12.1",
@@ -57,6 +60,11 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "python-ldap>=3.4.0",
     "httpx>=0.28.0",
+    "o365==2.1.9",
+    "cryptography==46.0.7",
+    "pygments==2.20.0",
+    "accelerate==1.13.0",
+    "torch==2.11.0",
 ]
 
 [project.optional-dependencies]
@@ -99,7 +107,7 @@ google-drive = [
     "google-auth-oauthlib==1.2.4",
     "google-auth-httplib2==0.3.0",
     "google-api-python-client==2.190.0",
-    "pypdf2==3.0.1",
+    "pypdf==6.10.0",
     "unstructured[pdf]>=0.10.0",
     "langchain-google-community==3.0.5",
 ]
@@ -114,7 +122,7 @@ all-cloud = [
     "google-auth-oauthlib==1.2.4",
     "google-auth-httplib2==0.3.0",
     "google-api-python-client==2.190.0",
-    "pypdf2==3.0.1",
+    "pypdf==6.10.0",
     "unstructured[pdf]>=0.10.0",
     "O365==2.1.9",
     "langchain-community==0.4.1",

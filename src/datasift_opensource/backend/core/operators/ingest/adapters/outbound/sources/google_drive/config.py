@@ -3,7 +3,7 @@
 import os
 from typing import ClassVar
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class GoogleDriveSourceConfig(BaseModel):
@@ -14,14 +14,21 @@ class GoogleDriveSourceConfig(BaseModel):
     - Automatic validation of configuration values
     - Type safety and IDE autocomplete
     - Clear documentation of required/optional fields
-    - OAuth credential management
+    - OAuth or Service Account credential management
     """
 
-    # OAuth credentials
-    credentials_path: str = Field(..., description="Path to Google OAuth credentials JSON file")
+    # OAuth credentials (for user authentication)
+    credentials_path: str | None = Field(
+        None, description="Path to Google OAuth credentials JSON file (for OAuth flow)"
+    )
 
     token_path: str | None = Field(
         None, description="Path to store OAuth token. If None, uses credentials_path directory"
+    )
+
+    # Service Account credentials (for server-to-server authentication)
+    service_account_json_path: str | None = Field(
+        None, description="Path to Google Service Account JSON file (alternative to OAuth)"
     )
 
     # Drive configuration
@@ -51,14 +58,30 @@ class GoogleDriveSourceConfig(BaseModel):
         description="OAuth scopes for Google Drive API",
     )
 
-    @field_validator("credentials_path")
+    @model_validator(mode="after")
+    def validate_auth_method(self) -> "GoogleDriveSourceConfig":
+        """Ensure either OAuth or Service Account credentials are provided."""
+        if not self.credentials_path and not self.service_account_json_path:
+            raise ValueError(
+                "Either 'credentials_path' (for OAuth) or 'service_account_json_path' "
+                "(for Service Account) must be provided"
+            )
+        if self.credentials_path and self.service_account_json_path:
+            raise ValueError(
+                "Cannot use both 'credentials_path' and 'service_account_json_path'. "
+                "Choose either OAuth or Service Account authentication"
+            )
+        return self
+
+    @field_validator("credentials_path", "service_account_json_path")
     @classmethod
-    def validate_credentials_path(cls, v: str) -> str:
+    def validate_credentials_path(cls, v: str | None) -> str | None:
         """Validate and expand credentials file path."""
+        if v is None:
+            return None
+        # Only expand user home directory (~), don't make relative paths absolute
+        # This allows the path to be resolved relative to where the command is run
         expanded_path = os.path.expanduser(v)
-        # Just expand the path, don't validate existence here
-        # The actual file access will happen during authentication
-        # This avoids permission errors during config validation
         return expanded_path
 
     @field_validator("file_extensions")
@@ -80,9 +103,17 @@ class GoogleDriveSourceConfig(BaseModel):
         if self.token_path:
             return os.path.expanduser(self.token_path)
 
-        # Use same directory as credentials
-        creds_dir = os.path.dirname(os.path.expanduser(self.credentials_path))
-        return os.path.join(creds_dir, "token.json")
+        # Use same directory as credentials (only for OAuth)
+        if self.credentials_path:
+            creds_dir = os.path.dirname(os.path.expanduser(self.credentials_path))
+            return os.path.join(creds_dir, "token.json")
+
+        # For service account, token path is not used
+        return ""
+
+    def is_service_account(self) -> bool:
+        """Check if using service account authentication."""
+        return self.service_account_json_path is not None
 
     class Config:
         """Pydantic configuration."""

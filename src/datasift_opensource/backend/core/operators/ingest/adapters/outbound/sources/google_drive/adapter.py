@@ -1,15 +1,16 @@
 """Google Drive source adapter using LangChain loader."""
 
+import os
 import pickle
 from datetime import datetime
 from pathlib import Path
-from typing import AsyncGenerator, cast
+from typing import AsyncGenerator
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from langchain_google_community import GoogleDriveLoader
-from pydantic import BaseModel
 
 from core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
@@ -23,11 +24,12 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
     Adapter for ingesting documents from Google Drive using LangChain.
 
     This adapter wraps LangChain's GoogleDriveLoader to provide a simpler,
-    more maintainable implementation with automatic OAuth2 handling and
-    Google Workspace file export.
+    more maintainable implementation with automatic OAuth2 or Service Account
+    authentication and Google Workspace file export.
 
     Features:
-    - Automatic OAuth2 authentication with token caching
+    - OAuth2 authentication with token caching (for user access)
+    - Service Account authentication (for server-to-server access)
     - Automatic token refresh
     - Recursive folder traversal
     - Automatic export of Google Workspace files:
@@ -42,7 +44,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
     - Battle-tested by LangChain community
     - Automatic updates and bug fixes
     - Simpler error handling
-    - No manual OAuth2 flow implementation
+    - Support for both OAuth and Service Account authentication
     """
 
     # Metadata for connector discovery
@@ -51,48 +53,67 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from Google Drive using LangChain"
     SOURCE_VERSION = "2.0.0"  # Updated to 2.0.0 to reflect LangChain implementation
 
-    def _get_credentials(self, config: GoogleDriveSourceConfig) -> Credentials:
+    def _get_credentials(self, config: GoogleDriveSourceConfig) -> Credentials | ServiceAccountCredentials:
         """
-        Get or create OAuth2 credentials for Google Drive API.
+        Get or create credentials for Google Drive API.
 
-        This method handles the OAuth2 flow:
-        1. Check if token.json exists and load cached credentials
-        2. Refresh expired credentials if possible
-        3. Run OAuth2 flow if no valid credentials exist
+        Supports two authentication methods:
+        1. OAuth2 (user authentication): Interactive flow with token caching
+        2. Service Account (server-to-server): Non-interactive authentication
 
         Args:
             config: Google Drive configuration with credentials path
 
         Returns:
-            Credentials: Valid Google OAuth2 credentials
+            Credentials: Valid Google OAuth2 or Service Account credentials
         """
+        # Service Account authentication
+        if config.is_service_account():
+            service_account_path = None
+            try:
+                if config.service_account_json_path is None:
+                    raise ValueError("Service account JSON path is None")
+                service_account_path = Path(config.service_account_json_path)
+                if not service_account_path.exists():
+                    raise FileNotFoundError(f"Service account file not found: {service_account_path}")
+                if not service_account_path.is_file():
+                    raise ValueError(f"Service account path is not a file: {service_account_path}")
+
+                creds = ServiceAccountCredentials.from_service_account_file(
+                    str(service_account_path), scopes=config.scopes
+                )
+                return creds
+            except PermissionError as e:
+                raise PermissionError(
+                    f"Permission denied accessing service account file: {service_account_path}. Original error: {e}"
+                ) from e
+            except Exception as e:
+                raise ValueError(f"Failed to load service account credentials from {service_account_path}: {e}") from e
+
+        # OAuth2 authentication
+        if config.credentials_path is None:
+            raise ValueError("OAuth credentials path is None")
+
         creds = None
         token_path = Path(config.get_token_path())
         credentials_path = Path(config.credentials_path)
 
-        # Load cached credentials if they exist
         if token_path.exists():
             try:
                 with open(token_path, "rb") as token:
                     creds = pickle.load(token)
             except Exception:
-                # If loading fails, we'll create new credentials
                 pass
 
-        # If no valid credentials, get new ones
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
-                # Refresh expired credentials
                 try:
                     creds.refresh(Request())
                 except Exception:
-                    # If refresh fails, run OAuth flow
                     creds = None
 
             if not creds:
-                # Run OAuth2 flow
                 try:
-                    # Check if credentials file exists and is readable
                     if not credentials_path.exists():
                         raise FileNotFoundError(f"Credentials file not found: {credentials_path}")
                     if not credentials_path.is_file():
@@ -110,14 +131,81 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 except Exception as e:
                     raise ValueError(f"Failed to load credentials from {credentials_path}: {e}") from e
 
-            # Save credentials for future use
             token_path.parent.mkdir(parents=True, exist_ok=True)
             with open(token_path, "wb") as token:
                 pickle.dump(creds, token)
 
         return creds
 
-    async def fetch_documents(self, config: BaseModel) -> AsyncGenerator[Document, None]:
+    def _map_file_extensions_to_types(self, file_extensions: list[str]) -> list[str] | None:
+        """Map file extensions to Google Drive loader file types."""
+        if not file_extensions:
+            return None
+
+        mime_type_map = {
+            ".pdf": "pdf",
+            ".doc": "document",
+            ".docx": "document",
+            ".xls": "sheet",
+            ".xlsx": "sheet",
+            ".ppt": "presentation",
+            ".pptx": "presentation",
+        }
+
+        file_types_raw = [mime_type_map.get(ext.lower()) for ext in file_extensions]
+        file_types: list[str] = [file_type for file_type in file_types_raw if file_type is not None]
+
+        return file_types if file_types else None
+
+    def _create_loader(
+        self,
+        config: GoogleDriveSourceConfig,
+        recursive: bool | None = None,
+    ) -> GoogleDriveLoader:
+        """Create a LangChain loader for Google Drive."""
+        creds = self._get_credentials(config)
+        return GoogleDriveLoader(
+            folder_id=config.folder_id,
+            credentials=creds,
+            recursive=config.recursive if recursive is None else recursive,
+            file_types=self._map_file_extensions_to_types(config.file_extensions),
+        )
+
+    def _prepare_document(self, lc_doc) -> Document:
+        """Convert a LangChain document to the domain document model."""
+        metadata = lc_doc.metadata
+        doc_id = metadata.get("id", "")
+        doc_name = metadata.get("name", "unknown")
+        content = lc_doc.page_content.encode("utf-8")
+
+        modified_time = None
+        if metadata.get("modified_time"):
+            try:
+                modified_time = datetime.fromisoformat(metadata["modified_time"].replace("Z", "+00:00"))
+            except (ValueError, AttributeError):
+                pass
+
+        return Document(
+            id=doc_id,
+            name=doc_name,
+            content=content,
+            source_url=metadata.get("source", f"https://drive.google.com/file/d/{doc_id}"),
+            modified_time=modified_time,
+            metadata={
+                "mime_type": metadata.get("mime_type"),
+                "file_size": len(content),
+                "drive_id": doc_id,
+                "drive_name": doc_name,
+            },
+        )
+
+    def _iter_documents(self, config: GoogleDriveSourceConfig) -> list[Document]:
+        """Load and convert Google Drive documents."""
+        loader = self._create_loader(config)
+        langchain_docs = loader.load()
+        return [self._prepare_document(lc_doc) for lc_doc in langchain_docs]
+
+    async def fetch_documents(self, config: GoogleDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
         Fetch documents from Google Drive using LangChain loader.
 
@@ -131,82 +219,9 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             ImportError: If langchain_google_community is not installed
             ValueError: If credentials are invalid or folder not found
         """
-        config = cast(GoogleDriveSourceConfig, config)
         try:
-            # Get OAuth2 credentials
-            creds = self._get_credentials(config)
-
-            # Convert file extensions to Google Drive MIME types if specified
-            # LangChain 3.x expects MIME types like 'document', 'sheet', 'pdf', 'presentation'
-            file_types = None
-            if config.file_extensions:
-                # Map common extensions to Google Drive types
-                # Note: LangChain will handle both Google Workspace files and regular files
-                mime_type_map = {
-                    ".pdf": "pdf",
-                    ".doc": "document",
-                    ".docx": "document",
-                    ".xls": "sheet",
-                    ".xlsx": "sheet",
-                    ".ppt": "presentation",
-                    ".pptx": "presentation",
-                }
-                # Convert extensions to MIME types, skip unknown extensions
-                file_types = [mime_type_map.get(ext.lower()) for ext in config.file_extensions]
-                file_types = [ft for ft in file_types if ft is not None]
-                # If no valid MIME types, set to None to fetch all files
-                if not file_types:
-                    file_types = None
-
-            # Create LangChain loader with authenticated credentials
-            # Note: In langchain-google-community 3.x, we pass credentials directly
-            loader = GoogleDriveLoader(
-                folder_id=config.folder_id,
-                credentials=creds,
-                recursive=config.recursive,
-                file_types=file_types,
-            )
-
-            # Load documents (synchronous operation from LangChain)
-            # Note: LangChain's load() is synchronous, but we're in an async context
-            langchain_docs = loader.load()
-
-            # Convert LangChain documents to domain documents
-            for lc_doc in langchain_docs:
-                # Extract metadata
-                metadata = lc_doc.metadata
-                doc_id = metadata.get("id", "")
-                doc_name = metadata.get("name", "unknown")
-
-                # Convert page_content (string) to bytes
-                # LangChain returns text content, we need bytes for consistency
-                content = lc_doc.page_content.encode("utf-8")
-
-                # Parse modified time if available
-                modified_time = None
-                if metadata.get("modified_time"):
-                    try:
-                        modified_time = datetime.fromisoformat(metadata["modified_time"].replace("Z", "+00:00"))
-                    except (ValueError, AttributeError):
-                        pass
-
-                # Create domain document
-                document = Document(
-                    id=doc_id,
-                    name=doc_name,
-                    content=content,
-                    source_url=metadata.get("source", f"https://drive.google.com/file/d/{doc_id}"),
-                    modified_time=modified_time,
-                    metadata={
-                        "mime_type": metadata.get("mime_type"),
-                        "file_size": len(content),
-                        "drive_id": doc_id,
-                        "drive_name": doc_name,
-                    },
-                )
-
+            for document in self._iter_documents(config):
                 yield document
-
         except ImportError as e:
             raise ImportError(
                 "LangChain Google Drive dependencies not installed. "
@@ -215,7 +230,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         except Exception as e:
             raise ValueError(f"Failed to fetch documents from Google Drive: {e!s}") from e
 
-    async def test_connection(self, config: BaseModel) -> tuple[bool, str]:
+    async def test_connection(self, config: GoogleDriveSourceConfig) -> tuple[bool, str]:
         """
         Test Google Drive connection using LangChain loader.
 
@@ -225,22 +240,8 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         Returns:
             Tuple[bool, str]: (success, message)
         """
-        config = cast(GoogleDriveSourceConfig, config)
         try:
-            # Get OAuth2 credentials
-            creds = self._get_credentials(config)
-
-            # Try to create loader and list files (limit to 1 for quick test)
-            loader = GoogleDriveLoader(
-                folder_id=config.folder_id,
-                credentials=creds,
-                recursive=False,  # Don't recurse for connection test
-            )
-
-            # Try to load documents (this will trigger authentication)
-            # We don't need to process all documents, just verify connection works
-            docs = loader.load()
-
+            docs = self._create_loader(config, recursive=False).load()
             return True, f"Successfully connected to Google Drive. Found {len(docs)} document(s) in folder."
 
         except ImportError:
@@ -248,12 +249,12 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         except Exception as e:
             return False, f"Connection test failed: {e!s}"
 
-    def get_config_schema(self) -> type[BaseModel]:
+    def get_config_schema(self) -> type[GoogleDriveSourceConfig]:
         """
         Get the configuration schema for this adapter.
 
         Returns:
-            type[BaseModel]: The Pydantic configuration model
+            type[GoogleDriveSourceConfig]: The Pydantic configuration model
         """
         return GoogleDriveSourceConfig
 
@@ -262,7 +263,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
-    ) -> BaseModel:
+    ) -> GoogleDriveSourceConfig:
         """
         Build Google Drive configuration from operator parameters.
 
@@ -281,21 +282,51 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
+
+        def resolve_env_var(value):
+            if not isinstance(value, str):
+                return value
+            if value.startswith("${") and value.endswith("}"):
+                env_var_name = value[2:-1]
+                resolved = os.getenv(env_var_name)
+                if resolved is None:
+                    raise ValueError(f"Environment variable {env_var_name} is not set")
+                return resolved
+            if value.startswith("$"):
+                env_var_name = value[1:]
+                resolved = os.getenv(env_var_name)
+                if resolved is None:
+                    raise ValueError(f"Environment variable {env_var_name} is not set")
+                return resolved
+            if value.isupper() and "_" in value:
+                resolved = os.getenv(value)
+                if resolved is not None:
+                    return resolved
+            return value
+
+        # Build config dict with either OAuth or Service Account credentials
         config_dict = {
-            "credentials_path": credentials.get("credentials_json_path"),
-            "token_path": credentials.get("token_path"),
-            "folder_id": connection_params.get("folder_id"),
+            "folder_id": resolve_env_var(connection_params.get("folder_id")),
             "recursive": connection_params.get("recursive", False),
             "file_extensions": included_extensions or [],
             "exclude_patterns": [],
             "scopes": credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"]),
         }
 
+        # Add OAuth credentials if provided
+        if "credentials_json_path" in credentials:
+            config_dict["credentials_path"] = resolve_env_var(credentials.get("credentials_json_path"))
+            config_dict["token_path"] = resolve_env_var(credentials.get("token_path"))
+
+        # Add Service Account credentials if provided
+        if "service_account_json_path" in credentials:
+            config_dict["service_account_json_path"] = resolve_env_var(credentials.get("service_account_json_path"))
+
         # Add optional fields only if they exist
         if "drive_id" in connection_params:
-            config_dict["drive_id"] = connection_params["drive_id"]
+            config_dict["drive_id"] = resolve_env_var(connection_params["drive_id"])
         if "folder_path" in connection_params:
-            config_dict["folder_path"] = connection_params["folder_path"]
+            config_dict["folder_path"] = resolve_env_var(connection_params["folder_path"])
         if "max_file_size_mb" in connection_params:
             config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
 
