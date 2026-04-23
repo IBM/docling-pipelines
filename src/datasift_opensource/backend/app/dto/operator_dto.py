@@ -79,7 +79,7 @@ class OperatorFeature(BaseModel):
 
     Features are the data fields that operators consume (inputs) or produce
     (outputs). For example:
-    - extract_docling produces 'content' feature (string)
+    - extract_operator produces 'content' feature (string)
     - chunker requires 'content' feature and produces 'chunk_text' feature
     - embeddings requires 'chunk_text' and produces 'embeddings' feature (list)
 

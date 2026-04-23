@@ -82,8 +82,8 @@ OperatorMetadataServiceDep = Annotated[OperatorMetadataService, Depends(get_oper
             "content": {
                 "application/json": {
                     "example": {
-                        "extract_docling": {
-                            "label": "Extract Docling",
+                        "extract_operator": {
+                            "label": "Extract Operator",
                             "category": "Extract",
                             "description": "Extracts structured content from documents using Docling",
                             "features": {
@@ -161,8 +161,8 @@ def get_operator_metadata(service: OperatorMetadataServiceDep) -> dict[str, Oper
 
     Example Response:
         {
-            "extract_docling": {
-                "label": "Extract Docling",
+            "extract_operator": {
+                "label": "Extract Operator",
                 "category": "Extract",
                 "description": "Extracts structured content from documents",
                 "features": {

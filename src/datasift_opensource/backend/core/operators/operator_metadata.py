@@ -12,7 +12,7 @@ Architecture:
 Usage:
     >>> metadata = OperatorMetadata()
     >>> all_metadata = metadata.get_operator_metadata(internal_features=False)
-    >>> features = metadata.get_features(short_name="extract_docling")
+    >>> features = metadata.get_features(short_name="extract_operator")
     >>> required = metadata.required_feature_names(short_name="chunker")
 
 Note:
@@ -73,7 +73,7 @@ class OperatorMetadata:
                              internal ones like doc_id_hash.
 
         Returns:
-            Dictionary mapping operator short names (e.g., 'extract_docling') to
+            Dictionary mapping operator short names (e.g., 'extract_operator') to
             their metadata dictionaries containing:
             - label: Human-readable operator name
             - category: Operator category (Extract, Ingest, Functional, Quality, VectorDB)
@@ -84,9 +84,9 @@ class OperatorMetadata:
         Example:
             >>> metadata = OperatorMetadata()
             >>> all_ops = metadata.get_operator_metadata(internal_features=False)
-            >>> print(all_ops['extract_docling']['label'])
-            'Extract Docling'
-            >>> print(all_ops['extract_docling']['required_features'])
+            >>> print(all_ops['extract_operator']['label'])
+            'Extract Operator'
+            >>> print(all_ops['extract_operator']['required_features'])
             []
 
         Note:
@@ -155,7 +155,7 @@ class OperatorMetadata:
         """Get features from a specific operator, optionally filtered by purpose.
 
         Args:
-            short_name: Operator short name (e.g., 'extract_docling', 'chunker')
+            short_name: Operator short name (e.g., 'extract_operator', 'chunker')
             purpose: Optional purpose filter. Valid values:
                     - OperatorConstants.Config.AVAILABLE_FOR_FILTER: Features usable in SQL filters
                     - OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: Features storable in vector DBs
@@ -174,10 +174,10 @@ class OperatorMetadata:
             >>> metadata = OperatorMetadata()
             >>> metadata.get_operator_metadata()
             >>> # Get all features
-            >>> all_features = metadata.get_features(short_name="extract_docling")
+            >>> all_features = metadata.get_features(short_name="extract_operator")
             >>> # Get only filterable features
             >>> filterable = metadata.get_features(
-            ...     short_name="extract_docling",
+            ...     short_name="extract_operator",
             ...     purpose=OperatorConstants.Config.AVAILABLE_FOR_FILTER
             ... )
 

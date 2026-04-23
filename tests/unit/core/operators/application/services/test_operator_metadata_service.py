@@ -100,7 +100,7 @@ class TestOperatorMetadataServiceGetAll:
         # Arrange
         service = OperatorMetadataService()
         expected_operators = [
-            "extract_docling",
+            "extract_operator",
             "chunker",
             "embeddings",
             "vectordb",

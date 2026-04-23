@@ -57,7 +57,7 @@ class OperatorMetadataService:
         >>> # Get metadata for all operators
         >>> metadata = service.get_all_operator_metadata(internal_features=False)
         >>> print(list(metadata.keys()))
-        ['extract_docling', 'chunker', 'embeddings', ...]
+        ['extract_operator', 'chunker', 'embeddings', ...]
     """
 
     def __init__(self):
@@ -85,8 +85,8 @@ class OperatorMetadataService:
         Returns:
             Dictionary mapping operator short names to their metadata:
             {
-                "extract_docling": {
-                    "label": "Extract Docling",
+                "extract_operator": {
+                    "label": "Extract Operator",
                     "category": "Extract",
                     "description": "Extracts structured content...",
                     "features": {
@@ -119,11 +119,11 @@ class OperatorMetadataService:
             >>> # Get metadata without internal features (for API)
             >>> metadata = service.get_all_operator_metadata(internal_features=False)
             >>> print(list(metadata.keys()))
-            ['extract_docling', 'chunker', 'embeddings', ...]
+            ['extract_operator', 'chunker', 'embeddings', ...]
             >>>
             >>> # Get metadata with internal features (for system use)
             >>> full_metadata = service.get_all_operator_metadata(internal_features=True)
-            >>> print('doc_id_hash' in full_metadata['extract_docling']['features'])
+            >>> print('doc_id_hash' in full_metadata['extract_operator']['features'])
             True
 
         Note:
