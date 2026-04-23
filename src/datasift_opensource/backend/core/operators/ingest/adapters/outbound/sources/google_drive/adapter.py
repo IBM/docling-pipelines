@@ -12,10 +12,13 @@ from google.oauth2.service_account import Credentials as ServiceAccountCredentia
 from google_auth_oauthlib.flow import InstalledAppFlow
 from langchain_google_community import GoogleDriveLoader
 
+from common.util.infrastructure.logging import get_logger
 from core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
 from core.operators.ingest.domain.models import Document
 from core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+
+logger = get_logger(__name__)
 
 
 @register_source_adapter
@@ -220,8 +223,15 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             ValueError: If credentials are invalid or folder not found
         """
         try:
+            fetched_count = 0
             for document in self._iter_documents(config):
+                # Check max_files limit
+                if config.max_files is not None and fetched_count >= config.max_files:
+                    logger.info(f"Reached max_files limit ({config.max_files}), stopping fetch")
+                    break
+
                 yield document
+                fetched_count += 1
         except ImportError as e:
             raise ImportError(
                 "LangChain Google Drive dependencies not installed. "
@@ -260,9 +270,11 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
 
     def build_config_from_operator_params(
         self,
+        *,
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
+        max_files: int | None = None,
     ) -> GoogleDriveSourceConfig:
         """
         Build Google Drive configuration from operator parameters.
@@ -275,6 +287,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             connection_params: Connection parameters from operator config
             credentials: Credentials from operator config
             included_extensions: File extensions to include (optional)
+            max_files: Maximum number of files to fetch (optional, not used by Google Drive adapter)
 
         Returns:
             GoogleDriveSourceConfig: Validated configuration object
@@ -329,5 +342,9 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             config_dict["folder_path"] = resolve_env_var(connection_params["folder_path"])
         if "max_file_size_mb" in connection_params:
             config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
+
+        # Add max_files from operator parameter
+        if max_files is not None:
+            config_dict["max_files"] = max_files
 
         return GoogleDriveSourceConfig(**config_dict)

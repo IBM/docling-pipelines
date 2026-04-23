@@ -75,13 +75,13 @@ class TestGoogleDriveSourceAdapter:
     def test_build_config_from_operator_params(self):
         adapter = GoogleDriveSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            {
+            connection_params={
                 "folder_id": "folder123",
                 "recursive": True,
                 "drive_id": "drive1",
                 "max_file_size_mb": 4,
             },
-            {
+            credentials={
                 "credentials_json_path": "/tmp/creds.json",
                 "token_path": "/tmp/token.json",
                 "scopes": ["scope1"],

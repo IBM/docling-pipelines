@@ -74,9 +74,11 @@ class DocumentSourcePort[SourceConfig: BaseModel](ABC):
     @abstractmethod
     def build_config_from_operator_params(
         self,
+        *,
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
+        max_files: int | None = None,
     ) -> SourceConfig:
         """
         Build adapter-specific configuration from operator parameters.
@@ -88,6 +90,7 @@ class DocumentSourcePort[SourceConfig: BaseModel](ABC):
             connection_params: Connection parameters from operator config
             credentials: Credentials from operator config
             included_extensions: File extensions to include (optional)
+            max_files: Maximum number of files to fetch (optional)
 
         Returns:
             BaseModel: Adapter-specific configuration object (Pydantic model)

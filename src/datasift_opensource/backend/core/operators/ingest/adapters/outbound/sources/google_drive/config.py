@@ -58,6 +58,10 @@ class GoogleDriveSourceConfig(BaseModel):
         description="OAuth scopes for Google Drive API",
     )
 
+    max_files: int | None = Field(
+        None, description="Maximum number of files to fetch. None means no limit. Helps optimize performance."
+    )
+
     @model_validator(mode="after")
     def validate_auth_method(self) -> "GoogleDriveSourceConfig":
         """Ensure either OAuth or Service Account credentials are provided."""

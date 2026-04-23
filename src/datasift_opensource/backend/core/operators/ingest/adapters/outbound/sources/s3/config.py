@@ -60,6 +60,10 @@ class S3SourceConfig(BaseModel):
 
     download_timeout_seconds: int = Field(300, description="Timeout for downloading a single file in seconds", ge=30)
 
+    max_files: int | None = Field(
+        None, description="Maximum number of files to fetch. None means no limit. Helps optimize performance."
+    )
+
     @field_validator("access_key", "secret_key", "bucket")
     @classmethod
     def validate_required_fields(cls, v: str, info) -> str:

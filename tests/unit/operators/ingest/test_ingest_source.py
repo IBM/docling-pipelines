@@ -399,6 +399,7 @@ class TestTransform:
             for doc in domain_docs:
                 yield doc
 
+        # Return the coroutine function, not the result
         mock_fetch_documents.return_value = mock_async_gen()
 
         config = {
@@ -462,8 +463,9 @@ class TestTransform:
 
         # Mock async generator that yields no documents
         async def mock_async_gen():
-            return
-            yield  # Make it a generator
+            # Empty async generator - no yields
+            if False:  # pragma: no cover
+                yield  # Make it a generator but never execute
 
         mock_fetch_documents.return_value = mock_async_gen()
 
@@ -508,12 +510,13 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Mock adapter to raise exception
-        async def failing_fetch(config):
+        # Mock adapter to raise exception immediately
+        async def failing_fetch():
             raise Exception("Connection failed")
-            yield  # Make it a generator
+            if False:  # pragma: no cover
+                yield  # Make it a generator but never execute
 
-        mock_fetch_documents.side_effect = failing_fetch
+        mock_fetch_documents.return_value = failing_fetch()
 
         config = {
             "provider": "s3",

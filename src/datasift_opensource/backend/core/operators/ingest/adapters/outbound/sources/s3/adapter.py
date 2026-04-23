@@ -74,12 +74,19 @@ class S3SourceAdapter(DocumentSourcePort):
 
             logger.info(f"Found {len(s3_objects)} objects in S3 bucket '{config.bucket}' with prefix '{config.prefix}'")
 
-            # Download and yield documents
+            # Download and yield documents, respecting max_files limit
+            fetched_count = 0
             for s3_obj in s3_objects:
+                # Check max_files limit
+                if config.max_files is not None and fetched_count >= config.max_files:
+                    logger.info(f"Reached max_files limit ({config.max_files}), stopping fetch")
+                    break
+
                 try:
                     document = await self._download_s3_object(s3_client, config, s3_obj)
                     if document:
                         yield document
+                        fetched_count += 1
                 except Exception as e:
                     logger.error(f"Failed to download S3 object {s3_obj['Key']}: {e}", exc_info=True)
                     continue
@@ -143,9 +150,11 @@ class S3SourceAdapter(DocumentSourcePort):
 
     def build_config_from_operator_params(
         self,
+        *,
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
+        max_files: int | None = None,
     ) -> S3SourceConfig:
         """
         Build S3 configuration from operator parameters.
@@ -154,6 +163,7 @@ class S3SourceAdapter(DocumentSourcePort):
             connection_params: Connection parameters from operator config
             credentials: Credentials from operator config
             included_extensions: File extensions to include (optional)
+            max_files: Maximum number of files to fetch (optional, not used by S3 adapter)
 
         Returns:
             S3SourceConfig: Validated configuration object
@@ -189,6 +199,7 @@ class S3SourceAdapter(DocumentSourcePort):
             "skip_empty_files": connection_params.get("skip_empty_files", True),
             "max_concurrent_downloads": connection_params.get("max_concurrent_downloads", 5),
             "download_timeout_seconds": connection_params.get("download_timeout_seconds", 300),
+            "max_files": max_files,
         }
 
         return S3SourceConfig(**config_dict)

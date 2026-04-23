@@ -12,9 +12,9 @@ from langchain_core.documents import Document
 
 # Import adapters to trigger registration via @register_source_adapter decorator
 # These imports are necessary for the factory to discover available adapters
-# Note: Google Drive adapter import moved to lazy loading in _get_loader() to avoid
-# requiring google_auth_oauthlib dependency unless actually using Google Drive
-import core.operators.ingest.adapters.outbound.sources.s3.adapter  # noqa: F401
+# Note: Adapters are now auto-discovered by FileFinder during operator loading
+# so explicit imports are not needed here. The FileFinder scans the adapters directory
+# and registers all adapters automatically.
 from common.clients.rest_client import RestClient, RestClientConfig, RestMethod
 from common.constants.constants import (
     AttributeDataTypes,
@@ -420,16 +420,17 @@ class IngestSourceOperator(AbstractOperator):
 
             # Try to use new adapter architecture first
             if SourceAdapterFactory.is_registered(self.provider):
+                # Use lazy loading for adapters to respect max_files limit
                 documents: list[Document] = self._load_documents_via_adapter()
             else:
                 loader: BaseLoader = self._get_loader()
-                documents = loader.load()
+                # Use lazy_load if available, otherwise fall back to load()
+                if hasattr(loader, "lazy_load"):
+                    documents = loader.lazy_load()
+                else:
+                    documents = loader.load()
 
-            logger.info(
-                f"Loaded {len(documents)} documents from {self.provider}",
-                extra=self.common_log_arguments,
-            )
-
+            # Process documents one at a time, respecting max_files limit
             for idx, doc in enumerate(documents):
                 if processed_count >= self.max_files:
                     logger.info(
@@ -443,6 +444,11 @@ class IngestSourceOperator(AbstractOperator):
                 if processed_doc:
                     doc_data.append(processed_doc)
                     processed_count += 1
+
+            logger.info(
+                f"Processed {processed_count} documents from {self.provider}",
+                extra=self.common_log_arguments,
+            )
 
         except Exception as e:
             logger.error(
@@ -490,7 +496,8 @@ class IngestSourceOperator(AbstractOperator):
         # Run async fetch in sync context and convert to LangChain Documents
         async def fetch_all():
             langchain_docs = []
-            async for domain_doc in adapter.fetch_documents(config):
+            # fetch_documents is an async generator, iterate directly
+            async for domain_doc in adapter.fetch_documents(config):  # type: ignore[misc]
                 # Convert domain Document to LangChain Document
                 # LangChain Document expects page_content (str) and metadata (dict)
                 # Note: We store binary content as a special attribute, not in metadata
@@ -544,6 +551,7 @@ class IngestSourceOperator(AbstractOperator):
             connection_params=self.connection_params,
             credentials=self.credentials,
             included_extensions=self.included_extensions,
+            max_files=self.max_files,
         )
 
     def process_document(self, doc: Document, idx: int, metadata: dict[str, Any]) -> dict[str, Any] | None:
@@ -761,24 +769,15 @@ class IngestSourceOperator(AbstractOperator):
         should not call this method. They are handled via _load_documents_via_adapter().
         """
 
-        # 1. Amazon S3 / IBM COS (S3 Compatible)
+        # 1. Amazon S3 / IBM COS (S3 Compatible), Microsoft SharePoint, OneDrive & Google Drive
         # These providers now use the hexagonal architecture adapter
-        if self.provider in ["s3", "ibm_cos"]:
+        if self.provider in ["s3", "ibm_cos", "sharepoint", "onedrive", "google_drive"]:
             raise ValueError(
                 f"{self.provider} provider should use _load_documents_via_adapter(). "
                 "This provider is registered with SourceAdapterFactory and should be handled automatically."
             )
 
-        # 2. Microsoft SharePoint, OneDrive & Google Drive
-        # These providers use the hexagonal architecture adapters via _load_documents_via_adapter()
-        # and should not reach this method. Keeping this for backward compatibility.
-        elif self.provider in ["sharepoint", "onedrive", "google_drive"]:
-            raise ValueError(
-                f"{self.provider} provider should use _load_documents_via_adapter(). "
-                "This provider is registered with SourceAdapterFactory and should be handled automatically."
-            )
-
-        # 5. Custom / FileNet / Other
+        # 2. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         elif self.provider == "custom":
             loader_path = self.connection_params.get("loader_class_path")
