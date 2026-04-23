@@ -313,23 +313,25 @@ datasift-orchestrator --list-operators --verbose
 Execute datasift flows programmatically using Python:
 
 ```python
-from datasift_opensource.backend.lib.datasift_flow_manager import DatasiftFlowManager
-
-# Initialize executor
-executor = DatasiftFlowManager()
+from datasift_opensource.lib.datasift_flow_manager import DatasiftFlowManager
 
 # Execute flow from file
-result = executor.execute_flow("path/to/flow.json")
+manager = DatasiftFlowManager(
+    flow_file="path/to/flow.json",
+    log_level="info",
+)
+result = manager.execute()
 
 # Execute flow from dictionary
 flow_dict = {
     "nodes": [...],
     "edges": [...]
 }
-result = executor.execute_flow(flow_dict)
+manager = DatasiftFlowManager(flow_def=flow_dict)
+result = manager.execute()
 
 # List available operators
-operators = executor.list_operators()
+operators = DatasiftFlowManager.list_operators()
 ```
 
 **See also:**
