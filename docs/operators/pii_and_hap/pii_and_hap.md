@@ -65,8 +65,8 @@ The operator implements hexagonal architecture (ports and adapters pattern) to m
 **Configuration**:
 ```json
 {
-  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "operator_params": {
+  "operator": "pii_and_hap",
+  "config": {
     "provider": "ollama",
     "model_name": "granite3.1-dense:8b",
     "provider_config": {}
@@ -85,15 +85,14 @@ The operator implements hexagonal architecture (ports and adapters pattern) to m
 **Configuration**:
 ```json
 {
-  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "operator_params": {
+  "operator": "pii_and_hap",
+  "config": {
     "provider": "watsonx",
     "provider_config": {
       "api_key": "your-ibm-cloud-api-key", # pragma: allowlist secret
       "url": "https://us-south.ml.cloud.ibm.com",
       "container_id": "your-project-id",
-      "container_kind": "project",
-      "timeout": 300
+      "container_kind": "project"
     }
   }
 }
@@ -113,8 +112,8 @@ The operator implements hexagonal architecture (ports and adapters pattern) to m
 **OpenAI**:
 ```json
 {
-  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "operator_params": {
+  "operator": "pii_and_hap",
+  "config": {
     "provider": "litellm",
     "model_name": "gpt-4",
     "provider_config": {
@@ -127,8 +126,8 @@ The operator implements hexagonal architecture (ports and adapters pattern) to m
 **Anthropic**:
 ```json
 {
-  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "operator_params": {
+  "operator": "pii_and_hap",
+  "config": {
     "provider": "litellm",
     "model_name": "claude-3-opus-20240229",
     "provider_config": {
@@ -141,8 +140,8 @@ The operator implements hexagonal architecture (ports and adapters pattern) to m
 **Azure OpenAI**:
 ```json
 {
-  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "operator_params": {
+  "operator": "pii_and_hap",
+  "config": {
     "provider": "litellm",
     "model_name": "azure/gpt-4-deployment",
     "provider_config": {
@@ -230,8 +229,8 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
 #### WatsonX
 - `api_key`: IBM Cloud API key (required)
 - `url`: WatsonX.ai service URL (required)
-- `container_id`: Project or space ID (required)
-- `container_kind`: "project" or "space" (required)
+- `container_id`: Project or space or Catalog ID (required)
+- `container_kind`: "project" or "space" or "catalog" (required)
 - `timeout`: Request timeout in seconds (optional, default: 300)
 
 #### LiteLLM
@@ -248,21 +247,23 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
   "nodes": [
     {
       "id": "ingest",
-      "operator_type": "core.operators.ingest.ingest_local_folder.IngestLocalFolder",
-      "operator_params": {
-        "folder_path": "data/documents",
+      "operator": "ingest_local",
+      "config": {
+        "input_folder": "data/documents",
         "store_binary_content": true
       }
     },
     {
       "id": "extract",
-      "operator_type": "core.operators.extract.extract_docling.ExtractDocling",
-      "operator_params": {}
+      "operator": "extract_operator",
+      "config": {
+        "text_extraction_mode": "docling_library"
+      }
     },
     {
       "id": "pii_detection",
-      "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-      "operator_params": {
+      "operator": "pii_and_hap",
+      "config": {
         "provider": "ollama",
         "model_name": "granite3.1-dense:8b"
       }
@@ -282,8 +283,8 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
   "nodes": [
     {
       "id": "ingest",
-      "operator_type": "core.operators.ingest.ingest_source.IngestSourceOperator",
-      "operator_params": {
+      "operator": "ingest_source",
+      "config": {
         "source_type": "s3",
         "bucket": "my-documents",
         "prefix": "sensitive/"
@@ -291,13 +292,15 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
     },
     {
       "id": "extract",
-      "operator_type": "core.operators.extract.extract_docling.ExtractDocling",
-      "operator_params": {}
+      "operator": "extract_operator",
+      "config": {
+        "text_extraction_mode": "docling_library"
+      }
     },
     {
       "id": "pii_detection",
-      "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-      "operator_params": {
+      "operator": "pii_and_hap",
+      "config": {
         "provider": "watsonx",
         "provider_config": {
           "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
@@ -389,6 +392,7 @@ uv run pytest ../../../tests/unit/operators/pii_and_hap/ -v
 
 ## Related Documentation
 
+- [PII and HAP Configuration Guide](pii_and_hap_config.md) - Complete configuration reference with all parameters
 - [Operator README](../../src/datasift_opensource/backend/core/operators/quality/pii_and_hap/README.md) - Detailed technical documentation
 - [Architecture Guide](../ARCHITECTURE.md) - Hexagonal architecture patterns
 - [Ollama Setup](../README.md#embeddings-operator--ollama-setup) - Ollama installation guide

@@ -292,6 +292,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 },
             },
             OperatorConstants.Config.ATTRIBUTES: {
+                # ------------------------
+                # PII control
+                # ------------------------
                 OperatorConstants.PIIHAP.EXPECTED_REDACTIONS: {
                     OperatorConstants.Misc.NAME: "Expected Redactions",
                     OperatorConstants.Config.DESCRIPTION: "List of redactions to perform",
@@ -302,12 +305,22 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 },
                 OperatorConstants.PIIHAP.PII_LIST: {
                     OperatorConstants.Misc.NAME: "PII List",
-                    OperatorConstants.Config.DESCRIPTION: "List of PII fields to detect/redact",
+                    OperatorConstants.Config.DESCRIPTION: "List of PII types to detect/redact",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: DEFAULT_PII_TYPES_OF_CONCERN,
                     OperatorConstants.Config.VALID_VALUES: DEFAULT_PII_TYPES_OF_CONCERN,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
+                DISPLAY_PII_KEY: {
+                    OperatorConstants.Misc.NAME: "Display PII",
+                    OperatorConstants.Config.DESCRIPTION: "Include actual PII values in output columns for debugging/analysis",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                # ------------------------
+                # Redaction configuration
+                # ------------------------
                 OperatorConstants.PIIHAP.REDACTION_KEY: {
                     OperatorConstants.Misc.NAME: "PII Redaction",
                     OperatorConstants.Config.DESCRIPTION: "Enable PII redaction",
@@ -317,7 +330,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 },
                 OperatorConstants.PIIHAP.REDACTION_CHARACTER_KEY: {
                     OperatorConstants.Misc.NAME: "PII Masking Character",
-                    OperatorConstants.Config.DESCRIPTION: "Character to use for masking PII",
+                    OperatorConstants.Config.DESCRIPTION: "Character used to mask PII",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: OperatorConstants.PIIHAP.DEFAULT_REDACTION_CHARACTER_VALUE,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
@@ -331,14 +344,17 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 },
                 OperatorConstants.PIIHAP.HAP_REDACTION_CHARACTER_KEY: {
                     OperatorConstants.Misc.NAME: "HAP Masking Character",
-                    OperatorConstants.Config.DESCRIPTION: "Character to use for masking HAP",
+                    OperatorConstants.Config.DESCRIPTION: "Character used to mask HAP",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: OperatorConstants.PIIHAP.DEFAULT_REDACTION_CHARACTER_VALUE,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
+                # ------------------------
+                # Thresholds
+                # ------------------------
                 OperatorConstants.PIIHAP.PII_THRESHOLD_KEY: {
                     OperatorConstants.Misc.NAME: "PII Threshold",
-                    OperatorConstants.Config.DESCRIPTION: "Confidence threshold for PII detection (0.0-1.0)",
+                    OperatorConstants.Config.DESCRIPTION: "Confidence threshold for PII detection (0.0 - 1.0)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: DEFAULT_PII_THRESHOLD_VALUE,
                     OperatorConstants.Filtering.MIN_VALUE: 0.0,
@@ -347,16 +363,19 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 },
                 OperatorConstants.PIIHAP.HAP_THRESHOLD_KEY: {
                     OperatorConstants.Misc.NAME: "HAP Threshold",
-                    OperatorConstants.Config.DESCRIPTION: "Confidence threshold for HAP detection (0.0-1.0)",
+                    OperatorConstants.Config.DESCRIPTION: "Confidence threshold for HAP detection (0.0 - 1.0)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: DEFAULT_HAP_THRESHOLD_VALUE,
                     OperatorConstants.Filtering.MIN_VALUE: 0.0,
                     OperatorConstants.Filtering.MAX_VALUE: 1.0,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
+                # ------------------------
+                # Detection configuration
+                # ------------------------
                 PROVIDER: {
                     OperatorConstants.Misc.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: f"Detection provider to use ({PROVIDER_OLLAMA}, {PROVIDER_WATSONX}, {PROVIDER_LITELLM})",
+                    OperatorConstants.Config.DESCRIPTION: f"Detection provider ({PROVIDER_OLLAMA}, {PROVIDER_WATSONX}, {PROVIDER_LITELLM})",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
                     OperatorConstants.Config.VALID_VALUES: PIIHAPAdapterFactory.list_adapters(),
@@ -364,7 +383,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 },
                 OperatorConstants.Config.MODEL_NAME: {
                     OperatorConstants.Misc.NAME: "Model Name",
-                    OperatorConstants.Config.DESCRIPTION: "Name of the model to use (for Ollama provider)",
+                    OperatorConstants.Config.DESCRIPTION: "Model name used by the selected provider",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: "granite4",
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
@@ -374,9 +393,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: (
                         "Provider-specific configuration dictionary. "
                         "For WatsonX: {'api_key': '...', 'url': '...', 'container_kind': '...', 'container_id': '...'}. "
-                        "For OpenAI: {'base_url': '...', 'api_key': '...'}. "
+                        "For LiteLLM: {'base_url': '...', 'api_key': '...'}."
                     ),
-                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: {},
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
