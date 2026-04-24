@@ -92,7 +92,7 @@
             "host": "9.30.97.49",
             "port": 9200,
             "username": "admin",
-            "password": "8P@ssw0rd12@",
+            "password": "${OPENSEARCH_PASSWORD}",
             "use_ssl": true,
             "verify_certs": false,
             "batch_size": 100,

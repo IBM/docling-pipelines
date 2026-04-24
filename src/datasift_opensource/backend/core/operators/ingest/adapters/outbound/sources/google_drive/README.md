@@ -231,12 +231,13 @@ async for document in adapter.fetch_documents(config):
       "operator_params": {
         "source_type": "google_drive",
         "connection_params": {
-          "folder_id": "your-folder-id",
+          "folder_id": "${GOOGLE_DRIVE_FOLDER_ID}",
           "recursive": true
         },
         "credentials": {
-          "credentials_json_path": "credentials.json",
-          "token_path": "token.json"
+          "credentials_json_path": "${GOOGLE_DRIVE_CREDENTIALS_PATH}",
+          "_comment": "For the first run, run the flow without token_path. After authentication, add the token_path as an env variable and export it and add the field below for future use.",
+          "token_path": "${GOOGLE_DRIVE_TOKEN_PATH}" 
         },
         "included_extensions": [".pdf", ".docx"]
       }
@@ -255,11 +256,11 @@ async for document in adapter.fetch_documents(config):
       "operator_params": {
         "source_type": "google_drive",
         "connection_params": {
-          "folder_id": "your-folder-id",
+          "folder_id": "${GOOGLE_DRIVE_FOLDER_ID}",
           "recursive": true
         },
         "credentials": {
-          "service_account_json_path": "service-account.json"
+          "service_account_json_path": "${GOOGLE_DRIVE_SERVICE_ACCOUNT_PATH}"
         },
         "included_extensions": [".pdf", ".docx"]
       }
