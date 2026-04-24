@@ -22,6 +22,7 @@ class OperatorCategory(StrEnum):
     Functional = "Functional"
     Quality = "Quality"
     VectorDB = "VectorDB"
+    Storage = "Storage"
     Custom = "Custom"
 
 

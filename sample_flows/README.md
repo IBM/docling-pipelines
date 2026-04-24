@@ -9,6 +9,7 @@ This directory contains ready-to-run sample flows for first-time users of datasi
 ### Flow Structure
 
 Each flow consists of:
+
 - **flow_id**: UUID identifying the flow (format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 - **dag**: Array of operator nodes, each with:
   - **id**: UUID for the node (must be unique within the flow)
@@ -34,20 +35,24 @@ This is a typical RAG (Retrieval-Augmented Generation) preparation pipeline.
 Before running this flow, ensure you have:
 
 1. **Ollama Running**
+
    ```bash
    # Start Ollama server
    ollama serve
-   
+
    # Pull the embedding model
    ollama pull nomic-embed-text
    ```
+
    Verify: `curl http://localhost:11434/api/tags`
 
 2. **OpenSearch Running**
+
    ```bash
    # Using the provided docker-compose file
    docker-compose -f docker-compose.opensearch.yml up -d
    ```
+
    Verify: `curl -u admin:MyStrongPass123! http://localhost:9200`
 
 3. **Python Environment Setup**
@@ -173,6 +178,7 @@ The `feature_mappings` in the OpenSearch operator maps PyArrow table columns to 
 - **All mapped features should be included:** Any field in `feature_mappings` should also appear in `available_features`
 
 **Supported Types:**
+
 - `vector` - For embedding vectors (requires KNN configuration)
 - `string` - For text fields
 - `integer` - For whole numbers
@@ -182,12 +188,14 @@ The `feature_mappings` in the OpenSearch operator maps PyArrow table columns to 
 ### How to Run
 
 1. **Prepare your documents:**
+
    ```bash
    mkdir -p sample_documents
    # Copy your PDF, TXT, or DOCX files to sample_documents/
    ```
 
 2. **Execute the flow:**
+
    ```bash
    datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
    ```
@@ -196,10 +204,11 @@ The `feature_mappings` in the OpenSearch operator maps PyArrow table columns to 
    The orchestrator will show progress for each operator and any errors.
 
 4. **Verify results:**
+
    ```bash
    # Check if index was created
    curl -u admin:MyStrongPass123! "http://localhost:9200/sample-documents-index/_count"
-   
+
    # Search for documents
    curl -u admin:MyStrongPass123! -X POST "http://localhost:9200/sample-documents-index/_search" \
      -H "Content-Type: application/json" \

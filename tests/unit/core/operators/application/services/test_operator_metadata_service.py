@@ -102,8 +102,9 @@ class TestOperatorMetadataServiceGetAll:
         expected_operators = [
             "extract_operator",
             "chunker",
-            "embeddings",
-            "vectordb",
+            "ingest_source",
+            "branching",
+            "noop",
         ]
 
         # Act

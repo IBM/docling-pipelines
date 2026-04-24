@@ -6,6 +6,30 @@ from typing import TypedDict
 # Import OperatorConstants for re-export
 
 
+def _find_project_root() -> Path:
+    """Find project root by searching upward for marker files.
+
+    Prioritizes .git directory as the most reliable indicator of project root,
+    since pyproject.toml may exist in subdirectories (like backend/).
+    """
+    current = Path(__file__).resolve()
+
+    # Search upward for marker files - prioritize .git as it's at true project root
+    for parent in [current, *list(current.parents)]:
+        # .git is the most reliable indicator of project root
+        if (parent / ".git").exists():
+            return parent
+
+    # Fallback: look for README.md or other root-level files
+    for parent in [current, *list(current.parents)]:
+        if (parent / "README.md").exists() and (parent / "src").exists():
+            return parent
+
+    # Last resort: use fixed parent count
+    # constants.py -> common -> backend -> datasift_opensource -> src -> project_root
+    return Path(__file__).resolve().parents[5]
+
+
 class DatasiftConstants:
     # Defines constants that are used across Datasift service
     INPUT_EDGES = "input_edges"
@@ -98,6 +122,11 @@ class DatasiftConstants:
     FLOW_EXECUTION_EVENT_HANDLER = "flow_execution_event_handler"
     JOB_LOG_PATH = "job_log_path"
     FLOW_EXECUTE_LOG = "flow_execute.log"
+
+    # Use absolute path to ensure consistency across different working directories
+    # Find project root by searching for marker files (pyproject.toml, .git)
+    _PROJECT_ROOT = _find_project_root()
+    DOCUMENT_SET_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "document_sets.duckdb")
 
 
 class ServiceConstants:

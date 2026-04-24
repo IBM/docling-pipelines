@@ -13,6 +13,11 @@ class ErrorCode(StrEnum):
     FLOW_INVALID_DATA = "flow_invalid_data"
     FLOW_STORAGE_ERROR = "flow_storage_error"
 
+    # Document Set CRUD operations
+    DOCUMENT_SET_NOT_FOUND = "document_set_not_found"
+    DOCUMENT_SET_INVALID_DATA = "document_set_invalid_data"
+    DOCUMENT_SET_STORAGE_ERROR = "document_set_storage_error"
+
     # Operator errors
     OPERATOR_CONFIGURATION_INVALID = "operator_configuration_invalid"
     OPERATOR_EXECUTION_FAILED = "operator_execution_failed"

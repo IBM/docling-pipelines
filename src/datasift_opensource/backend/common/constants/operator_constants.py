@@ -558,6 +558,7 @@ class OperatorConstants:
             "core.operators.functional",
             "core.operators.quality",
             "core.operators.vectordb",
+            "core.operators.storage",
         ]
 
     class ContainerKinds:

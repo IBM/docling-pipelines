@@ -2,36 +2,86 @@
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Operator API Reference](#operator-api-reference)
-  - [Common Operator Contract](#common-operator-contract)
-  - [Extract Operators](#extract-operators)
-    - [ExtractDoclingOperator](#extractdoclingoperator)
-    - [ExtractEntitiesOllamaOperator](#extractentitiesollamaoperator)
-  - [Ingest Operators](#ingest-operators)
-    - [IngestLocalOperator](#ingestlocaloperator)
-    - [IngestSourceOperator](#ingestsourceoperator)
-  - [Functional Operators](#functional-operators)
-    - [ChunkerOperator](#chunkeroperator)
-    - [EmbeddingsOperator](#embeddingsoperator)
-    - [BranchingOperator](#branchingoperator)
-    - [NOOPOperator](#noopoperator)
-    - [DocIdHashOperator](#docidhashoperator)
-  - [Quality Operators](#quality-operators)
-    - [LanguageDetect](#languagedetect)
-    - [ReadabilityOperator](#readabilityoperator)
-    - [RedactionOperator](#redactionoperator)
-    - [DocumentClassifierOperator](#documentclassifieroperator)
-    - [EdedupOperator](#ededupoperator)
-    - [MLEnrichmentOperator](#mlenrichmentoperator)
-    - [SQLFilterOperator](#sqlfilteroperator)
-  - [VectorDB Operators](#vectordb-operators)
-    - [VectorDBOperator](#vectordboperator)
-- [DatasiftFlowManager API](#datasiftflowmanager-api)
-- [CLI API Reference](#cli-api-reference)
-- [Flow Configuration API](#flow-configuration-api)
-- [Exception Reference](#exception-reference)
-- [Utilities API](#utilities-api)
+- [Operator Reference](#operator-reference)
+  - [Table of Contents](#table-of-contents)
+  - [Overview](#overview)
+    - [How to use this reference](#how-to-use-this-reference)
+  - [Operator API Reference](#operator-api-reference)
+    - [Common Operator Contract](#common-operator-contract)
+    - [Extract Operators](#extract-operators)
+      - [ExtractDoclingOperator](#extractdoclingoperator)
+      - [ExtractEntitiesOllamaOperator](#extractentitiesollamaoperator)
+    - [Ingest Operators](#ingest-operators)
+      - [IngestLocalOperator](#ingestlocaloperator)
+      - [IngestSourceOperator](#ingestsourceoperator)
+    - [Functional Operators](#functional-operators)
+      - [ChunkerOperator](#chunkeroperator)
+      - [EmbeddingsOperator](#embeddingsoperator)
+      - [BranchingOperator](#branchingoperator)
+      - [NOOPOperator](#noopoperator)
+      - [DocIdHashOperator](#docidhashoperator)
+    - [Quality Operators](#quality-operators)
+      - [LanguageDetect](#languagedetect)
+      - [ReadabilityOperator](#readabilityoperator)
+      - [RedactionOperator](#redactionoperator)
+      - [DocumentClassifierOperator](#documentclassifieroperator)
+      - [EdedupOperator](#ededupoperator)
+      - [MLEnrichmentOperator](#mlenrichmentoperator)
+      - [SQLFilterOperator](#sqlfilteroperator)
+    - [VectorDB Operators](#vectordb-operators)
+      - [VectorDBOperator](#vectordboperator)
+    - [Storage Operators](#storage-operators)
+      - [DocumentSetOperator](#documentsetoperator)
+  - [DatasiftFlowManager API](#datasiftflowmanager-api)
+    - [Constructor](#constructor)
+    - [`validate()`](#validate)
+    - [`execute()`](#execute)
+    - [`get_execution_metadata()`](#get_execution_metadata)
+    - [`get_execution_logs()`](#get_execution_logs)
+    - [`list_operators(verbose=False)`](#list_operatorsverbosefalse)
+    - [Method name note](#method-name-note)
+  - [CLI API Reference](#cli-api-reference)
+    - [Command forms](#command-forms)
+    - [Global arguments](#global-arguments)
+    - [Exit codes](#exit-codes)
+  - [Flow Configuration API](#flow-configuration-api)
+    - [Root structure](#root-structure)
+    - [Flow fields](#flow-fields)
+    - [Node structure](#node-structure)
+    - [Node fields](#node-fields)
+    - [Edge structure](#edge-structure)
+    - [Validation rules](#validation-rules)
+  - [Exception Reference](#exception-reference)
+    - [`DatasiftException`](#datasiftexception)
+    - [`FlowExecutionFailedException`](#flowexecutionfailedexception)
+    - [`FlowValidationException`](#flowvalidationexception)
+    - [`PrefectFlowFailed`](#prefectflowfailed)
+    - [`ValidationException`](#validationexception)
+    - [`ConfigurationError`](#configurationerror)
+    - [`DependencyError`](#dependencyerror)
+    - [`ExternalServiceError`](#externalserviceerror)
+    - [`FlowNotFoundException`](#flownotfoundexception)
+    - [`FlowAlreadyExistsException`](#flowalreadyexistsexception)
+    - [`FlowInvalidDataException`](#flowinvaliddataexception)
+    - [`FlowStorageException`](#flowstorageexception)
+    - [`RepositoryConfigurationException`](#repositoryconfigurationexception)
+    - [`ValidationAlert`](#validationalert)
+    - [`ValidationAlertEncoder`](#validationalertencoder)
+  - [Utilities API](#utilities-api)
+    - [PyArrow handler utilities](#pyarrow-handler-utilities)
+      - [`BaseParquetTableHandler`](#baseparquettablehandler)
+      - [`CpdParquetTableHandler`](#cpdparquettablehandler)
+      - [`get_parquet_table_handler()`](#get_parquet_table_handler)
+    - [Schema utilities](#schema-utilities)
+      - [`align_table_schema(table, all_cols)`](#align_table_schematable-all_cols)
+      - [`_combine_tables(tables, table_type)`](#_combine_tablestables-table_type)
+      - [`_total_rows(tables)`](#_total_rowstables)
+    - [Document class utilities](#document-class-utilities)
+      - [`DocumentClassUtils.normalize_filename(name)`](#documentclassutilsnormalize_filenamename)
+      - [`DocumentClassUtils.load_document_class(doc_class_path)`](#documentclassutilsload_document_classdoc_class_path)
+      - [`DocumentClassUtils.generate_docling_template(doc_class_path, include_nested=True, max_fields=None)`](#documentclassutilsgenerate_docling_templatedoc_class_path-include_nestedtrue-max_fieldsnone)
+    - [Operator display utility](#operator-display-utility)
+      - [`list_operators(verbose=False, summary_only=False)`](#list_operatorsverbosefalse-summary_onlyfalse)
 
 ## Overview
 
@@ -70,15 +120,15 @@ All operators ultimately inherit from [`AbstractOperator`](src/datasift_opensour
 
 Most operators consume a `pyarrow.Table` with some subset of these columns:
 
-| Column | Type | Meaning |
-|---|---|---|
-| `id` | string | Document identifier |
-| `name` | string | Source path or display name |
-| `content` | string | Extracted text or serialized document content |
-| `binary_content` | binary | Raw file bytes for extractors |
-| `doc_id_hash` | string | Stable hashed identifier |
-| `chunked_content` | list or JSON string | Chunk payloads generated by chunking |
-| `embeddings` | vector/list[float] or list[list[float]] | Dense vector output |
+| Column            | Type                                    | Meaning                                       |
+| ----------------- | --------------------------------------- | --------------------------------------------- |
+| `id`              | string                                  | Document identifier                           |
+| `name`            | string                                  | Source path or display name                   |
+| `content`         | string                                  | Extracted text or serialized document content |
+| `binary_content`  | binary                                  | Raw file bytes for extractors                 |
+| `doc_id_hash`     | string                                  | Stable hashed identifier                      |
+| `chunked_content` | list or JSON string                     | Chunk payloads generated by chunking          |
+| `embeddings`      | vector/list[float] or list[list[float]] | Dense vector output                           |
 
 ### Extract Operators
 
@@ -90,20 +140,20 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.extract.extract_docling.ExtractDoclingOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | No | `content` | Target content column |
-| `use_template` | bool | No | `false` | Enables template-based structured extraction |
-| `template` | object | No | - | Inline Docling extraction template |
-| `doc_class_path` | string | No | - | Path to a document class JSON used to build a template |
-| `expand_extracted_data` | bool | No | `false` | Expands structured output into prefixed columns |
-| `extract_tables` | bool | No | implementation-dependent | Include table extraction |
-| `extract_images` | bool | No | implementation-dependent | Include image extraction metadata |
-| `use_vlm_pipeline` | bool | No | `false` | Use Docling VLM pipeline |
-| `vlm_preset` | string | No | provider default | VLM preset name |
-| `vlm_engine_type` | string | No | Docling default | Engine family such as transformers, mlx, or API-backed variants |
-| `vlm_provider_config` | object | No | `{}` | Provider-specific VLM settings |
-| `max_workers` | int | No | implementation-dependent | Parallel extraction worker count |
+| Parameter               | Type   | Required | Default                  | Description                                                     |
+| ----------------------- | ------ | -------: | ------------------------ | --------------------------------------------------------------- |
+| `doc_column`            | string |       No | `content`                | Target content column                                           |
+| `use_template`          | bool   |       No | `false`                  | Enables template-based structured extraction                    |
+| `template`              | object |       No | -                        | Inline Docling extraction template                              |
+| `doc_class_path`        | string |       No | -                        | Path to a document class JSON used to build a template          |
+| `expand_extracted_data` | bool   |       No | `false`                  | Expands structured output into prefixed columns                 |
+| `extract_tables`        | bool   |       No | implementation-dependent | Include table extraction                                        |
+| `extract_images`        | bool   |       No | implementation-dependent | Include image extraction metadata                               |
+| `use_vlm_pipeline`      | bool   |       No | `false`                  | Use Docling VLM pipeline                                        |
+| `vlm_preset`            | string |       No | provider default         | VLM preset name                                                 |
+| `vlm_engine_type`       | string |       No | Docling default          | Engine family such as transformers, mlx, or API-backed variants |
+| `vlm_provider_config`   | object |       No | `{}`                     | Provider-specific VLM settings                                  |
+| `max_workers`           | int    |       No | implementation-dependent | Parallel extraction worker count                                |
 
 **Input Schema**
 
@@ -147,9 +197,9 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Usage Notes**
 
-- Usually follows ingest.
-- VLM support requires Docling VLM dependencies.
-- API-backed VLM engines are normalized through [`_ensure_markdown_format_for_api_engines()`](src/datasift_opensource/backend/core/operators/extract/extract_docling.py:120).
+- Usually follows ingest operators in the pipeline
+- VLM support requires Docling VLM dependencies
+- API-backed VLM engines automatically normalize output to markdown format
 
 ---
 
@@ -161,16 +211,16 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.extract.extract_entities_ollama.ExtractEntitiesOllamaOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | No | `content` | Input content column |
-| `model_name` | string | Yes | - | Ollama model used for extraction |
-| `schema` | object | No | - | Explicit extraction schema |
-| `doc_class_path` | string | No | - | Document class JSON used to derive schema/template |
-| `output_column` | string | No | implementation default | Target column for extracted entity JSON |
-| `max_workers` | int | No | implementation-dependent | Parallel worker count |
-| `include_raw_response` | bool | No | `false` | Preserve raw LLM payload if supported |
-| `schema_free` | bool | No | `false` | Extract broad entities without fixed schema |
+| Parameter              | Type   | Required | Default                  | Description                                        |
+| ---------------------- | ------ | -------: | ------------------------ | -------------------------------------------------- |
+| `doc_column`           | string |       No | `content`                | Input content column                               |
+| `model_name`           | string |      Yes | -                        | Ollama model used for extraction                   |
+| `schema`               | object |       No | -                        | Explicit extraction schema                         |
+| `doc_class_path`       | string |       No | -                        | Document class JSON used to derive schema/template |
+| `output_column`        | string |       No | implementation default   | Target column for extracted entity JSON            |
+| `max_workers`          | int    |       No | implementation-dependent | Parallel worker count                              |
+| `include_raw_response` | bool   |       No | `false`                  | Preserve raw LLM payload if supported              |
+| `schema_free`          | bool   |       No | `false`                  | Extract broad entities without fixed schema        |
 
 **Input Schema**
 
@@ -218,16 +268,16 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.ingest.ingest_local_folder.IngestLocalOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `input_folder` | string | Yes | `../test-data/input` | Root folder to crawl |
-| `include_filter` | string | No | - | Comma-separated extensions to include |
-| `exclude_filter` | string | No | - | Comma-separated extensions to exclude |
-| `max_files` | int | No | `100` | Maximum number of files to ingest |
-| `max_file_size` | int | No | `100` | Maximum file size in MB |
-| `store_binary_content` | bool | No | `true` | Preserve raw file bytes for extractors |
-| `force_ingest` | bool | No | `false` | Reprocess already-seen documents |
-| `retain_deleted_docs` | bool | No | project constant | Retain source-deleted docs in incremental scenarios |
+| Parameter              | Type   | Required | Default              | Description                                         |
+| ---------------------- | ------ | -------: | -------------------- | --------------------------------------------------- |
+| `input_folder`         | string |      Yes | `../test-data/input` | Root folder to crawl                                |
+| `include_filter`       | string |       No | -                    | Comma-separated extensions to include               |
+| `exclude_filter`       | string |       No | -                    | Comma-separated extensions to exclude               |
+| `max_files`            | int    |       No | `100`                | Maximum number of files to ingest                   |
+| `max_file_size`        | int    |       No | `100`                | Maximum file size in MB                             |
+| `store_binary_content` | bool   |       No | `true`               | Preserve raw file bytes for extractors              |
+| `force_ingest`         | bool   |       No | `false`              | Reprocess already-seen documents                    |
+| `retain_deleted_docs`  | bool   |       No | project constant     | Retain source-deleted docs in incremental scenarios |
 
 **Input Schema**
 
@@ -273,14 +323,14 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.ingest.ingest_source.IngestSourceOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `source_type` | string | Yes | - | Adapter type |
-| `include_filter` | string | No | - | Extension include list |
-| `exclude_filter` | string | No | - | Extension exclude list |
-| `force_ingest` | bool | No | `false` | Reprocess prior docs |
-| `store_binary_content` | bool | No | provider-dependent | Preserve binary content |
-| `provider_config` | object | Yes | - | Provider-specific configuration |
+| Parameter              | Type   | Required | Default            | Description                     |
+| ---------------------- | ------ | -------: | ------------------ | ------------------------------- |
+| `source_type`          | string |      Yes | -                  | Adapter type                    |
+| `include_filter`       | string |       No | -                  | Extension include list          |
+| `exclude_filter`       | string |       No | -                  | Extension exclude list          |
+| `force_ingest`         | bool   |       No | `false`            | Reprocess prior docs            |
+| `store_binary_content` | bool   |       No | provider-dependent | Preserve binary content         |
+| `provider_config`      | object |      Yes | -                  | Provider-specific configuration |
 
 **Input Schema**
 
@@ -325,18 +375,18 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.functional.chunker.ChunkerOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | Yes | `content` | Input content column |
-| `chunk_type` | string | Yes | `simple` | `simple`, `semantic`, or `hybrid` |
-| `chunk_size` | int | No | project default | Character or token size depending on chunker |
-| `chunk_overlap` | int | No | `200` | Overlap between chunks |
-| `semantic_embeddings_model` | string | No | `granite4` | Ollama model for semantic chunking |
-| `breakpoint_threshold_type` | string | No | `percentile` | Semantic split threshold method |
-| `breakpoint_threshold_amount` | float | No | `null` | Threshold amount |
-| `docling_tokenizer` | string | No | `sentence-transformers/all-MiniLM-L6-v2` | Hybrid chunking tokenizer |
-| `retain_original_content` | bool | No | `true` | Keep original content |
-| `enable_summarization` | bool | No | `false` | Create chunk summaries |
+| Parameter                     | Type   | Required | Default                                  | Description                                  |
+| ----------------------------- | ------ | -------: | ---------------------------------------- | -------------------------------------------- |
+| `doc_column`                  | string |      Yes | `content`                                | Input content column                         |
+| `chunk_type`                  | string |      Yes | `simple`                                 | `simple`, `semantic`, or `hybrid`            |
+| `chunk_size`                  | int    |       No | project default                          | Character or token size depending on chunker |
+| `chunk_overlap`               | int    |       No | `200`                                    | Overlap between chunks                       |
+| `semantic_embeddings_model`   | string |       No | `granite4`                               | Ollama model for semantic chunking           |
+| `breakpoint_threshold_type`   | string |       No | `percentile`                             | Semantic split threshold method              |
+| `breakpoint_threshold_amount` | float  |       No | `null`                                   | Threshold amount                             |
+| `docling_tokenizer`           | string |       No | `sentence-transformers/all-MiniLM-L6-v2` | Hybrid chunking tokenizer                    |
+| `retain_original_content`     | bool   |       No | `true`                                   | Keep original content                        |
+| `enable_summarization`        | bool   |       No | `false`                                  | Create chunk summaries                       |
 
 **Input Schema**
 
@@ -380,16 +430,16 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.functional.embeddings.embeddings_operator.EmbeddingsOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `embeddings_type` | string | Yes | `ollama` | Provider type |
-| `embeddings_model_id` | string | Yes | `granite4` | Provider model |
-| `embeddings_column` | string | No | `embeddings` | Output vector column |
-| `doc_column` | string | No | `content` | Input content column |
-| `doc_id_hash` | string | No | `doc_id_hash` | Hash column name |
-| `overlap_ratio` | float | No | `0.2` | Long-text chunk overlap ratio |
-| `batch_size` | int | No | `32` | Embedding batch size |
-| `provider_config` | object | No | `{}` | Adapter-specific credentials/settings |
+| Parameter             | Type   | Required | Default       | Description                           |
+| --------------------- | ------ | -------: | ------------- | ------------------------------------- |
+| `embeddings_type`     | string |      Yes | `ollama`      | Provider type                         |
+| `embeddings_model_id` | string |      Yes | `granite4`    | Provider model                        |
+| `embeddings_column`   | string |       No | `embeddings`  | Output vector column                  |
+| `doc_column`          | string |       No | `content`     | Input content column                  |
+| `doc_id_hash`         | string |       No | `doc_id_hash` | Hash column name                      |
+| `overlap_ratio`       | float  |       No | `0.2`         | Long-text chunk overlap ratio         |
+| `batch_size`          | int    |       No | `32`          | Embedding batch size                  |
+| `provider_config`     | object |       No | `{}`          | Adapter-specific credentials/settings |
 
 **Input Schema**
 
@@ -431,14 +481,14 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.functional.branching_operator.BranchingOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `branches` | list[object] | Yes | `[]` | Branch definitions |
-| `branches[].link_id` | string | Yes | - | Output edge identifier |
-| `branches[].link_name` | string | No | - | Human-friendly branch name |
-| `branches[].logical_operator` | string | No | `AND`/per-branch | Logical join between criteria |
-| `branches[].filter_criteria_list` | list[string] | No | `[]` | SQL-like filters |
-| `branches[].filter_criteria_json` | object | No | - | Structured filter criteria |
+| Parameter                         | Type         | Required | Default          | Description                   |
+| --------------------------------- | ------------ | -------: | ---------------- | ----------------------------- |
+| `branches`                        | list[object] |      Yes | `[]`             | Branch definitions            |
+| `branches[].link_id`              | string       |      Yes | -                | Output edge identifier        |
+| `branches[].link_name`            | string       |       No | -                | Human-friendly branch name    |
+| `branches[].logical_operator`     | string       |       No | `AND`/per-branch | Logical join between criteria |
+| `branches[].filter_criteria_list` | list[string] |       No | `[]`             | SQL-like filters              |
+| `branches[].filter_criteria_json` | object       |       No | -                | Structured filter criteria    |
 
 **Input Schema**
 
@@ -463,9 +513,9 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.functional.noop.NOOPOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `sleep_sec` | int | No | `1` | Optional delay for testing/debugging |
+| Parameter   | Type | Required | Default | Description                          |
+| ----------- | ---- | -------: | ------- | ------------------------------------ |
+| `sleep_sec` | int  |       No | `1`     | Optional delay for testing/debugging |
 
 **Input Schema**
 
@@ -487,10 +537,10 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Availability:** Internal operator.
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | No | `content` | Input text column |
-| `doc_id_hash` | string | No | `doc_id_hash` | Output hash column |
+| Parameter     | Type   | Required | Default       | Description        |
+| ------------- | ------ | -------: | ------------- | ------------------ |
+| `doc_column`  | string |       No | `content`     | Input text column  |
+| `doc_id_hash` | string |       No | `doc_id_hash` | Output hash column |
 
 **Output Schema**
 
@@ -506,11 +556,11 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.quality.language_detection.lang_id.LanguageDetect`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | No | `content` | Text input column |
-| `filter_unknown_language` | bool | No | `false` | Drop documents that cannot be classified |
-| `language_provider` | string | No | `langdetect` | Detection provider |
+| Parameter                 | Type   | Required | Default      | Description                              |
+| ------------------------- | ------ | -------: | ------------ | ---------------------------------------- |
+| `doc_column`              | string |       No | `content`    | Text input column                        |
+| `filter_unknown_language` | bool   |       No | `false`      | Drop documents that cannot be classified |
+| `language_provider`       | string |       No | `langdetect` | Detection provider                       |
 
 **Output Schema**
 
@@ -527,10 +577,10 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.quality.readability.ReadabilityOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | No | `content` | Input text column |
-| `readability_score_list` | list[string] | Yes | default score set | Metrics to compute |
+| Parameter                | Type         | Required | Default           | Description        |
+| ------------------------ | ------------ | -------: | ----------------- | ------------------ |
+| `doc_column`             | string       |       No | `content`         | Input text column  |
+| `readability_score_list` | list[string] |      Yes | default score set | Metrics to compute |
 
 **Output Schema**
 
@@ -546,12 +596,12 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.quality.redaction.RedactionOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | No | `content` | Input text column |
-| `regex` | string | Yes | - | Pattern or literal to redact |
-| `masking_character` | string | No | `*` | Replacement character |
-| `stats_column` | string | No | `redaction_stats` | Per-row redaction count |
+| Parameter           | Type   | Required | Default           | Description                  |
+| ------------------- | ------ | -------: | ----------------- | ---------------------------- |
+| `doc_column`        | string |       No | `content`         | Input text column            |
+| `regex`             | string |      Yes | -                 | Pattern or literal to redact |
+| `masking_character` | string |       No | `*`               | Replacement character        |
+| `stats_column`      | string |       No | `redaction_stats` | Per-row redaction count      |
 
 **Output Schema**
 
@@ -568,19 +618,19 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.quality.document_classifier.DocumentClassifierOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `provider` | string | No | `ollama` | `ollama` or `watsonx` |
-| `api_base` | string | Conditional | - | Required for watsonx |
-| `api_key` | string | Conditional | `not-needed` | Required for watsonx |
-| `model_id` | string | No | provider-specific | Classification model |
-| `project_id` | string | Conditional | - | Required for watsonx |
-| `document_types` | list or object | Yes | catalog-derived | Allowed target document types |
-| `confidence_threshold` | float | No | `7.0` | Minimum accepted confidence |
-| `doc_column` | string | No | `content` | Input content column |
-| `output_column` | string | No | `document_type` | Classification result column |
-| `include_confidence` | bool | No | `true` | Emit confidence column |
-| `include_reasoning` | bool | No | `false` | Emit reasoning column |
+| Parameter              | Type           |    Required | Default           | Description                   |
+| ---------------------- | -------------- | ----------: | ----------------- | ----------------------------- |
+| `provider`             | string         |          No | `ollama`          | `ollama` or `watsonx`         |
+| `api_base`             | string         | Conditional | -                 | Required for watsonx          |
+| `api_key`              | string         | Conditional | `not-needed`      | Required for watsonx          |
+| `model_id`             | string         |          No | provider-specific | Classification model          |
+| `project_id`           | string         | Conditional | -                 | Required for watsonx          |
+| `document_types`       | list or object |         Yes | catalog-derived   | Allowed target document types |
+| `confidence_threshold` | float          |          No | `7.0`             | Minimum accepted confidence   |
+| `doc_column`           | string         |          No | `content`         | Input content column          |
+| `output_column`        | string         |          No | `document_type`   | Classification result column  |
+| `include_confidence`   | bool           |          No | `true`            | Emit confidence column        |
+| `include_reasoning`    | bool           |          No | `false`           | Emit reasoning column         |
 
 **Output Schema**
 
@@ -597,11 +647,11 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.quality.ededup.EdedupOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | No | `content` | Content column to compare |
-| `doc_id_hash` | string | No | `doc_id_hash` | Hash/id column |
-| `filter` | object | No | `HashFilter({})` | Hash filter state/config |
+| Parameter     | Type   | Required | Default          | Description               |
+| ------------- | ------ | -------: | ---------------- | ------------------------- |
+| `doc_column`  | string |       No | `content`        | Content column to compare |
+| `doc_id_hash` | string |       No | `doc_id_hash`    | Hash/id column            |
+| `filter`      | object |       No | `HashFilter({})` | Hash filter state/config  |
 
 ---
 
@@ -613,13 +663,13 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.quality.ml_enrichment.MLEnrichmentOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `doc_column` | string | No | `content` | Input text column |
-| `lang_column` | string | No | language constant | Language column |
-| `output_column_prefix` | string | No | `""` | Prefix for generated feature columns |
-| `newline_normalized_column_name` | string | No | `""` | Optional normalized text output |
-| `error_column_name` | string | No | `""` | Optional per-row error column |
+| Parameter                        | Type   | Required | Default           | Description                          |
+| -------------------------------- | ------ | -------: | ----------------- | ------------------------------------ |
+| `doc_column`                     | string |       No | `content`         | Input text column                    |
+| `lang_column`                    | string |       No | language constant | Language column                      |
+| `output_column_prefix`           | string |       No | `""`              | Prefix for generated feature columns |
+| `newline_normalized_column_name` | string |       No | `""`              | Optional normalized text output      |
+| `error_column_name`              | string |       No | `""`              | Optional per-row error column        |
 
 ---
 
@@ -631,12 +681,12 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.quality.sql_filter.SQLFilterOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `filter_criteria_list` | list[string] | No | `[]` | SQL-style predicates |
-| `filter_logical_operator` | string | No | `AND` | Join operator for criteria |
-| `features_to_drop` | list[string] | No | `[]` | Columns to remove after filtering |
-| `filter_criteria_json` | object | No | - | Structured criteria format |
+| Parameter                 | Type         | Required | Default | Description                       |
+| ------------------------- | ------------ | -------: | ------- | --------------------------------- |
+| `filter_criteria_list`    | list[string] |       No | `[]`    | SQL-style predicates              |
+| `filter_logical_operator` | string       |       No | `AND`   | Join operator for criteria        |
+| `features_to_drop`        | list[string] |       No | `[]`    | Columns to remove after filtering |
+| `filter_criteria_json`    | object       |       No | -       | Structured criteria format        |
 
 ### VectorDB Operators
 
@@ -648,15 +698,15 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.vectordb.vectordb_operator.VectorDBOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `vector_db_type` | string | No | `opensearch` | Vector backend |
-| `index_name` | string | Yes | - | Target index name |
-| `doc_id_column` | string | No | `doc_id_hash` | Primary document id column |
-| `embeddings_column` | string | No | `embeddings` | Vector column |
-| `create_index` | bool | No | `true` | Auto-create index |
-| `vector_dimension` | int | No | `384` | Configured vector dimension |
-| `vectordb_parameters` | object | Yes | - | Adapter-specific settings |
+| Parameter             | Type   | Required | Default       | Description                 |
+| --------------------- | ------ | -------: | ------------- | --------------------------- |
+| `vector_db_type`      | string |       No | `opensearch`  | Vector backend              |
+| `index_name`          | string |      Yes | -             | Target index name           |
+| `doc_id_column`       | string |       No | `doc_id_hash` | Primary document id column  |
+| `embeddings_column`   | string |       No | `embeddings`  | Vector column               |
+| `create_index`        | bool   |       No | `true`        | Auto-create index           |
+| `vector_dimension`    | int    |       No | `384`         | Configured vector dimension |
+| `vectordb_parameters` | object |      Yes | -             | Adapter-specific settings   |
 
 **Input Schema**
 
@@ -671,6 +721,87 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 **Exceptions**
 
 - [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py:8)
+
+---
+
+### Storage Operators
+
+#### DocumentSetOperator
+
+**Purpose:** Store PyArrow table data in persistent document sets with DuckDB backend, enabling reusable document collections across workflows.
+
+**Category:** Storage
+
+**Class:** `core.operators.storage.document_set_operator.DocumentSetOperator`
+
+| Parameter             | Type   | Required | Default                            | Description                              |
+| --------------------- | ------ | -------: | ---------------------------------- | ---------------------------------------- |
+| `document_set_name`   | string |      Yes | -                                  | Name of the document set                 |
+| `description`         | string |       No | `null`                             | Description of the document set          |
+| `metadata`            | object |       No | `null`                             | Additional metadata as JSON              |
+| `retain_deleted_docs` | bool   |       No | `false`                            | Whether to retain soft-deleted documents |
+| `document_set_id`     | string |       No | `null`                             | Existing document set ID for updates     |
+| `database_path`       | string |       No | `data/duckdb/document_sets.duckdb` | Path to DuckDB database file             |
+
+**Input Schema**
+
+- `id` (required): Document identifier
+
+**Output Schema**
+
+- Input table unchanged (pass-through design)
+- Side effect: data persisted to DuckDB
+
+**Metadata Output**
+
+- `document_set_id`: UUID of the document set
+- `document_set_name`: Name of the document set
+- `table_name`: DuckDB table name
+- `stored_documents`: Total document count
+- `total_size_bytes`: Total size in bytes
+- `total_pages`: Total pages processed
+- `deleted_documents`: Count of soft-deleted documents cleaned up
+- `database_path`: Path to DuckDB database
+
+**Features**
+
+- Persistent storage of document collections in DuckDB
+- Automatic handling of schema changes when new fields are added
+- Automatic calculation of document metrics (count, size, pages)
+- Optional cleanup of soft-deleted documents
+- Pass-through design allows chaining with downstream operators
+- Data integrity verification during storage operations
+
+**Exceptions**
+
+- [`FlowValidationException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py): Invalid configuration
+- [`FlowExecutionFailedException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py): Storage operation failed
+- [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py): General errors
+
+**Example Configuration**
+
+```json
+{
+  "operator": "document_set",
+  "config": {
+    "document_set_name": "processed_invoices",
+    "description": "Invoices processed through extraction pipeline",
+    "metadata": {
+      "source": "invoice_pipeline_v2",
+      "created_by": "data_team"
+    },
+    "retain_deleted_docs": false
+  }
+}
+```
+
+**Usage Pattern**
+
+```
+Ingest → Extract → [Processing] → DocumentSetOperator → [Downstream Operators]
+                                         │
+                                         └─> DuckDB Storage (side effect)
+```
 
 ---
 
@@ -747,20 +878,20 @@ datasift-orchestrator --list-operators --verbose
 
 ### Global arguments
 
-| Argument | Short | Required | Description |
-|---|---|---:|---|
-| `--flow-file` | `-f` | Conditional | Flow JSON path |
-| `--log-level` | `-l` | No | `debug`, `info`, `warning`, `error`, `critical` |
-| `--list-operators` | `-lo` | No | List operators and exit |
-| `--verbose` | `-v` | No | Verbose operator listing |
-| `--validate` | - | No | Validate instead of executing |
+| Argument           | Short |    Required | Description                                     |
+| ------------------ | ----- | ----------: | ----------------------------------------------- |
+| `--flow-file`      | `-f`  | Conditional | Flow JSON path                                  |
+| `--log-level`      | `-l`  |          No | `debug`, `info`, `warning`, `error`, `critical` |
+| `--list-operators` | `-lo` |          No | List operators and exit                         |
+| `--verbose`        | `-v`  |          No | Verbose operator listing                        |
+| `--validate`       | -     |          No | Validate instead of executing                   |
 
 ### Exit codes
 
-| Exit code | Meaning |
-|---|---|
-| `0` | Validation succeeded |
-| `1` | Validation failed or file/JSON loading failed |
+| Exit code | Meaning                                       |
+| --------- | --------------------------------------------- |
+| `0`       | Validation succeeded                          |
+| `1`       | Validation failed or file/JSON loading failed |
 
 ---
 
@@ -788,15 +919,15 @@ The sample flow structure in [`tests/sample_test_flows/invoice_processing/flow_i
 
 ### Flow fields
 
-| Field | Type | Required | Description |
-|---|---|---:|---|
-| `name` | string | Yes | Human-readable flow name |
-| `flow_id` | string | No | Stable identifier |
-| `description` | string | No | Flow description |
-| `storage` | string | No | Storage mode |
-| `execute_type` | string | No | Execution backend |
-| `global_config` | object | No | Shared runtime config |
-| `dag` | array | Yes | Ordered operator node definitions |
+| Field           | Type   | Required | Description                       |
+| --------------- | ------ | -------: | --------------------------------- |
+| `name`          | string |      Yes | Human-readable flow name          |
+| `flow_id`       | string |       No | Stable identifier                 |
+| `description`   | string |       No | Flow description                  |
+| `storage`       | string |       No | Storage mode                      |
+| `execute_type`  | string |       No | Execution backend                 |
+| `global_config` | object |       No | Shared runtime config             |
+| `dag`           | array  |      Yes | Ordered operator node definitions |
 
 ### Node structure
 
@@ -813,14 +944,14 @@ The sample flow structure in [`tests/sample_test_flows/invoice_processing/flow_i
 
 ### Node fields
 
-| Field | Type | Required | Description |
-|---|---|---:|---|
-| `id` | string | Yes | Unique node ID |
-| `name` | string | Yes | Display name |
-| `operator` | string | Yes | Registered operator short name |
-| `config` | object | No | Operator-specific config |
-| `input_edges` | array | No | Upstream links |
-| `output_edges` | array | No | Downstream links |
+| Field          | Type   | Required | Description                    |
+| -------------- | ------ | -------: | ------------------------------ |
+| `id`           | string |      Yes | Unique node ID                 |
+| `name`         | string |      Yes | Display name                   |
+| `operator`     | string |      Yes | Registered operator short name |
+| `config`       | object |       No | Operator-specific config       |
+| `input_edges`  | array  |       No | Upstream links                 |
+| `output_edges` | array  |       No | Downstream links               |
 
 ### Edge structure
 

@@ -91,3 +91,11 @@ class ValidationCodeMessages(StrEnum):
     DISJOINT_OPERATORS_DETECTED = (
         """Flow contains disconnected operators. Ensure every operator has valid input and output connections."""
     )
+
+    # Document Set errors
+    DOCUMENT_SET_NOT_FOUND = "Document set not found: {document_set_id}"
+    DOCUMENT_SET_INVALID_DATA = "Invalid data for document set: {details}"
+    DOCUMENT_SET_STORAGE_ERROR = "Storage error for document set: {details}"
+    DOCUMENT_SET_INVALID_NAME = "Invalid document set name: {name}"
+    DOCUMENT_SET_TABLE_ERROR = "Table operation failed: {details}"
+    DATABASE_CONNECTION_ERROR = "Failed to connect to database: {details}"

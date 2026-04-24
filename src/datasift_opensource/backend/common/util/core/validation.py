@@ -1,6 +1,7 @@
 """Validation utility functions."""
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -457,3 +458,57 @@ def deduplicate_tags(value: list[str] | None, allow_none: bool = False) -> list[
             seen.add(tag)
             result.append(tag)
     return result
+
+
+def validate_database_path(path: str, base_dir: str | None = None) -> str:
+    """
+    Validate database path for security and correctness.
+
+    Ensures the path is safe and doesn't contain path traversal attempts.
+    Resolves the path to its absolute form to prevent directory traversal attacks.
+
+    Args:
+        path: Database file path to validate
+        base_dir: Optional base directory to restrict paths to
+
+    Returns:
+        Validated absolute path
+
+    Raises:
+        ValueError: If path is invalid or outside allowed directory
+
+    Examples:
+        >>> validate_database_path("data/docs.db")
+        '/absolute/path/to/data/docs.db'
+        >>> validate_database_path(":memory:")
+        ':memory:'
+        >>> validate_database_path("../../../etc/passwd")
+        ValueError: Path traversal patterns (..) are not allowed
+    """
+    if not path or not isinstance(path, str) or not path.strip():
+        raise ValueError("Database path cannot be empty")
+
+    # Allow in-memory databases
+    if path == ":memory:":
+        return path
+
+    # Check for path traversal attempts before resolving
+    if ".." in path:
+        raise ValueError("Path traversal patterns (..) are not allowed in database path")
+
+    # Resolve to absolute path
+    try:
+        resolved_path = Path(path).resolve()
+    except (OSError, RuntimeError) as e:
+        raise ValueError(f"Invalid database path: {e}") from e
+
+    # If base_dir is specified, ensure path is within it
+    if base_dir:
+        try:
+            base_path = Path(base_dir).resolve()
+            if not str(resolved_path).startswith(str(base_path)):
+                raise ValueError(f"Database path must be within {base_dir}")
+        except (OSError, RuntimeError) as e:
+            raise ValueError(f"Invalid base directory: {e}") from e
+
+    return str(resolved_path)

@@ -116,5 +116,3 @@ __all__ = [
     "update_deleted_rows",
     "write_job_logs",
 ]
-
-# Made with Bob

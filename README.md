@@ -4,33 +4,82 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 ## Table of Contents
 
-- [Documentation](#documentation)
-- [Available Operators](#available-operators)
-  - [Vector Database Operators](#vector-database-operators)
-  - [Ingest Operators](#ingest-operators)
-  - [Extract Operators](#extract-operators)
-  - [Chunking Operators](#chunking-operators)
-  - [Language Operators](#language-operators)
-  - [Utility Operators](#utility-operators)
-- [Project Structure](#project-structure)
-- [Setup](#setup)
-  - [Quick Start (Automated Setup)](#quick-start-automated-setup)
-  - [Manual Setup](#manual-setup)
-- [Running the Application](#running-the-application)
-  - [FastAPI Server](#fastapi-server-todo)
-  - [CLI Orchestrator](#cli-orchestrator)
-  - [DatasiftFlowManager API](#datasiftflowmanager-api)
-- [Docker](#docker)
-- [Development](#development)
-  - [Adding Dependencies](#adding-dependencies)
-  - [Testing](#testing)
-  - [Code Quality](#code-quality)
-- [API Development](#api-development)
-- [Environment Variables](#environment-variables)
-- [Operator Specific Setup](#operator-specific-setup)
-  - [Embeddings Operator — Ollama Setup](#embeddings-operator--ollama-setup)
-  - [OpenSearch Vector Store](#opensearch-vector-store)
-- [Contributing](#contributing)
+- [datasift-operators](#datasift-operators)
+  - [Table of Contents](#table-of-contents)
+  - [Documentation](#documentation)
+    - [Getting Started](#getting-started)
+    - [Architecture \& Design](#architecture--design)
+    - [API \& Reference](#api--reference)
+    - [Operator Documentation](#operator-documentation)
+    - [Additional Resources](#additional-resources)
+  - [Available Operators](#available-operators)
+    - [Vector Database Operators](#vector-database-operators)
+    - [Ingest Operators](#ingest-operators)
+    - [Extract Operators](#extract-operators)
+    - [Chunking Operators](#chunking-operators)
+    - [Language Operators](#language-operators)
+    - [Quality Operators](#quality-operators)
+    - [Utility Operators](#utility-operators)
+    - [Storage Operators](#storage-operators)
+  - [Project Structure](#project-structure)
+  - [Setup](#setup)
+    - [Quick Start (Automated Setup)](#quick-start-automated-setup)
+    - [Manual Setup](#manual-setup)
+      - [Prerequisites](#prerequisites)
+      - [Installation](#installation)
+  - [Running the Application](#running-the-application)
+    - [FastAPI Server (TODO)](#fastapi-server-todo)
+    - [CLI Orchestrator](#cli-orchestrator)
+      - [Executing Flows](#executing-flows)
+      - [Validating Flows](#validating-flows)
+      - [Listing Operators](#listing-operators)
+    - [DatasiftFlowManager API](#datasiftflowmanager-api)
+  - [Distributed Execution](#distributed-execution)
+    - [Execution Modes](#execution-modes)
+    - [Quick Start](#quick-start)
+    - [Batch Storage](#batch-storage)
+    - [Setup Work Pools](#setup-work-pools)
+  - [Docker Deployment](#docker-deployment)
+    - [Build Docker Image](#build-docker-image)
+    - [Local Development](#local-development)
+    - [Distributed Execution with Docker](#distributed-execution-with-docker)
+    - [Build Wheel](#build-wheel)
+  - [Kubernetes Deployment](#kubernetes-deployment)
+    - [Prerequisites](#prerequisites-1)
+    - [Quick Start](#quick-start-1)
+    - [Kubernetes Manifests](#kubernetes-manifests)
+    - [Resource Requirements](#resource-requirements)
+    - [Monitoring and Scaling](#monitoring-and-scaling)
+    - [Storage Configuration](#storage-configuration)
+    - [Security](#security)
+    - [Troubleshooting](#troubleshooting)
+  - [Development](#development)
+    - [Adding Dependencies](#adding-dependencies)
+    - [Testing](#testing)
+      - [Quick Start](#quick-start-2)
+      - [Test Organization](#test-organization)
+      - [Coverage Reports](#coverage-reports)
+      - [Test Configuration](#test-configuration)
+    - [Code Quality](#code-quality)
+      - [Pre-commit Hooks](#pre-commit-hooks)
+      - [Manual Code Quality Tools](#manual-code-quality-tools)
+  - [API Development](#api-development)
+    - [Adding New Routes](#adding-new-routes)
+  - [Environment Variables](#environment-variables)
+  - [Operator Specific Setup](#operator-specific-setup)
+    - [Embeddings Operator — Ollama Setup](#embeddings-operator--ollama-setup)
+      - [Step 1 — Install Ollama](#step-1--install-ollama)
+      - [Step 2 — Start the Ollama server](#step-2--start-the-ollama-server)
+      - [Step 3 — Pull a model](#step-3--pull-a-model)
+      - [Step 4 — Install the Python package](#step-4--install-the-python-package)
+    - [OpenSearch Vector Store](#opensearch-vector-store)
+      - [Step 1 — Start OpenSearch](#step-1--start-opensearch)
+      - [Step 2 — Verify it's running](#step-2--verify-its-running)
+      - [Step 3 — Configure environment variables](#step-3--configure-environment-variables)
+      - [Step 4 — Stop OpenSearch](#step-4--stop-opensearch)
+  - [Contributing](#contributing)
+    - [Step 4 — Stop OpenSearch](#step-4--stop-opensearch-1)
+  - [Contributing](#contributing-1)
 
 ---
 
@@ -117,6 +166,15 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 - **Branching** - Conditional flow branching
 - **No-op** - Pass-through operator for testing
 
+### Storage Operators
+
+- **Document Set** - Persistent storage for pipeline data using DuckDB
+  - Store PyArrow tables in named document collections
+  - Automatic schema evolution and metrics computation
+  - Incremental updates with soft-delete cleanup
+  - Pass-through design for downstream operator chaining
+  - REST API for document set management
+
 ## Project Structure
 
 ```
@@ -160,6 +218,7 @@ datasift-opensource/
 ```
 
 This script automatically installs and configures:
+
 - Python 3.12 verification
 - uv package manager
 - Ollama with default models (granite4, llama2, nomic-embed-text)
@@ -169,6 +228,7 @@ This script automatically installs and configures:
 **For detailed setup options and troubleshooting, see [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#quick-start-with-automated-setup)**
 
 **See also:**
+
 - [Manual Setup](#manual-setup) - Step-by-step manual installation
 - [Operator Specific Setup](#operator-specific-setup) - Configure Ollama and OpenSearch
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Common setup issues and solutions
@@ -219,6 +279,7 @@ cd ../../..  # Return to project root
 ```
 
 **See also:**
+
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Detailed setup with troubleshooting
 - [Operator Specific Setup](#operator-specific-setup) - Configure Ollama and OpenSearch
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Common installation issues
@@ -228,14 +289,15 @@ cd ../../..  # Return to project root
 ## Running the Application
 
 **Quick Links:**
+
 - [CLI Orchestrator](#cli-orchestrator) - Command-line flow execution (recommended for new users)
 - [DatasiftFlowManager API](#datasiftflowmanager-api) - Programmatic Python API
 - [FastAPI Server](#fastapi-server-todo) - REST API (under development)
 
 ### FastAPI Server (TODO)
+
 <details> FASTApi Server 
 <summary>Start the FastAPI server with uvicorn:</summary>
-
 
 ```bash
 # Using uvicorn from project root
@@ -267,6 +329,7 @@ datasift-orchestrator --help
 ```
 
 **See also:**
+
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Step-by-step flow execution examples
 - [Example Flows](examples/) - Sample flow configurations
 - [Operator Reference](OPERATOR_REFERENCE.md) - Operator parameters and configuration options
@@ -308,6 +371,7 @@ datasift-orchestrator --list-operators
 # Detailed view with parameters
 datasift-orchestrator --list-operators --verbose
 ```
+
 ### DatasiftFlowManager API
 
 Execute datasift flows programmatically using Python:
@@ -335,11 +399,11 @@ operators = DatasiftFlowManager.list_operators()
 ```
 
 **See also:**
+
 - [DatasiftFlowManager Examples](examples/datasift_flow_manager/) - Complete usage guide with code samples
 - [Quick Start Example](examples/datasift_flow_manager/01_execute_from_file.py) - Basic flow execution
 - [CLI Orchestrator](#cli-orchestrator) - Alternative command-line interface
 - [Operator Reference](OPERATOR_REFERENCE.md) - Complete API documentation
-
 
 ---
 
@@ -349,22 +413,24 @@ Datasift-opensource supports multiple execution modes for scaling from local dev
 
 ### Execution Modes
 
-| Mode | Use Case | Infrastructure | Scalability |
-|------|----------|----------------|-------------|
-| **Thread Pool** | Development, testing | Single machine | Limited |
-| **Process Pool** | Single-node production | Single machine | CPU cores |
-| **Docker** | Multi-host deployments | Docker infrastructure | Horizontal |
-| **Kubernetes** | Enterprise production | Kubernetes cluster | Auto-scaling |
+| Mode             | Use Case               | Infrastructure        | Scalability  |
+| ---------------- | ---------------------- | --------------------- | ------------ |
+| **Thread Pool**  | Development, testing   | Single machine        | Limited      |
+| **Process Pool** | Single-node production | Single machine        | CPU cores    |
+| **Docker**       | Multi-host deployments | Docker infrastructure | Horizontal   |
+| **Kubernetes**   | Enterprise production  | Kubernetes cluster    | Auto-scaling |
 
 ### Quick Start
 
 **Local Development (Default):**
+
 ```bash
 # No configuration needed - uses thread pool by default
 datasift-orchestrator --flow-file my-flow.json
 ```
 
 **Process Pool:**
+
 ```json
 {
   "work_pool": {
@@ -377,6 +443,7 @@ datasift-orchestrator --flow-file my-flow.json
 ```
 
 **Docker:**
+
 ```json
 {
   "work_pool": {
@@ -393,6 +460,7 @@ datasift-orchestrator --flow-file my-flow.json
 ```
 
 **Kubernetes:**
+
 ```json
 {
   "work_pool": {
@@ -421,6 +489,7 @@ Distributed execution requires serializing batches for cross-process/container c
 ### Setup Work Pools
 
 **Docker:**
+
 ```bash
 # Create work pool
 prefect work-pool create datasift-docker-pool --type docker
@@ -430,6 +499,7 @@ docker-compose -f docker/docker-compose.worker.yml up -d
 ```
 
 **Kubernetes:**
+
 ```bash
 # Create work pool
 prefect work-pool create datasift-k8s-pool --type kubernetes
@@ -439,6 +509,7 @@ kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
 ```
 
 **See also:**
+
 - [Architecture Documentation](ARCHITECTURE.md#distributed-execution-architecture) - Detailed architecture and design
 - [Deployment Patterns](ARCHITECTURE.md#deployment-patterns) - Complete deployment guides
 - [Docker Deployment](#docker-deployment) - Docker setup and configuration
@@ -473,6 +544,7 @@ docker run datasift-opensource:latest datasift-orchestrator --help
 ### Distributed Execution with Docker
 
 **1. Create Work Pool:**
+
 ```bash
 prefect work-pool create datasift-docker-pool --type docker
 ```
@@ -480,8 +552,9 @@ prefect work-pool create datasift-docker-pool --type docker
 **2. Start Workers with Docker Compose:**
 
 Create `docker-compose.worker.yml`:
+
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   worker:
     image: datasift-opensource:latest
@@ -498,6 +571,7 @@ volumes:
 ```
 
 Start workers:
+
 ```bash
 docker-compose -f docker-compose.worker.yml up -d
 ```
@@ -505,6 +579,7 @@ docker-compose -f docker-compose.worker.yml up -d
 **3. Configure Flow for Docker Execution:**
 
 Add work pool configuration to your flow JSON:
+
 ```json
 {
   "work_pool": {
@@ -521,6 +596,7 @@ Add work pool configuration to your flow JSON:
 ```
 
 **4. Execute Flow:**
+
 ```bash
 datasift-orchestrator --flow-file my-flow.json
 ```
@@ -550,6 +626,7 @@ Deploy datasift-opensource on Kubernetes for enterprise-scale production workloa
 ### Quick Start
 
 **1. Create Namespace:**
+
 ```bash
 kubectl create namespace datasift-production
 ```
@@ -557,16 +634,19 @@ kubectl create namespace datasift-production
 **2. Deploy Persistent Volume:**
 
 Create shared storage for batch processing:
+
 ```bash
 kubectl apply -f k8s-deployment-examples/persistent-volume.yaml
 ```
 
 **3. Create Work Pool:**
+
 ```bash
 prefect work-pool create datasift-k8s-pool --type kubernetes
 ```
 
 **4. Deploy Workers:**
+
 ```bash
 kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
 ```
@@ -574,6 +654,7 @@ kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
 **5. Configure Flow:**
 
 Add work pool configuration to your flow JSON:
+
 ```json
 {
   "work_pool": {
@@ -591,6 +672,7 @@ Add work pool configuration to your flow JSON:
 ```
 
 **6. Execute Flow:**
+
 ```bash
 datasift-orchestrator --flow-file my-flow.json
 ```
@@ -600,6 +682,7 @@ datasift-orchestrator --flow-file my-flow.json
 The `k8s-deployment-examples/` directory contains complete Kubernetes manifests:
 
 **Core Components:**
+
 - `persistent-volume.yaml` - Shared storage for batch data
 - `prefect-worker.yaml` - Worker deployment with auto-scaling
 - `configmap.yaml` - Configuration management
@@ -625,23 +708,23 @@ spec:
         app: datasift-worker
     spec:
       containers:
-      - name: worker
-        image: myregistry.io/datasift-opensource:v1.0.0
-        command: ["prefect", "worker", "start", "--pool", "datasift-k8s-pool"]
-        volumeMounts:
-        - name: batch-storage
-          mountPath: /shared/batches
-        resources:
-          requests:
-            memory: "4Gi"
-            cpu: "2"
-          limits:
-            memory: "8Gi"
-            cpu: "4"
+        - name: worker
+          image: myregistry.io/datasift-opensource:v1.0.0
+          command: ["prefect", "worker", "start", "--pool", "datasift-k8s-pool"]
+          volumeMounts:
+            - name: batch-storage
+              mountPath: /shared/batches
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2"
+            limits:
+              memory: "8Gi"
+              cpu: "4"
       volumes:
-      - name: batch-storage
-        persistentVolumeClaim:
-          claimName: datasift-batches-pvc
+        - name: batch-storage
+          persistentVolumeClaim:
+            claimName: datasift-batches-pvc
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -656,22 +739,24 @@ spec:
   minReplicas: 3
   maxReplicas: 10
   metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 70
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
 ```
 
 ### Resource Requirements
 
 **Per Worker Pod:**
+
 - **CPU**: 2-4 cores
 - **Memory**: 4-8 GB
 - **Storage**: 50-100 GB shared PVC
 
 **Cluster Recommendations:**
+
 - **Development**: 3 nodes, 8 GB RAM each
 - **Production**: 5+ nodes, 16 GB RAM each
 - **High-scale**: 10+ nodes with auto-scaling
@@ -679,21 +764,25 @@ spec:
 ### Monitoring and Scaling
 
 **View Worker Status:**
+
 ```bash
 kubectl get pods -n datasift-production -l app=datasift-worker
 ```
 
 **View Logs:**
+
 ```bash
 kubectl logs -n datasift-production -l app=datasift-worker --tail=100 -f
 ```
 
 **Scale Workers Manually:**
+
 ```bash
 kubectl scale deployment datasift-worker -n datasift-production --replicas=5
 ```
 
 **Check Auto-scaling:**
+
 ```bash
 kubectl get hpa -n datasift-production
 ```
@@ -707,6 +796,7 @@ kubectl get hpa -n datasift-production
 3. **Distributed Storage**: Ceph, GlusterFS
 
 **Example NFS Configuration:**
+
 ```yaml
 apiVersion: v1
 kind: PersistentVolume
@@ -725,6 +815,7 @@ spec:
 ### Security
 
 **Create Secrets:**
+
 ```bash
 kubectl create secret generic datasift-secrets \
   --from-literal=prefect-api-key=your-api-key \
@@ -732,43 +823,48 @@ kubectl create secret generic datasift-secrets \
 ```
 
 **Use in Deployment:**
+
 ```yaml
 env:
-- name: PREFECT_API_KEY
-  valueFrom:
-    secretKeyRef:
-      name: datasift-secrets
-      key: prefect-api-key
+  - name: PREFECT_API_KEY
+    valueFrom:
+      secretKeyRef:
+        name: datasift-secrets
+        key: prefect-api-key
 ```
 
 ### Troubleshooting
 
 **Worker Not Starting:**
+
 ```bash
 kubectl describe pod -n datasift-production -l app=datasift-worker
 ```
 
 **Storage Issues:**
+
 ```bash
 kubectl get pvc -n datasift-production
 kubectl describe pvc datasift-batches-pvc -n datasift-production
 ```
 
 **Network Issues:**
+
 ```bash
 kubectl exec -it -n datasift-production <pod-name> -- curl http://prefect-server:4200/api/health
 ```
 
 **See also:**
+
 - [Distributed Execution](#distributed-execution) - Overview of execution modes
 - [Docker Deployment](#docker-deployment) - Docker setup
 - [Architecture Documentation](ARCHITECTURE.md#deployment-patterns) - Detailed deployment patterns
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
 
-
 The wheel file will be created in the `dist/` directory.
 
 **See also:**
+
 - [Distributed Execution](#distributed-execution) - Overview of execution modes
 - [Kubernetes Deployment](#kubernetes-deployment) - Kubernetes setup
 - [Architecture Documentation](ARCHITECTURE.md#deployment-patterns) - Detailed deployment patterns
@@ -780,6 +876,7 @@ The wheel file will be created in the `dist/` directory.
 ## Development
 
 **Quick Links:**
+
 - [Adding Dependencies](#adding-dependencies) - Managing project dependencies
 - [Testing](#testing) - Running tests and coverage
 - [Code Quality](#code-quality) - Pre-commit hooks and linting
@@ -884,6 +981,7 @@ Coverage configuration is in `.coveragerc` at the project root.
 **Note**: Python path setup is automatic via `tests/conftest.py`. No manual `PYTHONPATH` configuration needed.
 
 **See also:**
+
 - [Code Quality](#code-quality) - Pre-commit hooks and linting tools
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#verification-testing-and-troubleshooting) - Testing best practices
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Common test failures and solutions
@@ -962,6 +1060,7 @@ uv run ruff format .
 ```
 
 **See also:**
+
 - [Testing](#testing) - Running tests before committing
 - [Adding Dependencies](#adding-dependencies) - Managing dependencies
 
@@ -996,6 +1095,7 @@ app.include_router(example.router)
 ```
 
 **See also:**
+
 - [FastAPI Server](#fastapi-server-todo) - Running the API server
 - [Environment Variables](#environment-variables) - Configuration options
 - [Operator Reference](OPERATOR_REFERENCE.md) - Operator API documentation
@@ -1016,6 +1116,7 @@ DEBUG=true
 ```
 
 **See also:**
+
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) - Environment setup examples
 - [Operator Specific Setup](#operator-specific-setup) - Required services configuration
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Configuration issues
@@ -1027,6 +1128,7 @@ DEBUG=true
 **Required for pipeline execution:** Configure these services before running flows.
 
 **Quick Links:**
+
 - [Embeddings Operator — Ollama Setup](#embeddings-operator--ollama-setup) - LLM and embeddings
 - [OpenSearch Vector Store](#opensearch-vector-store) - Vector database
 
@@ -1065,6 +1167,7 @@ pip install ollama
 > **Note**: If Ollama is not installed, the server is not running, or no model has been pulled, the operator will raise a [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py) at runtime.
 
 **See also:**
+
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup) - Detailed Ollama configuration
 - [EmbeddingsOperator Documentation](src/datasift_opensource/backend/core/operators/functional/embeddings/embeddings_operator.py) - Operator reference
 - [Operator Reference](OPERATOR_REFERENCE.md) - EmbeddingsOperator parameters
@@ -1128,6 +1231,7 @@ podman-compose -f docker-compose.opensearch.yml down
 ```
 
 **See also:**
+
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#opensearch-setup) - Detailed OpenSearch configuration
 - [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
 - [OpenSearch Operator Reference](docs/operators/opensearch.md) - Technical API documentation
@@ -1155,6 +1259,54 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 4. Submit a pull request
 
 **See also:**
+
+- [Development](#development) - Development workflow
+- [Testing](#testing) - Running tests
+- [Code Quality](#code-quality) - Pre-commit hooks and linting
+- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
+  | `OPENSEARCH_INDEX_NAME` | `datasift_test` | Index to write to |
+  | `OPENSEARCH_USE_SSL` | `false` | Enable SSL |
+
+#### Step 4 — Stop OpenSearch
+
+```bash
+# Docker
+docker-compose -f docker-compose.opensearch.yml down
+
+# Podman
+podman-compose -f docker-compose.opensearch.yml down
+```
+
+**See also:**
+
+- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#opensearch-setup) - Detailed OpenSearch configuration
+- [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
+- [OpenSearch Operator Reference](docs/operators/opensearch.md) - Technical API documentation
+- [VectorDBOperator Documentation](src/datasift_opensource/backend/core/operators/vectordb/vectordb_operator.py) - Operator reference
+- [Operator Reference](OPERATOR_REFERENCE.md) - VectorDBOperator parameters
+- [Troubleshooting Guide](TROUBLESHOOTING.md) - OpenSearch connection issues
+
+---
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on:
+
+- Code of conduct and contribution guidelines
+- Development setup and workflow
+- Testing requirements and best practices
+- Code style and quality standards
+- Pull request process
+
+**Quick start for contributors:**
+
+1. Create a new branch for your feature
+2. Make your changes
+3. Run tests and code quality checks
+4. Submit a pull request
+
+**See also:**
+
 - [Development](#development) - Development workflow
 - [Testing](#testing) - Running tests
 - [Code Quality](#code-quality) - Pre-commit hooks and linting
