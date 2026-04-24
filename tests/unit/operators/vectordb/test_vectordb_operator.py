@@ -87,8 +87,12 @@ class TestVectorDBOperatorInitialization:
         config = basic_config.copy()
         del config[OperatorConstants.VectorDB.INDEX_NAME]
 
-        with pytest.raises(DatasiftException, match="index_name is required"):
-            VectorDBOperator(config)
+        operator = VectorDBOperator(config=config)
+        errors = []
+        operator.validate(errors=errors, warnings=[], available_features=[])
+
+        assert len(errors) > 0
+        assert any("index_name is required" in str(error) for error in errors)
 
     def test_invalid_vector_db_type(self, basic_config):
         """Test that invalid vector_db_type raises error"""

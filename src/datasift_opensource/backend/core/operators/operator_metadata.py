@@ -106,7 +106,7 @@ class OperatorMetadata:
         for short_name, cls in operator_factory.operators.items():
             try:
                 # Instantiate operator with empty config (sufficient for metadata)
-                op = cls(config)
+                op = cls(config=config)
 
                 # Extract metadata from operator
                 config_values = op.get_metadata()

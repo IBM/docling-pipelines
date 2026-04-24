@@ -80,14 +80,6 @@ class VectorDBOperator(AbstractOperator):
             OperatorConstants.VectorDB.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION
         )
 
-        # Validate required parameters
-        if not self.index_name:
-            raise DatasiftException(
-                message="index_name is required",
-                status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
-            )
-
         # Initialize adapter using factory
         try:
             # Extract vectordb_parameters (adapter-specific config like host, port, engine, etc.)
@@ -116,6 +108,21 @@ class VectorDBOperator(AbstractOperator):
             f"Initialized VectorDBOperator with adapter: {self.vector_db_type}, index: {self.index_name}",
             extra=self.common_log_arguments,
         )
+
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        """
+        Validate operator configuration.
+        Args:
+            errors: List to append validation errors
+            warnings: List to append validation warnings
+            available_features: List of available features from previous operators
+        """
+        super().validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        # Validate index_name
+        if self.should_validate_field(field_value=self.index_name):
+            if not self.index_name:
+                errors.append("index_name is required for VectorDBOperator")
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """

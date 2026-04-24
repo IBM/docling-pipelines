@@ -1,4 +1,5 @@
 import os
+import tempfile
 from typing import Any
 
 import pyarrow as pa
@@ -67,7 +68,7 @@ class IngestLocalOperator(AbstractOperator):
         - retain_deleted_docs: Whether to retain documents that have been deleted from source
         """
         super().__init__(config)
-        self.input_folder: str = config.get(INPUT_FOLDER_NAME_KEY, "../test-data/input")
+        self.input_folder: str = config.get(INPUT_FOLDER_NAME_KEY, tempfile.gettempdir())
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
         self.max_file_size: int = MB * config.get(MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE)
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
