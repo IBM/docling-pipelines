@@ -4,10 +4,11 @@ Unit tests for ExtractOperator (unified extraction operator).
 Tests the operator with sample PDF files from the fixtures directory.
 """
 
-import pytest
 import json
-from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from typing import Any
+from unittest.mock import MagicMock, Mock, patch
+
+import pytest
 
 from common.constants.constants import ExecutionStatus, Metrics
 from common.constants.operator_constants import OperatorConstants
@@ -19,6 +20,7 @@ from common.constants.operator_constants import OperatorConstants
 def test_extract_operator_docling_library_mode(sample_pdf_files):
     """Test the ExtractOperator with docling_library text extraction mode."""
     import pyarrow as pa
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Use fixture for test files (automatically skips if not found)
@@ -71,9 +73,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     assert len(first_hash) > 0, "Hash should not be empty"
 
     # Check metadata
-    assert metadata["total_docs_count"] == table.num_rows, (
-        "Total docs should match input rows"
-    )
+    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
     assert metadata["processed_docs"] > 0, "Should have processed at least one document"
 
 
@@ -82,6 +82,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
 def test_extract_operator_docling_serve_mode(sample_pdf_files):
     """Test the ExtractOperator with docling_serve text extraction mode."""
     import pyarrow as pa
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Use fixture for test files
@@ -152,7 +153,7 @@ def test_extract_operator_docling_serve_config_validation():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify operator was created successfully
     assert operator.text_extraction_mode.value == "docling_serve"
     assert operator.entity_extraction_mode.value == "none"
@@ -172,7 +173,7 @@ def test_extract_operator_docling_serve_with_api_key():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify configuration was accepted
     assert operator.text_extraction_mode.value == "docling_serve"
 
@@ -192,7 +193,7 @@ def test_extract_operator_docling_serve_with_ocr_languages():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify configuration was accepted
     assert operator.text_extraction_mode.value == "docling_serve"
 
@@ -200,9 +201,11 @@ def test_extract_operator_docling_serve_with_ocr_languages():
 @pytest.mark.unit
 def test_extract_operator_docling_library_with_entity_extraction_ollama(sample_pdf_files):
     """Test ExtractOperator with docling_library text extraction + Ollama entity extraction."""
-    import pyarrow as pa
-    from unittest.mock import patch, Mock
     import json
+    from unittest.mock import Mock, patch
+
+    import pyarrow as pa
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Use fixture for test files
@@ -227,35 +230,29 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(sample_p
     config = {
         "text_extraction_mode": "docling_library",
         "entity_extraction_mode": "ollama",
-        "model_name": "llama3.2",
+        "entity_model_name": "llama3.2",
         "temperature": 0.0,
         "max_tokens": 4096,
         "doc_column": "doc_content",
         "extract_tables": True,
         "extract_images": False,
         "max_workers": 2,
-        "custom_schema": {
-            "invoice_number": "string",
-            "total_amount": "number",
-            "date": "string"
-        }
+        "custom_schema": {"invoice_number": "string", "total_amount": "number", "date": "string"},
     }
 
     # Mock the Ollama client to avoid actual API calls
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         # Mock the run method which is called by entity extraction
-        mock_instance.run.return_value = json.dumps({
-            "invoice_number": "INV-001",
-            "total_amount": 1500.00,
-            "date": "2024-01-15"
-        })
+        mock_instance.run.return_value = json.dumps(
+            {"invoice_number": "INV-001", "total_amount": 1500.00, "date": "2024-01-15"}
+        )
         mock_ollama_class.return_value = mock_instance
 
         operator = ExtractOperator(config=config)
 
         # Transform the table
-        result_tables, metadata = operator.transform(table)
+        result_tables, _metadata = operator.transform(table)
         result_table = result_tables[0]
 
         # Assertions
@@ -267,11 +264,12 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(sample_p
 @pytest.mark.unit
 def test_extract_operator_docling_serve_with_entity_extraction():
     """Test ExtractOperator with docling_serve text + entity extraction."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -279,7 +277,7 @@ def test_extract_operator_docling_serve_with_entity_extraction():
         config = {
             "text_extraction_mode": "docling_serve",
             "entity_extraction_mode": "ollama",
-            "model_name": "llama3.2",
+            "entity_model_name": "llama3.2",
             "doc_column": "doc_content",
             "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
             "docling_serve_timeout": 300,
@@ -287,7 +285,7 @@ def test_extract_operator_docling_serve_with_entity_extraction():
         }
 
         operator = ExtractOperator(config=config)
-        
+
         # Verify both modes are configured
         assert operator.text_extraction_mode.value == "docling_serve"
         assert operator.entity_extraction_mode.value == "ollama"
@@ -297,8 +295,8 @@ def test_extract_operator_docling_serve_with_entity_extraction():
 @pytest.mark.unit
 def test_extract_operator_invalid_text_mode():
     """Test ExtractOperator with invalid text extraction mode."""
-    from core.operators.extract.extract_operator import ExtractOperator
     from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+    from core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "invalid_mode",
@@ -307,15 +305,15 @@ def test_extract_operator_invalid_text_mode():
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
-    
+
     assert "Invalid text_extraction_mode" in str(exc_info.value)
 
 
 @pytest.mark.unit
 def test_extract_operator_invalid_entity_mode():
     """Test ExtractOperator with invalid entity extraction mode."""
-    from core.operators.extract.extract_operator import ExtractOperator
     from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+    from core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -324,7 +322,7 @@ def test_extract_operator_invalid_entity_mode():
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
-    
+
     assert "Invalid entity_extraction_mode" in str(exc_info.value)
 
 
@@ -344,7 +342,7 @@ def test_extract_operator_docling_library_vlm_mode_config():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify docling_library with VLM mode is configured
     assert operator.text_extraction_mode.value == "docling_library"
     assert operator.entity_extraction_mode.value == "none"
@@ -397,27 +395,25 @@ def test_extract_operator_get_metadata():
 @pytest.mark.unit
 def test_extract_operator_expand_extracted_data():
     """Test ExtractOperator with expand_extracted_data flag."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
             "entity_extraction_mode": "ollama",
-            "model_name": "llama3.2",
+            "entity_model_name": "llama3.2",
             "expand_extracted_data": True,
-            "custom_schema": {
-                "invoice_number": "string",
-                "amount": "number"
-            }
+            "custom_schema": {"invoice_number": "string", "amount": "number"},
         }
 
         operator = ExtractOperator(config=config)
-        
+
         # Verify configuration
         assert operator.expand_extracted_data is True
         assert operator.entity_adapter is not None
@@ -432,7 +428,7 @@ def test_extract_operator_default_values():
     config = {}
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify defaults
     assert operator.text_extraction_mode.value == "docling_library"
     assert operator.entity_extraction_mode.value == "none"
@@ -467,7 +463,7 @@ def test_extract_operator_docling_serve_all_parameters():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify operator was created successfully with all parameters
     assert operator.text_extraction_mode.value == "docling_serve"
     assert operator.doc_column == "content"
@@ -476,11 +472,12 @@ def test_extract_operator_docling_serve_all_parameters():
 @pytest.mark.unit
 def test_extract_operator_mode_combinations():
     """Test various valid mode combinations."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -494,14 +491,14 @@ def test_extract_operator_mode_combinations():
                     "text_extraction_mode": text_mode,
                     "entity_extraction_mode": entity_mode,
                 }
-                
+
                 # Add mode-specific required parameters
                 if text_mode == "docling_serve":
                     config["docling_serve_base_url"] = "http://localhost:5001"
-                
+
                 if entity_mode in ["ollama", "litellm"]:
-                    config["model_name"] = "llama3.2"
-                
+                    config["entity_model_name"] = "llama3.2"
+
                 operator = ExtractOperator(config=config)
                 assert operator.text_extraction_mode.value == text_mode
                 assert operator.entity_extraction_mode.value == entity_mode
@@ -511,21 +508,14 @@ def test_extract_operator_mode_combinations():
 def test_extract_operator_empty_table():
     """Test ExtractOperator with empty input table."""
     import pyarrow as pa
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Create empty table
-    schema = pa.schema([
-        ("id", pa.string()),
-        ("name", pa.string()),
-        ("path", pa.string()),
-        ("binary_content", pa.binary())
-    ])
-    table = pa.table({
-        "id": [],
-        "name": [],
-        "path": [],
-        "binary_content": []
-    }, schema=schema)
+    schema = pa.schema(
+        [("id", pa.string()), ("name", pa.string()), ("path", pa.string()), ("binary_content", pa.binary())]
+    )
+    table = pa.table({"id": [], "name": [], "path": [], "binary_content": []}, schema=schema)
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -534,11 +524,30 @@ def test_extract_operator_empty_table():
 
     operator = ExtractOperator(config=config)
     result_tables, metadata = operator.transform(table)
-    
+
     # Should handle empty table gracefully
     assert len(result_tables) == 1
     assert result_tables[0].num_rows == 0
     assert metadata["total_docs_count"] == 0
+
+
+def _build_pdf_input_table(*, sample_pdf_files, max_files: int = 1):
+    """Build a PyArrow input table from sample PDF fixtures."""
+    import pyarrow as pa
+
+    test_files = sample_pdf_files[:max_files]
+    file_data: dict[str, list[Any]] = {"id": [], "name": [], "path": [], "binary_content": []}
+
+    for file_path in test_files:
+        with open(file_path, "rb") as file_handle:
+            binary_content = file_handle.read()
+
+        file_data["id"].append(str(file_path))
+        file_data["name"].append(file_path.name)
+        file_data["path"].append(str(file_path))
+        file_data["binary_content"].append(binary_content)
+
+    return pa.table(file_data)
 
 
 @pytest.mark.unit
@@ -549,20 +558,216 @@ def test_extract_operator_litellm_entity_mode():
     config = {
         "text_extraction_mode": "docling_library",
         "entity_extraction_mode": "litellm",
-        "model_name": "gpt-3.5-turbo",
-        "temperature": 0.0,
-        "max_tokens": 2000,
-        "custom_schema": {
-            "company": "string",
-            "date": "string"
-        }
+        "entity_model_name": "gpt-3.5-turbo",
+        "entity_temperature": 0.0,
+        "entity_max_tokens": 2000,
+        "entity_provider_config": {
+            "api_key": "test-api-key",
+            "api_base": "https://api.test.local/v1",
+        },
+        "custom_schema": {"company": "string", "date": "string"},
     }
 
-    operator = ExtractOperator(config=config)
-    
+    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_litellm_class:
+        mock_litellm_class.return_value = Mock()
+
+        operator = ExtractOperator(config=config)
+
     # Verify LiteLLM entity mode is configured
     assert operator.entity_extraction_mode.value == "litellm"
     assert operator.entity_adapter is not None
+
+
+@pytest.mark.unit
+def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(sample_pdf_files):
+    """Execute ExtractOperator with LiteLLM schema-based entity extraction."""
+    from core.operators.extract.extract_operator import ExtractOperator
+
+    table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
+
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "litellm",
+        "entity_model_name": "gpt-3.5-turbo",
+        "entity_temperature": 0.0,
+        "entity_max_tokens": 2000,
+        "doc_column": "doc_content",
+        "extract_tables": True,
+        "extract_images": False,
+        "max_workers": 2,
+        "entity_provider_config": {
+            "api_key": "test-api-key",
+            "api_base": "https://api.test.local/v1",
+        },
+        "custom_schema": {
+            "document_type": "invoice",
+            "fields": [
+                {"name": "person_name", "type": "string"},
+                {"name": "invoice_date", "type": "string"},
+                {"name": "total_amount", "type": "number"},
+            ],
+        },
+    }
+
+    mocked_entities = {
+        "person_name": "John Doe",
+        "invoice_date": "2024-01-15",
+        "total_amount": 1500.0,
+    }
+
+    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_litellm_class:
+        mock_instance = Mock()
+        mock_instance.chat.return_value = json.dumps(mocked_entities)
+        mock_litellm_class.return_value = mock_instance
+
+        operator = ExtractOperator(config=config)
+        result_tables, metadata = operator.transform(table)
+
+    result_table = result_tables[0]
+
+    assert "doc_content" in result_table.column_names
+    assert "entities" in result_table.column_names
+    assert "doc_id_hash" in result_table.column_names
+    assert result_table.num_rows == 1
+    assert metadata["total_docs_count"] == table.num_rows
+    assert metadata["processed_docs"] == 1
+    assert metadata[Metrics.External.NODE_STATUS] in {
+        ExecutionStatus.COMPLETED.value,
+        ExecutionStatus.COMPLETED_WITH_WARNINGS.value,
+        ExecutionStatus.COMPLETED_WITH_ERRORS.value,
+    }
+
+    extracted_entities = json.loads(result_table["entities"][0].as_py())
+    assert extracted_entities == mocked_entities
+
+    extracted_content = result_table["doc_content"][0].as_py()
+    assert extracted_content is not None
+    assert len(extracted_content) > 0
+
+    mock_instance.chat.assert_called_once()
+    chat_call = mock_instance.chat.call_args
+    assert chat_call.kwargs["temperature"] == 0.0
+    assert chat_call.kwargs["max_tokens"] == 2000
+    assert len(chat_call.kwargs["messages"]) == 2
+
+
+@pytest.mark.unit
+def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_free(sample_pdf_files):
+    """Execute ExtractOperator with LiteLLM schema-free entity extraction."""
+    from core.operators.extract.extract_operator import ExtractOperator
+
+    table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
+
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "litellm",
+        "entity_model_name": "gpt-3.5-turbo",
+        "entity_temperature": 0.0,
+        "entity_max_tokens": 1500,
+        "doc_column": "doc_content",
+        "extract_tables": True,
+        "extract_images": False,
+        "max_workers": 2,
+        "entity_provider_config": {
+            "api_key": "test-api-key",
+            "api_base": "https://api.test.local/v1",
+        },
+        "custom_schema": {},
+    }
+
+    mocked_entities = {
+        "person": "Jane Smith",
+        "date": "2024-02-20",
+        "amount": "$950.00",
+        "organization": "Acme Corp",
+    }
+
+    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_litellm_class:
+        mock_instance = Mock()
+        mock_instance.chat.return_value = json.dumps(mocked_entities)
+        mock_litellm_class.return_value = mock_instance
+
+        operator = ExtractOperator(config=config)
+        result_tables, metadata = operator.transform(table)
+
+    result_table = result_tables[0]
+
+    assert "entities" in result_table.column_names
+    assert result_table.num_rows == 1
+    assert metadata["processed_docs"] == 1
+
+    extracted_entities = json.loads(result_table["entities"][0].as_py())
+    assert extracted_entities == mocked_entities
+    assert extracted_entities["person"] == "Jane Smith"
+    assert extracted_entities["organization"] == "Acme Corp"
+
+    chat_call = mock_instance.chat.call_args
+    assert (
+        chat_call.kwargs["messages"][0]["content"]
+        == OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_SCHEMA_FREE_SYSTEM_PROMPT
+    )
+
+
+@pytest.mark.unit
+def test_extract_operator_docling_library_with_entity_extraction_litellm_expanded_columns(sample_pdf_files):
+    """Execute ExtractOperator with LiteLLM entity extraction and expanded columns."""
+    from core.operators.extract.extract_operator import ExtractOperator
+
+    table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
+
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "litellm",
+        "entity_model_name": "gpt-3.5-turbo",
+        "entity_temperature": 0.0,
+        "entity_max_tokens": 2000,
+        "doc_column": "doc_content",
+        "extract_tables": True,
+        "extract_images": False,
+        "expand_extracted_data": True,
+        "max_workers": 2,
+        "entity_provider_config": {
+            "api_key": "test-api-key",
+            "api_base": "https://api.test.local/v1",
+        },
+        "custom_schema": {
+            "document_type": "invoice",
+            "fields": [
+                {"name": "person_name", "type": "string"},
+                {"name": "invoice_date", "type": "string"},
+                {"name": "total_amount", "type": "number"},
+            ],
+        },
+    }
+
+    mocked_entities = {
+        "person_name": "Alex Johnson",
+        "invoice_date": "2024-03-01",
+        "total_amount": 2750.5,
+    }
+
+    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_litellm_class:
+        mock_instance = Mock()
+        mock_instance.chat.return_value = json.dumps(mocked_entities)
+        mock_litellm_class.return_value = mock_instance
+
+        operator = ExtractOperator(config=config)
+        result_tables, metadata = operator.transform(table)
+
+    result_table = result_tables[0]
+
+    assert "entities" in result_table.column_names
+    assert "entity_person_name" in result_table.column_names
+    assert "entity_invoice_date" in result_table.column_names
+    assert "entity_total_amount" in result_table.column_names
+    assert metadata["processed_docs"] == 1
+
+    assert result_table["entity_person_name"][0].as_py() == "Alex Johnson"
+    assert result_table["entity_invoice_date"][0].as_py() == "2024-03-01"
+    assert result_table["entity_total_amount"][0].as_py() == "2750.5"
+
+    extracted_entities = json.loads(result_table["entities"][0].as_py())
+    assert extracted_entities == mocked_entities
 
 
 @pytest.mark.unit
@@ -573,14 +778,11 @@ def test_extract_operator_docling_entity_mode():
     config = {
         "text_extraction_mode": "docling_library",
         "entity_extraction_mode": "docling",
-        "custom_schema": {
-            "invoice_number": "string",
-            "total": "number"
-        }
+        "custom_schema": {"invoice_number": "string", "total": "number"},
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify Docling entity mode is configured
     assert operator.entity_extraction_mode.value == "docling"
     assert operator.entity_adapter is not None
@@ -589,8 +791,8 @@ def test_extract_operator_docling_entity_mode():
 @pytest.mark.unit
 def test_extract_operator_invalid_text_extraction_mode_error():
     """Test ExtractOperator with completely invalid text extraction mode."""
-    from core.operators.extract.extract_operator import ExtractOperator
     from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+    from core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "nonexistent_mode",
@@ -599,7 +801,7 @@ def test_extract_operator_invalid_text_extraction_mode_error():
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
-    
+
     assert "Invalid text_extraction_mode" in str(exc_info.value)
     assert "nonexistent_mode" in str(exc_info.value)
 
@@ -607,8 +809,8 @@ def test_extract_operator_invalid_text_extraction_mode_error():
 @pytest.mark.unit
 def test_extract_operator_invalid_entity_extraction_mode_error():
     """Test ExtractOperator with completely invalid entity extraction mode."""
-    from core.operators.extract.extract_operator import ExtractOperator
     from common.exceptions.datasift_exceptions import FlowExecutionFailedException
+    from core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -617,7 +819,7 @@ def test_extract_operator_invalid_entity_extraction_mode_error():
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
-    
+
     assert "Invalid entity_extraction_mode" in str(exc_info.value)
     assert "nonexistent_entity_mode" in str(exc_info.value)
 
@@ -626,14 +828,17 @@ def test_extract_operator_invalid_entity_extraction_mode_error():
 def test_extract_operator_missing_required_columns(sample_pdf_files):
     """Test ExtractOperator with table missing required columns."""
     import pyarrow as pa
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Create table without binary_content column
-    table = pa.table({
-        "id": ["doc1"],
-        "name": ["test.pdf"],
-        # Missing binary_content column
-    })
+    table = pa.table(
+        {
+            "id": ["doc1"],
+            "name": ["test.pdf"],
+            # Missing binary_content column
+        }
+    )
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -641,10 +846,10 @@ def test_extract_operator_missing_required_columns(sample_pdf_files):
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Should handle gracefully - operator will skip documents without content
     result_tables, metadata = operator.transform(table)
-    
+
     # Verify it handled the missing column gracefully
     assert len(result_tables) == 1
     assert metadata["failed_docs_count"] > 0 or metadata["skipped_docs_count"] > 0
@@ -662,31 +867,32 @@ def test_extract_operator_custom_doc_column():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     assert operator.doc_column == "custom_content_column"
 
 
 @pytest.mark.unit
 def test_extract_operator_custom_output_columns():
     """Test ExtractOperator with custom output column configuration."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
             "entity_extraction_mode": "ollama",
-            "model_name": "llama3.2",
+            "entity_model_name": "llama3.2",
             "doc_column": "my_doc",
             "output_column": "my_entities",
         }
 
         operator = ExtractOperator(config=config)
-        
+
         assert operator.doc_column == "my_doc"
         assert operator.entity_adapter is not None
 
@@ -694,27 +900,25 @@ def test_extract_operator_custom_output_columns():
 @pytest.mark.unit
 def test_extract_operator_expand_extracted_data_flag():
     """Test ExtractOperator with expand_extracted_data enabled."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
             "entity_extraction_mode": "ollama",
-            "model_name": "llama3.2",
+            "entity_model_name": "llama3.2",
             "expand_extracted_data": True,
-            "custom_schema": {
-                "field1": "string",
-                "field2": "number"
-            }
+            "custom_schema": {"field1": "string", "field2": "number"},
         }
 
         operator = ExtractOperator(config=config)
-        
+
         assert operator.expand_extracted_data is True
         assert operator.entity_adapter is not None
 
@@ -731,7 +935,7 @@ def test_extract_operator_max_workers_configuration():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify operator was created (max_workers is passed to adapters)
     assert operator.text_adapter is not None
 
@@ -748,7 +952,7 @@ def test_extract_operator_use_processes_flag():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     # Verify operator was created with process-based execution
     assert operator.text_adapter is not None
 
@@ -759,17 +963,17 @@ def test_extract_operator_all_text_modes():
     from core.operators.extract.extract_operator import ExtractOperator
 
     text_modes = ["docling_library", "docling_serve"]
-    
+
     for mode in text_modes:
         config = {
             "text_extraction_mode": mode,
             "entity_extraction_mode": "none",
         }
-        
+
         # Add mode-specific required parameters
         if mode == "docling_serve":
             config["docling_serve_base_url"] = "http://localhost:5001"
-        
+
         operator = ExtractOperator(config=config)
         assert operator.text_extraction_mode.value == mode
         assert operator.text_adapter is not None
@@ -778,29 +982,30 @@ def test_extract_operator_all_text_modes():
 @pytest.mark.unit
 def test_extract_operator_all_entity_modes():
     """Test ExtractOperator initialization with all entity extraction modes."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
         entity_modes = ["none", "ollama", "docling", "litellm"]
-        
+
         for mode in entity_modes:
             config = {
                 "text_extraction_mode": "docling_library",
                 "entity_extraction_mode": mode,
             }
-            
+
             # Add mode-specific required parameters
             if mode in ["ollama", "litellm"]:
-                config["model_name"] = "test-model"
-            
+                config["entity_model_name"] = "test-model"
+
             operator = ExtractOperator(config=config)
             assert operator.entity_extraction_mode.value == mode
-            
+
             if mode == "none":
                 assert operator.entity_adapter is None
             else:
@@ -810,11 +1015,12 @@ def test_extract_operator_all_entity_modes():
 @pytest.mark.unit
 def test_extract_operator_custom_schema_validation():
     """Test ExtractOperator with custom schema for entity extraction."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -822,45 +1028,43 @@ def test_extract_operator_custom_schema_validation():
             "invoice_number": "string",
             "date": "string",
             "total_amount": "number",
-            "vendor": {
-                "name": "string",
-                "address": "string"
-            }
+            "vendor": {"name": "string", "address": "string"},
         }
 
         config = {
             "text_extraction_mode": "docling_library",
             "entity_extraction_mode": "ollama",
-            "model_name": "llama3.2",
+            "entity_model_name": "llama3.2",
             "custom_schema": custom_schema,
         }
 
         operator = ExtractOperator(config=config)
-        
+
         assert operator.entity_adapter is not None
 
 
 @pytest.mark.unit
 def test_extract_operator_temperature_and_max_tokens():
     """Test ExtractOperator with custom temperature and max_tokens."""
-    from unittest.mock import patch, Mock
+    from unittest.mock import Mock, patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch('common.clients.ollama_client.OllamaClient') as mock_ollama_class:
+    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
             "entity_extraction_mode": "ollama",
-            "model_name": "llama3.2",
+            "entity_model_name": "llama3.2",
             "temperature": 0.7,
             "max_tokens": 2048,
         }
 
         operator = ExtractOperator(config=config)
-        
+
         assert operator.entity_adapter is not None
 
 
@@ -886,7 +1090,7 @@ def test_extract_operator_docling_serve_comprehensive():
     }
 
     operator = ExtractOperator(config=config)
-    
+
     assert operator.text_extraction_mode.value == "docling_serve"
     assert operator.text_adapter is not None
 
@@ -902,14 +1106,11 @@ def test_extract_operator_docling_library_vlm_all_parameters():
         "entity_extraction_mode": "none",
         "vlm_preset": "granite_docling",
         "vlm_engine_type": "transformers",
-        "vlm_provider_config": {
-            "api_key": "test-key",
-            "api_base_url": "http://localhost:8000"
-        },
+        "vlm_provider_config": {"api_key": "test-key", "api_base_url": "http://localhost:8000"},
     }
 
     operator = ExtractOperator(config=config)
-    
+
     assert operator.text_extraction_mode.value == "docling_library"
     assert operator.text_adapter is not None
 
@@ -926,18 +1127,18 @@ def test_extract_operator_metadata_structure():
 
     operator = ExtractOperator(config=config)
     metadata = operator.get_metadata()
-    
+
     # Verify metadata structure
     assert "category" in metadata
     assert "features" in metadata
     assert "attributes" in metadata
     assert "is_operator_available" in metadata
-    
+
     # Verify key features
     features = metadata["features"]
     assert "content" in features or "doc_content" in features
     assert "doc_id_hash" in features
-    
+
     # Verify key attributes
     attributes = metadata["attributes"]
     assert "text_extraction_mode" in attributes
@@ -982,14 +1183,8 @@ def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_ch
         entity_metadata=entity_metadata,
     )
 
-    failed_docs = {
-        doc[OperatorConstants.Columns.ID]: doc
-        for doc in consolidated[Metrics.External.FAILED_DOCS]
-    }
-    skipped_docs = {
-        doc[OperatorConstants.Columns.ID]: doc
-        for doc in consolidated[Metrics.External.SKIPPED_DOCS]
-    }
+    failed_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.FAILED_DOCS]}
+    skipped_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.SKIPPED_DOCS]}
 
     assert consolidated[Metrics.External.TOTAL_DOCS] == 5
     assert consolidated[Metrics.External.FAILED_DOCS_COUNT] == 3
@@ -1051,8 +1246,7 @@ def test_consolidate_metadata_uses_default_reasons_and_doc_id_column():
     assert consolidated[Metrics.External.PROCESSED_DOCS] == 1
     assert failed_doc[OperatorConstants.Columns.ID] == "doc-1"
     assert failed_doc[OperatorConstants.Misc.REASON] == (
-        f"Text extraction: {OperatorConstants.Extraction.ERROR} | "
-        "Entity extraction: entity missing schema"
+        f"Text extraction: {OperatorConstants.Extraction.ERROR} | Entity extraction: entity missing schema"
     )
     assert skipped_doc[OperatorConstants.Columns.ID] == "doc-2"
     assert OperatorConstants.Misc.REASON not in skipped_doc
@@ -1110,22 +1304,23 @@ def test_prepare_document_content_fetch_uses_path_when_id_missing():
     assert doc_tasks[0]["doc_name"] == "sample.pdf"
 
 
-
 @pytest.mark.unit
 def test_consolidate_metadata_merges_document_in_both_failed_lists():
     """Test that a document failing in both text and entity extraction has merged reasons."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock Ollama client to avoid connection requirement
     with patch("common.clients.ollama_client.OllamaClient") as mock_ollama:
         mock_instance = MagicMock()
         mock_ollama.return_value = mock_instance
-        
+
         operator = ExtractOperator(
             config={
                 "text_extraction_mode": "docling_library",
                 "entity_extraction_mode": "ollama",
+                "entity_model_name": "llama3.2",
             }
         )
 
@@ -1149,10 +1344,7 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
             entity_metadata=entity_metadata,
         )
 
-        failed_docs = {
-            doc[OperatorConstants.Columns.ID]: doc
-            for doc in consolidated[Metrics.External.FAILED_DOCS]
-        }
+        failed_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.FAILED_DOCS]}
 
         # Verify doc-1 appears once with merged reasons
         assert len(consolidated[Metrics.External.FAILED_DOCS]) == 2
@@ -1168,18 +1360,20 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
 @pytest.mark.unit
 def test_consolidate_metadata_merges_document_in_both_skipped_lists():
     """Test that a document skipped in both text and entity extraction has merged reasons."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
+
     from core.operators.extract.extract_operator import ExtractOperator
 
     # Mock Ollama client to avoid connection requirement
     with patch("common.clients.ollama_client.OllamaClient") as mock_ollama:
         mock_instance = MagicMock()
         mock_ollama.return_value = mock_instance
-        
+
         operator = ExtractOperator(
             config={
                 "text_extraction_mode": "docling_library",
                 "entity_extraction_mode": "ollama",
+                "entity_model_name": "llama3.2",
             }
         )
 
@@ -1203,10 +1397,7 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
             entity_metadata=entity_metadata,
         )
 
-        skipped_docs = {
-            doc[OperatorConstants.Columns.ID]: doc
-            for doc in consolidated[Metrics.External.SKIPPED_DOCS]
-        }
+        skipped_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.SKIPPED_DOCS]}
 
         # Verify doc-1 appears once with merged reasons
         assert len(consolidated[Metrics.External.SKIPPED_DOCS]) == 2

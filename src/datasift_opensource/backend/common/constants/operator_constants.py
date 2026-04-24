@@ -14,6 +14,7 @@ All constants must be accessed through their nested class structure:
     - OperatorConstants.Types.* for data types
     - OperatorConstants.Extraction.* for extraction settings
     - OperatorConstants.ExtractionModes.* for extraction mode settings
+    - OperatorConstants.LLM.* for LLM-specific settings
     - OperatorConstants.PIIHAP.* for PII/HAP settings
     - OperatorConstants.Filtering.* for filtering settings
     - OperatorConstants.Processing.* for processing settings
@@ -338,11 +339,41 @@ class OperatorConstants:
         ENTITY_MAX_TOKENS: Final[str] = "entity_max_tokens"
         ENTITY_MAX_DOC_CHARS: Final[str] = "entity_max_doc_chars"
 
-        # Entity Data Expansion (applies to entity extraction only)
-        EXPAND_EXTRACTED_DATA: Final[str] = "expand_extracted_data"
+        # Entity Extraction System Prompts
+        ENTITY_EXTRACTION_SYSTEM_PROMPT: Final[str] = """\
+You are a precise document entity extraction assistant.
+Your task is to extract structured information from document text and return it \
+as valid JSON that exactly matches the provided schema template.
 
-        # Document Type Configuration
-        DOCUMENT_TYPE_COLUMN: Final[str] = "document_type_column"
+Rules:
+1. Return ONLY a valid JSON object — no markdown fences, no explanation text.
+2. Use null for any field that cannot be found in the document.
+3. For NESTED fields, return a list of objects.
+4. Do not add extra fields not in the template.
+5. Preserve original values (dates, amounts, names) exactly as they appear.
+"""
+
+        ENTITY_EXTRACTION_SCHEMA_FREE_SYSTEM_PROMPT: Final[str] = """\
+You are a precise document entity extraction assistant.
+Your task is to identify and extract ALL named entities and key structured information
+from the document text and return them as a valid JSON object.
+
+Rules:
+1. Return ONLY a valid JSON object — no markdown fences, no explanation text.
+2. Use meaningful key names that describe the entity type (e.g. "invoice_number", "vendor_name", "total_amount").
+3. Group related entities under nested objects where appropriate (e.g. "vendor": {"name": ..., "address": ...}).
+4. Use null for any field that cannot be determined.
+5. Preserve original values (dates, amounts, names) exactly as they appear.
+6. Include all significant entities: people, organizations, dates, amounts, locations, identifiers, etc.
+"""
+
+    class LLM:
+        """LLM-specific constants."""
+
+        TEMPERATURE: Final[str] = "temperature"
+        MAX_TOKENS: Final[str] = "max_tokens"
+        MAX_DOC_CHARS: Final[str] = "max_doc_chars"
+        API_BASE: Final[str] = "api_base"
 
     class PIIHAP:
         """PII/HAP constants."""

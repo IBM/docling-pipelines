@@ -214,7 +214,7 @@ class ExtractOperator(AbstractOperator):
         # Common parameters
         self.doc_column = config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
         self.output_column = config.get(OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Misc.ENTITIES)
-        self.expand_extracted_data = config.get(OperatorConstants.ExtractionModes.EXPAND_EXTRACTED_DATA, False)
+        self.expand_extracted_data = config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False)
         # Auto-detect optimal workers based on CPU count
         default_text_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
         default_entity_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=True)
@@ -663,6 +663,13 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: 8000,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "entity_provider_config": {
+                    OperatorConstants.Misc.NAME: "Entity Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction (e.g., {'api_key': 'xxx', 'api_base': 'http://...'})",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 OperatorConstants.Columns.DOC_COLUMN: {
                     OperatorConstants.Misc.NAME: "Document Column",

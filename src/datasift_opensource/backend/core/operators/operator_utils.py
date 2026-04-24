@@ -3,7 +3,6 @@ import hashlib
 import io
 import json
 import os
-import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -889,7 +888,7 @@ class OperatorUtils:
         tables = []
         for item, _ in result.document.iterate_items():
             if isinstance(item, TableItem):
-                table_df = item.export_to_dataframe()
+                table_df = item.export_to_dataframe(doc=result.document)
                 tables.append({"ref": item.self_ref, "data": table_df.to_dict() if table_df is not None else None})
         return tables
 

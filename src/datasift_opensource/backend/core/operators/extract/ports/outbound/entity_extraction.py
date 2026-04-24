@@ -72,8 +72,27 @@ class EntityExtractionPort(ABC):
         )
         self.custom_schema = config.get(OperatorConstants.Config.CUSTOM_SCHEMA, {})
         self.common_log_arguments = config.get("common_log_arguments", {})
+        # Validate configuration before initializing adapter-specific config
+        self.validate(config=config)
         # Subclasses should initialize their adapter-specific configuration
         self._init_adapter_config(config=config)
+
+    def validate(self, *, config: dict[str, Any]) -> None:
+        """Validate adapter configuration.
+
+        Subclasses should override this method to implement adapter-specific
+        validation logic. The base implementation does nothing.
+
+        Args:
+            config: Full configuration dictionary
+
+        Raises:
+            ValueError: If configuration is invalid
+        """
+        # Validate boolean flags if present
+        expand_extracted_data = config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA)
+        if expand_extracted_data is not None and not isinstance(expand_extracted_data, bool):
+            raise ValueError("Entity extraction 'expand_extracted_data' must be a boolean")
 
     def _init_adapter_config(self, *, config: dict[str, Any]) -> None:
         """Initialize adapter-specific configuration.
@@ -392,7 +411,7 @@ class EntityExtractionPort(ABC):
 
     @abstractmethod
     def extract_entities_single(
-        self, doc_id: str, doc_name: str, content: str | bytes, schema: dict[str, Any] | None = None, **kwargs: Any
+        self, *, doc_id: str, doc_name: str, content: str | bytes, schema: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Extract entities from a single document.
 
@@ -475,3 +494,193 @@ class EntityExtractionPort(ABC):
             table = TransformUtils.add_column(table, name=f"entity_{key}", content=column_values)
 
         return table
+
+    # ========================================================================
+    # LLM-Based Entity Extraction Helper Methods
+    # ========================================================================
+    # These methods provide common utilities for LLM-based entity extraction
+    # adapters (Ollama, LiteLLM, etc.). They handle prompt building, schema
+    # processing, and JSON parsing with repair logic.
+    # ========================================================================
+
+    def _build_schema_prompt(self, *, content: str, schema: dict[str, Any]) -> str:
+        """Build prompt for schema-based extraction.
+
+        Args:
+            content: Document text content
+            schema: Schema dictionary with fields/columns
+
+        Returns:
+            Formatted user prompt string
+        """
+        # Extract schema metadata
+        schema_name = schema.get("document_type", "") or schema.get("table", "")
+        schema_desc_text = schema.get("document_description", "") or schema.get("description", "")
+
+        # Build schema description using helper functions
+        schema_desc = self._build_schema_description(schema=schema)
+
+        # Build JSON template
+        json_template = self._build_json_template(schema=schema)
+
+        return (
+            f"Extract entities from the following document text.\n\n"
+            f"Document Type: {schema_name}\n"
+            f"Description: {schema_desc_text}\n\n"
+            f"Schema fields to extract:\n{schema_desc}\n\n"
+            f"Return your answer as a JSON object matching this template exactly:\n"
+            f"{json.dumps(json_template, indent=2)}\n\n"
+            f"Document text:\n{content}"
+        )
+
+    def _build_schema_description(self, *, schema: dict[str, Any]) -> str:
+        """Build human-readable schema description.
+
+        Args:
+            schema: Schema dictionary
+
+        Returns:
+            Formatted schema description
+        """
+        # Check for new 'fields' format first
+        if "fields" in schema:
+            return DocumentClassUtils.build_schema_description_from_fields(schema["fields"])
+
+        # Fall back to old 'columns' format
+        columns = schema.get("columns", {})
+        if not columns:
+            return ""
+
+        lines: list[str] = []
+        for col_name, col_type in columns.items():
+            lines.append(f"  - {col_name} ({col_type})")
+
+        return "\n".join(lines)
+
+    def _build_json_template(self, *, schema: dict[str, Any]) -> dict[str, Any]:
+        """Build JSON template from schema.
+
+        Args:
+            schema: Schema dictionary
+
+        Returns:
+            JSON template dictionary
+        """
+        # Check for new 'fields' format first
+        if "fields" in schema:
+            return DocumentClassUtils.build_json_template_from_fields(schema["fields"])
+
+        # Fall back to old 'columns' format
+        columns = schema.get("columns", {})
+        if not columns:
+            return {}
+
+        template: dict[str, Any] = {}
+        for col_name in columns.keys():
+            if "." in col_name:
+                # Build nested structure
+                parts = col_name.split(".")
+                current = template
+                for part in parts[:-1]:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+                current[parts[-1]] = None
+            else:
+                template[col_name] = None
+
+        return template
+
+    def _build_schema_free_prompt(self, *, content: str) -> str:
+        """Build prompt for schema-free extraction.
+
+        Args:
+            content: Document text content
+
+        Returns:
+            Formatted user prompt string
+        """
+        return (
+            f"Extract all named entities and key information from the following document text.\n\n"
+            f"Document text:\n{content}"
+        )
+
+    def _parse_llm_json(self, *, raw_response: str) -> dict[str, Any]:
+        """Parse JSON from LLM response with repair logic.
+
+        Args:
+            raw_response: Raw LLM response text
+
+        Returns:
+            Parsed JSON dictionary (empty dict if parsing fails)
+        """
+        import re
+
+        text = raw_response.strip()
+
+        # Strip markdown fences
+        if text.startswith("```"):
+            lines = text.split("\n")
+            text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:]).strip()
+
+        # Direct parse
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # Regex extraction of first {...} block
+        match = re.search(r"\{.*\}", text, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group())
+            except json.JSONDecodeError:
+                repaired = self._try_repair_truncated_json(raw=match.group())
+                if repaired is not None:
+                    return repaired
+
+        # Last-resort repair
+        repaired = self._try_repair_truncated_json(raw=text)
+        if repaired is not None:
+            return repaired
+
+        logger.warning("Failed to parse LLM response as JSON, returning empty dict")
+        return {}
+
+    def _try_repair_truncated_json(self, *, raw: str) -> dict[str, Any] | None:
+        """Try to repair truncated JSON by closing unclosed braces/brackets.
+
+        Args:
+            raw: Raw JSON string (potentially truncated)
+
+        Returns:
+            Parsed JSON dictionary or None if repair fails
+        """
+        stack: list[str] = []
+        in_string = False
+        escape_next = False
+
+        for char in raw:
+            if escape_next:
+                escape_next = False
+                continue
+            if char == "\\" and in_string:
+                escape_next = True
+                continue
+            if char == '"':
+                in_string = not in_string
+                continue
+            if not in_string:
+                if char in "{[":
+                    stack.append("}" if char == "{" else "]")
+                elif char in "}]":
+                    if stack and stack[-1] == char:
+                        stack.pop()
+
+        closing = "".join(reversed(stack))
+        repaired = raw.rstrip() + closing
+
+        try:
+            return json.loads(repaired)
+        except json.JSONDecodeError:
+            return None

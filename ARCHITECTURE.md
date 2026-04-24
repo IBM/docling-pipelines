@@ -85,8 +85,7 @@ graph TB
 
     subgraph "Operator Layer"
         subgraph "Extract"
-            ED[ExtractDocling]
-            EE[ExtractEntitiesOllama]
+            EXT[ExtractOperator]
         end
         subgraph "Ingest"
             ILO[IngestLocalOperator]
@@ -138,9 +137,10 @@ graph TB
     PE --> Functional
     PE --> Quality
     PE --> VectorDB
-
-    ED --> DOC
-    EE --> OLL
+    
+    EXT --> DOC
+    EXT --> OLL
+    EXT --> LLM
     EMB --> OLL
     VDB --> OS
 
@@ -218,17 +218,16 @@ Operators are the fundamental building blocks of datasift. Each operator is a se
 ```mermaid
 graph LR
     OP[Operator Categories]
-    OP --> EXT[Extract]
     OP --> ING[Ingest]
+    OP --> EXT[Extract]
     OP --> FUN[Functional]
     OP --> QUA[Quality]
     OP --> VDB[VectorDB]
-
-    EXT --> E1[ExtractDocling]
-    EXT --> E2[ExtractEntitiesOllama]
-
+    
     ING --> I1[IngestLocalOperator]
     ING --> I2[IngestSourceOperator]
+
+    EXT --> E1[ExtactOperator]
 
     FUN --> F1[BranchingOperator]
     FUN --> F2[Chunker]
@@ -1016,7 +1015,7 @@ The platform supports multiple input sources and optional quality operators, but
 graph LR
     SRC[Input Source]
     ING[IngestLocalOperator / IngestSourceOperator]
-    EXT[ExtractDocling]
+    EXT[ExtractOperator]
     CHK[Chunker]
     EMB[EmbeddingsOperator]
     VDB[VectorDBOperator]
@@ -1038,7 +1037,7 @@ graph LR
 ```mermaid
 graph TB
     subgraph "Datasift Operators"
-        EE[ExtractEntitiesOllama]
+        EXT[ExtractOperator]
         EMB[EmbeddingsOperator]
     end
 
@@ -1161,7 +1160,7 @@ graph TB
 ```mermaid
 graph TB
     subgraph "Datasift Layer"
-        ED[ExtractDocling]
+        EXT[ExtractOperator]
     end
 
     subgraph "Client Layer"
@@ -1445,7 +1444,7 @@ graph TB
 
 ```mermaid
 graph LR
-    A[IngestSource] --> B[ExtractDocling]
+    A[IngestSource] --> B[ExtractOperator]
     B --> C[PIIAndHAPAnnotator]
     C --> D[Redaction]
     D --> E[Chunker]
@@ -1464,7 +1463,7 @@ graph LR
 **Typical Pipeline:**
 
 1. **IngestSource**: Load documents from storage
-2. **ExtractDocling**: Extract text content
+2. **ExtractOperator**: Extract text content
 3. **PIIAndHAPAnnotator**: Detect sensitive content
 4. **Redaction**: Mask or remove detected PII/HAP
 5. **Chunker**: Split sanitized documents into chunks
@@ -1703,7 +1702,7 @@ graph TB
    - Pre-fetches binary content for downstream operators
    - Efficient memory management
    - Fallback to text content when binary unavailable
-   - Compatible with ExtractDocling and other extract operators
+   - Compatible with ExtractOperator and other extract operators
 
 5. **Incremental Processing**:
    - Tracks previously processed documents
@@ -1724,7 +1723,7 @@ graph TB
 
 ```mermaid
 graph LR
-    A[IngestSource] --> B[ExtractDocling]
+    A[IngestSource] --> B[ExtractOperator]
     B --> C[Chunker]
     C --> D[EmbeddingsOperator]
     D --> E[VectorDBOperator]
@@ -1739,7 +1738,7 @@ graph LR
 **Typical Pipeline:**
 
 1. **IngestSource**: Load documents from cloud storage
-2. **ExtractDocling**: Extract structured content from binary files
+2. **ExtractOperator**: Extract structured content from binary files
 3. **Chunker**: Split documents into manageable chunks
 4. **EmbeddingsOperator**: Generate vector embeddings
 5. **VectorDBOperator**: Store in OpenSearch or other vector databases
@@ -2690,8 +2689,17 @@ Hexagonal architecture implementation for document set management:
 Operators are organized by category (defined in `OperatorCategory` enum):
 
 #### Extract Operators (`extract/`)
-
-- **ExtractOperator**: Unified extraction operator supporting multiple text extraction modes (Docling Library with optional VLM pipeline, Docling Serve) and entity extraction modes (Ollama, Docling template-based, LiteLLM)
+- **ExtractOperator**: Extraction operator using hexagonal architecture with multiple adapters
+  - **Text Extraction Modes**:
+    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) pipeline
+    - `docling_serve`: Remote extraction via Docling Serve API with OCR support
+  - **Entity Extraction Modes**:
+    - `ollama`: LLM-based entity extraction using Ollama models
+    - `docling`: Template-based entity extraction using Docling templates
+    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
+    - `none`: No entity extraction (default)
+  - **Adapters**: DoclingAdapter, DoclingServeAdapter (text); OllamaEntityAdapter, DoclingEntityAdapter, LiteLLMEntityAdapter (entity)
+  - **Configuration**: Supports both text and entity extraction in a single operator with independent mode selection
 
 #### Ingest Operators (`ingest/`)
 

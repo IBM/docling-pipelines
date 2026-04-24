@@ -21,7 +21,7 @@ This architecture enables:
 
 - **Dual-Mode Operation**: Supports both text extraction and entity extraction in a single operator
 - **Multiple Text Extraction Strategies**: Docling Library (with optional VLM pipeline) and Docling Serve API
-- **Multiple Entity Extraction Strategies**: Ollama LLM, Docling template-based, and LiteLLM (placeholder)
+- **Multiple Entity Extraction Strategies**: Ollama LLM, Docling template-based, and LiteLLM
 - **Parallel Processing**: Automatic worker optimization based on CPU count
 - **Flexible Configuration**: Mode-specific parameters with sensible defaults
 - **Consistent Error Handling**: Unified error handling and metadata across all modes
@@ -279,9 +279,9 @@ Template-based entity extraction using Docling's structured extraction capabilit
 
 **Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_template.json`](../../../../tests/sample_test_flows/extract/flow_extract_template.json)
 
-### 4. LiteLLM Mode (Placeholder)
+### 4. LiteLLM Mode
 
-Multi-provider LLM extraction using LiteLLM (currently a placeholder implementation).
+Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (OpenAI, Anthropic, Cohere, etc.).
 
 **Configuration:**
 ```json
@@ -290,9 +290,31 @@ Multi-provider LLM extraction using LiteLLM (currently a placeholder implementat
   "entity_extraction_mode": "litellm",
   "entity_model_name": "gpt-3.5-turbo",
   "entity_temperature": 0.0,
-  "entity_max_tokens": 2000
+  "entity_max_tokens": 2000,
+  "entity_provider_config": {
+    "api_key": "your-api-key",
+    "api_base": "https://api.openai.com/v1"
+  }
 }
 ```
+
+**Supported Providers:**
+- OpenAI (GPT-3.5, GPT-4, GPT-4o)
+- Anthropic (Claude 3 Opus, Sonnet, Haiku)
+- Cohere (Command, Command-R)
+- Google (Gemini Pro, Gemini Ultra)
+- Azure OpenAI
+- AWS Bedrock
+- And 100+ other providers via LiteLLM
+
+**Use Cases:**
+- Multi-provider LLM support without code changes
+- Enterprise LLM deployments (Azure, AWS Bedrock)
+- Cost optimization by switching between providers
+- Fallback strategies across multiple providers
+- Schema-based and schema-free entity extraction
+
+**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_basic_litellm.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic_litellm.json)
 
 ## Configuration Parameters
 

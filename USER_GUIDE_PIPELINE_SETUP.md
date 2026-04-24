@@ -656,7 +656,17 @@ Reads files from a local directory:
 
 #### Operator 2: extract_operator
 
-Extracts structured content using Docling. By default, it performs basic text extraction:
+The `extract_operator` handles both text extraction and entity extraction.
+
+**Supported text extraction modes:**
+- `docling_library`
+- `docling_serve`
+
+**Supported entity extraction modes:**
+- `ollama`
+- `docling`
+- `litellm`
+- `none`
 
 **Basic Text Extraction (DEFAULT):**
 ```json
@@ -665,6 +675,8 @@ Extracts structured content using Docling. By default, it performs basic text ex
   "name": "extract",
   "operator": "extract_operator",
   "config": {
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "none",
     "doc_column": "content"
   },
   "input_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"}],
@@ -673,8 +685,7 @@ Extracts structured content using Docling. By default, it performs basic text ex
 ```
 
 **Optional: Advanced Template-Based Extraction**
-
-For structured data extraction with predefined schemas, you can enable template-based extraction:
+For structured data extraction with predefined schemas, use `entity_extraction_mode: "docling"`
 
 ```json
 {
@@ -682,10 +693,11 @@ For structured data extraction with predefined schemas, you can enable template-
   "name": "extract",
   "operator": "extract_operator",
   "config": {
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "docling",
     "doc_column": "content",
-    "use_template": true,
     "expand_extracted_data": true,
-    "template": {
+    "custom_schema": {
       "invoice_number": "string",
       "invoice_date": "string",
       "vendor_name": "string",

@@ -73,7 +73,7 @@ class DoclingServeAdapter(TextExtractionPort):
 
         # Extract connection parameters
         self.base_url = docling_serve_config.get("base_url", "http://0.0.0.0:5001")
-        self.api_key = docling_serve_config.get("api_key")
+        self.api_key = docling_serve_config.get(OperatorConstants.Config.API_KEY)
         self.timeout = docling_serve_config.get("timeout", 300)
         self.poll_interval = docling_serve_config.get("poll_interval", 2)
         self.max_retries = docling_serve_config.get("max_retries", 3)

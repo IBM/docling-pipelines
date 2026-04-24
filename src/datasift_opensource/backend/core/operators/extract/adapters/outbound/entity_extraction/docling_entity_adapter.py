@@ -45,6 +45,22 @@ class DoclingEntityAdapter(EntityExtractionPort):
         """
         super().__init__(config=config)
 
+    def validate(self, *, config: dict[str, Any]) -> None:
+        """Validate adapter configuration.
+
+        Docling adapter has minimal configuration requirements
+        Most configuration is handled by the base EntityExtractionPort
+
+        Args:
+            config: Configuration dictionary to validate
+        """
+        # Validate string parameters if present
+        for param in ["doc_column", "output_column"]:
+            value = config.get(param)
+            if value is not None and not isinstance(value, str):
+                raise ValueError(f"DoclingEntityAdapter '{param}' must be a string")
+        super().validate(config=config)
+
     def _init_adapter_config(self, *, config: dict[str, Any]) -> None:
         """Initialize docling-specific configuration.
 
@@ -54,7 +70,7 @@ class DoclingEntityAdapter(EntityExtractionPort):
         logger.info("Initialized DoclingEntityAdapter")
 
     def extract_entities_single(
-        self, doc_id: str, doc_name: str, content: str | bytes, schema: dict[str, Any] | None = None, **kwargs: Any
+        self, *, doc_id: str, doc_name: str, content: str | bytes, schema: dict[str, Any] | None = None
     ) -> dict[str, Any]:
         """Extract entities from a single document using schema.
 
@@ -68,7 +84,6 @@ class DoclingEntityAdapter(EntityExtractionPort):
             doc_name: Document name for logging
             content: Document text content (str) or binary content (bytes)
             schema: Optional schema dictionary for structured extraction
-            **kwargs: Additional parameters (unused)
 
         Returns:
             Dictionary with extraction results:

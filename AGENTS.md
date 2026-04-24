@@ -42,7 +42,16 @@ Strategic workflow coordinator that breaks down complex tasks and delegates to s
 Operators are organized by category as defined in the `OperatorCategory` enum:
 
 ### Extract Operators
-- **ExtractOperator**: Unified extraction operator supporting multiple text extraction modes (basic, VLM, Docling Serve) and entity extraction modes (Ollama, Docling template-based, LiteLLM)
+- **ExtractOperator**: Extraction operator supporting multiple text extraction modes (docling_library, docling_serve) and entity extraction modes (ollama, docling, litellm, none)
+  - **Text Extraction Modes**:
+    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) pipeline support
+    - `docling_serve`: Remote extraction via Docling Serve API with OCR support
+  - **Entity Extraction Modes**:
+    - `ollama`: LLM-based entity extraction using locally running Ollama models
+    - `docling`: Template-based entity extraction using Docling templates
+    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
+    - `none`: No entity extraction (default)
+  - **Adapters**: DoclingAdapter, DoclingServeAdapter (text); OllamaEntityAdapter, DoclingEntityAdapter, LiteLLMEntityAdapter (entity)
 
 ### Ingest Operators
 - **IngestLocalOperator**: Reads files from local filesystem directories

@@ -92,12 +92,8 @@ class TextExtractionAdapterFactory:
         # Common configuration for all text modes
         adapter_config: dict[str, Any] = {
             "doc_column": operator_config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT),
-            OperatorConstants.Config.EXTRACT_TABLES: operator_config.get(
-                OperatorConstants.Config.EXTRACT_TABLES, True
-            ),
-            OperatorConstants.Config.EXTRACT_IMAGES: operator_config.get(
-                OperatorConstants.Config.EXTRACT_IMAGES, True
-            ),
+            OperatorConstants.Config.EXTRACT_TABLES: operator_config.get(OperatorConstants.Config.EXTRACT_TABLES, True),
+            OperatorConstants.Config.EXTRACT_IMAGES: operator_config.get(OperatorConstants.Config.EXTRACT_IMAGES, True),
             "common_log_arguments": operator_config.get("common_log_arguments", {}),
         }
 
@@ -124,7 +120,9 @@ class TextExtractionAdapterFactory:
         elif mode == TextExtractionMode.DOCLING_SERVE:
             # Build docling_serve_config dictionary
             docling_serve_config = {
-                "base_url": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_BASE_URL, "http://localhost:5001"),
+                "base_url": operator_config.get(
+                    OperatorConstants.Config.DOCLING_SERVE_BASE_URL, "http://localhost:5001"
+                ),
                 "timeout": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_TIMEOUT, 300),
                 "poll_interval": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_POLL_INTERVAL, 2),
                 "max_retries": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_MAX_RETRIES, 3),
@@ -234,7 +232,7 @@ class TextExtractionAdapterFactory:
         for flag in [
             OperatorConstants.Config.EXTRACT_TABLES,
             OperatorConstants.Config.EXTRACT_IMAGES,
-            OperatorConstants.ExtractionModes.EXPAND_EXTRACTED_DATA,
+            OperatorConstants.Config.EXPAND_EXTRACTED_DATA,
         ]:
             if flag in config and not isinstance(config[flag], bool):
                 raise ValueError(f"DoclingAdapter '{flag}' must be a boolean")

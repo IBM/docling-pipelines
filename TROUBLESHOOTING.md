@@ -839,7 +839,7 @@ Message code: CHUNKER_INVALID_CHUNK_TYPE
 
 - `simple`: Fixed-size chunking
 - `semantic`: Semantic similarity-based chunking
-- `hybrid`: Docling-based chunking (requires ExtractDocling)
+- `hybrid`: Docling-based chunking (requires ExtractOperator)
 
 **Solution:**
 
@@ -928,7 +928,7 @@ Message code: EXTRACT_OPERATOR_MISSING
 {
   "nodes": [
     {"id": "ingest_1", "operator_type": "IngestLocalFolder"},
-    {"id": "extract_1", "operator_type": "ExtractDocling"},  // Add this
+    {"id": "extract_1", "operator_type": "ExtractOperator"},  // Add this
     {"id": "chunk_1", "operator_type": "Chunker"}
   ],
   "edges": [
@@ -1271,8 +1271,8 @@ podman-compose -f docker-compose.opensearch.yml logs -f opensearch-node
 ```
 [2024-01-15 10:30:45] [INFO] [ingest_local_folder] Processing folder: sample_documents
 [2024-01-15 10:30:46] [INFO] [ingest_local_folder] Found 5 files
-[2024-01-15 10:30:47] [INFO] [extract_docling] Extracting content from file1.pdf
-[2024-01-15 10:30:50] [ERROR] [extract_docling] Failed to extract: Connection refused
+[2024-01-15 10:30:47] [INFO] [extract_operator] Extracting content from file1.pdf
+[2024-01-15 10:30:50] [ERROR] [extract_operator] Failed to extract: Connection refused
 ```
 
 **Key information:**
@@ -1527,9 +1527,11 @@ uv sync --extra dev
 
 ```json
 {
-  "operator_type": "ExtractDocling",
+  "operator_type": "ExtractOperator",
   "operator_params": {
-    "timeout": 300 // Increase from default 60 seconds
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "none",
+    "timeout": 300  // Increase from default 60 seconds
   }
 }
 ```

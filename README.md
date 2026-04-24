@@ -138,11 +138,16 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 ### Extract Operators
 
-- **Docling** - Extract content and structure from documents using Docling
-  - Docling Library mode with standard markdown extraction
-  - Optional VLM (Vision-Language Model) pipeline for enhanced extraction
-  - Template-based structured extraction
-  - Docling-Serve REST API integration for scalable processing
+- **ExtractOperator** - Unified extraction operator with multiple adapters
+  - **Text Extraction Modes**:
+    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) pipeline
+    - `docling_serve`: Remote extraction via Docling Serve API with OCR support
+  - **Entity Extraction Modes**:
+    - `ollama`: LLM-based entity extraction using Ollama models
+    - `docling`: Template-based entity extraction using Docling templates
+    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
+    - `none`: No entity extraction (default)
+  - Supports dual-mode operation: text and entity extraction in a single operator
 
 ### Chunking Operators
 

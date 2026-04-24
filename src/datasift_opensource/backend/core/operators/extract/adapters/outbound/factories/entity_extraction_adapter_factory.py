@@ -35,10 +35,10 @@ class EntityExtractionAdapterFactory:
     Example Usage:
         # Create Ollama adapter
         config = {
-            "model_name": "llama3.2",
-            "temperature": 0.0,
-            "max_tokens": 4096,
-            "max_doc_chars": 8000,
+            OperatorConstants.Config.MODEL_NAME: "llama3.2",
+            OperatorConstants.LLM.TEMPERATURE: 0.0,
+            OperatorConstants.LLM.MAX_TOKENS: 4096,
+            OperatorConstants.LLM.MAX_DOC_CHARS: 8000,
             "doc_column": "doc_content",
             "output_column": "entities",
             "expand_extracted_data": False
@@ -84,9 +84,7 @@ class EntityExtractionAdapterFactory:
             OperatorConstants.Columns.OUTPUT_COLUMN: operator_config.get(
                 OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Misc.ENTITIES
             ),
-            "expand_extracted_data": operator_config.get(
-                OperatorConstants.ExtractionModes.EXPAND_EXTRACTED_DATA, False
-            ),
+            "expand_extracted_data": operator_config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False),
             "custom_schema": operator_config.get(OperatorConstants.Config.CUSTOM_SCHEMA, {}),
             "common_log_arguments": operator_config.get("common_log_arguments", {}),
         }
@@ -95,21 +93,40 @@ class EntityExtractionAdapterFactory:
         if mode == EntityExtractionMode.OLLAMA:
             adapter_config.update(
                 {
-                    "model_name": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME, "llama3.2"),
-                    "temperature": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0),
-                    "max_tokens": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 4096),
-                    "max_doc_chars": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS, 8000),
+                    OperatorConstants.Config.MODEL_NAME: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME
+                    ),
+                    OperatorConstants.LLM.TEMPERATURE: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0
+                    ),
+                    OperatorConstants.LLM.MAX_TOKENS: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 4096
+                    ),
+                    OperatorConstants.LLM.MAX_DOC_CHARS: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS, 8000
+                    ),
                 }
             )
 
         elif mode == EntityExtractionMode.LITELLM:
+            # Extract provider-specific configuration
+            entity_provider_config = operator_config.get("entity_provider_config", {})
             adapter_config.update(
                 {
-                    "model_name": operator_config.get(
-                        OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME, "gpt-3.5-turbo"
+                    OperatorConstants.Config.MODEL_NAME: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME
                     ),
-                    "temperature": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0),
-                    "max_tokens": operator_config.get(OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 2000),
+                    OperatorConstants.LLM.TEMPERATURE: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0
+                    ),
+                    OperatorConstants.LLM.MAX_TOKENS: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 2000
+                    ),
+                    OperatorConstants.LLM.MAX_DOC_CHARS: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS, 8000
+                    ),
+                    OperatorConstants.Config.API_KEY: entity_provider_config.get(OperatorConstants.Config.API_KEY, ""),
+                    OperatorConstants.LLM.API_BASE: entity_provider_config.get(OperatorConstants.LLM.API_BASE),
                 }
             )
 
@@ -152,24 +169,21 @@ class EntityExtractionAdapterFactory:
         full_config = {**adapter_config, "max_workers": max_workers}
 
         if mode == OperatorConstants.ExtractionModes.ENTITY_MODE_OLLAMA:
-            EntityExtractionAdapterFactory._validate_ollama_config(adapter_config)
             logger.info(
                 "Creating OllamaEntityAdapter with model: %s and %s workers",
-                adapter_config.get("model_name", "llama3.2"),
+                adapter_config.get(OperatorConstants.Config.MODEL_NAME),
                 max_workers,
             )
             return OllamaEntityAdapter(config=full_config)
 
         elif mode == OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING:
-            EntityExtractionAdapterFactory._validate_docling_config(adapter_config)
             logger.info("Creating DoclingEntityAdapter with %s workers", max_workers)
             return DoclingEntityAdapter(config=full_config)
 
         elif mode == OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM:
-            EntityExtractionAdapterFactory._validate_litellm_config(adapter_config)
             logger.info(
                 "Creating LiteLLMEntityAdapter with model: %s and %s workers",
-                adapter_config.get("model_name", "gpt-3.5-turbo"),
+                adapter_config.get(OperatorConstants.Config.MODEL_NAME),
                 max_workers,
             )
             return LiteLLMEntityAdapter(config=full_config)
@@ -182,72 +196,6 @@ class EntityExtractionAdapterFactory:
             raise ValueError(
                 f"Unsupported entity extraction mode: {mode}. Supported modes: ollama, docling, litellm, none"
             )
-
-    @staticmethod
-    def _validate_ollama_config(config: dict[str, Any]) -> None:
-        """Validate configuration for OllamaEntityAdapter.
-
-        Args:
-            config: Configuration dictionary to validate
-
-        Raises:
-            ValueError: If required configuration is missing or invalid
-        """
-        # Model name is optional (defaults to "llama3.2")
-        model_name = config.get(OperatorConstants.Config.MODEL_NAME)
-        if model_name is not None and not isinstance(model_name, str):
-            raise ValueError("OllamaEntityAdapter 'model_name' must be a string")
-
-        # Validate numeric parameters if present
-        for param in ["temperature", "max_tokens", "max_doc_chars"]:
-            value = config.get(param)
-            if value is not None and not isinstance(value, (int, float)):
-                raise ValueError(f"OllamaEntityAdapter '{param}' must be a number")
-
-        # Validate boolean flags if present
-        expand_extracted_data = config.get(OperatorConstants.ExtractionModes.EXPAND_EXTRACTED_DATA)
-        if expand_extracted_data is not None and not isinstance(expand_extracted_data, bool):
-            raise ValueError("OllamaEntityAdapter 'expand_extracted_data' must be a boolean")
-
-    @staticmethod
-    def _validate_docling_config(config: dict[str, Any]) -> None:
-        """Validate configuration for DoclingEntityAdapter.
-
-        Args:
-            config: Configuration dictionary to validate
-
-        Raises:
-            ValueError: If required configuration is missing or invalid
-        """
-        # Docling adapter has minimal configuration requirements
-        # Most configuration is handled by the base EntityExtractionPort
-
-        # Validate string parameters if present
-        for param in ["doc_column", "output_column"]:
-            value = config.get(param)
-            if value is not None and not isinstance(value, str):
-                raise ValueError(f"DoclingEntityAdapter '{param}' must be a string")
-
-    @staticmethod
-    def _validate_litellm_config(config: dict[str, Any]) -> None:
-        """Validate configuration for LiteLLMEntityAdapter.
-
-        Args:
-            config: Configuration dictionary to validate
-
-        Raises:
-            ValueError: If required configuration is missing or invalid
-        """
-        # Model name is optional (defaults to "gpt-3.5-turbo")
-        model_name = config.get(OperatorConstants.Config.MODEL_NAME)
-        if model_name is not None and not isinstance(model_name, str):
-            raise ValueError("LiteLLMEntityAdapter 'model_name' must be a string")
-
-        # Validate numeric parameters if present
-        for param in ["temperature", "max_tokens"]:
-            value = config.get(param)
-            if value is not None and not isinstance(value, (int, float)):
-                raise ValueError(f"LiteLLMEntityAdapter '{param}' must be a number")
 
     @staticmethod
     def get_supported_modes() -> list[str]:
