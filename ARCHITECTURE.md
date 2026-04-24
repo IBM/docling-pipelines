@@ -1142,10 +1142,10 @@ graph TB
 {
   "operator": "vectordb",
   "config": {
-    "vector_db_type": "opensearch",
+    "provider": "opensearch",
     "index_name": "documents",
     "vector_dimension": 768,
-    "vectordb_parameters": {
+    "provider_config": {
       "host": "localhost",
       "port": 9200,
       "engine": "nmslib",

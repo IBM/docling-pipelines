@@ -24,22 +24,23 @@ class TestGetOpensearchConfig:
         with patch.dict(os.environ, {}, clear=True):
             config = get_opensearch_config()
 
-            assert config["host"] == "localhost"
-            assert config["port"] == 9200
-            assert config["use_ssl"] is False
-            assert config["verify_certs"] is False
-            assert config["vector_dimension"] == 384
-            assert config["batch_size"] == 100
-            assert config["create_index"] is True
-            assert config["index_name"] == "datasift_test"
-            assert config["doc_id_column"] == "doc_id_hash"
-            assert config["embeddings_column"] == "embeddings"
+            # Operator-level params
+            assert config[OperatorConstants.VectorDB.VECTOR_DIMENSION] == 384
+            assert config[OperatorConstants.VectorDB.CREATE_INDEX] is True
+            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "datasift_test"
+            assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "doc_id_hash"
+            assert config[OperatorConstants.Columns.EMBEDDINGS_COLUMN] == "embeddings"
 
-            # Check vectordb_parameters
-            vectordb_parameters = config[OperatorConstants.VectorDB.VECTORDB_PARAMETERS]
-            assert vectordb_parameters[OperatorConstants.VectorDB.ENGINE] == "faiss"
-            assert vectordb_parameters[OperatorConstants.VectorDB.ALGORITHM] == "hnsw"
-            assert vectordb_parameters[OperatorConstants.VectorDB.SPACE_TYPE] == "l2"
+            # Provider-specific params are in provider_config
+            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
+            assert provider_config[OperatorConstants.VectorDB.HOST] == "localhost"
+            assert provider_config[OperatorConstants.VectorDB.PORT] == 9200
+            assert provider_config[OperatorConstants.VectorDB.USE_SSL] is False
+            assert provider_config[OperatorConstants.VectorDB.VERIFY_CERTS] is False
+            assert provider_config[OperatorConstants.Config.BATCH_SIZE] == 100
+            assert provider_config[OperatorConstants.VectorDB.ENGINE] == "faiss"
+            assert provider_config[OperatorConstants.VectorDB.ALGORITHM] == "hnsw"
+            assert provider_config[OperatorConstants.VectorDB.SPACE_TYPE] == "l2"
 
     def test_get_opensearch_config_with_custom_values(self):
         """Test configuration with custom environment variables."""
@@ -64,26 +65,31 @@ class TestGetOpensearchConfig:
         with patch.dict(os.environ, custom_env, clear=True):
             config = get_opensearch_config()
 
-            assert config["host"] == "custom-host"
-            assert config["port"] == 9300
-            assert config["use_ssl"] is True
-            assert config["verify_certs"] is True
-            assert config["username"] == "admin"
-            assert config["password"] == "secret"  # pragma: allowlist secret
-            assert config["vector_dimension"] == 768
-            assert config["batch_size"] == 200
-            assert config["create_index"] is False
-            assert config["index_name"] == "custom_index"
-
-            # Check vectordb_parameters
-            vectordb_parameters = config[OperatorConstants.VectorDB.VECTORDB_PARAMETERS]
-            assert vectordb_parameters[OperatorConstants.VectorDB.ENGINE] == "nmslib"
-            assert vectordb_parameters[OperatorConstants.VectorDB.ALGORITHM] == "ivf"
+            # Operator-level params
+            assert config[OperatorConstants.VectorDB.VECTOR_DIMENSION] == 768
+            assert config[OperatorConstants.VectorDB.CREATE_INDEX] is False
+            assert config[OperatorConstants.VectorDB.INDEX_NAME] == "custom_index"
+            assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "custom_id"
             assert (
-                vectordb_parameters[OperatorConstants.VectorDB.SPACE_TYPE] == "cosine"
+                config[OperatorConstants.Columns.EMBEDDINGS_COLUMN]
+                == "custom_embeddings"
             )
-            assert config["doc_id_column"] == "custom_id"
-            assert config["embeddings_column"] == "custom_embeddings"
+
+            # Provider-specific params are in provider_config
+            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
+            assert provider_config[OperatorConstants.VectorDB.HOST] == "custom-host"
+            assert provider_config[OperatorConstants.VectorDB.PORT] == 9300
+            assert provider_config[OperatorConstants.VectorDB.USE_SSL] is True
+            assert provider_config[OperatorConstants.VectorDB.VERIFY_CERTS] is True
+            assert provider_config[OperatorConstants.VectorDB.USERNAME] == "admin"
+            assert (
+                provider_config[OperatorConstants.VectorDB.PASSWORD]
+                == "secret"  # pragma: allowlist secret
+            )
+            assert provider_config[OperatorConstants.Config.BATCH_SIZE] == 200
+            assert provider_config[OperatorConstants.VectorDB.ENGINE] == "nmslib"
+            assert provider_config[OperatorConstants.VectorDB.ALGORITHM] == "ivf"
+            assert provider_config[OperatorConstants.VectorDB.SPACE_TYPE] == "cosine"
 
     def test_get_opensearch_config_with_aws_auth(self):
         """Test configuration with AWS authentication enabled."""
@@ -92,13 +98,11 @@ class TestGetOpensearchConfig:
         with patch.dict(os.environ, aws_env, clear=True):
             config = get_opensearch_config()
 
-            # AWS auth is in vectordb_parameters
-            vectordb_parameters = config.get(
-                OperatorConstants.VectorDB.VECTORDB_PARAMETERS, {}
-            )
-            assert vectordb_parameters.get(OperatorConstants.VectorDB.AWS_AUTH) is True
+            # AWS auth is in provider_config
+            provider_config = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+            assert provider_config.get(OperatorConstants.VectorDB.AWS_AUTH) is True
             assert (
-                vectordb_parameters.get(OperatorConstants.VectorDB.AWS_REGION)
+                provider_config.get(OperatorConstants.VectorDB.AWS_REGION)
                 == "us-west-2"
             )
 
@@ -126,16 +130,17 @@ class TestGetOpensearchConfig:
         for value, expected in test_cases:
             with patch.dict(os.environ, {"OPENSEARCH_USE_SSL": value}, clear=True):
                 config = get_opensearch_config()
-                assert config["use_ssl"] == expected
+                provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
+                assert provider_config[OperatorConstants.VectorDB.USE_SSL] == expected
 
     def test_get_opensearch_config_removes_none_values(self):
-        """Test that None values are removed from config."""
+        """Test that optional auth values are omitted when not set."""
         with patch.dict(os.environ, {}, clear=True):
             config = get_opensearch_config()
+            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
 
-            # Username and password should not be in config when not set
-            assert "username" not in config or config["username"] is not None
-            assert "password" not in config or config["password"] is not None
+            assert OperatorConstants.VectorDB.USERNAME not in provider_config
+            assert OperatorConstants.VectorDB.PASSWORD not in provider_config
 
     def test_get_opensearch_config_with_partial_settings(self):
         """Test configuration with only some environment variables set."""
@@ -144,18 +149,16 @@ class TestGetOpensearchConfig:
         with patch.dict(os.environ, partial_env, clear=True):
             config = get_opensearch_config()
 
+            # Provider-specific params are in provider_config
+            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
+
             # Custom values
-            assert config["host"] == "partial-host"
-            assert config["port"] == 9400
+            assert provider_config[OperatorConstants.VectorDB.HOST] == "partial-host"
+            assert provider_config[OperatorConstants.VectorDB.PORT] == 9400
 
             # Default values for unset variables
-            assert config["use_ssl"] is False
-
-            # Check vectordb_parameters for engine default
-            vectordb_parameters = config.get(
-                OperatorConstants.VectorDB.VECTORDB_PARAMETERS, {}
-            )
-            assert vectordb_parameters.get(OperatorConstants.VectorDB.ENGINE) == "faiss"
+            assert provider_config[OperatorConstants.VectorDB.USE_SSL] is False
+            assert provider_config[OperatorConstants.VectorDB.ENGINE] == "faiss"
 
 
 class TestGetEnvVar:
@@ -407,11 +410,12 @@ class TestEdgeCases:
 
         with patch.dict(os.environ, full_env, clear=True):
             config = get_opensearch_config()
+            provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
 
-            # All fields should be present
+            # All optional provider fields should be present
             assert len(config) > 0
-            assert config["username"] == "user"
-            assert config["password"] == "pass"  # pragma: allowlist secret
-
-
-# Made with Bob
+            assert provider_config[OperatorConstants.VectorDB.USERNAME] == "user"
+            assert (
+                provider_config[OperatorConstants.VectorDB.PASSWORD]
+                == "pass"  # pragma: allowlist secret
+            )

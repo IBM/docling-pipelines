@@ -23,8 +23,7 @@ logger = get_logger()
 ENGINE_KEY: str = "engine"
 ALGORITHM_KEY: str = "algorithm"
 SPACE_TYPE_KEY: str = "space_type"
-VECTOR_DB_TYPE_KEY: str = "vector_db_type"
-VECTOR_DB_TYPE_DEFAULT: str = "opensearch"
+PROVIDER_DEFAULT: str = "opensearch"
 ENGINE_PARAMETERS_KEY: str = "engine_parameters"
 SPARSE_EMBEDDINGS_COLUMN_KEY: str = "sparse_embeddings_column"
 DEFAULT_BATCH_SIZE: int = 100
@@ -58,13 +57,13 @@ class VectorDBOperator(AbstractOperator):
 
         Args:
             config: Configuration dictionary containing:
-                - vector_db_type: Type of vector database ("opensearch", etc.)
+                - provider: Type of vector database ("opensearch", etc.)
                 - Provider-specific configuration parameters
         """
         super().__init__(config)
 
         # Get vector database type
-        self.vector_db_type: str = config.get(VECTOR_DB_TYPE_KEY, VECTOR_DB_TYPE_DEFAULT)
+        self.provider: str = config.get(OperatorConstants.Config.PROVIDER, PROVIDER_DEFAULT)
 
         # Extract common configuration
         self.index_name: str | None = config.get(OperatorConstants.VectorDB.INDEX_NAME)
@@ -82,8 +81,8 @@ class VectorDBOperator(AbstractOperator):
 
         # Initialize adapter using factory
         try:
-            # Extract vectordb_parameters (adapter-specific config like host, port, engine, etc.)
-            adapter_config = self.config.get(OperatorConstants.VectorDB.VECTORDB_PARAMETERS, {})
+            # Extract provider_config (adapter-specific config like host, port, engine, etc.)
+            adapter_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
             # Add operator-level parameters that the adapter needs
             adapter_config[OperatorConstants.VectorDB.INDEX_NAME] = self.index_name
@@ -96,16 +95,16 @@ class VectorDBOperator(AbstractOperator):
                 OperatorConstants.Config.FEATURE_MAPPINGS, {}
             )
 
-            self.adapter: VectorStorePort = VectorStoreFactory.create(self.vector_db_type, **adapter_config)
+            self.adapter: VectorStorePort = VectorStoreFactory.create(self.provider, **adapter_config)
         except Exception as e:
             raise DatasiftException(
-                message=f"Failed to initialize vector database adapter '{self.vector_db_type}': {e!s}",
+                message=f"Failed to initialize vector database adapter '{self.provider}': {e!s}",
                 status_code=500,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             ) from e
 
         logger.info(
-            f"Initialized VectorDBOperator with adapter: {self.vector_db_type}, index: {self.index_name}",
+            f"Initialized VectorDBOperator with adapter: {self.provider}, index: {self.index_name}",
             extra=self.common_log_arguments,
         )
 
@@ -330,7 +329,7 @@ class VectorDBOperator(AbstractOperator):
         """Get metadata about the operator including features and attributes.
 
         This metadata describes the generic vector database operator interface.
-        Provider-specific parameters should be passed via the 'vectordb_parameters' configuration.
+        Provider-specific parameters should be passed via the 'provider_config' configuration.
         """
         return {
             OperatorConstants.Misc.SDK: True,
@@ -373,11 +372,11 @@ class VectorDBOperator(AbstractOperator):
                 },
             },
             OperatorConstants.Config.ATTRIBUTES: {
-                VECTOR_DB_TYPE_KEY: {
-                    OperatorConstants.Misc.NAME: "Vector Database Type",
+                OperatorConstants.Config.PROVIDER: {
+                    OperatorConstants.Misc.NAME: "Vector Database Provider",
                     OperatorConstants.Config.DESCRIPTION: "Type of vector database provider (opensearch, pinecone, weaviate, etc.)",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: VECTOR_DB_TYPE_DEFAULT,
+                    OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.VectorDB.HOST: {
@@ -466,7 +465,7 @@ class VectorDBOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: DEFAULT_BATCH_SIZE,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
-                OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+                OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider-Specific Parameters",
                     OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration parameters (JSON object). For OpenSearch: engine, algorithm, space_type, engine_parameters, index_settings, aws_auth, aws_region, etc.",
                     OperatorConstants.Config.REQUIRED: False,

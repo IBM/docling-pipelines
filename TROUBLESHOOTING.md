@@ -450,10 +450,14 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/indices?v"
 {
   "operator_type": "VectorDBOperator",
   "operator_params": {
-    "vector_db_type": "opensearch",
-    "index_name": "my-index", // Must be lowercase, no spaces
-    "dimension": 768, // Must match embedding model dimension
-    "knn_engine": "nmslib" // Valid: nmslib, faiss, lucene
+    "provider": "opensearch",
+    "index_name": "my-index",  // Must be lowercase, no spaces
+    "vector_dimension": 768,  // Must match embedding model dimension
+    "provider_config": {
+        "engine": "nmslib",  // Valid: nmslib, faiss, lucene
+        "algorithm": "hnsw",
+        "space_type": "l2"
+    }
   }
 }
 ```

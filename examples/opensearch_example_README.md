@@ -239,12 +239,14 @@ operator.client.indices.delete(index="index_name")
 ### For Large Datasets (>1M documents)
 ```python
 config = {
-    "engine": "faiss",
-    "algorithm": "ivf",
     "batch_size": 1000,
-    "engine_parameters": {
-        "nlist": 1000,
-        "nprobes": 50
+    "provider_config": {
+        "engine": "faiss",
+        "algorithm": "ivf",
+        "engine_parameters": {
+            "nlist": 1000,
+            "nprobes": 50
+        }
     }
 }
 ```
@@ -252,11 +254,13 @@ config = {
 ### For High Recall Requirements
 ```python
 config = {
-    "engine": "lucene",
-    "algorithm": "hnsw",
-    "engine_parameters": {
-        "ef_construction": 512,
-        "m": 64
+    "provider_config": {
+        "engine": "lucene",
+        "algorithm": "hnsw",
+        "engine_parameters": {
+            "ef_construction": 512,
+            "m": 64
+        }
     }
 }
 ```
@@ -264,12 +268,14 @@ config = {
 ### For Fast Indexing
 ```python
 config = {
-    "engine": "faiss",
-    "algorithm": "hnsw",
     "batch_size": 500,
-    "engine_parameters": {
-        "ef_construction": 128,
-        "m": 16
+    "provider_config": {
+        "engine": "faiss",
+        "algorithm": "hnsw",
+        "engine_parameters": {
+            "ef_construction": 128,
+            "m": 16
+        }
     }
 }
 ```

@@ -18,54 +18,62 @@ def get_opensearch_config() -> dict:
     Load OpenSearch configuration from environment variables.
 
     Returns:
-        dict: Configuration dictionary with all OpenSearch settings using vectordb_parameters pattern
+        dict: Configuration dictionary with all OpenSearch settings using provider_config pattern.
+              All provider-specific parameters (including connection settings) are in provider_config.
     """
 
     def str_to_bool(value: str) -> bool:
         """Convert string to boolean."""
         return value.lower() in ("true", "1", "yes", "on")
 
-    # OpenSearch-specific parameters go in vectordb_parameters
-    vectordb_parameters: dict[str, str | bool] = {
+    # All OpenSearch-specific parameters go in provider_config
+    provider_config: dict[str, str | bool | int] = {
+        # Connection settings
+        OperatorConstants.VectorDB.HOST: os.getenv("OPENSEARCH_HOST", "localhost"),
+        OperatorConstants.VectorDB.PORT: int(os.getenv("OPENSEARCH_PORT", "9200")),
+        OperatorConstants.VectorDB.USE_SSL: str_to_bool(os.getenv("OPENSEARCH_USE_SSL", "false")),
+        OperatorConstants.VectorDB.VERIFY_CERTS: str_to_bool(os.getenv("OPENSEARCH_VERIFY_CERTS", "false")),
+        # KNN engine configuration
         OperatorConstants.VectorDB.ENGINE: os.getenv("OPENSEARCH_ENGINE", "faiss"),
         OperatorConstants.VectorDB.ALGORITHM: os.getenv("OPENSEARCH_ALGORITHM", "hnsw"),
         OperatorConstants.VectorDB.SPACE_TYPE: os.getenv("OPENSEARCH_SPACE_TYPE", "l2"),
+        # Performance settings
+        OperatorConstants.Config.BATCH_SIZE: int(os.getenv("OPENSEARCH_BATCH_SIZE", "100")),
     }
+
+    # Add authentication if configured
+    username = os.getenv("OPENSEARCH_USERNAME")
+    if username:
+        provider_config[OperatorConstants.VectorDB.USERNAME] = username
+
+    password = os.getenv("OPENSEARCH_PASSWORD")
+    if password:
+        provider_config[OperatorConstants.VectorDB.PASSWORD] = password
 
     # Add AWS auth if configured
     if str_to_bool(os.getenv("OPENSEARCH_AWS_AUTH", "false")):
-        vectordb_parameters[OperatorConstants.VectorDB.AWS_AUTH] = True
-        vectordb_parameters[OperatorConstants.VectorDB.AWS_REGION] = os.getenv("OPENSEARCH_AWS_REGION", "us-east-1")
+        provider_config[OperatorConstants.VectorDB.AWS_AUTH] = True
+        provider_config[OperatorConstants.VectorDB.AWS_REGION] = os.getenv("OPENSEARCH_AWS_REGION", "us-east-1")
 
     # Add JWT token if configured
     jwt_token = os.getenv("OPENSEARCH_JWT_TOKEN")
     if jwt_token:
-        vectordb_parameters[OperatorConstants.VectorDB.JWT_TOKEN] = jwt_token
+        provider_config[OperatorConstants.VectorDB.JWT_TOKEN] = jwt_token
 
+    # Operator-level configuration (not provider-specific)
     config = {
-        # Connection settings
-        "host": os.getenv("OPENSEARCH_HOST", "localhost"),
-        "port": int(os.getenv("OPENSEARCH_PORT", "9200")),
-        "use_ssl": str_to_bool(os.getenv("OPENSEARCH_USE_SSL", "false")),
-        "verify_certs": str_to_bool(os.getenv("OPENSEARCH_VERIFY_CERTS", "false")),
-        # Authentication
-        "username": os.getenv("OPENSEARCH_USERNAME"),
-        "password": os.getenv("OPENSEARCH_PASSWORD"),
         # Vector dimension
-        "vector_dimension": int(os.getenv("OPENSEARCH_VECTOR_DIMENSION", "384")),
-        # Performance settings
-        "batch_size": int(os.getenv("OPENSEARCH_BATCH_SIZE", "100")),
-        "create_index": str_to_bool(os.getenv("OPENSEARCH_CREATE_INDEX", "true")),
-        # Index configuration
-        "index_name": os.getenv("OPENSEARCH_INDEX_NAME", "datasift_test"),
-        "doc_id_column": os.getenv("OPENSEARCH_DOC_ID_COLUMN", "doc_id_hash"),
-        "embeddings_column": os.getenv("OPENSEARCH_EMBEDDINGS_COLUMN", "embeddings"),
-        # OpenSearch-specific parameters
-        OperatorConstants.VectorDB.VECTORDB_PARAMETERS: vectordb_parameters,
+        OperatorConstants.VectorDB.VECTOR_DIMENSION: int(os.getenv("OPENSEARCH_VECTOR_DIMENSION", "384")),
+        # Index settings
+        OperatorConstants.VectorDB.CREATE_INDEX: str_to_bool(os.getenv("OPENSEARCH_CREATE_INDEX", "true")),
+        OperatorConstants.VectorDB.INDEX_NAME: os.getenv("OPENSEARCH_INDEX_NAME", "datasift_test"),
+        OperatorConstants.Columns.DOC_ID_COLUMN: os.getenv("OPENSEARCH_DOC_ID_COLUMN", "doc_id_hash"),
+        OperatorConstants.Columns.EMBEDDINGS_COLUMN: os.getenv("OPENSEARCH_EMBEDDINGS_COLUMN", "embeddings"),
+        # Provider-specific parameters
+        OperatorConstants.Config.PROVIDER_CONFIG: provider_config,
     }
 
-    # Remove None values for optional parameters
-    return {k: v for k, v in config.items() if v is not None}
+    return config
 
 
 def get_env_var(key: str, default: str | None = None) -> str | None:

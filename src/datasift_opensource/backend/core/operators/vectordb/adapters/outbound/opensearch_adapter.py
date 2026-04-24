@@ -40,38 +40,29 @@ class OpenSearchAdapter(VectorStorePort):
     ADAPTER_NAME = "opensearch"
     ADAPTER_DISPLAY_NAME = "OpenSearch"
 
-    def __init__(
-        self,
-        host: str | None = None,
-        port: int = 9200,
-        username: str | None = None,
-        password: str | None = None,
-        use_ssl: bool = True,
-        verify_certs: bool = True,
-        index_name: str | None = None,
-        vector_dimension: int = 384,
-        available_features: dict[str, Any] | None = None,
-        feature_mappings: dict[str, str] | None = None,
-        embeddings_column: str = "embeddings",
-        batch_size: int = 100,
-        **adapter_config: Any,
-    ) -> None:
+    def __init__(self, **adapter_config: Any) -> None:
         """Initialize OpenSearch adapter.
 
+        All parameters are extracted from adapter_config, which contains the merged
+        provider_config and operator-level parameters.
+
         Args:
-            host: OpenSearch server host (default: localhost)
-            port: OpenSearch server port (default: 9200)
-            username: Username for basic authentication (optional)
-            password: Password for basic authentication (optional)
-            use_ssl: Use SSL connection (default: True)
-            verify_certs: Verify SSL certificates (default: True)
-            index_name: Name of the index (passed from operator)
-            vector_dimension: Dimension of vector embeddings (passed from operator)
-            available_features: Feature configuration (optional)
-            feature_mappings: Column to field mappings (optional)
-            embeddings_column: Name of embeddings column (passed from operator)
-            batch_size: Batch size for bulk operations (default: 100)
-            **adapter_config: OpenSearch-specific parameters from vectordb_parameters including:
+            **adapter_config: Configuration dictionary containing:
+                Operator-level parameters (added by VectorDBOperator):
+                - index_name: Name of the index
+                - vector_dimension: Dimension of vector embeddings
+                - embeddings_column: Name of embeddings column
+                - available_features: Feature configuration
+                - feature_mappings: Column to field mappings
+
+                Provider-specific parameters (from provider_config):
+                - host: OpenSearch server host (default: localhost)
+                - port: OpenSearch server port (default: 9200)
+                - username: Username for basic authentication (optional)
+                - password: Password for basic authentication (optional)
+                - use_ssl: Use SSL connection (default: True)
+                - verify_certs: Verify SSL certificates (default: True)
+                - batch_size: Batch size for bulk operations (default: 100)
                 - engine: KNN engine type (faiss, lucene, nmslib, jvector)
                 - algorithm: KNN algorithm type (hnsw, ivf)
                 - space_type: Vector similarity metric (l2, cosine, inner_product)
@@ -79,26 +70,37 @@ class OpenSearchAdapter(VectorStorePort):
                 - index_settings: Index settings
                 - aws_auth: Use AWS IAM authentication
                 - aws_region: AWS region for authentication
+                - jwt_token: JWT token for authentication
         """
-        self.index_name = index_name
-        self.embeddings_column = embeddings_column
-        self.vector_dimension = vector_dimension
+        # Extract operator-level parameters (added by VectorDBOperator)
+        self.index_name = adapter_config.get(OperatorConstants.VectorDB.INDEX_NAME)
+        self.embeddings_column = adapter_config.get(OperatorConstants.Columns.EMBEDDINGS_COLUMN, "embeddings")
+        self.vector_dimension = adapter_config.get(OperatorConstants.VectorDB.VECTOR_DIMENSION, 384)
+        available_features = adapter_config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+        feature_mappings = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
 
-        # Extract OpenSearch-specific parameters from adapter_config
-        vdb_params = adapter_config
-        resolved_host: str = host or vdb_params.get("host", "localhost")
-        engine = vdb_params.get(OperatorConstants.VectorDB.ENGINE, DEFAULT_ENGINE)
-        algorithm = vdb_params.get(OperatorConstants.VectorDB.ALGORITHM, DEFAULT_ALGORITHM)
-        space_type = vdb_params.get(OperatorConstants.VectorDB.SPACE_TYPE, DEFAULT_SPACE_TYPE)
-        engine_parameters = vdb_params.get(OperatorConstants.VectorDB.ENGINE_PARAMETERS)
-        index_settings = vdb_params.get(OperatorConstants.VectorDB.INDEX_SETTINGS)
-        aws_auth = vdb_params.get(OperatorConstants.VectorDB.AWS_AUTH, False)
-        aws_region = vdb_params.get(OperatorConstants.VectorDB.AWS_REGION)
-        jwt_token = vdb_params.get(OperatorConstants.VectorDB.JWT_TOKEN)
+        # Extract connection parameters from adapter_config (from provider_config)
+        host = adapter_config.get(OperatorConstants.VectorDB.HOST, "localhost")
+        port = adapter_config.get(OperatorConstants.VectorDB.PORT, 9200)
+        username = adapter_config.get(OperatorConstants.VectorDB.USERNAME)
+        password = adapter_config.get(OperatorConstants.VectorDB.PASSWORD)
+        use_ssl = adapter_config.get(OperatorConstants.VectorDB.USE_SSL, True)
+        verify_certs = adapter_config.get(OperatorConstants.VectorDB.VERIFY_CERTS, True)
+        batch_size = adapter_config.get(OperatorConstants.Config.BATCH_SIZE, 100)
+
+        # Extract OpenSearch-specific parameters from adapter_config (from provider_config)
+        engine = adapter_config.get(OperatorConstants.VectorDB.ENGINE, DEFAULT_ENGINE)
+        algorithm = adapter_config.get(OperatorConstants.VectorDB.ALGORITHM, DEFAULT_ALGORITHM)
+        space_type = adapter_config.get(OperatorConstants.VectorDB.SPACE_TYPE, DEFAULT_SPACE_TYPE)
+        engine_parameters = adapter_config.get(OperatorConstants.VectorDB.ENGINE_PARAMETERS)
+        index_settings = adapter_config.get(OperatorConstants.VectorDB.INDEX_SETTINGS)
+        aws_auth = adapter_config.get(OperatorConstants.VectorDB.AWS_AUTH, False)
+        aws_region = adapter_config.get(OperatorConstants.VectorDB.AWS_REGION)
+        jwt_token = adapter_config.get(OperatorConstants.VectorDB.JWT_TOKEN)
 
         # Initialize OpenSearch client
         self.client_manager = OpenSearchClient(
-            host=resolved_host,
+            host=host,
             port=port,
             username=username,
             password=password,
@@ -115,28 +117,31 @@ class OpenSearchAdapter(VectorStorePort):
         # Initialize index manager
         self.index_manager = OpenSearchIndexManager(
             client=client,
-            index_name=index_name or "",
+            index_name=self.index_name or "",
             engine=engine,
             algorithm=algorithm,
             space_type=space_type,
-            vector_dimension=vector_dimension,
+            vector_dimension=self.vector_dimension,
             engine_parameters=engine_parameters or {},
             index_settings=index_settings,
-            available_features=available_features or {},
-            feature_mappings=feature_mappings or {},
-            embeddings_column=embeddings_column,
+            available_features=available_features,
+            feature_mappings=feature_mappings,
+            embeddings_column=self.embeddings_column,
         )
 
         # Initialize batch processor
         self.batch_processor = OpenSearchBatchProcessor(
             client=client,
-            index_name=index_name or "",
+            index_name=self.index_name or "",
             batch_size=batch_size,
-            available_features=available_features or {},
-            feature_mappings=feature_mappings or {},
+            available_features=available_features,
+            feature_mappings=feature_mappings,
         )
 
-        logger.info(f"Initialized OpenSearchAdapter for index: {index_name} (engine: {engine}, algorithm: {algorithm})")
+        logger.info(
+            f"Initialized OpenSearchAdapter for index: {self.index_name} "
+            f"(host: {host}:{port}, engine: {engine}, algorithm: {algorithm})"
+        )
 
     def index_documents(self, documents: list[tuple[str, dict[str, Any]]]) -> tuple[int, list[dict[str, Any]]]:
         """Index documents in OpenSearch.

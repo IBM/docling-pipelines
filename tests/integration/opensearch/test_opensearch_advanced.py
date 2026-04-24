@@ -4,7 +4,6 @@ Tests all engines, schema evolution, and error handling
 Requires .env file with OpenSearch connection details
 """
 
-import sys
 from pathlib import Path
 import pyarrow as pa
 import numpy as np
@@ -27,7 +26,7 @@ if not env_file.exists():
     pytest.skip(
         ".env file not found. This test requires OpenSearch connection details. "
         "Copy .env.example to .env and update with your connection details.",
-        allow_module_level=True
+        allow_module_level=True,
     )
 
 
@@ -62,10 +61,10 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
     # Override with test-specific settings
     config.update(
         {
-            "vector_db_type": "opensearch",
+            "provider": "opensearch",
             "index_name": f"test_{engine}_{algorithm}_{space_type}",
             "vector_dimension": 128,
-            OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+            OperatorConstants.Config.PROVIDER_CONFIG: {
                 OperatorConstants.VectorDB.ENGINE: engine,
                 OperatorConstants.VectorDB.ALGORITHM: algorithm,
                 OperatorConstants.VectorDB.SPACE_TYPE: space_type,
@@ -113,13 +112,16 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
             print(f"  ✅ Verified count: {count} documents in index")
 
             # Cleanup
+            provider_config = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
             os_client = OpenSearchClient(
-                host=config["host"],
-                port=config["port"],
-                username=config.get("username"),
-                password=config.get("password"),
-                use_ssl=config.get("use_ssl", True),
-                verify_certs=config.get("verify_certs", True),
+                host=provider_config.get(OperatorConstants.VectorDB.HOST, "localhost"),
+                port=provider_config.get(OperatorConstants.VectorDB.PORT, 9200),
+                username=provider_config.get(OperatorConstants.VectorDB.USERNAME),
+                password=provider_config.get(OperatorConstants.VectorDB.PASSWORD),
+                use_ssl=provider_config.get(OperatorConstants.VectorDB.USE_SSL, True),
+                verify_certs=provider_config.get(
+                    OperatorConstants.VectorDB.VERIFY_CERTS, True
+                ),
             )
             os_client.get_client().indices.delete(index=config["index_name"])
             print("  ✅ Cleaned up index")
@@ -190,7 +192,7 @@ def test_schema_evolution():
     base_config = get_opensearch_config()
     base_config.update(
         {
-            "vector_db_type": "opensearch",
+            "provider": "opensearch",
             "index_name": "test_schema_evolution",
             "vector_dimension": 128,
             "create_index": True,
@@ -198,13 +200,14 @@ def test_schema_evolution():
     )
 
     # Create OpenSearch client for cleanup
+    provider_config = base_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
     client_manager = OpenSearchClient(
-        host=base_config.get("host"),
-        port=base_config.get("port", 9200),
-        username=base_config.get("username"),
-        password=base_config.get("password"),
-        use_ssl=base_config.get("use_ssl", True),
-        verify_certs=base_config.get("verify_certs", True),
+        host=provider_config.get(OperatorConstants.VectorDB.HOST, "localhost"),
+        port=provider_config.get(OperatorConstants.VectorDB.PORT, 9200),
+        username=provider_config.get(OperatorConstants.VectorDB.USERNAME),
+        password=provider_config.get(OperatorConstants.VectorDB.PASSWORD),
+        use_ssl=provider_config.get(OperatorConstants.VectorDB.USE_SSL, True),
+        verify_certs=provider_config.get(OperatorConstants.VectorDB.VERIFY_CERTS, True),
     )
     client = client_manager.get_client()
 
@@ -307,7 +310,7 @@ def test_error_handling():
     base_config = get_opensearch_config()
     base_config.update(
         {
-            "vector_db_type": "opensearch",
+            "provider": "opensearch",
             "vector_dimension": 128,
             "create_index": True,
             "available_features": {
@@ -333,11 +336,15 @@ def test_error_handling():
     print("Test 3.1: Missing required field (host)")
     try:
         config = base_config.copy()
-        del config["opensearch_host"]
+        # Remove host from provider_config
+        if OperatorConstants.Config.PROVIDER_CONFIG in config:
+            config[OperatorConstants.Config.PROVIDER_CONFIG].pop(
+                OperatorConstants.VectorDB.HOST, None
+            )
         operator = VectorDBOperator(config)
         tests.append(("Missing host", False, "Should have raised ValueError"))
-    except ValueError as e:
-        if "opensearch_host is required" in str(e):
+    except (ValueError, KeyError) as e:
+        if "host" in str(e).lower():
             tests.append(("Missing host", True, "Correct error message"))
             print(f"  ✅ Correctly raised: {str(e)}")
         else:
@@ -348,7 +355,7 @@ def test_error_handling():
     try:
         config = base_config.copy()
         config["index_name"] = "test_invalid_engine"
-        config[OperatorConstants.VectorDB.VECTORDB_PARAMETERS] = {
+        config[OperatorConstants.Config.PROVIDER_CONFIG] = {
             OperatorConstants.VectorDB.ENGINE: "invalid_engine"
         }
         operator = VectorDBOperator(config)
@@ -365,7 +372,7 @@ def test_error_handling():
     try:
         config = base_config.copy()
         config["index_name"] = "test_incompatible"
-        config[OperatorConstants.VectorDB.VECTORDB_PARAMETERS] = {
+        config[OperatorConstants.Config.PROVIDER_CONFIG] = {
             OperatorConstants.VectorDB.ENGINE: "lucene",
             OperatorConstants.VectorDB.ALGORITHM: "ivf",  # Lucene doesn't support IVF
         }
@@ -386,13 +393,16 @@ def test_error_handling():
         operator = VectorDBOperator(config)
 
         # Create OpenSearch client for cleanup
+        provider_config = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
         client_manager = OpenSearchClient(
-            host=config.get("host"),
-            port=config.get("port", 9200),
-            username=config.get("username"),
-            password=config.get("password"),
-            use_ssl=config.get("use_ssl", True),
-            verify_certs=config.get("verify_certs", True),
+            host=provider_config.get(OperatorConstants.VectorDB.HOST, "localhost"),
+            port=provider_config.get(OperatorConstants.VectorDB.PORT, 9200),
+            username=provider_config.get(OperatorConstants.VectorDB.USERNAME),
+            password=provider_config.get(OperatorConstants.VectorDB.PASSWORD),
+            use_ssl=provider_config.get(OperatorConstants.VectorDB.USE_SSL, True),
+            verify_certs=provider_config.get(
+                OperatorConstants.VectorDB.VERIFY_CERTS, True
+            ),
         )
         client = client_manager.get_client()
 

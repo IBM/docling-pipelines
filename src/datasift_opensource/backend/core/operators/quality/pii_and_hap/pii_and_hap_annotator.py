@@ -63,7 +63,6 @@ DISPLAY_PII_KEY = "display_pii"
 BATCH_SIZE_KEY = "batch_size"
 MIN_CHUNK_SIZE_KEY = "min_chunk_size_kb"
 MAX_CHUNK_SIZE_KEY = "max_chunk_size_kb"
-PROVIDER_CONFIG_KEY = "provider_config"
 
 
 class PIIAndHAPAnnotator(AbstractOperator):
@@ -160,7 +159,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
             ("min_chunk_size", MIN_CHUNK_SIZE_KEY, DEFAULT_MIN_CHUNK_SIZE_IN_KB),
             ("max_chunk_size", MAX_CHUNK_SIZE_KEY, DEFAULT_MAX_CHUNK_SIZE_IN_KB),
             # Provider-specific configuration (generic dictionary)
-            ("provider_config", PROVIDER_CONFIG_KEY, {}),
+            ("provider_config", OperatorConstants.Config.PROVIDER_CONFIG, {}),
         ]
 
         # Apply all configurations
@@ -388,7 +387,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: "granite4",
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                PROVIDER_CONFIG_KEY: {
+                OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
                     OperatorConstants.Config.DESCRIPTION: (
                         "Provider-specific configuration dictionary. "

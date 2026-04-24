@@ -18,11 +18,20 @@ def basic_config():
     """Basic configuration for VectorDB operator with OpenSearch adapter"""
     env_config = get_opensearch_config()
 
+    # The config structure now has all connection params in provider_config
     config = {
-        **env_config,
-        "vector_db_type": "opensearch",
+        OperatorConstants.Config.PROVIDER: "opensearch",
         OperatorConstants.VectorDB.INDEX_NAME: "test_index",
+        OperatorConstants.VectorDB.VECTOR_DIMENSION: env_config.get(
+            OperatorConstants.VectorDB.VECTOR_DIMENSION, 384
+        ),
         OperatorConstants.VectorDB.CREATE_INDEX: True,
+        OperatorConstants.Columns.DOC_ID_COLUMN: env_config.get(
+            OperatorConstants.Columns.DOC_ID_COLUMN, "doc_id_hash"
+        ),
+        OperatorConstants.Columns.EMBEDDINGS_COLUMN: env_config.get(
+            OperatorConstants.Columns.EMBEDDINGS_COLUMN, "embeddings"
+        ),
         OperatorConstants.Config.AVAILABLE_FEATURES: {
             "doc_id_hash": {
                 "name": "Document ID",
@@ -48,6 +57,9 @@ def basic_config():
             "content": "text",
             "embeddings": "vector_embeddings",
         },
+        OperatorConstants.Config.PROVIDER_CONFIG: env_config.get(
+            OperatorConstants.Config.PROVIDER_CONFIG, {}
+        ),
     }
     return config
 
@@ -79,7 +91,7 @@ class TestVectorDBOperatorInitialization:
         with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
             operator = VectorDBOperator(basic_config)
             assert operator.index_name == "test_index"
-            assert operator.vector_db_type == "opensearch"
+            assert operator.provider == "opensearch"
             assert operator.adapter is not None
 
     def test_missing_required_index_name(self, basic_config):
@@ -94,10 +106,10 @@ class TestVectorDBOperatorInitialization:
         assert len(errors) > 0
         assert any("index_name is required" in str(error) for error in errors)
 
-    def test_invalid_vector_db_type(self, basic_config):
-        """Test that invalid vector_db_type raises error"""
+    def test_invalid_provider(self, basic_config):
+        """Test that invalid provider raises error"""
         config = basic_config.copy()
-        config["vector_db_type"] = "invalid_db"
+        config["provider"] = "invalid_db"
 
         with pytest.raises(
             DatasiftException, match="Failed to initialize vector database adapter"
@@ -284,7 +296,7 @@ class TestMetadata:
     def test_get_metadata(self):
         """Test get_metadata returns correct structure"""
         config = {
-            "vector_db_type": "opensearch",
+            "provider": "opensearch",
             "host": "localhost",
             "port": 9200,
             "index_name": "test_index",

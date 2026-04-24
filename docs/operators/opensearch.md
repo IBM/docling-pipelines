@@ -4,7 +4,7 @@
 
 The VectorDB operator stores documents and embeddings in vector databases for similarity search. This document covers OpenSearch-specific configuration.
 
-When configured with `vector_db_type: "opensearch"`, the operator supports multiple KNN engines, algorithms, incremental updates, and query capabilities.
+When configured with `provider: "opensearch"`, the operator supports multiple KNN engines, algorithms, incremental updates, and query capabilities.
 
 ## Features
 
@@ -39,18 +39,18 @@ When configured with `vector_db_type: "opensearch"`, the operator supports multi
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `vector_db_type` | string | No | "opensearch" | Vector database type |
+| `provider` | string | No | "opensearch" | Vector database type |
 | `index_name` | string | Yes | - | Name of the OpenSearch index |
 | `doc_id_column` | string | No | "doc_id_hash" | Column containing document IDs |
 | `embeddings_column` | string | No | "embeddings" | Column containing embeddings |
 | `vector_dimension` | integer | No | 384 | Dimension of vector embeddings |
 | `create_index` | boolean | No | true | Create index if it doesn't exist |
 | `batch_size` | integer | No | 100 | Documents per batch |
-| `vectordb_parameters` | object | No | {} | Provider-specific configuration (see below) |
+| `provider_config` | object | No | {} | Provider-specific configuration (see below) |
 
-### vectordb_parameters Structure
+### provider_config Structure
 
-Connection and engine-specific parameters are configured inside the `vectordb_parameters` nested dictionary for architectural separation between generic and provider-specific settings.
+Connection and engine-specific parameters are configured inside the `provider_config` nested dictionary for architectural separation between generic and provider-specific settings.
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
@@ -107,10 +107,10 @@ import pyarrow as pa
 import numpy as np
 
 config = {
-    "vector_db_type": "opensearch",
+    "provider": "opensearch",
     "index_name": "my_documents",
     "vector_dimension": 384,
-    OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+    OperatorConstants.Config.PROVIDER_CONFIG: {
         "host": "localhost",
         "port": 9200,
         "username": "admin",
@@ -166,10 +166,10 @@ print(f"Indexed {metadata['processed_docs']} documents")
 from common.constants.operator_constants import OperatorConstants
 
 config = {
-    "vector_db_type": "opensearch",
+    "provider": "opensearch",
     "index_name": "semantic_search",
     "vector_dimension": 768,
-    OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+    OperatorConstants.Config.PROVIDER_CONFIG: {
         "host": "localhost",
         "port": 9200,
         OperatorConstants.VectorDB.ENGINE: "lucene",
@@ -189,9 +189,9 @@ config = {
 from common.constants.operator_constants import OperatorConstants
 
 config = {
-    "vector_db_type": "opensearch",
+    "provider": "opensearch",
     "index_name": "production_docs",
-    OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+    OperatorConstants.Config.PROVIDER_CONFIG: {
         "host": "search-mydomain.us-east-1.es.amazonaws.com",
         "port": 443,
         "use_ssl": True,
@@ -211,10 +211,10 @@ from common.constants.operator_constants import OperatorConstants
 import os
 
 config = {
-    "vector_db_type": "opensearch",
+    "provider": "opensearch",
     "index_name": "jwt_secured_docs",
     "vector_dimension": 384,
-    OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+    OperatorConstants.Config.PROVIDER_CONFIG: {
         "host": "search-mydomain.us-east-1.es.amazonaws.com",
         "port": 443,
         "use_ssl": True,
@@ -268,13 +268,13 @@ print(f"Deleted {success} documents, {failed} failed")
   "name": "Store in OpenSearch",
   "operator": "vectordb",
   "config": {
-    "vector_db_type": "opensearch",
+    "provider": "opensearch",
     "index_name": "datasift_documents",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "vector_dimension": 384,
     "create_index": true,
-    "vectordb_parameters": {
+    "provider_config": {
       "host": "localhost",
       "port": 9200,
       "username": "admin",
@@ -334,7 +334,7 @@ config = {
 ```python
 from common.constants.operator_constants import OperatorConstants
 
-OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+OperatorConstants.Config.PROVIDER_CONFIG: {
     OperatorConstants.VectorDB.ENGINE: "faiss",
     OperatorConstants.VectorDB.ALGORITHM: "hnsw",
     OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
@@ -346,7 +346,7 @@ OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
 
 #### FAISS + IVF (Speed Priority)
 ```python
-OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+OperatorConstants.Config.PROVIDER_CONFIG: {
     OperatorConstants.VectorDB.ENGINE: "faiss",
     OperatorConstants.VectorDB.ALGORITHM: "ivf",
     OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
@@ -358,7 +358,7 @@ OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
 
 #### Lucene + HNSW (Native)
 ```python
-OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+OperatorConstants.Config.PROVIDER_CONFIG: {
     OperatorConstants.VectorDB.ENGINE: "lucene",
     OperatorConstants.VectorDB.ALGORITHM: "hnsw",
     OperatorConstants.VectorDB.ENGINE_PARAMETERS: {

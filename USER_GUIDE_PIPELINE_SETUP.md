@@ -766,13 +766,13 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
   "id": "opensearch_node",
   "operator": "vectordb",
   "config": {
-    "vector_db_type": "opensearch",
+    "provider": "opensearch",
     "index_name": "documents",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "create_index": true,
     "vector_dimension": 768,
-    "vectordb_parameters": {
+    "provider_config": {
       "host": "localhost",
       "port": 9200,
       "username": "admin",
@@ -828,7 +828,7 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 
 **Required Parameters:**
 
-- **vector_db_type**: Type of vector database (currently "opensearch")
+- **provider**: Type of vector database (uses "opensearch" by default)
 - **index_name**: Name of the OpenSearch index
 - **available_features**: Defines which columns to store and their types. **Embeddings field is mandatory.**
   - Must include `embeddings` with `"type": "vector"` and `"available_for_vector_db": true`
@@ -838,7 +838,7 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
   - Format: `{"pyarrow_column": "opensearch_field"}`
   - Must include all fields defined in available_features
 
-**Optional Parameters (vectordb_parameters):**
+**Optional Provider Configurations (provider_config):**
 
 - **host**: OpenSearch server address (default: "localhost")
 - **port**: Server port (default: 9200)
@@ -1067,13 +1067,13 @@ cat > my-first-flow.json << 'EOF'
         "name": "vectordb",
         "operator": "vectordb",
         "config": {
-          "vector_db_type": "opensearch",
+          "provider": "opensearch",
           "index_name": "my_documents",
           "doc_id_column": "doc_id_hash",
           "embeddings_column": "embeddings",
           "vector_dimension": 768,
           "create_index": true,
-          "vectordb_parameters": {
+          "provider_config": {
             "host": "localhost",
             "port": 9200,
             "username": "admin",
@@ -1593,13 +1593,13 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "name": "store_vectors",
                 "operator": "vectordb",
                 "config": {
-                    "vector_db_type": "opensearch",
+                    "provider": "opensearch",
                     "index_name": index_name,
                     "doc_id_column": "doc_id_hash",
                     "embeddings_column": "embeddings",
                     "vector_dimension": 768,
                     "create_index": True,
-                    "vectordb_parameters": {
+                    "provider_config": {
                         "host": "localhost",
                         "port": 9200,
                         "username": "admin",

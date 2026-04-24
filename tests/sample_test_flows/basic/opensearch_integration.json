@@ -114,13 +114,13 @@
         "name": "store_in_opensearch",
         "operator": "vectordb",
         "config": {
-          "vector_db_type": "opensearch",
+          "provider": "opensearch",
           "index_name": "datasift_test_litellm",
           "vector_dimension": 1536,
           "doc_id_column": "doc_id_hash",
           "embeddings_column": "embeddings",
           "create_index": "true",
-          "vectordb_parameters": {
+          "provider_config": {
             "host": "localhost",
             "port": 9200,
             "username": "admin",

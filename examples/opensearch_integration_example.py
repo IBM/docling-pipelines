@@ -137,7 +137,7 @@ def example_2_lucene_engine():
         {
             "index_name": "datasift_example_lucene",
             "batch_size": 50,
-            OperatorConstants.VectorDB.VECTORDB_PARAMETERS: {
+            OperatorConstants.Config.PROVIDER_CONFIG: {
                 OperatorConstants.VectorDB.ENGINE: "lucene",
                 OperatorConstants.VectorDB.SPACE_TYPE: "cosine",
                 OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
@@ -172,18 +172,16 @@ def example_2_lucene_engine():
 
     print("\n2. Initializing OpenSearch operator with Lucene engine...")
     operator = VectorDBOperator(config)
-    vectordb_parameters = config.get(OperatorConstants.VectorDB.VECTORDB_PARAMETERS, {})
+    provider_config = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+    print(f"   Engine: {provider_config.get(OperatorConstants.VectorDB.ENGINE, 'N/A')}")
     print(
-        f"   Engine: {vectordb_parameters.get(OperatorConstants.VectorDB.ENGINE, 'N/A')}"
+        f"   Algorithm: {provider_config.get(OperatorConstants.VectorDB.ALGORITHM, 'N/A')}"
     )
     print(
-        f"   Algorithm: {vectordb_parameters.get(OperatorConstants.VectorDB.ALGORITHM, 'N/A')}"
+        f"   Space Type: {provider_config.get(OperatorConstants.VectorDB.SPACE_TYPE, 'N/A')}"
     )
     print(
-        f"   Space Type: {vectordb_parameters.get(OperatorConstants.VectorDB.SPACE_TYPE, 'N/A')}"
-    )
-    print(
-        f"   Custom Parameters: {vectordb_parameters.get(OperatorConstants.VectorDB.ENGINE_PARAMETERS, {})}"
+        f"   Custom Parameters: {provider_config.get(OperatorConstants.VectorDB.ENGINE_PARAMETERS, {})}"
     )
 
     print("\n3. Indexing documents...")

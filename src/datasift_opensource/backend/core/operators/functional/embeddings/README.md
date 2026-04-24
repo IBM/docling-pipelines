@@ -18,7 +18,7 @@ The Embeddings Operator generates vector embeddings from text using various AI p
 
 ```json
 {
-  "operator_type": "datasift_opensource.backend.core.operators.functional.embeddings.embeddings_operator.EmbeddingsOperator",
+  "operator_type": "EmbeddingsOperator",
   "operator_params": {
     "provider": "ollama",
     "model_name": "nomic-embed-text"
@@ -33,26 +33,26 @@ The Embeddings Operator generates vector embeddings from text using various AI p
   "nodes": [
     {
       "id": "ingest",
-      "operator_type": "datasift_opensource.backend.core.operators.ingest.ingest_local_folder.IngestLocalFolder",
+      "operator_type": "IngestLocalFolder",
       "operator_params": {
         "folder_path": "data/documents"
       }
     },
     {
       "id": "extract",
-      "operator_type": "datasift_opensource.backend.core.operators.extract.extract_operator.ExtractDocling",
+      "operator_type": "ExtractOperator",
       "operator_params": {}
     },
     {
       "id": "chunk",
-      "operator_type": "datasift_opensource.backend.core.operators.functional.chunker.DoclingChunker",
+      "operator_type": "DoclingChunker",
       "operator_params": {
         "chunk_size": 512
       }
     },
     {
       "id": "embed",
-      "operator_type": "datasift_opensource.backend.core.operators.functional.embeddings.embeddings_operator.EmbeddingsOperator",
+      "operator_type": "EmbeddingsOperator",
       "operator_params": {
         "provider": "ollama",
         "model_name": "nomic-embed-text"
@@ -60,9 +60,9 @@ The Embeddings Operator generates vector embeddings from text using various AI p
     },
     {
       "id": "store",
-      "operator_type": "datasift_opensource.backend.core.operators.vectordb.vectordb_operator.VectorDBOperator",
+      "operator_type": "VectorDBOperator",
       "operator_params": {
-        "vector_db_type": "opensearch",
+        "provider": "opensearch",
         "index_name": "documents",
         "dimension": 768
       }

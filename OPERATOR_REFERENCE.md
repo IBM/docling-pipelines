@@ -776,15 +776,15 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.vectordb.vectordb_operator.VectorDBOperator`
 
-| Parameter             | Type   | Required | Default       | Description                 |
-| --------------------- | ------ | -------: | ------------- | --------------------------- |
-| `vector_db_type`      | string |       No | `opensearch`  | Vector backend              |
-| `index_name`          | string |      Yes | -             | Target index name           |
-| `doc_id_column`       | string |       No | `doc_id_hash` | Primary document id column  |
-| `embeddings_column`   | string |       No | `embeddings`  | Vector column               |
-| `create_index`        | bool   |       No | `true`        | Auto-create index           |
-| `vector_dimension`    | int    |       No | `384`         | Configured vector dimension |
-| `vectordb_parameters` | object |      Yes | -             | Adapter-specific settings   |
+| Parameter | Type | Required | Default | Description                 |
+|---|---|---:|---|-----------------------------|
+| `provider` | string | No | `opensearch` | VectorDB backend            |
+| `index_name` | string | Yes | - | Target index name           |
+| `doc_id_column` | string | No | `doc_id_hash` | Primary document id column  |
+| `embeddings_column` | string | No | `embeddings` | Vector column               |
+| `create_index` | bool | No | `true` | Auto-create index           |
+| `vector_dimension` | int | No | `384` | Configured vector dimension |
+| `provider_config` | object | Yes | - | Adapter-specific settings   |
 
 **Input Schema**
 

@@ -62,13 +62,13 @@
         "name": "vectordb",
         "operator": "vectordb",
         "config": {
-          "vector_db_type": "opensearch",
+          "provider": "opensearch",
           "index_name": "datasift_documents",
           "doc_id_column": "doc_id_hash",
           "embeddings_column": "embeddings",
           "vector_dimension": 384,
           "create_index": "true",
-          "vectordb_parameters": {
+          "provider_config": {
             "host": "localhost",
             "port": 9200,
             "username": "admin",

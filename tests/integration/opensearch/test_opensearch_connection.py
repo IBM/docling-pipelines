@@ -18,7 +18,7 @@ if not env_file.exists():
     pytest.skip(
         ".env file not found. This test requires OpenSearch connection details. "
         "Copy .env.example to .env and update with your connection details.",
-        allow_module_level=True
+        allow_module_level=True,
     )
 
 # Load connection details from environment
@@ -98,10 +98,10 @@ def test_jwt_token_from_environment():
 
     config = get_opensearch_config()
 
-    # JWT token should be in vectordb_parameters
-    assert "vectordb_parameters" in config
-    assert "jwt_token" in config["vectordb_parameters"]
-    assert config["vectordb_parameters"]["jwt_token"] == test_token
+    # JWT token should be in provider_config
+    assert "provider_config" in config
+    assert "jwt_token" in config["provider_config"]
+    assert config["provider_config"]["jwt_token"] == test_token
 
     # Clean up
     del os.environ["OPENSEARCH_JWT_TOKEN"]

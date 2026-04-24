@@ -80,7 +80,7 @@ Concrete implementations of the port interface for specific vector databases:
 ### Application Layer (`vectordb_operator.py`)
 
 The main operator that:
-1. Accepts configuration with `vector_db_type` parameter
+1. Accepts configuration with `provider` parameter
 2. Uses VectorStoreFactory to create the appropriate adapter
 3. Delegates all vector database operations to the adapter
 4. Transforms PyArrow tables to/from domain models
@@ -93,14 +93,17 @@ The main operator that:
 from core.operators.vectordb import VectorDBOperator
 
 config = {
-    "vector_db_type": "opensearch",  # Selects OpenSearch adapter
-    "opensearch_host": "localhost",
-    "opensearch_port": 9200,
+    "provider": "opensearch",  # Selects OpenSearch adapter
     "index_name": "my_index",
     "vector_dimension": 384,
-    "engine": "faiss",
-    "algorithm": "hnsw",
-    # ... other OpenSearch-specific config
+    "provider_config": {
+        "host": "localhost",
+        "port": 9200,
+        "engine": "faiss",
+        "algorithm": "hnsw",
+        "space_type": "l2",
+        # ... other OpenSearch-specific config
+    }
 }
 
 operator = VectorDBOperator(config)
@@ -175,7 +178,7 @@ The `@register_vector_store("pinecone")` decorator automatically registers the a
 
 ```python
 config = {
-    "vector_db_type": "pinecone",  # Now uses Pinecone adapter
+    "provider": "pinecone",  # Now uses Pinecone adapter
     "pinecone_api_key": "your-api-key",  # pragma: allowlist secret
     "pinecone_environment": "us-west1-gcp",
     "index_name": "my_index",

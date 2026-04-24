@@ -155,7 +155,7 @@ class EmbeddingsOperator(AbstractOperator):
         """
         try:
             # Extract adapter_config if present in config
-            adapter_config = self.config.get("provider_config", {})
+            adapter_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
             # Create adapter using factory
             adapter = LLMAdapterFactory.create(

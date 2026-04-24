@@ -101,21 +101,23 @@
                 "name": "vectordb",
                 "operator": "opensearch",
                 "config": {
-                    "opensearch_host": "localhost",
-                    "opensearch_port": 9200,
-                    "opensearch_username": "admin",
-                    "opensearch_password": "MyStrongPass123!",
-                    "opensearch_use_ssl": false,
-                    "opensearch_verify_certs": false,
                     "index_name": "invoices_entities_expanded_test",
                     "doc_id_column": "doc_id_hash",
                     "embeddings_column": "embeddings",
                     "vector_dimension": 2560,
-                    "engine": "faiss",
-                    "algorithm": "hnsw",
-                    "space_type": "l2",
                     "batch_size": 100,
                     "create_index": "true",
+                    "provider_config": {
+                        "host": "localhost",
+                        "port": 9200,
+                        "username": "admin",
+                        "password": "MyStrongPass123!",
+                        "use_ssl": false,
+                        "verify_certs": false,
+                        "engine": "faiss",
+                        "algorithm": "hnsw",
+                        "space_type": "l2"
+                    },
                     "available_features": {
                         "doc_id_hash": {
                             "name": "Document ID",

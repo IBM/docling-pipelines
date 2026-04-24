@@ -144,6 +144,8 @@ class OperatorConstants:
         GLOBAL_CONFIG: Final[str] = "global_config"
         PARAMETERS: Final[str] = "parameters"
         PROPERTIES: Final[str] = "properties"
+        PROVIDER: Final[str] = "provider"
+        PROVIDER_CONFIG: Final[str] = "provider_config"
         REQUIRED: Final[str] = "required"
         USERNAME: Final[str] = "username"
 
@@ -237,7 +239,6 @@ class OperatorConstants:
         """Vector database constants."""
 
         # Vector Database Connection Configuration
-        VECTOR_DB_TYPE: Final[str] = "vector_db_type"
         HOST: Final[str] = "host"
         PORT: Final[str] = "port"
         USERNAME: Final[str] = "username"
@@ -268,7 +269,6 @@ class OperatorConstants:
         # Vector DB General
         OPENSEARCH: Final[str] = "opensearch"
         VECTOR_DB_NAME: Final[str] = "vector_db_name"
-        VECTORDB_PARAMETERS: Final[str] = "vectordb_parameters"
 
         # OpenSearch-specific parameters
         ENGINE: Final[str] = "engine"

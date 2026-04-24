@@ -867,13 +867,13 @@ volumes:
       "name": "store_in_opensearch",
       "operator": "vectordb",
       "config": {
-        "vector_db_type": "opensearch",
+        "provider": "opensearch",
         "index_name": "datasift-documents",
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
         "vector_dimension": 768,
         "create_index": true,
-        "vectordb_parameters": {
+        "provider_config": {
           "host": "opensearch-service",
           "port": 9200,
           "use_ssl": true,
