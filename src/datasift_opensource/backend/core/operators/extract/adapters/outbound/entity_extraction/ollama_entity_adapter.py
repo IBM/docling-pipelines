@@ -4,7 +4,6 @@ This adapter implements entity extraction using a locally running Ollama LLM.
 It supports both schema-based and schema-free extraction modes.
 """
 
-import json
 from typing import Any
 
 from common.constants import OperatorConstants
@@ -142,21 +141,7 @@ class OllamaEntityAdapter(EntityExtractionPort):
                     {"role": "user", "content": user_prompt},
                 ],
             )
-
-            # Parse response - handle both dict and ChatResponse object
-            if isinstance(response, dict):
-                raw_response = response.get("message", {}).get("content", "")
-            elif hasattr(response, "message"):
-                message = response.message
-                if isinstance(message, dict):
-                    raw_response = message.get("content", "")
-                elif hasattr(message, "content"):
-                    raw_response = message.content or ""
-                else:
-                    raw_response = ""
-            else:
-                raw_response = ""
-            entities = self._parse_llm_json(raw_response=raw_response)
+            entities = self._parse_llm_json(raw_response=response)
 
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
