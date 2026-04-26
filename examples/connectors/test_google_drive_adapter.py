@@ -6,13 +6,6 @@ import sys
 from pathlib import Path
 
 
-def _configure_backend_path() -> None:
-    backend_path = (
-        Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
-    )
-    sys.path.insert(0, str(backend_path))
-
-
 def _load_environment() -> None:
     try:
         from dotenv import load_dotenv
@@ -27,7 +20,6 @@ def _load_environment() -> None:
 
 
 async def main():
-    _configure_backend_path()
     from core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
         GoogleDriveSourceAdapter,
     )

@@ -17,14 +17,8 @@ except ImportError:
     print("python-dotenv not installed. Install with: pip install python-dotenv")
     print("Or set environment variables manually.")
 
-# Add the backend directory to Python path
-backend_path = (
-    Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
-)
-sys.path.insert(0, str(backend_path))
-
-from core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter  # noqa: E402
-from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig  # noqa: E402
+from core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter
+from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
 
 
 async def main():

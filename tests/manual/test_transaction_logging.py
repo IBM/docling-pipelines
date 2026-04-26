@@ -13,19 +13,12 @@ Run this script to verify the implementation:
 
 import logging
 import sys
-from pathlib import Path
 
-# Add backend to path
-backend_path = (
-    Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
-)
-sys.path.insert(0, str(backend_path))
-
-from app.middleware.transaction_middleware import (  # noqa: E402
+from app.middleware.transaction_middleware import (
     get_transaction_id,
     set_transaction_id,
 )
-from common.util.infrastructure.logging import ConditionalFormatter  # noqa: E402
+from common.util.infrastructure.logging import ConditionalFormatter
 
 
 def test_transaction_logging():

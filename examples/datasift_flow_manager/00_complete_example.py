@@ -34,15 +34,7 @@ import shutil
 import sys
 from pathlib import Path
 
-# Add backend to path for local development
-backend_path = (
-    Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
-)
-if backend_path.exists():
-    sys.path.insert(0, str(backend_path))
-    from lib.datasift_flow_manager import DatasiftFlowManager
-else:
-    from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager
+from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager
 
 
 def create_test_data():

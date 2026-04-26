@@ -23,20 +23,6 @@ Run:
     python examples/datasift_flow_manager/05_notebook_usage.py
 """
 
-import sys
-from pathlib import Path
-
-# Add backend to path for local development
-# In production, use: from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager
-backend_path = (
-    Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
-)
-if backend_path.exists():
-    sys.path.insert(0, str(backend_path))
-else:
-    # When installed as a package
-    pass
-
 
 def main():
     """
