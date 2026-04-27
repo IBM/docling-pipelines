@@ -239,7 +239,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 f"min_chunk_size ({self.min_chunk_size}) cannot exceed max_chunk_size ({self.max_chunk_size})"
             )
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """Return operator metadata for SDK."""
         return {
             OperatorConstants.Misc.SDK: True,
@@ -405,8 +406,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
     def get_static_required_features() -> list[str]:
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
-    def get_required_features(self) -> list[str]:
-        return [self.doc_column_name]
+    @staticmethod
+    def get_required_features() -> list[str]:
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def get_payload_for_detections(self, doc_contents: Any) -> dict[str, Any]:
         """Build request payload for detection API."""

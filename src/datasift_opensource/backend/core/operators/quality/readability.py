@@ -73,7 +73,8 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: ReadabilityOperator.category.value,
@@ -175,8 +176,9 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
     def get_static_required_features() -> list[str]:
         return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
-    def get_required_features(self) -> list[str]:
-        return [self.contents_column_name]
+    @staticmethod
+    def get_required_features() -> list[str]:
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """Transform function for readability scores"""

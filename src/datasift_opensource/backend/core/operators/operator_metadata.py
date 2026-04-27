@@ -95,7 +95,6 @@ class OperatorMetadata:
             - Results are cached in self.operator_metadata
         """
         refresh_operator_metadata: dict[str, dict[str, Any]] = {}
-        config: dict[str, Any] = {}
         failed_operator_list: dict[str, Exception] = {}
 
         # Get operator factory for Python orchestrator (used for metadata extraction)
@@ -105,12 +104,22 @@ class OperatorMetadata:
         # Iterate through all registered operators
         for short_name, cls in operator_factory.operators.items():
             try:
-                # Instantiate operator with empty config (sufficient for metadata)
-                op = cls(config=config)
+                # Extract metadata from operator class
+                # Try static method first (new approach), fall back to instance method (backward compatibility)
+                try:
+                    config_values = cls.get_metadata()
+                except TypeError as e:
+                    # Backward compatibility: get_metadata() is not static, instantiate operator
+                    logger.debug(
+                        f"Operator '{short_name}' has non-static get_metadata(), instantiating for backward compatibility"
+                    )
+                    op = operator_factory.get_operator(operator_name=short_name)
+                    if op is None:
+                        raise ValueError(f"Failed to instantiate operator '{short_name}'") from e
+                    config_values = op.get_metadata()
 
-                # Extract metadata from operator
-                config_values = op.get_metadata()
-                required_features = op.get_required_features()
+                # Get required features from static method
+                required_features = cls.get_required_features()
                 config_values["required_features"] = required_features
 
                 # Filter internal features if requested

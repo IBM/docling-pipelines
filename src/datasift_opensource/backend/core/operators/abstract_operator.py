@@ -53,11 +53,13 @@ class AbstractOperator(AbstractTableTransform):
         # The concrete subclasses validates the parameters passed to the operators from the flow definition
         OperatorUtils.validate_columns(available_features, self.get_required_features(), self.short_name, errors)
 
-    def get_required_features(self):
+    @staticmethod
+    def get_required_features() -> list[str]:
         # The concrete subclasses will retrieve the required features.
         return []
 
-    def get_metadata(self):
+    @staticmethod
+    def get_metadata():
         # Returns operator metadata
         return {}
 

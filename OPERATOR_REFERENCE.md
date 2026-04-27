@@ -110,7 +110,7 @@ All operators ultimately inherit from [`AbstractOperator`](src/datasift_opensour
 **Shared behavior**
 
 - Operators receive a `config` dictionary during initialization.
-- Operators expose metadata through [`get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:59).
+- Operators expose metadata through the static method [`get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:59), which can be called on the class without instantiation (e.g., `OperatorClass.get_metadata()`).
 - Input column requirements are expressed with [`get_required_features()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:55).
 - Validation hooks are implemented via [`validate()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:51).
 - Runtime work is usually performed by `transform()` or `runner()` methods depending on the operator.

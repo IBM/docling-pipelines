@@ -47,11 +47,12 @@ class DocQuality(DocQualityTransform, AbstractOperator):
         self.text_lang: str = config.get(TEXT_LANG_KEY, DEFAULT_TEXT_LANG)
         self.bad_word_filepath: str = config.get(BAD_WORD_FILEPATH_KEY, normalized_bad_word_filepath)
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         return {
             OperatorConstants.Misc.SDK: True,
-            OperatorConstants.Misc.CATEGORY: self.category.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.CATEGORY: DocQuality.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocQuality.is_available(),
             OperatorConstants.Misc.LABEL: "Document Quality",
             OperatorConstants.Config.FEATURES: {
                 "docq_total_words": {
@@ -124,8 +125,9 @@ class DocQuality(DocQualityTransform, AbstractOperator):
             },
         }
 
-    def get_required_features(self) -> list[str]:
-        return [self.doc_column_name]
+    @staticmethod
+    def get_required_features() -> list[str]:
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """

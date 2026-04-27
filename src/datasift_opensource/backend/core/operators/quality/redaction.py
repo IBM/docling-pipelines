@@ -64,7 +64,8 @@ class RedactionOperator(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-    def get_metadata(self):
+    @staticmethod
+    def get_metadata():
         operator_metadata = {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: RedactionOperator.category.value,
@@ -180,5 +181,6 @@ class RedactionOperator(AbstractOperator):
 
         return [table], metadata
 
-    def get_required_features(self):
-        return [self.doc_column]
+    @staticmethod
+    def get_required_features() -> list[str]:
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]

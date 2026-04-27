@@ -348,10 +348,11 @@ class SQLFilterOperator(AbstractOperator):
                 return list(invalid_columns)
         return False
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         return {
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
-            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: SQLFilterOperator.is_available(),
+            OperatorConstants.Misc.CATEGORY: SQLFilterOperator.category.value,
             OperatorConstants.Misc.LABEL: "Annotation Filter",
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Filtering.FILTER_CRITERIA_LIST: {

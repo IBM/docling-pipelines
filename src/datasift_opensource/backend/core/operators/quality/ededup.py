@@ -58,10 +58,11 @@ class EdedupOperator(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         return {
-            OperatorConstants.Misc.CATEGORY: self.category.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.CATEGORY: EdedupOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: EdedupOperator.is_available(),
             OperatorConstants.Misc.LABEL: "De-duplicator",
         }
 

@@ -147,18 +147,19 @@ Numbers: 1234567890""",
 
     def test_metadata_features(self, sample_config):
         """Test that metadata includes all expected enrichment features"""
-        operator = MLEnrichmentOperator(sample_config)
-        metadata = operator.get_metadata()
+        # get_metadata() is now static and returns features without prefix
+        # (prefix is applied at runtime based on instance config)
+        metadata = MLEnrichmentOperator.get_metadata()
         features = metadata[OperatorConstants.Config.FEATURES]
 
-        # Check for some key features (with ml_ prefix)
+        # Check for some key features (without prefix in metadata)
         expected_features = [
-            "ml_num_words",
-            "ml_num_chars",
-            "ml_num_paragraphs",
-            "ml_avg_word_length",
-            "ml_alphanumeric_char_ratio",
-            "ml_punctuation_char_ratio",
+            "num_words",
+            "num_chars",
+            "num_paragraphs",
+            "avg_word_length",
+            "alphanumeric_char_ratio",
+            "punctuation_char_ratio",
         ]
 
         for feature in expected_features:
@@ -286,32 +287,28 @@ Numbers: 1234567890""",
 
     def test_error_tracking(self, sample_config_with_error_tracking):
         """Test error tracking functionality"""
-        operator = MLEnrichmentOperator(sample_config_with_error_tracking)
-        metadata = operator.get_metadata()
+        # get_metadata() is now static and returns features without prefix
+        # The prefix is applied at runtime based on instance config
+        metadata = MLEnrichmentOperator.get_metadata()
         features = metadata[OperatorConstants.Config.FEATURES]
 
-        # Check that error column is in metadata
-        assert "enrichment_error" in features
+        # Check that error column is in metadata (without prefix)
+        assert "processing_error" in features
         assert (
-            features["enrichment_error"][OperatorConstants.Misc.NAME]
+            features["processing_error"][OperatorConstants.Misc.NAME]
             == "Processing Error"
         )
 
     def test_custom_column_prefix(self):
         """Test custom output column prefix"""
-        config = {
-            OperatorConstants.Columns.DOC_COLUMN: "content",
-            OperatorConstants.Columns.LANG_COLUMN: "lang_name",
-            OperatorConstants.Columns.OUTPUT_COLUMN_PREFIX: "custom_",
-        }
-
-        operator = MLEnrichmentOperator(config)
-        metadata = operator.get_metadata()
+        # get_metadata() is now static and returns features without prefix
+        # The prefix is applied at runtime based on instance config
+        metadata = MLEnrichmentOperator.get_metadata()
         features = metadata[OperatorConstants.Config.FEATURES]
 
-        # Check that features have custom prefix
-        assert "custom_num_words" in features
-        assert "custom_num_chars" in features
+        # Check that features are present without prefix in metadata
+        assert "num_words" in features
+        assert "num_chars" in features
 
     def test_no_column_prefix(self):
         """Test enrichment without column prefix"""

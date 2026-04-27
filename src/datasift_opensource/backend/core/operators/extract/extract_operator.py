@@ -558,7 +558,8 @@ class ExtractOperator(AbstractOperator):
                 f"entity_mode='{self.entity_extraction_mode.value}'): {e}"
             ) from e
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """Get metadata about the operator including features and attributes.
 
         Returns comprehensive metadata describing the operator's capabilities,
@@ -609,9 +610,9 @@ class ExtractOperator(AbstractOperator):
         }
 
         return {
-            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.CATEGORY: ExtractOperator.category.value,
             OperatorConstants.Config.FEATURES: metadata_features,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ExtractOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: {
                     OperatorConstants.Misc.NAME: "Text Extraction Mode",

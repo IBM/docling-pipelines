@@ -117,11 +117,12 @@ class BranchingOperator(AbstractOperator):
                 f"Invalid features in filter criteria - {', '.join(invalid_features)}. Filter criteria should use only the available features: {', '.join(available_features)}."
             )
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         return {
             OperatorConstants.Misc.SDK: True,
-            OperatorConstants.Misc.CATEGORY: self.category.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.CATEGORY: BranchingOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: BranchingOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Branching Operator",
             OperatorConstants.Config.ATTRIBUTES: {
                 "branch_criteria": {

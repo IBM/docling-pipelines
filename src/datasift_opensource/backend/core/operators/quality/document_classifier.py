@@ -693,7 +693,8 @@ Example response:
 
         return [output_table], metadata
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
 
@@ -702,27 +703,27 @@ Example response:
         """
         return {
             OperatorConstants.Misc.SDK: True,
-            OperatorConstants.Misc.CATEGORY: OperatorCategory.Functional.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+            OperatorConstants.Misc.CATEGORY: DocumentClassifierOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocumentClassifierOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Document Classifier",
             OperatorConstants.Config.DESCRIPTION: "Classify documents into predefined types using LLM (Ollama via native API, watsonx via REST API)",
             OperatorConstants.Config.FEATURES: {
-                self.output_column: {
+                DEFAULT_OUTPUT_COLUMN: {
                     OperatorConstants.Misc.NAME: "Document Type",
                     OperatorConstants.Config.DESCRIPTION: "Classified document type",
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 },
-                f"{self.output_column}_confidence": {
+                f"{DEFAULT_OUTPUT_COLUMN}_confidence": {
                     OperatorConstants.Misc.NAME: "Classification Confidence",
                     OperatorConstants.Config.DESCRIPTION: "Confidence score for classification (1-10)",
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_FLOAT,
                 },
-                f"{self.output_column}_reasoning": {
+                f"{DEFAULT_OUTPUT_COLUMN}_reasoning": {
                     OperatorConstants.Misc.NAME: "Classification Reasoning",
                     OperatorConstants.Config.DESCRIPTION: "Explanation for the classification decision",
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 },
-                self.doc_column: {
+                DEFAULT_DOC_COLUMN: {
                     OperatorConstants.Misc.NAME: "Document Content",
                     OperatorConstants.Config.DESCRIPTION: "The markdown content extracted from the document",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,

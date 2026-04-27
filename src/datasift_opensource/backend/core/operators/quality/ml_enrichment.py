@@ -110,7 +110,8 @@ class MLEnrichmentOperator(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """
         Get operator metadata including features and attributes.
 
@@ -120,9 +121,9 @@ class MLEnrichmentOperator(AbstractOperator):
         # Build features dictionary for all enrichment metrics
         features = {}
 
-        # Add all default enrichment features
+        # Add all default enrichment features (with empty prefix as default)
         for feature_key, default_value in DEFAULT_TEXT_ENRICHER_DICT.items():
-            column_name = self.output_column_prefix + feature_key
+            column_name = feature_key  # No prefix by default
             features[column_name] = {
                 OperatorConstants.Misc.NAME: feature_key.replace("_", " ").title(),
                 OperatorConstants.Config.DESCRIPTION: f"Text quality metric: {feature_key}",
@@ -132,26 +133,24 @@ class MLEnrichmentOperator(AbstractOperator):
                 else OperatorConstants.Types.TYPE_INT32,
             }
 
-        # Add optional columns if configured
-        if self.newline_normalized_column_name:
-            features[self.newline_normalized_column_name] = {
-                OperatorConstants.Misc.NAME: "Newline Normalized Text",
-                OperatorConstants.Config.DESCRIPTION: "Text with normalized newlines",
-                OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
-                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-            }
+        # Add optional columns (always include in metadata)
+        features["newline_normalized_text"] = {
+            OperatorConstants.Misc.NAME: "Newline Normalized Text",
+            OperatorConstants.Config.DESCRIPTION: "Text with normalized newlines",
+            OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
+            OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+        }
 
-        if self.error_column_name:
-            features[self.error_column_name] = {
-                OperatorConstants.Misc.NAME: "Processing Error",
-                OperatorConstants.Config.DESCRIPTION: "Error message if processing failed",
-                OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
-                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-            }
+        features["processing_error"] = {
+            OperatorConstants.Misc.NAME: "Processing Error",
+            OperatorConstants.Config.DESCRIPTION: "Error message if processing failed",
+            OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
+            OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+        }
 
         return {
-            OperatorConstants.Misc.CATEGORY: self.category.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.CATEGORY: MLEnrichmentOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: MLEnrichmentOperator.is_available(),
             OperatorConstants.Misc.LABEL: "ML Text Enrichment",
             OperatorConstants.Config.DESCRIPTION: (
                 "Computes 30+ text quality features including word counts, character ratios, "

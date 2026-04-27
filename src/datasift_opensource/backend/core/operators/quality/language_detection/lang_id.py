@@ -100,11 +100,12 @@ class LanguageDetect(AbstractOperator):
             )
             raise
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         operator_metadata = {
             OperatorConstants.Misc.SDK: True,
-            OperatorConstants.Misc.CATEGORY: self.category.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.CATEGORY: LanguageDetect.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: LanguageDetect.is_available(),
             OperatorConstants.Misc.LABEL: "Language Annotator",
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: {
@@ -134,8 +135,9 @@ class LanguageDetect(AbstractOperator):
 
         return operator_metadata
 
-    def get_required_features(self) -> list[str]:
-        return [self.doc_column_name]
+    @staticmethod
+    def get_required_features() -> list[str]:
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def cleanup(self) -> None:
         """Release adapter resources.

@@ -355,43 +355,31 @@ class IngestLocalOperator(AbstractOperator):
         else:
             return True
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """
         Get metadata about the operator including features and attributes.
 
         Returns operator metadata for the metadata-only ingest mode.
         """
-        metadata_features = {}
-
-        # Metadata-only mode features
-        metadata_features.update(
-            {
+        return {
+            OperatorConstants.Misc.CATEGORY: IngestLocalOperator.category.value,
+            OperatorConstants.Config.FEATURES: {
                 "path": {
                     OperatorConstants.Columns.NAME: "File Path",
                     OperatorConstants.Config.DESCRIPTION: "The absolute path to the document file",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-                }
-            }
-        )
-
-        if self.store_binary_content:
-            metadata_features.update(
-                {
-                    "binary_content": {
-                        OperatorConstants.Columns.NAME: "Binary Content",
-                        OperatorConstants.Config.DESCRIPTION: "The binary content of the document for downstream extraction",
-                        OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
-                        OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
-                        OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-                    }
-                }
-            )
-
-        metadata_features.update(
-            {
-                self.doc_id_hash: {
+                },
+                "binary_content": {
+                    OperatorConstants.Columns.NAME: "Binary Content",
+                    OperatorConstants.Config.DESCRIPTION: "The binary content of the document for downstream extraction",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                },
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
                     OperatorConstants.Columns.NAME: "Hash ID",
                     OperatorConstants.Config.DESCRIPTION: "Hash ID of the row",
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
@@ -401,14 +389,9 @@ class IngestLocalOperator(AbstractOperator):
                         OperatorConstants.Misc.MANDATORY,
                         OperatorConstants.Misc.PRIMARY,
                     ],
-                }
-            }
-        )
-
-        return {
-            OperatorConstants.Misc.CATEGORY: self.category.value,
-            OperatorConstants.Config.FEATURES: metadata_features,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+                },
+            },
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestLocalOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Config.MAX_FILE_SIZE: {
                     OperatorConstants.Columns.NAME: "Max File Size",

@@ -37,8 +37,9 @@ class NOOPOperator(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-    def get_metadata(self) -> dict[str, Any]:
-        return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available()}
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
+        return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: NOOPOperator.is_available()}
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """

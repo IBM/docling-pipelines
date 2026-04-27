@@ -212,6 +212,7 @@ Operators are the fundamental building blocks of datasift. Each operator is a se
 - Returns PyArrow tables as output
 - Configurable via JSON parameters
 - Chainable in DAG workflows
+- Exposes metadata via static methods (see [Operator Metadata Architecture](#2-operator-metadata-architecture))
 
 **Operator Categories:**
 
@@ -253,7 +254,174 @@ graph LR
     style VDB fill:#f3e6ff
 ```
 
-### 2. Flow/Pipeline Concept
+### 2. Operator Metadata Architecture
+
+The [`OperatorMetadata`](src/datasift_opensource/backend/core/operators/operator_metadata.py) class is the **primary API** for accessing metadata from all operators in the system. It provides a unified interface for discovering operators, querying their capabilities, and understanding their requirements.
+
+**Primary API Pattern:**
+
+```python
+from core.operators.operator_metadata import OperatorMetadata
+
+# Initialize metadata manager
+metadata = OperatorMetadata()
+
+# Get metadata for all operators
+all_operators = metadata.get_operator_metadata()
+
+# Access specific operator metadata
+extract_metadata = all_operators['extract_operator']
+print(extract_metadata['label'])           # "Extract Operator"
+print(extract_metadata['category'])        # OperatorCategory.Extract
+print(extract_metadata['features'])        # Dict of output features
+print(extract_metadata['required_features'])  # List of required inputs
+
+# Query features from specific operator
+features = metadata.get_features(short_name='extract_operator')
+required = metadata.required_feature_names(short_name='chunker')
+
+# Get reverse mapping: which operators produce a feature?
+feature_map = metadata.get_feature_operators_map()
+print(feature_map['content'])  # ['Extract Operator', 'Chunker', ...]
+```
+
+**Key Capabilities:**
+
+1. **Operator Discovery**: Automatically discovers all registered operators via [`OperatorFactoryProvider`](src/datasift_opensource/backend/core/orchestrator/operator_factory.py)
+2. **Metadata Aggregation**: Collects metadata from all operators in a single call
+3. **Feature Filtering**: Filters internal features (like `doc_id_hash`) from public API
+4. **Caching**: Caches metadata after first retrieval for performance
+5. **Utility Methods**: Provides convenience methods for common queries
+
+**Usage in Datasift:**
+
+The `OperatorMetadata` class is used throughout the system:
+
+- **CLI**: [`list_operators`](common/util/operators/display.py) command uses it to display available operators
+- **Flow Validation**: [`FlowValidator`](src/datasift_opensource/backend/core/orchestrator/flow_validator.py) uses it to validate operator connections
+- **Flow Manager**: [`DatasiftFlowManager`](src/datasift_opensource/backend/lib/datasift_flow_manager.py) uses it for programmatic access
+- **UI/API**: Future UI components will use it to build flow editors
+
+**Common Use Cases:**
+
+```python
+# 1. List all available operators
+metadata = OperatorMetadata()
+all_ops = metadata.get_operator_metadata()
+for short_name, meta in all_ops.items():
+    print(f"{meta['label']}: {meta['description']}")
+
+# 2. Check what features an operator produces
+extract_features = metadata.get_features(short_name='extract_operator')
+for feature_name, feature_def in extract_features.items():
+    print(f"{feature_name}: {feature_def['type']}")
+
+# 3. Validate operator compatibility
+chunker_required = metadata.required_feature_names(short_name='chunker')
+extract_features = metadata.get_features(short_name='extract_operator')
+can_connect = all(req in extract_features for req in chunker_required)
+
+# 4. Find operators that produce a specific feature
+feature_map = metadata.get_feature_operators_map()
+content_producers = feature_map.get('embeddings', [])
+print(f"Operators producing 'embeddings': {content_producers}")
+```
+
+**Implementation Details:**
+
+Internally, `OperatorMetadata` calls static methods on operator classes:
+
+```python
+# How OperatorMetadata works internally (simplified)
+for short_name, operator_class in operator_factory.operators.items():
+    # Call static methods on each operator class
+    metadata_dict = operator_class.get_metadata()
+    required_features = operator_class.get_required_features()
+    
+    # Aggregate into unified structure
+    all_metadata[short_name] = {
+        **metadata_dict,
+        'required_features': required_features
+    }
+```
+
+Each operator implements two static methods:
+
+```python
+class ExtractOperator(AbstractOperator):
+    @staticmethod
+    def get_metadata():
+        return {
+            "label": "Extract Operator",
+            "category": OperatorCategory.Extract,
+            "description": "Extracts text and entities from documents",
+            "features": {
+                "content": {
+                    "type": "string",
+                    "description": "Extracted document text",
+                    "required": False,
+                    "available_for_filter": True,
+                    "available_for_vector_db": True
+                }
+            }
+        }
+    
+    @staticmethod
+    def get_required_features() -> list[str]:
+        return ["doc_id", "file_path"]
+```
+
+**Note:** While operators expose `get_metadata()` and `get_required_features()` as static methods, **users should not call these directly**. Always use the `OperatorMetadata` class as the primary API, which handles discovery, aggregation, filtering, and caching.
+
+**Metadata Structure:**
+
+Each operator's metadata dictionary contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `label` | string | Human-readable operator name |
+| `category` | OperatorCategory | Operator category (Extract, Ingest, Functional, Quality, VectorDB) |
+| `description` | string | Operator purpose and functionality |
+| `features` | dict | Output features produced by the operator |
+| `required_features` | list | Input feature names required by the operator |
+
+**Feature Metadata:**
+
+Each feature in the `features` dictionary contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | string | Data type (string, int64, double, boolean, list) |
+| `description` | string | Feature description |
+| `required` | boolean | Whether feature is always produced |
+| `available_for_filter` | boolean | Can be used in SQL WHERE clauses |
+| `available_for_vector_db` | boolean | Can be stored in vector databases |
+| `tags` | list | Optional tags (e.g., "internal" for internal-only features) |
+
+**Design Rationale:**
+
+1. **Unified API**: Single entry point (`OperatorMetadata`) for all metadata queries
+2. **Automatic Discovery**: Discovers all operators without manual registration
+3. **Performance**: Caches metadata after first retrieval; no repeated instantiation
+4. **Separation of Concerns**:
+   - Metadata API (what operators produce/need) vs operator implementation (how they process data)
+   - Static information vs runtime configuration
+5. **Filtering**: Automatically filters internal features from public API
+6. **Extensibility**: New operators are automatically discovered when added to the system
+
+**Metadata vs Configuration:**
+
+| Aspect | Operator Metadata | Configuration |
+|--------|------------------|---------------|
+| **Access** | `OperatorMetadata().get_operator_metadata()` | `operator_instance.config` |
+| **Instantiation** | No operator instantiation required | Full operator instantiation required |
+| **Represents** | What operator *produces* and *needs* | What instance *will do* |
+| **Scope** | Class-level capabilities and requirements | Instance-specific parameters |
+| **Mutability** | Immutable (cached) | Mutable per instance |
+| **Examples** | Output features, required inputs, category | Batch size, model name, file paths |
+| **Use Cases** | Flow validation, UI generation, discovery | Runtime execution, data processing |
+
+### 3. Flow/Pipeline Concept
 
 A **Flow** is a JSON-defined configuration that specifies:
 
@@ -305,7 +473,7 @@ A **Flow** is a JSON-defined configuration that specifies:
 - **Config**: Operator-specific parameters (not `operator_params`)
 - **Input/Output Edges**: Both are required to define the complete DAG structure and enable bidirectional traversal
 
-### 3. DAG-Based Execution Model
+### 4. DAG-Based Execution Model
 
 The execution model follows these principles:
 
@@ -331,7 +499,7 @@ graph LR
     style F fill:#e1fff5
 ```
 
-### 4. PyArrow Data Format Rationale
+### 5. PyArrow Data Format Rationale
 
 PyArrow tables serve as the universal data format throughout the pipeline:
 
@@ -574,15 +742,15 @@ classDiagram
         +category: OperatorCategory
         +transform(table: Table) tuple[list[Table], dict]
         +validate(errors, warnings, features)
-        +get_required_features() list
-        +get_metadata() dict
-        +is_available() bool
+        +get_required_features()$ list
+        +get_metadata()$ dict
+        +is_available()$ bool
     }
 
     class ConcreteOperator {
         +transform(table: Table) tuple[list[Table], dict]
         +validate(errors, warnings, features)
-        +get_required_features() list
+        +get_required_features()$ list
     }
 
     AbstractTableTransform <|-- AbstractOperator
@@ -599,6 +767,31 @@ classDiagram
 4. **Metadata**: Track processing statistics
 5. **Error Handling**: Record failed and skipped documents
 6. **Feature Management**: Declare required input columns
+
+**Class-Level vs Instance-Level Methods:**
+
+Operators distinguish between class-level capabilities and instance-level configuration:
+
+- **Static Methods** (`@staticmethod`):
+  - [`get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:61): Returns operator-level metadata (category, features, description)
+  - [`get_required_features()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:56): Returns required input features
+  - [`is_available()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:47): Checks if operator dependencies are available
+  - Accessed via `OperatorClass.method_name()` without instantiation
+  - Represent operator capabilities independent of any specific configuration
+
+- **Instance Methods**:
+  - `validate()`: Validates instance-specific parameters and configuration
+  - `transform()`: Processes data using instance configuration
+  - Require operator instantiation with specific configuration
+
+**Rationale for Static Methods:**
+
+Both [`get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:61) and [`get_required_features()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:56) are static because:
+1. They represent operator-level information, not instance-specific configuration
+2. Enable metadata discovery without instantiation overhead
+3. Information is constant across all instances of an operator class
+4. Support efficient operator registry and discovery mechanisms
+5. Align with the principle that metadata describes "what the operator can do" rather than "what this instance is configured to do"
 
 ### 3. Data Flow Between Operators
 
@@ -894,6 +1087,12 @@ stateDiagram-v2
 ```python
 # OperatorFactory creates operator from config
 operator_class = import_operator_class(operator_type)
+
+# Access class-level metadata without instantiation
+metadata = operator_class.get_metadata()
+is_available = operator_class.is_available()
+
+# Create instance with configuration
 operator_instance = operator_class(config)
 ```
 
@@ -903,6 +1102,11 @@ operator_instance = operator_class(config)
 - Operator parameters (from flow JSON)
 - Job metadata (job_id, job_run_id, context_id)
 - Runtime parameters
+
+**Metadata Access Pattern:**
+- Operator metadata is accessed at the class level via static method [`OperatorClass.get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:59)
+- No instantiation required for metadata discovery
+- Enables efficient operator registry and capability queries
 
 #### 2. Configuration
 
@@ -985,10 +1189,29 @@ graph TD
 
 #### 5. Metadata Collection
 
-**Metadata Structure:**
 
+**Two Types of Metadata:**
+
+**1. Operator Metadata (Class-Level, Static):**
 ```python
-metadata = {
+# Accessed without instantiation
+operator_metadata = ExtractOperator.get_metadata()
+# Returns:
+# {
+#     "label": "Extract Operator",
+#     "category": "Extract",
+#     "description": "Extracts text and entities from documents",
+#     "features": {
+#         "content": {"type": "string", "description": "Extracted text"},
+#         "entities": {"type": "list", "description": "Extracted entities"}
+#     }
+# }
+```
+
+**2. Execution Metadata (Instance-Level, Runtime):**
+```python
+# Generated during operator execution
+execution_metadata = {
     "total_docs": 100,
     "processed_docs": 95,
     "failed_docs_count": 3,
@@ -1002,6 +1225,10 @@ metadata = {
     "node_status": "COMPLETED"
 }
 ```
+
+**Key Distinction:**
+- **Operator metadata**: Describes what the operator *can do* (capabilities, features, requirements)
+- **Execution metadata**: Describes what the operator *did* (processing results, statistics, errors)
 
 ---
 
@@ -2423,9 +2650,10 @@ class MyCustomOperator(AbstractOperator):
         # Implementation
         metadata = self.create_base_metadata(total_docs_count=len(table))
         # Process table
-        return [output_table], metadata
+        return [output_table], metadata    
+    @staticmethod
+    def get_required_features() -> list[str]:
 
-    def get_required_features(self) -> list:
         return ["doc_id", "content"]
 ```
 

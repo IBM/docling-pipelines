@@ -233,7 +233,7 @@ class MicrosoftGraphLoader(BaseLoader):
 
                 # Create Document and attach binary content
                 doc = Document(page_content="", metadata=metadata)
-                doc._binary_content = binary_content
+                doc._binary_content = binary_content  # type: ignore[attr-defined]
                 yield doc
             except Exception as e:
                 import logging
@@ -519,7 +519,7 @@ class IngestSourceOperator(AbstractOperator):
                 )
                 # Store binary content as a private attribute to avoid JSON serialization
                 # This will be accessed by extract_content method
-                langchain_doc._binary_content = domain_doc.content
+                langchain_doc._binary_content = domain_doc.content  # type: ignore[attr-defined]
                 langchain_docs.append(langchain_doc)
             return langchain_docs
 
@@ -798,7 +798,8 @@ class IngestSourceOperator(AbstractOperator):
         else:
             raise ValueError(f"Provider '{self.provider}' is not supported.")
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """
         Get metadata about the operator including features and attributes.
 
@@ -833,7 +834,7 @@ class IngestSourceOperator(AbstractOperator):
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
-            self.doc_id_hash: {
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
                 OperatorConstants.Columns.NAME: "Hash ID",
                 OperatorConstants.Config.DESCRIPTION: "Hash ID of the document",
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
@@ -847,9 +848,9 @@ class IngestSourceOperator(AbstractOperator):
         }
 
         return {
-            OperatorConstants.Misc.CATEGORY: self.category.value,
+            OperatorConstants.Misc.CATEGORY: IngestSourceOperator.category.value,
             OperatorConstants.Config.FEATURES: metadata_features,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestSourceOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
                 PROVIDER_KEY: {
                     OperatorConstants.Columns.NAME: "Provider",

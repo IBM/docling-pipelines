@@ -56,7 +56,9 @@ class DocIdHashOperator(AbstractOperator):
         # Initialize DocIDTransform if available
         self._doc_id_transform: Any | None = DocIDTransform(config)
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
+        # This is an internal operator, not available for direct use in flows
         return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False}
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:

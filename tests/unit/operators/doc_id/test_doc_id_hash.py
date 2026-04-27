@@ -286,8 +286,8 @@ def test_missing_doc_column_raises_exception():
 
 def test_get_metadata_is_operator_available_false():
     """get_metadata() returns IS_OPERATOR_AVAILABLE: False (internal operator)."""
-    operator = make_operator()
-    meta = operator.get_metadata()
+    # get_metadata() is now a static method, call it on the class
+    meta = DocIdHashOperator.get_metadata()
 
     assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in meta
     assert meta[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is False
@@ -295,8 +295,8 @@ def test_get_metadata_is_operator_available_false():
 
 def test_get_metadata_returns_dict():
     """get_metadata() returns a dictionary."""
-    operator = make_operator()
-    meta = operator.get_metadata()
+    # get_metadata() is now a static method, call it on the class
+    meta = DocIdHashOperator.get_metadata()
 
     assert isinstance(meta, dict)
 

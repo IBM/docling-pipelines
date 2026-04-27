@@ -26,7 +26,8 @@ def mock_operator_factory():
     # Mock operator 1: successful operator with features
     op1_class = Mock()
     op1_instance = Mock()
-    op1_instance.get_metadata.return_value = {
+    # get_metadata() and get_required_features() are now static methods on the class
+    op1_class.get_metadata.return_value = {
         OperatorConstants.Misc.LABEL: "Test Operator 1",
         OperatorConstants.Config.FEATURES: {
             "feature1": {
@@ -49,16 +50,17 @@ def mock_operator_factory():
             },
         },
     }
-    op1_instance.get_required_features.return_value = ["required_feature1"]
+    op1_class.get_required_features.return_value = ["required_feature1"]
     op1_class.return_value = op1_instance
 
     # Mock operator 2: successful operator without features
     op2_class = Mock()
     op2_instance = Mock()
-    op2_instance.get_metadata.return_value = {
+    # get_metadata() and get_required_features() are now static methods on the class
+    op2_class.get_metadata.return_value = {
         OperatorConstants.Misc.LABEL: "Test Operator 2",
     }
-    op2_instance.get_required_features.return_value = []
+    op2_class.get_required_features.return_value = []
     op2_class.return_value = op2_instance
 
     # Mock operator 3: failing operator
@@ -68,7 +70,8 @@ def mock_operator_factory():
     # Mock operator 4: operator with is_available() = False
     op4_class = Mock()
     op4_instance = Mock()
-    op4_instance.get_metadata.side_effect = Exception("Not available")
+    # get_metadata() is now a static method on the class
+    op4_class.get_metadata.side_effect = Exception("Not available")
     op4_instance.is_available.return_value = False
     op4_class.return_value = op4_instance
 
@@ -277,10 +280,10 @@ def test_get_operator_metadata_handles_missing_features_key(mock_session_info):
     factory = Mock()
     op_class = Mock()
     op_instance = Mock()
-    op_instance.get_metadata.return_value = {
+    op_class.get_metadata.return_value = {
         OperatorConstants.Misc.LABEL: "No Features Operator",
     }
-    op_instance.get_required_features.return_value = []
+    op_class.get_required_features.return_value = []
     op_class.return_value = op_instance
     factory.operators = {"test_op": op_class}
     factory.get_operator.return_value = Mock(is_available=Mock(return_value=True))
@@ -770,12 +773,12 @@ def test_get_feature_operators_map_handles_operators_without_label(mock_session_
     factory = Mock()
     op_class = Mock()
     op_instance = Mock()
-    op_instance.get_metadata.return_value = {
+    op_class.get_metadata.return_value = {
         OperatorConstants.Config.FEATURES: {
             "feature1": {"type": "string"},
         },
     }
-    op_instance.get_required_features.return_value = []
+    op_class.get_required_features.return_value = []
     op_class.return_value = op_instance
     factory.operators = {"test_op": op_class}
     factory.get_operator.return_value = Mock(is_available=Mock(return_value=True))
@@ -800,10 +803,10 @@ def test_get_feature_operators_map_handles_empty_features(mock_session_info):
     factory = Mock()
     op_class = Mock()
     op_instance = Mock()
-    op_instance.get_metadata.return_value = {
+    op_class.get_metadata.return_value = {
         OperatorConstants.Misc.LABEL: "Empty Operator",
     }
-    op_instance.get_required_features.return_value = []
+    op_class.get_required_features.return_value = []
     op_class.return_value = op_instance
     factory.operators = {"test_op": op_class}
     factory.get_operator.return_value = Mock(is_available=Mock(return_value=True))
@@ -912,6 +915,67 @@ def test_operator_factory_provider_called_with_python_orchestrator(mock_session_
             mock_get_factory.assert_called_once_with(
                 orchestrator=OrchestratorType.PYTHON
             )
+
+
+def test_get_operator_metadata_handles_non_static_get_metadata(mock_session_info):
+    """get_operator_metadata() handles operators with non-static get_metadata() (backward compatibility)."""
+    factory = Mock()
+
+    # Mock operator with non-static get_metadata (raises TypeError when called on class)
+    op_class = Mock()
+    op_instance = Mock()
+
+    # Simulate TypeError when calling get_metadata() as static method
+    op_class.get_metadata.side_effect = TypeError(
+        "get_metadata() missing 1 required positional argument: 'self'"
+    )
+
+    # Instance method should work
+    op_instance.get_metadata.return_value = {
+        OperatorConstants.Misc.LABEL: "Legacy Operator",
+        OperatorConstants.Config.FEATURES: {
+            "legacy_feature": {"type": "string"},
+        },
+    }
+
+    # get_required_features is static
+    op_class.get_required_features.return_value = ["input_feature"]
+
+    factory.operators = {"legacy_op": op_class}
+    factory.get_operator.return_value = op_instance
+
+    with patch(
+        "core.operators.operator_metadata.get_session_info",
+        return_value=mock_session_info,
+    ):
+        with patch(
+            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            return_value=factory,
+        ):
+            with patch("core.operators.operator_metadata.logger") as mock_logger:
+                metadata = OperatorMetadata()
+                result = metadata.get_operator_metadata()
+
+                # Should successfully get metadata via instance method
+                assert "legacy_op" in result
+                assert (
+                    result["legacy_op"][OperatorConstants.Misc.LABEL]
+                    == "Legacy Operator"
+                )
+                assert (
+                    "legacy_feature"
+                    in result["legacy_op"][OperatorConstants.Config.FEATURES]
+                )
+                assert result["legacy_op"]["required_features"] == ["input_feature"]
+
+                # Should log debug message about backward compatibility
+                mock_logger.debug.assert_called()
+                debug_calls = [str(call) for call in mock_logger.debug.call_args_list]
+                assert any(
+                    "non-static get_metadata()" in call
+                    and "backward compatibility" in call
+                    for call in debug_calls
+                )
 
 
 if __name__ == "__main__":

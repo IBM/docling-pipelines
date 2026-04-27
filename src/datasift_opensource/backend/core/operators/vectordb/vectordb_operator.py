@@ -325,7 +325,8 @@ class VectorDBOperator(AbstractOperator):
         """Get total document count in the index."""
         return self.adapter.get_document_count()
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """Get metadata about the operator including features and attributes.
 
         This metadata describes the generic vector database operator interface.
@@ -333,8 +334,8 @@ class VectorDBOperator(AbstractOperator):
         """
         return {
             OperatorConstants.Misc.SDK: True,
-            OperatorConstants.Misc.CATEGORY: OperatorCategory.VectorDB,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+            OperatorConstants.Misc.CATEGORY: VectorDBOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: VectorDBOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Vector Database",
             OperatorConstants.Config.DESCRIPTION: "Store documents and embeddings in vector databases for similarity search. Supports multiple providers (OpenSearch, Pinecone, Weaviate, etc.) through adapters.",
             OperatorConstants.Config.FEATURES: {

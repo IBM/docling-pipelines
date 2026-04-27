@@ -230,11 +230,12 @@ class ChunkerOperator(AbstractOperator):
         # Docling HybridChunker will be lazily initialized when needed
         self._docling_chunker = None
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         operator_metadata = {
             OperatorConstants.Misc.SDK: True,
-            OperatorConstants.Misc.CATEGORY: self.category.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: self.is_available(),
+            OperatorConstants.Misc.CATEGORY: ChunkerOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ChunkerOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Chunking",
             OperatorConstants.Config.FEATURES: {
                 OperatorConstants.Columns.CHUNK_SEQUENCE_NUMBER: {
@@ -373,8 +374,9 @@ class ChunkerOperator(AbstractOperator):
 
         return operator_metadata
 
-    def get_required_features(self) -> list[str]:
-        return [self.doc_column]
+    @staticmethod
+    def get_required_features() -> list[str]:
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
         super().validate(errors, warnings, available_features)

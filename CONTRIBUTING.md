@@ -250,6 +250,164 @@ def extract_text(file_path: str, use_ocr: bool = False) -> str:
     pass
 ```
 
+### Operator Development Guidelines
+
+#### For Operator Users: Accessing Operator Metadata
+
+Use the [`OperatorMetadata`](src/datasift_opensource/backend/core/operators/operator_metadata.py) class to query metadata about available operators, their features, and requirements:
+
+```python
+from core.operators.operator_metadata import OperatorMetadata
+
+# Initialize metadata manager
+metadata = OperatorMetadata()
+
+# Get metadata for all operators
+all_operators = metadata.get_operator_metadata(internal_features=False)
+
+# Access specific operator information
+extract_meta = all_operators['extract_operator']
+print(extract_meta['label'])           # "Extract Operator"
+print(extract_meta['category'])        # "Extract"
+print(extract_meta['required_features'])  # []
+
+# Get features from a specific operator
+features = metadata.get_features(short_name="extract_operator")
+
+# Get only filterable features
+filterable = metadata.get_features(
+    short_name="extract_operator",
+    purpose=OperatorConstants.Config.AVAILABLE_FOR_FILTER
+)
+
+# Get required input features for an operator
+required = metadata.required_feature_names(short_name="chunker")
+print(required)  # ['content']
+
+# Build feature-to-operator mapping
+feature_map = metadata.get_feature_operators_map()
+print(feature_map['content'])  # ['Extract Docling', 'Extract Entities (Ollama)']
+```
+
+**Key Methods:**
+
+- [`get_operator_metadata()`](src/datasift_opensource/backend/core/operators/operator_metadata.py:59): Returns metadata for all registered operators
+- [`get_features()`](src/datasift_opensource/backend/core/operators/operator_metadata.py:153): Gets features from a specific operator, optionally filtered by purpose
+- [`required_feature_names()`](src/datasift_opensource/backend/core/operators/operator_metadata.py:255): Returns list of required input features for an operator
+- [`get_feature_operators_map()`](src/datasift_opensource/backend/core/operators/operator_metadata.py:278): Builds reverse mapping from features to operators that produce them
+
+#### For Operator Developers: Implementing Metadata Methods
+
+When creating new operators, you **must implement** two static methods so [`OperatorMetadata`](src/datasift_opensource/backend/core/operators/operator_metadata.py) can discover and aggregate your operator's information:
+
+**Required Static Methods:**
+
+```python
+@staticmethod
+def get_metadata() -> dict[str, Any]:
+    """Return operator metadata for discovery by OperatorMetadata class."""
+    return {
+        OperatorConstants.Misc.CATEGORY: MyOperator.category.value,
+        OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: MyOperator.is_available(),
+        OperatorConstants.Misc.LABEL: "My Custom Operator",
+        OperatorConstants.Misc.DESCRIPTION: "Description of what this operator does",
+        OperatorConstants.Config.FEATURES: {
+            "output_feature": {
+                "type": "string",
+                "description": "Feature produced by this operator",
+                "required": False,
+                "available_for_filter": True,
+                "available_for_vector_db": True,
+            }
+        }
+    }
+
+@staticmethod
+def get_required_features() -> list[str]:
+    """Return list of required input feature names."""
+    return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+```
+
+**Implementation Requirements:**
+
+- **Static Methods**: Use `@staticmethod` decorator - these methods must not access instance state
+- **Class-Level Attributes**: Reference class attributes (e.g., `MyOperator.category`, `MyOperator.is_available()`)
+- **No Instance Access**: Do not use `self` - information must be determinable without instantiation
+- **Type Hints**: Always include return type annotations
+- **Metadata Keys**: Use constants from [`OperatorConstants`](src/datasift_opensource/backend/common/constants/operator_constants.py)
+
+**Complete Example:**
+
+```python
+from typing import Any
+import pyarrow as pa
+from common.constants.operator_constants import OperatorConstants
+from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+
+class MyCustomOperator(AbstractOperator):
+    """Custom operator that processes documents."""
+    
+    short_name: str = OperatorConstants.Operators.MY_CUSTOM
+    category: OperatorCategory = OperatorCategory.Functional
+    
+    def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize with runtime configuration."""
+        super().__init__(config)
+        # Instance-level configuration from flow JSON
+        self.param1 = config.get("param1")
+    
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
+        """Provide metadata for OperatorMetadata discovery.
+        
+        This static method is called by OperatorMetadata.get_operator_metadata()
+        to collect information about this operator without instantiation.
+        """
+        return {
+            OperatorConstants.Misc.CATEGORY: MyCustomOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: MyCustomOperator.is_available(),
+            OperatorConstants.Misc.LABEL: "My Custom Operator",
+            OperatorConstants.Misc.DESCRIPTION: "Processes documents with custom logic",
+            OperatorConstants.Config.FEATURES: {
+                "processed_content": {
+                    "type": "string",
+                    "description": "Processed document content",
+                    "required": False,
+                    "available_for_filter": True,
+                    "available_for_vector_db": True,
+                }
+            }
+        }
+    
+    @staticmethod
+    def get_required_features() -> list[str]:
+        """Specify required input features.
+        
+        This static method is called by OperatorMetadata to determine
+        what features this operator needs from previous operators.
+        """
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+    
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Process PyArrow table using instance configuration."""
+        # Implementation using self.param1 and other instance attributes
+        pass
+```
+
+**Why Static Methods?**
+
+The static method pattern enables [`OperatorMetadata`](src/datasift_opensource/backend/core/operators/operator_metadata.py) to:
+- Discover operator capabilities without instantiation
+- Validate flows before execution
+- Build feature dependency graphs
+- Provide metadata to UI and API consumers
+- Improve performance by avoiding unnecessary object creation
+
+**Distinction Between Class and Instance:**
+
+- **Class-level information** (static methods): Operator capabilities, features, and requirements - same for all instances
+- **Instance-level configuration** (`__init__`): Runtime parameters from flow JSON - specific to each operator instance in a pipeline
+
 ### Code Quality Tools
 
 The project uses the following tools (configured in [`pyproject.toml`](src/datasift_opensource/backend/pyproject.toml:159)):

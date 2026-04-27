@@ -32,7 +32,8 @@ class TestOperatorMetadata:
         mock_operator_class = Mock()
         mock_operator_instance = Mock()
 
-        mock_operator_instance.get_metadata.return_value = {
+        # get_metadata() and get_required_features() are now static methods on the class
+        mock_operator_class.get_metadata.return_value = {
             OperatorConstants.Config.FEATURES: {
                 "feature1": {
                     OperatorConstants.Columns.NAME: "Feature 1",
@@ -41,7 +42,7 @@ class TestOperatorMetadata:
             },
             OperatorConstants.Misc.CATEGORY: "Ingest",
         }
-        mock_operator_instance.get_required_features.return_value = ["input_feature"]
+        mock_operator_class.get_required_features.return_value = ["input_feature"]
 
         mock_operator_class.return_value = mock_operator_instance
         mock_factory.operators = {"test_op": mock_operator_class}
@@ -65,7 +66,8 @@ class TestOperatorMetadata:
         mock_operator_class = Mock()
         mock_operator_instance = Mock()
 
-        mock_operator_instance.get_metadata.return_value = {
+        # get_metadata() and get_required_features() are now static methods on the class
+        mock_operator_class.get_metadata.return_value = {
             OperatorConstants.Config.FEATURES: {
                 "public_feature": {
                     OperatorConstants.Columns.NAME: "Public",
@@ -79,7 +81,7 @@ class TestOperatorMetadata:
                 },
             }
         }
-        mock_operator_instance.get_required_features.return_value = []
+        mock_operator_class.get_required_features.return_value = []
 
         mock_operator_class.return_value = mock_operator_instance
         mock_factory.operators = {"test_op": mock_operator_class}
@@ -104,7 +106,8 @@ class TestOperatorMetadata:
         mock_operator_class = Mock()
         mock_operator_instance = Mock()
 
-        mock_operator_instance.get_metadata.return_value = {
+        # get_metadata() is now a static method on the class
+        mock_operator_class.get_metadata.return_value = {
             OperatorConstants.Config.FEATURES: {
                 "public_feature": {
                     OperatorConstants.Columns.NAME: "Public",
@@ -315,7 +318,8 @@ class TestOperatorMetadata:
         mock_operator_class = Mock()
         mock_operator_instance = Mock()
 
-        mock_operator_instance.get_metadata.return_value = {
+        # get_metadata() is now a static method on the class
+        mock_operator_class.get_metadata.return_value = {
             OperatorConstants.Config.FEATURES: {
                 "feature1": {
                     OperatorConstants.Columns.NAME: "Feature 1",

@@ -108,28 +108,15 @@ class TestIngestLocalOperator:
 
     def test_get_metadata(self, temp_test_dir):
         """Test get_metadata method"""
-        # Test metadata-only mode with binary content
-        config = {"store_binary_content": True, "input_folder": temp_test_dir}
-        operator = IngestLocalOperator(config)
-        metadata = operator.get_metadata()
+        # get_metadata() is now static and always returns all possible features
+        # regardless of instance configuration
+        metadata = IngestLocalOperator.get_metadata()
 
         assert "features" in metadata
         assert "path" in metadata["features"]
-        assert "binary_content" in metadata["features"]
+        assert "binary_content" in metadata["features"]  # Always present in metadata
         assert "attributes" in metadata
         assert "store_binary_content" in metadata["attributes"]
-
-        # Test metadata-only mode without binary content
-        config_no_binary = {
-            "store_binary_content": False,
-            "input_folder": temp_test_dir,
-        }
-        operator_no_binary = IngestLocalOperator(config_no_binary)
-        metadata_no_binary = operator_no_binary.get_metadata()
-
-        assert "features" in metadata_no_binary
-        assert "path" in metadata_no_binary["features"]
-        assert "binary_content" not in metadata_no_binary["features"]
 
 
 def test_ingest_local_operator_basic():

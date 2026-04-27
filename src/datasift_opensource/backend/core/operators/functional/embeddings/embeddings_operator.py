@@ -166,9 +166,10 @@ class EmbeddingsOperator(AbstractOperator):
         except Exception as e:
             raise DatasiftException(f"Failed to initialize embedding adapter '{self.embeddings_type}': {e!s}") from e
 
-    def get_required_features(self) -> list[str]:
+    @staticmethod
+    def get_required_features() -> list[str]:
         """Return list of required input features."""
-        return [self.doc_column]
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
@@ -202,7 +203,8 @@ class EmbeddingsOperator(AbstractOperator):
             if not self.embeddings_model_id or not isinstance(self.embeddings_model_id, str):
                 errors.append("embeddings_model_id must be a non-empty string")
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """
         Return operator metadata for UI and documentation.
 
@@ -212,7 +214,7 @@ class EmbeddingsOperator(AbstractOperator):
         return {
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: OperatorCategory.Functional.value,
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: EmbeddingsOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Embeddings",
             OperatorConstants.Config.DESCRIPTION: "Generate vector embeddings using Ollama, HuggingFace, or 100+ providers via LiteLLM (OpenAI, Azure, Cohere, watsonx.ai, etc.)",
             OperatorConstants.Config.FEATURES: {

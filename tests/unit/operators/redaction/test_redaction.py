@@ -138,12 +138,12 @@ class TestRedactionOperator:
         assert OperatorConstants.Config.ATTRIBUTES in metadata
 
     def test_get_required_features(self):
-        """Test get_required_features returns doc_column"""
+        """Test get_required_features returns default doc_column"""
         config = {"doc_column": "my_content", "redaction_regex": "test"}
         operator = RedactionOperator(config=config)
         required = operator.get_required_features()
 
-        assert required == ["my_content"]
+        assert required == ["content"]  # Returns default column name
 
     def test_validate_with_empty_pattern(self):
         """Test validation warns when pattern is empty"""
