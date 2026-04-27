@@ -83,10 +83,11 @@ class OllamaEntityAdapter(EntityExtractionPort):
         self.max_doc_chars = int(config.get(OperatorConstants.LLM.MAX_DOC_CHARS, 8000))
 
         # Initialize Ollama client (lazy import to avoid breaking ollama due to import chain issues)
-        from common.clients.ollama_client import OllamaClient
+        from common.clients.ollama_client import InteractionMode, OllamaClient
 
         self.ollama_client = OllamaClient(
             model_name=self.model_name,
+            mode=InteractionMode.CHAT,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
             max_doc_chars=self.max_doc_chars,

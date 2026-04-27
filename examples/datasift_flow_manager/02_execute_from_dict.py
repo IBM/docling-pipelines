@@ -57,7 +57,7 @@ def main():
                 "config": {
                     "input_folder": "./tests/fixtures/invoices",
                     "include_filter": "pdf",
-                    "store_binary_content": "false",
+                    "store_binary_content": False,
                 },
                 "input_edges": [],
                 "output_edges": [{"node_id_ref": "extract-node"}],

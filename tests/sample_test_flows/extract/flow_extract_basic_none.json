@@ -18,7 +18,7 @@
         "config": {
           "input_folder": "../../../tests/fixtures/invoices",
           "include_filter": "pdf,docx,txt",
-          "store_binary_content": "true"
+          "store_binary_content": true
         },
         "input_edges": [],
         "output_edges": [

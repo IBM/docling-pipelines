@@ -16,9 +16,9 @@
         "name": "ingest",
         "operator": "ingest_local",
         "config": {
-          "input_folder": "/Users/anudeep/Documents/Projects/extract_entities/ingest/",
+          "input_folder": "./tests/fixtures/invoices",
           "include_filter": "txt,pdf,docx",
-          "store_binary_content": "true",
+          "store_binary_content": true,
           "max_workers": 2
         },
         "input_edges": [],

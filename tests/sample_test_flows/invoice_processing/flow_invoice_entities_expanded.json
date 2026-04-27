@@ -18,7 +18,7 @@
         "config": {
           "input_folder": "tests/fixtures/invoices",
           "include_filter": ".pdf",
-          "store_binary_content": "true",
+          "store_binary_content": true,
           "max_workers": 2
         },
         "input_edges": [],
@@ -41,11 +41,13 @@
           "entity_temperature": 0.0,
           "expand_extracted_data": true,
           "custom_schema": {
-            "vendor_name": "string",
-            "invoice_date": "string",
-            "invoice_number": "string",
-            "total_amount": "float",
-            "grand_total": "float"
+            "columns": {
+              "vendor_name": "string",
+              "invoice_date": "string",
+              "invoice_number": "string",
+              "total_amount": "float",
+              "grand_total": "float"
+            }
           }
         },
         "input_edges": [

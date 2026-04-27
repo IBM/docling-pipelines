@@ -18,7 +18,7 @@
         "config": {
           "input_folder": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
           "include_filter": ".pdf",
-          "store_binary_content": "true",
+          "store_binary_content": true,
           "max_workers": 2
         },
         "input_edges": [],

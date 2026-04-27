@@ -518,10 +518,9 @@ class ChunkerOperator(AbstractOperator):
         # Use explicit parameters instead of **kwargs to satisfy mypy type checking
         # Cast breakpoint_threshold_type to the expected Literal type for mypy
         threshold_type = cast(
-            Literal["percentile", "standard_deviation", "interquartile", "gradient"],
-            self.breakpoint_threshold_type
+            Literal["percentile", "standard_deviation", "interquartile", "gradient"], self.breakpoint_threshold_type
         )
-        
+
         if self.breakpoint_threshold_amount is not None:
             text_splitter = SemanticChunker(
                 embeddings=embeddings,
@@ -764,10 +763,21 @@ class ChunkerOperator(AbstractOperator):
                 f"Creating chunks for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} with {self.chunk_type.lower()} chunk type",
                 extra=self.common_log_arguments,
             )
-            content: str = doc[self.doc_column]
-            if not content:
+
+            # Check if the column exists first
+            if self.doc_column not in doc:
                 raise DatasiftException(
-                    f"The column '{self.doc_column}' was not found in the input data. This may be due to the use of the merge operator with the 'columns' merge type. For this flow, please use the 'rows' merge type instead."
+                    f"The column '{self.doc_column}' was not found in the input data. "
+                    f"Available columns: {list(doc.keys())}. "
+                    f"This may occur if: (1) the previous extraction operator failed to produce content, "
+                    f"(2) the doc_column configuration doesn't match between operators, or "
+                    f"(3) a merge operator is using 'columns' merge type instead of 'rows'."
+                )
+
+            content: str = doc[self.doc_column]
+            if not content or (isinstance(content, str) and not content.strip()):
+                raise DatasiftException(
+                    f"The column '{self.doc_column}' exists but contains empty or whitespace-only content."
                 )
             chunks: list[Document] = self._split_text(content)
         except Exception as exc:

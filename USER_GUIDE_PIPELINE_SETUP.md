@@ -644,7 +644,7 @@ Reads files from a local directory:
   "config": {
     "input_folder": "./tests/fixtures/invoices",
     "include_filter": ".pdf",
-    "store_binary_content": "true",
+    "store_binary_content": true,
     "max_workers": 2
   },
   "input_edges": [],
