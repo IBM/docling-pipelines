@@ -3,7 +3,9 @@ import os
 from common.constants import DatasiftConstants, ExecutionStatus
 from common.exceptions.error_codes import ErrorCode
 from common.models.session_info import get_session_info
-from common.util import get_data_path, get_logger, log_elapsed_time
+from common.util.infrastructure.filesystem import get_data_path
+from common.util.infrastructure.logging import get_logger
+from common.util.infrastructure.performance import log_elapsed_time
 from common.util.job_tracker.tracker.job_tracker import JobTracker
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_flow_execution_event_handler import AbstractFlowExecutionEventHandler
@@ -61,9 +63,10 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 self.node_logger.log_error_in_previous_step(
                     node_id=node_id, node_name=node_name, global_config=global_config
                 )
-        self.node_logger.log_cancellation_or_abort_if_needed(
-            node_id=node_id, node_name=node_name, job_status=job_status, global_config=global_config
-        )
+        if self.node_logger:
+            self.node_logger.log_cancellation_or_abort_if_needed(
+                node_id=node_id, node_name=node_name, job_status=job_status, global_config=global_config
+            )
 
     def after_step_execution_complete(
         self, *, node_id, node_name, operator_category, operator, global_config, is_last_step, metadata, start_time
@@ -76,7 +79,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         )
         log_elapsed_time(start_time=start_time, operator=operator)
 
-        if is_last_step:
+        if is_last_step and self.node_logger:
             self.node_logger.log_branch_completion(node_id=node_id, node_name=node_name, global_config=global_config)
 
     def after_node_skipped(self, *, node_id, node_name, operator, global_config, start_time, end_time, column_names):
