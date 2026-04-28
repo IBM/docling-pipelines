@@ -38,16 +38,15 @@ class IngestLocalOperator(AbstractOperator):
     """
     Metadata-only ingest operator for loading file metadata from a local folder.
 
-    This operator discovers files, collects metadata, and optionally stores binary content
-    for downstream extraction operators. It does NOT extract text content - that is handled
-    by specialized extraction operators like ExtractOperator.
+    This operator discovers files and collects metadata for downstream extraction operators.
+    It does NOT extract text content - that is handled by specialized extraction operators
+    like ExtractOperator.
 
     Supports:
     - Recursive directory traversal
     - File filtering by extension (include/exclude)
     - File size and count limits
     - Incremental updates (skip previously processed files)
-    - Binary content storage for downstream extraction
     """
 
     short_name = OperatorConstants.Operators.INGEST_LOCAL
@@ -63,7 +62,6 @@ class IngestLocalOperator(AbstractOperator):
         - exclude_filter: Comma-separated list of file extensions to exclude
         - max_files: Maximum number of files to ingest
         - max_file_size: Maximum file size in MB (larger files are skipped)
-        - store_binary_content: Whether to store binary content for downstream extraction (default: True)
         - force_ingest: Force re-ingestion of previously processed documents
         - retain_deleted_docs: Whether to retain documents that have been deleted from source
         """
@@ -85,9 +83,6 @@ class IngestLocalOperator(AbstractOperator):
             DatasiftConstants.RETAIN_DELETED_DOCS,
             DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT,
         )
-
-        # Metadata-only mode configuration
-        self.store_binary_content: bool = config.get("store_binary_content", True)
 
         # Will be initialized in transform method
         self.previously_processed_docs_dict: dict[str, Any] | None = None
@@ -258,12 +253,10 @@ class IngestLocalOperator(AbstractOperator):
         metadata: dict[str, Any],
     ) -> bool:
         """
-        Store file metadata and optionally binary content for downstream extraction.
+        Store file path for downstream extraction.
 
         This method does NOT extract text content - it prepares files for downstream
-        extraction operators by storing:
-        - File path (always)
-        - Binary content (if store_binary_content is True)
+        extraction operators by storing the file path.
 
         Args:
             file: Filename
@@ -280,28 +273,19 @@ class IngestLocalOperator(AbstractOperator):
             extra=self.common_log_arguments,
         )
         try:
-            # Always store the path
+            # Store the file path
             doc["path"] = file_abs_path
-
-            # Optionally store binary content
-            if self.store_binary_content:
-                with open(file_abs_path, "rb") as f:
-                    doc["binary_content"] = f.read()
-                logger.info(
-                    f"Stored binary content ({len(doc['binary_content'])} bytes) for: {file_abs_path}",
-                    extra=self.common_log_arguments,
-                )
             return True
         except Exception as exc:
             logger.error(
-                f"An error occurred while reading file: {file_abs_path}",
+                f"An error occurred while processing file: {file_abs_path}",
                 extra=self.common_log_arguments,
             )
             self.record_failed_document(
                 metadata=metadata,
                 doc_id=str(file_stats.st_ino),
                 doc_name=file_abs_path,
-                reason=f"Couldn't read the file {file_abs_path} due to {exc!s}",
+                reason=f"Couldn't process the file {file_abs_path} due to {exc!s}",
             )
             return False
 
@@ -372,13 +356,6 @@ class IngestLocalOperator(AbstractOperator):
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 },
-                "binary_content": {
-                    OperatorConstants.Columns.NAME: "Binary Content",
-                    OperatorConstants.Config.DESCRIPTION: "The binary content of the document for downstream extraction",
-                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
-                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-                },
                 OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
                     OperatorConstants.Columns.NAME: "Hash ID",
                     OperatorConstants.Config.DESCRIPTION: "Hash ID of the row",
@@ -406,13 +383,6 @@ class IngestLocalOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: "pdf,docx,pptx,txt,md",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
-                },
-                "store_binary_content": {
-                    OperatorConstants.Columns.NAME: "Store Binary Content",
-                    OperatorConstants.Config.DESCRIPTION: "Whether to store binary content for downstream extraction",
-                    OperatorConstants.Config.DEFAULT: True,
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
             },
         }

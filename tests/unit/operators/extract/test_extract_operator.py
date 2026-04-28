@@ -73,7 +73,9 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     assert len(first_hash) > 0, "Hash should not be empty"
 
     # Check metadata
-    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
+    assert metadata["total_docs_count"] == table.num_rows, (
+        "Total docs should match input rows"
+    )
     assert metadata["processed_docs"] > 0, "Should have processed at least one document"
 
 
@@ -199,7 +201,9 @@ def test_extract_operator_docling_serve_with_ocr_languages():
 
 
 @pytest.mark.unit
-def test_extract_operator_docling_library_with_entity_extraction_ollama(sample_pdf_files):
+def test_extract_operator_docling_library_with_entity_extraction_ollama(
+    sample_pdf_files,
+):
     """Test ExtractOperator with docling_library text extraction + Ollama entity extraction."""
     import json
     from unittest.mock import Mock, patch
@@ -237,7 +241,11 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(sample_p
         "extract_tables": True,
         "extract_images": False,
         "max_workers": 2,
-        "custom_schema": {"invoice_number": "string", "total_amount": "number", "date": "string"},
+        "custom_schema": {
+            "invoice_number": "string",
+            "total_amount": "number",
+            "date": "string",
+        },
     }
 
     # Mock the Ollama client to avoid actual API calls
@@ -513,9 +521,16 @@ def test_extract_operator_empty_table():
 
     # Create empty table
     schema = pa.schema(
-        [("id", pa.string()), ("name", pa.string()), ("path", pa.string()), ("binary_content", pa.binary())]
+        [
+            ("id", pa.string()),
+            ("name", pa.string()),
+            ("path", pa.string()),
+            ("binary_content", pa.binary()),
+        ]
     )
-    table = pa.table({"id": [], "name": [], "path": [], "binary_content": []}, schema=schema)
+    table = pa.table(
+        {"id": [], "name": [], "path": [], "binary_content": []}, schema=schema
+    )
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -536,7 +551,12 @@ def _build_pdf_input_table(*, sample_pdf_files, max_files: int = 1):
     import pyarrow as pa
 
     test_files = sample_pdf_files[:max_files]
-    file_data: dict[str, list[Any]] = {"id": [], "name": [], "path": [], "binary_content": []}
+    file_data: dict[str, list[Any]] = {
+        "id": [],
+        "name": [],
+        "path": [],
+        "binary_content": [],
+    }
 
     for file_path in test_files:
         with open(file_path, "rb") as file_handle:
@@ -568,7 +588,9 @@ def test_extract_operator_litellm_entity_mode():
         "custom_schema": {"company": "string", "date": "string"},
     }
 
-    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_litellm_class:
+    with patch(
+        "common.clients.litellm_llm_client.LiteLLMLLMClient"
+    ) as mock_litellm_class:
         mock_litellm_class.return_value = Mock()
 
         operator = ExtractOperator(config=config)
@@ -579,7 +601,9 @@ def test_extract_operator_litellm_entity_mode():
 
 
 @pytest.mark.unit
-def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(sample_pdf_files):
+def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
+    sample_pdf_files,
+):
     """Execute ExtractOperator with LiteLLM schema-based entity extraction."""
     from core.operators.extract.extract_operator import ExtractOperator
 
@@ -615,7 +639,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
         "total_amount": 1500.0,
     }
 
-    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_litellm_class:
+    with patch(
+        "common.clients.litellm_llm_client.LiteLLMLLMClient"
+    ) as mock_litellm_class:
         mock_instance = Mock()
         mock_instance.chat.return_value = json.dumps(mocked_entities)
         mock_litellm_class.return_value = mock_instance
@@ -652,7 +678,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
 
 
 @pytest.mark.unit
-def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_free(sample_pdf_files):
+def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_free(
+    sample_pdf_files,
+):
     """Execute ExtractOperator with LiteLLM schema-free entity extraction."""
     from core.operators.extract.extract_operator import ExtractOperator
 
@@ -682,7 +710,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
         "organization": "Acme Corp",
     }
 
-    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_litellm_class:
+    with patch(
+        "common.clients.litellm_llm_client.LiteLLMLLMClient"
+    ) as mock_litellm_class:
         mock_instance = Mock()
         mock_instance.chat.return_value = json.dumps(mocked_entities)
         mock_litellm_class.return_value = mock_instance
@@ -709,7 +739,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
 
 
 @pytest.mark.unit
-def test_extract_operator_docling_library_with_entity_extraction_litellm_expanded_columns(sample_pdf_files):
+def test_extract_operator_docling_library_with_entity_extraction_litellm_expanded_columns(
+    sample_pdf_files,
+):
     """Execute ExtractOperator with LiteLLM entity extraction and expanded columns."""
     from core.operators.extract.extract_operator import ExtractOperator
 
@@ -746,7 +778,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
         "total_amount": 2750.5,
     }
 
-    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_litellm_class:
+    with patch(
+        "common.clients.litellm_llm_client.LiteLLMLLMClient"
+    ) as mock_litellm_class:
         mock_instance = Mock()
         mock_instance.chat.return_value = json.dumps(mocked_entities)
         mock_litellm_class.return_value = mock_instance
@@ -826,17 +860,15 @@ def test_extract_operator_invalid_entity_extraction_mode_error():
 
 @pytest.mark.unit
 def test_extract_operator_missing_required_columns(sample_pdf_files):
-    """Test ExtractOperator with table missing required columns."""
+    """Test ExtractOperator with table missing both path and binary content."""
     import pyarrow as pa
 
     from core.operators.extract.extract_operator import ExtractOperator
 
-    # Create table without binary_content column
     table = pa.table(
         {
             "id": ["doc1"],
             "name": ["test.pdf"],
-            # Missing binary_content column
         }
     )
 
@@ -846,11 +878,8 @@ def test_extract_operator_missing_required_columns(sample_pdf_files):
     }
 
     operator = ExtractOperator(config=config)
-
-    # Should handle gracefully - operator will skip documents without content
     result_tables, metadata = operator.transform(table)
 
-    # Verify it handled the missing column gracefully
     assert len(result_tables) == 1
     assert metadata["failed_docs_count"] > 0 or metadata["skipped_docs_count"] > 0
 
@@ -1106,7 +1135,10 @@ def test_extract_operator_docling_library_vlm_all_parameters():
         "entity_extraction_mode": "none",
         "vlm_preset": "granite_docling",
         "vlm_engine_type": "transformers",
-        "vlm_provider_config": {"api_key": "test-key", "api_base_url": "http://localhost:8000"},
+        "vlm_provider_config": {
+            "api_key": "test-key",
+            "api_base_url": "http://localhost:8000",
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -1161,20 +1193,38 @@ def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_ch
     text_metadata = {
         Metrics.External.TOTAL_DOCS: 5,
         Metrics.External.FAILED_DOCS: [
-            {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "text failed"},
-            {OperatorConstants.Columns.ID: "doc-2", OperatorConstants.Misc.REASON: "text timeout"},
+            {
+                OperatorConstants.Columns.ID: "doc-1",
+                OperatorConstants.Misc.REASON: "text failed",
+            },
+            {
+                OperatorConstants.Columns.ID: "doc-2",
+                OperatorConstants.Misc.REASON: "text timeout",
+            },
         ],
         Metrics.External.SKIPPED_DOCS: [
-            {OperatorConstants.Columns.ID: "doc-3", OperatorConstants.Misc.REASON: "text skipped"},
+            {
+                OperatorConstants.Columns.ID: "doc-3",
+                OperatorConstants.Misc.REASON: "text skipped",
+            },
         ],
     }
     entity_metadata = {
         Metrics.External.FAILED_DOCS: [
-            {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "entity failed"},
-            {OperatorConstants.Columns.ID: "doc-4", OperatorConstants.Misc.REASON: "entity parse failed"},
+            {
+                OperatorConstants.Columns.ID: "doc-1",
+                OperatorConstants.Misc.REASON: "entity failed",
+            },
+            {
+                OperatorConstants.Columns.ID: "doc-4",
+                OperatorConstants.Misc.REASON: "entity parse failed",
+            },
         ],
         Metrics.External.SKIPPED_DOCS: [
-            {OperatorConstants.Columns.ID: "doc-3", OperatorConstants.Misc.REASON: "entity skipped"},
+            {
+                OperatorConstants.Columns.ID: "doc-3",
+                OperatorConstants.Misc.REASON: "entity skipped",
+            },
         ],
     }
 
@@ -1183,14 +1233,23 @@ def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_ch
         entity_metadata=entity_metadata,
     )
 
-    failed_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.FAILED_DOCS]}
-    skipped_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.SKIPPED_DOCS]}
+    failed_docs = {
+        doc[OperatorConstants.Columns.ID]: doc
+        for doc in consolidated[Metrics.External.FAILED_DOCS]
+    }
+    skipped_docs = {
+        doc[OperatorConstants.Columns.ID]: doc
+        for doc in consolidated[Metrics.External.SKIPPED_DOCS]
+    }
 
     assert consolidated[Metrics.External.TOTAL_DOCS] == 5
     assert consolidated[Metrics.External.FAILED_DOCS_COUNT] == 3
     assert consolidated[Metrics.External.SKIPPED_DOCS_COUNT] == 1
     assert consolidated[Metrics.External.PROCESSED_DOCS] == 1
-    assert consolidated[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS
+    assert (
+        consolidated[Metrics.External.NODE_STATUS]
+        == ExecutionStatus.COMPLETED_WITH_ERRORS
+    )
 
     assert failed_docs["doc-1"][OperatorConstants.Misc.REASON] == (
         "Text extraction: text failed | Entity extraction: entity failed"
@@ -1305,6 +1364,40 @@ def test_prepare_document_content_fetch_uses_path_when_id_missing():
 
 
 @pytest.mark.unit
+def test_extract_operator_prefers_path_only_input_without_binary_content(
+    sample_pdf_files,
+):
+    """Test ExtractOperator succeeds when only path is provided."""
+    import pyarrow as pa
+
+    from core.operators.extract.extract_operator import ExtractOperator
+
+    test_file = sample_pdf_files[0]
+    table = pa.table(
+        {
+            "path": [str(test_file)],
+            "name": [test_file.name],
+        }
+    )
+
+    operator = ExtractOperator(
+        config={
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "doc_column": "doc_content",
+            "extract_tables": False,
+            "extract_images": False,
+        }
+    )
+    result_tables, metadata = operator.transform(table=table)
+    result_table = result_tables[0]
+
+    assert len(result_tables) == 1
+    assert result_table["doc_content"][0].as_py()
+    assert metadata["processed_docs"] == 1
+
+
+@pytest.mark.unit
 def test_consolidate_metadata_merges_document_in_both_failed_lists():
     """Test that a document failing in both text and entity extraction has merged reasons."""
     from unittest.mock import patch
@@ -1327,14 +1420,23 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
         text_metadata = {
             Metrics.External.TOTAL_DOCS: 3,
             Metrics.External.FAILED_DOCS: [
-                {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "text extraction timeout"},
-                {OperatorConstants.Columns.ID: "doc-2", OperatorConstants.Misc.REASON: "text parsing error"},
+                {
+                    OperatorConstants.Columns.ID: "doc-1",
+                    OperatorConstants.Misc.REASON: "text extraction timeout",
+                },
+                {
+                    OperatorConstants.Columns.ID: "doc-2",
+                    OperatorConstants.Misc.REASON: "text parsing error",
+                },
             ],
             Metrics.External.SKIPPED_DOCS: [],
         }
         entity_metadata = {
             Metrics.External.FAILED_DOCS: [
-                {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "entity model unavailable"},
+                {
+                    OperatorConstants.Columns.ID: "doc-1",
+                    OperatorConstants.Misc.REASON: "entity model unavailable",
+                },
             ],
             Metrics.External.SKIPPED_DOCS: [],
         }
@@ -1344,7 +1446,10 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
             entity_metadata=entity_metadata,
         )
 
-        failed_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.FAILED_DOCS]}
+        failed_docs = {
+            doc[OperatorConstants.Columns.ID]: doc
+            for doc in consolidated[Metrics.External.FAILED_DOCS]
+        }
 
         # Verify doc-1 appears once with merged reasons
         assert len(consolidated[Metrics.External.FAILED_DOCS]) == 2
@@ -1354,7 +1459,9 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
         )
         # Verify doc-2 appears with only text reason
         assert "doc-2" in failed_docs
-        assert failed_docs["doc-2"][OperatorConstants.Misc.REASON] == "text parsing error"
+        assert (
+            failed_docs["doc-2"][OperatorConstants.Misc.REASON] == "text parsing error"
+        )
 
 
 @pytest.mark.unit
@@ -1381,14 +1488,23 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
             Metrics.External.TOTAL_DOCS: 3,
             Metrics.External.FAILED_DOCS: [],
             Metrics.External.SKIPPED_DOCS: [
-                {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "text unsupported format"},
-                {OperatorConstants.Columns.ID: "doc-2", OperatorConstants.Misc.REASON: "text empty content"},
+                {
+                    OperatorConstants.Columns.ID: "doc-1",
+                    OperatorConstants.Misc.REASON: "text unsupported format",
+                },
+                {
+                    OperatorConstants.Columns.ID: "doc-2",
+                    OperatorConstants.Misc.REASON: "text empty content",
+                },
             ],
         }
         entity_metadata = {
             Metrics.External.FAILED_DOCS: [],
             Metrics.External.SKIPPED_DOCS: [
-                {OperatorConstants.Columns.ID: "doc-1", OperatorConstants.Misc.REASON: "entity no schema match"},
+                {
+                    OperatorConstants.Columns.ID: "doc-1",
+                    OperatorConstants.Misc.REASON: "entity no schema match",
+                },
             ],
         }
 
@@ -1397,7 +1513,10 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
             entity_metadata=entity_metadata,
         )
 
-        skipped_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.SKIPPED_DOCS]}
+        skipped_docs = {
+            doc[OperatorConstants.Columns.ID]: doc
+            for doc in consolidated[Metrics.External.SKIPPED_DOCS]
+        }
 
         # Verify doc-1 appears once with merged reasons
         assert len(consolidated[Metrics.External.SKIPPED_DOCS]) == 2
@@ -1407,4 +1526,6 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
         )
         # Verify doc-2 appears with only text reason
         assert "doc-2" in skipped_docs
-        assert skipped_docs["doc-2"][OperatorConstants.Misc.REASON] == "text empty content"
+        assert (
+            skipped_docs["doc-2"][OperatorConstants.Misc.REASON] == "text empty content"
+        )

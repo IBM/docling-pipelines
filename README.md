@@ -227,7 +227,7 @@ This script automatically installs and configures:
 
 - Python 3.12 verification
 - uv package manager
-- Ollama with default models (granite4, llama2, nomic-embed-text)
+- Ollama with default models (granite4, llama3.2, nomic-embed-text)
 - OpenSearch with Dashboards
 - Python virtual environment and dependencies
 

@@ -456,12 +456,16 @@ class ExtractOperator(AbstractOperator):
         1. First performs text extraction using text_adapter
         2. Then performs entity extraction using entity_adapter (if enabled)
 
+        Text extraction reads document bytes from file paths provided by ingest operators.
+        The extraction utilities resolve bytes from either the 'path' column (primary)
+        or 'binary_content' column (backward compatibility fallback).
+
         Args:
             table: PyArrow table with document information containing columns:
                 - id: Document ID
                 - name: Document name/filename
-                - path: Document path (optional)
-                - binary_content: Binary content of the document (optional)
+                - path: File path to document (primary input from local ingest)
+                - binary_content: Pre-loaded binary content (optional, for backward compatibility)
                 - document_type: Document type for template selection (optional)
             file_name: Optional file name for logging
             metadata: Optional metadata dictionary to update

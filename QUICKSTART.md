@@ -44,7 +44,7 @@ chmod +x scripts/setup_datasift_environment.sh
 
 **What this installs:**
 - ✅ uv package manager
-- ✅ Ollama server + models (granite4, llama2, nomic-embed-text)
+- ✅ Ollama server + models (granite4, llama3.2, nomic-embed-text)
 - ✅ OpenSearch + Dashboards (for vector storage)
 - ✅ Python virtual environment + dependencies
 

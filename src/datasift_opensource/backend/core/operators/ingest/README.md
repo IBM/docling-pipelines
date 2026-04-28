@@ -27,7 +27,6 @@ This directory also includes source adapters used by `IngestSourceOperator`, inc
 | `exclude_filter` | string | `None` | Comma-separated list of file extensions to exclude |
 | `max_files` | integer | `100` | Maximum number of files to ingest |
 | `max_file_size` | integer | `100` | Maximum file size in MB (files larger than this are skipped) |
-| `store_binary_content` | boolean | `true` | Whether to store binary content for downstream extraction |
 | `force_ingest` | boolean | `false` | Force re-ingestion of previously processed documents |
 | `retain_deleted_docs` | boolean | `true` | Whether to retain documents that have been deleted from the source |
 
@@ -38,14 +37,13 @@ This directory also includes source adapters used by `IngestSourceOperator`, inc
 | `id` | string | Document ID (file inode) |
 | `name` | string | File path |
 | `path` | string | Absolute file path |
-| `binary_content` | bytes | Raw file content (if `store_binary_content=True`) |
 | `size` | integer | File size in bytes |
 | `created_time` | integer | Creation timestamp (Unix epoch) |
 | `modified_time` | integer | Modification timestamp (Unix epoch) |
 
 ## Usage Examples
 
-### Example 1: Basic Metadata-Only Mode with Binary Content
+### Example 1: Basic Usage
 
 ```python
 from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
@@ -53,7 +51,6 @@ from core.operators.universal.ingest.ingest_local_folder import IngestLocalOpera
 config = {
     "input_folder": "data/documents",
     "include_filter": "pdf,docx,pptx",
-    "store_binary_content": True,
     "max_files": 100
 }
 
@@ -65,13 +62,12 @@ print(f"Ingested {table.num_rows} documents")
 print(f"Columns: {table.column_names}")
 ```
 
-### Example 2: Path-Only Mode (No Binary Content)
+### Example 2: With File Filters
 
 ```python
 config = {
     "input_folder": "data/documents",
     "include_filter": "pdf",
-    "store_binary_content": False,  # Only store paths
     "max_files": 50
 }
 
@@ -88,8 +84,7 @@ from operators.universal.extract.extract_operator_operator import ExtractOperato
 # Step 1: Ingest metadata
 ingest_config = {
     "input_folder": "data/invoices",
-    "include_filter": "pdf",
-    "store_binary_content": True
+    "include_filter": "pdf"
 }
 
 ingest_op = IngestLocalOperator(ingest_config)
@@ -167,37 +162,23 @@ Metadata includes counts of:
 
 ## Performance Considerations
 
-### Memory Usage
-
-**With Binary Content** (`store_binary_content=True`):
-- Higher memory usage
-- Faster downstream extraction (no file I/O)
-- Recommended for small to medium datasets
-
-**Path-Only** (`store_binary_content=False`):
-- Lower memory usage
-- Requires file access during extraction
-- Recommended for large datasets or when files are on fast storage
-
 ### Batch Processing
 
 For very large datasets, consider:
 1. Using `max_files` to process in batches
-2. Setting `store_binary_content=False` to reduce memory
-3. Processing subdirectories separately
+2. Processing subdirectories separately
 
 ## Sequential Flow Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ IngestLocalOperator (Metadata-Only)                         │
+│ IngestLocalOperator                                          │
 │                                                              │
 │ Input: None                                                  │
 │ Output: PyArrow Table with:                                 │
 │   - id: Document ID (inode)                                 │
 │   - name: File path                                         │
 │   - path: Absolute file path                                │
-│   - binary_content: Raw file bytes (optional)               │
 │   - size: File size                                         │
 │   - created_time: Creation timestamp                        │
 │   - modified_time: Modification timestamp                   │

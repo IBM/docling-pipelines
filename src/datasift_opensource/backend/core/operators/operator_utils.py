@@ -695,11 +695,26 @@ class OperatorUtils:
         """
         Prepare to fetch document content from a PyArrow table row.
 
+        This method resolves document content using a path-based approach:
+        - Primary behavior: Reads file bytes from the 'path' column when 'binary_content' is absent
+        - Fallback behavior: Uses 'binary_content' column if present (for backward compatibility)
+        - Error handling: Raises ValueError if neither 'path' nor 'binary_content' exists
+
+        The path-based approach is the expected input from local ingest operators,
+        which provide file paths rather than loading entire files into memory.
+
         Args:
-            table: PyArrow table containing document data
+            table: PyArrow table containing document data with columns:
+                - path: File path to read document bytes from (primary input)
+                - binary_content: Pre-loaded binary content (optional, for backward compatibility)
+                - id: Document identifier (optional)
+                - name: Document name (optional)
 
         Returns:
-            returns a list of dicts with keys: idx, doc_id, doc_name, binary_content or error
+            List of dicts with keys: idx, doc_id, doc_name, binary_content or error
+
+        Raises:
+            ValueError: If neither 'path' nor 'binary_content' column exists for a document
 
         """
         doc_tasks = []

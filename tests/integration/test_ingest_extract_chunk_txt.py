@@ -35,7 +35,6 @@ class TestIngestExtractChunkTxtIntegration:
         ingest_config = {
             "input_folder": txt_fixtures_dir,
             "include_filter": "txt",  # Only .txt files
-            "store_binary_content": True,
             "max_files": 5,
             "force_ingest": True,  # Skip incremental processing for tests
         }
@@ -47,10 +46,10 @@ class TestIngestExtractChunkTxtIntegration:
         # Verify ingest output
         assert ingest_table.num_rows > 0, "Should have ingested .txt files"
         assert "path" in ingest_table.column_names, "Should have path column"
-        assert "binary_content" in ingest_table.column_names, (
-            "Should have binary_content column"
+        assert "binary_content" not in ingest_table.column_names
+        assert "doc_content" not in ingest_table.column_names, (
+            "Should NOT have doc_content yet"
         )
-        assert "doc_content" not in ingest_table.column_names, "Should NOT have doc_content yet"
 
         print(f"Ingested {ingest_table.num_rows} .txt files")
         print(f"Ingest metadata: {ingest_metadata}")
@@ -71,7 +70,9 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Verify extract output
         assert extract_table.num_rows > 0, "Should have extracted content"
-        assert "doc_content" in extract_table.column_names, "Should have doc_content column"
+        assert "doc_content" in extract_table.column_names, (
+            "Should have doc_content column"
+        )
         assert "doc_id_hash" in extract_table.column_names, (
             "Should have doc_id_hash column"
         )
@@ -166,7 +167,6 @@ class TestIngestExtractChunkTxtIntegration:
         ingest_config = {
             "input_folder": str(parent_dir),
             "include_filter": "txt,pdf",  # Both file types
-            "store_binary_content": True,
             "max_files": 5,
             "force_ingest": True,
         }
@@ -234,7 +234,6 @@ def test_basic_txt_integration():
     # Quick integration test
     ingest_config = {
         "input_folder": str(txt_dir),
-        "store_binary_content": True,
         "include_filter": "txt",
         "max_files": 2,
         "force_ingest": True,

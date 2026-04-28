@@ -185,15 +185,13 @@ Category: Ingest
 Status: ✓ Available
 ================================================================================
 
-Output Features (3):
+Output Features (2):
   • path: File Path
-  • binary_content: Binary Content
   • doc_id_hash: Hash ID
 
-Configuration Parameters (3):
+Configuration Parameters (2):
   • max_file_size [OPTIONAL]: Max File Size (default: 100)
   • include_filter [OPTIONAL]: Include File Type (default: pdf,docx,pptx,txt,md)
-  • store_binary_content [OPTIONAL]: Store Binary Content (default: True)
 ```
 
 This feature is particularly useful for:

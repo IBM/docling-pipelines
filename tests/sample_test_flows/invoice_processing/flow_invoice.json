@@ -16,9 +16,8 @@
         "name": "ingest",
         "operator": "ingest_local",
         "config": {
-          "input_folder": "./tests/fixtures/invoices",
+          "input_folder": "tests/fixtures/invoices",
           "include_filter": ".pdf",
-          "store_binary_content": true,
           "max_workers": 2
         },
         "input_edges": [],
@@ -35,20 +34,7 @@
         "config": {
           "text_extraction_mode": "docling_library",
           "entity_extraction_mode": "docling",
-          "doc_column": "content",
-          "expand_extracted_data": true,
-          "template": {
-            "invoice_number": "string",
-            "invoice_date": "string",
-            "payment_due": "string",
-            "bill_to": "string",
-            "vendor_name": "string",
-            "vendor_address": "string",
-            "subtotal": "float",
-            "tax": "float",
-            "total": "float",
-            "grand_total": "float"
-          }
+          "doc_column": "content"
         },
         "input_edges": [
           {
@@ -87,7 +73,7 @@
         "operator": "embeddings",
         "config": {
           "embeddings_type": "ollama",
-          "embeddings_model_id": "llama2",
+          "embeddings_model_id": "llama3.2",
           "embeddings_column": "embeddings",
           "overlap_ratio": 0.2,
           "doc_column": "content"

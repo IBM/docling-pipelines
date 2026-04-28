@@ -69,7 +69,7 @@ This single command will:
 - Verify Python 3.12 installation
 - Install uv package manager
 - Install and start Ollama
-- Download default models (granite4, llama2, nomic-embed-text)
+- Download default models (granite4, llama3.2, nomic-embed-text)
 - Install Podman/Docker
 - Start OpenSearch with Dashboards
 - Create Python virtual environment and install dependencies
@@ -103,7 +103,7 @@ For more control over what gets installed:
 | Option | Description |
 |--------|-------------|
 | `--interactive` | Enable interactive mode with prompts for each step |
-| `--models MODEL1,MODEL2` | Specify Ollama models (comma-separated). Default: granite4,llama2,nomic-embed-text |
+| `--models MODEL1,MODEL2` | Specify Ollama models (comma-separated). Default: granite4,llama3.2,nomic-embed-text |
 | `--skip-ollama` | Skip Ollama installation and setup |
 | `--skip-opensearch` | Skip OpenSearch installation and setup |
 | `--skip-python` | Skip Python environment setup |
@@ -120,7 +120,7 @@ For more control over what gets installed:
 **Ollama (for LLM operations):**
 - Installs Ollama server
 - Starts Ollama service on `http://localhost:11434`
-- Downloads specified models (default: granite4, llama2, nomic-embed-text)
+- Downloads specified models (default: granite4, llama3.2, nomic-embed-text)
 
 **OpenSearch (for vector storage):**
 - Installs Podman or uses existing Docker
@@ -374,9 +374,9 @@ DataSift supports multiple Ollama models. For this guide, we'll use three models
 ollama pull granite4
 ```
 
-**2. Download llama2 (optional - alternative model):**
+**2. Download llama3.2 (optional - alternative model):**
 ```bash
-ollama pull llama2
+ollama pull llama3.2
 ```
 
 **3. Download nomic-embed-text (optimized for embeddings):**
@@ -386,7 +386,7 @@ ollama pull nomic-embed-text
 
 **Model sizes and download times:**
 - `granite4`: ~2.5GB (5-10 minutes)
-- `llama2`: ~3.8GB (10-15 minutes)
+- `llama3.2`: ~2GB (5-10 minutes)
 - `nomic-embed-text`: ~274MB (1-2 minutes)
 
 ### Verifying Ollama is Running
@@ -407,9 +407,9 @@ You should see a JSON response listing your downloaded models:
       "size": 2500000000
     },
     {
-      "name": "llama2:latest",
+      "name": "llama3.2:latest",
       "modified_at": "2024-01-15T10:45:00Z",
-      "size": 3800000000
+      "size": 2000000000
     },
     {
       "name": "nomic-embed-text:latest",
@@ -644,7 +644,6 @@ Reads files from a local directory:
   "config": {
     "input_folder": "./tests/fixtures/invoices",
     "include_filter": ".pdf",
-    "store_binary_content": true,
     "max_workers": 2
   },
   "input_edges": [],
@@ -848,7 +847,7 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 - **create_index**: Auto-create index if missing (default: true)
 - **vector_dimension**: Embedding dimension (default: 384, auto-detected from data)
   - **Must match the embedding model's output dimension**
-  - Common dimensions: `nomic-embed-text`: 768, `llama2`: 4096, `granite-embedding`: 384
+  - Common dimensions: `nomic-embed-text`: 768, `llama3.2`: 4096, `granite-embedding`: 384
   - The dimension in this configuration must exactly match the dimension produced by your embeddings operator
 - **engine**: KNN engine - faiss, lucene, nmslib (default: faiss)
 - **algorithm**: KNN algorithm - hnsw, ivf (default: hnsw)
@@ -1550,8 +1549,7 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "operator": "ingest_local",
                 "config": {
                     "input_folder": input_folder,
-                    "include_filter": "pdf,txt,docx",
-                    "store_binary_content": True,
+                    "include_filter": "pdf,txt,docx"
                 },
                 "input_edges": [],
                 "output_edges": [{"node_id_ref": "22222222-2222-4222-8222-222222222222"}],

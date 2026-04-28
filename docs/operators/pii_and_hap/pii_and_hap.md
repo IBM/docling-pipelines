@@ -249,8 +249,7 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
       "id": "ingest",
       "operator": "ingest_local",
       "config": {
-        "input_folder": "data/documents",
-        "store_binary_content": true
+        "input_folder": "data/documents"
       }
     },
     {

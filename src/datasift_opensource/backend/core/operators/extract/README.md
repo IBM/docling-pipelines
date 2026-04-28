@@ -384,8 +384,7 @@ The operator expects a PyArrow table with the following columns:
 |--------|------|----------|-------------|
 | `id` | string | Yes | Document identifier |
 | `name` | string | Yes | Document name/filename |
-| `path` | string | No | Document file path |
-| `binary_content` | binary | Yes | Binary content of the document |
+| `path` | string | Yes | Document file path |
 | `document_type` | string | No | Document type for template selection |
 
 ### Output Table Schema

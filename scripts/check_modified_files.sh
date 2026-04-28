@@ -15,7 +15,7 @@ echo -e "${YELLOW}Fetching modified files...${NC}"
 
 
 # Get list of modified Python files
-MODIFIED_FILES=$(git diff --name-only --diff-filter=ACMR main | grep '\.py$' || true)
+MODIFIED_FILES=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD origin/main)..HEAD | grep '\.py$' || true)
 
 if [ -z "$MODIFIED_FILES" ]; then
     echo -e "${GREEN}No modified Python files found.${NC}"

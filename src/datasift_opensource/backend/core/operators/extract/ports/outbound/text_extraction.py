@@ -36,6 +36,12 @@ class TextExtractionPort(ABC):
     Adapters implement the specific extraction logic via the extract_single_document
     method, which is called by the port's parallel processing framework.
 
+    Document Content Resolution:
+        The port expects input tables with a 'path' column (primary) from local ingest
+        operators. Document bytes are resolved from either:
+        - 'path' column: File path to read bytes from (primary behavior)
+        - 'binary_content' column: Pre-loaded bytes (backward compatibility fallback)
+
     Design Philosophy:
         Port = Orchestration + Parallel Processing
         Adapter = Specific Extraction Logic
@@ -214,13 +220,17 @@ class TextExtractionPort(ABC):
     ) -> Future:
         """Submit extraction task to executor.
 
+        Document bytes in the task are resolved from either the 'path' column
+        (primary behavior) or 'binary_content' column (backward compatibility)
+        by the prepare_document_content_fetch() utility method.
+
         Args:
             executor: ProcessPoolExecutor or ThreadPoolExecutor instance
             task: Document task dictionary containing:
                 - idx: Task index
                 - doc_id: Document ID
                 - doc_name: Document name/path
-                - binary_content: Binary document content
+                - binary_content: Binary document content (resolved from path or binary_content column)
 
         Returns:
             Future object for result retrieval

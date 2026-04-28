@@ -271,7 +271,7 @@ ollama pull granite4
 ollama pull nomic-embed-text
 
 # For entity extraction
-ollama pull llama2
+ollama pull llama3.2
 ```
 
 2. **Verify model is available:**
@@ -284,7 +284,7 @@ ollama list | grep granite4
 
 ```bash
 # granite4: ~2.5GB
-# llama2: ~3.8GB
+# llama3.2: ~2GB
 # nomic-embed-text: ~274MB
 ```
 

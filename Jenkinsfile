@@ -87,6 +87,9 @@ timestamps {
               # Install quality check tools using uv
               uv pip install ruff mypy detect-secrets types-requests types-cachetools
 
+              # Activate virtual environment
+              source .venv/bin/activate
+
               # Return to project root
               cd ../../..
 
