@@ -39,7 +39,11 @@ class NOOPOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
-        return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: NOOPOperator.is_available()}
+        return {
+            OperatorConstants.Misc.SDK: True,
+            OperatorConstants.Misc.CATEGORY: NOOPOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: NOOPOperator.is_available(),
+        }
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """

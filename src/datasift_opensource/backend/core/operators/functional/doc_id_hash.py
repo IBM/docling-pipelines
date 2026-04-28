@@ -6,7 +6,7 @@ import pyarrow as pa
 from data_processing.utils import TransformUtils
 from dpk_doc_id import DocIDTransform, doc_column_name_key, hash_column_name_key
 
-from common.constants.constants import Metrics
+from common.constants.constants import AttributeDataTypes, Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.logging import get_logger
 from core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -58,8 +58,29 @@ class DocIdHashOperator(AbstractOperator):
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
-        # This is an internal operator, not available for direct use in flows
-        return {OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False}
+
+        return {
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocIdHashOperator.is_available(),
+            OperatorConstants.Misc.CATEGORY: DocIdHashOperator.category.value,
+            OperatorConstants.Config.DESCRIPTION: "Generates document hash IDs by hashing content",
+            OperatorConstants.Config.ATTRIBUTES: {
+                OperatorConstants.Columns.DOC_COLUMN: {
+                    OperatorConstants.Misc.NAME: "Document Column",
+                    OperatorConstants.Config.DESCRIPTION: "Column containing document content for deduplication",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
+                    OperatorConstants.Columns.NAME: "Hash ID",
+                    OperatorConstants.Config.DESCRIPTION: "Hash ID of the row",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                    OperatorConstants.Misc.IS_PRIMARY: True,
+                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY, OperatorConstants.Misc.PRIMARY],
+                },
+            },
+        }
 
     def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """

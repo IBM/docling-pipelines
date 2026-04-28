@@ -21,9 +21,8 @@ Run:
     python examples/datasift_flow_manager/03_list_operators.py
 """
 
-
 # When installed as a package
-from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager
+from lib.datasift_flow_manager import DatasiftFlowManager
 
 
 def main():

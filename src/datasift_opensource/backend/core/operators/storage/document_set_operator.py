@@ -116,35 +116,49 @@ class DocumentSetOperator(AbstractOperator):
         except Exception as e:
             raise FlowValidationException(f"Failed to initialize DocumentSetOperator: {e}") from e
 
-    def get_metadata(self) -> dict[str, Any]:
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
         """Return operator metadata for flow validation and documentation.
 
         Returns:
             Dictionary containing operator metadata including parameters schema
         """
         return {
-            "name": "DocumentSetOperator",
-            "category": self.category.value,
-            "description": "Stores PyArrow table data in a document set with metadata tracking",
-            "parameters": {
-                "document_set_name": {"type": "string", "required": True, "description": "Name of the document set"},
-                "description": {"type": "string", "required": False, "description": "Description of the document set"},
-                "metadata": {"type": "object", "required": False, "description": "Additional metadata as JSON"},
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocumentSetOperator.is_available(),
+            OperatorConstants.Misc.CATEGORY: DocumentSetOperator.category.value,
+            OperatorConstants.Config.DESCRIPTION: "Stores PyArrow table data in a document set with metadata tracking",
+            OperatorConstants.Config.PARAMETERS: {
+                "document_set_name": {
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DESCRIPTION: "Name of the document set",
+                },
+                OperatorConstants.Config.DESCRIPTION: {
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DESCRIPTION: "Description of the document set",
+                },
+                OperatorConstants.Metadata.METADATA: {
+                    OperatorConstants.Misc.TYPE: "object",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DESCRIPTION: "Additional metadata as JSON",
+                },
                 "retain_deleted_docs": {
-                    "type": "boolean",
-                    "required": False,
-                    "default": False,
-                    "description": "Whether to retain soft-deleted documents",
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_BOOL,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Config.DESCRIPTION: "Whether to retain soft-deleted documents",
                 },
                 "document_set_id": {
-                    "type": "string",
-                    "required": False,
-                    "description": "Existing document set ID for updates",
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DESCRIPTION: "Existing document set ID for updates",
                 },
             },
         }
 
-    def get_required_features(self) -> list[str]:
+    @staticmethod
+    def get_required_features() -> list[str]:
         """Return list of required columns in the input table.
 
         Returns:

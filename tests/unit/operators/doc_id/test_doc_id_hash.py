@@ -290,7 +290,7 @@ def test_get_metadata_is_operator_available_false():
     meta = DocIdHashOperator.get_metadata()
 
     assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in meta
-    assert meta[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is False
+    assert meta[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is True
 
 
 def test_get_metadata_returns_dict():

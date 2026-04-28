@@ -54,7 +54,6 @@ class TestOperatorMetadata:
         operator = DocumentSetOperator(basic_config)
         metadata = operator.get_metadata()
 
-        assert metadata["name"] == "DocumentSetOperator"
         assert metadata["category"] == OperatorCategory.Storage.value
         assert "description" in metadata
         assert "parameters" in metadata
