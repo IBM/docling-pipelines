@@ -23,7 +23,7 @@ class DocumentSourcePort[SourceConfig: BaseModel](ABC):
     """
 
     # Metadata for connector discovery and UI display
-    SOURCE_NAME: str | None = None  # Unique identifier (e.g., "filesystem", "s3", "google_drive")
+    SOURCE_NAME: str | None = None  # Unique identifier (e.g., "filesystem", "s3", "google_drive", "web")
     SOURCE_DISPLAY_NAME: str | None = None  # Human-readable name (e.g., "Local Filesystem")
     SOURCE_DESCRIPTION: str | None = None  # Brief description
     SOURCE_VERSION: str = "1.0.0"  # Semantic version

@@ -188,7 +188,7 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 #### IngestSourceOperator
 
-**Purpose:** Multi-provider ingest abstraction for sources such as object storage, SharePoint, OneDrive, Google Drive, and filesystem adapters.
+**Purpose:** Multi-provider ingest abstraction for sources such as object storage, SharePoint, OneDrive, Google Drive, web pages, and filesystem adapters.
 
 **Category:** Ingest
 

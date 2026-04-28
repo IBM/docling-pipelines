@@ -525,7 +525,7 @@ Initialize the operator with configuration.
 
 **Parameters:**
 - `node_config` (dict): Configuration dictionary containing:
-  - `provider` (str): Provider identifier (s3, ibm_cos, google_drive, sharepoint, onedrive, custom)
+  - `provider` (str): Provider identifier (s3, ibm_cos, google_drive, sharepoint, onedrive, web, custom)
   - `connection_params` (dict): Provider-specific connection parameters
   - `credentials` (dict): Authentication credentials
   - `job_id` (str, optional): Job identifier for tracking

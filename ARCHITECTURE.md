@@ -1718,6 +1718,7 @@ graph TB
         GDA[Google Drive Adapter]
         SPA[SharePoint Adapter]
         ODA[OneDrive Adapter]
+        WPA[WebPageSourceAdapter]
         CUST[Custom Loaders]
     end
 
@@ -1735,6 +1736,7 @@ graph TB
     SAF --> GDA
     SAF --> SPA
     SAF --> ODA
+    SAF --> WPA
     SAF --> CUST
 
     OBJA --> OBJ
@@ -1742,6 +1744,7 @@ graph TB
     GDA --> GD
     SPA --> MS
     ODA --> MS
+    WPA --> CUSTOM
     CUST --> CUSTOM
 
     style ISO fill:#ffe1e1
@@ -1751,6 +1754,7 @@ graph TB
     style GDA fill:#e1ffe1
     style SPA fill:#e1ffe1
     style ODA fill:#e1ffe1
+    style WPA fill:#e1ffe1
 ```
 
 **Supported Providers:**
@@ -1782,7 +1786,13 @@ graph TB
    - Folder hierarchy navigation
    - Shared drive access
 
-6. **Custom Loaders**: Extensible loader framework
+6. **Web Pages**: Recursive website and documentation crawling
+   - Backed by LangChain `RecursiveUrlLoader`
+   - Multi-URL crawl entry points
+   - Domain-bound crawling with optional external link following
+   - URL path exclusion patterns and configurable request timeouts
+
+7. **Custom Loaders**: Extensible loader framework
    - Dynamic loader import
    - LangChain-compatible interface
    - Provider-specific implementations
@@ -1905,12 +1915,34 @@ graph TB
 }
 ```
 
+**Web Pages:**
+```json
+{
+  "operator_type": "IngestSourceOperator",
+  "operator_params": {
+    "provider": "web",
+    "connection_params": {
+      "urls": [
+        "https://example.com",
+        "https://www.iana.org/domains/reserved"
+      ],
+      "max_depth": 2,
+      "prevent_outside": true,
+      "exclude_patterns": ["/admin", "/login", "/api"],
+      "timeout": 30
+    },
+    "credentials": {}
+  }
+}
+```
+
 **Key Features:**
 
 1. **Authentication Methods**:
    - Access key credentials (object storage, IBM COS)
    - OAuth2 client credentials (SharePoint, OneDrive)
    - Service account keys (Google Drive)
+   - No credentials required for public web crawling with the web adapter
    - Custom authentication for extensible loaders
 
 2. **Filtering Capabilities**:
@@ -1942,9 +1974,10 @@ graph TB
 1. **Multi-Source Document Ingestion**: Ingest documents from multiple storage providers in a single pipeline
 2. **Enterprise Content Migration**: Migrate documents from SharePoint/OneDrive to vector databases
 3. **Compliance Document Processing**: Process regulatory documents from object storage or IBM COS with audit trails
-4. **Knowledge Base Construction**: Build searchable knowledge bases from Google Drive folders
-5. **Hybrid Workflows**: Combine on-premises and cloud storage sources
-6. **Incremental Updates**: Efficiently process only new or modified documents
+4. **Knowledge Base Construction**: Build searchable knowledge bases from Google Drive folders or recursively crawled websites
+5. **Documentation Site Ingestion**: Crawl public documentation portals and marketing sites with `RecursiveUrlLoader`
+6. **Hybrid Workflows**: Combine on-premises, cloud storage, and web content sources
+7. **Incremental Updates**: Efficiently process only new or modified documents
 
 **Integration with Other Operators:**
 
@@ -2932,7 +2965,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 #### Ingest Operators (`ingest/`)
 
 - **IngestLocalOperator**: Local filesystem ingestion
-- **IngestSourceOperator**: Multi-provider data ingestion (object storage, IBM COS, SharePoint, OneDrive, Google Drive, custom loaders)
+- **IngestSourceOperator**: Multi-provider data ingestion (object storage, IBM COS, SharePoint, OneDrive, Google Drive, web pages, custom loaders)
 
 #### Functional Operators (`functional/`)
 

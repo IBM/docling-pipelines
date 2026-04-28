@@ -1,0 +1,170 @@
+{
+  "flow": {
+    "name": "Web Crawler to OpenSearch Pipeline",
+    "flow_id": "web-flow-001-0000-0000-000000000001",
+    "description": "Crawl web pages, extract content using Docling, chunk text, generate embeddings using Ollama, and store in OpenSearch. The ingest_source operator with web adapter crawls specified URLs. Requires Ollama running locally with the specified model.",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "global_config": {
+      "doc_column": "content",
+      "disable_validation": "true",
+      "force_ingest": true
+    },
+    "dag": [
+      {
+        "id": "11111111-1111-1111-1111-111111111111",
+        "name": "ingest_web",
+        "operator": "ingest_source",
+        "config": {
+          "provider": "web",
+          "connection_params": {
+            "urls": [
+              "https://example.com",
+              "https://www.iana.org/domains/reserved"
+            ],
+            "max_depth": 1,
+            "prevent_outside": true,
+            "exclude_patterns": [],
+            "timeout": 30
+          },
+          "max_files": 100,
+          "force_ingest": true,
+          "store_binary_content": true
+        },
+        "input_edges": [],
+        "output_edges": [
+          {
+            "node_id_ref": "22222222-2222-2222-2222-222222222222"
+          }
+        ]
+      },
+      {
+        "id": "22222222-2222-2222-2222-222222222222",
+        "name": "extract",
+        "operator": "extract_operator",
+        "config": {
+          "doc_column": "content",
+          "extract_tables": true,
+          "extract_images": false,
+          "max_workers": 4
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "11111111-1111-1111-1111-111111111111"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "33333333-3333-3333-3333-333333333333"
+          }
+        ]
+      },
+      {
+        "id": "33333333-3333-3333-3333-333333333333",
+        "name": "chunk",
+        "operator": "chunker",
+        "config": {
+          "chunk_type": "hybrid",
+          "doc_column": "content",
+          "chunk_size": 512,
+          "chunk_overlap": 128,
+          "retain_original_content": "true"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "22222222-2222-2222-2222-222222222222"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "44444444-4444-4444-4444-444444444444"
+          }
+        ]
+      },
+      {
+        "id": "44444444-4444-4444-4444-444444444444",
+        "name": "embeddings",
+        "operator": "embeddings",
+        "config": {
+          "embeddings_type": "ollama",
+          "embeddings_model_id": "nomic-embed-text",
+          "embeddings_column": "embeddings",
+          "overlap_ratio": 0.2,
+          "doc_column": "content"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "33333333-3333-3333-3333-333333333333"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "55555555-5555-5555-5555-555555555555"
+          }
+        ]
+      },
+      {
+        "id": "55555555-5555-5555-5555-555555555555",
+        "name": "vectordb",
+        "operator": "vectordb",
+        "config": {
+          "vector_db_type": "opensearch",
+          "index_name": "datasift_web_documents",
+          "doc_id_column": "doc_id_hash",
+          "embeddings_column": "embeddings",
+          "vector_dimension": 768,
+          "create_index": "true",
+          "vectordb_parameters": {
+            "host": "localhost",
+            "port": 9200,
+            "username": "admin",
+            "password": "admin",
+            "use_ssl": false,
+            "verify_certs": false,
+            "batch_size": 100,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+            "space_type": "l2"
+          },
+          "available_features": {
+            "doc_id_hash": {
+              "name": "Document ID Hash",
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "string",
+              "is_primary": true
+            },
+            "content": {
+              "name": "Content",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "source_id": {
+              "name": "Source URL",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "embeddings": {
+              "name": "Embeddings",
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "vector"
+            }
+          },
+          "feature_mappings": {
+            "doc_id_hash": "pk",
+            "content": "text",
+            "source_id": "source_url",
+            "embeddings": "vector_embeddings"
+          }
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "44444444-4444-4444-4444-444444444444"
+          }
+        ],
+        "output_edges": []
+      }
+    ]
+  }
+}

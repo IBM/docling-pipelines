@@ -135,6 +135,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 - **Cloud/Object Storage** - Ingest documents from supported remote storage providers
 - **CSV** - Ingest structured data from CSV files
 - **LangChain Loader** - Ingest using LangChain document loaders
+- **Web Pages** - Ingest web content with the `WebPageSourceAdapter`, backed by LangChain `RecursiveUrlLoader` for recursive crawling
 
 ### Extract Operators
 

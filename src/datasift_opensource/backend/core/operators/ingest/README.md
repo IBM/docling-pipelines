@@ -1,10 +1,11 @@
-# IngestLocalOperator
+# Ingest Operators
 
 ## Overview
 
 The `IngestLocalOperator` is a metadata-only operator for ingesting documents from local file systems. It discovers files, collects metadata, and optionally stores binary content for downstream extraction operators.
 
 **Key Principle**: This operator does NOT extract text content. Content extraction is handled by specialized operators like `ExtractOperator`.
+This directory also includes source adapters used by `IngestSourceOperator`, including the web page adapter for recursive crawling with LangChain `RecursiveUrlLoader`.
 
 ## Features
 
@@ -286,7 +287,7 @@ pytest tests/unit/operators/ingest/ tests/integration/test_ingest_extract_integr
 
 - **ExtractOperator**: Advanced extraction using Docling library
 - **DoclingChunkerOperator**: Chunks extracted content for vector databases
-- **IngestSourceOperator**: Multi-provider ingest supporting S3, IBM COS, SharePoint, OneDrive, Google Drive, and custom loaders
+- **IngestSourceOperator**: Multi-provider ingest supporting S3, IBM COS, SharePoint, OneDrive, Google Drive, web pages, and custom loaders
 
 ## Support
 
