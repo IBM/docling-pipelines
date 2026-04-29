@@ -691,19 +691,29 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Class:** `core.operators.quality.document_classifier.DocumentClassifierOperator`
 
-| Parameter              | Type           |    Required | Default           | Description                   |
-| ---------------------- | -------------- | ----------: | ----------------- | ----------------------------- |
-| `provider`             | string         |          No | `ollama`          | `ollama` or `watsonx`         |
-| `api_base`             | string         | Conditional | -                 | Required for watsonx          |
-| `api_key`              | string         | Conditional | `not-needed`      | Required for watsonx          |
-| `model_id`             | string         |          No | provider-specific | Classification model          |
-| `project_id`           | string         | Conditional | -                 | Required for watsonx          |
-| `document_types`       | list or object |         Yes | catalog-derived   | Allowed target document types |
-| `confidence_threshold` | float          |          No | `7.0`             | Minimum accepted confidence   |
-| `doc_column`           | string         |          No | `content`         | Input content column          |
-| `output_column`        | string         |          No | `document_type`   | Classification result column  |
-| `include_confidence`   | bool           |          No | `true`            | Emit confidence column        |
-| `include_reasoning`    | bool           |          No | `false`           | Emit reasoning column         |
+| Parameter              | Type           |    Required | Default           | Description                                                    |
+| ---------------------- | -------------- | ----------: | ----------------- | -------------------------------------------------------------- |
+| `provider`             | string         |          No | `ollama`          | `ollama` or `watsonx`                                          |
+| `provider_config`      | object         |          No | `{}`              | Provider-specific configuration (see below)                    |
+| `model_id`             | string         | Conditional | `granite4:latest` | Classification model (required for watsonx, optional for ollama) |
+| `document_types`       | list or object |         Yes | catalog-derived   | Allowed target document types                                  |
+| `confidence_threshold` | float          |          No | `7.0`             | Minimum accepted confidence                                    |
+| `doc_column`           | string         |          No | `content`         | Input content column                                           |
+| `output_column`        | string         |          No | `document_type`   | Classification result column                                   |
+| `include_confidence`   | bool           |          No | `true`            | Emit confidence column                                         |
+| `include_reasoning`    | bool           |          No | `false`           | Emit reasoning column                                          |
+
+**Provider Configuration (`provider_config`)**
+
+For **watsonx** provider:
+- `api_base` (string, required): API endpoint URL
+- `api_key` (string, required): API key for authentication
+- `container_kind` (string, optional): Container type (`project` or `space`, default: `project`)
+- `container_id` (string, required): Container ID
+- `request_timeout` (integer, optional): Request timeout in seconds (default: `120`)
+
+For **ollama** provider:
+- Currently no provider-specific configuration required (uses defaults)
 
 **Output Schema**
 

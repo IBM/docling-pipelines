@@ -65,7 +65,7 @@ echo "================================"
 
 # Run mypy
 if command -v mypy &> /dev/null; then
-    if mypy --config-file=./src/datasift_opensource/backend/pyproject.toml "${EXISTING_FILES[@]}"; then
+    if mypy --config-file=./pyproject.toml "${EXISTING_FILES[@]}"; then
         echo -e "${GREEN}Mypy analysis passed!${NC}"
         MYPY_STATUS=0
     else

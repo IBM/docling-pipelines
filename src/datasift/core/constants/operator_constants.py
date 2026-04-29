@@ -229,6 +229,10 @@ class OperatorConstants:
         MODEL_ID: Final[str] = "model_id"
         MODEL_NAME: Final[str] = "model_name"
 
+        # Watsonx Configuration
+        WATSONX_CONTAINER_KIND: Final[str] = "container_kind"
+        WATSONX_CONTAINER_ID: Final[str] = "container_id"
+
         # Node and Pipeline Configuration
         NODE_METADATA: Final[str] = "node_metadata"
         NODE_PARAMETERS: Final[str] = "node_parameters"

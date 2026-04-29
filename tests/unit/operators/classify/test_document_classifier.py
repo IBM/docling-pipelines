@@ -12,6 +12,7 @@ import pyarrow as pa
 import pytest
 
 from datasift.core.operators.quality.document_classifier import DocumentClassifierOperator
+from datasift.exceptions.datasift_exceptions import DatasiftException
 
 
 @pytest.mark.unit
@@ -49,6 +50,7 @@ def test_document_classifier_basic():
     # Initialize operator
     config = {
         "provider": "ollama",
+        "provider_config": {},  # Empty for ollama (uses defaults)
         "model_id": "granite4:latest",
         "document_types": {
             "invoice": "Business invoice with line items, totals, and payment terms",
@@ -155,6 +157,7 @@ def test_document_classifier_without_content_column():
     # Initialize operator
     config = {
         "provider": "ollama",
+        "provider_config": {},
         "model_id": "granite4:latest",
         "document_types": ["email", "letter", "form", "report", "other"],
         "confidence_threshold": 6.0,
@@ -167,10 +170,18 @@ def test_document_classifier_without_content_column():
     # Mock responses for documents
     mock_responses = [
         json.dumps(
-            {"document_type": "email", "confidence": 8, "reasoning": "Document appears to be an email communication."}
+            {
+                "document_type": "email",
+                "confidence": 8,
+                "reasoning": "Document appears to be an email communication.",
+            }
         ),
         json.dumps(
-            {"document_type": "letter", "confidence": 7, "reasoning": "Document appears to be a formal letter."}
+            {
+                "document_type": "letter",
+                "confidence": 7,
+                "reasoning": "Document appears to be a formal letter.",
+            }
         ),
     ]
 
@@ -212,6 +223,7 @@ def test_document_classifier_get_metadata():
     # Create operator with minimal config
     config = {
         "provider": "ollama",
+        "provider_config": {},
         "model_id": "granite4:latest",
         "document_types": ["invoice", "receipt", "contract"],
     }
@@ -246,6 +258,7 @@ def test_document_classifier_validation():
     # Test with valid config
     config = {
         "provider": "ollama",
+        "provider_config": {},
         "model_id": "granite4:latest",
         "document_types": ["invoice", "receipt"],
     }
@@ -268,6 +281,7 @@ def test_document_classifier_empty_table():
     # Initialize operator
     config = {
         "provider": "ollama",
+        "provider_config": {},
         "model_id": "granite4:latest",
         "document_types": ["invoice", "receipt"],
     }
@@ -300,6 +314,7 @@ def test_document_classifier_with_existing_classification():
     # Initialize operator
     config = {
         "provider": "ollama",
+        "provider_config": {},
         "model_id": "granite4:latest",
         "document_types": ["invoice", "receipt"],
         "output_column": "document_type",
@@ -308,7 +323,7 @@ def test_document_classifier_with_existing_classification():
     operator = DocumentClassifierOperator(config)
 
     # Transform the table
-    result_tables, metadata = operator.transform(table)
+    result_tables, _ = operator.transform(table)
     result_table = result_tables[0]
 
     # Assertions - should return original table unchanged
@@ -332,6 +347,7 @@ def test_document_classifier_list_document_types():
     # Initialize operator with list of types
     config = {
         "provider": "ollama",
+        "provider_config": {},
         "model_id": "granite4:latest",
         "document_types": ["invoice", "receipt", "contract", "report"],
         "doc_column": "content",
@@ -342,7 +358,11 @@ def test_document_classifier_list_document_types():
 
     # Mock response for the document
     mock_response = json.dumps(
-        {"document_type": "invoice", "confidence": 9, "reasoning": "Document contains invoice number and total amount."}
+        {
+            "document_type": "invoice",
+            "confidence": 9,
+            "reasoning": "Document contains invoice number and total amount.",
+        }
     )
 
     # Mock the Ollama client
@@ -357,7 +377,7 @@ def test_document_classifier_list_document_types():
         operator = DocumentClassifierOperator(config)
 
         # Transform the table
-        result_tables, metadata = operator.transform(table)
+        result_tables, _ = operator.transform(table)
         result_table = result_tables[0]
 
         # Assertions
@@ -365,7 +385,252 @@ def test_document_classifier_list_document_types():
         assert result_table["document_type"][0].as_py() == "invoice", "Should classify as invoice"
 
 
+@pytest.mark.unit
+def test_document_classifier_watsonx_provider_config():
+    """Test DocumentClassifierOperator with watsonx provider configuration."""
+
+    # Create sample document
+    table = pa.table(
+        {
+            "id": ["doc1"],
+            "name": ["invoice.txt"],
+            "content": ["INVOICE\nInvoice Number: INV-001\nTotal: $1000"],
+        }
+    )
+
+    # Initialize operator with watsonx provider
+    config = {
+        "provider": "watsonx",
+        "provider_config": {
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
+            "api_key": "test-api-key",  # pragma: allowlist secret
+            "container_id": "test-project-id",
+            "container_kind": "project",
+            "request_timeout": 120,
+        },
+        "model_id": "ibm/granite-3-8b-instruct",
+        "document_types": ["invoice", "receipt", "contract"],
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": True,
+        "include_reasoning": True,
+    }
+
+    # Mock response in OpenAI Chat Completions API format (verified from actual watsonx response)
+    mock_response = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "document_type": "invoice",
+                            "confidence": 10,
+                            "reasoning": "Document contains invoice number and total amount.",
+                        }
+                    )
+                }
+            }
+        ]
+    }
+
+    # Mock RestClient for watsonx API calls
+    with patch("datasift.core.operators.quality.document_classifier.RestClient") as mock_rest_class:
+        mock_rest_instance = Mock()
+        mock_rest_instance.call_rest_json.return_value = mock_response
+        mock_rest_class.return_value = mock_rest_instance
+
+        operator = DocumentClassifierOperator(config)
+
+        # Verify configuration was set correctly
+        assert operator.provider == "watsonx"
+        assert operator.model_id == "ibm/granite-3-8b-instruct"
+        assert operator.api_base == "https://us-south.ml.cloud.ibm.com/ml/v1"
+        assert operator.container_id == "test-project-id"
+        assert operator.container_kind == "project"
+        assert operator.request_timeout == 120
+
+        # Transform the table
+        result_tables, metadata = operator.transform(table)
+        result_table = result_tables[0]
+
+        # Assertions
+        assert "document_type" in result_table.column_names
+        assert "document_type_confidence" in result_table.column_names
+        assert "document_type_reasoning" in result_table.column_names
+        assert result_table["document_type"][0].as_py() == "invoice"
+        assert result_table["document_type_confidence"][0].as_py() == 10
+        assert metadata["processed_docs"] == 1
+
+
+@pytest.mark.unit
+def test_document_classifier_watsonx_missing_model_id():
+    """Test that watsonx provider requires model_id."""
+
+    config = {
+        "provider": "watsonx",
+        "provider_config": {
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
+            "api_key": "test-api-key",  # pragma: allowlist secret
+            "container_id": "test-project-id",
+            "container_kind": "project",
+        },
+        "document_types": ["invoice", "receipt"],
+        # model_id is missing - should raise exception
+    }
+
+    with pytest.raises(DatasiftException, match="model_id is required for watsonx provider"):
+        DocumentClassifierOperator(config)
+
+
+@pytest.mark.unit
+def test_document_classifier_watsonx_missing_api_base():
+    """Test that watsonx provider requires api_base in provider_config."""
+
+    config = {
+        "provider": "watsonx",
+        "provider_config": {
+            # api_base is missing
+            "api_key": "test-api-key",  # pragma: allowlist secret
+            "container_id": "test-project-id",
+        },
+        "model_id": "ibm/granite-3-8b-instruct",
+        "document_types": ["invoice", "receipt"],
+    }
+
+    with pytest.raises(
+        DatasiftException,
+        match="api_base is required in provider_config for watsonx provider",
+    ):
+        DocumentClassifierOperator(config)
+
+
+@pytest.mark.unit
+def test_document_classifier_watsonx_missing_api_key():
+    """Test that watsonx provider requires api_key in provider_config."""
+
+    config = {
+        "provider": "watsonx",
+        "provider_config": {
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
+            # api_key is missing
+            "container_id": "test-project-id",
+        },
+        "model_id": "ibm/granite-3-8b-instruct",
+        "document_types": ["invoice", "receipt"],
+    }
+
+    with pytest.raises(
+        DatasiftException,
+        match="api_key is required in provider_config for watsonx provider",
+    ):
+        DocumentClassifierOperator(config)
+
+
+@pytest.mark.unit
+def test_document_classifier_watsonx_missing_container_id():
+    """Test that watsonx provider requires container_id in provider_config."""
+
+    config = {
+        "provider": "watsonx",
+        "provider_config": {
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
+            "api_key": "test-api-key",  # pragma: allowlist secret
+            # container_id is missing
+        },
+        "model_id": "ibm/granite-3-8b-instruct",
+        "document_types": ["invoice", "receipt"],
+    }
+
+    with pytest.raises(
+        DatasiftException,
+        match="container_id is required in provider_config for watsonx provider",
+    ):
+        DocumentClassifierOperator(config)
+
+
+@pytest.mark.unit
+def test_document_classifier_watsonx_validation():
+    """Test validation method for watsonx provider."""
+
+    # Test with valid config
+    config = {
+        "provider": "watsonx",
+        "provider_config": {
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
+            "api_key": "test-api-key",  # pragma: allowlist secret
+            "container_id": "test-project-id",
+        },
+        "model_id": "ibm/granite-3-8b-instruct",
+        "document_types": ["invoice", "receipt"],
+    }
+
+    operator = DocumentClassifierOperator(config)
+    errors = []
+    warnings = []
+    operator.validate(errors, warnings, [])
+
+    assert len(errors) == 0, "Should have no validation errors with valid config"
+
+
+@pytest.mark.unit
+def test_document_classifier_provider_config_empty_for_ollama():
+    """Test that ollama provider works with empty provider_config."""
+
+    table = pa.table(
+        {
+            "id": ["doc1"],
+            "name": ["test.txt"],
+            "content": ["Test content"],
+        }
+    )
+
+    config = {
+        "provider": "ollama",
+        "provider_config": {},  # Empty config is fine for ollama
+        "model_id": "granite4:latest",
+        "document_types": ["invoice", "receipt"],
+    }
+
+    mock_response = json.dumps(
+        {
+            "document_type": "invoice",
+            "confidence": 8,
+            "reasoning": "Test reasoning",
+        }
+    )
+
+    with patch("ollama.Client") as mock_client_class:
+        mock_client = Mock()
+        mock_client.chat.return_value = {"message": {"content": mock_response}}
+        mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
+        mock_client_class.return_value = mock_client
+
+        operator = DocumentClassifierOperator(config)
+        result_tables, metadata = operator.transform(table)
+
+        assert metadata["processed_docs"] == 1
+        assert result_tables[0]["document_type"][0].as_py() == "invoice"
+
+
+@pytest.mark.unit
+def test_document_classifier_watsonx_default_container_kind():
+    """Test that watsonx provider defaults container_kind to 'project'."""
+
+    config = {
+        "provider": "watsonx",
+        "provider_config": {
+            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
+            "api_key": "test-api-key",  # pragma: allowlist secret
+            "container_id": "test-project-id",
+            # container_kind not specified - should default to "project"
+        },
+        "model_id": "ibm/granite-3-8b-instruct",
+        "document_types": ["invoice"],
+    }
+
+    operator = DocumentClassifierOperator(config)
+    assert operator.container_kind == "project", "Should default to 'project'"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

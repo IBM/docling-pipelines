@@ -1533,11 +1533,40 @@ graph LR
 
 ```json
 {
-  "operator_type": "DocumentClassifier",
-  "operator_params": {
-    "model_path": "path/to/classifier/model",
-    "confidence_threshold": 0.7,
-    "document_classes": ["invoice", "contract", "receipt", "form"]
+  "operator": "document_classifier",
+  "config": {
+    "provider": "ollama",
+    "provider_config": {},
+    "model_id": "granite4:latest",
+    "document_types": ["invoice", "contract", "receipt", "form"],
+    "confidence_threshold": 7.0,
+    "include_confidence": true,
+    "include_reasoning": false
+  }
+}
+```
+
+**WatsonX Provider Example:**
+
+```json
+{
+  "operator": "document_classifier",
+  "config": {
+    "provider": "watsonx",
+    "provider_config": {
+      "api_base": "https://api.watsonx.example.com",
+      "api_key": "your-api-key",   # pragma: allowlist secret
+      "container_kind": "project",
+      "container_id": "your-project-id",
+      "request_timeout": 120
+    },
+    "model_id": "ibm/granite-3-8b-instruct",
+    "document_types": {
+      "invoice": "Business invoice with line items and totals",
+      "contract": "Legal contract or agreement",
+      "receipt": "Payment receipt or transaction confirmation"
+    },
+    "confidence_threshold": 7.0
   }
 }
 ```

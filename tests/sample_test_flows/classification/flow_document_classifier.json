@@ -48,6 +48,7 @@
         "operator": "document_classifier",
         "config": {
           "provider": "ollama",
+          "provider_config": {},
           "model_id": "granite4:latest",
           "document_types": {
             "invoice": "Business invoice with line items, totals, and payment terms",

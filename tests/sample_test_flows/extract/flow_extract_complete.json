@@ -33,6 +33,7 @@
         "operator": "document_classifier",
         "config": {
           "provider": "ollama",
+          "provider_config": {},
           "model_id": "granite4:latest",
           "confidence_threshold": 7.0,
           "doc_column": "content",

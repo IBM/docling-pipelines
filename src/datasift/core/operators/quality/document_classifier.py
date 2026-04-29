@@ -25,11 +25,9 @@ from datasift.utils.infrastructure.logging import get_logger
 logger: logging.Logger = get_logger()
 
 # Configuration keys
-PROVIDER_KEY: str = "provider"
 API_BASE_KEY: str = "api_base"
 API_KEY_KEY: str = "api_key"
 MODEL_ID_KEY: str = "model_id"
-PROJECT_ID_KEY: str = "project_id"
 DOCUMENT_TYPES_KEY: str = "document_types"
 CONFIDENCE_THRESHOLD_KEY: str = "confidence_threshold"
 DOC_COLUMN_KEY: str = "doc_column"
@@ -41,7 +39,6 @@ MAX_CONTENT_LENGTH_KEY: str = "max_content_length"
 # Default values
 DEFAULT_PROVIDER: str = "ollama"
 DEFAULT_OLLAMA_MODEL: str = "granite4:latest"
-DEFAULT_WATSONX_MODEL: str = "ibm/granite-3-8b-instruct"
 DEFAULT_CONFIDENCE_THRESHOLD: float = 7.0
 DEFAULT_OUTPUT_COLUMN: str = "document_type"
 DEFAULT_DOC_COLUMN: str = OperatorConstants.Columns.DOC_COLUMN_DEFAULT
@@ -73,6 +70,29 @@ class DocumentClassifierOperator(AbstractOperator):
       * document_type: The classified type
       * classification_confidence (optional): Confidence score (1-10)
       * classification_reasoning (optional): Explanation
+
+    Example Configuration:
+        # Ollama provider (minimal config)
+        {
+            "provider": "ollama",
+            "provider_config": {},  # Uses defaults
+            "model_id": "granite4:latest",
+            "document_types": ["invoice", "receipt", "contract"]
+        }
+
+        # WatsonX provider (with provider_config)
+        {
+            "provider": "watsonx",
+            "provider_config": {
+                "api_base": "https://api.watsonx.example.com",
+                "api_key": "your-api-key",   # pragma: allowlist secret
+                "container_kind": "project",
+                "container_id": "your-project-id",
+                "request_timeout": 120
+            },
+            "model_id": "ibm/granite-3-8b-instruct",
+            "document_types": {...}
+        }
     """
 
     short_name: str = OperatorConstants.Misc.DOCUMENT_CLASSIFIER
@@ -85,10 +105,16 @@ class DocumentClassifierOperator(AbstractOperator):
         Args:
             config: Configuration dictionary containing:
                 - provider: LLM provider ("watsonx" or "ollama", default: "ollama")
-                - api_base: API endpoint URL
-                - api_key: API key for authentication
+                - provider_config: Provider-specific configuration dictionary containing:
+                    For watsonx:
+                        - api_base: API endpoint URL
+                        - api_key: API key for authentication
+                        - container_kind: Container type ("project" or "space", default: "project")
+                        - container_id: Container ID (required)
+                        - request_timeout: Request timeout in seconds (default: 120)
+                    For ollama:
+                        - (currently none, uses defaults)
                 - model_id: Model identifier
-                - project_id: Project ID (required for watsonx provider)
                 - document_types: List of document types or dict with descriptions
                 - confidence_threshold: Minimum confidence for classification (default: 7.0)
                 - doc_column: Column containing document text (default: "content")
@@ -99,12 +125,20 @@ class DocumentClassifierOperator(AbstractOperator):
         super().__init__(config)
 
         # Provider configuration
-        self.provider: str = config.get(PROVIDER_KEY, DEFAULT_PROVIDER).lower()
-        self.api_base: str | None = config.get(API_BASE_KEY)
-        self.api_key: str | None = config.get(API_KEY_KEY, "not-needed")
+        self.provider: str = config.get(OperatorConstants.Config.PROVIDER, DEFAULT_PROVIDER).lower()
+
+        # Extract provider_config dictionary
+        self.provider_config: dict[str, Any] = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        # Extract provider-specific parameters from provider_config
+        self.api_base: str | None = self.provider_config.get(API_BASE_KEY)
+        self.api_key: str | None = self.provider_config.get(API_KEY_KEY)
         model_id_config: str | None = config.get(MODEL_ID_KEY)
-        self.project_id: str | None = config.get(PROJECT_ID_KEY)
-        self.request_timeout: int = config.get("request_timeout", DEFAULT_REQUEST_TIMEOUT)
+        self.container_kind: str = self.provider_config.get(
+            OperatorConstants.Config.WATSONX_CONTAINER_KIND, OperatorConstants.ContainerKinds.PROJECT
+        )
+        self.container_id: str | None = self.provider_config.get(OperatorConstants.Config.WATSONX_CONTAINER_ID)
+        self.request_timeout: int = self.provider_config.get("request_timeout", DEFAULT_REQUEST_TIMEOUT)
         self.extract_tables: bool = config.get(OperatorConstants.Config.EXTRACT_TABLES, True)
         self.extract_images: bool = config.get(OperatorConstants.Config.EXTRACT_IMAGES, True)
 
@@ -113,14 +147,35 @@ class DocumentClassifierOperator(AbstractOperator):
         if self.provider == "ollama":
             self.model_id = model_id_config or DEFAULT_OLLAMA_MODEL
         elif self.provider == "watsonx":
-            self.model_id = model_id_config or DEFAULT_WATSONX_MODEL
+            # For watsonx, model_id is required
+            if not model_id_config:
+                raise DatasiftException(
+                    error_code=ErrorCode.INVALID_CONFIGURATION, message="model_id is required for watsonx provider"
+                )
+            self.model_id = model_id_config
             if not self.api_base:
                 raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION, message="api_base is required for watsonx provider"
+                    error_code=ErrorCode.INVALID_CONFIGURATION,
+                    message="api_base is required in provider_config for watsonx provider",
                 )
-            if not self.project_id:
+            if not self.api_key:
                 raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION, message="project_id is required for watsonx provider"
+                    error_code=ErrorCode.INVALID_CONFIGURATION,
+                    message="api_key is required in provider_config for watsonx provider",
+                )
+            if not self.container_id:
+                raise DatasiftException(
+                    error_code=ErrorCode.INVALID_CONFIGURATION,
+                    message="container_id is required in provider_config for watsonx provider",
+                )
+            # Validate container_kind for watsonx
+            if self.container_kind not in [
+                OperatorConstants.ContainerKinds.PROJECT,
+                OperatorConstants.ContainerKinds.SPACE,
+            ]:
+                raise DatasiftException(
+                    error_code=ErrorCode.INVALID_CONFIGURATION,
+                    message=f"container_kind must be 'project' or 'space' for watsonx provider, got: {self.container_kind}",
                 )
         else:
             raise DatasiftException(
@@ -190,15 +245,28 @@ class DocumentClassifierOperator(AbstractOperator):
             if self.provider not in ["ollama", "watsonx"]:
                 errors.append(f"Invalid provider '{self.provider}'. Must be 'ollama' or 'watsonx'.")
 
-        # Validate watsonx-specific requirements
+        # Validate watsonx-specific requirements from provider_config
         if self.provider == "watsonx":
+            if self.should_validate_field(field_value=self.model_id):
+                if not self.model_id:
+                    errors.append("model_id is required for watsonx provider")
+
             if self.should_validate_field(field_value=self.api_base):
                 if not self.api_base:
-                    errors.append("api_base is required for watsonx provider")
+                    errors.append("api_base is required in provider_config for watsonx provider")
 
-            if self.should_validate_field(field_value=self.project_id):
-                if not self.project_id:
-                    errors.append("project_id is required for watsonx provider")
+            if self.should_validate_field(field_value=self.container_id):
+                if not self.container_id:
+                    errors.append("container_id is required in provider_config for watsonx provider")
+
+            if self.should_validate_field(field_value=self.container_kind):
+                if self.container_kind not in [
+                    OperatorConstants.ContainerKinds.PROJECT,
+                    OperatorConstants.ContainerKinds.SPACE,
+                ]:
+                    errors.append(
+                        f"container_kind in provider_config must be 'project' or 'space' for watsonx provider, got: {self.container_kind}"
+                    )
 
         # Validate document types
         if self.should_validate_field(field_value=self.document_types):
@@ -343,10 +411,6 @@ class DocumentClassifierOperator(AbstractOperator):
             # Build headers
             headers = {"Content-Type": "application/json"}
 
-            # Add watsonx-specific headers
-            if self.provider == "watsonx" and self.project_id:
-                headers["X-Project-Id"] = self.project_id
-
             # Build request payload
             payload = {
                 "model": self.model_id,
@@ -354,6 +418,10 @@ class DocumentClassifierOperator(AbstractOperator):
                 "temperature": 0.0,
                 "response_format": {"type": "json_object"},
             }
+
+            # Add watsonx-specific container parameters to payload
+            if self.provider == "watsonx" and self.container_id:
+                payload[f"{self.container_kind}_id"] = self.container_id
 
             # Make REST API call using RestClient
             result = self.rest_client.call_rest_json(
@@ -652,7 +720,7 @@ Example response:
                         self.record_failed_document(
                             metadata=metadata,
                             doc_id=str(idx),
-                            doc_name=doc_name,
+                            doc_name=task["doc_name"],
                             reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
                         )
                         classifications[idx] = None
@@ -733,7 +801,7 @@ Example response:
                 },
             },
             OperatorConstants.Config.ATTRIBUTES: {
-                PROVIDER_KEY: {
+                OperatorConstants.Config.PROVIDER: {
                     OperatorConstants.Misc.NAME: "Provider",
                     OperatorConstants.Config.DESCRIPTION: "LLM provider (ollama or watsonx)",
                     OperatorConstants.Config.REQUIRED: False,
@@ -741,24 +809,16 @@ Example response:
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                     OperatorConstants.Config.VALID_VALUES: ["ollama", "watsonx"],
                 },
-                API_BASE_KEY: {
-                    OperatorConstants.Misc.NAME: "API Base URL",
-                    OperatorConstants.Config.DESCRIPTION: "API endpoint URL (required for watsonx)",
+                OperatorConstants.Config.PROVIDER_CONFIG: {
+                    OperatorConstants.Misc.NAME: "Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Provider-specific configuration parameters. "
+                        "For watsonx: api_base, api_key, container_kind, container_id, request_timeout. "
+                        "For ollama: (currently none, uses defaults)"
+                    ),
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                API_KEY_KEY: {
-                    OperatorConstants.Misc.NAME: "API Key",
-                    OperatorConstants.Config.DESCRIPTION: "API key for authentication",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "not-needed",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                PROJECT_ID_KEY: {
-                    OperatorConstants.Misc.NAME: "Project ID",
-                    OperatorConstants.Config.DESCRIPTION: "Project ID (required for watsonx provider)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Config.DEFAULT: {},
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 MODEL_ID_KEY: {
                     OperatorConstants.Misc.NAME: "Model ID",
