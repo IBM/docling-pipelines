@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.dto.error_dto import (
+from datasift.api.dto.error_dto import (
     ErrorDetail,
     ErrorResponse,
     ErrorTarget,
@@ -275,9 +275,7 @@ class TestErrorResponseValidation:
         # Act
         dto = ErrorResponse(
             errors=[
-                ErrorDetail(
-                    code="validation_error", message="Field 'name' is required"
-                ),
+                ErrorDetail(code="validation_error", message="Field 'name' is required"),
                 ErrorDetail(
                     code="validation_error",
                     message="Field 'definition' must be valid JSON",
@@ -344,10 +342,7 @@ class TestErrorDTOEdgeCases:
     def test_error_response_with_max_errors(self):
         """Test error response with maximum number of errors (100)."""
         # Arrange
-        errors = [
-            ErrorDetail(code="validation_error", message=f"Error {i}")
-            for i in range(100)
-        ]
+        errors = [ErrorDetail(code="validation_error", message=f"Error {i}") for i in range(100)]
 
         # Act
         dto = ErrorResponse(
@@ -362,10 +357,7 @@ class TestErrorDTOEdgeCases:
     def test_error_response_with_more_than_100_errors_raises_error(self):
         """Test that more than 100 errors raises validation error."""
         # Arrange
-        errors = [
-            ErrorDetail(code="validation_error", message=f"Error {i}")
-            for i in range(101)
-        ]
+        errors = [ErrorDetail(code="validation_error", message=f"Error {i}") for i in range(101)]
 
         # Act & Assert
         with pytest.raises(ValidationError) as exc_info:

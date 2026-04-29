@@ -4,13 +4,14 @@ Unit tests for document_classifier operator.
 Tests the operator with sample documents from the fixtures directory.
 """
 
-import pytest
-import pyarrow as pa
-from pathlib import Path
-from unittest.mock import patch, Mock
 import json
+from pathlib import Path
+from unittest.mock import Mock, patch
 
-from core.operators.quality.document_classifier import DocumentClassifierOperator
+import pyarrow as pa
+import pytest
+
+from datasift.core.operators.quality.document_classifier import DocumentClassifierOperator
 
 
 @pytest.mark.unit
@@ -65,30 +66,34 @@ def test_document_classifier_basic():
 
     # Mock responses for each document
     mock_responses = [
-        json.dumps({
-            "document_type": "invoice",
-            "confidence": 9,
-            "reasoning": "Document contains invoice number, date, bill to information, line items with quantities and prices, and total amount."
-        }),
-        json.dumps({
-            "document_type": "contract",
-            "confidence": 8,
-            "reasoning": "Document is a legal agreement between two parties with terms and conditions including payment terms, delivery schedule, and warranty provisions."
-        }),
-        json.dumps({
-            "document_type": "receipt",
-            "confidence": 9,
-            "reasoning": "Document is a payment receipt with store name, transaction ID, itemized purchases with prices, total amount, and payment method."
-        })
+        json.dumps(
+            {
+                "document_type": "invoice",
+                "confidence": 9,
+                "reasoning": "Document contains invoice number, date, bill to information, line items with quantities and prices, and total amount.",
+            }
+        ),
+        json.dumps(
+            {
+                "document_type": "contract",
+                "confidence": 8,
+                "reasoning": "Document is a legal agreement between two parties with terms and conditions including payment terms, delivery schedule, and warranty provisions.",
+            }
+        ),
+        json.dumps(
+            {
+                "document_type": "receipt",
+                "confidence": 9,
+                "reasoning": "Document is a payment receipt with store name, transaction ID, itemized purchases with prices, total amount, and payment method.",
+            }
+        ),
     ]
 
     # Mock the Ollama client
-    with patch('ollama.Client') as mock_client_class:
+    with patch("ollama.Client") as mock_client_class:
         mock_client = Mock()
         # Mock the chat method to return different responses for each call
-        mock_client.chat.side_effect = [
-            {"message": {"content": resp}} for resp in mock_responses
-        ]
+        mock_client.chat.side_effect = [{"message": {"content": resp}} for resp in mock_responses]
         # Mock list method for validation
         mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
         mock_client_class.return_value = mock_client
@@ -100,31 +105,21 @@ def test_document_classifier_basic():
         result_table = result_tables[0]
 
         # Assertions
-        assert "document_type" in result_table.column_names, (
-            "document_type column should exist"
-        )
-        assert "document_type_confidence" in result_table.column_names, (
-            "confidence column should exist"
-        )
-        assert "document_type_reasoning" in result_table.column_names, (
-            "reasoning column should exist"
-        )
+        assert "document_type" in result_table.column_names, "document_type column should exist"
+        assert "document_type_confidence" in result_table.column_names, "confidence column should exist"
+        assert "document_type_reasoning" in result_table.column_names, "reasoning column should exist"
 
         # Check classifications
         doc_types = result_table["document_type"].to_pylist()
         confidences = result_table["document_type_confidence"].to_pylist()
 
         assert doc_types[0] == "invoice", "First document should be classified as invoice"
-        assert doc_types[1] == "contract", (
-            "Second document should be classified as contract"
-        )
+        assert doc_types[1] == "contract", "Second document should be classified as contract"
         assert doc_types[2] == "receipt", "Third document should be classified as receipt"
 
         # Check confidence scores
         for confidence in confidences:
-            assert 1 <= confidence <= 10, (
-                f"Confidence should be between 1 and 10, got {confidence}"
-            )
+            assert 1 <= confidence <= 10, f"Confidence should be between 1 and 10, got {confidence}"
 
         # Check metadata
         assert metadata["total_docs_count"] == 3, "Should have 3 documents"
@@ -136,11 +131,7 @@ def test_document_classifier_without_content_column():
     """Test the DocumentClassifierOperator when content column doesn't exist (should fetch from binary)."""
 
     # Get test files
-    fixtures_dir = (
-        Path(__file__).parent.parent.parent.parent
-        / "fixtures"
-        / "customer_support_docs"
-    )
+    fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "customer_support_docs"
     test_files = list(fixtures_dir.glob("*.txt"))[:2]
 
     if len(test_files) < 2:
@@ -175,25 +166,19 @@ def test_document_classifier_without_content_column():
 
     # Mock responses for documents
     mock_responses = [
-        json.dumps({
-            "document_type": "email",
-            "confidence": 8,
-            "reasoning": "Document appears to be an email communication."
-        }),
-        json.dumps({
-            "document_type": "letter",
-            "confidence": 7,
-            "reasoning": "Document appears to be a formal letter."
-        })
+        json.dumps(
+            {"document_type": "email", "confidence": 8, "reasoning": "Document appears to be an email communication."}
+        ),
+        json.dumps(
+            {"document_type": "letter", "confidence": 7, "reasoning": "Document appears to be a formal letter."}
+        ),
     ]
 
     # Mock the Ollama client
-    with patch('ollama.Client') as mock_client_class:
+    with patch("ollama.Client") as mock_client_class:
         mock_client = Mock()
         # Mock the chat method to return different responses for each call
-        mock_client.chat.side_effect = [
-            {"message": {"content": resp}} for resp in mock_responses
-        ]
+        mock_client.chat.side_effect = [{"message": {"content": resp}} for resp in mock_responses]
         # Mock list method for validation
         mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
         mock_client_class.return_value = mock_client
@@ -206,15 +191,9 @@ def test_document_classifier_without_content_column():
 
         # Assertions
         assert "content" in result_table.column_names, "content column should be added"
-        assert "document_type" in result_table.column_names, (
-            "document_type column should exist"
-        )
-        assert "document_type_confidence" in result_table.column_names, (
-            "confidence column should exist"
-        )
-        assert "document_type_reasoning" not in result_table.column_names, (
-            "reasoning column should not exist"
-        )
+        assert "document_type" in result_table.column_names, "document_type column should exist"
+        assert "document_type_confidence" in result_table.column_names, "confidence column should exist"
+        assert "document_type_reasoning" not in result_table.column_names, "reasoning column should not exist"
 
         # Check that content was extracted
         for idx in range(result_table.num_rows):
@@ -257,9 +236,7 @@ def test_document_classifier_get_metadata():
     assert "provider" in attributes, "Attributes should include 'provider'"
     assert "model_id" in attributes, "Attributes should include 'model_id'"
     assert "document_types" in attributes, "Attributes should include 'document_types'"
-    assert "confidence_threshold" in attributes, (
-        "Attributes should include 'confidence_threshold'"
-    )
+    assert "confidence_threshold" in attributes, "Attributes should include 'confidence_threshold'"
 
 
 @pytest.mark.unit
@@ -336,9 +313,7 @@ def test_document_classifier_with_existing_classification():
 
     # Assertions - should return original table unchanged
     assert result_table.num_rows == 1, "Should have 1 row"
-    assert result_table["document_type"][0].as_py() == "invoice", (
-        "Should keep existing classification"
-    )
+    assert result_table["document_type"][0].as_py() == "invoice", "Should keep existing classification"
 
 
 @pytest.mark.unit
@@ -366,14 +341,12 @@ def test_document_classifier_list_document_types():
     }
 
     # Mock response for the document
-    mock_response = json.dumps({
-        "document_type": "invoice",
-        "confidence": 9,
-        "reasoning": "Document contains invoice number and total amount."
-    })
+    mock_response = json.dumps(
+        {"document_type": "invoice", "confidence": 9, "reasoning": "Document contains invoice number and total amount."}
+    )
 
     # Mock the Ollama client
-    with patch('ollama.Client') as mock_client_class:
+    with patch("ollama.Client") as mock_client_class:
         mock_client = Mock()
         # Mock the chat method
         mock_client.chat.return_value = {"message": {"content": mock_response}}
@@ -388,12 +361,8 @@ def test_document_classifier_list_document_types():
         result_table = result_tables[0]
 
         # Assertions
-        assert "document_type" in result_table.column_names, (
-            "document_type column should exist"
-        )
-        assert result_table["document_type"][0].as_py() == "invoice", (
-            "Should classify as invoice"
-    )
+        assert "document_type" in result_table.column_names, "document_type column should exist"
+        assert result_table["document_type"][0].as_py() == "invoice", "Should classify as invoice"
 
 
 if __name__ == "__main__":

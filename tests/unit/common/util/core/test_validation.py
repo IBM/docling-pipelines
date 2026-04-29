@@ -2,7 +2,7 @@
 
 import pytest
 
-from common.util.core.validation import (
+from datasift.utils.core.validation import (
     deduplicate_tags,
     validate_container_kind,
     validate_flow_definition,
@@ -46,9 +46,7 @@ class TestValidateUuidFormat:
     def test_uuid_with_extra_characters(self):
         """Test UUID with extra characters raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
-            validate_uuid_format(
-                "550e8400-e29b-41d4-a716-446655440000-extra", "test_field"
-            )
+            validate_uuid_format("550e8400-e29b-41d4-a716-446655440000-extra", "test_field")
         assert "test_field must be a valid UUID format" in str(exc_info.value)
 
     def test_different_field_names(self):
@@ -162,7 +160,7 @@ class TestValidateFlowDefinition:
     def test_valid_dag_with_operator_type(self):
         """Test DAG with operator_type instead of operator."""
         definition = {
-            "nodes": [{"id": "node1", "operator_type": "core.operators.IngestLocal"}],
+            "nodes": [{"id": "node1", "operator_type": "datasift.core.operators.IngestLocal"}],
             "edges": [],
         }
         result = validate_flow_definition(definition)
@@ -252,9 +250,7 @@ class TestValidateFlowDefinition:
         """Test node missing operator field raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
             validate_flow_definition({"nodes": [{"id": "node1"}]})
-        assert "is missing required field 'operator' or 'operator_type'" in str(
-            exc_info.value
-        )
+        assert "is missing required field 'operator' or 'operator_type'" in str(exc_info.value)
 
     def test_dag_node_invalid_operator_params(self):
         """Test node with invalid operator_params raises ValueError."""
@@ -306,9 +302,7 @@ class TestValidateFlowDefinition:
                     "edges": [{"target": "node2"}],
                 }
             )
-        assert "edge at index 0 is missing required field 'source'" in str(
-            exc_info.value
-        )
+        assert "edge at index 0 is missing required field 'source'" in str(exc_info.value)
 
     def test_dag_edge_missing_target(self):
         """Test edge missing target raises ValueError."""
@@ -322,9 +316,7 @@ class TestValidateFlowDefinition:
                     "edges": [{"source": "node1"}],
                 }
             )
-        assert "edge at index 0 is missing required field 'target'" in str(
-            exc_info.value
-        )
+        assert "edge at index 0 is missing required field 'target'" in str(exc_info.value)
 
     def test_dag_edge_invalid_source(self):
         """Test edge with invalid source raises ValueError."""
@@ -346,9 +338,7 @@ class TestValidateFlowDefinition:
                     "edges": [{"source": "nonexistent", "target": "node1"}],
                 }
             )
-        assert "references non-existent source node 'nonexistent'" in str(
-            exc_info.value
-        )
+        assert "references non-existent source node 'nonexistent'" in str(exc_info.value)
 
     def test_dag_edge_nonexistent_target(self):
         """Test edge referencing non-existent target raises ValueError."""
@@ -359,9 +349,7 @@ class TestValidateFlowDefinition:
                     "edges": [{"source": "node1", "target": "nonexistent"}],
                 }
             )
-        assert "references non-existent target node 'nonexistent'" in str(
-            exc_info.value
-        )
+        assert "references non-existent target node 'nonexistent'" in str(exc_info.value)
 
     def test_dag_edge_self_referencing(self):
         """Test self-referencing edge raises ValueError."""
@@ -455,7 +443,7 @@ class TestValidateFlowDefinition:
     def test_operator_type_valid_dotted(self):
         """Test valid dotted operator type."""
         definition = {
-            "nodes": [{"id": "node1", "operator": "core.operators.IngestLocal"}],
+            "nodes": [{"id": "node1", "operator": "datasift.core.operators.IngestLocal"}],
             "edges": [],
         }
         result = validate_flow_definition(definition)
@@ -465,16 +453,12 @@ class TestValidateFlowDefinition:
         """Test empty operator type raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
             validate_flow_definition({"nodes": [{"id": "node1", "operator": ""}]})
-        assert "is missing required field 'operator' or 'operator_type'" in str(
-            exc_info.value
-        )
+        assert "is missing required field 'operator' or 'operator_type'" in str(exc_info.value)
 
     def test_operator_type_invalid_format(self):
         """Test invalid operator type format raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
-            validate_flow_definition(
-                {"nodes": [{"id": "node1", "operator": "123invalid"}]}
-            )
+            validate_flow_definition({"nodes": [{"id": "node1", "operator": "123invalid"}]})
         assert "contains invalid identifier" in str(exc_info.value)
 
     # Elyra format tests
@@ -504,9 +488,7 @@ class TestValidateFlowDefinition:
     def test_elyra_pipelines_not_list(self):
         """Test Elyra pipelines not being a list raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
-            validate_flow_definition(
-                {"doc_type": "pipeline", "pipelines": "not a list"}
-            )
+            validate_flow_definition({"doc_type": "pipeline", "pipelines": "not a list"})
         assert "pipelines must be a list" in str(exc_info.value)
 
     def test_elyra_empty_pipelines(self):

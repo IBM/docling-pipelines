@@ -18,24 +18,18 @@ from unittest.mock import patch
 
 import pytest
 
-from cli.datasift_cli import (
+from datasift.cli.datasift_cli import (
     load_flow_definition,
-    validate_flow_definition,
     main,
+    validate_flow_definition,
 )
-from common.constants.operator_constants import OperatorConstants
+from datasift.core.constants.operator_constants import OperatorConstants
 
 
 @pytest.fixture
 def real_flow_invoice(project_root):
     """Return path to real invoice flow file."""
-    return str(
-        project_root
-        / "tests"
-        / "sample_test_flows"
-        / "invoice_processing"
-        / "flow_invoice.json"
-    )
+    return str(project_root / "tests" / "sample_test_flows" / "invoice_processing" / "flow_invoice.json")
 
 
 @pytest.fixture
@@ -161,9 +155,7 @@ class TestLoadFlowDefinition:
 class TestValidateFlowDefinition:
     """Tests for validate_flow_definition function - only mock orchestrator execution."""
 
-    @patch(
-        "core.orchestrator.orchestrator_factory.OrchestratorFactory.create_orchestrator"
-    )
+    @patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
     def test_validate_invalid_flow_missing_dag(
         self,
         mock_orchestrator_factory,
@@ -174,12 +166,8 @@ class TestValidateFlowDefinition:
 
         assert result is False
 
-    @patch(
-        "core.orchestrator.orchestrator_factory.OrchestratorFactory.create_orchestrator"
-    )
-    def test_validate_unexpected_exception(
-        self, mock_orchestrator_factory, valid_flow_file
-    ):
+    @patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
+    def test_validate_unexpected_exception(self, mock_orchestrator_factory, valid_flow_file):
         """Test validation handles unexpected exceptions."""
         mock_orchestrator_factory.side_effect = RuntimeError("Unexpected error")
 
@@ -191,7 +179,7 @@ class TestValidateFlowDefinition:
 class TestMainCLI:
     """Tests for main CLI function with minimal mocking."""
 
-    @patch("cli.datasift_cli.validate_flow_definition")
+    @patch("datasift.cli.datasift_cli.validate_flow_definition")
     @patch("sys.argv", ["datasift-orchestrator", "validate-flow", "test.json"])
     def test_validate_flow_command_success(self, mock_validate):
         """Test validate-flow subcommand with successful validation."""
@@ -203,7 +191,7 @@ class TestMainCLI:
         assert exc_info.value.code == 0
         mock_validate.assert_called_once_with(flow_file="test.json")
 
-    @patch("cli.datasift_cli.validate_flow_definition")
+    @patch("datasift.cli.datasift_cli.validate_flow_definition")
     @patch("sys.argv", ["datasift-orchestrator", "validate-flow", "test.json"])
     def test_validate_flow_command_failure(self, mock_validate):
         """Test validate-flow subcommand with failed validation."""
@@ -215,19 +203,17 @@ class TestMainCLI:
         assert exc_info.value.code == 1
         mock_validate.assert_called_once_with(flow_file="test.json")
 
-    @patch("cli.datasift_cli.run_command_line_executor")
+    @patch("datasift.cli.datasift_cli.run_command_line_executor")
     @patch("sys.argv", ["datasift-orchestrator", "--flow-file", "test.json"])
     def test_backward_compatibility_execution(self, mock_execute, valid_flow_file):
         """Test backward compatibility: --flow-file without --validate executes flow."""
-        with patch(
-            "sys.argv", ["datasift-orchestrator", "--flow-file", valid_flow_file]
-        ):
+        with patch("sys.argv", ["datasift-orchestrator", "--flow-file", valid_flow_file]):
             main()
 
         mock_execute.assert_called_once()
 
     @patch("builtins.print")
-    @patch("common.util.operators.display.list_operators")
+    @patch("datasift.utils.operators.display.list_operators")
     @patch("sys.argv", ["datasift-orchestrator", "--list-operators"])
     def test_list_operators(self, mock_list_ops, mock_print):
         """Test --list-operators functionality."""
@@ -239,7 +225,7 @@ class TestMainCLI:
         mock_print.assert_called_once()
 
     @patch("builtins.print")
-    @patch("common.util.operators.display.list_operators")
+    @patch("datasift.utils.operators.display.list_operators")
     @patch("sys.argv", ["datasift-orchestrator", "--list-operators", "--verbose"])
     def test_list_operators_verbose(self, mock_list_ops, mock_print):
         """Test --list-operators with --verbose flag."""
@@ -265,7 +251,7 @@ class TestMainCLI:
 
         assert exc_info.value.code == 0
 
-    @patch("cli.datasift_cli.validate_flow_definition")
+    @patch("datasift.cli.datasift_cli.validate_flow_definition")
     @patch(
         "sys.argv",
         ["datasift-orchestrator", "validate-flow", "test.json", "--log-level", "debug"],
@@ -280,10 +266,8 @@ class TestMainCLI:
         assert exc_info.value.code == 0
         mock_validate.assert_called_once_with(flow_file="test.json")
 
-    @patch("cli.datasift_cli.validate_flow_definition")
-    @patch(
-        "sys.argv", ["datasift-orchestrator", "--flow-file", "test.json", "--validate"]
-    )
+    @patch("datasift.cli.datasift_cli.validate_flow_definition")
+    @patch("sys.argv", ["datasift-orchestrator", "--flow-file", "test.json", "--validate"])
     def test_validate_flag_with_flow_file(self, mock_validate):
         """Test --validate flag with --flow-file (backward compatibility)."""
         mock_validate.return_value = True
@@ -294,7 +278,7 @@ class TestMainCLI:
         assert exc_info.value.code == 0
         mock_validate.assert_called_once_with(flow_file="test.json")
 
-    @patch("cli.datasift_cli.validate_flow_definition")
+    @patch("datasift.cli.datasift_cli.validate_flow_definition")
     @patch(
         "sys.argv",
         [
@@ -316,7 +300,7 @@ class TestMainCLI:
         assert exc_info.value.code == 1
         mock_validate.assert_called_once_with(flow_file="test.json")
 
-    @patch("cli.datasift_cli.run_command_line_executor")
+    @patch("datasift.cli.datasift_cli.run_command_line_executor")
     @patch(
         "sys.argv",
         ["datasift-orchestrator", "--flow-file", "test.json", "--log-level", "debug"],
@@ -358,9 +342,7 @@ class TestIntegrationScenarios:
         assert "embeddings" in operators
         assert "vectordb" in operators
 
-    def test_create_and_validate_temporary_flow(
-        self, tmp_path, fixtures_customer_support_dir
-    ):
+    def test_create_and_validate_temporary_flow(self, tmp_path, fixtures_customer_support_dir):
         """Test creating a temporary flow file and validating it."""
         flow = {
             "name": "temp_test_flow",

@@ -11,16 +11,16 @@ from unittest.mock import patch
 import pytest
 import yaml
 
-from common.exceptions.datasift_exceptions import RepositoryConfigurationException
-from core.assets_management.adapters.config.repository_factory import (
+from datasift.core.flows.adapters.config.repository_factory import (
     ENV_CONFIG_PATH_KEY,
     RepositoryFactory,
     RepositoryType,
 )
-from core.assets_management.adapters.repositories.local.local_flow_repository import (
+from datasift.core.flows.adapters.repositories.local.local_flow_repository import (
     LocalFlowRepository,
 )
-from core.assets_management.domain.ports.flow_repository import FlowRepository
+from datasift.core.flows.domain.ports.flow_repository import FlowRepository
+from datasift.exceptions.datasift_exceptions import RepositoryConfigurationException
 
 
 class TestRepositoryFactory:
@@ -83,9 +83,7 @@ class TestRepositoryFactory:
         assert isinstance(repository, LocalFlowRepository)
         assert repository.flows_dir == custom_dir.resolve()
 
-    def test_create_flow_repository_uses_yaml_base_dir_when_env_not_set(
-        self, tmp_path, monkeypatch
-    ):
+    def test_create_flow_repository_uses_yaml_base_dir_when_env_not_set(self, tmp_path, monkeypatch):
         """Test that repository factory reads base_dir from datasift.yaml."""
         custom_dir = tmp_path / "yaml_flows"
         config_path = tmp_path / "datasift.yaml"
@@ -112,9 +110,7 @@ class TestRepositoryFactory:
         assert isinstance(repository, LocalFlowRepository)
         assert repository.flows_dir == custom_dir.resolve()
 
-    def test_create_flow_repository_env_base_dir_overrides_yaml(
-        self, tmp_path, monkeypatch
-    ):
+    def test_create_flow_repository_env_base_dir_overrides_yaml(self, tmp_path, monkeypatch):
         """Test that LOCAL_FLOWS_DIR overrides datasift.yaml base_dir."""
         yaml_dir = tmp_path / "yaml_flows"
         env_dir = tmp_path / "env_flows"

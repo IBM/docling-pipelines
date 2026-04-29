@@ -20,32 +20,32 @@ tests/
 
 ### Prerequisites
 
-1. **Set up Python environment**:
+1. **Sync dependencies** (first time or after changes):
    ```bash
-   cd src/datasift_opensource/backend
-   source venv/bin/activate  # or your virtual environment
-   ```
-
-2. **Set PYTHONPATH**:
-   ```bash
-   # PYTHONPATH must point to the src directory
-   export PYTHONPATH="$(cd ../../.. && pwd)/src:${PYTHONPATH}"
-   ```
-
-3. **Sync dependencies** (first time or after changes):
-   ```bash
+   # From project root
    uv sync --extra dev
+   ```
+
+2. **Set up Python environment**:
+   ```bash
+   # From project root
+   source .venv/bin/activate
+   ```
+
+3. **Set PYTHONPATH**:
+   ```bash
+   # From project root
+   export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
    ```
 
 ### Running All Tests
 
 ```bash
-# From backend directory
-cd src/datasift_opensource/backend
-uv run pytest ../../../tests/ -v
+# From project root with activated venv
+uv run pytest tests/ -v
 
 # With coverage
-uv run pytest ../../../tests/ --cov=datasift_opensource --cov-report=html
+uv run pytest tests/ --cov=src --cov-report=html
 ```
 
 ### Running Specific Test Suites
@@ -53,33 +53,33 @@ uv run pytest ../../../tests/ --cov=datasift_opensource --cov-report=html
 #### Unit Tests
 
 ```bash
-# All unit tests
-uv run pytest ../../../tests/unit/ -v
+# All unit tests (from project root)
+uv run pytest tests/unit/ -v
 
 # Specific operator unit tests
-uv run pytest ../../../tests/unit/operators/ingest/ -v
-uv run pytest ../../../tests/unit/operators/extract/ -v
-uv run pytest ../../../tests/unit/operators/chunker/ -v
+uv run pytest tests/unit/operators/ingest/ -v
+uv run pytest tests/unit/operators/extract/ -v
+uv run pytest tests/unit/operators/chunker/ -v
 
 # Single test file
-uv run pytest ../../../tests/unit/operators/ingest/test_ingest_local.py -v
+uv run pytest tests/unit/operators/ingest/test_ingest_local.py -v
 
 # Single test function
-uv run pytest ../../../tests/unit/operators/ingest/test_ingest_local.py::TestIngestLocalOperator::test_metadata_only_mode -v
+uv run pytest tests/unit/operators/ingest/test_ingest_local.py::TestIngestLocalOperator::test_metadata_only_mode -v
 ```
 
 #### Integration Tests
 
 ```bash
-# All integration tests
-uv run pytest ../../../tests/integration/ -v
+# All integration tests (from project root)
+uv run pytest tests/integration/ -v
 
 # Specific integration test files
-uv run pytest ../../../tests/integration/test_ingest_extract_integration.py -v
-uv run pytest ../../../tests/integration/test_full_pipeline_integration.py -v
+uv run pytest tests/integration/test_ingest_extract_integration.py -v
+uv run pytest tests/integration/test_full_pipeline_integration.py -v
 
 # Single integration test
-uv run pytest ../../../tests/integration/test_full_pipeline_integration.py::TestFullPipelineIntegration::test_ingest_extract_chunk_pipeline -v
+uv run pytest tests/integration/test_full_pipeline_integration.py::TestFullPipelineIntegration::test_ingest_extract_chunk_pipeline -v
 ```
 
 ### Running Tests with Output
@@ -87,7 +87,8 @@ uv run pytest ../../../tests/integration/test_full_pipeline_integration.py::Test
 To see print statements and detailed output:
 
 ```bash
-uv run pytest ../../../tests/ -v -s
+# From project root
+uv run pytest tests/ -v -s
 ```
 
 ### Running Tests in Parallel
@@ -95,7 +96,8 @@ uv run pytest ../../../tests/ -v -s
 For faster execution (requires pytest-xdist):
 
 ```bash
-uv run pytest ../../../tests/ -v -n auto
+# From project root
+uv run pytest tests/ -v -n auto
 ```
 
 ## Test Categories
@@ -221,4 +223,4 @@ For test failures:
 
 - [pytest documentation](https://docs.pytest.org/)
 - [DataSift Architecture](../ARCHITECTURE.md)
-- [Operator Documentation](../src/datasift_opensource/backend/core/operators/)
+- [Operator Documentation](../src/datasift/core/operators/)

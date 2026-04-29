@@ -6,10 +6,10 @@ from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
-from core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
+from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
     GoogleDriveSourceAdapter,
 )
-from core.operators.ingest.adapters.outbound.sources.google_drive.config import (
+from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.config import (
     GoogleDriveSourceConfig,
 )
 
@@ -155,7 +155,7 @@ class TestGoogleDriveSourceAdapter:
         with (
             patch.object(adapter, "_get_credentials", return_value=Mock()),
             patch(
-                "core.operators.ingest.adapters.outbound.sources.google_drive.adapter.GoogleDriveLoader",
+                "datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter.GoogleDriveLoader",
                 return_value=loader_instance,
             ),
         ):
@@ -165,20 +165,14 @@ class TestGoogleDriveSourceAdapter:
         assert docs[0].id == "doc1"
         assert docs[0].name == "file.pdf"
         assert docs[0].content == b"hello"
-        assert docs[0].modified_time == datetime.fromisoformat(
-            "2024-01-01T10:00:00+00:00"
-        )
+        assert docs[0].modified_time == datetime.fromisoformat("2024-01-01T10:00:00+00:00")
 
     def test_fetch_documents_wraps_errors(self):
         adapter = GoogleDriveSourceAdapter()
         config = self.make_config()
 
-        with patch.object(
-            adapter, "_get_credentials", side_effect=RuntimeError("bad auth")
-        ):
-            with pytest.raises(
-                ValueError, match="Failed to fetch documents from Google Drive"
-            ):
+        with patch.object(adapter, "_get_credentials", side_effect=RuntimeError("bad auth")):
+            with pytest.raises(ValueError, match="Failed to fetch documents from Google Drive"):
                 asyncio.run(collect_async(adapter.fetch_documents(config)))
 
     def test_test_connection_success_and_failure(self):
@@ -191,7 +185,7 @@ class TestGoogleDriveSourceAdapter:
         with (
             patch.object(adapter, "_get_credentials", return_value=Mock()),
             patch(
-                "core.operators.ingest.adapters.outbound.sources.google_drive.adapter.GoogleDriveLoader",
+                "datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter.GoogleDriveLoader",
                 return_value=loader_instance,
             ),
         ):

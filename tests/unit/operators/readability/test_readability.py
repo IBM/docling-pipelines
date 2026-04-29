@@ -1,11 +1,13 @@
 import unittest
+
 import pyarrow as pa
-from core.operators.quality.readability import (
-    ReadabilityOperator,
+
+from datasift.core.constants.constants import Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.quality.readability import (
     DEFAULT_READABILITY_SCORES,
+    ReadabilityOperator,
 )
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import Metrics
 
 
 class TestReadabilityOperator(unittest.TestCase):
@@ -20,9 +22,7 @@ class TestReadabilityOperator(unittest.TestCase):
         self.assertIn("flesch_ease", operator.score_list)
 
     def test_readability_metadata(self):
-        operator = ReadabilityOperator(
-            config={"readability_score_list": ["flesch_ease"]}
-        )
+        operator = ReadabilityOperator(config={"readability_score_list": ["flesch_ease"]})
         metadata = operator.get_metadata()
 
         self.assertIn(OperatorConstants.Misc.SDK, metadata)
@@ -76,15 +76,11 @@ class TestReadabilityOperator(unittest.TestCase):
         errors = []
         warnings = []
 
-        operator.validate(
-            errors=errors, warnings=warnings, available_features=["content"]
-        )
+        operator.validate(errors=errors, warnings=warnings, available_features=["content"])
 
         self.assertEqual(len(errors), 0)
         self.assertEqual(len(warnings), 1)
-        self.assertIn(
-            "at least one readability score must be selected", warnings[0].lower()
-        )
+        self.assertIn("at least one readability score must be selected", warnings[0].lower())
 
     def test_readability_all_scores(self):
         config = {
@@ -220,15 +216,11 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
             self.assertIn(field, metadata, f"Missing required metadata field: {field}")
 
     def test_validation_invalid_scores(self):
-        operator = ReadabilityOperator(
-            config={"readability_score_list": ["invalid_score", "another_invalid"]}
-        )
+        operator = ReadabilityOperator(config={"readability_score_list": ["invalid_score", "another_invalid"]})
         errors = []
         warnings = []
 
-        operator.validate(
-            errors=errors, warnings=warnings, available_features=["content"]
-        )
+        operator.validate(errors=errors, warnings=warnings, available_features=["content"])
         self.assertEqual(len(warnings), 1)
         self.assertIn("invalid", warnings[0].lower())
 

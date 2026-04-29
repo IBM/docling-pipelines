@@ -7,11 +7,11 @@ from unittest.mock import mock_open, patch
 import pytest
 from pydantic import ValidationError
 
-from core.operators.ingest.adapters.outbound.sources.filesystem.config import (
-    FilesystemSourceConfig,
-)
-from core.operators.ingest.adapters.outbound.sources.filesystem.adapter import (
+from datasift.core.operators.ingest.adapters.outbound.sources.filesystem.adapter import (
     FilesystemSourceAdapter,
+)
+from datasift.core.operators.ingest.adapters.outbound.sources.filesystem.config import (
+    FilesystemSourceConfig,
 )
 
 

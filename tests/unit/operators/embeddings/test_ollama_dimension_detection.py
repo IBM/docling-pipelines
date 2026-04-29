@@ -1,12 +1,13 @@
 """Tests for Ollama adapter dimension detection functionality."""
 
-import pytest
 from unittest.mock import Mock, patch
 
-from common.exceptions.datasift_exceptions import ExternalServiceError
-from core.operators.functional.embeddings.adapters.outbound.ollama_adapter import (
+import pytest
+
+from datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter import (
     OllamaLLMAdapter,
 )
+from datasift.exceptions.datasift_exceptions import ExternalServiceError
 
 
 class TestOllamaDimensionDetection:
@@ -16,7 +17,7 @@ class TestOllamaDimensionDetection:
     def mock_ollama_client(self):
         """Create a mock Ollama client."""
         with patch(
-            "core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
+            "datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
         ) as mock:
             yield mock
 
@@ -35,9 +36,7 @@ class TestOllamaDimensionDetection:
 
         # Verify
         assert dimension == 768
-        mock_client_instance.generate_embeddings.assert_called_once_with(
-            "dimension detection"
-        )
+        mock_client_instance.generate_embeddings.assert_called_once_with("dimension detection")
 
     def test_dimension_caching(self, mock_ollama_client):
         """Test that dimension is cached after first detection."""
@@ -89,9 +88,7 @@ class TestOllamaDimensionDetection:
         """Test dimension detection when Ollama server is not running."""
         # Setup mock to raise connection error
         mock_client_instance = Mock()
-        mock_client_instance.generate_embeddings.side_effect = ConnectionError(
-            "Failed to connect to Ollama server"
-        )
+        mock_client_instance.generate_embeddings.side_effect = ConnectionError("Failed to connect to Ollama server")
         mock_ollama_client.return_value = mock_client_instance
 
         # Create adapter
@@ -107,9 +104,7 @@ class TestOllamaDimensionDetection:
         """Test dimension detection when model is not available."""
         # Setup mock to raise model not found error
         mock_client_instance = Mock()
-        mock_client_instance.generate_embeddings.side_effect = Exception(
-            "Model 'invalid-model' not found"
-        )
+        mock_client_instance.generate_embeddings.side_effect = Exception("Model 'invalid-model' not found")
         mock_ollama_client.return_value = mock_client_instance
 
         # Create adapter
@@ -173,9 +168,7 @@ class TestOllamaDimensionDetection:
         """Test that connection errors provide helpful error messages."""
         # Setup mock to raise connection error
         mock_client_instance = Mock()
-        mock_client_instance.generate_embeddings.side_effect = ConnectionError(
-            "Connection refused"
-        )
+        mock_client_instance.generate_embeddings.side_effect = ConnectionError("Connection refused")
         mock_ollama_client.return_value = mock_client_instance
 
         # Create adapter
@@ -194,9 +187,7 @@ class TestOllamaDimensionDetection:
         """Test that model not found errors provide helpful error messages."""
         # Setup mock to raise model not found error
         mock_client_instance = Mock()
-        mock_client_instance.generate_embeddings.side_effect = Exception(
-            "Model 'test-model' not found"
-        )
+        mock_client_instance.generate_embeddings.side_effect = Exception("Model 'test-model' not found")
         mock_ollama_client.return_value = mock_client_instance
 
         # Create adapter
@@ -210,9 +201,7 @@ class TestOllamaDimensionDetection:
         error_msg = str(exc_info.value)
         assert "ollama pull test-model" in error_msg
 
-    def test_dimension_detection_preserves_adapter_functionality(
-        self, mock_ollama_client
-    ):
+    def test_dimension_detection_preserves_adapter_functionality(self, mock_ollama_client):
         """Test that dimension detection doesn't interfere with normal embedding generation."""
         # Setup mock
         mock_client_instance = Mock()
@@ -263,7 +252,7 @@ class TestOllamaAdapterBackwardCompatibility:
     def mock_ollama_client(self):
         """Create a mock Ollama client."""
         with patch(
-            "core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
+            "datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
         ) as mock:
             yield mock
 

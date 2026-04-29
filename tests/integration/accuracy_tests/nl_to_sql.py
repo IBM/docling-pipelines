@@ -58,23 +58,22 @@ python tests/integration/opensearch/nl_to_sql.py --test-filter edge_case
 - Needs Improvement: <65% pass rate
 """
 
-import json
-import sys
-import os
-from datetime import datetime, timedelta
-from typing import Dict, List, Any, Optional, Tuple, Callable
-from opensearchpy import OpenSearch, helpers
 import argparse
+import json
+import os
+import sys
 from collections import defaultdict
+from datetime import datetime, timedelta
+from typing import Any, Callable
+
+from opensearchpy import OpenSearch, helpers
 
 # Add the examples/retrieval directory to the path
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "../../../examples/retrieval")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../examples/retrieval"))
 
+from nl_query_generator import get_comprehensive_test_queries  # type: ignore
 from ollama_nl_to_sql_converter import OllamaNLToSQLConverter  # type: ignore
 from opensearch_sql import OpenSearchSQLClient  # type: ignore
-from nl_query_generator import get_comprehensive_test_queries  # type: ignore
 
 
 class DeterministicPurchaseOrderGenerator:
@@ -100,7 +99,7 @@ class DeterministicPurchaseOrderGenerator:
         # Base date for consistent time-based queries
         self.base_date = datetime(2026, 3, 1)
 
-    def generate_test_purchase_orders(self) -> List[Dict[str, Any]]:
+    def generate_test_purchase_orders(self) -> list[dict[str, Any]]:
         """
         Generate a comprehensive set of test purchase orders with known values
         for accurate query evaluation
@@ -489,7 +488,7 @@ class DeterministicPurchaseOrderGenerator:
 
         return orders
 
-    def _validate_schema_compliance(self, orders: List[Dict[str, Any]]) -> None:
+    def _validate_schema_compliance(self, orders: list[dict[str, Any]]) -> None:
         """
         Validate that all generated orders comply with the purchase_orders schema.
 
@@ -532,8 +531,7 @@ class DeterministicPurchaseOrderGenerator:
             for field in required_fields:
                 if field not in order:
                     raise ValueError(
-                        f"Order {idx} (PO: {order.get('po_number', 'unknown')}) "
-                        f"missing required field: {field}"
+                        f"Order {idx} (PO: {order.get('po_number', 'unknown')}) missing required field: {field}"
                     )
 
             # Check nested supplier fields
@@ -541,18 +539,14 @@ class DeterministicPurchaseOrderGenerator:
                 raise ValueError(f"Order {idx} missing 'supplier' object")
             for field in required_nested_fields["supplier"]:
                 if field not in order["supplier"]:
-                    raise ValueError(
-                        f"Order {idx} supplier missing required field: {field}"
-                    )
+                    raise ValueError(f"Order {idx} supplier missing required field: {field}")
 
             # Check nested shipping_address fields
             if "shipping_address" not in order:
                 raise ValueError(f"Order {idx} missing 'shipping_address' object")
             for field in required_nested_fields["shipping_address"]:
                 if field not in order["shipping_address"]:
-                    raise ValueError(
-                        f"Order {idx} shipping_address missing required field: {field}"
-                    )
+                    raise ValueError(f"Order {idx} shipping_address missing required field: {field}")
 
             # Check items array
             if "items" not in order or not isinstance(order["items"], list):
@@ -563,32 +557,25 @@ class DeterministicPurchaseOrderGenerator:
             for item_idx, item in enumerate(order["items"]):
                 for field in required_item_fields:
                     if field not in item:
-                        raise ValueError(
-                            f"Order {idx} item {item_idx} missing required field: {field}"
-                        )
+                        raise ValueError(f"Order {idx} item {item_idx} missing required field: {field}")
 
             # Validate status values (as per schema)
             valid_statuses = ["pending", "approved", "delivered", "cancelled"]
             if order["status"] not in valid_statuses:
-                raise ValueError(
-                    f"Order {idx} has invalid status: {order['status']}. "
-                    f"Must be one of: {valid_statuses}"
-                )
+                raise ValueError(f"Order {idx} has invalid status: {order['status']}. Must be one of: {valid_statuses}")
 
-        print(
-            f"✓ Schema validation passed: All {len(orders)} orders comply with purchase_orders schema"
-        )
+        print(f"✓ Schema validation passed: All {len(orders)} orders comply with purchase_orders schema")
 
     def _create_order(
         self,
         po_number: str,
-        supplier: Dict[str, str],
+        supplier: dict[str, str],
         department: str,
         total_amount: float,
         status: str,
         order_date: datetime,
-        delivery_date: Optional[datetime] = None,
-    ) -> Dict[str, Any]:
+        delivery_date: datetime | None = None,
+    ) -> dict[str, Any]:
         """
         Create a single purchase order with specified parameters.
 
@@ -695,26 +682,18 @@ class NLToSQLQueryEvaluator:
         self.base_date = datetime(2026, 3, 1)
 
         # Initialize Ollama NL to SQL converter
-        self.nl_converter = OllamaNLToSQLConverter(
-            ollama_host=ollama_host, model=ollama_model, index_name=index_name
-        )
+        self.nl_converter = OllamaNLToSQLConverter(ollama_host=ollama_host, model=ollama_model, index_name=index_name)
 
         # Initialize SQL client
         self.sql_client = OpenSearchSQLClient(client)
 
         # Check Ollama status
         if not self.nl_converter.check_ollama_status():
-            print(
-                "\n⚠️  Warning: Ollama service check failed. Tests may not work properly."
-            )
-            print(
-                f"   Make sure Ollama is running and model '{ollama_model}' is available."
-            )
+            print("\n⚠️  Warning: Ollama service check failed. Tests may not work properly.")
+            print(f"   Make sure Ollama is running and model '{ollama_model}' is available.")
             print(f"   Run: ollama pull {ollama_model}\n")
 
-    def evaluate_all_queries(
-        self, complexity_filter: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def evaluate_all_queries(self, complexity_filter: str | None = None) -> dict[str, Any]:
         """
         Evaluate all test queries and return accuracy results
 
@@ -724,18 +703,14 @@ class NLToSQLQueryEvaluator:
         results = {}
 
         # Get comprehensive test queries (100+ queries)
-        test_queries = get_comprehensive_test_queries(
-            complexity_filter=complexity_filter
-        )
+        test_queries = get_comprehensive_test_queries(complexity_filter=complexity_filter)
 
         print(f"\nLoaded {len(test_queries)} test queries")
         print(f"{'=' * 80}\n")
 
         for idx, test_query in enumerate(test_queries, 1):
             print(f"\n[{idx}/{len(test_queries)}] Testing: {test_query['nl_query']}")
-            print(
-                f"ID: {test_query['id']} | Complexity: {test_query.get('complexity', 'unknown')}"
-            )
+            print(f"ID: {test_query['id']} | Complexity: {test_query.get('complexity', 'unknown')}")
             print(f"{'-' * 80}")
 
             # Get validator function based on validator_type
@@ -755,17 +730,13 @@ class NLToSQLQueryEvaluator:
 
             # Print result
             status = "✓ PASS" if result["passed"] else "✗ FAIL"
-            print(
-                f"{status} | Expected: {result['expected']} | Actual: {result['actual']}"
-            )
+            print(f"{status} | Expected: {result['expected']} | Actual: {result['actual']}")
             if result.get("error"):
                 print(f"  Error: {result['error']}")
 
         return results
 
-    def _get_validator(
-        self, validator_type: str, expected_value: Any
-    ) -> Callable[[Any], Tuple[bool, Any]]:
+    def _get_validator(self, validator_type: str, expected_value: Any) -> Callable[[Any], tuple[bool, Any]]:
         """Get validator function based on type"""
         validators = {
             "count_any": lambda r: self._validate_count_any(r),
@@ -783,8 +754,8 @@ class NLToSQLQueryEvaluator:
         nl_query: str,
         expected_type: str,
         expected_value: Any,
-        validator: Callable[[Any], Tuple[bool, Any]],
-    ) -> Dict[str, Any]:
+        validator: Callable[[Any], tuple[bool, Any]],
+    ) -> dict[str, Any]:
         """Evaluate a single natural language query"""
         try:
             # Step 1: Convert NL to SQL using Ollama
@@ -827,7 +798,7 @@ class NLToSQLQueryEvaluator:
                 "error": str(e),
             }
 
-    def _validate_count(self, result, expected_count: int) -> Tuple[bool, int]:
+    def _validate_count(self, result, expected_count: int) -> tuple[bool, int]:
         """
         Validate that result count matches expected.
 
@@ -864,7 +835,7 @@ class NLToSQLQueryEvaluator:
 
         return (actual_count == expected_count, actual_count)
 
-    def _validate_row_count(self, result, expected_count: int) -> Tuple[bool, int]:
+    def _validate_row_count(self, result, expected_count: int) -> tuple[bool, int]:
         """Validate the number of rows in the result"""
         if not result.datarows or len(result.datarows) == 0:
             return (False, 0)
@@ -872,9 +843,7 @@ class NLToSQLQueryEvaluator:
         actual_count: int = len(result.datarows)
         return (actual_count == expected_count, actual_count)
 
-    def _validate_top_supplier(
-        self, result, expected_supplier: str, expected_count: int
-    ) -> Tuple[bool, str]:
+    def _validate_top_supplier(self, result, expected_supplier: str, expected_count: int) -> tuple[bool, str]:
         """Validate top supplier by order count"""
         if not result.datarows:
             return (False, "No results")
@@ -902,9 +871,7 @@ class NLToSQLQueryEvaluator:
         passed = supplier_name == expected_supplier and order_count == expected_count
         return (passed, f"{supplier_name} with {order_count} orders")
 
-    def _validate_top_supplier_by_value(
-        self, result, expected_supplier: str
-    ) -> Tuple[bool, str]:
+    def _validate_top_supplier_by_value(self, result, expected_supplier: str) -> tuple[bool, str]:
         """Validate top supplier by total value (aligned with schema: supplier.name)"""
         if not result.datarows:
             return (False, "No results")
@@ -920,39 +887,33 @@ class NLToSQLQueryEvaluator:
         passed = supplier_name == expected_supplier
         return (passed, f"Top supplier: {supplier_name}")
 
-    def _validate_department_aggregation(
-        self, result, expected_count: int
-    ) -> Tuple[bool, int]:
+    def _validate_department_aggregation(self, result, expected_count: int) -> tuple[bool, int]:
         """Validate department aggregation results"""
         actual_count = len(result.datarows)
         return (actual_count == expected_count, actual_count)
 
-    def _validate_supplier_aggregation(
-        self, result, expected_count: int
-    ) -> Tuple[bool, int]:
+    def _validate_supplier_aggregation(self, result, expected_count: int) -> tuple[bool, int]:
         """Validate supplier aggregation results (aligned with schema: supplier.name)"""
         actual_count = len(result.datarows)
         return (actual_count == expected_count, actual_count)
 
-    def _validate_status_aggregation(
-        self, result, expected_count: int
-    ) -> Tuple[bool, int]:
+    def _validate_status_aggregation(self, result, expected_count: int) -> tuple[bool, int]:
         """Validate status aggregation results"""
         actual_count = len(result.datarows)
         return (actual_count >= expected_count, actual_count)
 
-    def _validate_count_any(self, result) -> Tuple[bool, int]:
+    def _validate_count_any(self, result) -> tuple[bool, int]:
         """Validate that query returns any results"""
         actual_count = result.total
         return (actual_count >= 0, actual_count)
 
-    def _validate_has_result(self, result) -> Tuple[bool, str]:
+    def _validate_has_result(self, result) -> tuple[bool, str]:
         """Validate that query has at least one result"""
         print("\n~~~~", result)
         has_result = result.total > 0 or len(result.datarows) > 0
         return (has_result, f"{result.total} results")
 
-    def _validate_group_count(self, result, expected_groups: int) -> Tuple[bool, int]:
+    def _validate_group_count(self, result, expected_groups: int) -> tuple[bool, int]:
         """
         Validate number of groups in aggregation.
 
@@ -973,7 +934,7 @@ class NLToSQLQueryEvaluator:
         passed = actual_groups >= expected_groups * 0.8
         return (passed, actual_groups)
 
-    def _validate_exact_value(self, result, expected_value: Any) -> Tuple[bool, Any]:
+    def _validate_exact_value(self, result, expected_value: Any) -> tuple[bool, Any]:
         """
         Validate exact value match.
 
@@ -1005,7 +966,7 @@ class NLToSQLQueryEvaluator:
         passed = actual_value == expected_value
         return (passed, actual_value)
 
-    def _validate_top_value(self, result, expected_top: str) -> Tuple[bool, str]:
+    def _validate_top_value(self, result, expected_top: str) -> tuple[bool, str]:
         """Validate top value in results"""
         if not result.datarows:
             return (False, "No results")
@@ -1024,8 +985,8 @@ class NLToSQLQueryTester:
         host: str = "localhost",
         port: int = 9200,
         use_ssl: bool = False,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         index_name: str = "test_nl_to_sql_purchase_orders",
         ollama_host: str = "http://localhost:11434",
         ollama_model: str = "granite4",
@@ -1074,9 +1035,7 @@ class NLToSQLQueryTester:
         # Insert orders
         actions = [{"_index": self.index_name, "_source": order} for order in orders]
 
-        success, errors = helpers.bulk(
-            self.client, actions, raise_on_error=False, raise_on_exception=False
-        )
+        success, errors = helpers.bulk(self.client, actions, raise_on_error=False, raise_on_exception=False)
 
         # Refresh index
         self.client.indices.refresh(index=self.index_name)
@@ -1087,15 +1046,13 @@ class NLToSQLQueryTester:
 
         return success, len(errors)
 
-    def run_tests(self) -> Dict[str, Any]:
+    def run_tests(self) -> dict[str, Any]:
         """Run all query evaluation tests"""
         print("\n" + "=" * 80)
         print("RUNNING NL TO SQL QUERY ACCURACY TESTS")
         print("=" * 80)
 
-        results = self.evaluator.evaluate_all_queries(
-            complexity_filter=self.complexity_filter
-        )
+        results = self.evaluator.evaluate_all_queries(complexity_filter=self.complexity_filter)
 
         # Calculate summary statistics
         total_tests = len(results)
@@ -1119,14 +1076,10 @@ class NLToSQLQueryTester:
         print("\nPass Rate by Complexity Level:")
         print(f"{'=' * 80}")
         for complexity, stats in sorted(complexity_stats.items()):
-            complexity_pass_rate = (
-                (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
-            )
+            complexity_pass_rate = (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
             bar_length = int(complexity_pass_rate / 2)  # Scale to 50 chars max
             bar = "█" * bar_length + "░" * (50 - bar_length)
-            print(
-                f"  {complexity:20s} {stats['passed']:3d}/{stats['total']:3d} ({complexity_pass_rate:5.1f}%) {bar}"
-            )
+            print(f"  {complexity:20s} {stats['passed']:3d}/{stats['total']:3d} ({complexity_pass_rate:5.1f}%) {bar}")
         print(f"{'=' * 80}")
 
         return {
@@ -1140,17 +1093,13 @@ class NLToSQLQueryTester:
             "results": results,
         }
 
-    def _calculate_complexity_stats(
-        self, results: Dict[str, Any]
-    ) -> Dict[str, Dict[str, int]]:
+    def _calculate_complexity_stats(self, results: dict[str, Any]) -> dict[str, dict[str, int]]:
         """Calculate pass/fail statistics by complexity level"""
         # Get all test queries to extract complexity info
         test_queries = get_comprehensive_test_queries()
 
         # Create a mapping of query ID to complexity
-        id_to_complexity = {
-            q["id"]: q.get("complexity", "unknown") for q in test_queries
-        }
+        id_to_complexity = {q["id"]: q.get("complexity", "unknown") for q in test_queries}
 
         # Calculate stats by complexity
         complexity_stats = defaultdict(lambda: {"total": 0, "passed": 0, "failed": 0})
@@ -1168,15 +1117,9 @@ class NLToSQLQueryTester:
 
 def main():
     """Main function with CLI interface"""
-    parser = argparse.ArgumentParser(
-        description="Test NL to SQL query accuracy with Ollama and OpenSearch"
-    )
-    parser.add_argument(
-        "--host", default="localhost", help="OpenSearch host (default: localhost)"
-    )
-    parser.add_argument(
-        "--port", type=int, default=9200, help="OpenSearch port (default: 9200)"
-    )
+    parser = argparse.ArgumentParser(description="Test NL to SQL query accuracy with Ollama and OpenSearch")
+    parser.add_argument("--host", default="localhost", help="OpenSearch host (default: localhost)")
+    parser.add_argument("--port", type=int, default=9200, help="OpenSearch port (default: 9200)")
     parser.add_argument("--username", help="OpenSearch username")
     parser.add_argument("--password", help="OpenSearch password")
     parser.add_argument(
@@ -1194,9 +1137,7 @@ def main():
         default="granite4",
         help="Ollama model name (default: granite4)",
     )
-    parser.add_argument(
-        "--force", action="store_true", help="Force recreate index (deletes existing)"
-    )
+    parser.add_argument("--force", action="store_true", help="Force recreate index (deletes existing)")
     parser.add_argument(
         "--skip-insert",
         action="store_true",

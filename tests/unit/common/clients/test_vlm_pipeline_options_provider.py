@@ -2,17 +2,18 @@
 
 import pytest
 from docling.datamodel.pipeline_options import VlmPipelineOptions
-from common.clients.vlm_pipeline_options_provider import (
-    VlmPipelineOptionsProviderFactory,
+
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.integrations.docling.vlm_pipeline_options_provider import (
     GenericApiPipelineOptionsProvider,
-    WatsonxPipelineOptionsProvider,
-    OpenAIPipelineOptionsProvider,
-    OllamaPipelineOptionsProvider,
     LMStudioPipelineOptionsProvider,
-    TransformersPipelineOptionsProvider,
     MlxPipelineOptionsProvider,
+    OllamaPipelineOptionsProvider,
+    OpenAIPipelineOptionsProvider,
+    TransformersPipelineOptionsProvider,
+    VlmPipelineOptionsProviderFactory,
+    WatsonxPipelineOptionsProvider,
 )
-from common.constants.operator_constants import OperatorConstants
 
 
 class TestVlmPipelineOptionsProviderFactory:
@@ -48,9 +49,7 @@ class TestVlmPipelineOptionsProviderFactory:
 
     def test_get_provider_generic_api(self):
         """Test getting generic API provider."""
-        provider = VlmPipelineOptionsProviderFactory.get_provider(
-            engine_type=OperatorConstants.Config.VLM_ENGINE_API
-        )
+        provider = VlmPipelineOptionsProviderFactory.get_provider(engine_type=OperatorConstants.Config.VLM_ENGINE_API)
         assert isinstance(provider, GenericApiPipelineOptionsProvider)
 
     def test_get_provider_transformers(self):
@@ -62,9 +61,7 @@ class TestVlmPipelineOptionsProviderFactory:
 
     def test_get_provider_mlx(self):
         """Test getting MLX provider."""
-        provider = VlmPipelineOptionsProviderFactory.get_provider(
-            engine_type=OperatorConstants.Config.VLM_ENGINE_MLX
-        )
+        provider = VlmPipelineOptionsProviderFactory.get_provider(engine_type=OperatorConstants.Config.VLM_ENGINE_MLX)
         assert isinstance(provider, MlxPipelineOptionsProvider)
 
     def test_get_provider_unknown(self):
@@ -122,13 +119,11 @@ class TestWatsonxPipelineOptionsProvider:
 
         # Mock RestClient.call_rest_json to return fake IAM token
         mocker.patch(
-            "common.clients.vlm_pipeline_options_provider.RestClient.call_rest_json",
+            "datasift.integrations.docling.vlm_pipeline_options_provider.RestClient.call_rest_json",
             return_value={"access_token": "fake_token_12345"},
         )
 
-        options = provider.create_pipeline_options(
-            preset="granite_docling", config=config
-        )
+        options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
         assert isinstance(options, VlmPipelineOptions)
         assert options.enable_remote_services is True
@@ -177,9 +172,7 @@ class TestOpenAIPipelineOptionsProvider:
             "api_base_url": "https://api.openai.com/v1",
         }
 
-        options = provider.create_pipeline_options(
-            preset="granite_docling", config=config
-        )
+        options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
         assert isinstance(options, VlmPipelineOptions)
         assert options.enable_remote_services is True
@@ -207,9 +200,7 @@ class TestOllamaPipelineOptionsProvider:
         provider = OllamaPipelineOptionsProvider()
         config = {"api_base_url": "http://localhost:11434"}
 
-        options = provider.create_pipeline_options(
-            preset="granite_docling", config=config
-        )
+        options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
         assert isinstance(options, VlmPipelineOptions)
         assert options.enable_remote_services is True
@@ -237,9 +228,7 @@ class TestLMStudioPipelineOptionsProvider:
         provider = LMStudioPipelineOptionsProvider()
         config = {"api_base_url": "http://localhost:1234/v1/chat/completions"}
 
-        options = provider.create_pipeline_options(
-            preset="granite_docling", config=config
-        )
+        options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
         assert isinstance(options, VlmPipelineOptions)
         assert options.enable_remote_services is True
@@ -263,9 +252,7 @@ class TestGenericApiPipelineOptionsProvider:
             "vlm_api_base_url": "https://api.example.com",
         }
 
-        options = provider.create_pipeline_options(
-            preset="granite_docling", config=config
-        )
+        options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
         assert isinstance(options, VlmPipelineOptions)
         assert options.enable_remote_services is True
@@ -278,9 +265,7 @@ class TestGenericApiPipelineOptionsProvider:
             "headers": {"X-Custom-Header": "custom_value"},
         }
 
-        options = provider.create_pipeline_options(
-            preset="granite_docling", config=config
-        )
+        options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
         assert isinstance(options, VlmPipelineOptions)
         assert options.enable_remote_services is True
@@ -301,9 +286,7 @@ class TestTransformersPipelineOptionsProvider:
         provider = TransformersPipelineOptionsProvider()
         config = {}
 
-        options = provider.create_pipeline_options(
-            preset="granite_docling", config=config
-        )
+        options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
         assert isinstance(options, VlmPipelineOptions)
         assert options.enable_remote_services is False
@@ -324,9 +307,7 @@ class TestMlxPipelineOptionsProvider:
         provider = MlxPipelineOptionsProvider()
         config = {}
 
-        options = provider.create_pipeline_options(
-            preset="granite_docling", config=config
-        )
+        options = provider.create_pipeline_options(preset="granite_docling", config=config)
 
         assert isinstance(options, VlmPipelineOptions)
         assert options.enable_remote_services is False

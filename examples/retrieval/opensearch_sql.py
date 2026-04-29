@@ -11,11 +11,11 @@ This module provides:
 - Common SQL operations (SELECT, WHERE, GROUP BY, ORDER BY, etc.)
 """
 
-from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import dataclass
-from enum import Enum
 import json
 import logging
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -42,28 +42,26 @@ class SQLFetchSize(Enum):
 class SQLQueryConfig:
     """Configuration for SQL queries"""
 
-    fetch_size: Optional[int] = (
-        None  # Don't set fetch_size by default to avoid OpenSearch errors
-    )
+    fetch_size: int | None = None  # Don't set fetch_size by default to avoid OpenSearch errors
     response_format: SQLResponseFormat = SQLResponseFormat.JSON
-    filter_path: Optional[str] = None
+    filter_path: str | None = None
     pretty: bool = False
-    timeout: Optional[str] = None  # e.g., "30s"
+    timeout: str | None = None  # e.g., "30s"
 
 
 @dataclass
 class SQLQueryResult:
     """Result of a SQL query execution"""
 
-    schema: List[Dict[str, Any]]
-    datarows: List[List[Any]]
+    schema: list[dict[str, Any]]
+    datarows: list[list[Any]]
     total: int
     size: int
     status: int
-    cursor: Optional[str] = None
-    error: Optional[str] = None
+    cursor: str | None = None
+    error: str | None = None
 
-    def to_dict_list(self) -> List[Dict[str, Any]]:
+    def to_dict_list(self) -> list[dict[str, Any]]:
         """Convert result to list of dictionaries"""
         if not self.schema or not self.datarows:
             return []
@@ -78,9 +76,7 @@ class SQLQueryResult:
 
             return pd.DataFrame(self.to_dict_list())
         except ImportError:
-            raise ImportError(
-                "pandas is required for to_dataframe(). Install with: pip install pandas"
-            )
+            raise ImportError("pandas is required for to_dataframe(). Install with: pip install pandas")
 
 
 class OpenSearchSQLClient:
@@ -91,7 +87,7 @@ class OpenSearchSQLClient:
     https://opensearch.org/docs/latest/search-plugins/sql/sql/index/
     """
 
-    def __init__(self, client, config: Optional[SQLQueryConfig] = None):
+    def __init__(self, client, config: SQLQueryConfig | None = None):
         """
         Initialize SQL client
 
@@ -106,8 +102,8 @@ class OpenSearchSQLClient:
     def execute(
         self,
         query: str,
-        parameters: Optional[List[Any]] = None,
-        fetch_size: Optional[int] = None,
+        parameters: list[Any] | None = None,
+        fetch_size: int | None = None,
     ) -> SQLQueryResult:
         """
         Execute a SQL query
@@ -142,9 +138,7 @@ class OpenSearchSQLClient:
             logger.debug(f"Using {len(parameters)} query parameters")
 
         try:
-            response = self.client.transport.perform_request(
-                "POST", self._sql_endpoint, body=body
-            )
+            response = self.client.transport.perform_request("POST", self._sql_endpoint, body=body)
 
             logger.debug(f"Raw response: {response}")
 
@@ -156,13 +150,9 @@ class OpenSearchSQLClient:
             error_msg = str(e)
             logger.error(f"SQL query execution failed: {error_msg}", exc_info=True)
 
-            return SQLQueryResult(
-                schema=[], datarows=[], total=0, size=0, status=500, error=error_msg
-            )
+            return SQLQueryResult(schema=[], datarows=[], total=0, size=0, status=500, error=error_msg)
 
-    def execute_with_cursor(
-        self, query: str, fetch_size: Optional[int] = None
-    ) -> Tuple[SQLQueryResult, Optional[str]]:
+    def execute_with_cursor(self, query: str, fetch_size: int | None = None) -> tuple[SQLQueryResult, str | None]:
         """
         Execute query and return result with cursor for pagination
 
@@ -189,16 +179,12 @@ class OpenSearchSQLClient:
         body = {"cursor": cursor}
 
         try:
-            response = self.client.transport.perform_request(
-                "POST", self._sql_endpoint, body=body
-            )
+            response = self.client.transport.perform_request("POST", self._sql_endpoint, body=body)
 
             return self._parse_response(response)
 
         except Exception as e:
-            return SQLQueryResult(
-                schema=[], datarows=[], total=0, size=0, status=500, error=str(e)
-            )
+            return SQLQueryResult(schema=[], datarows=[], total=0, size=0, status=500, error=str(e))
 
     def close_cursor(self, cursor: str) -> bool:
         """
@@ -213,14 +199,12 @@ class OpenSearchSQLClient:
         body = {"cursor": cursor}
 
         try:
-            self.client.transport.perform_request(
-                "POST", f"{self._sql_endpoint}/close", body=body
-            )
+            self.client.transport.perform_request("POST", f"{self._sql_endpoint}/close", body=body)
             return True
         except Exception:
             return False
 
-    def explain(self, query: str) -> Dict[str, Any]:
+    def explain(self, query: str) -> dict[str, Any]:
         """
         Explain how a SQL query will be executed
 
@@ -236,14 +220,12 @@ class OpenSearchSQLClient:
         }
 
         try:
-            response = self.client.transport.perform_request(
-                "POST", self._sql_endpoint, body=body
-            )
+            response = self.client.transport.perform_request("POST", self._sql_endpoint, body=body)
             return response
         except Exception as e:
             return {"error": str(e)}
 
-    def translate(self, query: str) -> Dict[str, Any]:
+    def translate(self, query: str) -> dict[str, Any]:
         """
         Translate SQL query to OpenSearch DSL
 
@@ -256,14 +238,12 @@ class OpenSearchSQLClient:
         body = {"query": query}
 
         try:
-            response = self.client.transport.perform_request(
-                "POST", f"{self._sql_endpoint}/_explain", body=body
-            )
+            response = self.client.transport.perform_request("POST", f"{self._sql_endpoint}/_explain", body=body)
             return response
         except Exception as e:
             return {"error": str(e)}
 
-    def _parse_response(self, response: Dict[str, Any]) -> SQLQueryResult:
+    def _parse_response(self, response: dict[str, Any]) -> SQLQueryResult:
         """Parse SQL query response"""
         # Check if response contains an error
         if "error" in response:
@@ -302,13 +282,13 @@ class SQLQueryBuilder:
             table: Table (index) name
         """
         self.table = table
-        self._select_fields: List[str] = ["*"]
-        self._where_clauses: List[str] = []
-        self._group_by_fields: List[str] = []
-        self._having_clause: Optional[str] = None
-        self._order_by_clauses: List[str] = []
-        self._limit: Optional[int] = None
-        self._offset: Optional[int] = None
+        self._select_fields: list[str] = ["*"]
+        self._where_clauses: list[str] = []
+        self._group_by_fields: list[str] = []
+        self._having_clause: str | None = None
+        self._order_by_clauses: list[str] = []
+        self._limit: int | None = None
+        self._offset: int | None = None
 
     def select(self, *fields: str) -> "SQLQueryBuilder":
         """
@@ -337,7 +317,7 @@ class SQLQueryBuilder:
         self._where_clauses.append(condition)
         return self
 
-    def where_in(self, field: str, values: List[Any]) -> "SQLQueryBuilder":
+    def where_in(self, field: str, values: list[Any]) -> "SQLQueryBuilder":
         """
         Add WHERE IN condition
 
@@ -352,9 +332,7 @@ class SQLQueryBuilder:
         self._where_clauses.append(f"{field} IN ({values_str})")
         return self
 
-    def where_between(
-        self, field: str, min_val: Any, max_val: Any
-    ) -> "SQLQueryBuilder":
+    def where_between(self, field: str, min_val: Any, max_val: Any) -> "SQLQueryBuilder":
         """
         Add WHERE BETWEEN condition
 
@@ -514,9 +492,7 @@ def example_basic_select():
     """Example: Basic SELECT query"""
     from opensearchpy import OpenSearch
 
-    client = OpenSearch(
-        hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False
-    )
+    client = OpenSearch(hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False)
 
     sql_client = OpenSearchSQLClient(client)
 
@@ -534,9 +510,7 @@ def example_filtered_query():
     """Example: Query with WHERE clause"""
     from opensearchpy import OpenSearch
 
-    client = OpenSearch(
-        hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False
-    )
+    client = OpenSearch(hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False)
 
     sql_client = OpenSearchSQLClient(client)
 
@@ -556,9 +530,7 @@ def example_aggregation_query():
     """Example: Aggregation query with GROUP BY"""
     from opensearchpy import OpenSearch
 
-    client = OpenSearch(
-        hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False
-    )
+    client = OpenSearch(hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False)
 
     sql_client = OpenSearchSQLClient(client)
 
@@ -578,9 +550,7 @@ def example_query_builder():
     """Example: Using SQLQueryBuilder"""
     from opensearchpy import OpenSearch
 
-    client = OpenSearch(
-        hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False
-    )
+    client = OpenSearch(hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False)
 
     sql_client = OpenSearchSQLClient(client)
 
@@ -606,16 +576,12 @@ def example_pagination():
     """Example: Pagination with cursor"""
     from opensearchpy import OpenSearch
 
-    client = OpenSearch(
-        hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False
-    )
+    client = OpenSearch(hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False)
 
     sql_client = OpenSearchSQLClient(client)
 
     # First page
-    result, cursor = sql_client.execute_with_cursor(
-        "SELECT * FROM test_documents", fetch_size=100
-    )
+    result, cursor = sql_client.execute_with_cursor("SELECT * FROM test_documents", fetch_size=100)
 
     print(f"Page 1: {len(result.datarows)} rows")
 
@@ -638,9 +604,7 @@ def example_explain_query():
     """Example: Explain query execution"""
     from opensearchpy import OpenSearch
 
-    client = OpenSearch(
-        hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False
-    )
+    client = OpenSearch(hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False)
 
     sql_client = OpenSearchSQLClient(client)
 
@@ -658,9 +622,7 @@ def example_translate_to_dsl():
     """Example: Translate SQL to OpenSearch DSL"""
     from opensearchpy import OpenSearch
 
-    client = OpenSearch(
-        hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False
-    )
+    client = OpenSearch(hosts=[{"host": "localhost", "port": 9200}], http_compress=True, use_ssl=False)
 
     sql_client = OpenSearchSQLClient(client)
 

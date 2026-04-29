@@ -1,9 +1,10 @@
 """Unit tests for cmd_line_operator_executor module."""
 
-import pytest
 from unittest.mock import Mock, patch
 
-from core.orchestrator.cmdline.cmd_line_operator_executor import (
+import pytest
+
+from datasift.core.orchestration.cmdline.cmd_line_operator_executor import (
     CommandLineOperatorExecutor,
 )
 
@@ -11,16 +12,12 @@ from core.orchestrator.cmdline.cmd_line_operator_executor import (
 class TestCommandLineOperatorExecutor:
     """Test CommandLineOperatorExecutor class."""
 
-    @patch(
-        "core.orchestrator.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__"
-    )
+    @patch("datasift.core.orchestration.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__")
     def test_init_calls_parent(self, mock_parent_init):
         """Test that initialization calls parent class."""
         mock_parent_init.return_value = None
 
-        _ = CommandLineOperatorExecutor(
-            name="test_executor", operator="test_operator", params={"param1": "value1"}
-        )
+        _ = CommandLineOperatorExecutor(name="test_executor", operator="test_operator", params={"param1": "value1"})
 
         mock_parent_init.assert_called_once_with(
             name="test_executor",
@@ -29,9 +26,7 @@ class TestCommandLineOperatorExecutor:
             job_stats_service=None,
         )
 
-    @patch(
-        "core.orchestrator.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__"
-    )
+    @patch("datasift.core.orchestration.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__")
     def test_init_with_empty_params(self, mock_parent_init):
         """Test initialization with empty params."""
         mock_parent_init.return_value = None
@@ -45,9 +40,7 @@ class TestCommandLineOperatorExecutor:
             job_stats_service=None,
         )
 
-    @patch(
-        "core.orchestrator.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__"
-    )
+    @patch("datasift.core.orchestration.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__")
     def test_init_with_complex_params(self, mock_parent_init):
         """Test initialization with complex parameters."""
         mock_parent_init.return_value = None
@@ -59,9 +52,7 @@ class TestCommandLineOperatorExecutor:
             "dict_param": {"nested": "value"},
         }
 
-        _ = CommandLineOperatorExecutor(
-            name="complex_executor", operator="complex_operator", params=complex_params
-        )
+        _ = CommandLineOperatorExecutor(name="complex_executor", operator="complex_operator", params=complex_params)
 
         mock_parent_init.assert_called_once_with(
             name="complex_executor",
@@ -72,46 +63,34 @@ class TestCommandLineOperatorExecutor:
 
     def test_inherits_from_python_operator_executor(self):
         """Test that CommandLineOperatorExecutor inherits from PythonOperatorExecutor."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
         # Verify inheritance
         assert issubclass(CommandLineOperatorExecutor, PythonOperatorExecutor)
 
-    @patch(
-        "core.orchestrator.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__"
-    )
-    @patch(
-        "core.orchestrator.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.get_operator"
-    )
+    @patch("datasift.core.orchestration.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__")
+    @patch("datasift.core.orchestration.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.get_operator")
     def test_can_call_parent_methods(self, mock_get_operator, mock_init):
         """Test that parent class methods are accessible."""
         mock_init.return_value = None
         mock_operator = Mock()
         mock_get_operator.return_value = mock_operator
 
-        executor = CommandLineOperatorExecutor(
-            name="test", operator="test_op", params={}
-        )
+        executor = CommandLineOperatorExecutor(name="test", operator="test_op", params={})
 
         # Should be able to call parent methods
         # This verifies the inheritance chain works correctly
         assert hasattr(executor, "get_operator")
 
-    @patch(
-        "core.orchestrator.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__"
-    )
+    @patch("datasift.core.orchestration.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__")
     def test_multiple_instances(self, mock_parent_init):
         """Test creating multiple instances."""
         mock_parent_init.return_value = None
 
-        _ = CommandLineOperatorExecutor(
-            name="exec1", operator="op1", params={"p1": "v1"}
-        )
-        _ = CommandLineOperatorExecutor(
-            name="exec2", operator="op2", params={"p2": "v2"}
-        )
+        _ = CommandLineOperatorExecutor(name="exec1", operator="op1", params={"p1": "v1"})
+        _ = CommandLineOperatorExecutor(name="exec2", operator="op2", params={"p2": "v2"})
 
         assert mock_parent_init.call_count == 2
 

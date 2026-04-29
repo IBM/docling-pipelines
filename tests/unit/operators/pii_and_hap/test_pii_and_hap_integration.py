@@ -14,8 +14,7 @@ import pyarrow as pa
 import pytest
 import requests
 
-
-from core.operators.quality.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
+from datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
     PIIAndHAPAnnotator,
 )
 

@@ -9,8 +9,7 @@ from pathlib import Path
 import pyarrow as pa
 import pytest
 
-from core.operators.ingest.ingest_local_folder import IngestLocalOperator
-
+from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
 EXPECTED_METADATA_COLUMNS = {
     "id",
@@ -78,9 +77,7 @@ class TestIngestLocalOperatorTableMerge:
         assert result_table.num_rows >= 2
         assert EXPECTED_METADATA_COLUMNS.issubset(set(result_table.column_names))
         assert "binary_content" not in result_table.column_names
-        assert (
-            result_table.num_rows == input_table.num_rows + metadata["processed_docs"]
-        )
+        assert result_table.num_rows == input_table.num_rows + metadata["processed_docs"]
 
     def test_transform_with_schema_mismatch(self, temp_test_dir):
         """Test transform handles schema differences gracefully."""
@@ -114,9 +111,7 @@ class TestIngestLocalOperatorTableMerge:
         first_row_custom = result_table["custom_field"][0].as_py()
         assert first_row_custom == "custom_value"
 
-        last_row_custom = result_table["custom_field"][
-            result_table.num_rows - 1
-        ].as_py()
+        last_row_custom = result_table["custom_field"][result_table.num_rows - 1].as_py()
         assert last_row_custom is None
 
     def test_transform_preserves_input_table_data(self, temp_test_dir):

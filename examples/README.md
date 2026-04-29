@@ -164,7 +164,7 @@ python examples/opensearch_integration_example.py
 
 ### General Requirements
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 uv sync --extra dev
 ```
 
@@ -208,7 +208,7 @@ python examples/embeddings_pipeline_example.py --pdf tests/fixtures/invoices/
 
 ### Basic Operator Usage
 ```python
-from core.operators.some_operator import SomeOperator
+from datasift.core.operators.some_operator import SomeOperator
 
 # 1. Configure the operator
 config = {

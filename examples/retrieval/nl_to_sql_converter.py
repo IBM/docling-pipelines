@@ -4,9 +4,10 @@ This module converts natural language questions into SQL queries for OpenSearch.
 """
 
 import json
-from typing import Dict, List, Any, Optional
-from opensearchpy import OpenSearch
+from typing import Any
+
 import requests
+from opensearchpy import OpenSearch
 
 
 class NLToSQLConverter:
@@ -118,9 +119,7 @@ class NLToSQLConverter:
             return float(amounts[0].replace(",", ""))
         return 0.0
 
-    def convert_with_llm(
-        self, natural_language_query: str, llm_endpoint: str, api_key: str
-    ) -> str:
+    def convert_with_llm(self, natural_language_query: str, llm_endpoint: str, api_key: str) -> str:
         """
         Convert natural language to SQL using an LLM API.
         This is the recommended approach for production.
@@ -185,8 +184,8 @@ class OpenSearchQueryExecutor:
         self,
         host: str = "localhost",
         port: int = 9200,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         use_ssl: bool = False,
     ):
         """Initialize OpenSearch client."""
@@ -200,12 +199,10 @@ class OpenSearchQueryExecutor:
             ssl_show_warn=False,
         )
 
-        self.sql_endpoint = (
-            f"{'https' if use_ssl else 'http'}://{host}:{port}/_plugins/_sql"
-        )
+        self.sql_endpoint = f"{'https' if use_ssl else 'http'}://{host}:{port}/_plugins/_sql"
         self.auth = auth
 
-    def execute_sql(self, sql_query: str) -> Dict[str, Any]:
+    def execute_sql(self, sql_query: str) -> dict[str, Any]:
         """Execute SQL query using OpenSearch SQL plugin."""
         try:
             # Use the SQL plugin endpoint
@@ -226,7 +223,7 @@ class OpenSearchQueryExecutor:
             print(f"Error executing SQL query: {e}")
             return {"error": str(e)}
 
-    def format_results(self, results: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def format_results(self, results: dict[str, Any]) -> list[dict[str, Any]]:
         """Format SQL query results into a readable format."""
         if "error" in results:
             return [{"error": results["error"]}]
@@ -256,11 +253,11 @@ class PurchaseOrderQuerySystem:
         opensearch_host: str = "localhost",
         opensearch_port: int = 9200,
         index_name: str = "purchase_orders",
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         use_llm: bool = False,
-        llm_endpoint: Optional[str] = None,
-        llm_api_key: Optional[str] = None,
+        llm_endpoint: str | None = None,
+        llm_api_key: str | None = None,
     ):
         """Initialize the query system."""
         self.converter = NLToSQLConverter()
@@ -275,7 +272,7 @@ class PurchaseOrderQuerySystem:
         self.llm_endpoint = llm_endpoint
         self.llm_api_key = llm_api_key
 
-    def query(self, natural_language_query: str) -> Dict[str, Any]:
+    def query(self, natural_language_query: str) -> dict[str, Any]:
         """
         Process a natural language query and return results.
 
@@ -287,9 +284,7 @@ class PurchaseOrderQuerySystem:
         """
         # Convert natural language to SQL
         if self.use_llm and self.llm_endpoint and self.llm_api_key:
-            sql_query = self.converter.convert_with_llm(
-                natural_language_query, self.llm_endpoint, self.llm_api_key
-            )
+            sql_query = self.converter.convert_with_llm(natural_language_query, self.llm_endpoint, self.llm_api_key)
         else:
             sql_query = self.converter.convert_to_sql(natural_language_query)
 
@@ -357,7 +352,7 @@ class PurchaseOrderQuerySystem:
         except Exception as e:
             print(f"Error creating index: {e}")
 
-    def index_document(self, document: Dict[str, Any], doc_id: Optional[str] = None):
+    def index_document(self, document: dict[str, Any], doc_id: str | None = None):
         """Index a purchase order document."""
         try:
             self.executor.client.index(index=self.index_name, body=document, id=doc_id)

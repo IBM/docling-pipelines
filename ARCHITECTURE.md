@@ -199,31 +199,31 @@ graph TB
 ---
 ## Job Management and Execution Tracking
 
-datasift-opensource includes a dedicated job management subsystem under [`core/job_management`](src/datasift_opensource/backend/core/job_management) that separates orchestration concerns, persistent job statistics, and read-side aggregation.
+datasift-opensource includes a dedicated job management subsystem under [`core/job_management`](src/datasift/core/job_management) that separates orchestration concerns, persistent job statistics, and read-side aggregation.
 
 ### Hexagonal Architecture for Job Stats
 
 The job stats implementation follows a ports-and-adapters design:
 
 - **Domain ports**
-  - [`JobStatsService`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_service.py) defines the orchestration-facing contract for starting jobs, updating node execution state, listing runs, and cancellation/deletion workflows.
-  - [`JobStatsStore`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_store.py) defines persistence operations for job-level and node-level statistics.
+  - [`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py) defines the orchestration-facing contract for starting jobs, updating node execution state, listing runs, and cancellation/deletion workflows.
+  - [`JobStatsStore`](src/datasift/core/job_management/domain/ports/job_stats_store.py) defines persistence operations for job-level and node-level statistics.
 - **Application services**
-  - [`NodeStatsAggregator`](src/datasift_opensource/backend/core/job_management/application/services/node_stats_aggregator.py) performs read-side aggregation of raw node stats records.
-  - [`JobManagementService`](src/datasift_opensource/backend/core/job_management/application/services/job_management_service.py) coordinates APIs, job execution, and framework integration.
+  - [`NodeStatsAggregator`](src/datasift/core/job_management/application/services/node_stats_aggregator.py) performs read-side aggregation of raw node stats records.
+  - [`JobManagementService`](src/datasift/core/job_management/application/services/job_management_service.py) coordinates APIs, job execution, and framework integration.
 - **Adapters**
-  - [`JobTrackerService`](src/datasift_opensource/backend/core/job_management/adapters/services/job_tracker_service.py) is the production implementation of [`JobStatsService`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_service.py).
-  - Storage adapters include JSON, in-memory, and PostgreSQL implementations created by [`JobManagementFactory`](src/datasift_opensource/backend/core/job_management/adapters/config/job_management_factory.py).
+  - [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) is the production implementation of [`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py).
+  - Storage adapters include JSON, in-memory, and PostgreSQL implementations created by [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py).
 
-This runtime path does **not** depend on the legacy [`JobTracker`](src/datasift_opensource/backend/common/util/job_tracker/tracker/job_tracker.py). Legacy utilities remain in the repository for compatibility and reference, but the active job stats path uses the new `core/job_management` module.
+This runtime path does **not** depend on the legacy [`JobTracker`](src/datasift/common/util/job_tracker/tracker/job_tracker.py). Legacy utilities remain in the repository for compatibility and reference, but the active job stats path uses the new `core/job_management` module.
 
 ### Persistence and Aggregation Split
 
 A key architectural rule is that persistence adapters only store and retrieve raw records.
 
-- [`JobStatsStore`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_store.py) implementations must persist job stats and raw node stats.
+- [`JobStatsStore`](src/datasift/core/job_management/domain/ports/job_stats_store.py) implementations must persist job stats and raw node stats.
 - Store adapters must **not** perform node aggregation.
-- [`NodeStatsAggregator`](src/datasift_opensource/backend/core/job_management/application/services/node_stats_aggregator.py) is the only layer responsible for combining batch-level node stats into an aggregated node view.
+- [`NodeStatsAggregator`](src/datasift/core/job_management/application/services/node_stats_aggregator.py) is the only layer responsible for combining batch-level node stats into an aggregated node view.
 
 This separation keeps write paths simple and makes aggregation behavior explicit, testable, and replaceable.
 
@@ -231,7 +231,7 @@ This separation keeps write paths simple and makes aggregation behavior explicit
 
 For micro-batch execution, datasift stores node statistics at batch granularity.
 
-- Every batch execution can produce a separate [`NodeStatsDto`](src/datasift_opensource/backend/core/job_management/domain/models/node_stats_dto.py) record.
+- Every batch execution can produce a separate [`NodeStatsDto`](src/datasift/core/job_management/domain/models/node_stats_dto.py) record.
 - Batch records are keyed by `job_run_id`, `node_id`, and `batch_id`.
 - Read APIs can return:
   - an aggregated per-node view
@@ -249,16 +249,16 @@ This design allows:
 The Prefect orchestration layer must keep the outer flow alive until submitted batch futures are resolved. This avoids a failure mode where the outer flow exits early, the task runner begins shutdown, and in-flight batch tasks are canceled or marked as crashed before the job-management layer can record final state consistently.
 
 Relevant implementation points:
-- [`PrefectEngine`](src/datasift_opensource/backend/core/orchestrator/prefect/prefect_engine.py) waits for submitted batch work before the outer flow completes.
-- [`JobTrackerService`](src/datasift_opensource/backend/core/job_management/adapters/services/job_tracker_service.py) updates terminal job state separately from node-state persistence.
+- [`PrefectEngine`](src/datasift/core/orchestrator/prefect/prefect_engine.py) waits for submitted batch work before the outer flow completes.
+- [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) updates terminal job state separately from node-state persistence.
 - The job-management layer is responsible for persisting terminal states such as completed, failed, canceled, and aborted.
 
 ### Metadata Aggregation Contract
 
-Operators often emit custom metadata that is later aggregated across batches. Aggregation behavior is defined centrally in [`strategies.py`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py).
+Operators often emit custom metadata that is later aggregated across batches. Aggregation behavior is defined centrally in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py).
 
 Maintainer rule:
-- if a new operator adds metadata fields that need anything other than the default `LAST` behavior, update [`DEFAULT_STRATEGIES`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py)
+- if a new operator adds metadata fields that need anything other than the default `LAST` behavior, update [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py)
 - add or update tests covering the new aggregation behavior
 - document the field in [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)
 
@@ -272,7 +272,7 @@ Operators are the fundamental building blocks of datasift. Each operator is a se
 
 **Key Characteristics:**
 
-- Inherits from [`AbstractOperator`](src/datasift_opensource/backend/core/operators/abstract_operator.py)
+- Inherits from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py)
 - Implements the Template Method pattern
 - Receives PyArrow tables as input
 - Returns PyArrow tables as output
@@ -322,7 +322,7 @@ graph LR
 
 ### 2. Operator Metadata Architecture
 
-The [`OperatorMetadata`](src/datasift_opensource/backend/core/operators/operator_metadata.py) class is the **primary API** for accessing metadata from all operators in the system. It provides a unified interface for discovering operators, querying their capabilities, and understanding their requirements.
+The [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) class is the **primary API** for accessing metadata from all operators in the system. It provides a unified interface for discovering operators, querying their capabilities, and understanding their requirements.
 
 **Primary API Pattern:**
 
@@ -353,7 +353,7 @@ print(feature_map['content'])  # ['Extract Operator', 'Chunker', ...]
 
 **Key Capabilities:**
 
-1. **Operator Discovery**: Automatically discovers all registered operators via [`OperatorFactoryProvider`](src/datasift_opensource/backend/core/orchestrator/operator_factory.py)
+1. **Operator Discovery**: Automatically discovers all registered operators via [`OperatorFactoryProvider`](src/datasift/core/orchestrator/operator_factory.py)
 2. **Metadata Aggregation**: Collects metadata from all operators in a single call
 3. **Feature Filtering**: Filters internal features (like `doc_id_hash`) from public API
 4. **Caching**: Caches metadata after first retrieval for performance
@@ -364,8 +364,8 @@ print(feature_map['content'])  # ['Extract Operator', 'Chunker', ...]
 The `OperatorMetadata` class is used throughout the system:
 
 - **CLI**: [`list_operators`](common/util/operators/display.py) command uses it to display available operators
-- **Flow Validation**: [`FlowValidator`](src/datasift_opensource/backend/core/orchestrator/flow_validator.py) uses it to validate operator connections
-- **Flow Manager**: [`DatasiftFlowManager`](src/datasift_opensource/backend/lib/datasift_flow_manager.py) uses it for programmatic access
+- **Flow Validation**: [`FlowValidator`](src/datasift/core/orchestrator/flow_validator.py) uses it to validate operator connections
+- **Flow Manager**: [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py) uses it for programmatic access
 - **UI/API**: Future UI components will use it to build flow editors
 
 **Common Use Cases:**
@@ -758,9 +758,9 @@ kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
 
 #### PythonOrchestrator
 
-- Concrete implementation of [`AbstractOrchestrator`](src/datasift_opensource/backend/core/orchestrator/abstract_orchestrator.py)
+- Concrete implementation of [`AbstractOrchestrator`](src/datasift/core/orchestrator/abstract_orchestrator.py)
 - Used by both CLI and Python API
-- Instantiated via [`OrchestratorFactory`](src/datasift_opensource/backend/core/orchestrator/orchestrator_factory.py)
+- Instantiated via [`OrchestratorFactory`](src/datasift/core/orchestrator/orchestrator_factory.py)
 - Manages operator execution through Prefect
 
 #### FlowExecutor
@@ -839,9 +839,9 @@ classDiagram
 Operators distinguish between class-level capabilities and instance-level configuration:
 
 - **Static Methods** (`@staticmethod`):
-  - [`get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:61): Returns operator-level metadata (category, features, description)
-  - [`get_required_features()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:56): Returns required input features
-  - [`is_available()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:47): Checks if operator dependencies are available
+  - [`get_metadata()`](src/datasift/core/operators/abstract_operator.py:61): Returns operator-level metadata (category, features, description)
+  - [`get_required_features()`](src/datasift/core/operators/abstract_operator.py:56): Returns required input features
+  - [`is_available()`](src/datasift/core/operators/abstract_operator.py:47): Checks if operator dependencies are available
   - Accessed via `OperatorClass.method_name()` without instantiation
   - Represent operator capabilities independent of any specific configuration
 
@@ -852,7 +852,7 @@ Operators distinguish between class-level capabilities and instance-level config
 
 **Rationale for Static Methods:**
 
-Both [`get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:61) and [`get_required_features()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:56) are static because:
+Both [`get_metadata()`](src/datasift/core/operators/abstract_operator.py:61) and [`get_required_features()`](src/datasift/core/operators/abstract_operator.py:56) are static because:
 1. They represent operator-level information, not instance-specific configuration
 2. Enable metadata discovery without instantiation overhead
 3. Information is constant across all instances of an operator class
@@ -1170,7 +1170,7 @@ operator_instance = operator_class(config)
 - Runtime parameters
 
 **Metadata Access Pattern:**
-- Operator metadata is accessed at the class level via static method [`OperatorClass.get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:59)
+- Operator metadata is accessed at the class level via static method [`OperatorClass.get_metadata()`](src/datasift/core/operators/abstract_operator.py:59)
 - No instantiation required for metadata discovery
 - Enables efficient operator registry and capability queries
 
@@ -2901,7 +2901,7 @@ datasift/
 
 ## Core Components
 
-### 1. Common Utilities (`src/datasift_opensource/backend/common/`)
+### 1. Common Utilities (`src/datasift/common/`)
 
 #### Clients (`common/clients/`)
 
@@ -2919,7 +2919,7 @@ datasift/
 
 #### Document Classes (`common/document_classes/`)
 
-### 5. Storage Layer (`src/datasift_opensource/backend/storage/`)
+### 5. Storage Layer (`src/datasift/storage/`)
 
 The storage layer provides general-purpose data persistence capabilities for the datasift framework. It is designed to be reusable across different asset types and use cases.
 
@@ -2942,7 +2942,7 @@ The storage layer provides general-purpose data persistence capabilities for the
   - UUID validation for document and document set IDs
   - Comprehensive exception handling with DatasiftException
 
-### 6. Assets Management (`src/datasift_opensource/backend/core/assets_management/`)
+### 6. Assets Management (`src/datasift/core/assets_management/`)
 
 The assets management layer provides domain-driven design for managing data assets like document sets.
 
@@ -2981,7 +2981,7 @@ Hexagonal architecture implementation for document set management:
 - **Job Tracker**: Job statistics and monitoring
 - **Orchestration Utilities**: Flow utilities, Prefect configuration, deleted rows tracking
 
-### 2. Core Framework (`src/datasift_opensource/backend/core/`)
+### 2. Core Framework (`src/datasift/core/`)
 
 #### Orchestrator (`core/orchestrator/`)
 
@@ -3020,7 +3020,7 @@ Hexagonal architecture implementation for document set management:
 - Data access utilities and abstractions
 - Storage management interfaces
 
-### 3. Operators (`src/datasift_opensource/backend/core/operators/`)
+### 3. Operators (`src/datasift/core/operators/`)
 
 Operators are organized by category (defined in `OperatorCategory` enum):
 
@@ -3077,7 +3077,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
   - Pass-through design for downstream operator chaining
   - Hexagonal architecture with service/repository/storage layers
 
-### 4. CLI Application (`src/datasift_opensource/backend/cli/`)
+### 4. CLI Application (`src/datasift/cli/`)
 
 - **datasift_cli.py**: Command-line interface implementation
 - Uses `PythonOrchestrator` via `OrchestratorFactory`
@@ -3123,7 +3123,7 @@ Supporting Components:
 
 **Note**: There is no separate `CommandLineOrchestrator` class. The CLI uses `PythonOrchestrator` through the factory pattern.
 
-### 5. REST API (`src/datasift_opensource/backend/app/`)
+### 5. REST API (`src/datasift/app/`)
 
 The FastAPI-based REST API provides programmatic access to flow and job management:
 

@@ -14,9 +14,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from common.constants.constants import DatasiftConstants
-from common.exceptions.datasift_exceptions import DatasiftException
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.core.constants.constants import DatasiftConstants
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 # ---------------------------------------------------------------------------
 # Test Fixtures
@@ -143,9 +143,7 @@ class TestInitialization:
         with pytest.raises(DatasiftException) as exc_info:
             DatasiftFlowManager(flow_file=temp_flow_file, flow_def=simple_flow)
 
-        assert "Only one of flow_file or flow_def should be provided" in str(
-            exc_info.value
-        )
+        assert "Only one of flow_file or flow_def should be provided" in str(exc_info.value)
 
     def test_init_file_not_found_raises_error(self):
         """Test FileNotFoundError when flow_file doesn't exist."""
@@ -191,7 +189,7 @@ class TestInitialization:
         assert manager.job_run_id == custom_run_id
         assert manager.flow_id == custom_flow_id
 
-    @patch("lib.datasift_flow_manager.uuid.uuid4")
+    @patch("datasift.lib.datasift_flow_manager.uuid.uuid4")
     def test_init_auto_generates_ids(self, mock_uuid4, simple_flow):
         """Test that job_id and job_run_id are auto-generated when not provided."""
         mock_uuid4.return_value = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -292,9 +290,9 @@ class TestFlowDefinitionLoading:
 class TestExecutionEnvironment:
     """Test execution environment initialization."""
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_environment_variables_setup(
         self,
         mock_executor_class,
@@ -315,9 +313,9 @@ class TestExecutionEnvironment:
         # Just verify orchestrator was created
         mock_factory.assert_called_once()
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_orchestrator_creation(
         self,
         mock_executor_class,
@@ -337,9 +335,9 @@ class TestExecutionEnvironment:
         mock_factory.assert_called_once()
         assert executor.orchestrator == mock_orchestrator
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_session_info_creation(
         self,
         mock_executor_class,
@@ -360,9 +358,9 @@ class TestExecutionEnvironment:
         assert executor.session_info == mock_session
         # set_session_info is called internally by create_session_info, no need to verify
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_flow_id_extraction_top_level(
         self,
         mock_executor_class,
@@ -383,12 +381,10 @@ class TestExecutionEnvironment:
         call_args = mock_create_session.call_args
         assert call_args[1]["job_id"] == "test-flow-123"
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
-    def test_flow_id_extraction_nested(
-        self, mock_executor_class, mock_create_session, mock_factory
-    ):
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
+    def test_flow_id_extraction_nested(self, mock_executor_class, mock_create_session, mock_factory):
         """Test flow_id extraction from nested flow dict."""
         mock_orchestrator = Mock()
         mock_factory.return_value = mock_orchestrator
@@ -411,9 +407,9 @@ class TestExecutionEnvironment:
         call_args = mock_create_session.call_args
         assert call_args[1]["job_id"] == "nested-flow-456"
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_flow_id_fallback_to_initial(
         self,
         mock_executor_class,
@@ -427,9 +423,7 @@ class TestExecutionEnvironment:
         mock_session = Mock(job_id="fallback-id")
         mock_create_session.return_value = mock_session
 
-        executor = DatasiftFlowManager(
-            flow_def=flow_without_flow_id, job_id="fallback-id"
-        )
+        executor = DatasiftFlowManager(flow_def=flow_without_flow_id, job_id="fallback-id")
         executor._initialize_execution_environment()
 
         call_args = mock_create_session.call_args
@@ -440,7 +434,7 @@ class TestExecutionEnvironment:
         executor = DatasiftFlowManager.__new__(DatasiftFlowManager)
         executor.flow_def = None
         # Need to set logger since __init__ wasn't called
-        from common.util.infrastructure.logging import get_logger
+        from datasift.utils.infrastructure.logging import get_logger
 
         executor.logger = get_logger()
 
@@ -456,9 +450,9 @@ class TestExecutionEnvironment:
 class TestExecuteMethod:
     """Test execute method."""
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_successful_execution(
         self,
         mock_executor_class,
@@ -483,9 +477,9 @@ class TestExecuteMethod:
         assert result == mock_result
         mock_flow_executor.execute.assert_called_once()
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_execution_with_mocked_components(
         self,
         mock_executor_class,
@@ -509,13 +503,11 @@ class TestExecuteMethod:
         mock_orchestrator.initialize.assert_called_once()
 
         # Verify flow executor was created
-        mock_executor_class.assert_called_once_with(
-            flow_def=simple_flow, orchestrator=mock_orchestrator
-        )
+        mock_executor_class.assert_called_once_with(flow_def=simple_flow, orchestrator=mock_orchestrator)
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_execution_error_handling(
         self,
         mock_executor_class,
@@ -538,9 +530,9 @@ class TestExecuteMethod:
         with pytest.raises(Exception, match="Execution failed"):
             executor.execute()
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_execution_logs_flow_details(
         self,
         mock_executor_class,
@@ -587,9 +579,9 @@ class TestMetadata:
         assert "num_operators" in metadata
         assert "flow_file" in metadata
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_metadata_after_execution(
         self,
         mock_executor_class,
@@ -671,9 +663,9 @@ class TestLogs:
 
         assert logs == []
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_logs_when_event_handler_none(
         self,
         mock_executor_class,
@@ -697,9 +689,9 @@ class TestLogs:
         logs = executor.get_execution_logs()
         assert logs == []
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_logs_when_log_file_missing(
         self,
         mock_executor_class,
@@ -725,9 +717,9 @@ class TestLogs:
         logs = executor.get_execution_logs()
         assert logs == []
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_logs_with_valid_log_file(
         self,
         mock_executor_class,
@@ -774,7 +766,7 @@ class TestLogs:
 class TestStaticMethods:
     """Test static methods."""
 
-    @patch("lib.datasift_flow_manager._list_operators")
+    @patch("datasift.lib.datasift_flow_manager._list_operators")
     def test_list_operators_not_verbose(self, mock_list_operators):
         """Test list_operators() with verbose=False."""
         mock_list_operators.return_value = "Operator list"
@@ -784,7 +776,7 @@ class TestStaticMethods:
         mock_list_operators.assert_called_once_with(verbose=False, summary_only=True)
         assert result == "Operator list"
 
-    @patch("lib.datasift_flow_manager._list_operators")
+    @patch("datasift.lib.datasift_flow_manager._list_operators")
     def test_list_operators_verbose(self, mock_list_operators):
         """Test list_operators() with verbose=True."""
         mock_list_operators.return_value = "Detailed operator list"
@@ -794,7 +786,7 @@ class TestStaticMethods:
         mock_list_operators.assert_called_once_with(verbose=True, summary_only=False)
         assert result == "Detailed operator list"
 
-    @patch("lib.datasift_flow_manager._list_operators")
+    @patch("datasift.lib.datasift_flow_manager._list_operators")
     def test_list_operators_default_parameter(self, mock_list_operators):
         """Test list_operators() with default parameter."""
         mock_list_operators.return_value = "Default list"
@@ -813,9 +805,9 @@ class TestStaticMethods:
 class TestIntegration:
     """Integration tests combining multiple features."""
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_full_workflow_from_file(
         self,
         mock_executor_class,
@@ -848,9 +840,9 @@ class TestIntegration:
         assert metadata[DatasiftConstants.FLOW_NAME] == "Test Flow"
         assert metadata["flow_file"] == temp_flow_file
 
-    @patch("lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
-    @patch("lib.datasift_flow_manager.create_session_info")
-    @patch("lib.datasift_flow_manager.FlowExecutor")
+    @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("datasift.lib.datasift_flow_manager.create_session_info")
+    @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
     def test_full_workflow_from_dict(
         self,
         mock_executor_class,

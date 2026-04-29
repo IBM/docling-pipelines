@@ -5,17 +5,17 @@
 
 import pytest
 
-import core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
-from core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_hap_adapter_factory import (
+import datasift.core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
+from datasift.core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_hap_adapter_factory import (
     PIIHAPAdapterFactory,
 )
-from core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter import (
-    OllamaAdapter,
-)
-from core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter import (
+from datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter import (
     LiteLLMAdapter,
 )
-from core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter import (
+from datasift.core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter import (
+    OllamaAdapter,
+)
+from datasift.core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter import (
     WatsonXAdapter,
 )
 

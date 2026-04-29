@@ -1,13 +1,15 @@
 """Integration tests for JWT authentication."""
 
+from datetime import UTC
+
 import pytest
 from fastapi.testclient import TestClient
 
-from src.datasift_opensource.backend.app.main import app
-from src.datasift_opensource.backend.app.auth.jwt_handler import (
+from datasift.api.auth.jwt_handler import (
     JWTConfig,
     create_access_token,
 )
+from datasift.api.main import app
 
 
 @pytest.fixture
@@ -50,17 +52,13 @@ class TestJWTAuthentication:
 
     def test_access_protected_endpoint_with_invalid_token(self, client):
         """Test accessing protected endpoint with invalid token."""
-        response = client.get(
-            "/auth/me", headers={"Authorization": "Bearer invalid-token"}
-        )
+        response = client.get("/auth/me", headers={"Authorization": "Bearer invalid-token"})
 
         assert response.status_code == 401
 
     def test_access_protected_endpoint_with_malformed_header(self, client):
         """Test accessing protected endpoint with malformed auth header."""
-        response = client.get(
-            "/auth/me", headers={"Authorization": "InvalidFormat token"}
-        )
+        response = client.get("/auth/me", headers={"Authorization": "InvalidFormat token"})
 
         assert response.status_code in [401, 403]
 
@@ -69,26 +67,23 @@ class TestJWTAuthentication:
         token_data = {"username": "testuser"}
         token = create_access_token(token_data, jwt_config)
 
-        response = client.get(
-            "/protected", headers={"Authorization": f"Bearer {token}"}
-        )
+        response = client.get("/protected", headers={"Authorization": f"Bearer {token}"})
 
         assert response.status_code == 200
         assert "testuser" in response.json()["message"]
 
     def test_token_with_missing_username_claim(self, client, jwt_config):
         """Test token without username claim is rejected."""
+        from datetime import datetime, timedelta
+
         from jose import jwt
-        from datetime import datetime, timedelta, timezone
 
         # Create token without username
         data = {"email": "test@example.com"}
-        expire = datetime.now(timezone.utc) + timedelta(minutes=30)
+        expire = datetime.now(UTC) + timedelta(minutes=30)
         data.update({"exp": expire})
 
-        token = jwt.encode(
-            data, jwt_config.jwt_secret_key, algorithm=jwt_config.jwt_algorithm
-        )
+        token = jwt.encode(data, jwt_config.jwt_secret_key, algorithm=jwt_config.jwt_algorithm)
 
         response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
 
@@ -96,17 +91,16 @@ class TestJWTAuthentication:
 
     def test_expired_token(self, client, jwt_config):
         """Test expired token is rejected."""
+        from datetime import datetime, timedelta
+
         from jose import jwt
-        from datetime import datetime, timedelta, timezone
 
         # Create expired token
         data = {"username": "testuser"}
-        expire = datetime.now(timezone.utc) - timedelta(minutes=1)
+        expire = datetime.now(UTC) - timedelta(minutes=1)
         data.update({"exp": expire})
 
-        token = jwt.encode(
-            data, jwt_config.jwt_secret_key, algorithm=jwt_config.jwt_algorithm
-        )
+        token = jwt.encode(data, jwt_config.jwt_secret_key, algorithm=jwt_config.jwt_algorithm)
 
         response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
 
@@ -127,12 +121,8 @@ class TestMultipleTokens:
         assert token1 != token2
 
         # Verify each token returns correct user
-        response1 = client.get(
-            "/auth/me", headers={"Authorization": f"Bearer {token1}"}
-        )
-        response2 = client.get(
-            "/auth/me", headers={"Authorization": f"Bearer {token2}"}
-        )
+        response1 = client.get("/auth/me", headers={"Authorization": f"Bearer {token1}"})
+        response2 = client.get("/auth/me", headers={"Authorization": f"Bearer {token2}"})
 
         assert response1.json()["username"] == "user1"
         assert response2.json()["username"] == "user2"
@@ -144,9 +134,7 @@ class TestMultipleTokens:
 
         # Use token multiple times
         for _ in range(3):
-            response = client.get(
-                "/auth/me", headers={"Authorization": f"Bearer {token}"}
-            )
+            response = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
             assert response.status_code == 200
             assert response.json()["username"] == "testuser"
 

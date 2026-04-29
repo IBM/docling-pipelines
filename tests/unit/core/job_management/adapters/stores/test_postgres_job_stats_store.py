@@ -5,12 +5,13 @@ These tests focus on the adapter's interface and translation logic.
 Integration tests with a real PostgreSQL database are documented as a gap.
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
-from common.constants.constants import ExecutionStatus
-from common.exceptions.datasift_exceptions import JobStatsStoreInitializationException
-from core.job_management.domain.models import JobStats, NodeStats
+import pytest
+
+from datasift.core.constants.constants import ExecutionStatus
+from datasift.core.job_management.domain.models import JobStats, NodeStats
+from datasift.exceptions.datasift_exceptions import JobStatsStoreInitializationException
 
 
 class TestPostgresJobStatsStoreInterface:
@@ -77,20 +78,12 @@ class TestPostgresJobStatsStoreInterface:
         )
 
     @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
+        "datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
     )
-    @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_postgres_engine"
-    )
-    @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_session_factory"
-    )
-    @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.JobStatsDAL"
-    )
-    @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.NodeStatsDAL"
-    )
+    @patch("datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_postgres_engine")
+    @patch("datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_session_factory")
+    @patch("datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.JobStatsDAL")
+    @patch("datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.NodeStatsDAL")
     def test_initialization_success(
         self,
         mock_node_dal_class,
@@ -100,12 +93,10 @@ class TestPostgresJobStatsStoreInterface:
         mock_get_conn_str,
     ):
         """Test successful initialization of PostgresJobStatsStore."""
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
 
         # Setup mocks
-        mock_get_conn_str.return_value = (
-            "postgresql://user:pass@localhost/db"  # pragma: allowlist secret
-        )
+        mock_get_conn_str.return_value = "postgresql://user:pass@localhost/db"  # pragma: allowlist secret
         mock_engine = Mock()
         mock_create_engine.return_value = mock_engine
         mock_session_factory = Mock()
@@ -120,16 +111,14 @@ class TestPostgresJobStatsStoreInterface:
         mock_create_engine.assert_called_once()
         mock_create_session.assert_called_once_with(engine=mock_engine)
         mock_job_dal_class.assert_called_once_with(session_factory=mock_session_factory)
-        mock_node_dal_class.assert_called_once_with(
-            session_factory=mock_session_factory
-        )
+        mock_node_dal_class.assert_called_once_with(session_factory=mock_session_factory)
 
     @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
+        "datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
     )
     def test_initialization_failure_no_password(self, mock_get_conn_str):
         """Test initialization fails when PostgreSQL password not set."""
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
 
         mock_get_conn_str.return_value = None
 
@@ -145,7 +134,7 @@ class TestPostgresJobStatsStoreInterface:
 
         Integration Gap: This tests the interface, not actual database operations.
         """
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
 
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
@@ -163,8 +152,8 @@ class TestPostgresJobStatsStoreInterface:
 
         Integration Gap: This tests the interface, not actual database operations.
         """
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
-        from core.job_management.adapters.stores.postgres.models import JobStatsModel
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres.models import JobStatsModel
 
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
@@ -205,9 +194,7 @@ class TestPostgresJobStatsStoreInterface:
             # Verify result
             assert result is not None
             assert result.job_run_id == sample_job_stats_dto.job_run_id
-            store._job_stats_dal.get_by_job_run_id.assert_called_once_with(
-                job_run_id=sample_job_stats_dto.job_run_id
-            )
+            store._job_stats_dal.get_by_job_run_id.assert_called_once_with(job_run_id=sample_job_stats_dto.job_run_id)
 
     def test_store_node_stats_interface(self, sample_node_stats_dto):
         """
@@ -215,16 +202,14 @@ class TestPostgresJobStatsStoreInterface:
 
         Integration Gap: This tests the interface, not actual database operations.
         """
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
 
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
             store._node_stats_dal = Mock()
 
             # Call store_node_stats
-            store.store_node_stats(
-                job_run_id="test-run-456", node_stats=sample_node_stats_dto
-            )
+            store.store_node_stats(job_run_id="test-run-456", node_stats=sample_node_stats_dto)
 
             # Verify DAL was called
             store._node_stats_dal.upsert.assert_called_once()
@@ -235,7 +220,7 @@ class TestPostgresJobStatsStoreInterface:
 
         Integration Gap: This tests the interface, not actual atomic operations.
         """
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
 
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
@@ -262,7 +247,7 @@ class TestPostgresJobStatsStoreInterface:
 
         Integration Gap: This tests the interface, not actual bulk operations.
         """
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
 
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
@@ -270,9 +255,7 @@ class TestPostgresJobStatsStoreInterface:
 
             # Call bulk_store_node_stats
             node_stats_list = [sample_node_stats_dto]
-            store.bulk_store_node_stats(
-                job_run_id="test-run-456", node_stats_list=node_stats_list
-            )
+            store.bulk_store_node_stats(job_run_id="test-run-456", node_stats_list=node_stats_list)
 
             # Verify DAL was called
             store._node_stats_dal.bulk_insert.assert_called_once()
@@ -283,7 +266,7 @@ class TestPostgresJobStatsStoreInterface:
 
         Integration Gap: This tests the interface, not actual delete operations.
         """
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
 
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
@@ -294,9 +277,7 @@ class TestPostgresJobStatsStoreInterface:
             store.delete_job_stats("test-run-456")
 
             # Verify DAL was called
-            store._job_stats_dal.delete_job_stats.assert_called_once_with(
-                job_run_id="test-run-456"
-            )
+            store._job_stats_dal.delete_job_stats.assert_called_once_with(job_run_id="test-run-456")
 
     def test_list_job_runs_interface(self):
         """
@@ -304,8 +285,8 @@ class TestPostgresJobStatsStoreInterface:
 
         Integration Gap: This tests the interface, not actual query operations.
         """
-        from core.job_management.adapters.stores.postgres import PostgresJobStatsStore
-        from core.job_management.adapters.stores.postgres.models import JobStatsModel
+        from datasift.core.job_management.adapters.stores.postgres import PostgresJobStatsStore
+        from datasift.core.job_management.adapters.stores.postgres.models import JobStatsModel
 
         with patch.object(PostgresJobStatsStore, "__init__", lambda x: None):
             store = PostgresJobStatsStore()
@@ -349,6 +330,4 @@ class TestPostgresJobStatsStoreInterface:
             # Verify result
             assert len(result) == 1
             assert result[0].job_id == test_job_id
-            store._job_stats_dal.list_job_runs.assert_called_once_with(
-                job_id=test_job_id, status=None, limit=10
-            )
+            store._job_stats_dal.list_job_runs.assert_called_once_with(job_id=test_job_id, status=None, limit=10)

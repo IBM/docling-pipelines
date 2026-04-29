@@ -17,11 +17,11 @@ from pathlib import Path
 
 import pytest
 
-from common.constants.constants import ExecutionStatus
-from core.job_management.adapters.stores.json.json_job_stats_store import (
+from datasift.core.constants.constants import ExecutionStatus
+from datasift.core.job_management.adapters.stores.json.json_job_stats_store import (
     JsonJobStatsStore,
 )
-from core.job_management.domain.models import JobStats, NodeStats
+from datasift.core.job_management.domain.models import JobStats, NodeStats
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def store(temp_data_dir, monkeypatch):
         return str(temp_data_dir / sub_dir.lstrip("/"))
 
     monkeypatch.setattr(
-        "core.job_management.adapters.stores.json.json_job_stats_store.get_data_path",
+        "datasift.core.job_management.adapters.stores.json.json_job_stats_store.get_data_path",
         mock_get_data_path,
     )
 
@@ -91,33 +91,25 @@ class TestPortSignatureCompliance:
         result = store.get_node_stats(job_run_id=job_run_id)
         assert result == []
 
-    def test_bulk_store_node_stats_requires_keyword_args(
-        self, *, store, sample_node_stats
-    ):
+    def test_bulk_store_node_stats_requires_keyword_args(self, *, store, sample_node_stats):
         """bulk_store_node_stats must use keyword-only arguments."""
         job_run_id = "87654321-4321-4321-4321-cba987654321"
 
         # Should work with keyword args
-        store.bulk_store_node_stats(
-            job_run_id=job_run_id, node_stats_list=[sample_node_stats]
-        )
+        store.bulk_store_node_stats(job_run_id=job_run_id, node_stats_list=[sample_node_stats])
 
 
 class TestFilePersistence:
     """Test file-based persistence behavior."""
 
-    def test_job_stats_persisted_to_file(
-        self, *, store, sample_job_stats, temp_data_dir
-    ):
+    def test_job_stats_persisted_to_file(self, *, store, sample_job_stats, temp_data_dir):
         """Job stats should be written to JSON file."""
         job_run_id = sample_job_stats.job_run_id
 
         store.store_job_stats(sample_job_stats)
 
         # Verify file exists
-        job_stats_file = (
-            Path(temp_data_dir) / "job_stats" / job_run_id / "job_stats.json"
-        )
+        job_stats_file = Path(temp_data_dir) / "job_stats" / job_run_id / "job_stats.json"
         assert job_stats_file.exists()
 
         # Verify content
@@ -148,9 +140,7 @@ class TestFilePersistence:
         json_files = list(node_stats_dir.glob("*.json"))
         assert len(json_files) == 3
 
-    def test_recovery_from_disk(
-        self, *, store, sample_job_stats, temp_data_dir, monkeypatch
-    ):
+    def test_recovery_from_disk(self, *, store, sample_job_stats, temp_data_dir, monkeypatch):
         """Store should recover data from disk on restart."""
         job_run_id = sample_job_stats.job_run_id
 
@@ -162,7 +152,7 @@ class TestFilePersistence:
             return str(temp_data_dir / sub_dir.lstrip("/"))
 
         monkeypatch.setattr(
-            "core.job_management.adapters.stores.json.json_job_stats_store.get_data_path",
+            "datasift.core.job_management.adapters.stores.json.json_job_stats_store.get_data_path",
             mock_get_data_path,
         )
 
@@ -247,9 +237,7 @@ class TestBatchScopedWrites:
         store.store_node_stats(job_run_id=job_run_id, node_stats=non_batch_stats)
 
         # Retrieve with batch_id=None
-        result = store.get_node_stats_by_batch_and_node(
-            job_run_id=job_run_id, node_id=node_id, batch_id=None
-        )
+        result = store.get_node_stats_by_batch_and_node(job_run_id=job_run_id, node_id=node_id, batch_id=None)
         assert result is not None
         assert result.batch_id is None
 
@@ -341,9 +329,7 @@ class TestBulkOperations:
         ]
 
         # Bulk store
-        store.bulk_store_node_stats(
-            job_run_id=job_run_id, node_stats_list=node_stats_list
-        )
+        store.bulk_store_node_stats(job_run_id=job_run_id, node_stats_list=node_stats_list)
 
         # Verify all stored
         all_stats = store.get_node_stats(job_run_id=job_run_id)
@@ -373,12 +359,8 @@ class TestListJobRuns:
     def test_list_job_runs_filter_by_status(self, *, store):
         """Filter job runs by status."""
         # Store jobs with different statuses
-        for i, status in enumerate(
-            [ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]
-        ):
-            job_stats = JobStats(
-                job_id=str(uuid.uuid4()), job_run_id=str(uuid.uuid4()), status=status
-            )
+        for i, status in enumerate([ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]):
+            job_stats = JobStats(job_id=str(uuid.uuid4()), job_run_id=str(uuid.uuid4()), status=status)
             store.store_job_stats(job_stats)
 
         result = store.list_job_runs(status=ExecutionStatus.COMPLETED)
@@ -407,9 +389,7 @@ class TestListJobRuns:
 class TestDeleteOperations:
     """Test delete operations."""
 
-    def test_delete_job_stats_removes_files(
-        self, *, store, sample_job_stats, temp_data_dir
-    ):
+    def test_delete_job_stats_removes_files(self, *, store, sample_job_stats, temp_data_dir):
         """delete_job_stats should remove all files."""
         job_run_id = sample_job_stats.job_run_id
 

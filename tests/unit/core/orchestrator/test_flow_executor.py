@@ -6,22 +6,20 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from common.constants.constants import DatasiftConstants
-from common.exceptions.datasift_exceptions import FlowValidationException
-from core.orchestrator.flow_executor import FlowExecutor
+from datasift.core.constants.constants import DatasiftConstants
+from datasift.core.orchestration.flow_executor import FlowExecutor
+from datasift.exceptions.datasift_exceptions import FlowValidationException
 
 
 class TestFlowExecutor:
     """Test FlowExecutor class."""
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_init_with_flow_def_file(self, mock_session):
         """Test initialization with flow definition file."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
 
-        flow_data = {
-            "flow": {"name": "Test Flow", "description": "Test Description", "dag": []}
-        }
+        flow_data = {"flow": {"name": "Test Flow", "description": "Test Description", "dag": []}}
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(flow_data, f)
@@ -37,7 +35,7 @@ class TestFlowExecutor:
 
             os.unlink(temp_path)
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_init_with_flow_def_dict(self, mock_session):
         """Test initialization with flow definition dict."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -53,7 +51,7 @@ class TestFlowExecutor:
         assert executor.flow_def["name"] == "Direct Flow"
         assert executor.flow_def["description"] == "Direct Description"
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_init_with_orchestrator(self, mock_session):
         """Test initialization with orchestrator."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -64,7 +62,7 @@ class TestFlowExecutor:
 
         assert executor._FlowExecutor__orchestrator == mock_orchestrator
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_str_representation(self, mock_session):
         """Test string representation of FlowExecutor."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -77,13 +75,11 @@ class TestFlowExecutor:
         assert "My Flow" in result
         assert "My Description" in result
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
-    @patch("core.orchestrator.flow_executor.FlowValidator")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.FlowValidator")
     def test_execute_basic(self, mock_validator, mock_session):
         """Test basic flow execution."""
-        mock_session.return_value = Mock(
-            get_common_log_arguments=Mock(return_value={}), job_run_id="run_123"
-        )
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id="run_123")
 
         mock_validator_instance = Mock()
         mock_validator.return_value = mock_validator_instance
@@ -93,9 +89,7 @@ class TestFlowExecutor:
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
-        mock_orchestrator.flow_execution_event_handler = Mock(
-            job_log_path="/tmp/test.log"
-        )
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
         mock_data_access = Mock()
         mock_orchestrator.execute.return_value = mock_data_access
 
@@ -109,12 +103,10 @@ class TestFlowExecutor:
         mock_orchestrator.execute.assert_called_once()
         assert result == mock_data_access
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_execute_cancelled(self, mock_session):
         """Test execution when job is cancelled."""
-        mock_session.return_value = Mock(
-            get_common_log_arguments=Mock(return_value={}), job_run_id="run_123"
-        )
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id="run_123")
 
         mock_orchestrator = Mock()
         mock_tracker_instance = Mock()
@@ -129,21 +121,17 @@ class TestFlowExecutor:
         assert result is None
         mock_orchestrator.execute.assert_not_called()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
-    @patch("core.orchestrator.flow_executor.FlowValidator")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.FlowValidator")
     def test_execute_validation_warnings_only(self, mock_validator, mock_session):
         """Test execution with validation warnings but no errors."""
-        mock_session.return_value = Mock(
-            get_common_log_arguments=Mock(return_value={}), job_run_id="run_123"
-        )
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id="run_123")
 
         mock_validator_instance = Mock()
         # Raise exception with warnings but no errors
-        from common.exceptions.error_messages import ValidationMessage
+        from datasift.exceptions.error_messages import ValidationMessage
 
-        validation_exc = FlowValidationException(
-            errors=[], warnings=[ValidationMessage(message="Warning 1")]
-        )
+        validation_exc = FlowValidationException(errors=[], warnings=[ValidationMessage(message="Warning 1")])
         mock_validator_instance.validate.side_effect = validation_exc
         mock_validator.return_value = mock_validator_instance
 
@@ -152,9 +140,7 @@ class TestFlowExecutor:
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
-        mock_orchestrator.flow_execution_event_handler = Mock(
-            job_log_path="/tmp/test.log"
-        )
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
         mock_orchestrator.execute.return_value = Mock()
 
         flow_def = {"name": "Test", "dag": []}
@@ -166,20 +152,16 @@ class TestFlowExecutor:
 
         mock_orchestrator.execute.assert_called_once()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
-    @patch("core.orchestrator.flow_executor.FlowValidator")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.FlowValidator")
     def test_execute_validation_errors(self, mock_validator, mock_session):
         """Test execution with validation errors."""
-        mock_session.return_value = Mock(
-            get_common_log_arguments=Mock(return_value={}), job_run_id="run_123"
-        )
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id="run_123")
 
         mock_validator_instance = Mock()
-        from common.exceptions.error_messages import ValidationMessage
+        from datasift.exceptions.error_messages import ValidationMessage
 
-        validation_exc = FlowValidationException(
-            errors=[ValidationMessage(message="Error 1")], warnings=[]
-        )
+        validation_exc = FlowValidationException(errors=[ValidationMessage(message="Error 1")], warnings=[])
         mock_validator_instance.validate.side_effect = validation_exc
         mock_validator.return_value = mock_validator_instance
 
@@ -188,9 +170,7 @@ class TestFlowExecutor:
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
-        mock_orchestrator.flow_execution_event_handler = Mock(
-            job_log_path="/tmp/test.log"
-        )
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
         flow_def = {"name": "Test", "dag": []}
         executor = FlowExecutor(flow_def=flow_def)
 
@@ -199,13 +179,11 @@ class TestFlowExecutor:
         with pytest.raises(FlowValidationException):
             executor.execute(orchestrator=mock_orchestrator, params=params)
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
-    @patch("core.orchestrator.flow_executor.FlowValidator")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.FlowValidator")
     def test_execute_orchestrator_exception(self, mock_validator, mock_session):
         """Test execution when orchestrator raises exception."""
-        mock_session.return_value = Mock(
-            get_common_log_arguments=Mock(return_value={}), job_run_id="run_123"
-        )
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id="run_123")
 
         mock_validator_instance = Mock()
         mock_validator.return_value = mock_validator_instance
@@ -215,9 +193,7 @@ class TestFlowExecutor:
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
-        mock_orchestrator.flow_execution_event_handler = Mock(
-            job_log_path="/tmp/test.log"
-        )
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
         mock_orchestrator.execute.side_effect = Exception("Execution failed")
 
         flow_def = {"name": "Test", "dag": []}
@@ -228,7 +204,7 @@ class TestFlowExecutor:
         with pytest.raises(Exception, match="Execution failed"):
             executor.execute(orchestrator=mock_orchestrator, params=params)
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_cancel(self, mock_session):
         """Test cancel method."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -241,7 +217,7 @@ class TestFlowExecutor:
 
         mock_orchestrator.cancel.assert_called_once()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_cancel_no_orchestrator(self, mock_session):
         """Test cancel when no orchestrator is set."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -252,7 +228,7 @@ class TestFlowExecutor:
         # Should not raise exception
         executor.cancel()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_pause(self, mock_session):
         """Test pause method."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -265,7 +241,7 @@ class TestFlowExecutor:
 
         mock_orchestrator.pause.assert_called_once()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_resume(self, mock_session):
         """Test resume method."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -278,13 +254,11 @@ class TestFlowExecutor:
 
         mock_orchestrator.resume.assert_called_once()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
-    @patch("core.orchestrator.flow_executor.FlowValidator")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.FlowValidator")
     def test_validate(self, mock_validator, mock_session):
         """Test validation through execute method."""
-        mock_session.return_value = Mock(
-            get_common_log_arguments=Mock(return_value={}), job_run_id="run_123"
-        )
+        mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}), job_run_id="run_123")
 
         mock_validator_instance = Mock()
         mock_validator.return_value = mock_validator_instance
@@ -294,9 +268,7 @@ class TestFlowExecutor:
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
-        mock_orchestrator.flow_execution_event_handler = Mock(
-            job_log_path="/tmp/test.log"
-        )
+        mock_orchestrator.flow_execution_event_handler = Mock(job_log_path="/tmp/test.log")
         mock_orchestrator.execute.return_value = Mock()
 
         flow_def = {"name": "Test", "dag": []}
@@ -306,27 +278,23 @@ class TestFlowExecutor:
         executor.execute(orchestrator=mock_orchestrator, params=params)
 
         # Verify that FlowValidator.validate was called
-        mock_validator_instance.validate.assert_called_once_with(
-            flow_def=flow_def, params=params
-        )
+        mock_validator_instance.validate.assert_called_once_with(flow_def=flow_def, params=params)
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_start_diagnostic_collection_enabled(self, mock_session):
         """Test starting diagnostic collection when enabled."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
 
         flow_def = {"name": "Test", "dag": []}
 
-        with patch.dict(
-            "os.environ", {DatasiftConstants.TRACE_MEMORY_ALLOCATIONS: "true"}
-        ):
+        with patch.dict("os.environ", {DatasiftConstants.TRACE_MEMORY_ALLOCATIONS: "true"}):
             with patch("tracemalloc.start") as mock_tracemalloc:
                 executor = FlowExecutor(flow_def=flow_def)
                 executor.start_diagnostic_collection()
 
                 mock_tracemalloc.assert_called_once()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_start_diagnostic_collection_disabled(self, mock_session):
         """Test starting diagnostic collection when disabled."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
@@ -340,24 +308,22 @@ class TestFlowExecutor:
 
                 mock_tracemalloc.assert_not_called()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
     def test_stop_diagnostic_collection(self, mock_session):
         """Test stopping diagnostic collection."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))
 
         flow_def = {"name": "Test", "dag": []}
 
-        with patch.dict(
-            "os.environ", {DatasiftConstants.TRACE_MEMORY_ALLOCATIONS: "true"}
-        ):
+        with patch.dict("os.environ", {DatasiftConstants.TRACE_MEMORY_ALLOCATIONS: "true"}):
             with patch("tracemalloc.stop") as mock_tracemalloc:
                 executor = FlowExecutor(flow_def=flow_def)
                 executor.stop_diagnostic_collection()
 
                 mock_tracemalloc.assert_called_once()
 
-    @patch("core.orchestrator.flow_executor.get_session_info")
-    @patch("core.orchestrator.flow_executor.gc")
+    @patch("datasift.core.orchestration.flow_executor.get_session_info")
+    @patch("datasift.core.orchestration.flow_executor.gc")
     def test_print_diagnostic_info(self, mock_gc, mock_session):
         """Test printing diagnostic info."""
         mock_session.return_value = Mock(get_common_log_arguments=Mock(return_value={}))

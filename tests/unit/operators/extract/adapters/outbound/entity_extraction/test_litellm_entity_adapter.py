@@ -5,14 +5,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from common.constants.operator_constants import OperatorConstants
-from core.operators.extract.adapters.outbound.entity_extraction.litellm_entity_adapter import LiteLLMEntityAdapter
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.extract.adapters.outbound.entity_extraction.litellm_entity_adapter import (
+    LiteLLMEntityAdapter,
+)
 
 
 @pytest.fixture
 def mock_litellm_client():
     """Create a mock LiteLLM client."""
-    with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_class:
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
         yield mock_instance
@@ -108,7 +110,7 @@ class TestLiteLLMEntityAdapterInitialization:
 
     def test_litellm_client_initialization(self, config_with_api_credentials):
         """Test that LiteLLM client is initialized with correct parameters."""
-        with patch("common.clients.litellm_llm_client.LiteLLMLLMClient") as mock_class:
+        with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_class:
             adapter = LiteLLMEntityAdapter(config=config_with_api_credentials)
 
             mock_class.assert_called_once_with(

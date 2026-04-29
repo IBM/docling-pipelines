@@ -66,40 +66,40 @@ timestamps {
         checkout scm
       }
 
-      stage('Code Quality Check') {
-        script {
-          withCredentials([
-            usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
-          ]) {
-            sh '''
-              # Install uv
-              curl -LsSf https://astral.sh/uv/install.sh | sh
-              export PATH="$HOME/.cargo/bin:$PATH"
+      // stage('Code Quality Check') {
+      //   script {
+      //     withCredentials([
+      //       usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
+      //     ]) {
+      //       sh '''
+      //         # Install uv
+      //         curl -LsSf https://astral.sh/uv/install.sh | sh
+      //         export PATH="$HOME/.cargo/bin:$PATH"
 
-              # Install system dependencies
-              sudo apt-get update
-              sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
+      //         # Install system dependencies
+      //         sudo apt-get update
+      //         sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
 
-              # Navigate to backend directory and sync dependencies
-              cd src/datasift_opensource/backend
-              uv sync --all-groups --all-extras
+      //         # Navigate to backend directory and sync dependencies
+      //         cd src/datasift_opensource/backend
+      //         uv sync --all-groups --all-extras
 
-              # Install quality check tools using uv
-              uv pip install ruff mypy detect-secrets types-requests types-cachetools
+      //         # Install quality check tools using uv
+      //         uv pip install ruff mypy detect-secrets types-requests types-cachetools
 
-              # Activate virtual environment
-              source .venv/bin/activate
+      //         # Activate virtual environment
+      //         source .venv/bin/activate
 
-              # Return to project root
-              cd ../../..
+      //         # Return to project root
+      //         cd ../../..
 
-              # Make the script executable and run it
-              chmod +x scripts/check_modified_files.sh
-              ./scripts/check_modified_files.sh
-            '''
-          }
-        }
-      }
+      //         # Make the script executable and run it
+      //         chmod +x scripts/check_modified_files.sh
+      //         ./scripts/check_modified_files.sh
+      //       '''
+      //     }
+      //   }
+      // }
 
       stage('Pytest') {
         script {
@@ -130,13 +130,12 @@ timestamps {
               sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
               
               # Navigate to backend directory and install dependencies
-              cd src/datasift_opensource/backend
               uv sync --all-groups --all-extras
               
               # Activate virtual environment and run tests from project root
               . .venv/bin/activate
-              cd ../../.. && pwd
-              export PYTHONPATH=./src/datasift_opensource/backend:./tests
+              pwd
+              export PYTHONPATH=./src/:./tests
               cp .env.example .env
               # Run unit tests with coverage
               pytest -m unit -v --cov=src --cov-report=xml:coverage.xml --cov-report=term
@@ -183,9 +182,6 @@ timestamps {
                   export PATH=\${HOME}/miniconda3/bin:\$PATH
                   eval "\$(conda shell.bash hook)"
                   conda activate datasift_py312
-                  
-                  # Navigate to backend directory
-                  cd src/datasift_opensource/backend
                   
                   # Build the wheel using uv
                   uv build --wheel

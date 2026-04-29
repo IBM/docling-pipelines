@@ -5,10 +5,11 @@ Tests conversion of document class JSON to Docling templates.
 """
 
 import json
-import pytest
 from pathlib import Path
 
-from common.util.document_class_utils import DocumentClassUtils
+import pytest
+
+from datasift.utils.document_class_utils import DocumentClassUtils
 
 
 @pytest.fixture
@@ -17,9 +18,8 @@ def invoice_doc_class_path():
     return (
         Path(__file__).parent.parent.parent.parent.parent
         / "src"
-        / "datasift_opensource"
-        / "backend"
-        / "common"
+        / "datasift"
+        / "core"
         / "document_classes"
         / "invoice.json"
     )
@@ -31,9 +31,8 @@ def purchase_order_doc_class_path():
     return (
         Path(__file__).parent.parent.parent.parent.parent
         / "src"
-        / "datasift_opensource"
-        / "backend"
-        / "common"
+        / "datasift"
+        / "core"
         / "document_classes"
         / "purchase_order.json"
     )
@@ -59,9 +58,7 @@ def test_generate_docling_template_invoice(invoice_doc_class_path):
     assert len(template) > 0
 
     # Check expected fields exist
-    assert (
-        "invoice_id" in template
-    )  # Note: invoice.json uses invoice_id not invoice_number
+    assert "invoice_id" in template  # Note: invoice.json uses invoice_id not invoice_number
     assert "invoice_date" in template
     assert "customer_name" in template
     assert "vendor_name" in template
@@ -88,14 +85,10 @@ def test_generate_docling_template_invoice(invoice_doc_class_path):
 
 def test_generate_docling_template_without_nested(invoice_doc_class_path):
     """Test generating template without nested fields."""
-    template = DocumentClassUtils.generate_docling_template(
-        invoice_doc_class_path, include_nested=False
-    )
+    template = DocumentClassUtils.generate_docling_template(invoice_doc_class_path, include_nested=False)
 
     # Check that nested fields are excluded
-    assert "line_items" not in template or not isinstance(
-        template.get("line_items"), dict
-    )
+    assert "line_items" not in template or not isinstance(template.get("line_items"), dict)
 
     # But top-level fields should still exist
     assert "invoice_id" in template
@@ -105,9 +98,7 @@ def test_generate_docling_template_without_nested(invoice_doc_class_path):
 def test_generate_docling_template_with_max_fields(invoice_doc_class_path):
     """Test limiting number of fields in template."""
     max_fields = 5
-    template = DocumentClassUtils.generate_docling_template(
-        invoice_doc_class_path, max_fields=max_fields
-    )
+    template = DocumentClassUtils.generate_docling_template(invoice_doc_class_path, max_fields=max_fields)
 
     # Count only top-level fields
     _ = [k for k, v in template.items() if not isinstance(v, dict)]
@@ -145,9 +136,7 @@ def test_generate_template_with_examples(invoice_doc_class_path):
 
 def test_generate_docling_template_purchase_order(purchase_order_doc_class_path):
     """Test generating template from purchase order document class."""
-    template = DocumentClassUtils.generate_docling_template(
-        purchase_order_doc_class_path
-    )
+    template = DocumentClassUtils.generate_docling_template(purchase_order_doc_class_path)
 
     # Check purchase order specific fields
     assert "purchase_order_number" in template
@@ -211,9 +200,7 @@ def test_nonexistent_file():
 
 def test_print_template_example(invoice_doc_class_path):
     """Print an example template for manual verification."""
-    template = DocumentClassUtils.generate_docling_template(
-        invoice_doc_class_path, max_fields=10
-    )
+    template = DocumentClassUtils.generate_docling_template(invoice_doc_class_path, max_fields=10)
 
     print("\n=== Generated Docling Template (Invoice, first 10 fields) ===")
     print(json.dumps(template, indent=2))

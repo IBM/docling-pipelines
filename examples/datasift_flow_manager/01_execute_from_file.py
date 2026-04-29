@@ -23,7 +23,7 @@ Run:
     python examples/datasift_flow_manager/01_execute_from_file.py
 """
 
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 
 def main():

@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 
-from common.util.infrastructure.performance import (
+from datasift.utils.infrastructure.performance import (
     cleanup_pyarrow_buffers,
     get_process_memory_mb,
     get_pyarrow_table_size_mb,
@@ -21,9 +21,7 @@ class TestGetPyarrowTableSizeMb:
 
     def test_get_size_simple_table(self):
         """Test getting size of a simple table."""
-        table = pa.table(
-            {"id": [1, 2, 3, 4, 5], "name": ["Alice", "Bob", "Charlie", "David", "Eve"]}
-        )
+        table = pa.table({"id": [1, 2, 3, 4, 5], "name": ["Alice", "Bob", "Charlie", "David", "Eve"]})
 
         size = get_pyarrow_table_size_mb(table)
 
@@ -51,9 +49,7 @@ class TestGetPyarrowTableSizeMb:
 
     def test_get_size_large_table(self):
         """Test getting size of large table."""
-        large_table = pa.table(
-            {"id": list(range(10000)), "value": [f"value_{i}" for i in range(10000)]}
-        )
+        large_table = pa.table({"id": list(range(10000)), "value": [f"value_{i}" for i in range(10000)]})
 
         size = get_pyarrow_table_size_mb(large_table)
 
@@ -146,10 +142,8 @@ class TestLogElapsedTime:
 
     def test_log_elapsed_time_with_operator(self):
         """Test logging elapsed time with operator name."""
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
-            with patch(
-                "common.util.infrastructure.performance.get_current_timestamp"
-            ) as mock_time:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
+            with patch("datasift.utils.infrastructure.performance.get_current_timestamp") as mock_time:
                 mock_time.return_value = 100
                 start_time = 90
 
@@ -160,10 +154,8 @@ class TestLogElapsedTime:
 
     def test_log_elapsed_time_with_actions(self):
         """Test logging elapsed time with actions."""
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
-            with patch(
-                "common.util.infrastructure.performance.get_current_timestamp"
-            ) as mock_time:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
+            with patch("datasift.utils.infrastructure.performance.get_current_timestamp") as mock_time:
                 mock_time.return_value = 100
                 start_time = 90
 
@@ -177,10 +169,8 @@ class TestLogElapsedTime:
 
     def test_log_elapsed_time_without_operator(self):
         """Test logging elapsed time without operator name."""
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
-            with patch(
-                "common.util.infrastructure.performance.get_current_timestamp"
-            ) as mock_time:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
+            with patch("datasift.utils.infrastructure.performance.get_current_timestamp") as mock_time:
                 mock_time.return_value = 100
 
                 log_elapsed_time(start_time=90)
@@ -195,7 +185,7 @@ class TestLogMemoryUsage:
         """Test logging memory usage with single table."""
         table = pa.table({"id": [1, 2, 3]})
 
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
             log_memory_usage(
                 operator_name="TestOperator",
                 phase="processing",
@@ -213,7 +203,7 @@ class TestLogMemoryUsage:
             pa.table({"id": [7, 8, 9]}),
         ]
 
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
             log_memory_usage(
                 operator_name="TestOperator",
                 phase="processing",
@@ -242,7 +232,7 @@ class TestLogMemoryUsage:
         table = pa.table({"id": [1, 2, 3]})
         extra = {"custom_field": "custom_value"}
 
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
             log_memory_usage(
                 operator_name="TestOperator",
                 phase="processing",
@@ -268,7 +258,7 @@ class TestCleanupPyarrowBuffers:
         """Test cleanup of PyArrow buffers."""
         table = pa.table({"id": [1, 2, 3]})
 
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
             cleanup_pyarrow_buffers(
                 operator_name="TestOperator",
                 phase="cleanup",
@@ -284,7 +274,7 @@ class TestCleanupPyarrowBuffers:
         """Test cleanup with list of tables."""
         tables = [pa.table({"id": [1, 2, 3]}), pa.table({"id": [4, 5, 6]})]
 
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
             cleanup_pyarrow_buffers(
                 operator_name="TestOperator",
                 phase="cleanup",
@@ -329,10 +319,8 @@ class TestEdgeCases:
 
     def test_log_elapsed_time_with_zero_duration(self):
         """Test logging elapsed time with zero duration."""
-        with patch("common.util.infrastructure.performance.logger") as mock_logger:
-            with patch(
-                "common.util.infrastructure.performance.get_current_timestamp"
-            ) as mock_time:
+        with patch("datasift.utils.infrastructure.performance.logger") as mock_logger:
+            with patch("datasift.utils.infrastructure.performance.get_current_timestamp") as mock_time:
                 mock_time.return_value = 100
 
                 log_elapsed_time(start_time=100, operator="TestOperator")

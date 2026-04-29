@@ -14,15 +14,15 @@ import pytest
 import requests
 from requests.exceptions import ConnectionError, HTTPError, Timeout
 
-from common.clients.rest_client import (
+from datasift.exceptions.datasift_exceptions import ExternalServiceError
+from datasift.exceptions.error_codes import ErrorCode
+from datasift.integrations.rest_client import (
     METHOD_CONFIG,
     RestClient,
     RestClientConfig,
     RestMethod,
     sanitize_sensitive_data,
 )
-from common.exceptions.datasift_exceptions import ExternalServiceError
-from common.exceptions.error_codes import ErrorCode
 
 
 class TestSanitizeSensitiveData:
@@ -607,7 +607,7 @@ class TestErrorHandling:
         assert "Forbidden" in error_message
 
     @patch.object(RestClient, "_call_rest_method_impl")
-    @patch("common.clients.rest_client.logger")
+    @patch("datasift.integrations.rest_client.logger")
     def test_sanitized_logging_on_errors(self, mock_logger, mock_call_rest_method):
         """Test sanitized logging on errors."""
         config = RestClientConfig()
@@ -617,9 +617,7 @@ class TestErrorHandling:
             auth_token="secret_token_123",
         )
 
-        mock_call_rest_method.side_effect = requests.exceptions.RequestException(
-            "Connection error"
-        )
+        mock_call_rest_method.side_effect = requests.exceptions.RequestException("Connection error")
 
         with pytest.raises(ExternalServiceError):
             client.call_rest(

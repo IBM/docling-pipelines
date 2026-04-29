@@ -18,9 +18,8 @@ from unittest.mock import patch
 import pyarrow as pa
 import pytest
 
-
-from common.constants.operator_constants import OperatorConstants  # noqa: E402
-from core.operators.quality.pii_and_hap.pii_and_hap_annotator import (  # noqa: E402
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
     PIIAndHAPAnnotator,
 )
 
@@ -141,14 +140,14 @@ def mock_detect_pii_hap(request_data: dict, model_name: str = "granite4"):
 def mock_detection():
     """Mock the detection function for all tests."""
     with patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter.detect_pii_hap_ollama",
+        "datasift.core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter.detect_pii_hap_ollama",
         side_effect=mock_detect_pii_hap,
     ):
         yield
 
 
 @patch(
-    "core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter.detect_pii_hap_ollama",
+    "datasift.core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter.detect_pii_hap_ollama",
     side_effect=mock_detect_pii_hap,
 )
 def test_both_pii_and_hap_redactions(mock_detect):
@@ -201,9 +200,7 @@ def test_both_pii_and_hap_redactions(mock_detect):
         "node_status": "Completed",
         "processed_rows": 3,
     }
-    assert metadata == expected_metadata, (
-        f"Expected {expected_metadata}, but got {metadata}"
-    )
+    assert metadata == expected_metadata, f"Expected {expected_metadata}, but got {metadata}"
 
     # 5. Verify output table structure
     assert len(table_list) > 0, "Output table list should not be empty"
@@ -220,36 +217,17 @@ def test_both_pii_and_hap_redactions(mock_detect):
     expected_hap = [0, 0, 1]
 
     if not expected_pii_bank_account == table["pii_bank_account"].to_pandas().to_list():
-        errors.append(
-            "Bank Account PII error:"
-            + str(table["pii_bank_account"].to_pandas().to_list())
-        )
+        errors.append("Bank Account PII error:" + str(table["pii_bank_account"].to_pandas().to_list()))
     if not expected_pii_credit_card == table["pii_credit_card"].to_pandas().to_list():
-        errors.append(
-            "Credit Card PII error:"
-            + str(table["pii_credit_card"].to_pandas().to_list())
-        )
-    if (
-        not expected_pii_email_address
-        == table["pii_email_address"].to_pandas().to_list()
-    ):
-        errors.append(
-            "Email Id PII error:"
-            + str(table["pii_email_address"].to_pandas().to_list())
-        )
+        errors.append("Credit Card PII error:" + str(table["pii_credit_card"].to_pandas().to_list()))
+    if not expected_pii_email_address == table["pii_email_address"].to_pandas().to_list():
+        errors.append("Email Id PII error:" + str(table["pii_email_address"].to_pandas().to_list()))
     if not expected_pii_ip_address == table["pii_ip_address"].to_pandas().to_list():
-        errors.append(
-            "Ip Address PII error:" + str(table["pii_ip_address"].to_pandas().to_list())
-        )
+        errors.append("Ip Address PII error:" + str(table["pii_ip_address"].to_pandas().to_list()))
     if not expected_pii_phone_number == table["pii_phone_number"].to_pandas().to_list():
-        errors.append(
-            "Phone Number PII Error:"
-            + str(table["pii_phone_number"].to_pandas().to_list())
-        )
+        errors.append("Phone Number PII Error:" + str(table["pii_phone_number"].to_pandas().to_list()))
     if not expected_pii_ssn_details == table["pii_ssn_details"].to_pandas().to_list():
-        errors.append(
-            "SSN PII Error:" + str(table["pii_ssn_details"].to_pandas().to_list())
-        )
+        errors.append("SSN PII Error:" + str(table["pii_ssn_details"].to_pandas().to_list()))
     if not expected_hap == table["hap"].to_pandas().to_list():
         errors.append("HAP Error:" + str(table["hap"].to_pandas().to_list()))
 
@@ -305,9 +283,7 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_detection):
         "node_status": "Completed",
         "processed_rows": 2,
     }
-    assert metadata == expected_metadata, (
-        f"Expected {expected_metadata}, but got {metadata}"
-    )
+    assert metadata == expected_metadata, f"Expected {expected_metadata}, but got {metadata}"
 
     # 5. Verify output table
     table = table_list[0]
@@ -323,36 +299,17 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_detection):
 
     errors = []
     if not expected_pii_bank_account == table["pii_bank_account"].to_pandas().to_list():
-        errors.append(
-            "Bank Account PII error:"
-            + str(table["pii_bank_account"].to_pandas().to_list())
-        )
+        errors.append("Bank Account PII error:" + str(table["pii_bank_account"].to_pandas().to_list()))
     if not expected_pii_credit_card == table["pii_credit_card"].to_pandas().to_list():
-        errors.append(
-            "Credit Card PII error:"
-            + str(table["pii_credit_card"].to_pandas().to_list())
-        )
-    if (
-        not expected_pii_email_address
-        == table["pii_email_address"].to_pandas().to_list()
-    ):
-        errors.append(
-            "Email Id PII error:"
-            + str(table["pii_email_address"].to_pandas().to_list())
-        )
+        errors.append("Credit Card PII error:" + str(table["pii_credit_card"].to_pandas().to_list()))
+    if not expected_pii_email_address == table["pii_email_address"].to_pandas().to_list():
+        errors.append("Email Id PII error:" + str(table["pii_email_address"].to_pandas().to_list()))
     if not expected_pii_ip_address == table["pii_ip_address"].to_pandas().to_list():
-        errors.append(
-            "Ip Address PII error:" + str(table["pii_ip_address"].to_pandas().to_list())
-        )
+        errors.append("Ip Address PII error:" + str(table["pii_ip_address"].to_pandas().to_list()))
     if not expected_pii_phone_number == table["pii_phone_number"].to_pandas().to_list():
-        errors.append(
-            "Phone Number PII Error:"
-            + str(table["pii_phone_number"].to_pandas().to_list())
-        )
+        errors.append("Phone Number PII Error:" + str(table["pii_phone_number"].to_pandas().to_list()))
     if not expected_pii_ssn_details == table["pii_ssn_details"].to_pandas().to_list():
-        errors.append(
-            "SSN PII Error:" + str(table["pii_ssn_details"].to_pandas().to_list())
-        )
+        errors.append("SSN PII Error:" + str(table["pii_ssn_details"].to_pandas().to_list()))
     if not expected_hap == table["hap"].to_pandas().to_list():
         errors.append("HAP Error:" + str(table["hap"].to_pandas().to_list()))
 
@@ -577,7 +534,7 @@ def test_configuration_validation():
         )
         assert operator.doc_column_name == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
     except Exception as e:
-        pytest.fail(f"Unexpected exception with default doc_column: {str(e)}")
+        pytest.fail(f"Unexpected exception with default doc_column: {e!s}")
 
     # Test with custom configuration
     try:
@@ -595,7 +552,7 @@ def test_configuration_validation():
         assert operator.doc_column_name == "text"
         assert operator.provider == "litellm"
     except Exception as e:
-        pytest.fail(f"Unexpected exception with custom configuration: {str(e)}")
+        pytest.fail(f"Unexpected exception with custom configuration: {e!s}")
 
 
 def test_config_validation_invalid_pii_threshold():
@@ -664,9 +621,7 @@ def test_config_validation_invalid_batch_size():
 def test_config_validation_invalid_chunk_sizes():
     """Test that invalid chunk size configuration raises ValueError."""
     # Test min_chunk_size > max_chunk_size
-    with pytest.raises(
-        ValueError, match="min_chunk_size .* cannot exceed max_chunk_size"
-    ):
+    with pytest.raises(ValueError, match="min_chunk_size .* cannot exceed max_chunk_size"):
         PIIAndHAPAnnotator(
             {
                 "doc_column": "content",
@@ -700,9 +655,7 @@ def test_config_validation_invalid_chunk_sizes():
         "chunk_sizes_equal",
     ],
 )
-def test_config_validation_valid_edge_cases(
-    config_override, expected_attr, expected_value
-):
+def test_config_validation_valid_edge_cases(config_override, expected_attr, expected_value):
     """Test that valid edge case configurations are accepted."""
     base_config = {"doc_column": "content"}
     config = {**base_config, **config_override}
@@ -731,17 +684,13 @@ def test_expected_redactions_as_set():
     )
 
     # Verify it's a set
-    assert isinstance(operator.expected_redactions, set), (
-        "expected_redactions should be a set"
-    )
+    assert isinstance(operator.expected_redactions, set), "expected_redactions should be a set"
 
     # Verify all values are lowercase
     assert operator.expected_redactions == {
         "pii",
         "hap",
-    }, (
-        f"expected_redactions should be lowercase set, got {operator.expected_redactions}"
-    )
+    }, f"expected_redactions should be lowercase set, got {operator.expected_redactions}"
 
     # Verify set deduplication worked (only 2 unique values)
     assert len(operator.expected_redactions) == 2, (
@@ -758,9 +707,7 @@ def test_expected_redactions_default_value():
     )
 
     # Verify default value is used and converted to set
-    assert isinstance(operator.expected_redactions, set), (
-        "expected_redactions should be a set"
-    )
+    assert isinstance(operator.expected_redactions, set), "expected_redactions should be a set"
     assert "pii" in operator.expected_redactions, "Default should include 'pii'"
     assert "hap" in operator.expected_redactions, "Default should include 'hap'"
 
@@ -775,20 +722,12 @@ def test_expected_redactions_membership_check():
     )
 
     # Test O(1) membership checks
-    assert "pii" in operator.expected_redactions, (
-        "'pii' should be in expected_redactions"
-    )
-    assert "hap" in operator.expected_redactions, (
-        "'hap' should be in expected_redactions"
-    )
-    assert "other" not in operator.expected_redactions, (
-        "'other' should not be in expected_redactions"
-    )
+    assert "pii" in operator.expected_redactions, "'pii' should be in expected_redactions"
+    assert "hap" in operator.expected_redactions, "'hap' should be in expected_redactions"
+    assert "other" not in operator.expected_redactions, "'other' should not be in expected_redactions"
 
     # Verify case-insensitive (all stored as lowercase)
-    assert "PII" not in operator.expected_redactions, (
-        "Uppercase 'PII' should not match (stored as lowercase)"
-    )
+    assert "PII" not in operator.expected_redactions, "Uppercase 'PII' should not match (stored as lowercase)"
 
 
 if __name__ == "__main__":

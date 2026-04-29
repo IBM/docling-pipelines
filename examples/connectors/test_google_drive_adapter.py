@@ -20,10 +20,10 @@ def _load_environment() -> None:
 
 
 async def main():
-    from core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
+    from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
         GoogleDriveSourceAdapter,
     )
-    from core.operators.ingest.adapters.outbound.sources.google_drive.config import (
+    from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.config import (
         GoogleDriveSourceConfig,
     )
 
@@ -64,15 +64,11 @@ async def main():
         print("  6. Share Google Drive folder with service account email")
         print("\nSet environment variable with JSON content:")
         print("  1. Copy examples/connectors/.env.example to examples/connectors/.env")
-        print(
-            '  2. Set GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON=\'{"type":"service_account",...}\''
-        )
+        print('  2. Set GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON=\'{"type":"service_account",...}\'')
         print("  3. Set GOOGLE_DRIVE_FOLDER_ID=your-folder-id (optional)")
         print("  4. Run: python examples/connectors/test_google_drive_adapter.py")
         print("\nOr export directly:")
-        print(
-            '  export GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON=\'{"type":"service_account",...}\''
-        )
+        print('  export GOOGLE_DRIVE_SERVICE_ACCOUNT_JSON=\'{"type":"service_account",...}\'')
         print("  export GOOGLE_DRIVE_FOLDER_ID='your-folder-id'")
         print("  python examples/connectors/test_google_drive_adapter.py")
         print("\nTo get folder ID:")
@@ -146,9 +142,7 @@ async def main():
             if document.modified_time:
                 print(f"    Modified: {document.modified_time}")
             if document.metadata:
-                print(
-                    f"    MIME Type: {document.metadata.get('original_mime_type', 'N/A')}"
-                )
+                print(f"    MIME Type: {document.metadata.get('original_mime_type', 'N/A')}")
                 print(f"    Drive ID: {document.metadata.get('drive_id', 'N/A')}")
 
             # Limit output for large folders
@@ -159,9 +153,7 @@ async def main():
         print("\n" + "-" * 80)
         if doc_count > 0:
             print(f"✓ SUCCESS: Fetched {doc_count} document(s)")
-            print(
-                f"  Total Size: {total_size:,} bytes ({total_size / 1024 / 1024:.2f} MB)"
-            )
+            print(f"  Total Size: {total_size:,} bytes ({total_size / 1024 / 1024:.2f} MB)")
         else:
             print("⚠ WARNING: No documents found")
             print("  - Check that folder_id is correct")

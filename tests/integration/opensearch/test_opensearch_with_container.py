@@ -5,15 +5,16 @@ This test suite automatically starts and stops OpenSearch using docker-compose.
 It requires Docker and docker-compose to be installed and running.
 """
 
-import time
 import subprocess
-import pytest
-import pyarrow as pa
-import numpy as np
+import time
 from pathlib import Path
 
-from core.operators.vectordb import VectorDBOperator
-from common.constants.operator_constants import OperatorConstants
+import numpy as np
+import pyarrow as pa
+import pytest
+
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.vectordb import VectorDBOperator
 
 
 def is_docker_available():
@@ -250,9 +251,7 @@ class TestOpenSearchWithDockerCompose:
         assert "version" in data
         assert "number" in data["version"]
 
-    def test_create_index_and_insert_documents(
-        self, opensearch_config, sample_documents
-    ):
+    def test_create_index_and_insert_documents(self, opensearch_config, sample_documents):
         """Test creating index and inserting documents"""
         operator = VectorDBOperator(opensearch_config)
 

@@ -36,12 +36,10 @@ from pathlib import Path
 backend_path = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
 sys.path.insert(0, str(backend_path))
 
-from lib.datasift_flow_manager import DatasiftFlowManager  # noqa: E402
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager  # noqa: E402
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -164,9 +162,7 @@ def main():
 
     except ImportError as e:
         logger.error(f"Import error: {e}")
-        logger.error(
-            "Make sure all dependencies are installed and PYTHONPATH is set correctly"
-        )
+        logger.error("Make sure all dependencies are installed and PYTHONPATH is set correctly")
         sys.exit(1)
 
     except ConnectionError as e:

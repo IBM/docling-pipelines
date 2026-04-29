@@ -37,15 +37,13 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(
-    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
-)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from common.clients.ollama_client import OllamaClient
-from common.constants.constants import Metrics
-from common.constants.operator_constants import OperatorConstants
-from common.util.infrastructure.logging import get_logger
-from core.operators.functional.embeddings_operator import EmbeddingsOperator
+from datasift.core.constants.constants import Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.functional.embeddings_operator import EmbeddingsOperator
+from datasift.integrations.ollama.client import OllamaClient
+from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -101,9 +99,7 @@ def main() -> int:
         # Check Ollama readiness with auto-remediation
         print("\nChecking Ollama prerequisites...")
         auto_pull = not args.no_auto_pull
-        success, message = OllamaClient.ensure_ready(
-            model_name=args.model, auto_start=True, auto_pull=auto_pull
-        )
+        success, message = OllamaClient.ensure_ready(model_name=args.model, auto_start=True, auto_pull=auto_pull)
 
         if not success:
             print(f"\n✗ {message}")
@@ -141,17 +137,13 @@ def main() -> int:
 
     # Import required operators
     try:
-        from core.operators.extract.extract_operator import ExtractOperator
-        from core.operators.functional.chunker import ChunkerOperator
-        from core.operators.ingest.ingest_local_folder import IngestLocalOperator
+        from datasift.core.operators.extract.extract_operator import ExtractOperator
+        from datasift.core.operators.functional.chunker import ChunkerOperator
+        from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
     except ImportError as e:
         logger.error(f"Failed to import required operators: {e}")
-        print(
-            "\n❌ Error: Failed to import operators. Make sure you're running from the correct directory."
-        )
-        print(
-            "   Try: cd src/datasift_opensource/backend && python -m core.operators.functional.embeddings_operator"
-        )
+        print("\nError: Failed to import operators. Make sure you are running from the repository root.")
+        print('   Try: export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"')
         return 1
 
     # Validate PDF path
@@ -252,9 +244,7 @@ def main() -> int:
             print(f"\n❌ No documents found in {args.pdf}")
             print(f"   Expected path: {pdf_path.resolve()}")
             if pdf_path.is_file():
-                print(
-                    "   Note: When passing a file, all PDFs in parent directory are scanned first"
-                )
+                print("   Note: When passing a file, all PDFs in parent directory are scanned first")
             return 1
 
         if "name" in ingest_table.column_names:
@@ -371,9 +361,7 @@ def main() -> int:
         embeddings_operator: EmbeddingsOperator = EmbeddingsOperator(embeddings_config)
         embeddings_tables: list[pa.Table]
         embeddings_metadata: dict[str, Any]
-        embeddings_tables, embeddings_metadata = embeddings_operator.transform(
-            chunk_table
-        )
+        embeddings_tables, embeddings_metadata = embeddings_operator.transform(chunk_table)
         embeddings_table: pa.Table = embeddings_tables[0]
 
         print(f"✓ Generated embeddings for {embeddings_table.num_rows} document(s)")
@@ -383,33 +371,23 @@ def main() -> int:
             f"Failed={embeddings_metadata.get('failed_docs_count', 0)}"
         )
 
-        if (
-            "embeddings" in embeddings_table.column_names
-            and embeddings_table.num_rows > 0
-        ):
+        if "embeddings" in embeddings_table.column_names and embeddings_table.num_rows > 0:
             embeddings_data: Any = embeddings_table["embeddings"][0].as_py()
             if embeddings_data:
                 if isinstance(embeddings_data, list):
                     if isinstance(embeddings_data[0], list):
                         print(f"\n  Generated {len(embeddings_data)} embedding vectors")
                         print(f"  Embedding dimensions: {len(embeddings_data[0])}")
-                        print(
-                            f"  First embedding sample (first 5 values): {embeddings_data[0][:5]}"
-                        )
+                        print(f"  First embedding sample (first 5 values): {embeddings_data[0][:5]}")
                     else:
                         print(f"\n  Embedding dimensions: {len(embeddings_data)}")
-                        print(
-                            f"  Embedding sample (first 5 values): {embeddings_data[:5]}"
-                        )
+                        print(f"  Embedding sample (first 5 values): {embeddings_data[:5]}")
 
         if (
-            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
-            in embeddings_table.column_names
+            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in embeddings_table.column_names
             and embeddings_table.num_rows > 0
         ):
-            doc_hash: str = embeddings_table[
-                OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
-            ][0].as_py()
+            doc_hash: str = embeddings_table[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT][0].as_py()
             print(f"  Document hash: {doc_hash}")
 
     except Exception as e:
@@ -429,9 +407,7 @@ def main() -> int:
     print(f"✓ Embeddings: {embeddings_metadata.get('processed_docs', 0)} documents")
     print("=" * 80)
     print("\n✓ Pipeline completed successfully!")
-    print(
-        f"\nFinal table shape: {embeddings_table.num_rows} rows x {len(embeddings_table.column_names)} columns"
-    )
+    print(f"\nFinal table shape: {embeddings_table.num_rows} rows x {len(embeddings_table.column_names)} columns")
     print(f"Final columns: {embeddings_table.column_names}")
 
     return 0
@@ -439,5 +415,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-# Made with Bob

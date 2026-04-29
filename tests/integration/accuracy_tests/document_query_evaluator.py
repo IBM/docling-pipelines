@@ -14,28 +14,25 @@ Usage:
     python document_query_evaluator.py --queries document_queries.csv --output results.json
 """
 
-import json
-import csv
-import sys
-import os
-from datetime import datetime
-from typing import Dict, List, Any, Optional
-from opensearchpy import OpenSearch
 import argparse
+import csv
+import json
+import os
+import sys
 from collections import defaultdict
+from datetime import datetime
+from typing import Any
+
+from opensearchpy import OpenSearch
 
 # Add the examples/retrieval directory to the path
-sys.path.insert(
-    0, os.path.join(os.path.dirname(__file__), "../../../examples/retrieval")
-)
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../examples/retrieval"))
 
 try:
     from ollama_nl_to_sql_converter import OllamaNLToSQLConverter  # type: ignore
     from opensearch_sql import OpenSearchSQLClient  # type: ignore
 except ImportError:
-    print(
-        "Warning: Could not import NL to SQL converter. Make sure examples/retrieval is available."
-    )
+    print("Warning: Could not import NL to SQL converter. Make sure examples/retrieval is available.")
     OllamaNLToSQLConverter = None
     OpenSearchSQLClient = None
 
@@ -70,7 +67,7 @@ class DocumentQueryEvaluator:
         else:
             self.sql_client = None
 
-    def _get_converter(self, doc_type: str) -> Optional[Any]:
+    def _get_converter(self, doc_type: str) -> Any | None:
         """Get or create NL to SQL converter for document type"""
         if not OllamaNLToSQLConverter:
             return None
@@ -83,9 +80,7 @@ class DocumentQueryEvaluator:
             )
         return self.converters[doc_type]
 
-    def load_queries_from_csv(
-        self, csv_file: str, doc_type_filter: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def load_queries_from_csv(self, csv_file: str, doc_type_filter: str | None = None) -> list[dict[str, Any]]:
         """
         Load queries from CSV file
 
@@ -98,7 +93,7 @@ class DocumentQueryEvaluator:
         """
         queries = []
 
-        with open(csv_file, "r", encoding="utf-8") as f:
+        with open(csv_file, encoding="utf-8") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 if doc_type_filter and row["doc_type"] != doc_type_filter:
@@ -107,7 +102,7 @@ class DocumentQueryEvaluator:
 
         return queries
 
-    def evaluate_query(self, query: Dict[str, Any]) -> Dict[str, Any]:
+    def evaluate_query(self, query: dict[str, Any]) -> dict[str, Any]:
         """
         Evaluate a single query
 
@@ -164,16 +159,14 @@ class DocumentQueryEvaluator:
                     result["passed"] = score >= (max_score * 0.7)  # 70% threshold
 
             end_time = datetime.now()
-            result["execution_time_ms"] = int(
-                (end_time - start_time).total_seconds() * 1000
-            )
+            result["execution_time_ms"] = int((end_time - start_time).total_seconds() * 1000)
 
         except Exception as e:
             result["error"] = str(e)
 
         return result
 
-    def _score_result(self, query: Dict[str, Any], sql_result: Any) -> int:
+    def _score_result(self, query: dict[str, Any], sql_result: Any) -> int:
         """
         Score the query result based on expected criteria
 
@@ -197,9 +190,7 @@ class DocumentQueryEvaluator:
                 # Additional scoring based on difficulty
                 difficulty = query.get("difficulty", "easy")
                 if difficulty == "easy":
-                    score += (
-                        max_score * 0.3
-                    )  # Easy queries get full score if they return results
+                    score += max_score * 0.3  # Easy queries get full score if they return results
                 elif difficulty == "medium":
                     # Medium queries need reasonable result count
                     if sql_result.total > 0:
@@ -211,9 +202,7 @@ class DocumentQueryEvaluator:
 
         return int(score)
 
-    def evaluate_all_queries(
-        self, queries: List[Dict[str, Any]], verbose: bool = True
-    ) -> Dict[str, Any]:
+    def evaluate_all_queries(self, queries: list[dict[str, Any]], verbose: bool = True) -> dict[str, Any]:
         """
         Evaluate all queries and return results
 
@@ -234,18 +223,14 @@ class DocumentQueryEvaluator:
         for idx, query in enumerate(queries, 1):
             if verbose:
                 print(f"[{idx}/{len(queries)}] {query['nl_query']}")
-                print(
-                    f"  Type: {query['doc_type']} | Difficulty: {query['difficulty']}"
-                )
+                print(f"  Type: {query['doc_type']} | Difficulty: {query['difficulty']}")
 
             result = self.evaluate_query(query)
             results.append(result)
 
             if verbose:
                 status = "✓ PASS" if result["passed"] else "✗ FAIL"
-                print(
-                    f"  {status} | Score: {result['actual_score']}/{result['max_score']}"
-                )
+                print(f"  {status} | Score: {result['actual_score']}/{result['max_score']}")
                 if result.get("error"):
                     print(f"  Error: {result['error']}")
                 print()
@@ -259,7 +244,7 @@ class DocumentQueryEvaluator:
             "timestamp": datetime.now().isoformat(),
         }
 
-    def _calculate_statistics(self, results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _calculate_statistics(self, results: list[dict[str, Any]]) -> dict[str, Any]:
         """Calculate evaluation statistics"""
         total = len(results)
         passed = sum(1 for r in results if r["passed"])
@@ -267,14 +252,10 @@ class DocumentQueryEvaluator:
 
         total_score = sum(r["actual_score"] for r in results)
         max_possible_score = sum(r["max_score"] for r in results)
-        score_percentage = (
-            (total_score / max_possible_score * 100) if max_possible_score > 0 else 0
-        )
+        score_percentage = (total_score / max_possible_score * 100) if max_possible_score > 0 else 0
 
         # Statistics by difficulty
-        by_difficulty = defaultdict(
-            lambda: {"total": 0, "passed": 0, "total_score": 0, "max_score": 0}
-        )
+        by_difficulty = defaultdict(lambda: {"total": 0, "passed": 0, "total_score": 0, "max_score": 0})
         for r in results:
             diff = r["difficulty"]
             by_difficulty[diff]["total"] += 1
@@ -284,9 +265,7 @@ class DocumentQueryEvaluator:
             by_difficulty[diff]["max_score"] += r["max_score"]
 
         # Statistics by document type
-        by_doc_type = defaultdict(
-            lambda: {"total": 0, "passed": 0, "total_score": 0, "max_score": 0}
-        )
+        by_doc_type = defaultdict(lambda: {"total": 0, "passed": 0, "total_score": 0, "max_score": 0})
         for r in results:
             dtype = r["doc_type"]
             by_doc_type[dtype]["total"] += 1
@@ -296,9 +275,7 @@ class DocumentQueryEvaluator:
             by_doc_type[dtype]["max_score"] += r["max_score"]
 
         # Average execution time
-        avg_exec_time = (
-            sum(r["execution_time_ms"] for r in results) / total if total > 0 else 0
-        )
+        avg_exec_time = sum(r["execution_time_ms"] for r in results) / total if total > 0 else 0
 
         return {
             "total_queries": total,
@@ -313,7 +290,7 @@ class DocumentQueryEvaluator:
             "by_doc_type": dict(by_doc_type),
         }
 
-    def print_summary(self, evaluation_results: Dict[str, Any]):
+    def print_summary(self, evaluation_results: dict[str, Any]):
         """Print evaluation summary"""
         summary = evaluation_results["summary"]
 
@@ -324,23 +301,15 @@ class DocumentQueryEvaluator:
         print(f"Passed: {summary['passed']}")
         print(f"Failed: {summary['failed']}")
         print(f"Pass Rate: {summary['pass_rate']:.1f}%")
-        print(
-            f"Score: {summary['total_score']}/{summary['max_possible_score']} ({summary['score_percentage']:.1f}%)"
-        )
+        print(f"Score: {summary['total_score']}/{summary['max_possible_score']} ({summary['score_percentage']:.1f}%)")
         print(f"Avg Execution Time: {summary['average_execution_time_ms']}ms")
 
         print(f"\n{'=' * 80}")
         print("BY DIFFICULTY")
         print(f"{'=' * 80}")
         for diff, stats in sorted(summary["by_difficulty"].items()):
-            pass_rate = (
-                (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
-            )
-            score_pct = (
-                (stats["total_score"] / stats["max_score"] * 100)
-                if stats["max_score"] > 0
-                else 0
-            )
+            pass_rate = (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
+            score_pct = (stats["total_score"] / stats["max_score"] * 100) if stats["max_score"] > 0 else 0
             bar_length = int(pass_rate / 2)
             bar = "█" * bar_length + "░" * (50 - bar_length)
             print(
@@ -351,14 +320,8 @@ class DocumentQueryEvaluator:
         print("BY DOCUMENT TYPE")
         print(f"{'=' * 80}")
         for dtype, stats in sorted(summary["by_doc_type"].items()):
-            pass_rate = (
-                (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
-            )
-            score_pct = (
-                (stats["total_score"] / stats["max_score"] * 100)
-                if stats["max_score"] > 0
-                else 0
-            )
+            pass_rate = (stats["passed"] / stats["total"] * 100) if stats["total"] > 0 else 0
+            score_pct = (stats["total_score"] / stats["max_score"] * 100) if stats["max_score"] > 0 else 0
             bar_length = int(pass_rate / 2)
             bar = "█" * bar_length + "░" * (50 - bar_length)
             print(
@@ -376,8 +339,8 @@ class DocumentQueryTester:
         host: str = "localhost",
         port: int = 9200,
         use_ssl: bool = False,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         ollama_host: str = "http://localhost:11434",
         ollama_model: str = "granite4",
     ):
@@ -394,16 +357,14 @@ class DocumentQueryTester:
             verify_certs=False if not use_ssl else True,
         )
 
-        self.evaluator = DocumentQueryEvaluator(
-            self.client, ollama_host=ollama_host, ollama_model=ollama_model
-        )
+        self.evaluator = DocumentQueryEvaluator(self.client, ollama_host=ollama_host, ollama_model=ollama_model)
 
     def run_tests(
         self,
         query_file: str,
-        doc_type_filter: Optional[str] = None,
-        output_file: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        doc_type_filter: str | None = None,
+        output_file: str | None = None,
+    ) -> dict[str, Any]:
         """
         Run all tests from query file
 
@@ -440,12 +401,8 @@ class DocumentQueryTester:
 
 def main():
     """Main function with CLI"""
-    parser = argparse.ArgumentParser(
-        description="Evaluate natural language queries against OpenSearch documents"
-    )
-    parser.add_argument(
-        "--queries", required=True, help="CSV file with queries to evaluate"
-    )
+    parser = argparse.ArgumentParser(description="Evaluate natural language queries against OpenSearch documents")
+    parser.add_argument("--queries", required=True, help="CSV file with queries to evaluate")
     parser.add_argument(
         "--doc-type",
         choices=[
@@ -457,12 +414,8 @@ def main():
         ],
         help="Filter to specific document type",
     )
-    parser.add_argument(
-        "--host", default="localhost", help="OpenSearch host (default: localhost)"
-    )
-    parser.add_argument(
-        "--port", type=int, default=9200, help="OpenSearch port (default: 9200)"
-    )
+    parser.add_argument("--host", default="localhost", help="OpenSearch host (default: localhost)")
+    parser.add_argument("--port", type=int, default=9200, help="OpenSearch port (default: 9200)")
     parser.add_argument("--username", help="OpenSearch username")
     parser.add_argument("--password", help="OpenSearch password")
     parser.add_argument(
@@ -490,9 +443,7 @@ def main():
     )
 
     # Run tests
-    tester.run_tests(
-        query_file=args.queries, doc_type_filter=args.doc_type, output_file=args.output
-    )
+    tester.run_tests(query_file=args.queries, doc_type_filter=args.doc_type, output_file=args.output)
 
 
 if __name__ == "__main__":
@@ -509,14 +460,10 @@ if __name__ == "__main__":
     print("   python document_query_evaluator.py --queries document_queries.csv")
     print()
     print("2. Evaluate specific document type:")
-    print(
-        "   python document_query_evaluator.py --queries document_queries.csv --doc-type purchase_order"
-    )
+    print("   python document_query_evaluator.py --queries document_queries.csv --doc-type purchase_order")
     print()
     print("3. Save results to file:")
-    print(
-        "   python document_query_evaluator.py --queries document_queries.csv --output results.json"
-    )
+    print("   python document_query_evaluator.py --queries document_queries.csv --output results.json")
     print()
     print("=" * 80)
     print()

@@ -1,36 +1,36 @@
 """Unit tests for orchestrator_utils module."""
 
 import os
-import tempfile
 import shutil
+import tempfile
 from queue import Queue
 from unittest.mock import Mock, patch
 
-import pytest
 import pyarrow as pa
+import pytest
 
-from common.util.orchestration.flow_utils import (
-    create_node_id_to_index_map,
-    create_log_folders,
-    write_job_logs,
-    construct_deleted_rows_table_path,
-)
-from common.util.orchestration.prefect_config import (
-    set_prefect_env_variables,
-    clean_up_prefect_home,
-    _safe_rmtree,
-    PREFECT_HOME,
-    PREFECT_API_DATABASE_CONNECTION_URL,
-    PREFECT_DEBUG,
-)
-from common.util.data.schema_utils import (
-    align_table_schema,
+from datasift.utils.data.schema_utils import (
     _combine_tables,
     _total_rows,
+    align_table_schema,
 )
-from common.util.orchestration.deleted_rows_tracker import (
+from datasift.utils.orchestration.deleted_rows_tracker import (
     combine_cumulative_deleted_rows,
     update_deleted_rows,
+)
+from datasift.utils.orchestration.flow_utils import (
+    construct_deleted_rows_table_path,
+    create_log_folders,
+    create_node_id_to_index_map,
+    write_job_logs,
+)
+from datasift.utils.orchestration.prefect_config import (
+    PREFECT_API_DATABASE_CONNECTION_URL,
+    PREFECT_DEBUG,
+    PREFECT_HOME,
+    _safe_rmtree,
+    clean_up_prefect_home,
+    set_prefect_env_variables,
 )
 
 
@@ -64,7 +64,7 @@ class TestCreateNodeIdToIndexMap:
 class TestCreateLogFolders:
     """Test create_log_folders function."""
 
-    @patch("common.util.infrastructure.filesystem.get_data_path")
+    @patch("datasift.utils.infrastructure.filesystem.get_data_path")
     def test_create_log_folders_job_type(self, mock_data_path):
         """Test creating log folders for job type."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -77,7 +77,7 @@ class TestCreateLogFolders:
             assert "job_stats.json" in result
             assert os.path.exists(os.path.dirname(result))
 
-    @patch("common.util.infrastructure.filesystem.get_data_path")
+    @patch("datasift.utils.infrastructure.filesystem.get_data_path")
     def test_create_log_folders_agg_logs_type(self, mock_data_path):
         """Test creating log folders for aggregated logs type."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -127,10 +127,7 @@ class TestSetPrefectEnvVariables:
 
         assert PREFECT_HOME in os.environ
         assert PREFECT_API_DATABASE_CONNECTION_URL in os.environ
-        assert (
-            os.environ[PREFECT_API_DATABASE_CONNECTION_URL]
-            == "sqlite+aiosqlite:///:memory:"
-        )
+        assert os.environ[PREFECT_API_DATABASE_CONNECTION_URL] == "sqlite+aiosqlite:///:memory:"
 
         # Cleanup
         if PREFECT_HOME in os.environ:
@@ -413,12 +410,8 @@ class TestUpdateDeletedRows:
 
     def test_update_deleted_rows_skip_columns(self):
         """Test that specified columns are skipped."""
-        prev_table = pa.table(
-            {"id": [1, 2, 3], "content": ["a", "b", "c"], "value": [10, 20, 30]}
-        )
-        current_tables = [
-            pa.table({"id": [1, 2], "content": ["a", "b"], "value": [10, 20]})
-        ]
+        prev_table = pa.table({"id": [1, 2, 3], "content": ["a", "b", "c"], "value": [10, 20, 30]})
+        current_tables = [pa.table({"id": [1, 2], "content": ["a", "b"], "value": [10, 20]})]
 
         mock_op = Mock()
         mock_op.config = {}
@@ -452,14 +445,12 @@ class TestUpdateDeletedRows:
 class TestConstructDeletedRowsTablePath:
     """Test construct_deleted_rows_table_path function."""
 
-    @patch("common.util.infrastructure.filesystem.get_data_path")
+    @patch("datasift.utils.infrastructure.filesystem.get_data_path")
     def test_construct_deleted_rows_table_path(self, mock_data_path):
         """Test constructing deleted rows table path."""
         mock_data_path.return_value = "/warehouse"
 
-        result = construct_deleted_rows_table_path(
-            job_id="job_123", job_run_id="run_456"
-        )
+        result = construct_deleted_rows_table_path(job_id="job_123", job_run_id="run_456")
 
         assert "job_123" in result
         assert "run_456" in result

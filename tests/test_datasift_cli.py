@@ -1,15 +1,15 @@
 import os
-import unittest
 import tempfile
-from unittest.mock import patch, MagicMock
+import unittest
+from unittest.mock import MagicMock, patch
 
-from cli.datasift_cli import (
-    run_command_line_executor,
+from datasift.cli.datasift_cli import (
     load_flow_definition,
+    run_command_line_executor,
 )
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import DatasiftConstants
-from common.exceptions.datasift_exceptions import FlowValidationException
+from datasift.core.constants.constants import DatasiftConstants
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.exceptions.datasift_exceptions import FlowValidationException
 
 
 class TestCommandLineOrchestrator(unittest.TestCase):
@@ -32,18 +32,14 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                         "include_filter": "txt",
                     },
                     "input_edges": [],
-                    "output_edges": [
-                        {"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9501"}
-                    ],
+                    "output_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9501"}],
                 },
                 {
                     "id": "e9c41958-2d27-4c02-ab03-789e031b9501",
                     "name": "Sleep",
                     OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.NOOP,
                     "config": {"sleep_sec": 2},
-                    "input_edges": [
-                        {"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500"}
-                    ],
+                    "input_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9500"}],
                     "output_edges": [],
                 },
             ]
@@ -55,7 +51,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         """
         Test loading a flow definition from a file
         """
-        from cli.datasift_cli import load_flow_definition
+        from datasift.cli.datasift_cli import load_flow_definition
 
         filepath = "../../../tests/sample_test_flows/basic/local_to_opensearch.json"
 
@@ -113,9 +109,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
             # Clean up the temporary file
             os.unlink(temp_file_path)
 
-    @patch(
-        "core.orchestrator.orchestrator_factory.OrchestratorFactory.create_orchestrator"
-    )
+    @patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
     def test_flow_execution_failure(self, mock_create_orchestrator):
         """
         Test handling of flow execution failure

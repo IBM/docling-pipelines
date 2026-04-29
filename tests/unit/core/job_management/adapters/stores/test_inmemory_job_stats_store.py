@@ -15,12 +15,12 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from common.constants.constants import ExecutionStatus
-from common.exceptions.datasift_exceptions import JobStatsStoreDeleteException
-from core.job_management.adapters.stores.inmemory.inmemory_job_stats_store import (
+from datasift.core.constants.constants import ExecutionStatus
+from datasift.core.job_management.adapters.stores.inmemory.inmemory_job_stats_store import (
     InMemoryJobStatsStore,
 )
-from core.job_management.domain.models import JobStats, NodeStats
+from datasift.core.job_management.domain.models import JobStats, NodeStats
+from datasift.exceptions.datasift_exceptions import JobStatsStoreDeleteException
 
 
 @pytest.fixture
@@ -76,16 +76,12 @@ class TestPortSignatureCompliance:
         result = store.get_node_stats(job_run_id=job_run_id)
         assert result == []
 
-    def test_bulk_store_node_stats_requires_keyword_args(
-        self, *, store, sample_node_stats
-    ):
+    def test_bulk_store_node_stats_requires_keyword_args(self, *, store, sample_node_stats):
         """bulk_store_node_stats must use keyword-only arguments."""
         job_run_id = "87654321-4321-4321-4321-cba987654321"
 
         # Should work with keyword args
-        store.bulk_store_node_stats(
-            job_run_id=job_run_id, node_stats_list=[sample_node_stats]
-        )
+        store.bulk_store_node_stats(job_run_id=job_run_id, node_stats_list=[sample_node_stats])
 
 
 class TestBatchScopedWrites:
@@ -161,9 +157,7 @@ class TestBatchScopedWrites:
         store.store_node_stats(job_run_id=job_run_id, node_stats=non_batch_stats)
 
         # Retrieve with batch_id=None
-        result = store.get_node_stats_by_batch_and_node(
-            job_run_id=job_run_id, node_id=node_id, batch_id=None
-        )
+        result = store.get_node_stats_by_batch_and_node(job_run_id=job_run_id, node_id=node_id, batch_id=None)
         assert result is not None
         assert result.batch_id is None
 
@@ -211,9 +205,7 @@ class TestImmutability:
         before_update = store.get_job_stats(job_run_id)
 
         # Atomic increment
-        store.atomic_increment_fields(
-            job_run_id=job_run_id, increments={"processed_docs": 50}
-        )
+        store.atomic_increment_fields(job_run_id=job_run_id, increments={"processed_docs": 50})
 
         # Original reference should be unchanged (deep copy)
         assert before_update.processed_docs == 100
@@ -264,9 +256,7 @@ class TestFineGrainedLocking:
 
         def increment_docs():
             for _ in range(100):
-                store.atomic_increment_fields(
-                    job_run_id=job_run_id, increments={"processed_docs": 1}
-                )
+                store.atomic_increment_fields(job_run_id=job_run_id, increments={"processed_docs": 1})
 
         # Run 5 threads incrementing concurrently
         threads = [threading.Thread(target=increment_docs) for _ in range(5)]
@@ -302,9 +292,7 @@ class TestAtomicOperations:
         job_run_id = sample_job_stats.job_run_id
         store.store_job_stats(sample_job_stats)
 
-        store.atomic_increment_fields(
-            job_run_id=job_run_id, increments={"processed_docs": 50, "failed_docs": 2}
-        )
+        store.atomic_increment_fields(job_run_id=job_run_id, increments={"processed_docs": 50, "failed_docs": 2})
 
         result = store.get_job_stats(job_run_id)
         assert result.processed_docs == 150
@@ -343,9 +331,7 @@ class TestAtomicOperations:
     def test_atomic_increment_nonexistent_job(self, *, store):
         """Increment on nonexistent job should not raise error."""
         # Should log warning but not raise
-        store.atomic_increment_fields(
-            job_run_id="nonexistent", increments={"processed_docs": 10}
-        )
+        store.atomic_increment_fields(job_run_id="nonexistent", increments={"processed_docs": 10})
 
 
 class TestBulkOperations:
@@ -369,9 +355,7 @@ class TestBulkOperations:
         ]
 
         # Bulk store
-        store.bulk_store_node_stats(
-            job_run_id=job_run_id, node_stats_list=node_stats_list
-        )
+        store.bulk_store_node_stats(job_run_id=job_run_id, node_stats_list=node_stats_list)
 
         # Verify all stored
         all_stats = store.get_node_stats(job_run_id=job_run_id)
@@ -401,12 +385,8 @@ class TestListJobRuns:
     def test_list_job_runs_filter_by_status(self, *, store):
         """Filter job runs by status."""
         # Store jobs with different statuses
-        for i, status in enumerate(
-            [ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]
-        ):
-            job_stats = JobStats(
-                job_id=str(uuid.uuid4()), job_run_id=str(uuid.uuid4()), status=status
-            )
+        for i, status in enumerate([ExecutionStatus.RUNNING, ExecutionStatus.COMPLETED, ExecutionStatus.FAILED]):
+            job_stats = JobStats(job_id=str(uuid.uuid4()), job_run_id=str(uuid.uuid4()), status=status)
             store.store_job_stats(job_stats)
 
         result = store.list_job_runs(status=ExecutionStatus.COMPLETED)
@@ -435,9 +415,7 @@ class TestListJobRuns:
 class TestClearAndDelete:
     """Test cleanup operations."""
 
-    def test_clear_removes_all_data(
-        self, *, store, sample_job_stats, sample_node_stats
-    ):
+    def test_clear_removes_all_data(self, *, store, sample_job_stats, sample_node_stats):
         """clear() should remove all data."""
         job_run_id = sample_job_stats.job_run_id
 
@@ -455,9 +433,7 @@ class TestClearAndDelete:
         assert len(store._node_stats) == 0
         assert len(store._job_locks) == 0
 
-    def test_delete_job_stats_removes_all_related(
-        self, *, store, sample_job_stats, sample_node_stats
-    ):
+    def test_delete_job_stats_removes_all_related(self, *, store, sample_job_stats, sample_node_stats):
         """delete_job_stats should remove job and node stats."""
         job_run_id = sample_job_stats.job_run_id
 

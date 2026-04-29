@@ -8,9 +8,9 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-from app.routes.flows import get_flow_repository
-from core.assets_management.adapters.repositories.local.local_flow_repository import (
+from datasift.api.main import app
+from datasift.api.routes.flows import get_flow_repository
+from datasift.core.flows.adapters.repositories.local.local_flow_repository import (
     LocalFlowRepository,
 )
 

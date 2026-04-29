@@ -1,0 +1,29 @@
+assets_management:
+  flow_repository:
+    type: local
+    config:
+      # Set this to the directory where your flow definitions are stored (flow repository).
+      base_dir: sample_flows
+
+job_management:
+  framework:
+    type: default
+    config: {}
+  store:
+    # Storage backend options: inmemory, json, postgresql
+    type: json
+    config:
+      base_dir: ./data/job_stats_store_data
+#     type: postgresql
+#     config:
+#       # PostgreSQL configuration (applies only when store.type is postgresql).
+#       # Migrations run during server startup when PostgreSQL storage is selected.
+#       postgres:
+#         host: localhost
+#         port: 5432
+#         database: datasift_oss
+#         user: postgres
+#         password: password  # From environment
+#         pool_size: 5
+#         max_overflow: 10
+#         pool_timeout: 30

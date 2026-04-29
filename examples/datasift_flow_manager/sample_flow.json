@@ -1,6 +1,5 @@
 {
-  "flow": {
-    "name": "Sample Pipeline Executor Flow",
+  "name": "Sample DatasiftFlowManager Flow",
     "description": "Complete working example: Ingest -> Extract -> Chunk -> Embeddings",
     "flow_id": "sample-pipeline-001",
     "storage": "in-memory",
@@ -86,5 +85,4 @@
         "output_edges": []
       }
     ]
-  }
 }

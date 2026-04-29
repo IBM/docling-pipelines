@@ -4,8 +4,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from common.exceptions.datasift_exceptions import FlowInvalidDataException
-from core.assets_management.domain.models.flow import Flow
+from datasift.core.flows.domain.models.flow import Flow
+from datasift.exceptions.datasift_exceptions import FlowInvalidDataException
 
 
 class TestFlowCreation:
@@ -119,9 +119,7 @@ class TestFlowNameValidation:
         flow = Flow(name=long_name, definition={"nodes": []})
 
         # Act & Assert
-        with pytest.raises(
-            FlowInvalidDataException, match="Flow name cannot exceed 255 characters"
-        ):
+        with pytest.raises(FlowInvalidDataException, match="Flow name cannot exceed 255 characters"):
             flow.validate()
 
     def test_validate_flow_with_name_exactly_255_chars_passes(self):
@@ -213,9 +211,7 @@ class TestFlowDefinitionValidation:
         flow = Flow(name="Test", definition={})
 
         # Act & Assert
-        with pytest.raises(
-            FlowInvalidDataException, match="Flow definition cannot be empty"
-        ):
+        with pytest.raises(FlowInvalidDataException, match="Flow definition cannot be empty"):
             flow.validate()
 
     def test_validate_flow_with_non_dict_definition_raises_error(self):
@@ -224,9 +220,7 @@ class TestFlowDefinitionValidation:
         flow = Flow(name="Test", definition="not a dict")  # type: ignore
 
         # Act & Assert
-        with pytest.raises(
-            FlowInvalidDataException, match="Flow definition must be a dictionary"
-        ):
+        with pytest.raises(FlowInvalidDataException, match="Flow definition must be a dictionary"):
             flow.validate()
 
     def test_validate_flow_with_complex_definition_passes(self, sample_flow_data):
@@ -465,17 +459,9 @@ class TestFlowRoundTripConversion:
         restored_flow = Flow.from_dict(dict_data)
 
         # Assert - Compare timestamps (allowing for microsecond precision loss in ISO format)
-        assert (
-            restored_flow.created_on is not None
-            and sample_flow_with_id.created_on is not None
-        )
-        assert (
-            restored_flow.modified_on is not None
-            and sample_flow_with_id.modified_on is not None
-        )
-        assert restored_flow.created_on.replace(
+        assert restored_flow.created_on is not None and sample_flow_with_id.created_on is not None
+        assert restored_flow.modified_on is not None and sample_flow_with_id.modified_on is not None
+        assert restored_flow.created_on.replace(microsecond=0) == sample_flow_with_id.created_on.replace(microsecond=0)
+        assert restored_flow.modified_on.replace(microsecond=0) == sample_flow_with_id.modified_on.replace(
             microsecond=0
-        ) == sample_flow_with_id.created_on.replace(microsecond=0)
-        assert restored_flow.modified_on.replace(
-            microsecond=0
-        ) == sample_flow_with_id.modified_on.replace(microsecond=0)
+        )

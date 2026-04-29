@@ -6,8 +6,7 @@ import os
 from pathlib import Path
 
 # Path setup is now automatic via conftest.py
-
-from cli.datasift_cli import run_command_line_executor
+from datasift.cli.datasift_cli import run_command_line_executor
 
 
 def test_pii_hap_with_ollama():
@@ -20,14 +19,9 @@ def test_pii_hap_with_ollama():
     # Load the flow definition
     # Navigate: tests/unit/operators/pii_and_hap -> tests (up 3 levels using resolve().parents)
     tests_root = Path(__file__).resolve().parents[3]
-    flow_file = (
-        tests_root
-        / "sample_test_flows"
-        / "quality_and_enrichment"
-        / "flow_pii_hap_example.json"
-    )
+    flow_file = tests_root / "sample_test_flows" / "quality_and_enrichment" / "flow_pii_hap_example.json"
 
-    with open(flow_file, "r") as f:
+    with open(flow_file) as f:
         flow_config = json.load(f)
 
     flow_def = flow_config["flow"]
@@ -35,9 +29,7 @@ def test_pii_hap_with_ollama():
     # Fix the input_folder path to be absolute
     project_root = Path(__file__).resolve().parents[4]
     for node in flow_def["dag"]:
-        if node.get("operator") == "ingest_local" and "input_folder" in node.get(
-            "config", {}
-        ):
+        if node.get("operator") == "ingest_local" and "input_folder" in node.get("config", {}):
             relative_path = node["config"]["input_folder"]
             absolute_path = str(project_root / relative_path)
             node["config"]["input_folder"] = absolute_path
@@ -67,7 +59,7 @@ def test_pii_hap_with_ollama():
 
     except Exception as e:
         print("\n" + "=" * 80)
-        print(f"Flow execution failed: {str(e)}")
+        print(f"Flow execution failed: {e!s}")
         print("=" * 80)
         import traceback
 

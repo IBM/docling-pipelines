@@ -8,9 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from core.operators.extract.extract_operator import ExtractOperator
-from core.operators.ingest.ingest_local_folder import IngestLocalOperator
-
+from datasift.core.operators.extract.extract_operator import ExtractOperator
+from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
 EXPECTED_INGEST_COLUMNS = {
     "id",
@@ -74,14 +73,10 @@ class TestIngestExtractIntegration:
             if content and len(content) > 0:
                 content_count += 1
 
-        assert content_count > 0, (
-            "Should have extracted content from at least one document"
-        )
+        assert content_count > 0, "Should have extracted content from at least one document"
         assert extract_metadata.get("processed_docs", 0) > 0
 
-    def test_path_only_ingest_to_combined_docling_text_entity_extraction(
-        self, fixtures_dir
-    ):
+    def test_path_only_ingest_to_combined_docling_text_entity_extraction(self, fixtures_dir):
         """Test combined docling text+entity extraction works with path-only ingest."""
         ingest_config = {
             "input_folder": fixtures_dir,
@@ -143,9 +138,7 @@ class TestIngestExtractIntegration:
         extract_table = extract_tables[0]
 
         final_columns = set(extract_table.column_names)
-        assert original_columns.issubset(final_columns), (
-            "Original metadata should be preserved"
-        )
+        assert original_columns.issubset(final_columns), "Original metadata should be preserved"
         assert "doc_content" in final_columns
         assert "doc_id_hash" in final_columns
         assert extract_table.num_rows == ingest_table.num_rows

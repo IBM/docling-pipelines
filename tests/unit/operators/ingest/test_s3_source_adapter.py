@@ -7,8 +7,8 @@ import pytest
 from botocore.exceptions import ClientError
 from pydantic import ValidationError
 
-from core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter
-from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
+from datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter
+from datasift.core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
 
 # Configure pytest-asyncio
 pytestmark = pytest.mark.asyncio
@@ -36,13 +36,9 @@ class TestS3SourceConfig:
             max_file_size_mb=100,
         )
         assert config.access_key == "AKIAIOSFODNN7EXAMPLE"
-        assert (
-            config.secret_key == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-        )  # pragma: allowlist secret
+        assert config.secret_key == "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # pragma: allowlist secret
         assert config.bucket == "my-bucket"
-        assert (
-            config.prefix == "documents/"
-        )  # Leading slash removed, trailing slash added
+        assert config.prefix == "documents/"  # Leading slash removed, trailing slash added
         assert config.endpoint_url == "https://s3.example.com"  # Trailing slash removed
         assert config.file_extensions == [
             ".pdf",
@@ -158,10 +154,7 @@ class TestS3SourceAdapter:
         schema = adapter.get_config_schema()
         # Check class name and module to avoid import identity issues in CI
         assert schema.__name__ == "S3SourceConfig"
-        assert (
-            schema.__module__
-            == "core.operators.ingest.adapters.outbound.sources.s3.config"
-        )
+        assert schema.__module__ == "datasift.core.operators.ingest.adapters.outbound.sources.s3.config"
 
     def test_build_config_from_operator_params(self, adapter):
         """Test building config from operator parameters."""
@@ -195,9 +188,7 @@ class TestS3SourceAdapter:
 
     def test_build_config_missing_credentials(self, adapter):
         """Test that missing credentials raise ValueError."""
-        with pytest.raises(
-            ValueError, match="Missing required credential: 'access_key'"
-        ):
+        with pytest.raises(ValueError, match="Missing required credential: 'access_key'"):
             adapter.build_config_from_operator_params(
                 connection_params={"bucket": "bucket"},
                 credentials={"secret_key": "secret"},  # pragma: allowlist secret
@@ -205,9 +196,7 @@ class TestS3SourceAdapter:
 
     def test_build_config_missing_bucket(self, adapter):
         """Test that missing bucket raises ValueError."""
-        with pytest.raises(
-            ValueError, match="Missing required connection parameter: 'bucket'"
-        ):
+        with pytest.raises(ValueError, match="Missing required connection parameter: 'bucket'"):
             adapter.build_config_from_operator_params(
                 connection_params={},
                 credentials={
@@ -231,9 +220,7 @@ class TestS3SourceAdapter:
         assert success is True
         assert "Successfully connected" in message
         assert "5 object(s)" in message
-        mock_client.list_objects_v2.assert_called_once_with(
-            Bucket="test-bucket", Prefix="documents/", MaxKeys=1
-        )
+        mock_client.list_objects_v2.assert_called_once_with(Bucket="test-bucket", Prefix="documents/", MaxKeys=1)
 
     @pytest.mark.asyncio
     async def test_test_connection_no_such_bucket(self, adapter, config):
@@ -245,9 +232,7 @@ class TestS3SourceAdapter:
                 "Message": "The specified bucket does not exist",
             }
         }
-        mock_client.list_objects_v2.side_effect = ClientError(
-            error_response, "ListObjectsV2"
-        )
+        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
             success, message = await adapter.test_connection(config)
@@ -260,9 +245,7 @@ class TestS3SourceAdapter:
         """Test connection test with access denied."""
         mock_client = Mock()
         error_response = {"Error": {"Code": "AccessDenied", "Message": "Access Denied"}}
-        mock_client.list_objects_v2.side_effect = ClientError(
-            error_response, "ListObjectsV2"
-        )
+        mock_client.list_objects_v2.side_effect = ClientError(error_response, "ListObjectsV2")
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
             success, message = await adapter.test_connection(config)
@@ -352,9 +335,7 @@ class TestS3SourceAdapter:
             content = b"Mock file content"
             return {
                 "Body": Mock(read=Mock(return_value=content)),
-                "ContentType": "application/pdf"
-                if Key.endswith(".pdf")
-                else "text/plain",
+                "ContentType": "application/pdf" if Key.endswith(".pdf") else "text/plain",
             }
 
         mock_client.get_object.side_effect = mock_get_object
@@ -367,7 +348,7 @@ class TestS3SourceAdapter:
         # (avoids import identity issues in CI)
         for doc in documents:
             assert doc.__class__.__name__ == "Document"
-            assert doc.__class__.__module__ == "core.operators.ingest.domain.models"
+            assert doc.__class__.__module__ == "datasift.core.operators.ingest.domain.models"
         assert documents[0].name == "file1.pdf"
         assert documents[1].name == "file2.txt"
         assert documents[0].content == b"Mock file content"

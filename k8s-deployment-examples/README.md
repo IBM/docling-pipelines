@@ -447,7 +447,7 @@ For production deployments, consider:
 
 1. **Configure Work Pool**: See [DISTRIBUTED_EXECUTION_GUIDE.md](../docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for work pool configuration
 2. **Run Your First Pipeline**: Follow [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md)
-3. **Explore Operators**: Check operator documentation in `src/datasift_opensource/backend/core/operators/`
+3. **Explore Operators**: Check operator documentation in `src/datasift/core/operators/`
 
 ## Support
 

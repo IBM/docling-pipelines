@@ -34,7 +34,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager
+from datasift.datasift_flow_manager import DatasiftFlowManager
 
 
 def create_test_data():
@@ -164,9 +164,7 @@ def main():
         print("Example completed successfully!")
         print("=" * 80)
         print("\nNext steps:")
-        print(
-            "  - Try other examples: 01_execute_from_file.py, 02_execute_from_dict.py, etc."
-        )
+        print("  - Try other examples: 01_execute_from_file.py, 02_execute_from_dict.py, etc.")
         print("  - Modify sample_flow.json to experiment with different operators")
         print("  - Check README.md for more information")
 
@@ -182,9 +180,7 @@ def main():
         print("  1. Virtual environment is activated:")
         print("     source src/datasift_opensource/backend/.venv/bin/activate")
         print("  2. PYTHONPATH is set:")
-        print(
-            '     export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"'
-        )
+        print('     export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"')
         print("  3. Dependencies are installed:")
         print("     cd src/datasift_opensource/backend && uv sync --extra dev")
         sys.exit(1)

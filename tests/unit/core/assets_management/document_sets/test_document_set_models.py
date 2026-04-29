@@ -8,15 +8,16 @@ Tests cover:
 - Invalid data handling
 """
 
-import pytest
 from datetime import datetime
 
-from core.assets_management.document_sets.domain.models.document_set import DocumentSet
-from core.assets_management.document_sets.domain.models.storage_reference import (
+import pytest
+
+from datasift.core.flows.document_sets.domain.models.data_card import DataCard
+from datasift.core.flows.document_sets.domain.models.document_set import DocumentSet
+from datasift.core.flows.document_sets.domain.models.storage_reference import (
     StorageReference,
 )
-from core.assets_management.document_sets.domain.models.data_card import DataCard
-from common.exceptions.datasift_exceptions import DatasiftException
+from datasift.exceptions.datasift_exceptions import DatasiftException
 
 
 class TestDocumentSetCreation:
@@ -90,17 +91,13 @@ class TestDocumentSetValidation:
 
     def test_document_set_validation_success(self):
         """Test validation passes with valid data."""
-        doc_set = DocumentSet(
-            name="Valid Name", database_path="/data/test.db", table_name="test_table"
-        )
+        doc_set = DocumentSet(name="Valid Name", database_path="/data/test.db", table_name="test_table")
 
         doc_set.validate()  # Should not raise
 
     def test_validation_empty_name(self):
         """Test validation fails with empty name."""
-        doc_set = DocumentSet(
-            name="", database_path="/data/test.db", table_name="test_table"
-        )
+        doc_set = DocumentSet(name="", database_path="/data/test.db", table_name="test_table")
 
         with pytest.raises(DatasiftException) as exc_info:
             doc_set.validate()
@@ -108,9 +105,7 @@ class TestDocumentSetValidation:
 
     def test_validation_name_starts_with_number(self):
         """Test validation fails when name starts with number."""
-        doc_set = DocumentSet(
-            name="123 Documents", database_path="/data/test.db", table_name="test_table"
-        )
+        doc_set = DocumentSet(name="123 Documents", database_path="/data/test.db", table_name="test_table")
 
         with pytest.raises(DatasiftException) as exc_info:
             doc_set.validate()
@@ -126,16 +121,12 @@ class TestDocumentSetValidation:
 
         with pytest.raises(DatasiftException) as exc_info:
             doc_set.validate()
-        assert "can only contain letters, digits, spaces, and underscores" in str(
-            exc_info.value
-        )
+        assert "can only contain letters, digits, spaces, and underscores" in str(exc_info.value)
 
     def test_validation_name_too_long(self):
         """Test validation fails when name exceeds max length."""
         long_name = "A" * 129  # Max is 128
-        doc_set = DocumentSet(
-            name=long_name, database_path="/data/test.db", table_name="test_table"
-        )
+        doc_set = DocumentSet(name=long_name, database_path="/data/test.db", table_name="test_table")
 
         with pytest.raises(DatasiftException) as exc_info:
             doc_set.validate()
@@ -157,9 +148,7 @@ class TestDocumentSetValidation:
 
     def test_validation_empty_database_path(self):
         """Test validation fails with empty database path."""
-        doc_set = DocumentSet(
-            name="Test Documents", database_path="", table_name="test_table"
-        )
+        doc_set = DocumentSet(name="Test Documents", database_path="", table_name="test_table")
 
         with pytest.raises(DatasiftException) as exc_info:
             doc_set.validate()
@@ -167,9 +156,7 @@ class TestDocumentSetValidation:
 
     def test_validation_empty_table_name(self):
         """Test validation fails with empty table name."""
-        doc_set = DocumentSet(
-            name="Test Documents", database_path="/data/test.db", table_name=""
-        )
+        doc_set = DocumentSet(name="Test Documents", database_path="/data/test.db", table_name="")
 
         with pytest.raises(DatasiftException) as exc_info:
             doc_set.validate()
@@ -311,9 +298,7 @@ class TestDataCardSerialization:
 
     def test_data_card_roundtrip(self):
         """Test DataCard serialization roundtrip."""
-        original = DataCard(
-            flow_id="flow-123", flow_name="Test Flow", operators=["Op1", "Op2"]
-        )
+        original = DataCard(flow_id="flow-123", flow_name="Test Flow", operators=["Op1", "Op2"])
 
         data = original.to_dict()
         restored = DataCard.from_dict(data)
@@ -336,9 +321,7 @@ class TestDocumentSetUpdateStatistics:
 
         original_updated_at = doc_set.updated_at
 
-        doc_set.update_statistics(
-            total_documents=100, total_size_bytes=1024000, total_pages=500
-        )
+        doc_set.update_statistics(total_documents=100, total_size_bytes=1024000, total_pages=500)
 
         assert doc_set.total_documents == 100
         assert doc_set.total_size_bytes == 1024000

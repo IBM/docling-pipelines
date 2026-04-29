@@ -1,7 +1,7 @@
 # Ingest Source Operator
 
 ## Overview
-The [`IngestSourceOperator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_source.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It inherits from [`AbstractOperator`](../../../src/datasift_opensource/backend/core/operators/abstract_operator.py) and follows the same patterns as [`IngestLocalOperator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_local_folder.py) and [`IngestS3Operator`](../../../src/datasift_opensource/backend/core/operators/universal/ingest/ingest_local_s3.py).
+The [`IngestSourceOperator`](../../src/datasift/core/operators/ingest/ingest_source.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It inherits from [`AbstractOperator`](../../src/datasift/core/operators/abstract_operator.py) and follows the same patterns as [`IngestLocalOperator`](../../src/datasift/core/operators/ingest/ingest_local_folder.py).
 
 ## Features
 - **Multi-Provider Support**: Single operator for multiple data sources
@@ -195,7 +195,7 @@ node_config = {
 
 ### Basic Example
 ```python
-from core.operators.universal.ingest.ingest_source import IngestSourceOperator
+from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 import pyarrow as pa
 
 # Configure the operator
@@ -477,9 +477,7 @@ botocore==1.42.55
 
 Using uv (recommended):
 ```bash
-# Navigate to backend directory
-cd src/datasift_opensource/backend
-
+# From project root directory
 # Core installation (includes langchain and langchain-core)
 uv sync
 
@@ -518,7 +516,7 @@ pip install O365==2.1.9 langchain-community==0.4.1
 
 ### Class: IngestSourceOperator
 
-Inherits from: [`AbstractOperator`](../../../src/datasift_opensource/backend/core/operators/abstract_operator.py)
+Inherits from: [`AbstractOperator`](../../src/datasift/core/operators/abstract_operator.py)
 
 #### `__init__(node_config: dict)`
 Initialize the operator with configuration.
@@ -615,7 +613,7 @@ To add support for a new provider:
 5. Add example configuration and usage
 
 ## Related Documentation
-- [Operators Overview](../../src/datasift_opensource/backend/operators/README.md)
+- [Operators Overview](../../src/datasift/core/operators/README.md)
 
 ## License
 See project LICENSE file for details.

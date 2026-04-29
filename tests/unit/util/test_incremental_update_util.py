@@ -6,19 +6,18 @@ from uuid import uuid1
 
 import pyarrow as pa
 import pytest
-from common.constants.operator_constants import OperatorConstants
-from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from common.util.infrastructure.filesystem import get_data_path
-from common.util.data.incremental_update import IncrementalUpdateUtil
-from core.operators.ingest.ingest_utils import is_doc_previously_processed
+
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.ingest.ingest_utils import is_doc_previously_processed
+from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
+from datasift.utils.data.incremental_update import IncrementalUpdateUtil
+from datasift.utils.infrastructure.filesystem import get_data_path
 
 
 def test_incremental_update():
     util = IncrementalUpdateUtil()
 
-    full_path = os.path.join(
-        get_data_path(sub_dir=util.INCREMENTAL_PROCESSING_METADATA_PATH)
-    )
+    full_path = os.path.join(get_data_path(sub_dir=util.INCREMENTAL_PROCESSING_METADATA_PATH))
     if os.path.exists(full_path):
         shutil.rmtree(full_path)
 
@@ -51,14 +50,10 @@ def test_incremental_update():
         ],
     )
 
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=[input_table]
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[input_table])
 
     # Validate that only required columns are saved in Iceberg
-    table = util.parquet_table_handler.read_table(
-        path=util.construct_table_path(job_id=job_id)
-    )
+    table = util.parquet_table_handler.read_table(path=util.construct_table_path(job_id=job_id))
     assert table.num_rows == 3
     expected_column_names = [
         "id",
@@ -114,14 +109,10 @@ def test_incremental_update():
         ],
     )
 
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=[input_table]
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[input_table])
 
     # Validate that only required columns are saved in Iceberg
-    table = util.parquet_table_handler.read_table(
-        path=util.construct_table_path(job_id=job_id)
-    )
+    table = util.parquet_table_handler.read_table(path=util.construct_table_path(job_id=job_id))
     assert table.num_rows == 5
 
     time2 = round(time.time() * 1000)
@@ -179,16 +170,12 @@ def test_get_deleted_docs():
             OperatorConstants.Metadata.MODIFIED_TIME,
         ],
     )
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=[input_table]
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[input_table])
     # validate save records
     table_path = util.construct_table_path(job_id=job_id)
     table = util.parquet_table_handler.read_table(path=table_path)
     df = table.to_pandas()
-    df.loc[df[OperatorConstants.Columns.ID] == id3, OperatorConstants.Misc.DELETED] = (
-        True
-    )
+    df.loc[df[OperatorConstants.Columns.ID] == id3, OperatorConstants.Misc.DELETED] = True
     updated_table = pa.Table.from_pandas(df)
     util.parquet_table_handler.save_table(path=table_path, table=updated_table)
     assert table.num_rows == 4
@@ -204,21 +191,17 @@ def test_get_deleted_docs():
 
 
 def test_delete_file_success_cpd():
-    mock_table = pa.Table.from_pydict(
-        {"id": [1, 2, 3], "name": ["a", "b", "c"], "modified_time": [1, 2, 3]}
-    )
+    mock_table = pa.Table.from_pydict({"id": [1, 2, 3], "name": ["a", "b", "c"], "modified_time": [1, 2, 3]})
     util = IncrementalUpdateUtil()
     job_id = str(uuid1())
     job_run_id = str(uuid1())
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=[mock_table]
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[mock_table])
     table_path = util.construct_table_path(job_id=job_id)
     util.parquet_table_handler.delete_file(path=table_path)
 
 
 def test_delete_file_exception_cpd():
-    with patch("common.util.data.pyarrow_handler.get_logger") as mock_get_logger:
+    with patch("datasift.utils.data.pyarrow_handler.get_logger") as mock_get_logger:
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
 
@@ -228,10 +211,10 @@ def test_delete_file_exception_cpd():
         with patch("os.remove", side_effect=Exception("Mock removal error")):
             with patch("os.path.exists", return_value=True):
                 with patch(
-                    "common.util.data.pyarrow_handler._lock_path",
+                    "datasift.utils.data.pyarrow_handler._lock_path",
                     return_value="/mock.lock",
                 ):
-                    with patch("common.util.data.pyarrow_handler.FileLock"):
+                    with patch("datasift.utils.data.pyarrow_handler.FileLock"):
                         util.parquet_table_handler.delete_file(path=table_path)
 
         mock_logger.error.assert_called_once()
@@ -274,22 +257,16 @@ def test_delete_failed_doc():
     )
 
     # Save initial metadata
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=[input_table]
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[input_table])
 
     # Delete failed documents
-    remaining_ids = util.delete_failed_doc(
-        table=input_table, result_table=result_table, job_id=job_id
-    )
+    remaining_ids = util.delete_failed_doc(table=input_table, result_table=result_table, job_id=job_id)
 
     # Verify id2 was deleted and remaining IDs are correct
     assert remaining_ids == {id1, id2, id3}
 
     # Verify the metadata table no longer contains id2
-    table = util.parquet_table_handler.read_table(
-        path=util.construct_table_path(job_id=job_id)
-    )
+    table = util.parquet_table_handler.read_table(path=util.construct_table_path(job_id=job_id))
     saved_ids = set(table[OperatorConstants.Misc.ID].to_pylist())
     assert id2 not in saved_ids
 
@@ -312,9 +289,7 @@ def test_delete_failed_doc_empty_tables():
     )
 
     # Should return empty set
-    remaining_ids = util.delete_failed_doc(
-        table=empty_table, result_table=empty_table, job_id=job_id
-    )
+    remaining_ids = util.delete_failed_doc(table=empty_table, result_table=empty_table, job_id=job_id)
     assert remaining_ids == set()
 
 
@@ -347,14 +322,10 @@ def test_delete_failed_doc_all_failed():
     )
 
     # Save initial metadata
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=[input_table]
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[input_table])
 
     # Delete all failed documents
-    remaining_ids = util.delete_failed_doc(
-        table=input_table, result_table=result_table, job_id=job_id
-    )
+    remaining_ids = util.delete_failed_doc(table=input_table, result_table=result_table, job_id=job_id)
 
     # Should still return the input IDs
     assert remaining_ids == {id1, id2}
@@ -387,9 +358,7 @@ def test_get_deleted_doc_ids_from_dict_empty_previous():
     """
     util = IncrementalUpdateUtil()
 
-    deleted_ids = util.get_deleted_doc_ids_from_dict(
-        previously_processed_docs_dict={}, doc_ids=["id1", "id2"]
-    )
+    deleted_ids = util.get_deleted_doc_ids_from_dict(previously_processed_docs_dict={}, doc_ids=["id1", "id2"])
 
     assert deleted_ids == []
 
@@ -401,9 +370,7 @@ def test_get_deleted_doc_ids_from_dict_none_previous():
     """
     util = IncrementalUpdateUtil()
 
-    deleted_ids = util.get_deleted_doc_ids_from_dict(
-        previously_processed_docs_dict=None, doc_ids=["id1", "id2"]
-    )
+    deleted_ids = util.get_deleted_doc_ids_from_dict(previously_processed_docs_dict=None, doc_ids=["id1", "id2"])
 
     assert deleted_ids == []
 
@@ -443,9 +410,7 @@ def test_clear_incremental_table():
         }
     )
 
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=[table]
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[table])
 
     # Verify table exists
     table_path = util.construct_table_path(job_id=job_id)
@@ -485,13 +450,9 @@ def test_save_metadata_exception_handling():
     )
 
     # Mock save_table to raise an exception
-    with patch.object(
-        util.parquet_table_handler, "save_table", side_effect=Exception("Save failed")
-    ):
+    with patch.object(util.parquet_table_handler, "save_table", side_effect=Exception("Save failed")):
         with pytest.raises(FlowExecutionFailedException) as exc_info:
-            util.save_metadata_for_incremental_update(
-                job_id=job_id, job_run_id=job_run_id, tables=[table]
-            )
+            util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[table])
 
         assert "Failed to save incremental metadata" in str(exc_info.value)
         assert "Save failed" in str(exc_info.value)
@@ -578,15 +539,11 @@ def test_get_table_exception_handling():
     table_path = "/invalid/path/table.parquet"
 
     # Mock read_table to raise an exception
-    with patch.object(
-        util.parquet_table_handler, "read_table", side_effect=Exception("Read error")
-    ):
+    with patch.object(util.parquet_table_handler, "read_table", side_effect=Exception("Read error")):
         with pytest.raises(FlowExecutionFailedException) as exc_info:
             util._get_table(path=table_path)
 
-        assert "An error occurred while fetching the incremental metadata table" in str(
-            exc_info.value
-        )
+        assert "An error occurred while fetching the incremental metadata table" in str(exc_info.value)
         assert "Read error" in str(exc_info.value)
 
 
@@ -615,9 +572,7 @@ def test_save_metadata_with_empty_tables():
     )
 
     # Should not raise an error and should not create a file
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=[empty_table]
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=[empty_table])
 
     # Verify no table was created
     table_path = util.construct_table_path(job_id=job_id)
@@ -647,9 +602,7 @@ def test_save_metadata_with_multiple_empty_tables():
     ]
 
     # Should not raise an error
-    util.save_metadata_for_incremental_update(
-        job_id=job_id, job_run_id=job_run_id, tables=empty_tables
-    )
+    util.save_metadata_for_incremental_update(job_id=job_id, job_run_id=job_run_id, tables=empty_tables)
 
     # Verify no table was created
     table_path = util.construct_table_path(job_id=job_id)
@@ -799,9 +752,7 @@ def test_save_metadata_with_failed_doc_ids():
     )
 
     # Verify id2 was filtered out
-    saved_table = util.parquet_table_handler.read_table(
-        path=util.construct_table_path(job_id=job_id)
-    )
+    saved_table = util.parquet_table_handler.read_table(path=util.construct_table_path(job_id=job_id))
     saved_ids = set(saved_table[OperatorConstants.Misc.ID].to_pylist())
     assert id2 not in saved_ids
     assert id1 in saved_ids
@@ -827,9 +778,7 @@ def test_get_soft_deleted_ids_with_empty_table():
     """
     util = IncrementalUpdateUtil()
 
-    empty_table = pa.Table.from_pydict(
-        {OperatorConstants.Misc.ID: [], OperatorConstants.Misc.DELETED: []}
-    )
+    empty_table = pa.Table.from_pydict({OperatorConstants.Misc.ID: [], OperatorConstants.Misc.DELETED: []})
 
     result = util._get_soft_deleted_ids(table=empty_table)
     assert result == set()
@@ -872,9 +821,7 @@ def test_mark_docs_to_delete_with_none_table():
     """
     util = IncrementalUpdateUtil()
 
-    result_table, deleted_ids = util._mark_docs_to_delete(
-        table=None, doc_ids={"id1", "id2"}
-    )
+    result_table, deleted_ids = util._mark_docs_to_delete(table=None, doc_ids={"id1", "id2"})
     assert result_table is None
     assert deleted_ids == {"id1", "id2"}
 
@@ -886,13 +833,9 @@ def test_mark_docs_to_delete_with_empty_table():
     """
     util = IncrementalUpdateUtil()
 
-    empty_table = pa.Table.from_pydict(
-        {OperatorConstants.Misc.ID: [], OperatorConstants.Misc.DELETED: []}
-    )
+    empty_table = pa.Table.from_pydict({OperatorConstants.Misc.ID: [], OperatorConstants.Misc.DELETED: []})
 
-    result_table, deleted_ids = util._mark_docs_to_delete(
-        table=empty_table, doc_ids={"id1", "id2"}
-    )
+    result_table, deleted_ids = util._mark_docs_to_delete(table=empty_table, doc_ids={"id1", "id2"})
     assert result_table is None
     assert deleted_ids == {"id1", "id2"}
 
@@ -930,8 +873,5 @@ def test_concatenate_tables_with_overlapping_ids():
     assert "id3" in result_ids
 
     # id2 should have the name from table1 (newer)
-    result_dict = {
-        row[OperatorConstants.Misc.ID]: row[OperatorConstants.Misc.NAME]
-        for row in result.to_pylist()
-    }
+    result_dict = {row[OperatorConstants.Misc.ID]: row[OperatorConstants.Misc.NAME] for row in result.to_pylist()}
     assert result_dict["id2"] == "doc2_new"

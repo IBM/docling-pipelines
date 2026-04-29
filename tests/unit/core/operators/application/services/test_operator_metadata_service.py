@@ -27,11 +27,11 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.error_codes import ErrorCode
-from core.operators.application.services.operator_metadata_service import (
+from datasift.core.operators.application.services.operator_metadata_service import (
     OperatorMetadataService,
 )
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.exceptions.error_codes import ErrorCode
 
 
 class TestOperatorMetadataServiceGetAll:
@@ -79,9 +79,7 @@ class TestOperatorMetadataServiceGetAll:
             for feature_name, feature_data in features.items():
                 # Internal features should not be present
                 tags = feature_data.get("tags", [])
-                assert "internal" not in tags or feature_data.get(
-                    "available_for_filter", False
-                )
+                assert "internal" not in tags or feature_data.get("available_for_filter", False)
 
     def test_get_all_operator_metadata_includes_internal_features_when_requested(self):
         """Test that internal features are included when explicitly requested."""
@@ -118,9 +116,7 @@ class TestOperatorMetadataServiceGetAll:
         """Test that each successfully initialized operator has required metadata fields."""
         # Arrange
         service = OperatorMetadataService()
-        required_fields = [
-            "features"
-        ]  # Only features is truly required, category may be missing
+        required_fields = ["features"]  # Only features is truly required, category may be missing
 
         # Act
         result = service.get_all_operator_metadata(internal_features=False)
@@ -131,9 +127,7 @@ class TestOperatorMetadataServiceGetAll:
             if not metadata or not metadata.get("is_operator_available", True):
                 continue
             for field in required_fields:
-                assert field in metadata, (
-                    f"Operator '{operator_name}' missing field '{field}'"
-                )
+                assert field in metadata, f"Operator '{operator_name}' missing field '{field}'"
 
     def test_get_all_operator_metadata_features_have_type(self):
         """Test that each feature has a type field."""
@@ -147,16 +141,10 @@ class TestOperatorMetadataServiceGetAll:
         for operator_name, metadata in result.items():
             features = metadata.get("features", {})
             for feature_name, feature_data in features.items():
-                assert "type" in feature_data, (
-                    f"Feature '{feature_name}' in operator '{operator_name}' missing 'type'"
-                )
+                assert "type" in feature_data, f"Feature '{feature_name}' in operator '{operator_name}' missing 'type'"
 
-    @patch(
-        "core.operators.application.services.operator_metadata_service.OperatorMetadata"
-    )
-    def test_get_all_operator_metadata_raises_datasift_exception_on_error(
-        self, mock_operator_metadata_class
-    ):
+    @patch("datasift.core.operators.application.services.operator_metadata_service.OperatorMetadata")
+    def test_get_all_operator_metadata_raises_datasift_exception_on_error(self, mock_operator_metadata_class):
         """Test that service raises DatasiftException when underlying call fails."""
         # Arrange
         mock_instance = Mock()
@@ -173,12 +161,8 @@ class TestOperatorMetadataServiceGetAll:
         assert exc_info.value.error_code == ErrorCode.OPERATOR_METADATA_FAILED
         assert "Failed to retrieve operator metadata" in str(exc_info.value)
 
-    @patch(
-        "core.operators.application.services.operator_metadata_service.OperatorMetadata"
-    )
-    def test_get_all_operator_metadata_logs_error_on_failure(
-        self, mock_operator_metadata_class
-    ):
+    @patch("datasift.core.operators.application.services.operator_metadata_service.OperatorMetadata")
+    def test_get_all_operator_metadata_logs_error_on_failure(self, mock_operator_metadata_class):
         """Test that errors are logged when metadata retrieval fails."""
         # Arrange
         mock_instance = Mock()
@@ -188,18 +172,13 @@ class TestOperatorMetadataServiceGetAll:
         service = OperatorMetadataService()
 
         # Act & Assert
-        with patch(
-            "core.operators.application.services.operator_metadata_service.logger"
-        ) as mock_logger:
+        with patch("datasift.core.operators.application.services.operator_metadata_service.logger") as mock_logger:
             with pytest.raises(DatasiftException):
                 service.get_all_operator_metadata(internal_features=False)
 
             # Verify error was logged
             mock_logger.error.assert_called_once()
-            assert (
-                "Failed to retrieve operator metadata"
-                in mock_logger.error.call_args[0][0]
-            )
+            assert "Failed to retrieve operator metadata" in mock_logger.error.call_args[0][0]
 
     def test_get_all_operator_metadata_logs_info_on_success(self):
         """Test that successful retrieval is logged."""
@@ -207,9 +186,7 @@ class TestOperatorMetadataServiceGetAll:
         service = OperatorMetadataService()
 
         # Act
-        with patch(
-            "core.operators.application.services.operator_metadata_service.logger"
-        ) as mock_logger:
+        with patch("datasift.core.operators.application.services.operator_metadata_service.logger") as mock_logger:
             result = service.get_all_operator_metadata(internal_features=False)
 
             # Assert

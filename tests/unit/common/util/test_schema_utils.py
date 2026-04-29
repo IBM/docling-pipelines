@@ -6,10 +6,10 @@ Tests for PyArrow table schema operations.
 import pyarrow as pa
 import pyarrow.compute as pc
 
-from common.util.data.schema_utils import (
-    align_table_schema,
+from datasift.utils.data.schema_utils import (
     _combine_tables,
     _total_rows,
+    align_table_schema,
 )
 
 
@@ -37,9 +37,7 @@ class TestAlignTableSchema:
 
     def test_align_table_with_all_columns_present(self):
         """Test aligning table that already has all columns."""
-        table = pa.table(
-            {"id": [1, 2, 3], "name": ["Alice", "Bob", "Charlie"], "age": [25, 30, 35]}
-        )
+        table = pa.table({"id": [1, 2, 3], "name": ["Alice", "Bob", "Charlie"], "age": [25, 30, 35]})
 
         all_cols = {"id": pa.int64(), "name": pa.string(), "age": pa.int64()}
 
@@ -226,9 +224,7 @@ class TestCombineTables:
                 "struct_col": [{"a": 1, "b": "x"}, {"a": 2, "b": "y"}],
             }
         )
-        table2 = pa.table(
-            {"id": [3], "list_col": [[5, 6]], "struct_col": [{"a": 3, "b": "z"}]}
-        )
+        table2 = pa.table({"id": [3], "list_col": [[5, 6]], "struct_col": [{"a": 3, "b": "z"}]})
 
         combined = _combine_tables([table1, table2], "complex_types")
 

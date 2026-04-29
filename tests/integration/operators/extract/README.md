@@ -86,14 +86,8 @@ curl http://localhost:11434/api/tags
 ### Setup Environment
 
 ```bash
-# Navigate to backend directory
-cd src/datasift_opensource/backend
-
-# Activate virtual environment
+# Activate virtual environment (from repo root)
 source .venv/bin/activate
-
-# Set PYTHONPATH
-export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
 
 # Sync dependencies (if needed)
 uv sync --extra dev
@@ -102,44 +96,44 @@ uv sync --extra dev
 ### Run All Integration Tests
 
 ```bash
-# Run all extract operator integration tests
-uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py -v
+# Run all extract operator integration tests (from repo root)
+uv run pytest tests/integration/operators/extract/test_extract_operator_integration.py -v
 
 # Run with integration marker
-uv run pytest ../../../tests/integration/operators/extract/ -v -m integration
+uv run pytest tests/integration/operators/extract/ -v -m integration
 ```
 
 ### Run Specific Test Classes
 
 ```bash
 # Basic integration tests
-uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration -v
+uv run pytest tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration -v
 
 # Real-world integration tests
-uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorRealWorld -v
+uv run pytest tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorRealWorld -v
 ```
 
 ### Run Specific Test Methods
 
 ```bash
 # Test basic extraction
-uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_basic_extraction_integration -v
+uv run pytest tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_basic_extraction_integration -v
 
 # Test parallel processing
-uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_parallel_processing_with_multiple_workers -v
+uv run pytest tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_parallel_processing_with_multiple_workers -v
 
 # Test error handling
-uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_error_handling_with_invalid_documents -v
+uv run pytest tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorIntegration::test_error_handling_with_invalid_documents -v
 
 # Test template extraction with expansion
-uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorRealWorld::test_template_extraction_with_expansion -v
+uv run pytest tests/integration/operators/extract/test_extract_operator_integration.py::TestExtractOperatorRealWorld::test_template_extraction_with_expansion -v
 ```
 
 ### Run with Verbose Output
 
 ```bash
 # Show detailed output including print statements
-uv run pytest ../../../tests/integration/operators/extract/test_extract_operator_integration.py -v -s
+uv run pytest tests/integration/operators/extract/test_extract_operator_integration.py -v -s
 ```
 
 ## Test Fixtures
@@ -248,7 +242,7 @@ Most integration tests are skipped by default. To run them:
 
 1. **Install required dependencies**:
    ```bash
-   cd src/datasift_opensource/backend
+   # From repo root
    uv sync --extra dev
    ```
 
@@ -293,12 +287,8 @@ ollama serve
 ### Import Errors
 
 ```bash
-# Ensure PYTHONPATH is set correctly
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-
-# Verify imports work
-cd src/datasift_opensource/backend
-python -c "from core.operators.extract.extract_operator import ExtractOperator; print('OK')"
+# Verify imports work (from repo root with activated .venv)
+python -c "from datasift.core.operators.extract.extract_operator import ExtractOperator; print('OK')"
 ```
 
 ### Timeout Errors
@@ -326,8 +316,8 @@ Actual times depend on:
 
 ## Related Documentation
 
-- [ExtractOperator README](../../../../src/datasift_opensource/backend/core/operators/extract/README.md) - Complete operator documentation
-- [ExtractOperator Source](../../../../src/datasift_opensource/backend/core/operators/extract/extract_operator.py) - Operator implementation
-- [Sample Flows](../../../../tests/sample_test_flows/extract/) - Example flow configurations
+- [ExtractOperator README](../../../src/datasift/core/operators/extract/README.md) - Complete operator documentation
+- [ExtractOperator Source](../../../src/datasift/core/operators/extract/extract_operator.py) - Operator implementation
+- [Sample Flows](../../sample_test_flows/extract/) - Example flow configurations
 - [Docling Documentation](https://github.com/DS4SD/docling) - Docling library docs
 - [Ollama Documentation](https://ollama.com/docs) - Ollama setup and usage

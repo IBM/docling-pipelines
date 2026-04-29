@@ -13,7 +13,7 @@ Schema Alignment:
 """
 
 import csv
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 
 class ComprehensiveQueryGenerator:
@@ -31,9 +31,7 @@ class ComprehensiveQueryGenerator:
         self.departments = ["IT", "Marketing", "Sales", "Operations", "HR", "Finance"]
         self.statuses = ["pending", "approved", "delivered"]
 
-    def generate_all_queries(
-        self, complexity_filter: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def generate_all_queries(self, complexity_filter: str | None = None) -> list[dict[str, Any]]:
         """
         Generate test queries organized by complexity level
 
@@ -67,16 +65,13 @@ class ComprehensiveQueryGenerator:
             "edge_case": self._generate_edge_case_queries,
         }
 
-        queries: List[Dict[str, Any]] = []
+        queries: list[dict[str, Any]] = []
 
         # If filter is specified, generate only that complexity level
         if complexity_filter:
             if complexity_filter not in query_generators:
                 valid_filters = ", ".join(query_generators.keys())
-                raise ValueError(
-                    f"Invalid complexity_filter '{complexity_filter}'. "
-                    f"Valid values are: {valid_filters}"
-                )
+                raise ValueError(f"Invalid complexity_filter '{complexity_filter}'. Valid values are: {valid_filters}")
             queries.extend(query_generators[complexity_filter]())
         else:
             # Generate all queries in order
@@ -106,7 +101,7 @@ class ComprehensiveQueryGenerator:
 
         return queries
 
-    def _generate_simple_count_queries(self) -> List[Dict[str, Any]]:
+    def _generate_simple_count_queries(self) -> list[dict[str, Any]]:
         """Generate simple count queries"""
         queries = []
 
@@ -213,7 +208,7 @@ class ComprehensiveQueryGenerator:
 
         return queries
 
-    def _generate_filtered_queries(self) -> List[Dict[str, Any]]:
+    def _generate_filtered_queries(self) -> list[dict[str, Any]]:
         """Generate filtered queries with single conditions"""
         queries = []
 
@@ -267,7 +262,7 @@ class ComprehensiveQueryGenerator:
 
         return queries[:20]  # Return first 20
 
-    def _generate_aggregation_queries(self) -> List[Dict[str, Any]]:
+    def _generate_aggregation_queries(self) -> list[dict[str, Any]]:
         """Generate aggregation queries"""
         queries = []
 
@@ -503,7 +498,7 @@ class ComprehensiveQueryGenerator:
 
         return queries
 
-    def _generate_time_based_queries(self) -> List[Dict[str, Any]]:
+    def _generate_time_based_queries(self) -> list[dict[str, Any]]:
         """Generate time-based queries"""
         queries = []
 
@@ -677,7 +672,7 @@ class ComprehensiveQueryGenerator:
 
         return queries
 
-    def _generate_multi_condition_queries(self) -> List[Dict[str, Any]]:
+    def _generate_multi_condition_queries(self) -> list[dict[str, Any]]:
         """Generate queries with multiple conditions"""
         queries = []
 
@@ -851,7 +846,7 @@ class ComprehensiveQueryGenerator:
 
         return queries
 
-    def _generate_comparison_queries(self) -> List[Dict[str, Any]]:
+    def _generate_comparison_queries(self) -> list[dict[str, Any]]:
         """Generate comparison queries"""
         queries = []
 
@@ -962,7 +957,7 @@ class ComprehensiveQueryGenerator:
 
         return queries
 
-    def _generate_complex_aggregation_queries(self) -> List[Dict[str, Any]]:
+    def _generate_complex_aggregation_queries(self) -> list[dict[str, Any]]:
         """Generate complex aggregation queries"""
         queries = []
 
@@ -1073,7 +1068,7 @@ class ComprehensiveQueryGenerator:
 
         return queries
 
-    def _generate_edge_case_queries(self) -> List[Dict[str, Any]]:
+    def _generate_edge_case_queries(self) -> list[dict[str, Any]]:
         """Generate edge case queries"""
         queries = []
 
@@ -1156,8 +1151,8 @@ class ComprehensiveQueryGenerator:
 
 
 def get_comprehensive_test_queries(
-    complexity_filter: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    complexity_filter: str | None = None,
+) -> list[dict[str, Any]]:
     """
     Get comprehensive test queries, optionally filtered by complexity level
 
@@ -1184,7 +1179,7 @@ def get_comprehensive_test_queries(
     return generator.generate_all_queries(complexity_filter=complexity_filter)
 
 
-def write_queries_to_csv(queries: List[Dict[str, Any]], filename: str) -> None:
+def write_queries_to_csv(queries: list[dict[str, Any]], filename: str) -> None:
     """
     Write queries to a CSV file
 
@@ -1228,8 +1223,8 @@ def write_queries_to_csv(queries: List[Dict[str, Any]], filename: str) -> None:
                 row["expected_value"] = str(row["expected_value"])
                 writer.writerow(row)
 
-    except IOError as e:
-        raise IOError(f"Error writing to CSV file '{filename}': {e}")
+    except OSError as e:
+        raise OSError(f"Error writing to CSV file '{filename}': {e}")
 
 
 if __name__ == "__main__":
@@ -1254,9 +1249,7 @@ if __name__ == "__main__":
                 print("\nUsage examples:")
                 print("  python nl_query_generator.py --csv queries.csv")
                 print("  python nl_query_generator.py simple --csv simple_queries.csv")
-                print(
-                    "  python nl_query_generator.py --csv all_queries.csv aggregation"
-                )
+                print("  python nl_query_generator.py --csv all_queries.csv aggregation")
                 sys.exit(1)
         else:
             # Assume it's a complexity filter
@@ -1279,10 +1272,8 @@ if __name__ == "__main__":
         if csv_filename:
             try:
                 write_queries_to_csv(queries, csv_filename)
-                print(
-                    f"\n✓ Successfully wrote {len(queries)} queries to '{csv_filename}'"
-                )
-            except (IOError, ValueError) as e:
+                print(f"\n✓ Successfully wrote {len(queries)} queries to '{csv_filename}'")
+            except (OSError, ValueError) as e:
                 print(f"\n✗ Error writing CSV file: {e}")
                 sys.exit(1)
 
@@ -1308,24 +1299,12 @@ if __name__ == "__main__":
 
         print("\n" + "=" * 80)
         print("Usage examples:")
-        print(
-            "  python nl_query_generator.py                              # Generate all queries"
-        )
-        print(
-            "  python nl_query_generator.py simple                        # Generate only simple queries"
-        )
-        print(
-            "  python nl_query_generator.py aggregation                   # Generate only aggregation queries"
-        )
-        print(
-            "  python nl_query_generator.py --csv queries.csv             # Export all queries to CSV"
-        )
-        print(
-            "  python nl_query_generator.py simple --csv simple.csv       # Export simple queries to CSV"
-        )
-        print(
-            "  python nl_query_generator.py --csv all.csv aggregation     # Export aggregation queries to CSV"
-        )
+        print("  python nl_query_generator.py                              # Generate all queries")
+        print("  python nl_query_generator.py simple                        # Generate only simple queries")
+        print("  python nl_query_generator.py aggregation                   # Generate only aggregation queries")
+        print("  python nl_query_generator.py --csv queries.csv             # Export all queries to CSV")
+        print("  python nl_query_generator.py simple --csv simple.csv       # Export simple queries to CSV")
+        print("  python nl_query_generator.py --csv all.csv aggregation     # Export aggregation queries to CSV")
         print("\nValid complexity filters:")
         print("  simple, filtered, aggregation, time_based, multi_condition,")
         print("  comparison, complex, edge_case")

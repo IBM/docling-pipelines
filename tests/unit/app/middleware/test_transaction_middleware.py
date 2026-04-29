@@ -7,7 +7,7 @@ import pytest
 from fastapi import Request
 from starlette.responses import Response
 
-from app.middleware.transaction_middleware import TransactionMiddleware
+from datasift.api.middleware.transaction_middleware import TransactionMiddleware
 
 
 @pytest.fixture
@@ -31,9 +31,7 @@ def mock_call_next():
 
 
 @pytest.mark.anyio
-async def test_transaction_middleware_generates_id_when_not_provided(
-    mock_request, mock_call_next
-):
+async def test_transaction_middleware_generates_id_when_not_provided(mock_request, mock_call_next):
     """Test that middleware generates transaction ID when not provided in header."""
     middleware = TransactionMiddleware(app=MagicMock())
 
@@ -52,9 +50,7 @@ async def test_transaction_middleware_generates_id_when_not_provided(
 
 
 @pytest.mark.anyio
-async def test_transaction_middleware_uses_global_transaction_id(
-    mock_request, mock_call_next
-):
+async def test_transaction_middleware_uses_global_transaction_id(mock_request, mock_call_next):
     """Test that middleware uses X-Global-Transaction-Id from request header."""
     provided_id = "test-transaction-123"
     mock_request.headers = {"X-Global-Transaction-Id": provided_id}
@@ -71,9 +67,7 @@ async def test_transaction_middleware_uses_global_transaction_id(
 
 
 @pytest.mark.anyio
-async def test_transaction_middleware_preserves_response_content(
-    mock_request, mock_call_next
-):
+async def test_transaction_middleware_preserves_response_content(mock_request, mock_call_next):
     """Test that middleware preserves response content and status."""
     middleware = TransactionMiddleware(app=MagicMock())
 
@@ -85,9 +79,7 @@ async def test_transaction_middleware_preserves_response_content(
 
 
 @pytest.mark.anyio
-async def test_transaction_middleware_handles_empty_header(
-    mock_request, mock_call_next
-):
+async def test_transaction_middleware_handles_empty_header(mock_request, mock_call_next):
     """Test that middleware handles empty X-Global-Transaction-Id header."""
     mock_request.headers = {"X-Global-Transaction-Id": ""}
 
@@ -131,9 +123,7 @@ async def test_transaction_middleware_unique_ids_per_request(mock_call_next):
 
 
 @pytest.mark.anyio
-async def test_transaction_middleware_response_header_format(
-    mock_request, mock_call_next
-):
+async def test_transaction_middleware_response_header_format(mock_request, mock_call_next):
     """Test that middleware returns transaction ID in X-Transaction-ID response header."""
     global_id = "global-trace-456"
     mock_request.headers = {"X-Global-Transaction-Id": global_id}
@@ -151,9 +141,7 @@ async def test_transaction_middleware_response_header_format(
 
 
 @pytest.mark.anyio
-async def test_transaction_middleware_generated_id_in_response(
-    mock_request, mock_call_next
-):
+async def test_transaction_middleware_generated_id_in_response(mock_request, mock_call_next):
     """Test that generated transaction ID is returned in X-Transaction-ID response header."""
     middleware = TransactionMiddleware(app=MagicMock())
 

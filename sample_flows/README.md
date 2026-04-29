@@ -49,7 +49,7 @@ Before running this flow, ensure you have:
 2. **OpenSearch Running**
 
    ```bash
-   # Using the provided docker-compose file
+   # Using the provided docker-compose file (from project root)
    docker-compose -f docker-compose.opensearch.yml up -d
    ```
 
@@ -57,8 +57,9 @@ Before running this flow, ensure you have:
 
 3. **Python Environment Setup**
    ```bash
-   cd src/datasift_opensource/backend
+   # From project root
    uv sync --extra dev
+   source .venv/bin/activate
    ```
 
 ### How to Customize

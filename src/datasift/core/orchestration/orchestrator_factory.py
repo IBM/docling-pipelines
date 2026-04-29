@@ -1,0 +1,47 @@
+from datasift.core.constants import OrchestratorType
+from datasift.core.job_management.adapters.config.job_management_factory import get_default_factory
+from datasift.core.job_management.domain.ports import JobRunManager, JobStatsService
+from datasift.core.orchestration.abstract_orchestrator import AbstractOrchestrator
+from datasift.core.orchestration.python.python_orchestrator import PythonOrchestrator
+
+"""
+statically defined list of available orchestrators
+Additional orchestrators will be added in future
+"""
+orchestrators = {OrchestratorType.PYTHON: PythonOrchestrator}
+
+
+class OrchestratorFactory:
+    """
+    Factory class to create an instance of an orchestrator with dependency injection.
+    """
+
+    @staticmethod
+    def create_orchestrator(
+        *,
+        orchestrator_name: str = OrchestratorType.PYTHON,
+        job_stats_service: JobStatsService | None = None,
+        job_run_manager: JobRunManager | None = None,
+    ) -> AbstractOrchestrator:  # pragma: no cover
+        """
+        Create an instance of the orchestrator with injected dependencies.
+
+        Args:
+            orchestrator_name: Type of orchestrator to create
+            job_stats_service: Optional job stats service (uses default if None)
+            job_run_manager: Optional job run manager for framework status updates
+
+        Returns:
+            Configured orchestrator instance
+        """
+        if job_stats_service is None:
+            factory = get_default_factory()
+            job_stats_service = factory.create_job_stats_service()
+
+        orchestrator_class = orchestrators[orchestrator_name]
+        orchestrator = orchestrator_class(
+            job_stats_service=job_stats_service,
+            job_run_manager=job_run_manager,
+        )
+
+        return orchestrator

@@ -1,6 +1,5 @@
 {
-  "flow": {
-    "name": "Test Pipeline Executor Flow",
+  "name": "Test DatasiftFlowManager Flow",
     "description": "Basic flow to test ingest, extract, chunk, and embeddings",
     "flow_id": "test-pipeline-executor-001",
     "storage": "in-memory",
@@ -86,5 +85,4 @@
         "output_edges": []
       }
     ]
-  }
 }

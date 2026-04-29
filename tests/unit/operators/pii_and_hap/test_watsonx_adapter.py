@@ -3,14 +3,15 @@
 
 """Unit tests for WatsonX PII/HAP adapter."""
 
-import pytest
 from unittest.mock import patch
 
-import core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
-from core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter import (
+import pytest
+
+import datasift.core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
+from datasift.core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter import (
     WatsonXAdapter,
 )
-from common.exceptions.datasift_exceptions import (
+from datasift.exceptions.datasift_exceptions import (
     DatasiftException,
     ExternalServiceError,
 )
@@ -69,14 +70,10 @@ class TestWatsonXAdapter:
             )
 
     @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.WatsonxPipelineOptionsProvider._get_iam_access_token"
+        "datasift.core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.WatsonxPipelineOptionsProvider._get_iam_access_token"
     )
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.RestClient.call_rest_json"
-    )
-    def test_detect_pii_hap_success(
-        self, mock_call_rest, mock_get_token, adapter_config, sample_payload
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.RestClient.call_rest_json")
+    def test_detect_pii_hap_success(self, mock_call_rest, mock_get_token, adapter_config, sample_payload):
         """Test successful PII/HAP detection."""
         # Mock IAM token
         mock_get_token.return_value = "test-access-token"  # pragma: allowlist secret
@@ -105,14 +102,10 @@ class TestWatsonXAdapter:
         assert result.detections[0].score == 0.95
 
     @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.WatsonxPipelineOptionsProvider._get_iam_access_token"
+        "datasift.core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.WatsonxPipelineOptionsProvider._get_iam_access_token"
     )
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.RestClient.call_rest_json"
-    )
-    def test_detect_pii_hap_empty_input(
-        self, mock_call_rest, mock_get_token, adapter_config
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.RestClient.call_rest_json")
+    def test_detect_pii_hap_empty_input(self, mock_call_rest, mock_get_token, adapter_config):
         """Test that empty input raises ValueError."""
         adapter = WatsonXAdapter(**adapter_config)
 
@@ -120,27 +113,19 @@ class TestWatsonXAdapter:
             adapter.detect_pii_hap({"input": "", "detectors": {}})
 
     @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.WatsonxPipelineOptionsProvider._get_iam_access_token"
+        "datasift.core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.WatsonxPipelineOptionsProvider._get_iam_access_token"
     )
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.RestClient.call_rest_json"
-    )
-    def test_detect_pii_hap_api_error(
-        self, mock_call_rest, mock_get_token, adapter_config, sample_payload
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.watsonx_adapter.RestClient.call_rest_json")
+    def test_detect_pii_hap_api_error(self, mock_call_rest, mock_get_token, adapter_config, sample_payload):
         """Test that API errors are properly handled."""
         mock_get_token.return_value = "test-access-token"  # pragma: allowlist secret
 
         # Simulate ExternalServiceError from RestClient
-        mock_call_rest.side_effect = ExternalServiceError(
-            message="API call failed", status_code=500
-        )
+        mock_call_rest.side_effect = ExternalServiceError(message="API call failed", status_code=500)
 
         adapter = WatsonXAdapter(**adapter_config)
 
-        with pytest.raises(
-            DatasiftException, match="Failed to call WatsonX detection API"
-        ):
+        with pytest.raises(DatasiftException, match="Failed to call WatsonX detection API"):
             adapter.detect_pii_hap(sample_payload)
 
     def test_cleanup(self, adapter_config):

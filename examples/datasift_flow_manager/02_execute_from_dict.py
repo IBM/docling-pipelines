@@ -23,7 +23,7 @@ Run:
     python examples/datasift_flow_manager/02_execute_from_dict.py
 """
 
-from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager
+from datasift.datasift_flow_manager import DatasiftFlowManager
 
 
 def main():
@@ -74,9 +74,7 @@ def main():
     }
 
     # Create flow manager with flow definition
-    manager = DatasiftFlowManager(
-        flow_def=flow_def, log_level="info", job_id="custom-job-001"
-    )
+    manager = DatasiftFlowManager(flow_def=flow_def, log_level="info", job_id="custom-job-001")
 
     # Execute
     print("\nExecuting programmatically defined flow...")

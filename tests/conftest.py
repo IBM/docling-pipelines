@@ -2,11 +2,12 @@
 Pytest configuration and fixtures for datasift-opensource tests.
 """
 
-import pytest
 import shutil
 import sys
 import tempfile
 from pathlib import Path
+
+import pytest
 
 
 # Centralized path setup - automatically adds backend to Python path
@@ -16,9 +17,7 @@ def setup_python_path():
     Automatically setup Python path for all tests.
     This runs once per test session and ensures imports work correctly.
     """
-    backend_dir = (
-        Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
-    )
+    backend_dir = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
     if backend_dir.exists() and str(backend_dir) not in sys.path:
         sys.path.insert(0, str(backend_dir))
     yield
@@ -231,14 +230,13 @@ def cleanup_test_document_sets():
     Only removes document sets with test-related names to avoid deleting user data.
     """
     from pathlib import Path
+
     import duckdb
 
     yield  # Run test first
 
     # Clean up after test
-    backend_dir = (
-        Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
-    )
+    backend_dir = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
     db_path = backend_dir / "document_sets.duckdb"
 
     if db_path.exists():

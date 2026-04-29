@@ -15,13 +15,13 @@ from uuid import uuid4
 
 import pytest
 
-from core.assets_management.adapters.repositories.flow_filesystem_utils import (
+from datasift.core.flows.adapters.repositories.flow_filesystem_utils import (
     FlowFilesystemUtils,
 )
-from core.assets_management.adapters.repositories.local.local_flow_repository import (
+from datasift.core.flows.adapters.repositories.local.local_flow_repository import (
     LocalFlowRepository,
 )
-from core.assets_management.domain.models.flow import Flow
+from datasift.core.flows.domain.models.flow import Flow
 
 
 class TestLocalFlowRepository:
@@ -87,14 +87,10 @@ class TestLocalFlowRepository:
 
     def test_extract_flow_id_from_filename(self):
         """Test extracting flow ID from filename."""
-        flow_id = FlowFilesystemUtils.extract_flow_id_from_filename(
-            "My_Flow_abc123.json"
-        )
+        flow_id = FlowFilesystemUtils.extract_flow_id_from_filename("My_Flow_abc123.json")
         assert flow_id == "abc123"
 
-        flow_id = FlowFilesystemUtils.extract_flow_id_from_filename(
-            "/path/to/Test_Flow_xyz789.json"
-        )
+        flow_id = FlowFilesystemUtils.extract_flow_id_from_filename("/path/to/Test_Flow_xyz789.json")
         assert flow_id == "xyz789"
 
         flow_id = FlowFilesystemUtils.extract_flow_id_from_filename("invalid.json")
@@ -105,20 +101,9 @@ class TestLocalFlowRepository:
 
     def test_matches_flow_id_pattern(self):
         """Test pattern matching for flow IDs."""
-        assert (
-            FlowFilesystemUtils.matches_flow_id_pattern("My_Flow_abc123.json", "abc123")
-            is True
-        )
-        assert (
-            FlowFilesystemUtils.matches_flow_id_pattern(
-                "Other_Flow_xyz789.json", "abc123"
-            )
-            is False
-        )
-        assert (
-            FlowFilesystemUtils.matches_flow_id_pattern("invalid.json", "abc123")
-            is False
-        )
+        assert FlowFilesystemUtils.matches_flow_id_pattern("My_Flow_abc123.json", "abc123") is True
+        assert FlowFilesystemUtils.matches_flow_id_pattern("Other_Flow_xyz789.json", "abc123") is False
+        assert FlowFilesystemUtils.matches_flow_id_pattern("invalid.json", "abc123") is False
 
     def test_get_file_path_format(self, repository, sample_flow):
         """Test that _get_file_path returns correct format."""
@@ -127,9 +112,7 @@ class TestLocalFlowRepository:
         assert file_path.name == expected_filename
         assert file_path.parent == repository.flows_dir
 
-    def test_save_creates_correct_filename(
-        self, repository, sample_flow, temp_flows_dir
-    ):
+    def test_save_creates_correct_filename(self, repository, sample_flow, temp_flows_dir):
         """Test that save creates file with correct name format."""
         repository.save(sample_flow)
 
@@ -184,9 +167,7 @@ class TestLocalFlowRepository:
         flow_id = str(uuid4())
 
         # Create flow with one name
-        flow1 = Flow(
-            name="Original Name", definition={"nodes": [], "edges": []}, flow_id=flow_id
-        )
+        flow1 = Flow(name="Original Name", definition={"nodes": [], "edges": []}, flow_id=flow_id)
         repository.save(flow1)
 
         # Should find it by ID
@@ -353,16 +334,12 @@ class TestLocalFlowRepository:
             # exists() should NOT be called during update (redundant check removed)
             mock_exists.assert_not_called()
 
-    def test_cleanup_propagates_keyboard_interrupt(
-        self, repository, sample_flow, temp_flows_dir
-    ):
+    def test_cleanup_propagates_keyboard_interrupt(self, repository, sample_flow, temp_flows_dir):
         """Test that KeyboardInterrupt is not caught by bare except during cleanup."""
         repository.save(sample_flow)
 
         # Mock unlink to raise KeyboardInterrupt
-        with patch.object(
-            Path, "unlink", side_effect=KeyboardInterrupt("User interrupted")
-        ):
+        with patch.object(Path, "unlink", side_effect=KeyboardInterrupt("User interrupted")):
             with pytest.raises(KeyboardInterrupt):
                 repository.delete(sample_flow.flow_id)
 
@@ -404,9 +381,7 @@ class TestLocalFlowRepository:
         # Create 100 flow files
         flows = []
         for i in range(100):
-            flow = Flow(
-                name=f"Flow {i}", definition={"nodes": []}, flow_id=str(uuid4())
-            )
+            flow = Flow(name=f"Flow {i}", definition={"nodes": []}, flow_id=str(uuid4()))
             flows.append(flow)
             repository.save(flow)
 
@@ -463,9 +438,7 @@ class TestLocalFlowRepository:
             with pytest.raises(PermissionError, match="No write permission"):
                 repository.delete(sample_flow.flow_id)
 
-    def test_update_handles_orphaned_files(
-        self, repository, sample_flow, temp_flows_dir
-    ):
+    def test_update_handles_orphaned_files(self, repository, sample_flow, temp_flows_dir):
         """Test that update succeeds even if old file deletion fails."""
         repository.save(sample_flow)
 
@@ -567,12 +540,10 @@ class TestLocalFlowRepository:
         expected = (Path("/mock/home") / "Documents" / "pipeline" / "assets").resolve()
 
         with patch(
-            "core.assets_management.adapters.repositories.local.local_flow_repository.os.getenv",
+            "datasift.core.flows.adapters.repositories.local.local_flow_repository.os.getenv",
             return_value=None,
         ):
-            with patch(
-                "core.assets_management.adapters.repositories.local.local_flow_repository.Path.home"
-            ) as mock_home:
+            with patch("datasift.core.flows.adapters.repositories.local.local_flow_repository.Path.home") as mock_home:
                 mock_home.return_value = Path("/mock/home")
 
                 result = LocalFlowRepository.get_flows_dir()
@@ -584,16 +555,14 @@ class TestLocalFlowRepository:
         env_path = "/custom/flows"
 
         with patch(
-            "core.assets_management.adapters.repositories.local.local_flow_repository.os.getenv",
+            "datasift.core.flows.adapters.repositories.local.local_flow_repository.os.getenv",
             return_value=env_path,
         ):
             result = LocalFlowRepository.get_flows_dir()
 
         assert result == Path(env_path).resolve()
 
-    def test_update_with_name_change_atomic_operation(
-        self, repository, sample_flow, temp_flows_dir
-    ):
+    def test_update_with_name_change_atomic_operation(self, repository, sample_flow, temp_flows_dir):
         """Test that update with name change is atomic (write-then-rename pattern)."""
         repository.save(sample_flow)
 
@@ -613,9 +582,7 @@ class TestLocalFlowRepository:
         old_file = temp_flows_dir / f"Test_Flow_{sample_flow.flow_id}.json"
         assert not old_file.exists()
 
-    def test_find_by_id_validates_flow_id_matches_content(
-        self, repository, temp_flows_dir
-    ):
+    def test_find_by_id_validates_flow_id_matches_content(self, repository, temp_flows_dir):
         """Test that find_by_id validates flow_id in filename matches JSON content."""
         flow_id = str(uuid4())
         different_id = str(uuid4())
@@ -684,9 +651,7 @@ class TestLocalFlowRepositoryConcurrency:
         # Use resolve() to handle symlinks on macOS (/var vs /private/var)
         assert repo.flows_dir.resolve() == temp_flows_dir.resolve()
 
-    def test_repository_initialization_without_locking(
-        self, temp_flows_dir, monkeypatch
-    ):
+    def test_repository_initialization_without_locking(self, temp_flows_dir, monkeypatch):
         """Test that repository initializes correctly with locking disabled."""
         monkeypatch.setenv("LOCAL_FLOWS_DIR", str(temp_flows_dir))
         repo = LocalFlowRepository(enable_locking=False)
@@ -747,9 +712,7 @@ class TestLocalFlowRepositoryConcurrency:
         all_flows = repository_with_locking.find_all()
         assert len(all_flows) == 10
 
-    def test_concurrent_write_and_read_same_flow(
-        self, repository_with_locking, sample_flow
-    ):
+    def test_concurrent_write_and_read_same_flow(self, repository_with_locking, sample_flow):
         """Test concurrent write and read operations on the same flow."""
         # Save initial flow
         repository_with_locking.save(sample_flow)
@@ -830,9 +793,7 @@ class TestLocalFlowRepositoryConcurrency:
         expected_ids = {f.flow_id for f in flows}
         assert flow_ids == expected_ids
 
-    def test_locking_disabled_still_works(
-        self, repository_without_locking, sample_flow
-    ):
+    def test_locking_disabled_still_works(self, repository_without_locking, sample_flow):
         """Test that repository works correctly when locking is disabled."""
         # Save flow
         saved = repository_without_locking.save(sample_flow)
@@ -872,9 +833,7 @@ class TestLocalFlowRepositoryConcurrency:
         assert lock_path.parent == repository_with_locking.locks_dir
         assert lock_path.name == f"{flow_id}.lock"
 
-    def test_file_lock_context_manager_with_locking_disabled(
-        self, repository_without_locking
-    ):
+    def test_file_lock_context_manager_with_locking_disabled(self, repository_without_locking):
         """Test that file lock context manager is a no-op when locking is disabled."""
         flow_id = str(uuid4())
 

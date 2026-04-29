@@ -5,7 +5,8 @@ import logging
 import os
 import sys
 from pathlib import Path
-from core.operators.ingest.adapters.outbound.sources.web.adapter import (
+
+from datasift.core.operators.ingest.adapters.outbound.sources.web.adapter import (
     WebPageSourceAdapter,
     WebPageSourceConfig,
 )
@@ -23,9 +24,7 @@ except ImportError:
     print("Or set environment variables manually.")
 
 # Add the backend directory to Python path
-backend_path = (
-    Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
-)
+backend_path = Path(__file__).parent.parent.parent / "src" / "datasift_opensource" / "backend"
 sys.path.insert(0, str(backend_path))
 
 # Configure logging
@@ -44,7 +43,7 @@ async def test_web_adapter():
     urls = [url.strip() for url in urls_str.split(",")]
     max_depth = int(os.getenv("WEB_TEST_MAX_DEPTH", "1"))
     timeout = int(os.getenv("WEB_TEST_TIMEOUT", "30"))
-    
+
     # Initialize adapter
     adapter = WebPageSourceAdapter()
 
@@ -97,7 +96,7 @@ async def test_multiple_urls():
     urls = [url.strip() for url in urls_str.split(",")]
     max_depth = int(os.getenv("WEB_TEST_MAX_DEPTH", "1"))
     timeout = int(os.getenv("WEB_TEST_TIMEOUT", "30"))
-    
+
     # Initialize adapter
     adapter = WebPageSourceAdapter()
 
@@ -126,15 +125,15 @@ async def test_multiple_urls():
     logger.info("\n=== Fetching Documents from Multiple URLs ===")
     doc_count = 0
     url_counts = {}
-    
+
     async for document in adapter.fetch_documents(config=config):
         doc_count += 1
         source_url = document.source_url
-        
+
         # Track documents per URL
-        base_url = source_url.split('/')[2] if '/' in source_url else source_url
+        base_url = source_url.split("/")[2] if "/" in source_url else source_url
         url_counts[base_url] = url_counts.get(base_url, 0) + 1
-        
+
         logger.info(f"\nDocument {doc_count}:")
         logger.info(f"  ID: {document.id}")
         logger.info(f"  Name: {document.name}")
@@ -158,7 +157,7 @@ async def test_build_config():
     urls = [url.strip() for url in urls_str.split(",")]
     max_depth = int(os.getenv("WEB_TEST_MAX_DEPTH", "2"))
     timeout = int(os.getenv("WEB_TEST_TIMEOUT", "60"))
-    
+
     adapter = WebPageSourceAdapter()
 
     logger.info("\n=== Testing Config Builder ===")
@@ -223,5 +222,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-# Made with Bob

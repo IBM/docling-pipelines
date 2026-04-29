@@ -7,10 +7,10 @@ This page only keeps OpenSearch-specific test and reference pointers that are no
 ## 1. Run Unit Tests
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 source .venv/bin/activate
-export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-uv run pytest ../../../tests/unit/operators/vectordb/test_vectordb_operator.py -v
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+uv run pytest tests/unit/operators/vectordb/test_vectordb_operator.py -v
 ```
 
 ## 2. Additional OpenSearch References

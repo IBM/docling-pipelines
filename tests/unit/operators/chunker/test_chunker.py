@@ -1,24 +1,24 @@
 import sys
 import unittest
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
-import pyarrow as pa
 import numpy as np
+import pyarrow as pa
 
 # Mock langchain_experimental before any imports that might use it
 if "langchain_experimental" not in sys.modules:
     sys.modules["langchain_experimental"] = Mock()
     sys.modules["langchain_experimental.text_splitter"] = Mock()
 
-from core.operators.functional.chunker import (
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.functional.chunker import (
+    CHUNK_MAX_SIZE,
+    CHUNK_MIN_SIZE,
+    CHUNK_OVERLAP_MAX_SIZE,
+    BreakpointThresholdType,
     ChunkerOperator,
     ChunkType,
-    BreakpointThresholdType,
-    CHUNK_MIN_SIZE,
-    CHUNK_MAX_SIZE,
-    CHUNK_OVERLAP_MAX_SIZE,
 )
-from common.constants.operator_constants import OperatorConstants
 
 
 class TestChunkerOperator(unittest.TestCase):
@@ -51,9 +51,7 @@ class TestChunkerOperator(unittest.TestCase):
         self.assertIsNotNone(operator)
         self.assertEqual(operator.chunk_type, ChunkType.SEMANTIC.value)
         self.assertEqual(operator.semantic_embeddings_model, "granite4")
-        self.assertEqual(
-            operator.breakpoint_threshold_type, BreakpointThresholdType.PERCENTILE.value
-        )
+        self.assertEqual(operator.breakpoint_threshold_type, BreakpointThresholdType.PERCENTILE.value)
 
     def test_simple_chunking_transform(self):
         """Test simple chunking with a PyArrow table"""
@@ -88,14 +86,10 @@ class TestChunkerOperator(unittest.TestCase):
 
         # 4. Perform assertions
         self.assertEqual(result_table.num_rows, 1)
-        self.assertIn(
-            OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names
-        )
+        self.assertIn(OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names)
 
         # Check that chunks were created
-        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][
-            0
-        ].as_py()
+        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][0].as_py()
         self.assertIsNotNone(chunked_content)
         self.assertGreater(len(chunked_content), 0)
 
@@ -123,26 +117,18 @@ class TestChunkerOperator(unittest.TestCase):
         result_table = result_tables[0]
 
         # Should create multiple chunks
-        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][
-            0
-        ].as_py()
-        self.assertGreater(
-            len(chunked_content), 1, "Long text should create multiple chunks"
-        )
+        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][0].as_py()
+        self.assertGreater(len(chunked_content), 1, "Long text should create multiple chunks")
 
     @patch("langchain_experimental.text_splitter.SemanticChunker")
-    @patch("core.operators.functional.chunker.OllamaClient")
-    def test_semantic_chunking_transform(
-        self, mock_ollama_client_class, mock_semantic_chunker_class
-    ):
+    @patch("datasift.core.operators.functional.chunker.OllamaClient")
+    def test_semantic_chunking_transform(self, mock_ollama_client_class, mock_semantic_chunker_class):
         """Test semantic chunking with fully mocked Ollama client and SemanticChunker"""
         # Mock the OllamaClient to avoid any real API calls
         mock_client = MagicMock()
         # Mock generate_embeddings to return different embeddings for each call
         # This simulates semantic differences between sentences
-        mock_client.generate_embeddings.side_effect = lambda text: np.random.rand(
-            384
-        ).tolist()
+        mock_client.generate_embeddings.side_effect = lambda text: np.random.rand(384).tolist()
         mock_ollama_client_class.return_value = mock_client
 
         # Mock SemanticChunker to return mock chunks
@@ -164,8 +150,7 @@ class TestChunkerOperator(unittest.TestCase):
 
         # Create test data
         content = [
-            "First topic sentence. Another first topic sentence. "
-            "Second topic sentence. Another second topic sentence."
+            "First topic sentence. Another first topic sentence. Second topic sentence. Another second topic sentence."
         ]
         data = {
             OperatorConstants.Columns.ID: ["doc1"],
@@ -190,14 +175,10 @@ class TestChunkerOperator(unittest.TestCase):
 
         # Assertions
         self.assertEqual(result_table.num_rows, 1)
-        self.assertIn(
-            OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names
-        )
+        self.assertIn(OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names)
 
         # Check that chunks were created
-        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][
-            0
-        ].as_py()
+        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][0].as_py()
         self.assertIsNotNone(chunked_content)
         self.assertGreater(len(chunked_content), 0)
 
@@ -248,9 +229,7 @@ class TestChunkerValidation(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        self.assertGreater(
-            len(errors), 0, "Chunk size below minimum should produce errors"
-        )
+        self.assertGreater(len(errors), 0, "Chunk size below minimum should produce errors")
 
     def test_validate_chunk_size_too_large(self):
         """Test validation rejects chunk size above maximum"""
@@ -264,9 +243,7 @@ class TestChunkerValidation(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        self.assertGreater(
-            len(errors), 0, "Chunk size above maximum should produce errors"
-        )
+        self.assertGreater(len(errors), 0, "Chunk size above maximum should produce errors")
 
     def test_validate_chunk_overlap_too_large(self):
         """Test validation rejects chunk overlap above maximum"""
@@ -280,9 +257,7 @@ class TestChunkerValidation(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        self.assertGreater(
-            len(errors), 0, "Chunk overlap above maximum should produce errors"
-        )
+        self.assertGreater(len(errors), 0, "Chunk overlap above maximum should produce errors")
 
     def test_validate_invalid_chunk_type(self):
         """Test validation rejects invalid chunk type"""
@@ -408,17 +383,13 @@ class TestChunkerEdgeCases(unittest.TestCase):
         self.assertEqual(original_content, "Test content for chunking.")
 
     @patch("langchain_experimental.text_splitter.SemanticChunker")
-    @patch("core.operators.functional.chunker.OllamaClient")
-    def test_chunker_different_breakpoint_types(
-        self, mock_ollama_client_class, mock_semantic_chunker_class
-    ):
+    @patch("datasift.core.operators.functional.chunker.OllamaClient")
+    def test_chunker_different_breakpoint_types(self, mock_ollama_client_class, mock_semantic_chunker_class):
         """Test semantic chunking with different breakpoint types - fully mocked"""
         # Mock the OllamaClient to avoid any real API calls
         mock_client = MagicMock()
         # Mock generate_embeddings to return different embeddings for each call
-        mock_client.generate_embeddings.side_effect = lambda text: np.random.rand(
-            384
-        ).tolist()
+        mock_client.generate_embeddings.side_effect = lambda text: np.random.rand(384).tolist()
         mock_ollama_client_class.return_value = mock_client
 
         # Mock SemanticChunker to return mock chunks
@@ -430,9 +401,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
                 page_content="Test content with multiple sentences.",
                 metadata={"start_index": 0},
             ),
-            LCDocument(
-                page_content="Another sentence here.", metadata={"start_index": 38}
-            ),
+            LCDocument(page_content="Another sentence here.", metadata={"start_index": 38}),
         ]
         mock_chunker.create_documents.return_value = mock_chunks
         mock_semantic_chunker_class.return_value = mock_chunker
@@ -465,9 +434,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
 
             # Should successfully process with any breakpoint type
             self.assertEqual(result_table.num_rows, 1)
-            self.assertIn(
-                OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names
-            )
+            self.assertIn(OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names)
 
         # Verify mocks were used for all breakpoint types (no real Ollama calls)
         self.assertEqual(mock_ollama_client_class.call_count, len(breakpoint_types))
@@ -495,9 +462,7 @@ class TestDoclingChunking(unittest.TestCase):
         self.assertIsNotNone(operator)
         self.assertEqual(operator.chunk_type, ChunkType.HYBRID.value)
         self.assertEqual(operator.chunk_size, 512)
-        self.assertEqual(
-            operator.docling_tokenizer, "sentence-transformers/all-MiniLM-L6-v2"
-        )
+        self.assertEqual(operator.docling_tokenizer, "sentence-transformers/all-MiniLM-L6-v2")
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_chunking_transform(self, mock_hybrid_chunker_class):
@@ -518,9 +483,7 @@ class TestDoclingChunking(unittest.TestCase):
         mock_chunker.chunk.return_value = iter([mock_chunk1, mock_chunk2])
 
         # Create test data
-        content = [
-            "This is a test document with some content. It has multiple sentences. This helps test chunking."
-        ]
+        content = ["This is a test document with some content. It has multiple sentences. This helps test chunking."]
         data = {
             OperatorConstants.Columns.ID: ["doc1"],
             OperatorConstants.Columns.NAME: ["Document 1"],
@@ -543,14 +506,10 @@ class TestDoclingChunking(unittest.TestCase):
 
         # Assertions
         self.assertEqual(result_table.num_rows, 1)
-        self.assertIn(
-            OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names
-        )
+        self.assertIn(OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names)
 
         # Check that chunks were created
-        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][
-            0
-        ].as_py()
+        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][0].as_py()
         self.assertIsNotNone(chunked_content)
         self.assertGreater(len(chunked_content), 0)
 
@@ -580,9 +539,7 @@ class TestDoclingChunking(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        self.assertGreater(
-            len(errors), 0, "Chunk size below minimum should produce errors"
-        )
+        self.assertGreater(len(errors), 0, "Chunk size below minimum should produce errors")
 
     def test_docling_validation_chunk_size_too_large(self):
         """Test validation rejects chunk size above maximum for docling (2048 tokens)"""
@@ -596,9 +553,7 @@ class TestDoclingChunking(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        self.assertGreater(
-            len(errors), 0, "Chunk size above maximum should produce errors"
-        )
+        self.assertGreater(len(errors), 0, "Chunk size above maximum should produce errors")
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_multiple_documents(self, mock_hybrid_chunker_class):
@@ -767,12 +722,8 @@ class TestDoclingChunking(unittest.TestCase):
         result_table = result_tables[0]
 
         # Check that multiple chunks were created
-        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][
-            0
-        ].as_py()
-        self.assertGreater(
-            len(chunked_content), 1, "Long document should create multiple chunks"
-        )
+        chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][0].as_py()
+        self.assertGreater(len(chunked_content), 1, "Long document should create multiple chunks")
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_preserves_all_columns(self, mock_hybrid_chunker_class):
@@ -881,9 +832,7 @@ class TestDoclingChunking(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        self.assertGreater(
-            len(errors), 0, "Negative chunk overlap should produce errors"
-        )
+        self.assertGreater(len(errors), 0, "Negative chunk overlap should produce errors")
 
     def test_docling_validation_chunk_overlap_exceeds_size(self):
         """Test validation rejects chunk overlap >= chunk_size for docling"""
@@ -898,9 +847,7 @@ class TestDoclingChunking(unittest.TestCase):
         warnings = []
         operator.validate(errors, warnings, ["content"])
 
-        self.assertGreater(
-            len(errors), 0, "Chunk overlap >= chunk_size should produce errors"
-        )
+        self.assertGreater(len(errors), 0, "Chunk overlap >= chunk_size should produce errors")
 
     def test_docling_validation_empty_tokenizer(self):
         """Test validation rejects empty tokenizer for docling"""

@@ -5,13 +5,13 @@ Tests the complete flow from file ingestion to content extraction to chunking fo
 """
 
 from pathlib import Path
+
 import pytest
 
-
-from common.constants.constants import Metrics
-from core.operators.ingest.ingest_local_folder import IngestLocalOperator
-from core.operators.extract.extract_operator import ExtractOperator
-from core.operators.functional.chunker import ChunkerOperator
+from datasift.core.constants.constants import Metrics
+from datasift.core.operators.extract.extract_operator import ExtractOperator
+from datasift.core.operators.functional.chunker import ChunkerOperator
+from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
 
 class TestIngestExtractChunkTxtIntegration:
@@ -20,9 +20,7 @@ class TestIngestExtractChunkTxtIntegration:
     @pytest.fixture
     def txt_fixtures_dir(self):
         """Get the customer support docs directory with .txt files"""
-        fixtures_path = (
-            Path(__file__).parent.parent / "fixtures" / "customer_support_docs"
-        )
+        fixtures_path = Path(__file__).parent.parent / "fixtures" / "customer_support_docs"
         if not fixtures_path.exists():
             pytest.skip(f"Fixtures directory not found: {fixtures_path}")
         return str(fixtures_path)
@@ -47,9 +45,7 @@ class TestIngestExtractChunkTxtIntegration:
         assert ingest_table.num_rows > 0, "Should have ingested .txt files"
         assert "path" in ingest_table.column_names, "Should have path column"
         assert "binary_content" not in ingest_table.column_names
-        assert "doc_content" not in ingest_table.column_names, (
-            "Should NOT have doc_content yet"
-        )
+        assert "doc_content" not in ingest_table.column_names, "Should NOT have doc_content yet"
 
         print(f"Ingested {ingest_table.num_rows} .txt files")
         print(f"Ingest metadata: {ingest_metadata}")
@@ -70,12 +66,8 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Verify extract output
         assert extract_table.num_rows > 0, "Should have extracted content"
-        assert "doc_content" in extract_table.column_names, (
-            "Should have doc_content column"
-        )
-        assert "doc_id_hash" in extract_table.column_names, (
-            "Should have doc_id_hash column"
-        )
+        assert "doc_content" in extract_table.column_names, "Should have doc_content column"
+        assert "doc_id_hash" in extract_table.column_names, "Should have doc_id_hash column"
         assert "docling_document" not in extract_table.column_names, (
             "Should NOT have docling_document column (created in chunker now)"
         )
@@ -89,12 +81,8 @@ class TestIngestExtractChunkTxtIntegration:
                 content_count += 1
                 print(f"  File {idx}: Content length = {len(content)} chars")
 
-        assert content_count > 0, (
-            "Should have extracted content from at least one .txt file"
-        )
-        assert extract_metadata.get("processed_docs", 0) > 0, (
-            "Should have processed documents"
-        )
+        assert content_count > 0, "Should have extracted content from at least one .txt file"
+        assert extract_metadata.get("processed_docs", 0) > 0, "Should have processed documents"
 
         print(f"Extracted content from {content_count} .txt files")
         print(f"Extract metadata: {extract_metadata}")
@@ -115,12 +103,8 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Verify chunking output
         assert chunk_table.num_rows > 0, "Should have chunked content"
-        assert "chunked_content" in chunk_table.column_names, (
-            "Should have chunked_content column"
-        )
-        assert "doc_id_hash" in chunk_table.column_names, (
-            "Should have doc_id_hash column"
-        )
+        assert "chunked_content" in chunk_table.column_names, "Should have chunked_content column"
+        assert "doc_id_hash" in chunk_table.column_names, "Should have doc_id_hash column"
 
         # Verify chunks were created
         total_chunks = 0
@@ -136,22 +120,16 @@ class TestIngestExtractChunkTxtIntegration:
                 if len(chunks) > 0:
                     first_chunk = chunks[0]
                     assert "chunk" in first_chunk, "Chunk should have 'chunk' field"
-                    assert len(first_chunk["chunk"]) > 0, (
-                        "Chunk text should not be empty"
-                    )
+                    assert len(first_chunk["chunk"]) > 0, "Chunk text should not be empty"
 
         assert total_chunks > 0, "Should have created at least one chunk"
-        assert chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0) > 0, (
-            "Metadata should report chunks created"
-        )
+        assert chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0) > 0, "Metadata should report chunks created"
 
         print(f"Created {total_chunks} total chunks from .txt files")
         print(f"Chunk metadata: {chunk_metadata}")
 
         # Verify docling_document column is not present (never created in extract, only used internally in chunker)
-        assert "docling_document" not in chunk_table.column_names, (
-            "docling_document should not be in final output"
-        )
+        assert "docling_document" not in chunk_table.column_names, "docling_document should not be in final output"
 
         print("\n=== Integration test completed successfully! ===")
 
@@ -194,12 +172,8 @@ class TestIngestExtractChunkTxtIntegration:
         extract_table = extract_tables[0]
 
         # Verify all files were processed
-        assert extract_metadata.get("processed_docs", 0) > 0, (
-            "Should have processed documents"
-        )
-        print(
-            f"Extracted content from {extract_metadata.get('processed_docs', 0)} files"
-        )
+        assert extract_metadata.get("processed_docs", 0) > 0, "Should have processed documents"
+        print(f"Extracted content from {extract_metadata.get('processed_docs', 0)} files")
 
         # Step 3: Chunk the content
         chunk_config = {
@@ -211,15 +185,11 @@ class TestIngestExtractChunkTxtIntegration:
 
         chunker_operator = ChunkerOperator(config=chunk_config)
         chunk_tables, chunk_metadata = chunker_operator.transform(extract_table)
-        _chunk_table = chunk_tables[0]  # noqa: F841
+        _chunk_table = chunk_tables[0]
 
         # Verify chunks were created
-        assert chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0) > 0, (
-            "Should have created chunks"
-        )
-        print(
-            f"Created {chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0)} total chunks from mixed files"
-        )
+        assert chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0) > 0, "Should have created chunks"
+        print(f"Created {chunk_metadata.get(Metrics.External.TOTAL_CHUNKS, 0)} total chunks from mixed files")
 
         print("\n=== Mixed file type test completed successfully! ===")
 

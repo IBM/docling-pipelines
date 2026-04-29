@@ -1,0 +1,375 @@
+"""
+Batch aggregation logic for node statistics.
+This is the single source of truth for batch aggregation.
+"""
+
+from dataclasses import dataclass
+from typing import Any
+
+from datasift.core.constants.constants import ExecutionStatus, Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.job_management.domain.models import NodeStats
+
+from .aggregator import MetadataAggregator
+
+
+@dataclass
+class DocumentStats:
+    """Document-level statistics."""
+
+    total_expected: int
+    completed: int
+    processed: int
+
+
+@dataclass
+class BatchProgress:
+    """Batch progress information."""
+
+    finished: int
+    total: int
+    has_pending: bool
+    status_counts: dict[str, int]
+
+
+def _get_empty_node_stats(*, node_id: str) -> NodeStats:
+    """Returns empty aggregated stats for a node with no batches."""
+    return NodeStats(
+        node_id=node_id,
+        name="Unknown",
+        start_time=0,
+        end_time=0,
+        node_status=ExecutionStatus.PENDING.value,
+        time_taken=0,
+        col_names=[],
+        total_docs=[],
+        failed_docs=[],
+        skipped_docs=[],
+        docs_completed=[],
+        docs_completed_count=0,
+        node_metadata={},
+        error="",
+    )
+
+
+def _count_batches_by_status(*, batch_records: list[NodeStats]) -> dict[str, int]:
+    """Counts batches by their status."""
+    status_counts = {
+        ExecutionStatus.RUNNING.value: 0,
+        ExecutionStatus.QUEUED.value: 0,
+        ExecutionStatus.CANCELING.value: 0,
+        ExecutionStatus.CANCELED.value: 0,
+        ExecutionStatus.FAILED.value: 0,
+        ExecutionStatus.COMPLETED_WITH_ERRORS.value: 0,
+        ExecutionStatus.COMPLETED_WITH_WARNINGS.value: 0,
+        ExecutionStatus.COMPLETED.value: 0,
+        ExecutionStatus.SKIPPED.value: 0,
+        ExecutionStatus.PENDING.value: 0,
+    }
+
+    for record in batch_records:
+        node_status = record.node_status
+        if node_status in status_counts:
+            status_counts[node_status] += 1
+
+    return status_counts
+
+
+def _determine_aggregated_status(*, status_counts: dict[str, int], total_batches: int) -> str:
+    """Determines the aggregated node status based on batch status counts."""
+    active_states = (
+        status_counts[ExecutionStatus.RUNNING.value]
+        + status_counts[ExecutionStatus.QUEUED.value]
+        + status_counts[ExecutionStatus.PENDING.value]
+        + status_counts[ExecutionStatus.CANCELING.value]
+    )
+
+    if active_states > 0:
+        return ExecutionStatus.RUNNING.value
+
+    if status_counts[ExecutionStatus.CANCELED.value] == total_batches:
+        return ExecutionStatus.CANCELED.value
+
+    if status_counts[ExecutionStatus.FAILED.value] == total_batches:
+        return ExecutionStatus.FAILED.value
+
+    if status_counts[ExecutionStatus.SKIPPED.value] == total_batches:
+        return ExecutionStatus.SKIPPED.value
+
+    has_failures = status_counts[ExecutionStatus.FAILED.value] > 0
+    has_successes = (
+        status_counts[ExecutionStatus.COMPLETED.value]
+        + status_counts[ExecutionStatus.COMPLETED_WITH_WARNINGS.value]
+        + status_counts[ExecutionStatus.SKIPPED.value]
+    ) > 0
+
+    if has_failures and has_successes:
+        return ExecutionStatus.COMPLETED_WITH_ERRORS.value
+
+    if status_counts[ExecutionStatus.COMPLETED_WITH_ERRORS.value] > 0:
+        return ExecutionStatus.COMPLETED_WITH_ERRORS.value
+
+    if status_counts[ExecutionStatus.COMPLETED_WITH_WARNINGS.value] > 0:
+        return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+
+    all_completed_or_skipped = (
+        status_counts[ExecutionStatus.COMPLETED.value] + status_counts[ExecutionStatus.SKIPPED.value]
+    ) == total_batches
+
+    if all_completed_or_skipped:
+        return ExecutionStatus.COMPLETED.value
+
+    return ExecutionStatus.RUNNING.value
+
+
+def _aggregate_time_fields(*, batch_records: list[NodeStats]) -> tuple:
+    """Aggregates start time, end time, and time taken from batch records."""
+    start_times = [r.start_time for r in batch_records if r.start_time > 0]
+    end_times = [r.end_time for r in batch_records if r.end_time > 0]
+
+    aggregated_start_time = min(start_times) if start_times else 0
+    aggregated_end_time = max(end_times) if end_times else 0
+    aggregated_time_taken = (
+        aggregated_end_time - aggregated_start_time if aggregated_start_time > 0 and aggregated_end_time > 0 else 0
+    )
+
+    return aggregated_start_time, aggregated_end_time, aggregated_time_taken
+
+
+def _aggregate_document_lists(*, batch_records: list[NodeStats]) -> tuple:
+    """Aggregates document lists (UNION - deduplicate) from batch records."""
+    all_col_names = set()
+    all_total_docs = set()
+    all_failed_docs = set()
+    all_skipped_docs = set()
+    all_docs_completed = set()
+
+    for record in batch_records:
+        if record.col_names:
+            all_col_names.update(record.col_names)
+        if record.total_docs:
+            all_total_docs.update(record.total_docs)
+        if record.failed_docs:
+            all_failed_docs.update(record.failed_docs)
+        if record.skipped_docs:
+            all_skipped_docs.update(record.skipped_docs)
+        if record.docs_completed:
+            all_docs_completed.update(record.docs_completed)
+
+    return all_col_names, all_total_docs, all_failed_docs, all_skipped_docs, all_docs_completed
+
+
+def _aggregate_errors(*, batch_records: list[NodeStats]) -> str:
+    """Concatenates error messages from batch records."""
+    errors = [record.error for record in batch_records if record.error and record.error.strip()]
+    return " | ".join(errors) if errors else ""
+
+
+def _get_nested_metadata(*, record: NodeStats) -> dict[str, Any] | None:
+    """Extracts nested node_metadata from a record."""
+    if not record.node_metadata or not isinstance(record.node_metadata, dict):
+        return None
+
+    metadata = record.node_metadata
+    if OperatorConstants.Metadata.NODE_METADATA in metadata and isinstance(
+        metadata[OperatorConstants.Metadata.NODE_METADATA], dict
+    ):
+        metadata = metadata[OperatorConstants.Metadata.NODE_METADATA]
+
+    return metadata
+
+
+def _calculate_finished_batches(*, status_counts: dict[str, int]) -> int:
+    """
+    Calculates the number of finished batches.
+
+    Finished = completed + failed + skipped + completed_with_warnings + completed_with_errors
+    Excludes: running, pending, queued
+    """
+    return (
+        status_counts[ExecutionStatus.COMPLETED.value]
+        + status_counts[ExecutionStatus.SKIPPED.value]
+        + status_counts[ExecutionStatus.COMPLETED_WITH_WARNINGS.value]
+        + status_counts[ExecutionStatus.COMPLETED_WITH_ERRORS.value]
+        + status_counts[ExecutionStatus.FAILED.value]
+    )
+
+
+def _add_progress_field(
+    *, metadata: dict[str, Any], finished_batches: int, total_batches: int, status_counts: dict[str, int]
+) -> None:
+    """
+    Adds batch-based Progress field to metadata with status breakdown.
+
+    Format: "X of Y batches (Z%) | Completed: A, Running: B, Failed: C, Skipped: D"
+    Only shows non-zero statuses (except Completed which is always shown).
+
+    Note: COMPLETED_WITH_ERRORS and COMPLETED_WITH_WARNINGS are counted as "Completed".
+    """
+    if total_batches > 0:
+        pct = round((finished_batches / total_batches) * 100, 2)
+        base_progress = f"{finished_batches} of {total_batches} batches ({pct}%)"
+
+        # Build status breakdown - only show non-zero counts
+        status_parts = []
+
+        # Completed count includes COMPLETED, COMPLETED_WITH_ERRORS, and COMPLETED_WITH_WARNINGS
+        completed = (
+            status_counts.get(ExecutionStatus.COMPLETED.value, 0)
+            + status_counts.get(ExecutionStatus.COMPLETED_WITH_ERRORS.value, 0)
+            + status_counts.get(ExecutionStatus.COMPLETED_WITH_WARNINGS.value, 0)
+        )
+        status_parts.append(f"Completed: {completed}")
+
+        # Show Running if non-zero
+        running = status_counts.get(ExecutionStatus.RUNNING.value, 0)
+        if running > 0:
+            status_parts.append(f"Running: {running}")
+
+        # Show Failed if non-zero (only FAILED status, not CompletedWithErrors)
+        failed = status_counts.get(ExecutionStatus.FAILED.value, 0)
+        if failed > 0:
+            status_parts.append(f"Failed: {failed}")
+
+        # Show Skipped if non-zero
+        skipped = status_counts.get(ExecutionStatus.SKIPPED.value, 0)
+        if skipped > 0:
+            status_parts.append(f"Skipped: {skipped}")
+
+        # Combine base progress with status breakdown
+        if status_parts:
+            metadata["Progress"] = f"{base_progress} | {', '.join(status_parts)}"
+        else:
+            metadata["Progress"] = base_progress
+
+
+def _inject_metadata_fields(
+    *,
+    aggregated_metadata: dict[str, Any],
+    aggregated_status: str,
+    doc_stats: DocumentStats,
+    batch_progress: BatchProgress,
+) -> None:
+    """
+    Injects progress and metadata fields into aggregated metadata.
+
+    Uses data classes to group related parameters and reduce parameter count.
+    """
+    if OperatorConstants.Metadata.NODE_METADATA not in aggregated_metadata:
+        aggregated_metadata[OperatorConstants.Metadata.NODE_METADATA] = {}
+
+    if isinstance(aggregated_metadata[OperatorConstants.Metadata.NODE_METADATA], dict):
+        metadata = aggregated_metadata[OperatorConstants.Metadata.NODE_METADATA]
+
+        # Core document fields
+        metadata[Metrics.External.TOTAL_DOCS] = doc_stats.total_expected
+        metadata[Metrics.External.COMPLETED_DOCS_COUNT] = doc_stats.completed
+        metadata[Metrics.External.PROCESSED_DOCS] = doc_stats.processed
+        metadata[Metrics.External.NODE_STATUS] = aggregated_status
+
+        # Add batch-based Progress field
+        _add_progress_field(
+            metadata=metadata,
+            finished_batches=batch_progress.finished,
+            total_batches=batch_progress.total,
+            status_counts=batch_progress.status_counts,
+        )
+
+
+def aggregate_batch_node_stats(
+    *,
+    node_id: str,
+    batch_records: list[NodeStats],
+    aggregator: MetadataAggregator,
+) -> NodeStats:
+    """
+    Aggregates batch-level node statistics using ONLY node_stats table.
+
+    Uses node_status field from node_stats to determine batch status and calculate progress.
+    Pending/Queued batches are identified by node_status in node_stats records.
+    Failed batches are considered as completed for progress calculation.
+
+    Args:
+        node_id: The node identifier
+        batch_records: List of NodeStats records for this node from database
+        aggregator: MetadataAggregator instance for intelligent field aggregation
+
+    Returns:
+        Dictionary with aggregated node statistics
+    """
+    total_batches = len(batch_records)
+
+    if total_batches == 0:
+        return _get_empty_node_stats(node_id=node_id)
+
+    # Aggregate status
+    status_counts = _count_batches_by_status(batch_records=batch_records)
+    aggregated_status = _determine_aggregated_status(status_counts=status_counts, total_batches=total_batches)
+
+    # Aggregate time fields
+    aggregated_start_time, aggregated_end_time, aggregated_time_taken = _aggregate_time_fields(
+        batch_records=batch_records
+    )
+
+    # Aggregate document lists
+    all_col_names, all_total_docs, all_failed_docs, all_skipped_docs, all_docs_completed = _aggregate_document_lists(
+        batch_records=batch_records
+    )
+
+    # Aggregate errors
+    aggregated_error = _aggregate_errors(batch_records=batch_records)
+
+    # Aggregate metadata using enterprise-compatible aggregator
+    metadata_list = [record.node_metadata for record in batch_records if record.node_metadata]
+    aggregated_metadata = aggregator.aggregate_metadata(metadata_list=metadata_list) if metadata_list else {}
+
+    # Calculate statistics
+    # Processed docs: sum of completed, failed, and skipped documents for the processed batches
+    processed_docs = len(all_docs_completed) + len(all_failed_docs) + len(all_skipped_docs)
+    # Completed docs: only successfully completed documents
+    completed_docs_count = len(all_docs_completed)
+    total_expected_docs = len(all_total_docs)
+
+    # Check if there are pending batches
+    has_pending_batches = (
+        status_counts.get(ExecutionStatus.PENDING.value, 0) + status_counts.get(ExecutionStatus.QUEUED.value, 0)
+    ) > 0
+
+    # Calculate finished batches for progress
+    finished_batches = _calculate_finished_batches(status_counts=status_counts)
+
+    # Create data class instances for cleaner parameter passing
+    doc_stats = DocumentStats(
+        total_expected=total_expected_docs, completed=completed_docs_count, processed=processed_docs
+    )
+
+    batch_progress = BatchProgress(
+        finished=finished_batches, total=total_batches, has_pending=has_pending_batches, status_counts=status_counts
+    )
+
+    # Inject metadata fields using structured data
+    _inject_metadata_fields(
+        aggregated_metadata=aggregated_metadata,
+        aggregated_status=aggregated_status,
+        doc_stats=doc_stats,
+        batch_progress=batch_progress,
+    )
+
+    node_name = batch_records[0].name if batch_records else "Unknown"
+
+    return NodeStats(
+        node_id=node_id,
+        name=node_name,
+        start_time=aggregated_start_time,
+        end_time=aggregated_end_time,
+        node_status=aggregated_status,
+        time_taken=aggregated_time_taken,
+        col_names=sorted(all_col_names),
+        total_docs=sorted(all_total_docs),
+        failed_docs=sorted(all_failed_docs),
+        skipped_docs=sorted(all_skipped_docs),
+        docs_completed=sorted(all_docs_completed),
+        docs_completed_count=len(all_docs_completed),
+        node_metadata=aggregated_metadata,
+        error=aggregated_error,
+    )

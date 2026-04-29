@@ -4,10 +4,11 @@ Unit tests for IngestSourceOperator.
 Tests the operator with various providers and configurations using mocks.
 """
 
-import pyarrow as pa
 from unittest.mock import Mock, patch
-from langchain_core.documents import Document
+
+import pyarrow as pa
 import pytest
+from langchain_core.documents import Document
 
 
 @pytest.fixture
@@ -40,7 +41,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_s3_provider(self):
         """Test initialization with S3 provider."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "s3",
@@ -60,7 +61,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_ibm_cos_provider(self):
         """Test initialization with IBM COS provider."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "ibm_cos",
@@ -78,14 +79,11 @@ class TestIngestSourceOperatorInitialization:
         operator = IngestSourceOperator(config)
 
         assert operator.provider == "ibm_cos"
-        assert (
-            operator.connection_params["endpoint_url"]
-            == "https://s3.us-south.cloud-object-storage.appdomain.cloud"
-        )
+        assert operator.connection_params["endpoint_url"] == "https://s3.us-south.cloud-object-storage.appdomain.cloud"
 
     def test_init_with_google_drive_provider(self):
         """Test initialization with Google Drive provider."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "google_drive",
@@ -102,13 +100,11 @@ class TestIngestSourceOperatorInitialization:
         assert operator.provider == "google_drive"
         assert operator.connection_params["folder_id"] == "test-folder-id"
         assert operator.connection_params["recursive"] is True
-        assert operator.credentials["scopes"] == [
-            "https://www.googleapis.com/auth/drive.readonly"
-        ]
+        assert operator.credentials["scopes"] == ["https://www.googleapis.com/auth/drive.readonly"]
 
     def test_init_with_sharepoint_provider(self):
         """Test initialization with SharePoint provider."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "sharepoint",
@@ -126,7 +122,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_onedrive_provider(self):
         """Test initialization with OneDrive provider."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "onedrive",
@@ -148,7 +144,7 @@ class TestIngestSourceOperatorInitialization:
 
     def test_init_with_custom_provider(self):
         """Test initialization with custom provider."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "custom",
@@ -162,10 +158,7 @@ class TestIngestSourceOperatorInitialization:
         operator = IngestSourceOperator(config)
 
         assert operator.provider == "custom"
-        assert (
-            operator.connection_params["loader_class_path"]
-            == "my_package.loaders.CustomLoader"
-        )
+        assert operator.connection_params["loader_class_path"] == "my_package.loaders.CustomLoader"
 
 
 class TestGetLoader:
@@ -173,7 +166,7 @@ class TestGetLoader:
 
     def test_get_loader_s3(self):
         """Test _get_loader raises error for S3 provider (should use _load_s3_documents instead)."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "s3",
@@ -186,14 +179,12 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(
-            ValueError, match="provider should use _load_documents_via_adapter"
-        ):
+        with pytest.raises(ValueError, match="provider should use _load_documents_via_adapter"):
             operator._get_loader()
 
     def test_get_loader_ibm_cos(self):
         """Test _get_loader raises error for IBM COS provider (should use _load_s3_documents instead)."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "ibm_cos",
@@ -210,14 +201,12 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(
-            ValueError, match="provider should use _load_documents_via_adapter"
-        ):
+        with pytest.raises(ValueError, match="provider should use _load_documents_via_adapter"):
             operator._get_loader()
 
     def test_get_loader_google_drive(self):
         """Test Google Drive provider uses new adapter architecture (no _get_loader)."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "google_drive",
@@ -241,7 +230,7 @@ class TestGetLoader:
 
     def test_get_loader_sharepoint(self):
         """Test _get_loader raises ValueError for SharePoint provider (should use adapter)."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "sharepoint",
@@ -263,7 +252,7 @@ class TestGetLoader:
 
     def test_get_loader_onedrive(self):
         """Test _get_loader raises ValueError for OneDrive provider (should use adapter)."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "onedrive",
@@ -280,15 +269,13 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(
-            ValueError, match="onedrive provider should use _load_documents_via_adapter"
-        ):
+        with pytest.raises(ValueError, match="onedrive provider should use _load_documents_via_adapter"):
             operator._get_loader()
 
     @patch("importlib.import_module")
     def test_get_loader_custom(self, mock_import):
         """Test _get_loader returns custom loader for custom provider."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock the custom loader class
         mock_loader_class = Mock()
@@ -306,27 +293,25 @@ class TestGetLoader:
         }
 
         operator = IngestSourceOperator(config)
-        _loader = operator._get_loader()  # noqa: F841
+        _loader = operator._get_loader()
 
         mock_import.assert_called_once_with("my_package.loaders")
         mock_loader_class.assert_called_once()
 
     def test_get_loader_custom_missing_path(self):
         """Test _get_loader raises error when custom provider missing loader_class_path."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {"provider": "custom", "connection_params": {}, "credentials": {}}
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(
-            ValueError, match="Provider is 'custom' but 'loader_class_path' is missing"
-        ):
+        with pytest.raises(ValueError, match="Provider is 'custom' but 'loader_class_path' is missing"):
             operator._get_loader()
 
     def test_get_loader_unsupported_provider(self):
         """Test _get_loader raises error for unsupported provider."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         config = {
             "provider": "unsupported_provider",
@@ -336,19 +321,15 @@ class TestGetLoader:
 
         operator = IngestSourceOperator(config)
 
-        with pytest.raises(
-            ValueError, match="Provider 'unsupported_provider' is not supported"
-        ):
+        with pytest.raises(ValueError, match="Provider 'unsupported_provider' is not supported"):
             operator._get_loader()
 
 
 class TestTransform:
     """Test cases for transform method."""
 
-    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
-    )
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_success(
         self,
         mock_fetch_documents,
@@ -357,9 +338,10 @@ class TestTransform:
         empty_input_table,
     ):
         """Test transform successfully processes documents."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
-        from core.operators.ingest.domain.models import Document as DomainDocument
         from datetime import datetime
+
+        from datasift.core.operators.ingest.domain.models import Document as DomainDocument
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -443,10 +425,8 @@ class TestTransform:
         assert metadata["processed_docs"] == 3
         assert metadata["total_docs_count"] == 3
 
-    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
-    )
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_empty_documents(
         self,
         mock_fetch_documents,
@@ -454,7 +434,7 @@ class TestTransform:
         empty_input_table,
     ):
         """Test transform handles empty document list."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -492,10 +472,8 @@ class TestTransform:
         assert metadata["node_status"] == "Completed"
         assert metadata["processed_docs"] == 0
 
-    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
-    )
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_error_handling(
         self,
         mock_fetch_documents,
@@ -503,7 +481,7 @@ class TestTransform:
         empty_input_table,
     ):
         """Test transform handles errors gracefully with S3 adapter."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -541,10 +519,8 @@ class TestTransform:
         assert metadata["node_status"] == "CompletedWithErrors"
         assert metadata["failed_docs_count"] == 1
 
-    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
-    )
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_schema_validation(
         self,
         mock_fetch_documents,
@@ -553,9 +529,10 @@ class TestTransform:
         empty_input_table,
     ):
         """Test transform output has correct schema with S3 adapter."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
-        from core.operators.ingest.domain.models import Document as DomainDocument
         from datetime import datetime
+
+        from datasift.core.operators.ingest.domain.models import Document as DomainDocument
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -608,7 +585,7 @@ class TestTransform:
         assert schema.field("binary_content").type == pa.binary()
         assert schema.field("modified_time").type == pa.int64()
 
-    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
     @patch("os.path.exists")
     @patch("os.makedirs")
     def test_transform_google_drive(
@@ -620,7 +597,7 @@ class TestTransform:
         empty_input_table,
     ):
         """Test transform with Google Drive provider using new adapter architecture."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock os.path.exists to return True
         mock_path_exists.return_value = True
@@ -670,12 +647,10 @@ class TestTransform:
         operator = IngestSourceOperator(config)
 
         # Patch the _load_documents_via_adapter method to return our mocked documents
-        with patch.object(
-            operator, "_load_documents_via_adapter", mock_load_documents_via_adapter
-        ):
+        with patch.object(operator, "_load_documents_via_adapter", mock_load_documents_via_adapter):
             # Also need to mock SourceAdapterFactory.is_registered to return True
             with patch(
-                "core.operators.ingest.ingest_source.SourceAdapterFactory.is_registered",
+                "datasift.core.operators.ingest.ingest_source.SourceAdapterFactory.is_registered",
                 return_value=True,
             ):
                 result_tables, metadata = operator.transform(empty_input_table)
@@ -684,10 +659,8 @@ class TestTransform:
         assert result_tables[0].num_rows == 3
         assert metadata["node_status"] == "Completed"
 
-    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
-    )
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_document_without_source(
         self,
         mock_fetch_documents,
@@ -695,8 +668,8 @@ class TestTransform:
         empty_input_table,
     ):
         """Test transform handles documents without source in metadata."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
-        from core.operators.ingest.domain.models import Document as DomainDocument
+        from datasift.core.operators.ingest.domain.models import Document as DomainDocument
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
@@ -742,10 +715,8 @@ class TestTransform:
 class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
 
-    @patch("common.util.data.incremental_update.IncrementalUpdateUtil")
-    @patch(
-        "core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents"
-    )
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_s3_to_pyarrow_pipeline(
         self,
         mock_fetch_documents,
@@ -753,15 +724,16 @@ class TestIntegrationScenarios:
         empty_input_table,
     ):
         """Test complete S3 ingestion to PyArrow table pipeline."""
-        from core.operators.ingest.ingest_source import IngestSourceOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
         mock_util_instance = Mock()
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        from core.operators.ingest.domain.models import Document as DomainDocument
         from datetime import datetime
+
+        from datasift.core.operators.ingest.domain.models import Document as DomainDocument
 
         # Create domain documents for the new adapter
         domain_docs = [

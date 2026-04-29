@@ -3,15 +3,16 @@
 Unit tests for OpenSearchIndexManager
 """
 
-import pytest
-import pyarrow as pa
-import numpy as np
 from unittest.mock import MagicMock
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from core.operators.vectordb.opensearch_index_manager import (
+import numpy as np
+import pyarrow as pa
+import pytest
+
+from datasift.core.operators.vectordb.opensearch_index_manager import (
     OpenSearchIndexManager,
 )
+from datasift.exceptions.datasift_exceptions import DatasiftException
 
 
 @pytest.fixture
@@ -89,9 +90,7 @@ class TestIndexManagerInitialization:
         assert manager.space_type == "cosine"
         assert manager.vector_dimension == 768
 
-    def test_initialization_with_features(
-        self, mock_client, basic_features, feature_mappings
-    ):
+    def test_initialization_with_features(self, mock_client, basic_features, feature_mappings):
         """Test initialization with feature configuration"""
         manager = OpenSearchIndexManager(
             client=mock_client,
@@ -541,9 +540,7 @@ class TestIndexMapping:
 class TestIndexCreation:
     """Test index creation"""
 
-    def test_create_index_when_not_exists(
-        self, mock_client, basic_features, feature_mappings
-    ):
+    def test_create_index_when_not_exists(self, mock_client, basic_features, feature_mappings):
         """Test creating index when it doesn't exist"""
         mock_client.indices.exists.return_value = False
 

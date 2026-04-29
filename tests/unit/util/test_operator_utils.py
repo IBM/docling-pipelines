@@ -4,14 +4,13 @@ Unit tests for operator_utils module.
 Tests utility functions for table manipulation, validation, and feature management.
 """
 
-import pytest
 import pyarrow as pa
+import pytest
 
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import internal_metrics
-from common.exceptions.datasift_exceptions import FlowValidationException
-from core.operators.operator_utils import OperatorUtils
-
+from datasift.core.constants.constants import internal_metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.operator_utils import OperatorUtils
+from datasift.exceptions.datasift_exceptions import FlowValidationException
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -212,9 +211,7 @@ def test_validate_link_name_valid():
     """Valid link name passes validation."""
     existing = set()
     errors = []
-    OperatorUtils.validate_link_name(
-        link_name="link1", existing_link_names=existing, errors=errors
-    )
+    OperatorUtils.validate_link_name(link_name="link1", existing_link_names=existing, errors=errors)
 
     assert len(errors) == 0
     assert "link1" in existing
@@ -224,9 +221,7 @@ def test_validate_link_name_duplicate():
     """Duplicate link name adds error."""
     existing = {"link1"}
     errors = []
-    OperatorUtils.validate_link_name(
-        link_name="Link1", existing_link_names=existing, errors=errors
-    )
+    OperatorUtils.validate_link_name(link_name="Link1", existing_link_names=existing, errors=errors)
 
     assert len(errors) == 1
     assert "Duplicate link name" in errors[0]
@@ -236,9 +231,7 @@ def test_validate_link_name_case_insensitive():
     """Link name validation is case-insensitive."""
     existing = {"link1"}
     errors = []
-    OperatorUtils.validate_link_name(
-        link_name="LINK1", existing_link_names=existing, errors=errors
-    )
+    OperatorUtils.validate_link_name(link_name="LINK1", existing_link_names=existing, errors=errors)
 
     assert len(errors) == 1
 
@@ -247,9 +240,7 @@ def test_validate_link_name_empty():
     """Empty link name adds error."""
     existing = set()
     errors = []
-    OperatorUtils.validate_link_name(
-        link_name="", existing_link_names=existing, errors=errors
-    )
+    OperatorUtils.validate_link_name(link_name="", existing_link_names=existing, errors=errors)
 
     assert len(errors) == 1
     assert "Missing link name" in errors[0]
@@ -259,9 +250,7 @@ def test_validate_link_name_none():
     """None link name adds error."""
     existing = set()
     errors = []
-    OperatorUtils.validate_link_name(
-        link_name=None, existing_link_names=existing, errors=errors
-    )
+    OperatorUtils.validate_link_name(link_name=None, existing_link_names=existing, errors=errors)
 
     assert len(errors) == 1
 
@@ -321,7 +310,7 @@ def test_doc_id_hash_unicode():
 
 def test_decode_binary_content_utf8():
     """Decode UTF-8 binary content."""
-    binary = "Hello, World!".encode("utf-8")
+    binary = b"Hello, World!"
     result = OperatorUtils.decode_binary_content(binary_content=binary)
 
     assert result == "Hello, World!"
@@ -540,9 +529,7 @@ def test_get_mandatory_features_basic():
     }
     check_features = ["field1", "field2", "field3"]
 
-    result = OperatorUtils.get_mandatory_features(
-        check_features=check_features, input_features=input_features
-    )
+    result = OperatorUtils.get_mandatory_features(check_features=check_features, input_features=input_features)
 
     assert set(result) == {"field1", "field3"}
 
@@ -555,9 +542,7 @@ def test_get_mandatory_features_none():
     }
     check_features = ["field1", "field2"]
 
-    result = OperatorUtils.get_mandatory_features(
-        check_features=check_features, input_features=input_features
-    )
+    result = OperatorUtils.get_mandatory_features(check_features=check_features, input_features=input_features)
 
     assert result == []
 
@@ -568,9 +553,7 @@ def test_get_mandatory_features_empty_check_list():
         "field1": {OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY]},
     }
 
-    result = OperatorUtils.get_mandatory_features(
-        check_features=[], input_features=input_features
-    )
+    result = OperatorUtils.get_mandatory_features(check_features=[], input_features=input_features)
 
     assert result == []
 
@@ -583,9 +566,7 @@ def test_get_mandatory_features_no_tags():
     }
     check_features = ["field1", "field2"]
 
-    result = OperatorUtils.get_mandatory_features(
-        check_features=check_features, input_features=input_features
-    )
+    result = OperatorUtils.get_mandatory_features(check_features=check_features, input_features=input_features)
 
     assert result == ["field2"]
 
@@ -692,9 +673,7 @@ def test_validate_filter_criteria_nested_json():
         ],
     }
 
-    criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(
-        criteria_list=None, criteria_json=criteria_json
-    )
+    criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(criteria_list=None, criteria_json=criteria_json)
 
     assert json_valid is True
 
@@ -772,9 +751,7 @@ def test_rename_features_table_basic():
         }
     ]
 
-    result = OperatorUtils.rename_features_and_save_original(
-        updated_features=updated_features, input_features=table
-    )
+    result = OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=table)
 
     assert "new_name" in result.column_names
     assert "old_name" not in result.column_names
@@ -801,9 +778,7 @@ def test_rename_features_table_multiple():
         },
     ]
 
-    result = OperatorUtils.rename_features_and_save_original(
-        updated_features=updated_features, input_features=table
-    )
+    result = OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=table)
 
     assert set(result.column_names) == {"x", "y", "c"}
 
@@ -819,9 +794,7 @@ def test_rename_features_table_nonexistent_column():
     ]
 
     with pytest.raises(KeyError):
-        OperatorUtils.rename_features_and_save_original(
-            updated_features=updated_features, input_features=table
-        )
+        OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=table)
 
 
 def test_rename_features_table_duplicate_new_name():
@@ -839,9 +812,7 @@ def test_rename_features_table_duplicate_new_name():
     ]
 
     with pytest.raises(ValueError, match="Duplicate name"):
-        OperatorUtils.rename_features_and_save_original(
-            updated_features=updated_features, input_features=table
-        )
+        OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=table)
 
 
 # ---------------------------------------------------------------------------
@@ -862,16 +833,11 @@ def test_rename_features_dict_basic():
         }
     ]
 
-    OperatorUtils.rename_features_and_save_original(
-        updated_features=updated_features, input_features=input_features
-    )
+    OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=input_features)
 
     assert "new_name" in input_features
     assert "old_name" not in input_features
-    assert (
-        input_features["new_name"][OperatorConstants.Misc.ORIGINAL_FEATURE]
-        == "old_name"
-    )
+    assert input_features["new_name"][OperatorConstants.Misc.ORIGINAL_FEATURE] == "old_name"
 
 
 def test_rename_features_dict_mandatory_raises():
@@ -907,9 +873,7 @@ def test_rename_features_dict_preserves_original():
         }
     ]
 
-    OperatorUtils.rename_features_and_save_original(
-        updated_features=updated_features, input_features=input_features
-    )
+    OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=input_features)
 
     # Rename again
     updated_features2 = [
@@ -918,9 +882,7 @@ def test_rename_features_dict_preserves_original():
             OperatorConstants.Misc.NEW_FEATURE: "field3",
         }
     ]
-    OperatorUtils.rename_features_and_save_original(
-        updated_features=updated_features2, input_features=input_features
-    )
+    OperatorUtils.rename_features_and_save_original(updated_features=updated_features2, input_features=input_features)
 
     # Original should still be field1
     assert input_features["field3"][OperatorConstants.Misc.ORIGINAL_FEATURE] == "field1"
@@ -928,9 +890,7 @@ def test_rename_features_dict_preserves_original():
 
 def test_rename_features_none_inputs():
     """None inputs return None."""
-    result = OperatorUtils.rename_features_and_save_original(
-        updated_features=None, input_features=None
-    )
+    result = OperatorUtils.rename_features_and_save_original(updated_features=None, input_features=None)
 
     assert result is None
 
@@ -938,9 +898,7 @@ def test_rename_features_none_inputs():
 def test_rename_features_empty_updated_features():
     """Empty updated_features returns None."""
     input_features = {"field": {"type": "string"}}
-    result = OperatorUtils.rename_features_and_save_original(
-        updated_features=[], input_features=input_features
-    )
+    result = OperatorUtils.rename_features_and_save_original(updated_features=[], input_features=input_features)
 
     assert result is None
 
@@ -958,9 +916,7 @@ def test_rename_features_invalid_mapping_format():
     ]
 
     with pytest.raises(ValueError, match="must be a dict"):
-        OperatorUtils.rename_features_and_save_original(
-            updated_features=updated_features, input_features=table
-        )
+        OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=table)
 
 
 def test_rename_features_missing_keys():
@@ -971,9 +927,7 @@ def test_rename_features_missing_keys():
     ]
 
     with pytest.raises(ValueError, match="must contain"):
-        OperatorUtils.rename_features_and_save_original(
-            updated_features=updated_features, input_features=table
-        )
+        OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=table)
 
 
 def test_rename_features_duplicate_old_feature():
@@ -991,9 +945,7 @@ def test_rename_features_duplicate_old_feature():
     ]
 
     with pytest.raises(ValueError, match="Duplicate mapping"):
-        OperatorUtils.rename_features_and_save_original(
-            updated_features=updated_features, input_features=table
-        )
+        OperatorUtils.rename_features_and_save_original(updated_features=updated_features, input_features=table)
 
 
 if __name__ == "__main__":

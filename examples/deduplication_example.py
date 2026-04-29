@@ -13,13 +13,11 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(
-    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
-)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from common.constants.operator_constants import OperatorConstants
-from common.util.infrastructure.logging import get_logger
-from core.operators.quality.ededup import EdedupOperator
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.quality.ededup import EdedupOperator
+from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -61,5 +59,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-# Made with Bob

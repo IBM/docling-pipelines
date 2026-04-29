@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from common.constants.constants import ExecutionStatus, Metrics
-from common.constants.operator_constants import OperatorConstants
+from datasift.core.constants.constants import ExecutionStatus, Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
 
 # Path setup is now automatic via conftest.py
 
@@ -21,7 +21,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     """Test the ExtractOperator with docling_library text extraction mode."""
     import pyarrow as pa
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Use fixture for test files (automatically skips if not found)
     test_files = sample_pdf_files[:1]  # Test with first file
@@ -73,9 +73,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     assert len(first_hash) > 0, "Hash should not be empty"
 
     # Check metadata
-    assert metadata["total_docs_count"] == table.num_rows, (
-        "Total docs should match input rows"
-    )
+    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
     assert metadata["processed_docs"] > 0, "Should have processed at least one document"
 
 
@@ -85,7 +83,7 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
     """Test the ExtractOperator with docling_serve text extraction mode."""
     import pyarrow as pa
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Use fixture for test files
     test_files = sample_pdf_files[:1]
@@ -145,7 +143,7 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
 @pytest.mark.unit
 def test_extract_operator_docling_serve_config_validation():
     """Test docling_serve configuration parameter validation."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Test with minimal docling_serve configuration
     config = {
@@ -164,7 +162,7 @@ def test_extract_operator_docling_serve_config_validation():
 @pytest.mark.unit
 def test_extract_operator_docling_serve_with_api_key():
     """Test docling_serve configuration with API key."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_serve",
@@ -183,7 +181,7 @@ def test_extract_operator_docling_serve_with_api_key():
 @pytest.mark.unit
 def test_extract_operator_docling_serve_with_ocr_languages():
     """Test docling_serve configuration with OCR language specification."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_serve",
@@ -210,7 +208,7 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
 
     import pyarrow as pa
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Use fixture for test files
     test_files = sample_pdf_files[:1]
@@ -249,7 +247,7 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
     }
 
     # Mock the Ollama client to avoid actual API calls
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         # Mock the run method which is called by entity extraction
         mock_instance.run.return_value = json.dumps(
@@ -274,10 +272,10 @@ def test_extract_operator_docling_serve_with_entity_extraction():
     """Test ExtractOperator with docling_serve text + entity extraction."""
     from unittest.mock import Mock, patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -303,8 +301,8 @@ def test_extract_operator_docling_serve_with_entity_extraction():
 @pytest.mark.unit
 def test_extract_operator_invalid_text_mode():
     """Test ExtractOperator with invalid text extraction mode."""
-    from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+    from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
         "text_extraction_mode": "invalid_mode",
@@ -320,8 +318,8 @@ def test_extract_operator_invalid_text_mode():
 @pytest.mark.unit
 def test_extract_operator_invalid_entity_mode():
     """Test ExtractOperator with invalid entity extraction mode."""
-    from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+    from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -337,7 +335,7 @@ def test_extract_operator_invalid_entity_mode():
 @pytest.mark.unit
 def test_extract_operator_docling_library_vlm_mode_config():
     """Test ExtractOperator with docling_library VLM text extraction mode configuration."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -359,7 +357,7 @@ def test_extract_operator_docling_library_vlm_mode_config():
 @pytest.mark.unit
 def test_extract_operator_get_metadata():
     """Test ExtractOperator metadata retrieval."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -405,10 +403,10 @@ def test_extract_operator_expand_extracted_data():
     """Test ExtractOperator with expand_extracted_data flag."""
     from unittest.mock import Mock, patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -430,7 +428,7 @@ def test_extract_operator_expand_extracted_data():
 @pytest.mark.unit
 def test_extract_operator_default_values():
     """Test ExtractOperator with default configuration values."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Minimal configuration - should use defaults
     config = {}
@@ -448,7 +446,7 @@ def test_extract_operator_default_values():
 @pytest.mark.unit
 def test_extract_operator_docling_serve_all_parameters():
     """Test ExtractOperator with all docling_serve parameters specified."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_serve",
@@ -482,10 +480,10 @@ def test_extract_operator_mode_combinations():
     """Test various valid mode combinations."""
     from unittest.mock import Mock, patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -517,7 +515,7 @@ def test_extract_operator_empty_table():
     """Test ExtractOperator with empty input table."""
     import pyarrow as pa
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Create empty table
     schema = pa.schema(
@@ -528,9 +526,7 @@ def test_extract_operator_empty_table():
             ("binary_content", pa.binary()),
         ]
     )
-    table = pa.table(
-        {"id": [], "name": [], "path": [], "binary_content": []}, schema=schema
-    )
+    table = pa.table({"id": [], "name": [], "path": [], "binary_content": []}, schema=schema)
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -573,7 +569,7 @@ def _build_pdf_input_table(*, sample_pdf_files, max_files: int = 1):
 @pytest.mark.unit
 def test_extract_operator_litellm_entity_mode():
     """Test ExtractOperator with LiteLLM entity extraction mode."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -588,9 +584,7 @@ def test_extract_operator_litellm_entity_mode():
         "custom_schema": {"company": "string", "date": "string"},
     }
 
-    with patch(
-        "common.clients.litellm_llm_client.LiteLLMLLMClient"
-    ) as mock_litellm_class:
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_litellm_class.return_value = Mock()
 
         operator = ExtractOperator(config=config)
@@ -605,7 +599,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
     sample_pdf_files,
 ):
     """Execute ExtractOperator with LiteLLM schema-based entity extraction."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
@@ -639,9 +633,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
         "total_amount": 1500.0,
     }
 
-    with patch(
-        "common.clients.litellm_llm_client.LiteLLMLLMClient"
-    ) as mock_litellm_class:
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
         mock_instance.chat.return_value = json.dumps(mocked_entities)
         mock_litellm_class.return_value = mock_instance
@@ -682,7 +674,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
     sample_pdf_files,
 ):
     """Execute ExtractOperator with LiteLLM schema-free entity extraction."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
@@ -710,9 +702,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
         "organization": "Acme Corp",
     }
 
-    with patch(
-        "common.clients.litellm_llm_client.LiteLLMLLMClient"
-    ) as mock_litellm_class:
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
         mock_instance.chat.return_value = json.dumps(mocked_entities)
         mock_litellm_class.return_value = mock_instance
@@ -743,7 +733,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
     sample_pdf_files,
 ):
     """Execute ExtractOperator with LiteLLM entity extraction and expanded columns."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
@@ -778,9 +768,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
         "total_amount": 2750.5,
     }
 
-    with patch(
-        "common.clients.litellm_llm_client.LiteLLMLLMClient"
-    ) as mock_litellm_class:
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
         mock_instance.chat.return_value = json.dumps(mocked_entities)
         mock_litellm_class.return_value = mock_instance
@@ -807,7 +795,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
 @pytest.mark.unit
 def test_extract_operator_docling_entity_mode():
     """Test ExtractOperator with Docling template-based entity extraction."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -825,8 +813,8 @@ def test_extract_operator_docling_entity_mode():
 @pytest.mark.unit
 def test_extract_operator_invalid_text_extraction_mode_error():
     """Test ExtractOperator with completely invalid text extraction mode."""
-    from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+    from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
         "text_extraction_mode": "nonexistent_mode",
@@ -843,8 +831,8 @@ def test_extract_operator_invalid_text_extraction_mode_error():
 @pytest.mark.unit
 def test_extract_operator_invalid_entity_extraction_mode_error():
     """Test ExtractOperator with completely invalid entity extraction mode."""
-    from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+    from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -863,7 +851,7 @@ def test_extract_operator_missing_required_columns(sample_pdf_files):
     """Test ExtractOperator with table missing both path and binary content."""
     import pyarrow as pa
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     table = pa.table(
         {
@@ -887,7 +875,7 @@ def test_extract_operator_missing_required_columns(sample_pdf_files):
 @pytest.mark.unit
 def test_extract_operator_custom_doc_column():
     """Test ExtractOperator with custom doc_column name."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -905,10 +893,10 @@ def test_extract_operator_custom_output_columns():
     """Test ExtractOperator with custom output column configuration."""
     from unittest.mock import Mock, patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -931,10 +919,10 @@ def test_extract_operator_expand_extracted_data_flag():
     """Test ExtractOperator with expand_extracted_data enabled."""
     from unittest.mock import Mock, patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -955,7 +943,7 @@ def test_extract_operator_expand_extracted_data_flag():
 @pytest.mark.unit
 def test_extract_operator_max_workers_configuration():
     """Test ExtractOperator with custom max_workers setting."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -972,7 +960,7 @@ def test_extract_operator_max_workers_configuration():
 @pytest.mark.unit
 def test_extract_operator_use_processes_flag():
     """Test ExtractOperator with use_processes flag."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -989,7 +977,7 @@ def test_extract_operator_use_processes_flag():
 @pytest.mark.unit
 def test_extract_operator_all_text_modes():
     """Test ExtractOperator initialization with all text extraction modes."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     text_modes = ["docling_library", "docling_serve"]
 
@@ -1013,10 +1001,10 @@ def test_extract_operator_all_entity_modes():
     """Test ExtractOperator initialization with all entity extraction modes."""
     from unittest.mock import Mock, patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -1046,10 +1034,10 @@ def test_extract_operator_custom_schema_validation():
     """Test ExtractOperator with custom schema for entity extraction."""
     from unittest.mock import Mock, patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -1077,10 +1065,10 @@ def test_extract_operator_temperature_and_max_tokens():
     """Test ExtractOperator with custom temperature and max_tokens."""
     from unittest.mock import Mock, patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
         mock_instance = Mock()
         mock_ollama_class.return_value = mock_instance
 
@@ -1100,7 +1088,7 @@ def test_extract_operator_temperature_and_max_tokens():
 @pytest.mark.unit
 def test_extract_operator_docling_serve_comprehensive():
     """Test ExtractOperator with comprehensive docling_serve parameters."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_serve",
@@ -1127,7 +1115,7 @@ def test_extract_operator_docling_serve_comprehensive():
 @pytest.mark.unit
 def test_extract_operator_docling_library_vlm_all_parameters():
     """Test ExtractOperator with docling_library VLM and all parameters."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -1150,7 +1138,7 @@ def test_extract_operator_docling_library_vlm_all_parameters():
 @pytest.mark.unit
 def test_extract_operator_metadata_structure():
     """Test ExtractOperator get_metadata returns correct structure."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
         "text_extraction_mode": "docling_library",
@@ -1181,7 +1169,7 @@ def test_extract_operator_metadata_structure():
 @pytest.mark.unit
 def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_change():
     """Test metadata consolidation preserves merged output semantics."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     operator = ExtractOperator(
         config={
@@ -1233,23 +1221,14 @@ def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_ch
         entity_metadata=entity_metadata,
     )
 
-    failed_docs = {
-        doc[OperatorConstants.Columns.ID]: doc
-        for doc in consolidated[Metrics.External.FAILED_DOCS]
-    }
-    skipped_docs = {
-        doc[OperatorConstants.Columns.ID]: doc
-        for doc in consolidated[Metrics.External.SKIPPED_DOCS]
-    }
+    failed_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.FAILED_DOCS]}
+    skipped_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.SKIPPED_DOCS]}
 
     assert consolidated[Metrics.External.TOTAL_DOCS] == 5
     assert consolidated[Metrics.External.FAILED_DOCS_COUNT] == 3
     assert consolidated[Metrics.External.SKIPPED_DOCS_COUNT] == 1
     assert consolidated[Metrics.External.PROCESSED_DOCS] == 1
-    assert (
-        consolidated[Metrics.External.NODE_STATUS]
-        == ExecutionStatus.COMPLETED_WITH_ERRORS.value
-    )
+    assert consolidated[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
     assert failed_docs["doc-1"][OperatorConstants.Misc.REASON] == (
         "Text extraction: text failed | Entity extraction: entity failed"
@@ -1264,7 +1243,7 @@ def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_ch
 @pytest.mark.unit
 def test_consolidate_metadata_uses_default_reasons_and_doc_id_column():
     """Test metadata consolidation supports doc_id column and default reasons."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     operator = ExtractOperator(
         config={
@@ -1314,7 +1293,7 @@ def test_consolidate_metadata_uses_default_reasons_and_doc_id_column():
 @pytest.mark.unit
 def test_consolidate_metadata_returns_text_metadata_when_entity_metadata_missing():
     """Test metadata consolidation returns text metadata unchanged when entity metadata is absent."""
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     operator = ExtractOperator(
         config={
@@ -1346,7 +1325,7 @@ def test_prepare_document_content_fetch_uses_path_when_id_missing():
     """Test document task preparation falls back to path before synthetic row ID."""
     import pyarrow as pa
 
-    from core.operators.operator_utils import OperatorUtils
+    from datasift.core.operators.operator_utils import OperatorUtils
 
     table = pa.table(
         {
@@ -1370,7 +1349,7 @@ def test_extract_operator_prefers_path_only_input_without_binary_content(
     """Test ExtractOperator succeeds when only path is provided."""
     import pyarrow as pa
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     test_file = sample_pdf_files[0]
     table = pa.table(
@@ -1402,10 +1381,10 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
     """Test that a document failing in both text and entity extraction has merged reasons."""
     from unittest.mock import patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock Ollama client to avoid connection requirement
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama:
         mock_instance = MagicMock()
         mock_ollama.return_value = mock_instance
 
@@ -1446,10 +1425,7 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
             entity_metadata=entity_metadata,
         )
 
-        failed_docs = {
-            doc[OperatorConstants.Columns.ID]: doc
-            for doc in consolidated[Metrics.External.FAILED_DOCS]
-        }
+        failed_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.FAILED_DOCS]}
 
         # Verify doc-1 appears once with merged reasons
         assert len(consolidated[Metrics.External.FAILED_DOCS]) == 2
@@ -1459,9 +1435,7 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
         )
         # Verify doc-2 appears with only text reason
         assert "doc-2" in failed_docs
-        assert (
-            failed_docs["doc-2"][OperatorConstants.Misc.REASON] == "text parsing error"
-        )
+        assert failed_docs["doc-2"][OperatorConstants.Misc.REASON] == "text parsing error"
 
 
 @pytest.mark.unit
@@ -1469,10 +1443,10 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
     """Test that a document skipped in both text and entity extraction has merged reasons."""
     from unittest.mock import patch
 
-    from core.operators.extract.extract_operator import ExtractOperator
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock Ollama client to avoid connection requirement
-    with patch("common.clients.ollama_client.OllamaClient") as mock_ollama:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama:
         mock_instance = MagicMock()
         mock_ollama.return_value = mock_instance
 
@@ -1513,10 +1487,7 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
             entity_metadata=entity_metadata,
         )
 
-        skipped_docs = {
-            doc[OperatorConstants.Columns.ID]: doc
-            for doc in consolidated[Metrics.External.SKIPPED_DOCS]
-        }
+        skipped_docs = {doc[OperatorConstants.Columns.ID]: doc for doc in consolidated[Metrics.External.SKIPPED_DOCS]}
 
         # Verify doc-1 appears once with merged reasons
         assert len(consolidated[Metrics.External.SKIPPED_DOCS]) == 2
@@ -1526,6 +1497,4 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
         )
         # Verify doc-2 appears with only text reason
         assert "doc-2" in skipped_docs
-        assert (
-            skipped_docs["doc-2"][OperatorConstants.Misc.REASON] == "text empty content"
-        )
+        assert skipped_docs["doc-2"][OperatorConstants.Misc.REASON] == "text empty content"

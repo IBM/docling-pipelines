@@ -6,9 +6,8 @@ Tests for environment configuration loading and parsing.
 import os
 from unittest.mock import patch
 
-
-from common.constants.operator_constants import OperatorConstants
-from common.util.infrastructure.config import (
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.utils.infrastructure.config import (
     get_env_bool,
     get_env_int,
     get_env_var,
@@ -70,10 +69,7 @@ class TestGetOpensearchConfig:
             assert config[OperatorConstants.VectorDB.CREATE_INDEX] is False
             assert config[OperatorConstants.VectorDB.INDEX_NAME] == "custom_index"
             assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "custom_id"
-            assert (
-                config[OperatorConstants.Columns.EMBEDDINGS_COLUMN]
-                == "custom_embeddings"
-            )
+            assert config[OperatorConstants.Columns.EMBEDDINGS_COLUMN] == "custom_embeddings"
 
             # Provider-specific params are in provider_config
             provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
@@ -83,8 +79,7 @@ class TestGetOpensearchConfig:
             assert provider_config[OperatorConstants.VectorDB.VERIFY_CERTS] is True
             assert provider_config[OperatorConstants.VectorDB.USERNAME] == "admin"
             assert (
-                provider_config[OperatorConstants.VectorDB.PASSWORD]
-                == "secret"  # pragma: allowlist secret
+                provider_config[OperatorConstants.VectorDB.PASSWORD] == "secret"  # pragma: allowlist secret
             )
             assert provider_config[OperatorConstants.Config.BATCH_SIZE] == 200
             assert provider_config[OperatorConstants.VectorDB.ENGINE] == "nmslib"
@@ -101,10 +96,7 @@ class TestGetOpensearchConfig:
             # AWS auth is in provider_config
             provider_config = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
             assert provider_config.get(OperatorConstants.VectorDB.AWS_AUTH) is True
-            assert (
-                provider_config.get(OperatorConstants.VectorDB.AWS_REGION)
-                == "us-west-2"
-            )
+            assert provider_config.get(OperatorConstants.VectorDB.AWS_REGION) == "us-west-2"
 
     def test_get_opensearch_config_boolean_variations(self):
         """Test that various boolean string values are parsed correctly."""
@@ -416,6 +408,5 @@ class TestEdgeCases:
             assert len(config) > 0
             assert provider_config[OperatorConstants.VectorDB.USERNAME] == "user"
             assert (
-                provider_config[OperatorConstants.VectorDB.PASSWORD]
-                == "pass"  # pragma: allowlist secret
+                provider_config[OperatorConstants.VectorDB.PASSWORD] == "pass"  # pragma: allowlist secret
             )

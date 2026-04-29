@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from common.clients.docling_serve_client import DoclingServeClient
-from common.exceptions.datasift_exceptions import DatasiftException
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.integrations.docling.client import DoclingServeClient
 
 
 class TestDoclingServeClient:
@@ -75,8 +75,8 @@ class TestDoclingServeClient:
         with pytest.raises(ValueError, match="Provide exactly one"):
             client.submit_document()
 
-    @patch("common.clients.docling_serve_client.Path")
-    @patch("common.clients.docling_serve_client.RestClient")
+    @patch("datasift.integrations.docling.client.Path")
+    @patch("datasift.integrations.docling.client.RestClient")
     def test_submit_document_with_file_path(self, mock_rest_client_class, mock_path):
         """Test submit_document with file path."""
         # Setup mocks
@@ -87,9 +87,7 @@ class TestDoclingServeClient:
         mock_path.return_value = mock_path_instance
 
         mock_rest_client_instance = MagicMock()
-        mock_rest_client_instance.call_rest_multipart.return_value = {
-            "task_id": "test-task-123"
-        }
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task-123"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
         # Execute
@@ -103,14 +101,12 @@ class TestDoclingServeClient:
         assert "files" in call_args.kwargs
         assert "data" in call_args.kwargs
 
-    @patch("common.clients.docling_serve_client.RestClient")
+    @patch("datasift.integrations.docling.client.RestClient")
     def test_submit_document_with_binary_content(self, mock_rest_client_class):
         """Test submit_document with binary content."""
         # Setup mock
         mock_rest_client_instance = MagicMock()
-        mock_rest_client_instance.call_rest_multipart.return_value = {
-            "task_id": "test-task-456"
-        }
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task-456"}
         mock_rest_client_class.return_value = mock_rest_client_instance
 
         # Execute
@@ -128,7 +124,7 @@ class TestDoclingServeClient:
         filename, content, mime_type = files["files"]
         assert content == binary_data
 
-    @patch("common.clients.docling_serve_client.RestClient.call_rest_multipart")
+    @patch("datasift.integrations.docling.client.RestClient.call_rest_multipart")
     def test_submit_document_http_error(self, mock_call_rest_multipart):
         """Test submit_document handles HTTP errors."""
         mock_call_rest_multipart.side_effect = DatasiftException(
@@ -141,8 +137,8 @@ class TestDoclingServeClient:
         with pytest.raises(DatasiftException, match="Connection failed"):
             client.submit_document(binary_content=b"data")
 
-    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
-    @patch("common.clients.docling_serve_client.time.sleep")
+    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
+    @patch("datasift.integrations.docling.client.time.sleep")
     def test_poll_status_success(self, mock_sleep, mock_call_rest_json):
         """Test poll_status with successful completion."""
         # Setup mock responses
@@ -156,8 +152,8 @@ class TestDoclingServeClient:
         assert status["task_status"] == "SUCCESS"
         mock_call_rest_json.assert_called_once()
 
-    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
-    @patch("common.clients.docling_serve_client.time.sleep")
+    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
+    @patch("datasift.integrations.docling.client.time.sleep")
     def test_poll_status_pending_then_success(self, mock_sleep, mock_call_rest_json):
         """Test poll_status with pending then success."""
         # Setup mock responses
@@ -176,7 +172,7 @@ class TestDoclingServeClient:
         assert status["task_status"] == "SUCCESS"
         assert mock_call_rest_json.call_count == 3
 
-    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
     def test_poll_status_failure(self, mock_call_rest_json):
         """Test poll_status with task failure."""
         mock_call_rest_json.return_value = {
@@ -188,7 +184,7 @@ class TestDoclingServeClient:
         with pytest.raises(DatasiftException, match="Task test-task-123 failed"):
             client.poll_status(task_id="test-task-123")
 
-    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
     def test_get_result_success(self, mock_call_rest_json):
         """Test get_result retrieves document data."""
         mock_call_rest_json.return_value = {"document": "data", "metadata": {}}
@@ -199,7 +195,7 @@ class TestDoclingServeClient:
         assert "document" in result
         assert result["document"] == "data"
 
-    @patch("common.clients.docling_serve_client.RestClient.call_rest_json")
+    @patch("datasift.integrations.docling.client.RestClient.call_rest_json")
     def test_get_result_http_error(self, mock_call_rest_json):
         """Test get_result handles HTTP errors."""
         mock_call_rest_json.side_effect = DatasiftException(
@@ -215,9 +211,7 @@ class TestDoclingServeClient:
     @patch.object(DoclingServeClient, "submit_document")
     @patch.object(DoclingServeClient, "_poll_for_completion")
     @patch.object(DoclingServeClient, "get_result")
-    def test_process_document_integration(
-        self, mock_get_result, mock_poll_for_completion, mock_submit
-    ):
+    def test_process_document_integration(self, mock_get_result, mock_poll_for_completion, mock_submit):
         """Test process_document integrates all steps."""
         # Setup mocks
         mock_submit.return_value = "test-task-123"
@@ -234,8 +228,6 @@ class TestDoclingServeClient:
 
         # Verify all methods called
         mock_submit.assert_called_once()
-        mock_poll_for_completion.assert_called_once_with(
-            task_id="test-task-123", poll_interval=None, timeout=7200
-        )
+        mock_poll_for_completion.assert_called_once_with(task_id="test-task-123", poll_interval=None, timeout=7200)
         mock_get_result.assert_called_once_with(task_id="test-task-123")
         assert result["document"] == "processed"

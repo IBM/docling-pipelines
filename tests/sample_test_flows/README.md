@@ -50,7 +50,7 @@ Specialized flows for invoice document processing with entity extraction.
 - Financial document processing
 - Structured data extraction from invoices
 
-**Key Operators:** `extract_operator`, `extract_operator`, `chunker`, `embeddings`, `opensearch`
+**Key Operators:** `extract_operator`, `chunker`, `embeddings`, `opensearch`
 
 **Entity Fields Extracted:**
 - Invoice number, date, payment due
@@ -75,7 +75,7 @@ Document classification and categorization workflows.
 - Routing documents based on classification
 - Type-specific processing workflows
 
-**Key Operators:** `document_classifier`, `extract_operator`, `extract_operator`
+**Key Operators:** `document_classifier`, `extract_operator`
 
 **Document Types Supported:**
 - Invoice, Receipt, Contract
@@ -170,7 +170,7 @@ Advanced, domain-specific document processing flows.
 
 1. **Python Environment:**
    ```bash
-   cd src/datasift_opensource/backend
+   source .venv/bin/activate
    uv sync --extra dev
    ```
 
@@ -189,7 +189,7 @@ Advanced, domain-specific document processing flows.
 ### Execution
 
 ```bash
-# Basic execution
+# Basic execution (from repo root)
 datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
 
 # With custom environment
@@ -200,10 +200,9 @@ datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flo
 ### Testing Flows
 
 ```bash
-# Run flow tests
-cd src/datasift_opensource/backend
-export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-uv run pytest ../../../tests/test_datasift_cli.py -v
+# Run flow tests (from repo root)
+source .venv/bin/activate
+uv run pytest tests/test_datasift_cli.py -v
 ```
 
 ---
@@ -367,7 +366,7 @@ Enable detailed logging:
 
 - **Architecture Documentation:** See `ARCHITECTURE.md` in project root
 - **User Guide:** See `USER_GUIDE_PIPELINE_SETUP.md` for setup instructions
-- **Operator Documentation:** See `src/datasift_opensource/backend/core/operators/`
+- **Operator Documentation:** See `src/datasift/core/operators/`
 - **Integration Tests:** See `tests/integration/` for more examples
 
 ---

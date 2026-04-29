@@ -18,13 +18,11 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(
-    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
-)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.operators.extract.extract_operator import ExtractOperator
-from core.operators.functional.chunker import ChunkerOperator, ChunkType
-from core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from datasift.core.operators.extract.extract_operator import ExtractOperator
+from datasift.core.operators.functional.chunker import ChunkerOperator, ChunkType
+from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
 
 def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
@@ -44,18 +42,14 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
     print("=" * 80)
     print("SEMANTIC CHUNKING EXAMPLE")
     print("=" * 80)
-    print(
-        "\nNOTE: This example requires Ollama server running with the specified model."
-    )
+    print("\nNOTE: This example requires Ollama server running with the specified model.")
     print("      Start Ollama: ollama serve")
     print("      Pull model: ollama pull granite4")
     print()
 
     # 1. Ingest files
     # Use absolute path to avoid path issues
-    fixtures_path = (
-        Path(__file__).parent.parent / "tests" / "fixtures" / "customer_support_docs"
-    )
+    fixtures_path = Path(__file__).parent.parent / "tests" / "fixtures" / "customer_support_docs"
     ingest_operator: IngestLocalOperator = IngestLocalOperator(
         {
             "input_folder": str(fixtures_path),
@@ -94,9 +88,7 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
     print("\n>>>>>>>>>>>>> Testing SEMANTIC chunking")
     print(f">>>>>>>>>>>>> Embeddings model: {config['semantic_embeddings_model']}")
     print(f">>>>>>>>>>>>> Breakpoint type: {config['breakpoint_threshold_type']}")
-    print(
-        f">>>>>>>>>>>>> Breakpoint threshold: {config['breakpoint_threshold_amount']}"
-    )
+    print(f">>>>>>>>>>>>> Breakpoint threshold: {config['breakpoint_threshold_amount']}")
 
     operator: ChunkerOperator
     if runtime == "python":
@@ -135,9 +127,7 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
                 min_size = min(doc_chunk_sizes)
                 max_size = max(doc_chunk_sizes)
                 print(f"  {doc_name}:")
-                print(
-                    f"    Chunks: {num_chunks}, Avg: {avg_size:.0f}, Min: {min_size}, Max: {max_size} chars"
-                )
+                print(f"    Chunks: {num_chunks}, Avg: {avg_size:.0f}, Min: {min_size}, Max: {max_size} chars")
 
     # Initialize statistics variables
     avg_chunk_size = 0.0
@@ -153,12 +143,8 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
         print(f"  Average chunk size: {avg_chunk_size:.2f} characters")
         print(f"  Min chunk size: {min_chunk_size} characters")
         print(f"  Max chunk size: {max_chunk_size} characters")
-        print(
-            "\n  NOTE: Semantic chunking creates variable-sized chunks based on content,"
-        )
-        print(
-            "        unlike fixed-size chunking. Chunks are split at semantic boundaries."
-        )
+        print("\n  NOTE: Semantic chunking creates variable-sized chunks based on content,")
+        print("        unlike fixed-size chunking. Chunks are split at semantic boundaries.")
 
     print(f"\n>>>>>>>>>>>>> Meta Data : - \n {json.dumps(metadata, indent=2)}")
 
@@ -176,9 +162,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
 
     # 1. Ingest files
     # Use absolute path to avoid path issues
-    fixtures_path = (
-        Path(__file__).parent.parent / "tests" / "fixtures" / "customer_support_docs"
-    )
+    fixtures_path = Path(__file__).parent.parent / "tests" / "fixtures" / "customer_support_docs"
     ingest_operator: IngestLocalOperator = IngestLocalOperator(
         {
             "input_folder": str(fixtures_path),
@@ -213,9 +197,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
         "retain_original_content": True,
         "enable_summarization": True,
     }
-    print(
-        f"\n>>>>>>>>>>>>> Testing HYBRID chunking with chunk_size: {config['chunk_size']} tokens"
-    )
+    print(f"\n>>>>>>>>>>>>> Testing HYBRID chunking with chunk_size: {config['chunk_size']} tokens")
     print(f">>>>>>>>>>>>> Tokenizer: {config['docling_tokenizer']}")
 
     operator: ChunkerOperator
@@ -255,9 +237,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
                 min_size = min(doc_chunk_sizes)
                 max_size = max(doc_chunk_sizes)
                 print(f"  {doc_name}:")
-                print(
-                    f"    Chunks: {num_chunks}, Avg: {avg_size:.0f}, Min: {min_size}, Max: {max_size} chars"
-                )
+                print(f"    Chunks: {num_chunks}, Avg: {avg_size:.0f}, Min: {min_size}, Max: {max_size} chars")
 
     # Initialize statistics variables
     avg_chunk_size = 0.0
@@ -296,5 +276,3 @@ def main(runtime: str = "python") -> None:  # pragma: no cover
 
 if __name__ == "__main__":  # pragma: no cover
     main()
-
-# Made with Bob

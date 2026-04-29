@@ -16,19 +16,19 @@ Tests cover:
 
 from unittest.mock import Mock, patch
 
-import pytest
-import pyarrow as pa
 import numpy as np
+import pyarrow as pa
+import pytest
 
-from core.operators.functional.embeddings import EmbeddingsOperator
-from core.operators.functional.embeddings.embeddings_operator import (
-    OVERLAP_RATIO_DEFAULT,
-    OVERLAP_RATIO_MIN,
-    OVERLAP_RATIO_MAX,
+from datasift.core.constants.constants import ExecutionStatus, Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.functional.embeddings import EmbeddingsOperator
+from datasift.core.operators.functional.embeddings.embeddings_operator import (
     EMBEDDINGS_TYPE_DEFAULT,
+    OVERLAP_RATIO_DEFAULT,
+    OVERLAP_RATIO_MAX,
+    OVERLAP_RATIO_MIN,
 )
-from common.constants.constants import Metrics, ExecutionStatus  # noqa: E402
-from common.constants.operator_constants import OperatorConstants  # noqa: E402
 
 
 # Test Fixtures
@@ -176,14 +176,9 @@ class TestEmbeddingsOperatorInitialization:
 
         assert operator.embeddings_type == EMBEDDINGS_TYPE_DEFAULT
         assert operator.embeddings_model_id == "mistral"
-        assert (
-            operator.embeddings_column
-            == OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
-        )
+        assert operator.embeddings_column == OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
         assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        assert (
-            operator.doc_id_hash_column == OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
-        )
+        assert operator.doc_id_hash_column == OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
 
     def test_init_with_minimal_config(self):
@@ -231,19 +226,10 @@ class TestEmbeddingsOperatorMetadata:
         assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in features
 
         # Check embeddings feature details
-        embeddings_feature = features[
-            OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
-        ]
-        assert (
-            embeddings_feature[OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB] is True
-        )
-        assert (
-            embeddings_feature[OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB] is True
-        )
-        assert (
-            embeddings_feature[OperatorConstants.Misc.TYPE]
-            == OperatorConstants.Types.TYPE_VECTOR
-        )
+        embeddings_feature = features[OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT]
+        assert embeddings_feature[OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB] is True
+        assert embeddings_feature[OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB] is True
+        assert embeddings_feature[OperatorConstants.Misc.TYPE] == OperatorConstants.Types.TYPE_VECTOR
 
     def test_get_metadata_attributes(self, sample_config):
         """Test metadata includes correct attributes."""
@@ -259,10 +245,7 @@ class TestEmbeddingsOperatorMetadata:
 
         # Check embeddings_type attribute details
         embeddings_type_attr = attributes["embeddings_type"]
-        assert (
-            embeddings_type_attr[OperatorConstants.Config.DEFAULT]
-            == EMBEDDINGS_TYPE_DEFAULT
-        )
+        assert embeddings_type_attr[OperatorConstants.Config.DEFAULT] == EMBEDDINGS_TYPE_DEFAULT
 
         # Check overlap_ratio attribute details
         overlap_attr = attributes["overlap_ratio"]
@@ -303,10 +286,7 @@ class TestEmbeddingsOperatorValidation:
         with pytest.raises(Exception) as exc_info:
             EmbeddingsOperator(config)
 
-        assert (
-            "unsupported" in str(exc_info.value).lower()
-            or "failed to initialize" in str(exc_info.value).lower()
-        )
+        assert "unsupported" in str(exc_info.value).lower() or "failed to initialize" in str(exc_info.value).lower()
 
     def test_validate_embeddings_type_not_string(self):
         """Test validation with non-string embeddings_type."""
@@ -350,9 +330,7 @@ class TestEmbeddingsOperatorValidation:
         assert len(errors) > 0
         assert any("overlap_ratio must be between" in err for err in errors)
 
-    @patch(
-        "core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
-    )
+    @patch("datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient")
     def test_validate_invalid_model_id(self, mock_ollama_client):
         """Test validation with invalid model ID."""
         config = {
@@ -366,13 +344,9 @@ class TestEmbeddingsOperatorValidation:
         operator.validate(errors, warnings, ["content"])
 
         assert len(errors) > 0
-        assert any(
-            "embeddings_model_id must be a non-empty string" in err for err in errors
-        )
+        assert any("embeddings_model_id must be a non-empty string" in err for err in errors)
 
-    @patch(
-        "core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
-    )
+    @patch("datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient")
     def test_validate_all_supported_embeddings_types(self, mock_ollama_client):
         """Test validation accepts all supported embeddings types."""
         # Only test ollama since openai is not yet implemented
@@ -396,9 +370,7 @@ class TestEmbeddingsOperatorTransform:
     """Test the transform method with various scenarios."""
 
     @patch("ollama.embeddings")
-    def test_transform_single_document(
-        self, mock_embeddings, sample_config, sample_table_single_doc
-    ):
+    def test_transform_single_document(self, mock_embeddings, sample_config, sample_table_single_doc):
         """Test transform with a single document."""
         # Mock ollama response
         mock_embeddings.return_value = {"embedding": [0.1] * 384}
@@ -419,9 +391,7 @@ class TestEmbeddingsOperatorTransform:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
 
     @patch("ollama.embeddings")
-    def test_transform_multiple_documents(
-        self, mock_embeddings, sample_config, sample_table_multiple_docs
-    ):
+    def test_transform_multiple_documents(self, mock_embeddings, sample_config, sample_table_multiple_docs):
         """Test transform with multiple documents."""
         # Mock ollama response
         mock_embeddings.return_value = {"embedding": [0.1] * 384}
@@ -441,9 +411,7 @@ class TestEmbeddingsOperatorTransform:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
 
     @patch("ollama.embeddings")
-    def test_transform_empty_table(
-        self, mock_embeddings, sample_config, sample_table_empty
-    ):
+    def test_transform_empty_table(self, mock_embeddings, sample_config, sample_table_empty):
         """Test transform with an empty table."""
         operator = EmbeddingsOperator(sample_config)
         result_tables, metadata = operator.transform(sample_table_empty)
@@ -473,10 +441,7 @@ class TestEmbeddingsOperatorTransform:
         # Document should fail and be removed
         assert result_table.num_rows == 0
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
-        assert (
-            metadata[Metrics.External.NODE_STATUS]
-            == ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        )
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
     @patch("ollama.embeddings")
     def test_transform_preserves_existing_columns(self, mock_embeddings, sample_config):
@@ -517,17 +482,13 @@ class TestEmbeddingsGeneration:
         operator = EmbeddingsOperator(sample_config)
         texts = ["Short text"]
 
-        embeddings = operator._create_embeddings(
-            text=texts, model_name="llama3", overlap_ratio=0.2
-        )
+        embeddings = operator._create_embeddings(text=texts, model_name="llama3", overlap_ratio=0.2)
 
         assert len(embeddings) == 1
         assert len(embeddings[0]) == 384
         assert mock_ollama_client.embeddings.call_count == 1
 
-    def test_create_embeddings_long_text_requires_chunking(
-        self, mock_ollama_client, sample_config
-    ):
+    def test_create_embeddings_long_text_requires_chunking(self, mock_ollama_client, sample_config):
         """Test embeddings generation with long text requiring chunking."""
         mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
 
@@ -537,35 +498,27 @@ class TestEmbeddingsGeneration:
         long_text = "This is a very long document. " * 1000  # ~30000 chars
         texts = [long_text]
 
-        embeddings = operator._create_embeddings(
-            text=texts, model_name="llama3", overlap_ratio=0.2
-        )
+        embeddings = operator._create_embeddings(text=texts, model_name="llama3", overlap_ratio=0.2)
 
         assert len(embeddings) == 1
         assert len(embeddings[0]) == 384
         # Should be called multiple times for chunks
         assert mock_ollama_client.embeddings.call_count >= 1
 
-    def test_create_embeddings_multiple_texts_batch(
-        self, mock_ollama_client, sample_config
-    ):
+    def test_create_embeddings_multiple_texts_batch(self, mock_ollama_client, sample_config):
         """Test embeddings generation with multiple texts (batch)."""
         mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
 
         operator = EmbeddingsOperator(sample_config)
         texts = ["Text 1", "Text 2", "Text 3"]
 
-        embeddings = operator._create_embeddings(
-            text=texts, model_name="llama3", overlap_ratio=0.2
-        )
+        embeddings = operator._create_embeddings(text=texts, model_name="llama3", overlap_ratio=0.2)
 
         assert len(embeddings) == 3
         assert all(len(emb) == 384 for emb in embeddings)
         assert mock_ollama_client.embeddings.call_count == 3
 
-    def test_create_embeddings_with_different_overlap_ratios(
-        self, mock_ollama_client, sample_config
-    ):
+    def test_create_embeddings_with_different_overlap_ratios(self, mock_ollama_client, sample_config):
         """Test chunking with different overlap ratios."""
         # Override the default 768-dim embeddings with 384-dim for this test
         mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
@@ -575,16 +528,12 @@ class TestEmbeddingsGeneration:
 
         # Test with different overlap ratios
         for overlap_ratio in [0.0, 0.2, 0.5]:
-            embeddings = operator._create_embeddings(
-                text=[long_text], model_name="llama3", overlap_ratio=overlap_ratio
-            )
+            embeddings = operator._create_embeddings(text=[long_text], model_name="llama3", overlap_ratio=overlap_ratio)
 
             assert len(embeddings) == 1
             assert len(embeddings[0]) == 384
 
-    def test_create_embeddings_averaging_for_chunks(
-        self, mock_ollama_client, sample_config
-    ):
+    def test_create_embeddings_averaging_for_chunks(self, mock_ollama_client, sample_config):
         """Test that embeddings are averaged for chunked text."""
         # Return different embeddings for each chunk
         call_count = [0]
@@ -599,9 +548,7 @@ class TestEmbeddingsGeneration:
         operator = EmbeddingsOperator(sample_config)
         long_text = "This is a very long document. " * 1000
 
-        embeddings = operator._create_embeddings(
-            text=[long_text], model_name="llama3", overlap_ratio=0.2
-        )
+        embeddings = operator._create_embeddings(text=[long_text], model_name="llama3", overlap_ratio=0.2)
 
         # Should average multiple chunk embeddings
         assert len(embeddings) == 1
@@ -615,9 +562,7 @@ class TestEmbeddingsGeneration:
         operator = EmbeddingsOperator(sample_config)
         texts = [""]
 
-        embeddings = operator._create_embeddings(
-            text=texts, model_name="llama3", overlap_ratio=0.2
-        )
+        embeddings = operator._create_embeddings(text=texts, model_name="llama3", overlap_ratio=0.2)
 
         # Should return zero vector for empty text
         assert len(embeddings) == 1
@@ -635,10 +580,7 @@ class TestEmbeddingsGeneration:
         with pytest.raises(Exception) as exc_info:
             EmbeddingsOperator(config)
 
-        assert (
-            "unsupported" in str(exc_info.value).lower()
-            or "failed to initialize" in str(exc_info.value).lower()
-        )
+        assert "unsupported" in str(exc_info.value).lower() or "failed to initialize" in str(exc_info.value).lower()
 
 
 # Document Hash Tests
@@ -646,9 +588,7 @@ class TestEmbeddingsDocumentHash:
     """Test document hash generation and preservation."""
 
     @patch("ollama.embeddings")
-    def test_automatic_hash_generation(
-        self, mock_embeddings, sample_config, sample_table_single_doc
-    ):
+    def test_automatic_hash_generation(self, mock_embeddings, sample_config, sample_table_single_doc):
         """Test automatic hash generation when missing."""
         mock_embeddings.return_value = {"embedding": [0.1] * 384}
 
@@ -712,9 +652,7 @@ class TestEmbeddingsDocumentHash:
 class TestEmbeddingsErrorHandling:
     """Test error handling in various failure scenarios."""
 
-    def test_ollama_connection_error(
-        self, mock_ollama_client, sample_config, sample_table_single_doc
-    ):
+    def test_ollama_connection_error(self, mock_ollama_client, sample_config, sample_table_single_doc):
         """Test handling of Ollama connection errors."""
         # Simulate connection error using the global mock client
         mock_ollama_client.embeddings.side_effect = Exception("Connection refused")
@@ -727,14 +665,9 @@ class TestEmbeddingsErrorHandling:
         # Document should fail and be removed
         assert result_table.num_rows == 0
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
-        assert (
-            metadata[Metrics.External.NODE_STATUS]
-            == ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        )
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
-    def test_invalid_model_name_error(
-        self, mock_ollama_client, sample_config, sample_table_single_doc
-    ):
+    def test_invalid_model_name_error(self, mock_ollama_client, sample_config, sample_table_single_doc):
         """Test handling of invalid model names."""
         # Simulate model not found error using the global mock client
         mock_ollama_client.embeddings.side_effect = Exception("Model not found")
@@ -748,9 +681,7 @@ class TestEmbeddingsErrorHandling:
         assert result_table.num_rows == 0
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
 
-    def test_per_document_error_tracking(
-        self, mock_ollama_client, sample_config, sample_table_multiple_docs
-    ):
+    def test_per_document_error_tracking(self, mock_ollama_client, sample_config, sample_table_multiple_docs):
         """Test per-document error tracking in metadata."""
         # Make second document fail
         call_count = [0]
@@ -774,9 +705,7 @@ class TestEmbeddingsErrorHandling:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert len(metadata[Metrics.External.FAILED_DOCS]) == 1
 
-    def test_graceful_failure_continues_processing(
-        self, mock_ollama_client, sample_config, sample_table_multiple_docs
-    ):
+    def test_graceful_failure_continues_processing(self, mock_ollama_client, sample_config, sample_table_multiple_docs):
         """Test that processing continues after individual document failures."""
         # Make first document fail, others succeed
         call_count = [0]
@@ -806,9 +735,7 @@ class TestEmbeddingsErrorHandling:
         # Mock the import to fail
         with patch.dict("sys.modules", {"ollama": None}):
             with pytest.raises(Exception) as exc_info:
-                operator._create_embeddings(
-                    text=["test"], model_name="llama3", overlap_ratio=0.2
-                )
+                operator._create_embeddings(text=["test"], model_name="llama3", overlap_ratio=0.2)
 
             assert "ollama package not installed" in str(exc_info.value)
 
@@ -817,9 +744,7 @@ class TestEmbeddingsErrorHandling:
 class TestEmbeddingsChunkedContent:
     """Test processing of pre-chunked content."""
 
-    def test_with_pre_chunked_content(
-        self, mock_ollama_client, sample_config, sample_table_with_chunks
-    ):
+    def test_with_pre_chunked_content(self, mock_ollama_client, sample_config, sample_table_with_chunks):
         """Test transform with pre-chunked content column."""
         mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
 
@@ -841,9 +766,7 @@ class TestEmbeddingsChunkedContent:
         assert len(embeddings) == 3
 
     @patch("ollama.embeddings")
-    def test_fallback_to_full_content_when_no_chunks(
-        self, mock_embeddings, sample_config
-    ):
+    def test_fallback_to_full_content_when_no_chunks(self, mock_embeddings, sample_config):
         """Test fallback to full content when chunked_content is empty."""
         mock_embeddings.return_value = {"embedding": [0.1] * 384}
 
@@ -900,9 +823,7 @@ class TestEmbeddingsMetadataValidation:
     """Test metadata structure and content validation."""
 
     @patch("ollama.embeddings")
-    def test_metadata_includes_processed_docs_count(
-        self, mock_embeddings, sample_config, sample_table_multiple_docs
-    ):
+    def test_metadata_includes_processed_docs_count(self, mock_embeddings, sample_config, sample_table_multiple_docs):
         """Test metadata includes processed_docs count."""
         mock_embeddings.return_value = {"embedding": [0.1] * 384}
 
@@ -912,9 +833,7 @@ class TestEmbeddingsMetadataValidation:
         assert Metrics.External.PROCESSED_DOCS in metadata
         assert metadata[Metrics.External.PROCESSED_DOCS] == 3
 
-    def test_metadata_includes_failed_docs_count(
-        self, mock_ollama_client, sample_config, sample_table_multiple_docs
-    ):
+    def test_metadata_includes_failed_docs_count(self, mock_ollama_client, sample_config, sample_table_multiple_docs):
         """Test metadata includes failed_docs count."""
         # Make one document fail - need to clear return_value first
         mock_ollama_client.embeddings.return_value = None
@@ -935,9 +854,7 @@ class TestEmbeddingsMetadataValidation:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
 
     @patch("ollama.embeddings")
-    def test_metadata_includes_node_status(
-        self, mock_embeddings, sample_config, sample_table_single_doc
-    ):
+    def test_metadata_includes_node_status(self, mock_embeddings, sample_config, sample_table_single_doc):
         """Test metadata includes node_status."""
         mock_embeddings.return_value = {"embedding": [0.1] * 384}
 
@@ -948,9 +865,7 @@ class TestEmbeddingsMetadataValidation:
         # Should be Completed when all succeed
         assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED.value
 
-    def test_metadata_node_status_with_errors(
-        self, mock_ollama_client, sample_config, sample_table_single_doc
-    ):
+    def test_metadata_node_status_with_errors(self, mock_ollama_client, sample_config, sample_table_single_doc):
         """Test node_status is COMPLETED_WITH_ERRORS when failures occur."""
         # Override default return_value with side_effect for this test
         mock_ollama_client.embeddings.return_value = None
@@ -959,15 +874,10 @@ class TestEmbeddingsMetadataValidation:
         operator = EmbeddingsOperator(sample_config)
         result_tables, metadata = operator.transform(sample_table_single_doc)
 
-        assert (
-            metadata[Metrics.External.NODE_STATUS]
-            == ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        )
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
     @patch("ollama.embeddings")
-    def test_metadata_completeness(
-        self, mock_embeddings, sample_config, sample_table_single_doc
-    ):
+    def test_metadata_completeness(self, mock_embeddings, sample_config, sample_table_single_doc):
         """Test that all required metadata fields are present."""
         mock_embeddings.return_value = {"embedding": [0.1] * 384}
 
@@ -992,9 +902,7 @@ class TestEmbeddingsOperatorIntegration:
     """Integration-style tests combining multiple features."""
 
     @patch("ollama.embeddings")
-    def test_full_pipeline_with_hash_and_embeddings(
-        self, mock_embeddings, sample_config, sample_table_multiple_docs
-    ):
+    def test_full_pipeline_with_hash_and_embeddings(self, mock_embeddings, sample_config, sample_table_multiple_docs):
         """Test full pipeline: generate embeddings and hashes."""
         mock_embeddings.return_value = {"embedding": [0.1] * 384}
 
@@ -1026,7 +934,7 @@ class TestEmbeddingsOperatorIntegration:
 
             # Mock OllamaClient for this specific model
             with patch(
-                "core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
+                "datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
             ) as mock_client:
                 mock_instance = Mock()
                 mock_instance.generate_embeddings.return_value = [0.1] * 384
@@ -1049,9 +957,7 @@ class TestEmbeddingsOperatorIntegration:
                 # Should process successfully with appropriate chunking
                 assert metadata[Metrics.External.PROCESSED_DOCS] == 1
 
-    def test_mixed_success_and_failure_documents(
-        self, mock_ollama_client, sample_config
-    ):
+    def test_mixed_success_and_failure_documents(self, mock_ollama_client, sample_config):
         """Test processing with mix of successful and failed documents."""
         # Make every other document fail
         call_count = [0]

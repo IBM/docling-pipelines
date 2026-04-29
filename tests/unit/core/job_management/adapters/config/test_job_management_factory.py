@@ -7,10 +7,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from core.job_management.adapters.config import (
+from datasift.core.job_management.adapters.config import (
+    FrameworkType,
     JobManagementFactory,
     StorageBackend,
-    FrameworkType,
 )
 
 
@@ -33,22 +33,20 @@ class TestJobManagementFactoryStoreSelection:
         assert store is not None
         assert store.__class__.__name__ == "JsonJobStatsStore"
 
-    @patch("core.job_management.adapters.config.job_management_factory.run_migrations")
+    @patch("datasift.core.job_management.adapters.config.job_management_factory.run_migrations")
+    @patch("datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_session_factory")
+    @patch("datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_postgres_engine")
     @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_session_factory"
-    )
-    @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.create_postgres_engine"
-    )
-    @patch(
-        "core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
+        "datasift.core.job_management.adapters.stores.postgres.postgres_job_stats_store.get_postgres_connection_string"
     )
     def test_postgresql_store_creation_with_config(
         self, mock_conn_string, mock_engine, mock_session_factory, mock_run_migrations
     ):
         """Test PostgresJobStatsStore creation with config."""
         # Mock successful PostgreSQL setup
-        mock_conn_string.return_value = "postgresql+psycopg2://user:pass@localhost:5432/datasift"  # pragma: allowlist secret
+        mock_conn_string.return_value = (
+            "postgresql+psycopg2://user:pass@localhost:5432/datasift"  # pragma: allowlist secret
+        )
         mock_engine_instance = MagicMock()
         mock_engine.return_value = mock_engine_instance
         mock_session_factory.return_value = MagicMock()
@@ -63,9 +61,7 @@ class TestJobManagementFactoryStoreSelection:
             }
         }
 
-        factory = JobManagementFactory(
-            storage_backend=StorageBackend.POSTGRESQL, config=config
-        )
+        factory = JobManagementFactory(storage_backend=StorageBackend.POSTGRESQL, config=config)
         store = factory.create_job_stats_store()
 
         assert store is not None
@@ -78,7 +74,7 @@ class TestJobManagementFactoryStoreSelection:
         """Test PostgresJobStatsStore creation fails without password."""
         factory = JobManagementFactory(storage_backend=StorageBackend.POSTGRESQL)
 
-        from common.exceptions.datasift_exceptions import (
+        from datasift.exceptions.datasift_exceptions import (
             JobStatsStoreInitializationException,
         )
 

@@ -3,7 +3,7 @@
 
 """Unit tests for PII/HAP domain models."""
 
-from core.operators.quality.pii_and_hap.domain.models import (
+from datasift.core.operators.quality.pii_and_hap.domain.models import (
     DetectionResult,
     PIIHAPDetectionResponse,
 )
@@ -14,9 +14,7 @@ class TestDetectionResult:
 
     def test_detection_result_creation(self):
         """Test creating a DetectionResult with required fields."""
-        result = DetectionResult(
-            detection="email", detection_type="pii", score=0.95, start=10, end=30
-        )
+        result = DetectionResult(detection="email", detection_type="pii", score=0.95, start=10, end=30)
 
         assert result.detection == "email"
         assert result.detection_type == "pii"
@@ -45,9 +43,7 @@ class TestDetectionResult:
 
     def test_detection_result_hap_type(self):
         """Test creating a HAP detection result."""
-        result = DetectionResult(
-            detection="hate_speech", detection_type="hap", score=0.92, start=0, end=50
-        )
+        result = DetectionResult(detection="hate_speech", detection_type="hap", score=0.92, start=0, end=50)
 
         assert result.detection == "hate_speech"
         assert result.detection_type == "hap"
@@ -66,12 +62,8 @@ class TestPIIHAPDetectionResponse:
     def test_response_with_detections(self):
         """Test creating a response with multiple detections."""
         detections = [
-            DetectionResult(
-                detection="email", detection_type="pii", score=0.95, start=10, end=30
-            ),
-            DetectionResult(
-                detection="phone", detection_type="pii", score=0.88, start=40, end=52
-            ),
+            DetectionResult(detection="email", detection_type="pii", score=0.95, start=10, end=30),
+            DetectionResult(detection="phone", detection_type="pii", score=0.88, start=40, end=52),
         ]
 
         response = PIIHAPDetectionResponse(

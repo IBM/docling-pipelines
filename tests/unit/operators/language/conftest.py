@@ -6,7 +6,8 @@ for the FastTextModelManager singleton.
 """
 
 import pytest
-from core.operators.quality.fasttext_model_manager import FastTextModelManager
+
+from datasift.core.operators.quality.fasttext_model_manager import FastTextModelManager
 
 
 @pytest.fixture(autouse=True)
@@ -43,9 +44,7 @@ def reset_fasttext_singleton():
         try:
             if manager._ref_count > 0:
                 # Log warning about unreleased references
-                print(
-                    f"\nWarning: Test left {manager._ref_count} unreleased model references"
-                )
+                print(f"\nWarning: Test left {manager._ref_count} unreleased model references")
             manager._ref_count = 0
             manager._model = None
             manager._load_failed = False

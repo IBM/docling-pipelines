@@ -13,18 +13,13 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from common.clients import (
-    BaseLLMClient,
-    HuggingFaceLLMClient,
-    LiteLLMLLMClient,
-    retry_with_backoff,
-)
-from common.exceptions.datasift_exceptions import ConfigurationError
+from datasift.exceptions.datasift_exceptions import ConfigurationError
+from datasift.integrations.base_llm_client import BaseLLMClient, retry_with_backoff
+from datasift.integrations.huggingface.client import HuggingFaceLLMClient
+from datasift.integrations.litellm.client import LiteLLMLLMClient
 
 # Check for optional dependencies
-HAS_SENTENCE_TRANSFORMERS = (
-    importlib.util.find_spec("sentence_transformers") is not None
-)
+HAS_SENTENCE_TRANSFORMERS = importlib.util.find_spec("sentence_transformers") is not None
 HAS_LITELLM = importlib.util.find_spec("litellm") is not None
 
 
@@ -56,9 +51,7 @@ class TestRetryWithBackoff:
 
     def test_retry_all_attempts_fail(self):
         """Test failure after all retry attempts."""
-        mock_func = Mock(
-            __name__="test_func", side_effect=Exception("persistent failure")
-        )
+        mock_func = Mock(__name__="test_func", side_effect=Exception("persistent failure"))
         decorated = retry_with_backoff(max_retries=3, initial_delay=0.01)(mock_func)
 
         with pytest.raises(Exception, match="persistent failure"):
@@ -77,9 +70,7 @@ class TestBaseLLMClient:
             def generate_embeddings(self, text: str):
                 return [0.1, 0.2]
 
-            def generate_embeddings_batch(
-                self, texts: list[str], batch_size: int = 32
-            ) -> list[list[float]]:
+            def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
                 return [[0.1, 0.2] for _ in texts]
 
             @staticmethod
@@ -101,9 +92,7 @@ class TestBaseLLMClient:
             def generate_embeddings(self, text: str):
                 return [0.1, 0.2]
 
-            def generate_embeddings_batch(
-                self, texts: list[str], batch_size: int = 32
-            ) -> list[list[float]]:
+            def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
                 return [[0.1, 0.2] for _ in texts]
 
             @staticmethod
@@ -116,9 +105,7 @@ class TestBaseLLMClient:
 
         client = TestClient(model_name="test-model")
 
-        with pytest.raises(
-            NotImplementedError, match="does not support text generation"
-        ):
+        with pytest.raises(NotImplementedError, match="does not support text generation"):
             client.generate("test prompt")
 
     def test_chat_not_supported(self):
@@ -128,9 +115,7 @@ class TestBaseLLMClient:
             def generate_embeddings(self, text: str):
                 return [0.1, 0.2]
 
-            def generate_embeddings_batch(
-                self, texts: list[str], batch_size: int = 32
-            ) -> list[list[float]]:
+            def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
                 return [[0.1, 0.2] for _ in texts]
 
             @staticmethod
@@ -154,9 +139,7 @@ class TestBaseLLMClient:
                 self._validate_text_input(text)
                 return [0.1, 0.2]
 
-            def generate_embeddings_batch(
-                self, texts: list[str], batch_size: int = 32
-            ) -> list[list[float]]:
+            def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
                 return [[0.1, 0.2] for _ in texts]
 
             @staticmethod
@@ -176,18 +159,14 @@ class TestBaseLLMClient:
             client.generate_embeddings(None)  # type: ignore
 
 
-@pytest.mark.skipif(
-    not HAS_SENTENCE_TRANSFORMERS, reason="sentence-transformers package not installed"
-)
+@pytest.mark.skipif(not HAS_SENTENCE_TRANSFORMERS, reason="sentence-transformers package not installed")
 class TestHuggingFaceLLMClient:
     """Test HuggingFace LLM client."""
 
     @patch("sentence_transformers.SentenceTransformer")
     def test_initialization_local_mode(self, mock_st):
         """Test client initialization in local mode."""
-        client = HuggingFaceLLMClient(
-            model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True
-        )
+        client = HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True)
 
         assert client.model_name == "sentence-transformers/all-MiniLM-L6-v2"
         assert client.use_local is True
@@ -196,12 +175,8 @@ class TestHuggingFaceLLMClient:
     def test_initialization_api_mode_without_token_raises_error(self):
         """Test that API mode without token raises ConfigurationError."""
         with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(
-                ConfigurationError, match="HuggingFace API token required"
-            ):
-                HuggingFaceLLMClient(
-                    model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=False
-                )
+            with pytest.raises(ConfigurationError, match="HuggingFace API token required"):
+                HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=False)
 
     @patch("sentence_transformers.SentenceTransformer")
     def test_generate_embeddings_local(self, mock_st):
@@ -217,9 +192,7 @@ class TestHuggingFaceLLMClient:
         mock_model.encode.return_value = mock_array
         mock_st.return_value = mock_model
 
-        client = HuggingFaceLLMClient(
-            model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True
-        )
+        client = HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True)
 
         embeddings = client.generate_embeddings("test text")
 
@@ -228,22 +201,12 @@ class TestHuggingFaceLLMClient:
 
     def test_get_model_token_limit(self):
         """Test token limit retrieval."""
-        assert (
-            HuggingFaceLLMClient.get_model_token_limit(
-                "sentence-transformers/all-MiniLM-L6-v2"
-            )
-            == 512
-        )
+        assert HuggingFaceLLMClient.get_model_token_limit("sentence-transformers/all-MiniLM-L6-v2") == 512
         assert HuggingFaceLLMClient.get_model_token_limit("unknown-model") == 512
 
     def test_get_embedding_dimension(self):
         """Test embedding dimension retrieval."""
-        assert (
-            HuggingFaceLLMClient.get_embedding_dimension(
-                "sentence-transformers/all-MiniLM-L6-v2"
-            )
-            == 384
-        )
+        assert HuggingFaceLLMClient.get_embedding_dimension("sentence-transformers/all-MiniLM-L6-v2") == 384
         assert HuggingFaceLLMClient.get_embedding_dimension("unknown-model") == 384
 
 

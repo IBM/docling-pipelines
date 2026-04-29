@@ -152,7 +152,7 @@ Example: Conditional processing based on document type, language, or custom crit
 - **Setup**: Use `docker-compose.opensearch.yml` for local development
 
 ### Environment Variables
-- **PYTHONPATH**: Must include `src/datasift_opensource/backend` for imports to work
+- **PYTHONPATH**: Must include `src/datasift` for imports to work
 
 
 ## Python Coding Standards
@@ -269,23 +269,23 @@ datasift-orchestrator --flow-file <path-to-flow.json>
 For running test cases:
 
 ```bash
-# 1. Navigate to backend directory
-cd src/datasift_opensource/backend
+# 1. Activate virtual environment (from project root)
+source .venv/bin/activate
 
-# 2. Set PYTHONPATH (must point to backend directory as source root)
-export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+# 2. Set PYTHONPATH (from project root)
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
-# 3. Sync dependencies (first time or after changes)
+# 3. Sync dependencies (first time or after changes, from project root)
 uv sync --extra dev
 
-# 4. Run all tests
-uv run pytest ../../../tests/ -v
+# 4. Run all tests (from project root)
+uv run pytest tests/ -v
 
 # Or run specific test directory
-uv run pytest ../../../tests/unit/operators/ingest/ -v
+uv run pytest tests/unit/operators/ingest/ -v
 
 # With coverage
-uv run pytest ../../../tests/ --cov=datasift_opensource --cov-report=html
+uv run pytest tests/ --cov=src --cov-report=html
 ```
 
 ### Flow Configuration Structure

@@ -8,8 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from core.operators.ingest.ingest_local_folder import IngestLocalOperator
-
+from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
 EXPECTED_METADATA_COLUMNS = {
     "id",

@@ -53,7 +53,7 @@ All backend components are Python-based with no Spark dependencies.
 
 ## Import Structure
 
-**Important**: The `backend` directory is the source root for all imports. When setting up your development environment, ensure `PYTHONPATH` points to `src/datasift_opensource/backend`.
+**Important**: The `backend` directory is the source root for all imports. When setting up your development environment, ensure `PYTHONPATH` points to `src/datasift`.
 
 ### Import Examples
 
@@ -68,7 +68,7 @@ from core.orchestrator.operator_factory import OperatorFactory
 from app.models.session_info import SessionInfo
 
 # Incorrect imports (DO NOT USE)
-from datasift_opensource.backend.common.util.constants import DatasiftConstants
+from datasift.utils.constants import DatasiftConstants
 ```
 
 ### Setting PYTHONPATH
@@ -77,13 +77,13 @@ For development and testing:
 
 ```bash
 # From project root
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
 # Or from backend directory
-export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(cd ../../.. && pwd)/src/datasift:${PYTHONPATH}"
 ```
 
-This ensures all imports resolve correctly without needing the full `datasift_opensource.backend` prefix.
+This ensures all imports resolve correctly without needing the full `datasift` prefix.
 
 ## Command-Line Orchestrator
 

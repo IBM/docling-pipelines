@@ -13,11 +13,9 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(
-    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
-)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.operators.functional.noop import NOOPOperator
+from datasift.core.operators.functional.noop import NOOPOperator
 
 
 def main() -> None:  # pragma: no cover
@@ -42,5 +40,3 @@ def main() -> None:  # pragma: no cover
 
 if __name__ == "__main__":  # pragma: no cover
     main()
-
-# Made with Bob

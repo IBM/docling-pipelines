@@ -5,10 +5,11 @@ Verifies that failure/cancel/skip paths correctly wire to the new
 terminal service APIs with real batch_id and batch_num.
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
-from common.constants.constants import DatasiftConstants
+import pytest
+
+from datasift.core.constants.constants import DatasiftConstants
 
 
 class TestTerminalPathBatchPropagation:
@@ -25,13 +26,11 @@ class TestTerminalPathBatchPropagation:
         service.write_job_logs = Mock()
         return service
 
-    @patch("core.orchestrator.flow_execution_event_handler.logger")
-    def test_after_node_failure_with_batch_context(
-        self, mock_logger, mock_job_stats_service
-    ):
+    @patch("datasift.core.orchestration.flow_execution_event_handler.logger")
+    def test_after_node_failure_with_batch_context(self, mock_logger, mock_job_stats_service):
         """Test that after_node_failure calls fail_node_execution with batch context."""
         # Import here to avoid circular import at module level
-        from core.orchestrator.flow_execution_event_handler import (
+        from datasift.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -72,12 +71,10 @@ class TestTerminalPathBatchPropagation:
             batch_num=5,
         )
 
-    @patch("core.orchestrator.flow_execution_event_handler.logger")
-    def test_after_node_failure_without_batch_context(
-        self, mock_logger, mock_job_stats_service
-    ):
+    @patch("datasift.core.orchestration.flow_execution_event_handler.logger")
+    def test_after_node_failure_without_batch_context(self, mock_logger, mock_job_stats_service):
         """Test that after_node_failure works without batch context (non-batch mode)."""
-        from core.orchestrator.flow_execution_event_handler import (
+        from datasift.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -118,7 +115,7 @@ class TestTerminalPathBatchPropagation:
 
     def test_after_node_skipped_with_batch_context(self, mock_job_stats_service):
         """Test that after_node_skipped calls skip_node_execution with batch context."""
-        from core.orchestrator.flow_execution_event_handler import (
+        from datasift.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -165,7 +162,7 @@ class TestTerminalPathBatchPropagation:
 
     def test_after_node_skipped_without_batch_context(self, mock_job_stats_service):
         """Test that after_node_skipped works without batch context (non-batch mode)."""
-        from core.orchestrator.flow_execution_event_handler import (
+        from datasift.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -208,7 +205,7 @@ class TestTerminalPathBatchPropagation:
 
     def test_after_node_skipped_with_custom_reason(self, mock_job_stats_service):
         """Test that after_node_skipped accepts custom reason for upstream failure scenarios."""
-        from core.orchestrator.flow_execution_event_handler import (
+        from datasift.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 

@@ -1,10 +1,11 @@
 """Unit tests for JWT token handling."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
-from datetime import datetime, timedelta, timezone
 from jose import jwt
 
-from src.datasift_opensource.backend.app.auth.jwt_handler import (
+from datasift.api.auth.jwt_handler import (
     JWTConfig,
     create_access_token,
     verify_token,
@@ -78,9 +79,9 @@ class TestCreateAccessToken:
     def test_token_expiration_time(self, jwt_config):
         """Test that token expiration is set correctly."""
         data = {"username": "testuser"}
-        before_creation = datetime.now(timezone.utc)
+        before_creation = datetime.now(UTC)
         token = create_access_token(data, jwt_config)
-        after_creation = datetime.now(timezone.utc)
+        after_creation = datetime.now(UTC)
 
         payload = jwt.decode(
             token,
@@ -88,13 +89,9 @@ class TestCreateAccessToken:
             algorithms=[jwt_config.jwt_algorithm],
         )
 
-        exp_time = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-        expected_min = before_creation + timedelta(
-            minutes=jwt_config.jwt_access_token_expire_minutes
-        )
-        expected_max = after_creation + timedelta(
-            minutes=jwt_config.jwt_access_token_expire_minutes
-        )
+        exp_time = datetime.fromtimestamp(payload["exp"], tz=UTC)
+        expected_min = before_creation + timedelta(minutes=jwt_config.jwt_access_token_expire_minutes)
+        expected_max = after_creation + timedelta(minutes=jwt_config.jwt_access_token_expire_minutes)
 
         assert expected_min <= expected_max
 
@@ -148,7 +145,7 @@ class TestVerifyToken:
         data = {"username": "testuser"}
         # Create token with past expiration
         to_encode = data.copy()
-        expire = datetime.now(timezone.utc) - timedelta(minutes=1)
+        expire = datetime.now(UTC) - timedelta(minutes=1)
         to_encode.update({"exp": expire})
 
         token = jwt.encode(

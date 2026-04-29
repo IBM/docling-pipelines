@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from uuid import UUID
 
-from common.constants.operator_constants import OperatorConstants
+from datasift.core.constants.operator_constants import OperatorConstants
 
 
 class TestOpenSearchFlow(unittest.TestCase):
@@ -22,7 +22,7 @@ class TestOpenSearchFlow(unittest.TestCase):
         cls.flow_file = Path(__file__).parent / "flow_with_opensearch.json"
 
         # Load flow definition
-        with open(cls.flow_file, "r") as f:
+        with open(cls.flow_file) as f:
             cls.flow_data = json.load(f)
 
         cls.flow_def = cls.flow_data["flow"]
@@ -39,9 +39,7 @@ class TestOpenSearchFlow(unittest.TestCase):
         """Test that flow definition loads correctly"""
         self.assertIsNotNone(self.flow_def)
         self.assertIn("OpenSearch Integration Flow", self.flow_def["name"])
-        self.assertEqual(
-            len(self.dag), 5
-        )  # ingest, doc_id, chunker, embeddings, opensearch
+        self.assertEqual(len(self.dag), 5)  # ingest, doc_id, chunker, embeddings, opensearch
 
     def test_flow_node_configuration(self):
         """Test that all nodes are properly configured"""
@@ -178,9 +176,7 @@ class TestOpenSearchFlow(unittest.TestCase):
         # Verify authentication settings
         self.assertIn(OperatorConstants.VectorDB.OPENSEARCH_USERNAME, config)
         self.assertIn(OperatorConstants.VectorDB.OPENSEARCH_PASSWORD, config)
-        self.assertEqual(
-            config[OperatorConstants.VectorDB.OPENSEARCH_USERNAME], "admin"
-        )
+        self.assertEqual(config[OperatorConstants.VectorDB.OPENSEARCH_USERNAME], "admin")
 
         # Verify SSL settings
         self.assertIn(OperatorConstants.VectorDB.OPENSEARCH_USE_SSL, config)
@@ -216,9 +212,7 @@ class TestOpenSearchFlow(unittest.TestCase):
         )
 
         # Embeddings column should be specified (created by embeddings operator)
-        self.assertEqual(
-            config[OperatorConstants.Columns.EMBEDDINGS_COLUMN], "embeddings"
-        )
+        self.assertEqual(config[OperatorConstants.Columns.EMBEDDINGS_COLUMN], "embeddings")
 
     def test_flow_storage_and_execution_type(self):
         """Test flow storage and execution configuration"""
@@ -230,14 +224,10 @@ class TestOpenSearchFlow(unittest.TestCase):
         config = self.opensearch_node["config"]
 
         # Verify index name
-        self.assertEqual(
-            config[OperatorConstants.VectorDB.INDEX_NAME], "datasift_test_index"
-        )
+        self.assertEqual(config[OperatorConstants.VectorDB.INDEX_NAME], "datasift_test_index")
 
         # Verify connection details
-        self.assertEqual(
-            config[OperatorConstants.VectorDB.OPENSEARCH_HOST], "localhost"
-        )
+        self.assertEqual(config[OperatorConstants.VectorDB.OPENSEARCH_HOST], "localhost")
         self.assertEqual(config[OperatorConstants.VectorDB.OPENSEARCH_PORT], 9200)
 
 

@@ -10,17 +10,14 @@ import duckdb
 import pyarrow as pa
 import pytest
 
-from common.constants.constants import (
+from datasift.core.constants.constants import (
     ExecutionStatus,
     Metrics,
 )
-from common.constants.operator_constants import (
+from datasift.core.constants.operator_constants import (
     OperatorConstants,
 )
-from common.exceptions.datasift_exceptions import (
-    DatasiftException,
-)
-from core.operators.quality.sql_filter import (
+from datasift.core.operators.quality.sql_filter import (
     FILTER_LOGICAL_OPERATOR_AND,
     FILTER_LOGICAL_OPERATOR_OR,
     SQLFilterOperator,
@@ -29,7 +26,9 @@ from core.operators.quality.sql_filter import (
     json_to_sql_where,
     process_condition,
 )
-
+from datasift.exceptions.datasift_exceptions import (
+    DatasiftException,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -65,9 +64,7 @@ def make_operator(config: dict) -> SQLFilterOperator:
 def test_basic_filter_greater_than():
     """Filter rows where score > 5 keeps only rows with score 6, 8, 10."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -79,9 +76,7 @@ def test_basic_filter_greater_than():
 def test_basic_filter_equals():
     """Filter rows where language = 'en'."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["language = 'en'"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["language = 'en'"]})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -93,9 +88,7 @@ def test_basic_filter_equals():
 def test_basic_filter_less_than_or_equal():
     """Filter rows where word_count <= 150."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["word_count <= 150"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["word_count <= 150"]})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -205,9 +198,7 @@ def test_filter_criteria_json_simple():
         "operator": ">",
         "value": 5,
     }
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -225,9 +216,7 @@ def test_filter_criteria_json_nested_and():
             {"variable": "language", "operator": "=", "value": "en"},
         ],
     }
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -248,9 +237,7 @@ def test_filter_criteria_json_nested_or():
             {"variable": "language", "operator": "=", "value": "de"},
         ],
     }
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -324,9 +311,7 @@ def test_features_to_drop_without_filter():
 def test_filter_returns_empty_table():
     """Filter that matches no rows returns an empty table."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 9999"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 9999"]})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -343,9 +328,7 @@ def test_filter_returns_empty_table():
 def test_filter_all_rows_pass():
     """Filter that matches all rows returns the full table."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -371,9 +354,7 @@ def test_validate_rejects_drop_of_id_column():
     """Dropping the protected 'id' column should add a validation error."""
     operator = make_operator(
         {
-            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [
-                OperatorConstants.Columns.ID
-            ],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.Columns.ID],
         }
     )
     errors = []
@@ -388,9 +369,7 @@ def test_validate_rejects_drop_of_content_column():
     """Dropping the protected 'content' column should add a validation error."""
     operator = make_operator(
         {
-            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-            ],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.Columns.DOC_COLUMN_DEFAULT],
         }
     )
     errors = []
@@ -405,9 +384,7 @@ def test_validate_rejects_drop_of_pages_processed_column():
     """Dropping the protected 'pages_processed' column should add a validation error."""
     operator = make_operator(
         {
-            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [
-                OperatorConstants.Columns.PAGES_PROCESSED_COLUMN
-            ],
+            OperatorConstants.Filtering.FILTER_FEATURES_TO_DROP_KEY: [OperatorConstants.Columns.PAGES_PROCESSED_COLUMN],
         }
     )
     errors = []
@@ -720,9 +697,7 @@ class TestJsonToSqlWhere:
 def test_transform_metadata_contains_processed_docs():
     """transform() metadata contains processed_docs key."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]})
     _, metadata = operator.transform(table)
 
     assert Metrics.External.PROCESSED_DOCS in metadata
@@ -732,9 +707,7 @@ def test_transform_metadata_contains_processed_docs():
 def test_transform_metadata_contains_total_docs():
     """transform() metadata contains total_docs_count key."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 0"]})
     _, metadata = operator.transform(table)
 
     assert Metrics.External.TOTAL_DOCS in metadata
@@ -744,9 +717,7 @@ def test_transform_metadata_contains_total_docs():
 def test_transform_metadata_docs_after_filter():
     """transform() metadata contains docs_after_filter key."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
     _, metadata = operator.transform(table)
 
     assert "docs_after_filter" in metadata
@@ -757,9 +728,7 @@ def test_transform_metadata_filter_stats_per_criterion():
     """transform() metadata contains per-criterion filter stats."""
     table = make_table()
     criterion = "score > 5"
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [criterion]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: [criterion]})
     _, metadata = operator.transform(table)
 
     key = f"docs_filtered_out_by '{criterion}'"
@@ -794,9 +763,7 @@ def test_filter_with_single_row_table():
             "word_count": [10],
         }
     )
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -816,9 +783,7 @@ def test_filter_with_single_row_table_no_match():
         }
     )
 
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 3"]})
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
 
@@ -828,9 +793,7 @@ def test_filter_with_single_row_table_no_match():
 def test_filter_preserves_column_names():
     """Filtered table preserves all column names from input."""
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
     result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
@@ -870,12 +833,10 @@ def test_duckdb_execution_failure():
     all documents are recorded as failed, and the original table is returned.
     """
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
     # Mock duckdb.connect() to return a connection that raises an exception on execute
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.BinderException("Mocked DuckDB error")
         mock_connect.return_value = mock_con
@@ -909,15 +870,11 @@ def test_duckdb_conversion_exception():
     Test when DuckDB raises a ConversionException (type mismatch).
     """
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
-        mock_con.execute.side_effect = duckdb.ConversionException(
-            "Type conversion error"
-        )
+        mock_con.execute.side_effect = duckdb.ConversionException("Type conversion error")
         mock_connect.return_value = mock_con
 
         result_tables, metadata = operator.transform(table)
@@ -939,11 +896,9 @@ def test_duckdb_catalog_exception():
     Test when DuckDB raises a CatalogException (e.g., table not found).
     """
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.CatalogException("Table not found")
         mock_connect.return_value = mock_con
@@ -968,12 +923,10 @@ def test_transform_general_exception():
     Verify proper error handling and metadata recording.
     """
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
     # Mock duckdb.connect() to raise a general exception
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = RuntimeError("Unexpected runtime error")
 
         result_tables, metadata = operator.transform(table)
@@ -987,9 +940,7 @@ def test_transform_general_exception():
 
         # Error should be recorded
         assert OperatorConstants.Extraction.ERROR in metadata
-        assert (
-            "Unexpected runtime error" in metadata[OperatorConstants.Extraction.ERROR]
-        )
+        assert "Unexpected runtime error" in metadata[OperatorConstants.Extraction.ERROR]
 
         # All documents should be marked as failed
         assert Metrics.External.FAILED_DOCS in metadata
@@ -1007,9 +958,7 @@ def test_datasift_exception_in_json_to_sql_where():
         # Missing operator - should raise DatasiftException
         "value": 5,
     }
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: invalid_criteria_json}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: invalid_criteria_json})
 
     result_tables, metadata = operator.transform(table)
     result = result_tables[0]
@@ -1043,7 +992,7 @@ def test_error_handling_with_filter_criteria_per_criterion():
     )
 
     # Mock to fail on the second criterion
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         call_count = [0]
 
@@ -1081,7 +1030,7 @@ def test_error_with_features_to_drop():
         }
     )
 
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = Exception("Unexpected error during filtering")
         mock_connect.return_value = mock_con
@@ -1105,11 +1054,9 @@ def test_error_handling_preserves_table_structure():
     original_schema = table.schema
     original_num_rows = table.num_rows
 
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Critical error")
 
         result_tables, metadata = operator.transform(table)
@@ -1130,11 +1077,9 @@ def test_failed_docs_metadata_structure():
     Test that failed_docs metadata has the correct structure.
     """
     table = make_table()
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Test error")
 
         result_tables, metadata = operator.transform(table)
@@ -1168,11 +1113,9 @@ def test_error_with_empty_table():
         }
     )
 
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_LIST: ["score > 5"]})
 
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_connect.side_effect = Exception("Error with empty table")
 
         result_tables, metadata = operator.transform(empty_table)
@@ -1201,11 +1144,9 @@ def test_error_handling_with_json_criteria():
             {"variable": "language", "operator": "=", "value": "en"},
         ],
     }
-    operator = make_operator(
-        {OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json}
-    )
+    operator = make_operator({OperatorConstants.Filtering.FILTER_CRITERIA_JSON: criteria_json})
 
-    with patch("core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
+    with patch("datasift.core.operators.quality.sql_filter.duckdb.connect") as mock_connect:
         mock_con = MagicMock()
         mock_con.execute.side_effect = duckdb.BinderException("JSON criteria error")
         mock_connect.return_value = mock_con

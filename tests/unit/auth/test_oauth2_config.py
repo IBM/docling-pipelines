@@ -1,11 +1,9 @@
 """Unit tests for OAuth2 configuration."""
 
-import pytest
-
-from src.datasift_opensource.backend.app.auth.oauth2_config import (
-    OAuth2Config,
-    GoogleOAuth2Config,
+from datasift.api.auth.oauth2_config import (
     AzureADOAuth2Config,
+    GoogleOAuth2Config,
+    OAuth2Config,
     get_oauth2_config,
 )
 
@@ -58,19 +56,10 @@ class TestGoogleOAuth2Config:
         config = GoogleOAuth2Config()
 
         assert config.oauth2_provider == "google"
-        assert (
-            config.oauth2_discovery_url
-            == "https://accounts.google.com/.well-known/openid-configuration"
-        )
-        assert (
-            config.oauth2_authorization_endpoint
-            == "https://accounts.google.com/o/oauth2/v2/auth"
-        )
+        assert config.oauth2_discovery_url == "https://accounts.google.com/.well-known/openid-configuration"
+        assert config.oauth2_authorization_endpoint == "https://accounts.google.com/o/oauth2/v2/auth"
         assert config.oauth2_token_endpoint == "https://oauth2.googleapis.com/token"
-        assert (
-            config.oauth2_userinfo_endpoint
-            == "https://openidconnect.googleapis.com/v1/userinfo"
-        )
+        assert config.oauth2_userinfo_endpoint == "https://openidconnect.googleapis.com/v1/userinfo"
         assert config.oauth2_jwks_uri == "https://www.googleapis.com/oauth2/v3/certs"
         assert config.oidc_issuer == "https://accounts.google.com"
 
@@ -110,36 +99,27 @@ class TestAzureADOAuth2Config:
         """Test Azure authorization endpoint generation."""
         config = AzureADOAuth2Config(azure_tenant_id="test-tenant-id")
 
-        expected_url = (
-            "https://login.microsoftonline.com/test-tenant-id/oauth2/v2.0/authorize"
-        )
+        expected_url = "https://login.microsoftonline.com/test-tenant-id/oauth2/v2.0/authorize"
         assert config.oauth2_authorization_endpoint == expected_url
 
     def test_azure_config_token_endpoint(self):
         """Test Azure token endpoint generation."""
         config = AzureADOAuth2Config(azure_tenant_id="test-tenant-id")
 
-        expected_url = (
-            "https://login.microsoftonline.com/test-tenant-id/oauth2/v2.0/token"
-        )
+        expected_url = "https://login.microsoftonline.com/test-tenant-id/oauth2/v2.0/token"
         assert config.oauth2_token_endpoint == expected_url
 
     def test_azure_config_userinfo_endpoint(self):
         """Test Azure userinfo endpoint."""
         config = AzureADOAuth2Config()
 
-        assert (
-            config.oauth2_userinfo_endpoint
-            == "https://graph.microsoft.com/oidc/userinfo"
-        )
+        assert config.oauth2_userinfo_endpoint == "https://graph.microsoft.com/oidc/userinfo"
 
     def test_azure_config_jwks_uri(self):
         """Test Azure JWKS URI generation."""
         config = AzureADOAuth2Config(azure_tenant_id="test-tenant-id")
 
-        expected_url = (
-            "https://login.microsoftonline.com/test-tenant-id/discovery/v2.0/keys"
-        )
+        expected_url = "https://login.microsoftonline.com/test-tenant-id/discovery/v2.0/keys"
         assert config.oauth2_jwks_uri == expected_url
 
     def test_azure_config_issuer(self):

@@ -11,11 +11,11 @@ Tests cover:
 - Type mapping
 """
 
-import pytest
 import pyarrow as pa
+import pytest
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from storage.duckdb_storage import DuckDBStorage
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.storage.duckdb_storage import DuckDBStorage
 
 
 @pytest.fixture
@@ -288,9 +288,7 @@ class TestDeleteRows:
         storage.create_data_table(table_name, sample_schema)
         storage.upsert_data(table_name, sample_table)
 
-        deleted_count = storage.delete_rows(
-            table_name, ["nonexistent1", "nonexistent2"]
-        )
+        deleted_count = storage.delete_rows(table_name, ["nonexistent1", "nonexistent2"])
 
         assert deleted_count == 0
 

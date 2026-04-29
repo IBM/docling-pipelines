@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from core.assets_management.domain.models.flow import Flow
+from datasift.core.flows.domain.models.flow import Flow
 
 
 @pytest.fixture

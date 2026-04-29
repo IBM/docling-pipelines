@@ -11,9 +11,9 @@ from unittest.mock import Mock, patch
 import pyarrow as pa
 import pytest
 
-from core.orchestrator.batch_manager import BatchInfo, BatchManager
-from core.orchestrator.prefect.adapters.thread_pool_adapter import ThreadPoolAdapter
-from core.orchestrator.prefect.adapters.work_pool_adapter import WorkPoolAdapter
+from datasift.core.orchestration.batch_manager import BatchInfo, BatchManager
+from datasift.core.orchestration.prefect.adapters.thread_pool_adapter import ThreadPoolAdapter
+from datasift.core.orchestration.prefect.adapters.work_pool_adapter import WorkPoolAdapter
 
 
 class TestBatchInfoCompatibility:
@@ -53,9 +53,7 @@ class TestBatchInfoCompatibility:
         self, sample_batch_infos, mock_prefect_engine, mock_batch_manager
     ):
         """Test that ThreadPoolAdapter correctly handles list[BatchInfo]."""
-        adapter = ThreadPoolAdapter(
-            prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
+        adapter = ThreadPoolAdapter(prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager)
 
         # Mock the flow execution
         mock_flow = Mock()
@@ -83,9 +81,7 @@ class TestBatchInfoCompatibility:
         self, sample_batch_infos, mock_prefect_engine, mock_batch_manager
     ):
         """Test that ThreadPoolAdapter correctly accesses BatchInfo.table attribute."""
-        adapter = ThreadPoolAdapter(
-            prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager
-        )
+        adapter = ThreadPoolAdapter(prefect_engine=mock_prefect_engine, batch_manager=mock_batch_manager)
 
         # Mock batch_outer_flow_impl to capture batch access
         def mock_flow_impl(op_flow, batches, global_config):
@@ -143,9 +139,7 @@ class TestBatchInfoCompatibility:
         # Mock the transfer and submission methods
         with patch.object(adapter, "_transfer_batch") as mock_transfer:
             with patch.object(adapter, "_wait_for_flow_runs"):
-                with patch(
-                    "core.orchestrator.prefect.adapters.work_pool_adapter.run_deployment"
-                ) as mock_run:
+                with patch("datasift.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment") as mock_run:
                     mock_transfer.return_value = {"type": "inline", "data": {}}
                     mock_flow_run = Mock()
                     mock_flow_run.id = "flow-run-123"
@@ -164,23 +158,13 @@ class TestBatchInfoCompatibility:
 
                     # Check first call
                     first_call = mock_transfer.call_args_list[0]
-                    assert (
-                        first_call.kwargs["batch_table"] == sample_batch_infos[0].table
-                    )
-                    assert (
-                        first_call.kwargs["batch_num"]
-                        == sample_batch_infos[0].batch_num
-                    )
+                    assert first_call.kwargs["batch_table"] == sample_batch_infos[0].table
+                    assert first_call.kwargs["batch_num"] == sample_batch_infos[0].batch_num
 
                     # Check second call
                     second_call = mock_transfer.call_args_list[1]
-                    assert (
-                        second_call.kwargs["batch_table"] == sample_batch_infos[1].table
-                    )
-                    assert (
-                        second_call.kwargs["batch_num"]
-                        == sample_batch_infos[1].batch_num
-                    )
+                    assert second_call.kwargs["batch_table"] == sample_batch_infos[1].table
+                    assert second_call.kwargs["batch_num"] == sample_batch_infos[1].batch_num
 
     def test_batch_manager_creates_batch_info_with_uuid(self):
         """Test that BatchManager.create_batches returns BatchInfo with UUID batch_id."""

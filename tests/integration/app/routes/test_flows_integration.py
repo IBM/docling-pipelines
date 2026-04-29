@@ -10,9 +10,7 @@ from fastapi.testclient import TestClient
 class TestCreateFlowIntegration:
     """Integration tests for POST /api/v1/flows endpoint."""
 
-    def test_create_flow_with_complete_data_returns_201(
-        self, test_client: TestClient, sample_flow_data: dict
-    ):
+    def test_create_flow_with_complete_data_returns_201(self, test_client: TestClient, sample_flow_data: dict):
         """Test creating a flow with complete data returns 201 and stores file."""
         # Act
         response = test_client.post("/api/v1/flows", json=sample_flow_data)
@@ -33,9 +31,7 @@ class TestCreateFlowIntegration:
         assert "modified_on" in data
         assert "href" in data
 
-    def test_create_flow_with_minimal_data_returns_201(
-        self, test_client: TestClient, minimal_flow_data: dict
-    ):
+    def test_create_flow_with_minimal_data_returns_201(self, test_client: TestClient, minimal_flow_data: dict):
         """Test creating a flow with only required fields returns 201."""
         # Act
         response = test_client.post("/api/v1/flows", json=minimal_flow_data)
@@ -64,9 +60,7 @@ class TestCreateFlowIntegration:
         data = response.json()
         assert "errors" in data or "detail" in data
 
-    def test_create_flow_with_invalid_container_kind_returns_422(
-        self, test_client: TestClient
-    ):
+    def test_create_flow_with_invalid_container_kind_returns_422(self, test_client: TestClient):
         """Test creating a flow with invalid container_kind returns 400."""
         # Arrange
         flow_data = {"name": "Test Flow", "container_kind": "invalid_kind"}
@@ -77,9 +71,7 @@ class TestCreateFlowIntegration:
         # Assert
         assert response.status_code == 400
 
-    def test_create_flow_with_invalid_container_id_returns_422(
-        self, test_client: TestClient
-    ):
+    def test_create_flow_with_invalid_container_id_returns_422(self, test_client: TestClient):
         """Test creating a flow with invalid UUID format returns 400."""
         # Arrange
         flow_data = {"name": "Test Flow", "container_id": "not-a-uuid"}
@@ -101,9 +93,7 @@ class TestCreateFlowIntegration:
         # Assert
         assert response.status_code == 400
 
-    def test_create_flow_with_duplicate_tags_deduplicates(
-        self, test_client: TestClient
-    ):
+    def test_create_flow_with_duplicate_tags_deduplicates(self, test_client: TestClient):
         """Test creating a flow with duplicate tags automatically deduplicates them."""
         # Arrange
         flow_data = {
@@ -135,9 +125,7 @@ class TestCreateFlowIntegration:
 class TestGetFlowIntegration:
     """Integration tests for GET /api/v1/flows/{flow_id} endpoint."""
 
-    def test_get_existing_flow_returns_200(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_get_existing_flow_returns_200(self, test_client: TestClient, create_test_flow):
         """Test retrieving an existing flow returns 200 with correct data."""
         # Arrange
         created_flow = create_test_flow()
@@ -331,9 +319,7 @@ class TestListFlowsIntegration:
         # Assert
         assert response.status_code == 400
 
-    def test_list_flows_with_limit_exceeding_max_returns_422(
-        self, test_client: TestClient
-    ):
+    def test_list_flows_with_limit_exceeding_max_returns_422(self, test_client: TestClient):
         """Test listing flows with limit exceeding maximum returns 400."""
         # Act
         response = test_client.get("/api/v1/flows?limit=1001")
@@ -341,9 +327,7 @@ class TestListFlowsIntegration:
         # Assert
         assert response.status_code == 400
 
-    def test_list_flows_empty_repository_returns_empty_list(
-        self, test_client: TestClient
-    ):
+    def test_list_flows_empty_repository_returns_empty_list(self, test_client: TestClient):
         """Test listing flows from empty repository returns empty list."""
         # Act
         response = test_client.get("/api/v1/flows")
@@ -358,9 +342,7 @@ class TestListFlowsIntegration:
 class TestUpdateFlowIntegration:
     """Integration tests for PUT /api/v1/flows/{flow_id} endpoint."""
 
-    def test_update_flow_with_valid_data_returns_200(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_update_flow_with_valid_data_returns_200(self, test_client: TestClient, create_test_flow):
         """Test updating a flow with valid data returns 200."""
         # Arrange
         created_flow = create_test_flow()
@@ -395,9 +377,7 @@ class TestUpdateFlowIntegration:
         # Assert
         assert response.status_code == 404
 
-    def test_update_flow_with_empty_name_returns_422(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_update_flow_with_empty_name_returns_422(self, test_client: TestClient, create_test_flow):
         """Test updating a flow with empty name returns 400."""
         # Arrange
         created_flow = create_test_flow()
@@ -410,9 +390,7 @@ class TestUpdateFlowIntegration:
         # Assert
         assert response.status_code == 400
 
-    def test_update_flow_persists_changes(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_update_flow_persists_changes(self, test_client: TestClient, create_test_flow):
         """Test that flow updates are persisted and retrievable."""
         # Arrange
         created_flow = create_test_flow()
@@ -432,9 +410,7 @@ class TestUpdateFlowIntegration:
 class TestPartialUpdateFlowIntegration:
     """Integration tests for PATCH /api/v1/flows/{flow_id} endpoint."""
 
-    def test_partial_update_flow_with_single_field_returns_200(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_partial_update_flow_with_single_field_returns_200(self, test_client: TestClient, create_test_flow):
         """Test partially updating a flow with single field returns 200."""
         # Arrange
         created_flow = create_test_flow()
@@ -452,9 +428,7 @@ class TestPartialUpdateFlowIntegration:
         assert data["name"] == original_name  # Name unchanged
         assert data["description"] == update_data["description"]
 
-    def test_partial_update_flow_with_multiple_fields_returns_200(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_partial_update_flow_with_multiple_fields_returns_200(self, test_client: TestClient, create_test_flow):
         """Test partially updating a flow with multiple fields returns 200."""
         # Arrange
         created_flow = create_test_flow()
@@ -475,9 +449,7 @@ class TestPartialUpdateFlowIntegration:
         assert set(data["tags"]) == set(update_data["tags"])
         assert data["is_hidden"] == update_data["is_hidden"]
 
-    def test_partial_update_flow_with_empty_body_returns_400(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_partial_update_flow_with_empty_body_returns_400(self, test_client: TestClient, create_test_flow):
         """Test partially updating a flow with empty body returns 400."""
         # Arrange
         created_flow = create_test_flow()
@@ -490,25 +462,19 @@ class TestPartialUpdateFlowIntegration:
         # Assert - Empty update is considered invalid
         assert response.status_code == 400
 
-    def test_partial_update_flow_with_nonexistent_id_returns_404(
-        self, test_client: TestClient
-    ):
+    def test_partial_update_flow_with_nonexistent_id_returns_404(self, test_client: TestClient):
         """Test partially updating a non-existent flow returns 404."""
         # Arrange
         nonexistent_id = "550e8400-e29b-41d4-a716-446655440000"
         update_data = {"description": "New description"}
 
         # Act
-        response = test_client.patch(
-            f"/api/v1/flows/{nonexistent_id}", json=update_data
-        )
+        response = test_client.patch(f"/api/v1/flows/{nonexistent_id}", json=update_data)
 
         # Assert
         assert response.status_code == 404
 
-    def test_partial_update_flow_with_invalid_field_returns_422(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_partial_update_flow_with_invalid_field_returns_422(self, test_client: TestClient, create_test_flow):
         """Test partially updating a flow with invalid field returns 400."""
         # Arrange
         created_flow = create_test_flow()
@@ -525,9 +491,7 @@ class TestPartialUpdateFlowIntegration:
 class TestDeleteFlowIntegration:
     """Integration tests for DELETE /api/v1/flows/{flow_id} endpoint."""
 
-    def test_delete_existing_flow_returns_204(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_delete_existing_flow_returns_204(self, test_client: TestClient, create_test_flow):
         """Test deleting an existing flow returns 204."""
         # Arrange
         created_flow = create_test_flow()
@@ -540,9 +504,7 @@ class TestDeleteFlowIntegration:
         assert response.status_code == 204
         assert response.content == b""
 
-    def test_delete_flow_removes_from_storage(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_delete_flow_removes_from_storage(self, test_client: TestClient, create_test_flow):
         """Test that deleted flow is no longer retrievable."""
         # Arrange
         created_flow = create_test_flow()
@@ -567,9 +529,7 @@ class TestDeleteFlowIntegration:
         # Assert
         assert response.status_code == 404
 
-    def test_delete_flow_twice_returns_404_second_time(
-        self, test_client: TestClient, create_test_flow
-    ):
+    def test_delete_flow_twice_returns_404_second_time(self, test_client: TestClient, create_test_flow):
         """Test deleting the same flow twice returns 404 on second attempt."""
         # Arrange
         created_flow = create_test_flow()
@@ -622,9 +582,7 @@ class TestBulkDeleteFlowsIntegration:
         flow = create_test_flow({"name": "Real Flow"})
 
         # Try to delete real and non-existent flows
-        response = test_client.delete(
-            f"/api/v1/flows?flow_ids={flow['flow_id']},nonexistent-id"
-        )
+        response = test_client.delete(f"/api/v1/flows?flow_ids={flow['flow_id']},nonexistent-id")
 
         # Assert
         assert response.status_code == 200
@@ -651,9 +609,7 @@ class TestBulkDeleteFlowsIntegration:
         flow2 = create_test_flow(flow2_data)
 
         # Delete flows
-        delete_response = test_client.delete(
-            f"/api/v1/flows?flow_ids={flow1['flow_id']},{flow2['flow_id']}"
-        )
+        delete_response = test_client.delete(f"/api/v1/flows?flow_ids={flow1['flow_id']},{flow2['flow_id']}")
         assert delete_response.status_code == 200
 
         # Verify flows are gone
@@ -667,9 +623,7 @@ class TestBulkDeleteFlowsIntegration:
 class TestFlowAPIWorkflows:
     """Integration tests for complete workflows across multiple endpoints."""
 
-    def test_create_get_update_delete_workflow(
-        self, test_client: TestClient, sample_flow_data: dict
-    ):
+    def test_create_get_update_delete_workflow(self, test_client: TestClient, sample_flow_data: dict):
         """Test complete CRUD workflow: create, get, update, delete."""
         # Create
         create_response = test_client.post("/api/v1/flows", json=sample_flow_data)
@@ -695,9 +649,7 @@ class TestFlowAPIWorkflows:
         final_get_response = test_client.get(f"/api/v1/flows/{flow_id}")
         assert final_get_response.status_code == 404
 
-    def test_create_multiple_flows_list_and_filter(
-        self, test_client: TestClient, sample_flow_data: dict
-    ):
+    def test_create_multiple_flows_list_and_filter(self, test_client: TestClient, sample_flow_data: dict):
         """Test creating multiple flows, listing, and filtering."""
         # Create flows with different attributes
         flow_data_1 = sample_flow_data.copy()
@@ -730,9 +682,7 @@ class TestFlowAPIWorkflows:
         assert tags_filter_response.status_code == 200
         assert tags_filter_response.json()["total_count"] == 2
 
-    def test_partial_update_preserves_other_fields(
-        self, test_client: TestClient, sample_flow_data: dict
-    ):
+    def test_partial_update_preserves_other_fields(self, test_client: TestClient, sample_flow_data: dict):
         """Test that partial update only changes specified fields."""
         # Create
         create_response = test_client.post("/api/v1/flows", json=sample_flow_data)
@@ -814,9 +764,7 @@ class TestFlowAPIErrorHandling:
 class TestFlowAPIMiddleware:
     """Integration tests for middleware functionality."""
 
-    def test_transaction_id_propagates_through_request(
-        self, test_client: TestClient, minimal_flow_data: dict
-    ):
+    def test_transaction_id_propagates_through_request(self, test_client: TestClient, minimal_flow_data: dict):
         """Test that transaction ID is generated and included in response."""
         # Act
         response = test_client.post("/api/v1/flows", json=minimal_flow_data)
@@ -827,9 +775,7 @@ class TestFlowAPIMiddleware:
         transaction_id = response.headers["x-transaction-id"]
         assert len(transaction_id) > 0
 
-    def test_custom_transaction_id_is_preserved(
-        self, test_client: TestClient, minimal_flow_data: dict
-    ):
+    def test_custom_transaction_id_is_preserved(self, test_client: TestClient, minimal_flow_data: dict):
         """Test that custom transaction ID from request is preserved."""
         # Arrange
         custom_transaction_id = "550e8400-e29b-41d4-a716-446655440000"
@@ -845,9 +791,7 @@ class TestFlowAPIMiddleware:
         assert response.status_code == 201
         assert response.headers["x-transaction-id"] == custom_transaction_id
 
-    def test_security_headers_present_in_response(
-        self, test_client: TestClient, minimal_flow_data: dict
-    ):
+    def test_security_headers_present_in_response(self, test_client: TestClient, minimal_flow_data: dict):
         """Test that security headers are added by middleware."""
         # Act
         response = test_client.post("/api/v1/flows", json=minimal_flow_data)

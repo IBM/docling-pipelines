@@ -7,9 +7,9 @@ This directory contains comprehensive examples demonstrating how to use the Data
 **Start here:** Run the complete example that demonstrates all key features:
 
 ```bash
-# From repository root, with backend venv activated:
-source src/datasift_opensource/backend/.venv/bin/activate
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+# From repository root, with venv activated:
+source .venv/bin/activate
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
 # Make sure Ollama is running with the required model
 ollama pull nomic-embed-text
@@ -38,7 +38,7 @@ This example creates test data, executes a full pipeline, shows results, and cle
 ## Prerequisites
 
 ### Required Software
-- Python 3.12 (as specified in `src/datasift_opensource/backend/.python-version`)
+- Python 3.12 (as specified in `.python-version`)
 - Ollama running on `http://localhost:11434` (for LLM operations)
 - OpenSearch running on `http://localhost:9200` (optional, for vector storage examples)
 
@@ -54,11 +54,7 @@ ollama pull granite4          # Used in 06_basic_test_flow.json
 ### 1. Create and Activate Virtual Environment
 
 ```bash
-# Navigate to backend directory
-cd src/datasift_opensource/backend
-
-# Create virtual environment (first time only)
-python3.12 -m venv .venv
+# From project root
 
 # Activate virtual environment
 source .venv/bin/activate  # On macOS/Linux
@@ -67,18 +63,15 @@ source .venv/bin/activate  # On macOS/Linux
 
 # Install dependencies using uv (recommended)
 uv sync --extra dev
-
-# OR install with pip
-pip install -e .
 ```
 
 ### 2. Set PYTHONPATH
 
-The backend directory must be in PYTHONPATH for imports to work correctly:
+The datasift directory must be in PYTHONPATH for imports to work correctly:
 
 ```bash
 # From repository root
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 ```
 
 ### 3. Start Required Services
@@ -96,12 +89,12 @@ docker-compose -f docker-compose.opensearch.yml up -d
 
 ## Running Examples
 
-**Important:** Always activate the backend virtual environment and set PYTHONPATH before running examples.
+**Important:** Always activate the virtual environment and set PYTHONPATH before running examples.
 
 ```bash
 # From repository root:
-source src/datasift_opensource/backend/.venv/bin/activate
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+source .venv/bin/activate
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
 # Run examples
 python examples/datasift_flow_manager/00_complete_example.py
@@ -265,11 +258,11 @@ Ingest -> Extract -> Chunk -> Embeddings -> OpenSearch
 
 ### Import Errors
 ```
-ImportError: No module named 'pipeline_executor'
+ImportError: No module named 'datasift'
 ```
 **Solution:** Make sure PYTHONPATH is set correctly:
 ```bash
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 ```
 
 ### Connection Errors
@@ -294,12 +287,12 @@ python examples/datasift_flow_manager/00_complete_example.py
 
 ### Virtual Environment Issues
 ```
-ModuleNotFoundError: No module named 'datasift_opensource'
+ModuleNotFoundError: No module named 'datasift'
 ```
-**Solution:** Activate the backend virtual environment:
+**Solution:** Activate the virtual environment:
 ```bash
-source src/datasift_opensource/backend/.venv/bin/activate
-cd src/datasift_opensource/backend && uv sync --extra dev
+source .venv/bin/activate
+uv sync --extra dev
 ```
 
 ## Next Steps
@@ -308,12 +301,12 @@ cd src/datasift_opensource/backend && uv sync --extra dev
 2. **Explore other examples** to learn different usage patterns
 3. **Modify `sample_flow.json`** to experiment with different operators
 4. **Create your own flows** based on the examples
-5. **Check operator documentation** in `src/datasift_opensource/backend/core/operators/`
+5. **Check operator documentation** in `src/datasift/core/operators/`
 
 ## Additional Resources
 
-- **Main Documentation:** `src/datasift_opensource/backend/README.md`
-- **Operator Documentation:** `src/datasift_opensource/backend/core/operators/*/README.md`
+- **Main Documentation:** `README.md`
+- **Operator Documentation:** `src/datasift/core/operators/*/README.md`
 - **CLI Usage:** `datasift-orchestrator --help`
 - **Architecture:** `AGENTS.md` in repository root
 

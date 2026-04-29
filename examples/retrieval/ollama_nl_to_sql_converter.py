@@ -3,13 +3,13 @@ Ollama-based Natural Language to SQL Converter
 Uses local Ollama service for converting NL queries to OpenSearch SQL
 """
 
-from requests.models import Response
-
 import json
 import logging
 import os
+from typing import Any
+
 import requests
-from typing import Dict, Any, Optional, Tuple
+from requests.models import Response
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class OllamaNLToSQLConverter:
             return _DEFAULT_SCHEMA
 
         try:
-            with open(_SCHEMAS_FILE, "r", encoding="utf-8") as f:
+            with open(_SCHEMAS_FILE, encoding="utf-8") as f:
                 all_schemas = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             return _DEFAULT_SCHEMA
@@ -64,10 +64,10 @@ class OllamaNLToSQLConverter:
         index_name: str,
         opensearch_host: str = "localhost",
         opensearch_port: int = 9200,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         use_ssl: bool = False,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Build a schema dict dynamically from the OpenSearch index mapping.
 
         Calls ``GET /<index>/_mapping`` and converts the ``properties`` into a
@@ -91,7 +91,7 @@ class OllamaNLToSQLConverter:
             if the mapping cannot be fetched.
         """
         # OpenSearch type → SQL-friendly type label
-        _TYPE_MAP: Dict[str, str] = {
+        _TYPE_MAP: dict[str, str] = {
             "text": "TEXT",
             "keyword": "VARCHAR",
             "float": "FLOAT",
@@ -104,40 +104,35 @@ class OllamaNLToSQLConverter:
 
         scheme = "https" if use_ssl else "http"
         url = f"{scheme}://{opensearch_host}:{opensearch_port}/{index_name}/_mapping"
-        auth: Optional[Tuple[str, str]] = (
-            (username, password) if username and password else None
-        )
+        auth: tuple[str, str] | None = (username, password) if username and password else None
 
         try:
             resp = requests.get(url, auth=auth, timeout=10, verify=False)
             resp.raise_for_status()
             mapping_data = resp.json()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
-                "Could not fetch mapping for index '%s': %s. "
-                "Falling back to static schema inference.",
+                "Could not fetch mapping for index '%s': %s. Falling back to static schema inference.",
                 index_name,
                 exc,
             )
             # Fall back: load the matching static schema from document_schemas.json
             table = cls.infer_schema_from_index(index_name)
             try:
-                with open(_SCHEMAS_FILE, "r", encoding="utf-8") as f:
+                with open(_SCHEMAS_FILE, encoding="utf-8") as f:
                     all_schemas = json.load(f)
                 for schema in all_schemas.get("schemas", []):
                     if schema.get("table") == table:
                         return schema
-            except Exception:  # noqa: BLE001
+            except Exception:
                 pass
             return {"table": table, "description": "", "columns": {}}
 
         # Extract properties from the mapping response
         index_mapping = mapping_data.get(index_name, {})
-        properties: Dict[str, Any] = index_mapping.get("mappings", {}).get(
-            "properties", {}
-        )
+        properties: dict[str, Any] = index_mapping.get("mappings", {}).get("properties", {})
 
-        columns: Dict[str, str] = {}
+        columns: dict[str, str] = {}
         for field_name, field_def in properties.items():
             field_type = field_def.get("type", "")
             # Skip vector fields — not usable in SQL
@@ -158,8 +153,8 @@ class OllamaNLToSQLConverter:
         model: str = "granite4",
         temperature: float = 0.1,
         dataclass: str = "purchase_orders",
-        index_name: Optional[str] = None,
-        schema_dict: Optional[Dict[str, Any]] = None,
+        index_name: str | None = None,
+        schema_dict: dict[str, Any] | None = None,
     ) -> None:
         """
         Initialize Ollama converter.
@@ -201,11 +196,9 @@ class OllamaNLToSQLConverter:
             self.schema = self.get_schema(dataclass=dataclass)
 
         # The SQL FROM table name is the real index name (may differ from schema name)
-        self.index_name: str = (
-            index_name.strip() if index_name else self.schema["table"]
-        )
+        self.index_name: str = index_name.strip() if index_name else self.schema["table"]
 
-    def get_schema(self, dataclass: str) -> Dict[str, Any]:
+    def get_schema(self, dataclass: str) -> dict[str, Any]:
         """Return the schema for the given data class from document_schemas.json.
 
         Args:
@@ -227,7 +220,7 @@ class OllamaNLToSQLConverter:
             )
 
         try:
-            with open(_SCHEMAS_FILE, "r", encoding="utf-8") as f:
+            with open(_SCHEMAS_FILE, encoding="utf-8") as f:
                 all_schemas = json.load(f)
         except json.JSONDecodeError as exc:
             raise json.JSONDecodeError(
@@ -241,10 +234,7 @@ class OllamaNLToSQLConverter:
                 return schema
 
         available = [s.get("table") for s in all_schemas.get("schemas", [])]
-        raise ValueError(
-            f"Schema '{dataclass}' not found in {_SCHEMAS_FILE}. "
-            f"Available schemas: {available}"
-        )
+        raise ValueError(f"Schema '{dataclass}' not found in {_SCHEMAS_FILE}. Available schemas: {available}")
 
     def check_ollama_status(self) -> bool:
         """Check if Ollama service is running and model is available.
@@ -253,9 +243,7 @@ class OllamaNLToSQLConverter:
             True if the service is reachable and the model is present, False otherwise.
         """
         try:
-            response: Response = requests.get(
-                url=f"{self.ollama_host}/api/tags", timeout=10
-            )
+            response: Response = requests.get(url=f"{self.ollama_host}/api/tags", timeout=10)
             response.raise_for_status()
         except requests.exceptions.ConnectionError:
             logger.warning(
@@ -269,7 +257,7 @@ class OllamaNLToSQLConverter:
         except requests.exceptions.HTTPError as exc:
             logger.warning("Ollama /api/tags returned an error: %s", exc)
             return False
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning("Unexpected error checking Ollama status: %s", exc)
             return False
 
@@ -279,8 +267,7 @@ class OllamaNLToSQLConverter:
 
         if self.model not in model_names and f"{self.model}:latest" not in model_names:
             logger.warning(
-                "Model '%s' not found in Ollama. Available: %s. "
-                "Pull it with: ollama pull %s",
+                "Model '%s' not found in Ollama. Available: %s. Pull it with: ollama pull %s",
                 self.model,
                 ", ".join(model_names),
                 self.model,
@@ -353,13 +340,11 @@ SQL QUERY:"""
             response.raise_for_status()
         except requests.exceptions.Timeout:
             raise RuntimeError(
-                f"Ollama request timed out after 60 s. "
-                f"The model '{self.model}' may be too slow or not responding."
+                f"Ollama request timed out after 60 s. The model '{self.model}' may be too slow or not responding."
             )
         except requests.exceptions.ConnectionError:
             raise RuntimeError(
-                f"Cannot connect to Ollama at {self.ollama_host}. "
-                "Make sure Ollama is running (`ollama serve`)."
+                f"Cannot connect to Ollama at {self.ollama_host}. Make sure Ollama is running (`ollama serve`)."
             )
         except requests.exceptions.HTTPError as exc:
             raise RuntimeError(
@@ -371,9 +356,7 @@ SQL QUERY:"""
         try:
             result = response.json()
         except ValueError as exc:
-            raise RuntimeError(
-                f"Ollama returned non-JSON response: {response.text[:200]}"
-            ) from exc
+            raise RuntimeError(f"Ollama returned non-JSON response: {response.text[:200]}") from exc
 
         raw_sql = result.get("response", "").strip()
         if not raw_sql:
@@ -439,23 +422,17 @@ SQL QUERY:"""
         }
 
         try:
-            response = requests.post(
-                self.api_endpoint, json=payload, stream=True, timeout=60
-            )
+            response = requests.post(self.api_endpoint, json=payload, stream=True, timeout=60)
             response.raise_for_status()
         except requests.exceptions.Timeout:
-            raise RuntimeError(
-                f"Ollama streaming request timed out after 60 s for model '{self.model}'."
-            )
+            raise RuntimeError(f"Ollama streaming request timed out after 60 s for model '{self.model}'.")
         except requests.exceptions.ConnectionError:
             raise RuntimeError(
                 f"Cannot connect to Ollama at {self.ollama_host} for streaming. "
                 "Make sure Ollama is running (`ollama serve`)."
             )
         except requests.exceptions.HTTPError as exc:
-            raise RuntimeError(
-                f"Ollama returned HTTP {exc.response.status_code} during streaming."
-            ) from exc
+            raise RuntimeError(f"Ollama returned HTTP {exc.response.status_code} during streaming.") from exc
 
         full_response = ""
         logger.info("Generating SQL query using Ollama streaming API")
@@ -475,15 +452,11 @@ SQL QUERY:"""
                     if chunk.get("done", False):
                         break
             logger.debug(f"Received {chunk_count} chunks from Ollama")
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(
-                f"Error reading Ollama streaming response: {exc}"
-            ) from exc
+        except Exception as exc:
+            raise RuntimeError(f"Error reading Ollama streaming response: {exc}") from exc
 
         if not full_response.strip():
-            raise RuntimeError(
-                f"Ollama streaming returned an empty response for model '{self.model}'."
-            )
+            raise RuntimeError(f"Ollama streaming returned an empty response for model '{self.model}'.")
 
         logger.debug(f"Raw Ollama response length: {len(full_response)} characters")
         cleaned_sql = self._clean_sql(full_response)
@@ -501,8 +474,8 @@ class OllamaPurchaseOrderQuerySystem:
         index_name: str = "purchase_orders",
         ollama_host: str = "http://localhost:11434",
         ollama_model: str = "granite4",
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
     ):
         """
         Initialize the query system with Ollama.
@@ -519,9 +492,7 @@ class OllamaPurchaseOrderQuerySystem:
         # Import here to avoid circular dependency
         from nl_to_sql_converter import OpenSearchQueryExecutor
 
-        self.converter = OllamaNLToSQLConverter(
-            ollama_host=ollama_host, model=ollama_model
-        )
+        self.converter = OllamaNLToSQLConverter(ollama_host=ollama_host, model=ollama_model)
 
         self.executor = OpenSearchQueryExecutor(
             host=opensearch_host,
@@ -536,9 +507,7 @@ class OllamaPurchaseOrderQuerySystem:
         if not self.converter.check_ollama_status():
             print("\nWarning: Ollama service check failed. Queries may not work.")
 
-    def query(
-        self, natural_language_query: str, use_streaming: bool = False
-    ) -> Dict[str, Any]:
+    def query(self, natural_language_query: str, use_streaming: bool = False) -> dict[str, Any]:
         """
         Process a natural language query and return results.
 
@@ -552,9 +521,7 @@ class OllamaPurchaseOrderQuerySystem:
         try:
             # Convert natural language to SQL using Ollama
             if use_streaming:
-                sql_query = self.converter.convert_with_streaming(
-                    natural_language_query
-                )
+                sql_query = self.converter.convert_with_streaming(natural_language_query)
             else:
                 sql_query = self.converter.convert_to_sql(natural_language_query)
 

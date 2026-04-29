@@ -9,14 +9,14 @@ Tests cover:
 - Pass-through behavior
 """
 
-import pytest
 import pyarrow as pa
+import pytest
 
-from core.operators.storage.document_set_operator import DocumentSetOperator
-from core.operators.abstract_operator import OperatorCategory
-from common.constants.constants import ExecutionStatus, Metrics
-from common.constants.operator_constants import OperatorConstants
-from common.exceptions.datasift_exceptions import (
+from datasift.core.constants.constants import ExecutionStatus, Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.abstract_operator import OperatorCategory
+from datasift.core.operators.storage.document_set_operator import DocumentSetOperator
+from datasift.exceptions.datasift_exceptions import (
     FlowValidationException,
 )
 
@@ -368,9 +368,7 @@ class TestOperatorWithDifferentSchemas:
         config = {"document_set_name": "Minimal Schema Test"}
         operator = DocumentSetOperator(config)
 
-        minimal_table = pa.table(
-            {"id": ["doc1", "doc2"], "content": ["Content 1", "Content 2"]}
-        )
+        minimal_table = pa.table({"id": ["doc1", "doc2"], "content": ["Content 1", "Content 2"]})
 
         result_tables, metadata = operator.transform(minimal_table)
 

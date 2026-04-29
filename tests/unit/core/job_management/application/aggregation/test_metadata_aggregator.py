@@ -4,8 +4,8 @@ Unit tests for MetadataAggregator - nested metadata handling.
 Tests the enterprise-compatible nested node_metadata aggregation.
 """
 
-from core.job_management.application.aggregation.aggregator import MetadataAggregator
-from core.job_management.application.aggregation.strategies import AggregationStrategy
+from datasift.core.job_management.application.aggregation.aggregator import MetadataAggregator
+from datasift.core.job_management.application.aggregation.strategies import AggregationStrategy
 
 
 class TestNestedMetadataAggregation:
@@ -149,9 +149,7 @@ class TestAggregationStrategies:
     def test_sum_strategy(self):
         """Test SUM strategy aggregates numeric values."""
         aggregator = MetadataAggregator()
-        aggregator.register_strategy(
-            field_path="count", strategy=AggregationStrategy.SUM
-        )
+        aggregator.register_strategy(field_path="count", strategy=AggregationStrategy.SUM)
 
         metadata_list = [{"count": 10}, {"count": 20}, {"count": 30}]
         result = aggregator.aggregate_metadata(metadata_list=metadata_list)
@@ -161,9 +159,7 @@ class TestAggregationStrategies:
     def test_union_strategy(self):
         """Test UNION strategy deduplicates lists."""
         aggregator = MetadataAggregator()
-        aggregator.register_strategy(
-            field_path="docs", strategy=AggregationStrategy.UNION
-        )
+        aggregator.register_strategy(field_path="docs", strategy=AggregationStrategy.UNION)
 
         metadata_list = [
             {"docs": ["doc1", "doc2"]},

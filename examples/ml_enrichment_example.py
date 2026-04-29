@@ -14,13 +14,11 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(
-    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
-)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from common.constants.operator_constants import OperatorConstants
-from common.util.infrastructure.logging import get_logger
-from core.operators.quality.ml_enrichment import MLEnrichmentOperator
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.quality.ml_enrichment import MLEnrichmentOperator
+from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -86,9 +84,7 @@ def main() -> None:  # pragma: no cover
 
     # Display results
     output_table = output_tables[0]
-    logger.info(
-        f"\nOutput Table Shape: {output_table.num_rows} rows x {output_table.num_columns} columns"
-    )
+    logger.info(f"\nOutput Table Shape: {output_table.num_rows} rows x {output_table.num_columns} columns")
     logger.info(f"Output Columns: {output_table.column_names}")
     logger.info(f"\nMetadata: {metadata}")
 
@@ -124,5 +120,3 @@ def main() -> None:  # pragma: no cover
 
 if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())
-
-# Made with Bob

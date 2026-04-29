@@ -10,7 +10,7 @@ import pyarrow as pa
 import pyarrow.compute as pc
 import pytest
 
-from common.util.data.pyarrow_handler import (
+from datasift.utils.data.pyarrow_handler import (
     BaseParquetTableHandler,
     CpdParquetTableHandler,
     get_parquet_table_handler,
@@ -81,9 +81,7 @@ class TestCpdParquetTableHandler:
         result = handler.read_table(path=nonexistent_path)
         assert result is None
 
-    def test_read_table_with_column_projection(
-        self, handler, sample_table, temp_parquet_file
-    ):
+    def test_read_table_with_column_projection(self, handler, sample_table, temp_parquet_file):
         """Test reading specific columns from a table."""
         handler.save_table(path=temp_parquet_file, table=sample_table)
 
@@ -150,9 +148,7 @@ class TestCpdParquetTableHandler:
         def invalid_filter(table):
             return table["id"]  # Returns int array, not boolean
 
-        with pytest.raises(
-            TypeError, match="delete_filter_fn must return a pyarrow BooleanArray"
-        ):
+        with pytest.raises(TypeError, match="delete_filter_fn must return a pyarrow BooleanArray"):
             handler.delete_rows(path=temp_parquet_file, delete_filter_fn=invalid_filter)
 
     def test_delete_file(self, handler, sample_table, temp_parquet_file):
@@ -178,9 +174,7 @@ class TestCpdParquetTableHandler:
             # Should not raise, but log error
             handler.save_table(path=invalid_path, table=sample_table)
 
-    def test_concurrent_access_with_filelock(
-        self, handler, sample_table, temp_parquet_file
-    ):
+    def test_concurrent_access_with_filelock(self, handler, sample_table, temp_parquet_file):
         """Test that file locking prevents concurrent access issues."""
         handler.save_table(path=temp_parquet_file, table=sample_table)
 
@@ -190,9 +184,7 @@ class TestCpdParquetTableHandler:
 
         assert table1.equals(table2)
 
-    def test_save_table_creates_lock_file(
-        self, handler, sample_table, temp_parquet_file
-    ):
+    def test_save_table_creates_lock_file(self, handler, sample_table, temp_parquet_file):
         """Test that lock file is created during save operation."""
         # Lock file should be cleaned up after operation
         handler.save_table(path=temp_parquet_file, table=sample_table)
@@ -203,9 +195,7 @@ class TestCpdParquetTableHandler:
 
     def test_read_table_with_unicode_data(self, handler, temp_parquet_file):
         """Test reading and writing tables with Unicode characters."""
-        unicode_table = pa.table(
-            {"id": [1, 2, 3], "text": ["Hello 世界", "Привет мир", "مرحبا بالعالم"]}
-        )
+        unicode_table = pa.table({"id": [1, 2, 3], "text": ["Hello 世界", "Привет мир", "مرحبا بالعالم"]})
 
         handler.save_table(path=temp_parquet_file, table=unicode_table)
         read_table = handler.read_table(path=temp_parquet_file)
@@ -215,9 +205,7 @@ class TestCpdParquetTableHandler:
     def test_large_table_handling(self, handler, temp_parquet_file):
         """Test handling of larger tables."""
         # Create a table with 10,000 rows
-        large_table = pa.table(
-            {"id": list(range(10000)), "value": [f"value_{i}" for i in range(10000)]}
-        )
+        large_table = pa.table({"id": list(range(10000)), "value": [f"value_{i}" for i in range(10000)]})
 
         handler.save_table(path=temp_parquet_file, table=large_table)
         read_table = handler.read_table(path=temp_parquet_file)
@@ -288,9 +276,7 @@ class TestEdgeCases:
 
     def test_table_with_null_values(self, handler, tmp_path):
         """Test handling tables with null values."""
-        table_with_nulls = pa.table(
-            {"id": [1, 2, None, 4], "name": ["Alice", None, "Charlie", "David"]}
-        )
+        table_with_nulls = pa.table({"id": [1, 2, None, 4], "name": ["Alice", None, "Charlie", "David"]})
         path = str(tmp_path / "nulls.parquet")
 
         handler.save_table(path=path, table=table_with_nulls)

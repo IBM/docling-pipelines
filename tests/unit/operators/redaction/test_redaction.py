@@ -1,8 +1,8 @@
 import pyarrow as pa
 
-from core.operators.quality.redaction import RedactionOperator
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import Metrics
+from datasift.core.constants.constants import Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.quality.redaction import RedactionOperator
 
 
 class TestRedactionOperator:
@@ -18,14 +18,10 @@ class TestRedactionOperator:
         }
         operator = RedactionOperator(config=config)
 
-        content = pa.array(
-            ["John Doe is here", "Mary Smith is there", "John and John again"]
-        )
+        content = pa.array(["John Doe is here", "Mary Smith is there", "John and John again"])
         names = pa.array(["doc1", "doc2", "doc3"])
         ids = pa.array([1, 2, 3])
-        input_table = pa.Table.from_arrays(
-            [ids, names, content], names=["id", "name", "content"]
-        )
+        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
 
         table_list, metadata = operator.transform(input_table)
 
@@ -45,9 +41,7 @@ class TestRedactionOperator:
         assert stats[2] == 2
 
         # Check metadata
-        assert (
-            metadata[Metrics.External.PROCESSED_DOCS] == 2
-        )  # Only docs with redactions
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 2  # Only docs with redactions
         assert metadata["total_redactions"] == 3
 
     def test_redaction_with_regex_pattern(self):
@@ -60,14 +54,10 @@ class TestRedactionOperator:
         }
         operator = RedactionOperator(config=config)
 
-        content = pa.array(
-            ["SSN: 123-45-6789", "No SSN here", "Multiple: 111-22-3333 and 444-55-6666"]
-        )
+        content = pa.array(["SSN: 123-45-6789", "No SSN here", "Multiple: 111-22-3333 and 444-55-6666"])
         names = pa.array(["doc1", "doc2", "doc3"])
         ids = pa.array([1, 2, 3])
-        input_table = pa.Table.from_arrays(
-            [ids, names, content], names=["id", "name", "content"]
-        )
+        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
 
         table_list, _ = operator.transform(input_table)
 
@@ -91,9 +81,7 @@ class TestRedactionOperator:
         content = pa.array(["Some content"])
         names = pa.array(["doc1"])
         ids = pa.array([1])
-        input_table = pa.Table.from_arrays(
-            [ids, names, content], names=["id", "name", "content"]
-        )
+        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
 
         table_list, metadata = operator.transform(input_table)
 
@@ -115,9 +103,7 @@ class TestRedactionOperator:
         content = pa.array(["This is a secret message"])
         names = pa.array(["doc1"])
         ids = pa.array([1])
-        input_table = pa.Table.from_arrays(
-            [ids, names, content], names=["id", "name", "content"]
-        )
+        input_table = pa.Table.from_arrays([ids, names, content], names=["id", "name", "content"])
 
         table_list, metadata = operator.transform(input_table)
 

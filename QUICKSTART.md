@@ -93,21 +93,17 @@ EOF
 ### Step 2: Activate Environment
 
 ```bash
-# Set PYTHONPATH (run from project root)
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+# Set PYTHONPATH (from project root)
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
-# Activate virtual environment
-cd src/datasift_opensource/backend
+# Activate virtual environment (from project root)
 source .venv/bin/activate
 ```
 
 ### Step 3: Run the Pipeline
 
 ```bash
-# Return to project root
-cd ../../..
-
-# Run the complete pipeline
+# Run the complete pipeline (from project root)
 datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
@@ -263,7 +259,7 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 **"ModuleNotFoundError" or import errors:**
 ```bash
 # Ensure PYTHONPATH is set correctly (from project root)
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
 # Verify you're in the right directory
 pwd  # Should end with /datasift
@@ -329,8 +325,8 @@ ls -la sample_flows/complete_pipeline_flow.json
 
 ```bash
 # Activate environment (from project root)
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-cd src/datasift_opensource/backend && source .venv/bin/activate && cd ../../..
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+source .venv/bin/activate
 
 # Run a flow
 datasift-orchestrator --flow-file path/to/flow.json

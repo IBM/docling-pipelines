@@ -1,9 +1,9 @@
 import json
 import re
-
-from typing import Union, List, Dict, Generator, Optional, Any, Callable
 from enum import Enum
-from common.util.infrastructure.logging import get_logger
+from typing import Any, Callable, Generator
+
+from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
@@ -19,11 +19,11 @@ class OllamaClient:
     def __init__(
         self,
         model_name: str = "llama2",
-        mode: Union[str, InteractionMode] = InteractionMode.GENERATE,
-        system_prompt: Optional[str] = None,
+        mode: str | InteractionMode = InteractionMode.GENERATE,
+        system_prompt: str | None = None,
         max_history_size: int = 50,
-        tools: Optional[List[Dict[str, Any]]] = None,
-        tool_registry: Optional[Dict[str, Callable[..., Any]]] = None,
+        tools: list[dict[str, Any]] | None = None,
+        tool_registry: dict[str, Callable[..., Any]] | None = None,
     ):
         """
         Initialize the Ollama wrapper with specified model, interaction mode, and optional tools.
@@ -44,7 +44,7 @@ class OllamaClient:
         self.tools = tools if self.mode == InteractionMode.CHAT else []
         self.tool_registry = tool_registry if self.mode == InteractionMode.CHAT else {}
 
-        self._history: List[Dict[str, str]] = []
+        self._history: list[dict[str, str]] = []
         self._initialize_chat_mode()
 
     def _initialize_chat_mode(self) -> None:
@@ -52,15 +52,15 @@ class OllamaClient:
         if self.mode == InteractionMode.CHAT and self.system_prompt:
             self._history.append({"role": "system", "content": self.system_prompt})
 
-    def _manage_history(self, new_messages: List[Dict[str, str]]) -> None:
+    def _manage_history(self, new_messages: list[dict[str, str]]) -> None:
         """Keep only the recent messages within the specified history limit."""
         self._history.extend(new_messages)
         if len(self._history) > self.max_history_size:
             self._history = self._history[-self.max_history_size :]
 
     def run(
-        self, prompt: str, system_prompt: Optional[str] = None, stream: bool = False
-    ) -> Union[str, Generator[str, None, None]]:
+        self, prompt: str, system_prompt: str | None = None, stream: bool = False
+    ) -> str | Generator[str, None, None]:
         """
         Execute the model with the given prompt.
 
@@ -78,12 +78,10 @@ class OllamaClient:
                 return self._handle_chat(prompt, system_prompt, stream)
             return self._handle_generate(prompt, stream)
         except Exception as e:
-            logger.error(f"Error during model execution: {str(e)}")
+            logger.error(f"Error during model execution: {e!s}")
             raise
 
-    def run_json(
-        self, prompt: str, system_prompt: Optional[str] = None, retries: int = 3
-    ) -> dict:
+    def run_json(self, prompt: str, system_prompt: str | None = None, retries: int = 3) -> dict:
         """
         Run the model and enforce JSON output with retries.
 
@@ -126,9 +124,9 @@ class OllamaClient:
     def _handle_chat(
         self,
         prompt: str,
-        system_prompt: Optional[str],
+        system_prompt: str | None,
         stream: bool,
-    ) -> Union[str, Generator[str, None, None]]:
+    ) -> str | Generator[str, None, None]:
         """Handle chat interactions with history and tool execution."""
         import ollama
 
@@ -138,9 +136,7 @@ class OllamaClient:
         messages.extend(self._history)
         messages.append({"role": "user", "content": prompt})
 
-        response = ollama.chat(
-            model=self.model, messages=messages, stream=stream, tools=self.tools
-        )
+        response = ollama.chat(model=self.model, messages=messages, stream=stream, tools=self.tools)
 
         if stream:
             return self._stream_chat_response(response, prompt)
@@ -154,9 +150,7 @@ class OllamaClient:
         if "tool_calls" in message:
             tool_outputs = self._execute_tool_calls(message["tool_calls"])
             self._manage_history(tool_outputs)
-            content += "\n".join(
-                [f"[Tool {out['name']} → {out['content']}]" for out in tool_outputs]
-            )
+            content += "\n".join([f"[Tool {out['name']} → {out['content']}]" for out in tool_outputs])
 
         return content
 
@@ -164,7 +158,7 @@ class OllamaClient:
         self,
         prompt: str,
         stream: bool,
-    ) -> Union[str, Generator[str, None, None]]:
+    ) -> str | Generator[str, None, None]:
         import ollama
 
         response = ollama.generate(model=self.model, prompt=prompt, stream=stream)
@@ -174,11 +168,9 @@ class OllamaClient:
 
         return response.get("response", "")
 
-    def _stream_chat_response(
-        self, response: Any, user_prompt: str
-    ) -> Generator[str, None, None]:
+    def _stream_chat_response(self, response: Any, user_prompt: str) -> Generator[str, None, None]:
 
-        collected: List[Dict[str, str]] = []
+        collected: list[dict[str, str]] = []
 
         for chunk in response:
             message = chunk.get("message", {})
@@ -193,12 +185,7 @@ class OllamaClient:
                 tool_outputs = self._execute_tool_calls(message["tool_calls"])
                 for out in tool_outputs:
                     yield f"[Tool {out['name']} → {out['content']}]"
-                collected.extend(
-                    [
-                        {"role": "tool", "content": out["content"]}
-                        for out in tool_outputs
-                    ]
-                )
+                collected.extend([{"role": "tool", "content": out["content"]} for out in tool_outputs])
 
         self._manage_history([{"role": "user", "content": user_prompt}] + collected)
 
@@ -209,9 +196,7 @@ class OllamaClient:
             if text:
                 yield text
 
-    def _execute_tool_calls(
-        self, tool_calls: List[Dict[str, Any]]
-    ) -> List[Dict[str, str]]:
+    def _execute_tool_calls(self, tool_calls: list[dict[str, Any]]) -> list[dict[str, str]]:
         """Execute tool calls against registered Python functions."""
 
         results = []
@@ -223,14 +208,10 @@ class OllamaClient:
             if tool_name in self.tool_registry:
                 try:
                     result = self.tool_registry[tool_name](**tool_args)
-                    results.append(
-                        {"role": "tool", "name": tool_name, "content": str(result)}
-                    )
+                    results.append({"role": "tool", "name": tool_name, "content": str(result)})
                 except Exception as e:
                     logger.error(f"Error executing tool {tool_name}: {e}")
-                    results.append(
-                        {"role": "tool", "name": tool_name, "content": f"Error: {e}"}
-                    )
+                    results.append({"role": "tool", "name": tool_name, "content": f"Error: {e}"})
             else:
                 logger.warning(f"No registered tool found for {tool_name}")
                 results.append(
@@ -242,7 +223,7 @@ class OllamaClient:
                 )
         return results
 
-    def get_history(self) -> List[Dict[str, str]]:
+    def get_history(self) -> list[dict[str, str]]:
         return self._history.copy()
 
     def clear_history(self) -> None:

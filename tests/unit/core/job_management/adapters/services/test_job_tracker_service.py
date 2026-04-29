@@ -13,14 +13,14 @@ Final document counting algorithm:
 3. Skipped documents (from ingest, neither completed nor failed)
 """
 
-import pytest
 from unittest.mock import Mock
 
-from core.job_management.adapters.services.job_tracker_service import JobTrackerService
-from core.job_management.domain.models.job_stats import JobStats
-from core.job_management.domain.models.node_stats import NodeStats
-from common.constants.constants import ExecutionStatus
+import pytest
 
+from datasift.core.constants.constants import ExecutionStatus
+from datasift.core.job_management.adapters.services.job_tracker_service import JobTrackerService
+from datasift.core.job_management.domain.models.job_stats import JobStats
+from datasift.core.job_management.domain.models.node_stats import NodeStats
 
 # Test UUIDs (36 characters, hex format)
 JOB_ID = "12345678-1234-1234-1234-123456789012"
@@ -49,9 +49,7 @@ def mock_aggregator():
 @pytest.fixture
 def job_tracker_service(*, mock_store, mock_aggregator):
     """Create JobTrackerService with mocked dependencies."""
-    return JobTrackerService(
-        job_stats_store=mock_store, node_stats_aggregator=mock_aggregator
-    )
+    return JobTrackerService(job_stats_store=mock_store, node_stats_aggregator=mock_aggregator)
 
 
 @pytest.fixture
@@ -120,9 +118,7 @@ class TestFinalDocumentCounting:
             },
         )
 
-        job_tracker_service.determine_and_update_final_documents_count(
-            job_stats=job_stats, dag_nodes=sample_dag_linear
-        )
+        job_tracker_service.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=sample_dag_linear)
 
         assert job_stats.completed_docs == 3
         assert job_stats.failed_docs == 0
@@ -163,9 +159,7 @@ class TestFinalDocumentCounting:
             },
         )
 
-        job_tracker_service.determine_and_update_final_documents_count(
-            job_stats=job_stats, dag_nodes=sample_dag_linear
-        )
+        job_tracker_service.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=sample_dag_linear)
 
         assert job_stats.completed_docs == 2
         assert job_stats.failed_docs == 1
@@ -206,9 +200,7 @@ class TestFinalDocumentCounting:
             },
         )
 
-        job_tracker_service.determine_and_update_final_documents_count(
-            job_stats=job_stats, dag_nodes=sample_dag_linear
-        )
+        job_tracker_service.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=sample_dag_linear)
 
         assert job_stats.completed_docs == 3
         assert job_stats.failed_docs == 0
@@ -249,18 +241,14 @@ class TestFinalDocumentCounting:
             },
         )
 
-        job_tracker_service.determine_and_update_final_documents_count(
-            job_stats=job_stats, dag_nodes=sample_dag_linear
-        )
+        job_tracker_service.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=sample_dag_linear)
 
         assert job_stats.completed_docs == 2
         assert job_stats.failed_docs == 1
         assert job_stats.skipped_docs == 2
         assert job_stats.processed_docs == 5
 
-    def test_multiple_destination_nodes(
-        self, *, job_tracker_service, sample_dag_branching
-    ):
+    def test_multiple_destination_nodes(self, *, job_tracker_service, sample_dag_branching):
         """Test with multiple destination nodes (branching flow)."""
         job_stats = JobStats(
             job_id=JOB_ID,
@@ -311,9 +299,7 @@ class TestFinalDocumentCounting:
         assert job_stats.skipped_docs == 0
         assert job_stats.processed_docs == 4
 
-    def test_failed_takes_precedence_over_completed(
-        self, *, job_tracker_service, sample_dag_branching
-    ):
+    def test_failed_takes_precedence_over_completed(self, *, job_tracker_service, sample_dag_branching):
         """Test that failed status takes precedence even if doc reached a destination."""
         job_stats = JobStats(
             job_id=JOB_ID,
@@ -366,13 +352,9 @@ class TestFinalDocumentCounting:
 
     def test_empty_node_stats(self, *, job_tracker_service, sample_dag_linear):
         """Test with empty node stats."""
-        job_stats = JobStats(
-            job_id=JOB_ID, job_run_id=JOB_RUN_ID, total_docs=0, node_stats={}
-        )
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, total_docs=0, node_stats={})
 
-        job_tracker_service.determine_and_update_final_documents_count(
-            job_stats=job_stats, dag_nodes=sample_dag_linear
-        )
+        job_tracker_service.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=sample_dag_linear)
 
         assert job_stats.completed_docs == 0
         assert job_stats.failed_docs == 0
@@ -402,9 +384,7 @@ class TestFinalDocumentCounting:
             },
         )
 
-        job_tracker_service.determine_and_update_final_documents_count(
-            job_stats=job_stats, dag_nodes=dag_nodes
-        )
+        job_tracker_service.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=dag_nodes)
 
         assert job_stats.completed_docs == 0
         assert job_stats.failed_docs == 0
@@ -421,19 +401,13 @@ class TestHelperMethods:
             job_id=JOB_ID,
             job_run_id=JOB_RUN_ID,
             node_stats={
-                NODE_ID_1: NodeStats(
-                    node_id=NODE_ID_1, name="Node 1", failed_docs=["doc1", "doc2"]
-                ),
-                NODE_ID_2: NodeStats(
-                    node_id=NODE_ID_2, name="Node 2", failed_docs=["doc3"]
-                ),
+                NODE_ID_1: NodeStats(node_id=NODE_ID_1, name="Node 1", failed_docs=["doc1", "doc2"]),
+                NODE_ID_2: NodeStats(node_id=NODE_ID_2, name="Node 2", failed_docs=["doc3"]),
             },
         )
 
         final_docs_status = {}
-        job_tracker_service._mark_failed_documents(
-            job_stats=job_stats, final_docs_status=final_docs_status
-        )
+        job_tracker_service._mark_failed_documents(job_stats=job_stats, final_docs_status=final_docs_status)
 
         assert final_docs_status == {
             "doc1": "FAILED",
@@ -441,15 +415,9 @@ class TestHelperMethods:
             "doc3": "FAILED",
         }
 
-    def test_identify_ingest_and_destination_nodes(
-        self, *, job_tracker_service, sample_dag_linear
-    ):
+    def test_identify_ingest_and_destination_nodes(self, *, job_tracker_service, sample_dag_linear):
         """Test _identify_ingest_and_destination_nodes helper."""
-        ingest_id, dest_ids = (
-            job_tracker_service._identify_ingest_and_destination_nodes(
-                dag_nodes=sample_dag_linear
-            )
-        )
+        ingest_id, dest_ids = job_tracker_service._identify_ingest_and_destination_nodes(dag_nodes=sample_dag_linear)
 
         assert ingest_id == INGEST_NODE_ID
         assert dest_ids == [DEST_NODE_ID_1]
@@ -537,9 +505,7 @@ class TestStartTrackingJob:
 
     def test_start_tracking_job_default_user(self, *, job_tracker_service, mock_store):
         """Start tracking with no user_id uses default."""
-        job_tracker_service.start_tracking_job(
-            job_id=JOB_ID, job_run_id=JOB_RUN_ID, flow_name="test_flow"
-        )
+        job_tracker_service.start_tracking_job(job_id=JOB_ID, job_run_id=JOB_RUN_ID, flow_name="test_flow")
 
         call_args = mock_store.store_job_stats.call_args
         job_stats = call_args[0][0]
@@ -561,9 +527,7 @@ class TestEndJob:
         )
         mock_store.get_job_stats.return_value = job_stats
 
-        job_tracker_service.end_job(
-            job_run_id=JOB_RUN_ID, status=ExecutionStatus.COMPLETED
-        )
+        job_tracker_service.end_job(job_run_id=JOB_RUN_ID, status=ExecutionStatus.COMPLETED)
 
         # Verify store_job_stats was called with updated stats
         assert mock_store.store_job_stats.called
@@ -606,9 +570,7 @@ class TestEndJob:
         )
         mock_store.get_job_stats.return_value = job_stats
 
-        job_tracker_service.end_job(
-            job_run_id=JOB_RUN_ID, status=ExecutionStatus.CANCELED
-        )
+        job_tracker_service.end_job(job_run_id=JOB_RUN_ID, status=ExecutionStatus.CANCELED)
 
         call_args = mock_store.store_job_stats.call_args
         updated_stats = call_args[0][0]
@@ -619,24 +581,18 @@ class TestEndJob:
         """End job raises JobRunNotFoundException if job not found."""
         mock_store.get_job_stats.return_value = None
 
-        from common.exceptions.datasift_exceptions import JobRunNotFoundException
+        from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
 
         with pytest.raises(JobRunNotFoundException, match="Job run not found"):
-            job_tracker_service.end_job(
-                job_run_id=JOB_RUN_ID, status=ExecutionStatus.COMPLETED
-            )
+            job_tracker_service.end_job(job_run_id=JOB_RUN_ID, status=ExecutionStatus.COMPLETED)
 
 
 class TestGetJob:
     """Test get_job method with aggregation options."""
 
-    def test_get_job_with_node_stats(
-        self, *, job_tracker_service, mock_store, mock_aggregator
-    ):
+    def test_get_job_with_node_stats(self, *, job_tracker_service, mock_store, mock_aggregator):
         """Get job with aggregated node stats."""
-        job_stats = JobStats(
-            job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING
-        )
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING)
         mock_store.get_job_stats.return_value = job_stats
 
         aggregated_node_stats = {
@@ -648,22 +604,16 @@ class TestGetJob:
         }
         mock_aggregator.get_aggregated_node_stats.return_value = aggregated_node_stats
 
-        result = job_tracker_service.get_job(
-            job_run_id=JOB_RUN_ID, include_node_stats=True, include_batch_stats=False
-        )
+        result = job_tracker_service.get_job(job_run_id=JOB_RUN_ID, include_node_stats=True, include_batch_stats=False)
 
         assert result is not None
         assert result.node_stats == aggregated_node_stats
         assert result.batch_node_stats == {}
         assert mock_aggregator.get_aggregated_node_stats.called
 
-    def test_get_job_with_batch_stats(
-        self, *, job_tracker_service, mock_store, mock_aggregator
-    ):
+    def test_get_job_with_batch_stats(self, *, job_tracker_service, mock_store, mock_aggregator):
         """Get job with batch-level node stats."""
-        job_stats = JobStats(
-            job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING
-        )
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING)
         mock_store.get_job_stats.return_value = job_stats
 
         batch_node_stats = {
@@ -678,27 +628,19 @@ class TestGetJob:
         }
         mock_aggregator.get_batch_node_stats.return_value = batch_node_stats
 
-        result = job_tracker_service.get_job(
-            job_run_id=JOB_RUN_ID, include_node_stats=False, include_batch_stats=True
-        )
+        result = job_tracker_service.get_job(job_run_id=JOB_RUN_ID, include_node_stats=False, include_batch_stats=True)
 
         assert result is not None
         assert result.node_stats == {}
         assert result.batch_node_stats == batch_node_stats
         assert mock_aggregator.get_batch_node_stats.called
 
-    def test_get_job_without_aggregation(
-        self, *, job_tracker_service, mock_store, mock_aggregator
-    ):
+    def test_get_job_without_aggregation(self, *, job_tracker_service, mock_store, mock_aggregator):
         """Get job without any aggregation."""
-        job_stats = JobStats(
-            job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING
-        )
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING)
         mock_store.get_job_stats.return_value = job_stats
 
-        result = job_tracker_service.get_job(
-            job_run_id=JOB_RUN_ID, include_node_stats=False, include_batch_stats=False
-        )
+        result = job_tracker_service.get_job(job_run_id=JOB_RUN_ID, include_node_stats=False, include_batch_stats=False)
 
         assert result is not None
         assert result.node_stats == {}
@@ -720,9 +662,7 @@ class TestGetJobRunStats:
 
     def test_get_job_run_stats_basic(self, *, job_tracker_service, mock_store):
         """Get job run stats without aggregation."""
-        job_stats = JobStats(
-            job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING
-        )
+        job_stats = JobStats(job_id=JOB_ID, job_run_id=JOB_RUN_ID, status=ExecutionStatus.RUNNING)
         mock_store.get_job_stats.return_value = job_stats
 
         result = job_tracker_service.get_job_run_stats(job_run_id=JOB_RUN_ID)
@@ -745,9 +685,7 @@ class TestNormalizeExecutionStatus:
 
     def test_normalize_enum_value(self, *, job_tracker_service):
         """Normalize ExecutionStatus enum."""
-        result = job_tracker_service.normalize_execution_status(
-            ExecutionStatus.COMPLETED
-        )
+        result = job_tracker_service.normalize_execution_status(ExecutionStatus.COMPLETED)
         assert result == ExecutionStatus.COMPLETED
 
     def test_normalize_string_exact(self, *, job_tracker_service):
@@ -861,9 +799,7 @@ class TestCompleteNodeExecution:
         assert node_stats.end_time is not None
         assert node_stats.time_taken is not None
 
-    def test_complete_node_execution_with_failures(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_complete_node_execution_with_failures(self, *, job_tracker_service, mock_store):
         """Complete node execution with some failures."""
         import time
 
@@ -895,9 +831,7 @@ class TestCompleteNodeExecution:
         assert node_stats.failed_docs == ["doc3"]
         assert "1 failed" in node_stats.error
 
-    def test_complete_node_execution_with_batch(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_complete_node_execution_with_batch(self, *, job_tracker_service, mock_store):
         """Complete node execution with batch context."""
         import time
 
@@ -932,9 +866,7 @@ class TestCompleteNodeExecution:
         assert node_stats.batch_id == BATCH_ID
         assert node_stats.batch_num == 0
 
-    def test_complete_node_execution_not_started(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_complete_node_execution_not_started(self, *, job_tracker_service, mock_store):
         """Complete node execution raises error if not started."""
         mock_store.get_node_stats_by_batch_and_node.return_value = None
 
@@ -954,9 +886,7 @@ class TestCompleteNodeExecution:
 class TestFailNodeExecution:
     """Test fail_node_execution method."""
 
-    def test_fail_node_execution_with_exception(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_fail_node_execution_with_exception(self, *, job_tracker_service, mock_store):
         """Fail node execution with exception."""
         import time
 
@@ -986,9 +916,7 @@ class TestFailNodeExecution:
         assert "Test error message" in node_stats.error
         assert node_stats.docs_completed_count == 0
 
-    def test_fail_node_execution_with_error_string(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_fail_node_execution_with_error_string(self, *, job_tracker_service, mock_store):
         """Fail node execution with error string."""
         import time
 
@@ -1047,9 +975,7 @@ class TestFailNodeExecution:
 
     def test_fail_node_execution_no_error(self, *, job_tracker_service, mock_store):
         """Fail node execution raises error if no exception or error provided."""
-        with pytest.raises(
-            ValueError, match="Either exception or error must be provided"
-        ):
+        with pytest.raises(ValueError, match="Either exception or error must be provided"):
             job_tracker_service.fail_node_execution(
                 job_run_id=JOB_RUN_ID, node_id=TRANSFORM_NODE_ID, node_name="Transform"
             )
@@ -1180,12 +1106,11 @@ class TestSkipNodeExecution:
         assert node_stats.error == "No documents to process"
         assert node_stats.col_names == ["col1"]
 
-    def test_fail_node_execution_metadata_structure(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_fail_node_execution_metadata_structure(self, *, job_tracker_service, mock_store):
         """Verify fail_node_execution creates proper nested metadata structure."""
         import time
-        from common.constants.constants import Metrics
+
+        from datasift.core.constants.constants import Metrics
 
         current_time = int(time.time())
         existing_node = NodeStats(
@@ -1215,17 +1140,13 @@ class TestSkipNodeExecution:
         assert node_stats.node_metadata["id"] == TRANSFORM_NODE_ID
         assert node_stats.node_metadata["operator"] == "Transform"
         assert Metrics.External.NODE_STATUS in node_stats.node_metadata["node_metadata"]
-        assert (
-            node_stats.node_metadata["node_metadata"][Metrics.External.NODE_STATUS]
-            == ExecutionStatus.FAILED.value
-        )
+        assert node_stats.node_metadata["node_metadata"][Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
 
-    def test_skip_node_execution_metadata_structure(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_skip_node_execution_metadata_structure(self, *, job_tracker_service, mock_store):
         """Verify skip_node_execution creates proper nested metadata structure."""
         import time
-        from common.constants.constants import Metrics
+
+        from datasift.core.constants.constants import Metrics
 
         current_time = int(time.time())
         existing_node = NodeStats(
@@ -1256,22 +1177,15 @@ class TestSkipNodeExecution:
         assert node_stats.node_metadata["id"] == TRANSFORM_NODE_ID
         assert node_stats.node_metadata["operator"] == "Transform"
         assert Metrics.External.NODE_STATUS in node_stats.node_metadata["node_metadata"]
-        assert (
-            node_stats.node_metadata["node_metadata"][Metrics.External.NODE_STATUS]
-            == ExecutionStatus.SKIPPED.value
-        )
+        assert node_stats.node_metadata["node_metadata"][Metrics.External.NODE_STATUS] == ExecutionStatus.SKIPPED.value
         assert Metrics.External.TOTAL_DOCS in node_stats.node_metadata["node_metadata"]
-        assert (
-            node_stats.node_metadata["node_metadata"][Metrics.External.TOTAL_DOCS] == 2
-        )
+        assert node_stats.node_metadata["node_metadata"][Metrics.External.TOTAL_DOCS] == 2
 
 
 class TestUpdateNodeStats:
     """Test update_node_stats merge behavior."""
 
-    def test_update_node_stats_no_existing_state(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_update_node_stats_no_existing_state(self, *, job_tracker_service, mock_store):
         """Test update with no existing state creates new record."""
         mock_store.get_node_stats_by_batch_and_node.return_value = None
 
@@ -1294,9 +1208,7 @@ class TestUpdateNodeStats:
         assert stored_stats.docs_completed == ["doc1", "doc2"]
         assert stored_stats.docs_completed_count == 2
 
-    def test_update_node_stats_merges_with_existing(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_update_node_stats_merges_with_existing(self, *, job_tracker_service, mock_store):
         """Test update merges with existing state."""
         existing_stats = NodeStats(
             node_id=NODE_ID_1,
@@ -1337,9 +1249,7 @@ class TestUpdateNodeStats:
         assert stored_stats.docs_completed == ["doc1", "doc2"]
         assert stored_stats.docs_completed_count == 2
 
-    def test_update_node_stats_preserves_metadata(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_update_node_stats_preserves_metadata(self, *, job_tracker_service, mock_store):
         """Test update preserves existing metadata when not provided."""
         existing_stats = NodeStats(
             node_id=NODE_ID_1,
@@ -1372,9 +1282,7 @@ class TestUpdateNodeStats:
         assert stored_stats.node_status == "COMPLETED"
         assert stored_stats.docs_completed_count == 5
 
-    def test_update_node_stats_partial_update_preserves_counters(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_update_node_stats_partial_update_preserves_counters(self, *, job_tracker_service, mock_store):
         """Test partial update doesn't discard existing counters."""
         existing_stats = NodeStats(
             node_id=NODE_ID_1,
@@ -1436,9 +1344,7 @@ class TestUpdateNodeStats:
         assert stored_stats.batch_id == BATCH_ID
         assert stored_stats.batch_num == 1
 
-    def test_update_node_stats_with_node_stats_dto(
-        self, *, job_tracker_service, mock_store
-    ):
+    def test_update_node_stats_with_node_stats_dto(self, *, job_tracker_service, mock_store):
         """Test update accepts NodeStats input."""
         existing_stats = NodeStats(
             node_id=NODE_ID_1,
@@ -1455,9 +1361,7 @@ class TestUpdateNodeStats:
             end_time=2000,
         )
 
-        job_tracker_service.update_node_stats(
-            job_run_id=JOB_RUN_ID, node_id=NODE_ID_1, node_stats=update_dto
-        )
+        job_tracker_service.update_node_stats(job_run_id=JOB_RUN_ID, node_id=NODE_ID_1, node_stats=update_dto)
 
         stored_stats = mock_store.store_node_stats.call_args[1]["node_stats"]
         assert stored_stats.start_time == 1000  # Preserved from existing
@@ -1469,6 +1373,4 @@ class TestUpdateNodeStats:
         mock_store.get_node_stats_by_batch_and_node.return_value = None
 
         with pytest.raises(ValueError, match="Invalid node_stats type"):
-            job_tracker_service.update_node_stats(
-                job_run_id=JOB_RUN_ID, node_id=NODE_ID_1, node_stats="invalid_string"
-            )
+            job_tracker_service.update_node_stats(job_run_id=JOB_RUN_ID, node_id=NODE_ID_1, node_stats="invalid_string")

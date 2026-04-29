@@ -1,22 +1,21 @@
 """Unit tests for OAuth2 provider."""
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from typing import Dict, Any
 
-from src.datasift_opensource.backend.app.auth.oauth2_config import (
-    OAuth2Config,
-    GoogleOAuth2Config,
+import pytest
+
+from datasift.api.auth.models import User
+from datasift.api.auth.oauth2_config import (
     AzureADOAuth2Config,
+    GoogleOAuth2Config,
+    OAuth2Config,
 )
-from src.datasift_opensource.backend.app.auth.oauth2_provider import (
-    OAuth2Provider,
-    GoogleOAuth2Provider,
+from datasift.api.auth.oauth2_provider import (
     AzureADOAuth2Provider,
     GenericOIDCProvider,
+    GoogleOAuth2Provider,
     get_oauth2_provider,
 )
-from src.datasift_opensource.backend.app.auth.models import User
 
 
 @pytest.fixture
@@ -96,9 +95,7 @@ class TestGoogleOAuth2Provider:
         provider = GoogleOAuth2Provider(google_config)
 
         # Mock validate_id_token
-        with patch.object(
-            provider, "validate_id_token", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(provider, "validate_id_token", new_callable=AsyncMock) as mock_validate:
             mock_validate.return_value = {
                 "email": "test@gmail.com",
                 "name": "Test User",
@@ -146,9 +143,7 @@ class TestAzureADOAuth2Provider:
         """Test extracting user from Azure AD token."""
         provider = AzureADOAuth2Provider(azure_config)
 
-        with patch.object(
-            provider, "validate_id_token", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(provider, "validate_id_token", new_callable=AsyncMock) as mock_validate:
             mock_validate.return_value = {
                 "preferred_username": "test@company.com",
                 "email": "test@company.com",
@@ -169,9 +164,7 @@ class TestAzureADOAuth2Provider:
         """Test extracting user falls back to email if no preferred_username."""
         provider = AzureADOAuth2Provider(azure_config)
 
-        with patch.object(
-            provider, "validate_id_token", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(provider, "validate_id_token", new_callable=AsyncMock) as mock_validate:
             mock_validate.return_value = {
                 "email": "test@company.com",
                 "name": "Test User",
@@ -196,9 +189,7 @@ class TestGenericOIDCProvider:
         """Test extracting user from ID token."""
         provider = GenericOIDCProvider(oauth2_config)
 
-        with patch.object(
-            provider, "validate_id_token", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(provider, "validate_id_token", new_callable=AsyncMock) as mock_validate:
             mock_validate.return_value = {
                 "preferred_username": "testuser",
                 "email": "test@example.com",
@@ -218,9 +209,7 @@ class TestGenericOIDCProvider:
         """Test extracting user from access token via userinfo."""
         provider = GenericOIDCProvider(oauth2_config)
 
-        with patch.object(
-            provider, "get_user_info", new_callable=AsyncMock
-        ) as mock_userinfo:
+        with patch.object(provider, "get_user_info", new_callable=AsyncMock) as mock_userinfo:
             mock_userinfo.return_value = {
                 "email": "test@example.com",
                 "name": "Test User",
@@ -238,9 +227,7 @@ class TestGenericOIDCProvider:
         """Test username fallback logic."""
         provider = GenericOIDCProvider(oauth2_config)
 
-        with patch.object(
-            provider, "validate_id_token", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(provider, "validate_id_token", new_callable=AsyncMock) as mock_validate:
             # Test fallback: preferred_username -> email -> sub
             mock_validate.return_value = {
                 "sub": "user-id-123",
@@ -280,9 +267,7 @@ class TestOAuth2ProviderCommon:
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
-                return_value=mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
 
             token_data = await provider.exchange_code_for_token("auth-code")
 
@@ -292,9 +277,7 @@ class TestOAuth2ProviderCommon:
     @pytest.mark.asyncio
     async def test_discover_endpoints(self, oauth2_config):
         """Test OIDC discovery."""
-        oauth2_config.oauth2_discovery_url = (
-            "https://provider.com/.well-known/openid-configuration"
-        )
+        oauth2_config.oauth2_discovery_url = "https://provider.com/.well-known/openid-configuration"
         provider = GenericOIDCProvider(oauth2_config)
 
         mock_response = MagicMock()
@@ -307,23 +290,17 @@ class TestOAuth2ProviderCommon:
         mock_response.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.get = AsyncMock(
-                return_value=mock_response
-            )
+            mock_client.return_value.__aenter__.return_value.get = AsyncMock(return_value=mock_response)
 
             discovery = await provider.discover_endpoints()
 
             assert discovery["issuer"] == "https://provider.com"
-            assert (
-                discovery["authorization_endpoint"] == "https://provider.com/authorize"
-            )
+            assert discovery["authorization_endpoint"] == "https://provider.com/authorize"
 
     @pytest.mark.asyncio
     async def test_discover_endpoints_cached(self, oauth2_config):
         """Test that discovery results are cached."""
-        oauth2_config.oauth2_discovery_url = (
-            "https://provider.com/.well-known/openid-configuration"
-        )
+        oauth2_config.oauth2_discovery_url = "https://provider.com/.well-known/openid-configuration"
         provider = GenericOIDCProvider(oauth2_config)
 
         # Set cache

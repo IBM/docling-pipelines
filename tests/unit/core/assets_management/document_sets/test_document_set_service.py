@@ -10,17 +10,17 @@ Tests cover:
 - Table name sanitization
 """
 
-import pytest
 import pyarrow as pa
+import pytest
 
-from core.assets_management.document_sets.adapters.repositories.document_set_repository import (
+from datasift.core.flows.document_sets.adapters.repositories.document_set_repository import (
     DocumentSetRepository,
 )
-from core.assets_management.document_sets.application.services.document_set_service import (
+from datasift.core.flows.document_sets.application.services.document_set_service import (
     DocumentSetService,
 )
-from common.exceptions.datasift_exceptions import DatasiftException
-from storage.duckdb_storage import DuckDBStorage
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.storage.duckdb_storage import DuckDBStorage
 
 
 @pytest.fixture
@@ -72,13 +72,9 @@ class TestCreateDocumentSetService:
         assert doc_set.table_name == "test_documents"
         assert doc_set.metadata == {"source": "test"}
 
-    def test_create_document_set_duplicate_name_returns_existing(
-        self, service, temp_duckdb_path
-    ):
+    def test_create_document_set_duplicate_name_returns_existing(self, service, temp_duckdb_path):
         """Test that creating with duplicate name returns existing (get-or-create)."""
-        first = service.create_document_set(
-            name="Test Documents", description="First", database_path=temp_duckdb_path
-        )
+        first = service.create_document_set(name="Test Documents", description="First", database_path=temp_duckdb_path)
 
         # Second call with same name should return existing
         second = service.create_document_set(
@@ -114,9 +110,7 @@ class TestStoreData:
 
     def test_store_data(self, service, temp_duckdb_path, sample_table):
         """Test storing PyArrow table data."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         updated = service.store_data(doc_set.id, sample_table)
 
@@ -126,9 +120,7 @@ class TestStoreData:
 
     def test_store_data_creates_table(self, service, temp_duckdb_path, sample_table):
         """Test that storing data creates the data table."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         service.store_data(doc_set.id, sample_table)
 
@@ -137,9 +129,7 @@ class TestStoreData:
 
     def test_store_data_upserts(self, service, temp_duckdb_path):
         """Test that storing data performs upsert."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         # Store initial data
         initial_data = pa.table(
@@ -185,9 +175,7 @@ class TestPreviewData:
 
     def test_preview_data(self, service, temp_duckdb_path, sample_table):
         """Test previewing stored data."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
         service.store_data(doc_set.id, sample_table)
 
         preview = service.preview_data(doc_set.id, limit=10, offset=0)
@@ -197,9 +185,7 @@ class TestPreviewData:
 
     def test_preview_data_with_limit(self, service, temp_duckdb_path, sample_table):
         """Test previewing with limit."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
         service.store_data(doc_set.id, sample_table)
 
         preview = service.preview_data(doc_set.id, limit=2, offset=0)
@@ -208,9 +194,7 @@ class TestPreviewData:
 
     def test_preview_data_with_offset(self, service, temp_duckdb_path, sample_table):
         """Test previewing with offset."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
         service.store_data(doc_set.id, sample_table)
 
         preview = service.preview_data(doc_set.id, limit=10, offset=1)
@@ -219,9 +203,7 @@ class TestPreviewData:
 
     def test_preview_data_empty_table(self, service, temp_duckdb_path):
         """Test previewing when no data stored."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         preview = service.preview_data(doc_set.id, limit=10, offset=0)
 
@@ -229,18 +211,14 @@ class TestPreviewData:
 
     def test_preview_data_invalid_limit(self, service, temp_duckdb_path):
         """Test preview with invalid limit."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         with pytest.raises(DatasiftException):
             service.preview_data(doc_set.id, limit=0, offset=0)
 
     def test_preview_data_invalid_offset(self, service, temp_duckdb_path):
         """Test preview with invalid offset."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         with pytest.raises(DatasiftException):
             service.preview_data(doc_set.id, limit=10, offset=-1)
@@ -251,9 +229,7 @@ class TestComputeAndUpdateMetrics:
 
     def test_compute_and_update_metrics(self, service, temp_duckdb_path, sample_table):
         """Test recomputing metrics from stored data."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
         service.store_data(doc_set.id, sample_table)
 
         # Manually modify metrics
@@ -269,9 +245,7 @@ class TestComputeAndUpdateMetrics:
 
     def test_compute_metrics_no_data_table(self, service, temp_duckdb_path):
         """Test computing metrics when data table doesn't exist."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         updated = service.compute_and_update_metrics(doc_set.id)
 
@@ -283,13 +257,9 @@ class TestComputeAndUpdateMetrics:
 class TestDeleteDocumentSetWithData:
     """Test deletion with data cleanup."""
 
-    def test_delete_document_set_with_data(
-        self, service, temp_duckdb_path, sample_table
-    ):
+    def test_delete_document_set_with_data(self, service, temp_duckdb_path, sample_table):
         """Test deleting document set and its data table."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
         service.store_data(doc_set.id, sample_table)
 
         # Verify table exists
@@ -301,13 +271,9 @@ class TestDeleteDocumentSetWithData:
         assert result is True
         assert not service.storage.table_exists(doc_set.table_name)
 
-    def test_delete_document_set_preserve_data(
-        self, service, temp_duckdb_path, sample_table
-    ):
+    def test_delete_document_set_preserve_data(self, service, temp_duckdb_path, sample_table):
         """Test deleting document set but preserving data table."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
         service.store_data(doc_set.id, sample_table)
 
         # Delete without data
@@ -328,27 +294,21 @@ class TestInvalidPyArrowTable:
 
     def test_invalid_pyarrow_table_none(self, service, temp_duckdb_path):
         """Test that None table raises error."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         with pytest.raises(DatasiftException):
             service.store_data(doc_set.id, None)
 
     def test_invalid_pyarrow_table_wrong_type(self, service, temp_duckdb_path):
         """Test that non-PyArrow table raises error."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         with pytest.raises(DatasiftException):
             service.store_data(doc_set.id, {"not": "a table"})
 
     def test_invalid_pyarrow_table_missing_id(self, service, temp_duckdb_path):
         """Test that table without id column raises error."""
-        doc_set = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        doc_set = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         bad_table = pa.table({"name": ["Document 1"], "content": ["Content 1"]})
 
@@ -395,9 +355,7 @@ class TestGetDocumentSet:
 
     def test_get_document_set(self, service, temp_duckdb_path):
         """Test retrieving document set by ID."""
-        created = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        created = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         retrieved = service.get_document_set(created.id)
 
@@ -420,9 +378,7 @@ class TestGetDocumentSetByName:
 
     def test_get_document_set_by_name(self, service, temp_duckdb_path):
         """Test retrieving document set by name."""
-        created = service.create_document_set(
-            name="Test Documents", description="Test", database_path=temp_duckdb_path
-        )
+        created = service.create_document_set(name="Test Documents", description="Test", database_path=temp_duckdb_path)
 
         retrieved = service.get_document_set_by_name("Test Documents")
 
@@ -519,9 +475,7 @@ class TestUpdateDocumentSet:
     def test_update_document_set_not_found(self, service):
         """Test updating nonexistent document set."""
         with pytest.raises(DatasiftException):
-            service.update_document_set(
-                document_set_id="nonexistent-id", description="Updated"
-            )
+            service.update_document_set(document_set_id="nonexistent-id", description="Updated")
 
     def test_update_document_set_empty_id(self, service):
         """Test updating with empty ID."""

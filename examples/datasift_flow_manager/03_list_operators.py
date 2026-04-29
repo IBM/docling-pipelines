@@ -22,7 +22,7 @@ Run:
 """
 
 # When installed as a package
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 
 def main():

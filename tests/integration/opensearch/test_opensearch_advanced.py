@@ -5,20 +5,20 @@ Requires .env file with OpenSearch connection details
 """
 
 from pathlib import Path
-import pyarrow as pa
+
 import numpy as np
+import pyarrow as pa
 import pytest
 
-from common.constants.operator_constants import OperatorConstants
-from common.util.infrastructure.config import get_opensearch_config
-from core.operators.vectordb import VectorDBOperator
-from core.operators.vectordb.opensearch_client import OpenSearchClient
-from core.operators.vectordb.opensearch_index_manager import (
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.vectordb import VectorDBOperator
+from datasift.core.operators.vectordb.opensearch_client import OpenSearchClient
+from datasift.core.operators.vectordb.opensearch_index_manager import (
     OpenSearchAlgorithmTypes,
     OpenSearchEngineTypes,
     VectorSimilarityTypes,
 )
-
+from datasift.utils.infrastructure.config import get_opensearch_config
 
 # Check if .env file exists
 env_file = Path(".env")
@@ -43,9 +43,7 @@ def create_sample_data(num_docs=5, vector_dim=128):
         {
             "doc_id_hash": [f"doc_{i}" for i in range(num_docs)],
             "content": [f"Sample document {i}" for i in range(num_docs)],
-            "embeddings": [
-                np.random.rand(vector_dim).tolist() for _ in range(num_docs)
-            ],
+            "embeddings": [np.random.rand(vector_dim).tolist() for _ in range(num_docs)],
             "metadata": [f"meta_{i}" for i in range(num_docs)],
         }
     )
@@ -119,9 +117,7 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
                 username=provider_config.get(OperatorConstants.VectorDB.USERNAME),
                 password=provider_config.get(OperatorConstants.VectorDB.PASSWORD),
                 use_ssl=provider_config.get(OperatorConstants.VectorDB.USE_SSL, True),
-                verify_certs=provider_config.get(
-                    OperatorConstants.VectorDB.VERIFY_CERTS, True
-                ),
+                verify_certs=provider_config.get(OperatorConstants.VectorDB.VERIFY_CERTS, True),
             )
             os_client.get_client().indices.delete(index=config["index_name"])
             print("  ✅ Cleaned up index")
@@ -158,16 +154,12 @@ def test_all_engines():
         VectorSimilarityTypes.COSINE,
         VectorSimilarityTypes.INNER_PRODUCT,
     ]:
-        success, msg = test_engine(
-            OpenSearchEngineTypes.LUCENE, OpenSearchAlgorithmTypes.HNSW, space
-        )
+        success, msg = test_engine(OpenSearchEngineTypes.LUCENE, OpenSearchAlgorithmTypes.HNSW, space)
         results.append((f"Lucene + HNSW + {space}", success, msg))
 
     # Test nmslib with HNSW
     for space in [VectorSimilarityTypes.L2, VectorSimilarityTypes.COSINE]:
-        success, msg = test_engine(
-            OpenSearchEngineTypes.NMSLIB, OpenSearchAlgorithmTypes.HNSW, space
-        )
+        success, msg = test_engine(OpenSearchEngineTypes.NMSLIB, OpenSearchAlgorithmTypes.HNSW, space)
         results.append((f"nmslib + HNSW + {space}", success, msg))
 
     # Print results
@@ -244,9 +236,7 @@ def test_schema_evolution():
             }
         )
         result, metadata = operator1.transform(table1)
-        print(
-            f"  ✅ Indexed {metadata['processed_docs']} documents with initial schema"
-        )
+        print(f"  ✅ Indexed {metadata['processed_docs']} documents with initial schema")
 
         # Step 2: Add new field to existing index
         print("\nStep 2: Adding new field 'category' to existing index")
@@ -338,26 +328,22 @@ def test_error_handling():
         config = base_config.copy()
         # Remove host from provider_config
         if OperatorConstants.Config.PROVIDER_CONFIG in config:
-            config[OperatorConstants.Config.PROVIDER_CONFIG].pop(
-                OperatorConstants.VectorDB.HOST, None
-            )
+            config[OperatorConstants.Config.PROVIDER_CONFIG].pop(OperatorConstants.VectorDB.HOST, None)
         operator = VectorDBOperator(config)
         tests.append(("Missing host", False, "Should have raised ValueError"))
     except (ValueError, KeyError) as e:
         if "host" in str(e).lower():
             tests.append(("Missing host", True, "Correct error message"))
-            print(f"  ✅ Correctly raised: {str(e)}")
+            print(f"  ✅ Correctly raised: {e!s}")
         else:
-            tests.append(("Missing host", False, f"Wrong error: {str(e)}"))
+            tests.append(("Missing host", False, f"Wrong error: {e!s}"))
 
     # Test 2: Invalid engine
     print("\nTest 3.2: Invalid engine name")
     try:
         config = base_config.copy()
         config["index_name"] = "test_invalid_engine"
-        config[OperatorConstants.Config.PROVIDER_CONFIG] = {
-            OperatorConstants.VectorDB.ENGINE: "invalid_engine"
-        }
+        config[OperatorConstants.Config.PROVIDER_CONFIG] = {OperatorConstants.VectorDB.ENGINE: "invalid_engine"}
         operator = VectorDBOperator(config)
         tests.append(("Invalid engine", False, "Should have raised ValueError"))
     except ValueError as e:
@@ -365,7 +351,7 @@ def test_error_handling():
             tests.append(("Invalid engine", True, "Correct error message"))
             print(f"  ✅ Correctly raised: {str(e)[:100]}")
         else:
-            tests.append(("Invalid engine", False, f"Wrong error: {str(e)}"))
+            tests.append(("Invalid engine", False, f"Wrong error: {e!s}"))
 
     # Test 3: Incompatible engine-algorithm
     print("\nTest 3.3: Incompatible engine-algorithm combination")
@@ -383,7 +369,7 @@ def test_error_handling():
             tests.append(("Incompatible combo", True, "Correct error message"))
             print(f"  ✅ Correctly raised: {str(e)[:100]}")
         else:
-            tests.append(("Incompatible combo", False, f"Wrong error: {str(e)}"))
+            tests.append(("Incompatible combo", False, f"Wrong error: {e!s}"))
 
     # Test 4: Missing document IDs
     print("\nTest 3.4: Documents with missing IDs")
@@ -400,9 +386,7 @@ def test_error_handling():
             username=provider_config.get(OperatorConstants.VectorDB.USERNAME),
             password=provider_config.get(OperatorConstants.VectorDB.PASSWORD),
             use_ssl=provider_config.get(OperatorConstants.VectorDB.USE_SSL, True),
-            verify_certs=provider_config.get(
-                OperatorConstants.VectorDB.VERIFY_CERTS, True
-            ),
+            verify_certs=provider_config.get(OperatorConstants.VectorDB.VERIFY_CERTS, True),
         )
         client = client_manager.get_client()
 
@@ -493,25 +477,19 @@ def main():
         error_passed = sum(1 for _, s, _ in error_results if s)
         error_total = len(error_results)
 
-        print(
-            f"Engine Tests:        {engine_passed}/{engine_total} passed ({engine_passed / engine_total * 100:.1f}%)"
-        )
+        print(f"Engine Tests:        {engine_passed}/{engine_total} passed ({engine_passed / engine_total * 100:.1f}%)")
         print(f"Schema Evolution:    {'✅ PASS' if schema_success else '❌ FAIL'}")
-        print(
-            f"Error Handling:      {error_passed}/{error_total} passed ({error_passed / error_total * 100:.1f}%)"
-        )
+        print(f"Error Handling:      {error_passed}/{error_total} passed ({error_passed / error_total * 100:.1f}%)")
 
         total_passed = engine_passed + (1 if schema_success else 0) + error_passed
         total_tests = engine_total + 1 + error_total
 
-        print(
-            f"\nOverall:             {total_passed}/{total_tests} passed ({total_passed / total_tests * 100:.1f}%)"
-        )
+        print(f"\nOverall:             {total_passed}/{total_tests} passed ({total_passed / total_tests * 100:.1f}%)")
 
         return 0 if total_passed == total_tests else 1
 
     except Exception as e:
-        print(f"\n❌ Fatal error: {type(e).__name__}: {str(e)}")
+        print(f"\n❌ Fatal error: {type(e).__name__}: {e!s}")
         import traceback
 
         traceback.print_exc()

@@ -4,14 +4,15 @@ Unit tests for OpenSearchBatchProcessor
 """
 
 import json
-import pytest
 from unittest.mock import MagicMock, patch
 
-from core.operators.vectordb.opensearch_batch_processor import (
-    OpenSearchBatchProcessor,
-    DEFAULT_BATCH_SIZE,
-    BULK_INSERT_TIMEOUT,
+import pytest
+
+from datasift.core.operators.vectordb.opensearch_batch_processor import (
     BULK_DELETE_BATCH_SIZE,
+    BULK_INSERT_TIMEOUT,
+    DEFAULT_BATCH_SIZE,
+    OpenSearchBatchProcessor,
 )
 
 
@@ -84,9 +85,7 @@ class TestBatchProcessorInitialization:
 
         assert processor.batch_size == 500
 
-    def test_initialization_with_features(
-        self, mock_client, basic_features, feature_mappings
-    ):
+    def test_initialization_with_features(self, mock_client, basic_features, feature_mappings):
         """Test initialization with feature configuration"""
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -102,9 +101,7 @@ class TestBatchProcessorInitialization:
 class TestDocumentPreparation:
     """Test document preparation"""
 
-    def test_prepare_basic_document(
-        self, mock_client, basic_features, feature_mappings
-    ):
+    def test_prepare_basic_document(self, mock_client, basic_features, feature_mappings):
         """Test preparing basic document"""
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -125,9 +122,7 @@ class TestDocumentPreparation:
         assert doc["text"] == "Test content"
         assert doc["vector_embeddings"] == [0.1, 0.2, 0.3]
 
-    def test_prepare_document_with_none_values(
-        self, mock_client, basic_features, feature_mappings
-    ):
+    def test_prepare_document_with_none_values(self, mock_client, basic_features, feature_mappings):
         """Test preparing document with None values"""
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -148,9 +143,7 @@ class TestDocumentPreparation:
         assert "text" not in doc  # None values should be excluded
         assert doc["vector_embeddings"] == [0.1, 0.2, 0.3]
 
-    def test_prepare_document_with_numpy_array(
-        self, mock_client, basic_features, feature_mappings
-    ):
+    def test_prepare_document_with_numpy_array(self, mock_client, basic_features, feature_mappings):
         """Test preparing document with numpy array"""
         import numpy as np
 
@@ -172,9 +165,7 @@ class TestDocumentPreparation:
         assert isinstance(doc["vector_embeddings"], list)
         assert doc["vector_embeddings"] == [0.1, 0.2, 0.3]
 
-    def test_prepare_document_with_json_string(
-        self, mock_client, basic_features, feature_mappings
-    ):
+    def test_prepare_document_with_json_string(self, mock_client, basic_features, feature_mappings):
         """Test preparing document with JSON string for object type"""
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -195,9 +186,7 @@ class TestDocumentPreparation:
 
         assert doc["meta"] == metadata_dict
 
-    def test_prepare_document_with_invalid_json(
-        self, mock_client, basic_features, feature_mappings
-    ):
+    def test_prepare_document_with_invalid_json(self, mock_client, basic_features, feature_mappings):
         """Test preparing document with invalid JSON string"""
         processor = OpenSearchBatchProcessor(
             client=mock_client,
@@ -400,7 +389,7 @@ class TestBatchCreation:
 class TestBulkIndexing:
     """Test bulk indexing operations"""
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_bulk_index_success(self, mock_bulk, mock_client):
         """Test successful bulk indexing"""
         mock_bulk.return_value = (3, [])
@@ -422,7 +411,7 @@ class TestBulkIndexing:
         assert len(failed) == 0
         mock_bulk.assert_called_once()
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_bulk_index_with_failures(self, mock_bulk, mock_client):
         """Test bulk indexing with some failures"""
         failed_items = [{"_id": "doc2", "error": "version conflict"}]
@@ -444,7 +433,7 @@ class TestBulkIndexing:
         assert success == 2
         assert len(failed) == 1
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_bulk_index_error(self, mock_bulk, mock_client):
         """Test bulk indexing handles errors"""
         mock_bulk.side_effect = Exception("Bulk error")
@@ -454,16 +443,14 @@ class TestBulkIndexing:
             index_name="test_index",
         )
 
-        actions = [
-            {"_index": "test_index", "_id": "doc1", "_source": {"content": "test"}}
-        ]
+        actions = [{"_index": "test_index", "_id": "doc1", "_source": {"content": "test"}}]
 
         success, failed = processor.bulk_index(actions)
 
         assert success == 0
         assert len(failed) == 1
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_bulk_index_timeout_parameter(self, mock_bulk, mock_client):
         """Test bulk indexing uses correct timeout"""
         mock_bulk.return_value = (1, [])
@@ -473,9 +460,7 @@ class TestBulkIndexing:
             index_name="test_index",
         )
 
-        actions = [
-            {"_index": "test_index", "_id": "doc1", "_source": {"content": "test"}}
-        ]
+        actions = [{"_index": "test_index", "_id": "doc1", "_source": {"content": "test"}}]
 
         processor.bulk_index(actions)
 
@@ -486,7 +471,7 @@ class TestBulkIndexing:
 class TestBatchProcessing:
     """Test batch processing"""
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_process_batches_single_batch(self, mock_bulk, mock_client):
         """Test processing single batch"""
         mock_bulk.return_value = (3, [])
@@ -521,7 +506,7 @@ class TestBatchProcessing:
         assert success == 3
         assert len(failed) == 0
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_process_batches_multiple_batches(self, mock_bulk, mock_client):
         """Test processing multiple batches"""
         mock_bulk.side_effect = [(2, []), (3, [])]
@@ -568,7 +553,7 @@ class TestBatchProcessing:
         assert success == 5
         assert len(failed) == 0
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_process_batches_with_failures(self, mock_bulk, mock_client):
         """Test processing batches with failures"""
         failed_items = [{"_id": "doc2", "error": "error"}]
@@ -611,7 +596,7 @@ class TestBatchProcessing:
         assert success == 3
         assert len(failed) == 1
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_process_batches_batch_error(self, mock_bulk, mock_client):
         """Test processing batches when one batch fails"""
         mock_bulk.side_effect = [Exception("Batch error"), (2, [])]
@@ -735,7 +720,7 @@ class TestQueryOperations:
 class TestDeleteOperations:
     """Test delete operations"""
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_delete_documents_by_ids_success(self, mock_bulk, mock_client):
         """Test successful document deletion"""
         mock_bulk.return_value = (3, [])
@@ -750,7 +735,7 @@ class TestDeleteOperations:
         assert success == 3
         assert failed == 0
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_delete_documents_by_ids_with_failures(self, mock_bulk, mock_client):
         """Test document deletion with failures"""
         failed_items = [{"_id": "doc2"}]
@@ -766,7 +751,7 @@ class TestDeleteOperations:
         assert success == 2
         assert failed == 1
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_delete_documents_empty_list(self, mock_bulk, mock_client):
         """Test deleting with empty list"""
         processor = OpenSearchBatchProcessor(
@@ -780,7 +765,7 @@ class TestDeleteOperations:
         assert failed == 0
         mock_bulk.assert_not_called()
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_delete_documents_large_batch(self, mock_bulk, mock_client):
         """Test deleting large batch splits into multiple requests"""
         mock_bulk.return_value = (BULK_DELETE_BATCH_SIZE, [])
@@ -798,7 +783,7 @@ class TestDeleteOperations:
         # Should be called twice (one full batch + one partial)
         assert mock_bulk.call_count == 2
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_delete_documents_action_structure(self, mock_bulk, mock_client):
         """Test delete action structure"""
         mock_bulk.return_value = (1, [])
@@ -818,7 +803,7 @@ class TestDeleteOperations:
         assert action["_index"] == "test_index"
         assert action["_id"] == "doc1"
 
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_delete_documents_error(self, mock_bulk, mock_client):
         """Test delete handles errors"""
         mock_bulk.side_effect = Exception("Delete error")

@@ -34,7 +34,7 @@ python3.12 --version
 which python  # Should point to .venv/bin/python
 
 # 3. Verify PYTHONPATH is set correctly
-echo $PYTHONPATH  # Should include src/datasift_opensource/backend
+echo $PYTHONPATH  # Should include src/datasift
 
 # 4. Check Ollama service
 curl http://localhost:11434/api/tags
@@ -162,7 +162,7 @@ python3.12 --version
 2. **Remove existing .venv and recreate:**
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 rm -rf .venv
 uv venv --python python3.12
 ```
@@ -170,6 +170,7 @@ uv venv --python python3.12
 3. **Install dependencies:**
 
 ```bash
+# From project root
 uv sync --extra dev
 ```
 
@@ -205,7 +206,7 @@ Job run exists on the submitter but worker updates do not appear in job status A
 - worker environment does not receive the same job stats backend configuration
 
 **Solutions:**
-1. Check [`job_management.store`](src/datasift_opensource/backend/config/datasift.yaml:12) in [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml) and confirm the selected backend matches your deployment model.
+1. Check [`job_management.store`](src/datasift/config/datasift.yaml:12) in [`datasift.yaml`](src/datasift/config/datasift.yaml) and confirm the selected backend matches your deployment model.
 2. For distributed execution, prefer PostgreSQL job stats storage.
 3. If using JSON storage, configure a shared filesystem path visible to both submitter and workers.
 4. Ensure worker environments inherit the same effective backend configuration and connection settings.
@@ -228,7 +229,7 @@ Batch progress looks incorrect in aggregated results
 - the field was left on the default `LAST` strategy when it should use `SUM`, `UNION`, `WEIGHTED_AVERAGE`, or another explicit strategy
 
 **Solutions:**
-1. Review [`DEFAULT_STRATEGIES`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py).
+1. Review [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py).
 2. Add explicit mappings for newly introduced metadata fields when needed.
 3. Add or update tests covering multi-batch aggregation behavior.
 4. See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) for maintainer guidance.
@@ -248,7 +249,7 @@ Batch work starts, but the final job state becomes CRASHED or CANCELED unexpecte
 
 **Solutions:**
 1. Confirm the execution path waits for submitted batch work before the outer flow exits.
-2. Check [`PrefectEngine`](src/datasift_opensource/backend/core/orchestrator/prefect/prefect_engine.py) behavior when debugging batch failures.
+2. Check [`PrefectEngine`](src/datasift/core/orchestrator/prefect/prefect_engine.py) behavior when debugging batch failures.
 3. Validate that job-management terminal-state updates are still reached on failure paths.
 4. Prefer PostgreSQL storage in concurrent/distributed environments to reduce ambiguity in final state updates.
 
@@ -792,7 +793,7 @@ ModuleNotFoundError: No module named 'core'
 cd /path/to/datasift-opensource
 
 # Set PYTHONPATH
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
 # Verify
 echo $PYTHONPATH
@@ -810,16 +811,15 @@ cd /path/to/datasift-opensource
 3. **Activate virtual environment:**
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 source .venv/bin/activate
-cd ../../..  # Return to project root
 ```
 
 4. **Add to shell profile for persistence:**
 
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-echo 'export PYTHONPATH="/path/to/datasift-opensource/src/datasift_opensource/backend:${PYTHONPATH}"' >> ~/.bashrc
+echo 'export PYTHONPATH="/path/to/datasift-opensource/src/datasift:${PYTHONPATH}"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -842,8 +842,8 @@ FileNotFoundError: [Errno 2] No such file or directory: 'sample_flows/...'
 cd /path/to/datasift-opensource
 datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 
-# ❌ INCORRECT: From subdirectory
-cd src/datasift_opensource/backend
+# ❌ INCORRECT: From subdirectory - will cause path resolution issues
+cd src/datasift
 datasift-orchestrator --flow-file ...  # WILL FAIL
 ```
 
@@ -1408,7 +1408,7 @@ import pdb; pdb.set_trace()
 **Run with debugger:**
 
 ```bash
-python -m pdb -m datasift_opensource.backend.cli.datasift_cli --flow-file my_flow.json
+python -m pdb -m datasift.cli.datasift_cli --flow-file my_flow.json
 ```
 
 ---
@@ -1584,7 +1584,7 @@ ls -lh document.pdf
 3. **Verify Docling dependencies:**
 
 ```bash
-cd src/datasift_opensource/backend
+cd src/datasift
 uv sync --extra dev
 ```
 
@@ -1622,8 +1622,7 @@ python3.12 --version
 **Solution: Use correct Python version**
 
 ```bash
-# Recreate virtual environment with Python 3.12
-cd src/datasift_opensource/backend
+# Recreate virtual environment with Python 3.12 (from project root)
 rm -rf .venv
 uv venv --python python3.12
 source .venv/bin/activate
@@ -1644,14 +1643,14 @@ which python  # Should point to .venv/bin/python
 **Solution: Activate virtual environment**
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 source .venv/bin/activate
 ```
 
 **Issue: Virtual environment corrupted**
 
 ```bash
-# Remove and recreate
+# Remove and recreate (from project root)
 rm -rf .venv
 uv venv --python python3.12
 source .venv/bin/activate
@@ -1671,7 +1670,7 @@ ERROR: Cannot install package-a and package-b because these package versions hav
 **Solution: Update dependencies**
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 uv sync --extra dev --upgrade
 ```
 
@@ -1684,7 +1683,7 @@ ModuleNotFoundError: No module named 'package_name'
 **Solution: Install dependencies**
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 uv sync --extra dev
 ```
 
@@ -1702,14 +1701,14 @@ ModuleNotFoundError: No module named 'datasift_opensource'
 
 ```bash
 # From project root
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 ```
 
 **Make permanent:**
 
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-echo 'export PYTHONPATH="/path/to/datasift-opensource/src/datasift_opensource/backend:${PYTHONPATH}"' >> ~/.bashrc
+echo 'export PYTHONPATH="/path/to/datasift-opensource/src/datasift:${PYTHONPATH}"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -1880,7 +1879,7 @@ python3.12 --version
 uname -a
 
 # Package versions
-cd src/datasift_opensource/backend
+cd src/datasift
 uv pip list
 ```
 
@@ -1960,8 +1959,8 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 
 ```bash
 # Environment setup
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
-cd src/datasift_opensource/backend && source .venv/bin/activate && cd ../../..
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+cd src/datasift && source .venv/bin/activate && cd ../..
 
 # Service management
 ollama serve &

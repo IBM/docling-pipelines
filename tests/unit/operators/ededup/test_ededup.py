@@ -2,8 +2,6 @@ import os
 import unittest
 
 import pyarrow as pa
-from typing import Tuple
-
 from data_processing.test_support import get_tables_in_folder
 from data_processing.test_support.transform import AbstractTableTransformTest
 from dpk_ededup import (
@@ -13,11 +11,12 @@ from dpk_ededup import (
     int_column_name_key,
 )
 
+from datasift.core.constants.constants import Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+
 # from dpk_ededup.transform_python import EdedupTransform
 # from datasift_core.operators.quality.ededup import EdedupOperator
-from core.operators.quality.ededup import EdedupOperator
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import Metrics
+from datasift.core.operators.quality.ededup import EdedupOperator
 
 
 class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
@@ -26,11 +25,9 @@ class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
     The name of this class MUST begin with the word Test so that pytest recognizes it as a test class.
     """
 
-    def get_test_transform_fixtures(self) -> list[Tuple]:
+    def get_test_transform_fixtures(self) -> list[tuple]:
         # Use the correct path relative to the test file location
-        basedir = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../../../fixtures")
-        )
+        basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../fixtures"))
         input_dir = os.path.join(basedir, "ededup_input")
         expected_dir = os.path.join(basedir, "ededup_expected")
 
@@ -43,9 +40,7 @@ class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
 
         # Ensure fixture files are present — fail fast with a clear message if not
         assert len(input_tables) > 0, f"No input parquet files found in {input_dir}"
-        assert len(expected_tables) > 0, (
-            f"No expected parquet files found in {expected_dir}"
-        )
+        assert len(expected_tables) > 0, f"No expected parquet files found in {expected_dir}"
         expected_metadata_list = [
             {
                 "result_documents": 3,
@@ -141,9 +136,7 @@ def test_operator_metadata():
         "label": "De-duplicator",
     }
 
-    assert operator_metadata == expected_operator_metadata, (
-        "Ededup Operator metadata mismatch"
-    )
+    assert operator_metadata == expected_operator_metadata, "Ededup Operator metadata mismatch"
 
 
 class TestEdedupOperatorEdgeCases(unittest.TestCase):

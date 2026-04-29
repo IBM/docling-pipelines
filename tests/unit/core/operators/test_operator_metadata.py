@@ -4,14 +4,14 @@ Unit tests for OperatorMetadata class.
 Tests metadata retrieval, feature filtering, and operator mapping functionality.
 """
 
-import pytest
-from unittest.mock import Mock, patch
 from collections import defaultdict
+from unittest.mock import Mock, patch
 
-from core.operators.operator_metadata import OperatorMetadata
-from common.constants.constants import OrchestratorType
-from common.constants.operator_constants import OperatorConstants
+import pytest
 
+from datasift.core.constants.constants import OrchestratorType
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.operator_metadata import OperatorMetadata
 
 # ---------------------------------------------------------------------------
 # Test Fixtures and Helpers
@@ -109,7 +109,7 @@ def mock_session_info():
 
 def test_init_creates_empty_operator_metadata():
     """Constructor initializes with empty operator_metadata dict."""
-    with patch("core.operators.operator_metadata.get_session_info"):
+    with patch("datasift.core.operators.operator_metadata.get_session_info"):
         metadata = OperatorMetadata()
 
         assert isinstance(metadata.operator_metadata, dict)
@@ -118,7 +118,7 @@ def test_init_creates_empty_operator_metadata():
 
 def test_init_calls_get_session_info():
     """Constructor calls get_session_info to initialize session."""
-    with patch("core.operators.operator_metadata.get_session_info") as mock_get_session:
+    with patch("datasift.core.operators.operator_metadata.get_session_info") as mock_get_session:
         mock_session = Mock()
         mock_get_session.return_value = mock_session
 
@@ -136,11 +136,11 @@ def test_init_calls_get_session_info():
 def test_get_operator_metadata_returns_dict(mock_operator_factory, mock_session_info):
     """get_operator_metadata() returns a dictionary."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -149,16 +149,14 @@ def test_get_operator_metadata_returns_dict(mock_operator_factory, mock_session_
             assert isinstance(result, dict)
 
 
-def test_get_operator_metadata_processes_all_operators(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_processes_all_operators(mock_operator_factory, mock_session_info):
     """get_operator_metadata() processes all operators from factory."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -171,16 +169,14 @@ def test_get_operator_metadata_processes_all_operators(
             assert "test_op4" in result
 
 
-def test_get_operator_metadata_includes_required_features(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_includes_required_features(mock_operator_factory, mock_session_info):
     """get_operator_metadata() includes required_features in metadata."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -190,16 +186,14 @@ def test_get_operator_metadata_includes_required_features(
             assert result["test_op1"]["required_features"] == ["required_feature1"]
 
 
-def test_get_operator_metadata_handles_failed_operators(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_handles_failed_operators(mock_operator_factory, mock_session_info):
     """get_operator_metadata() handles operators that fail to initialize."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -209,16 +203,14 @@ def test_get_operator_metadata_handles_failed_operators(
             assert result["test_op3"] == {}
 
 
-def test_get_operator_metadata_updates_internal_cache(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_updates_internal_cache(mock_operator_factory, mock_session_info):
     """get_operator_metadata() updates internal operator_metadata cache."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -233,16 +225,14 @@ def test_get_operator_metadata_updates_internal_cache(
 # ---------------------------------------------------------------------------
 
 
-def test_get_operator_metadata_filters_internal_features_by_default(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_filters_internal_features_by_default(mock_operator_factory, mock_session_info):
     """get_operator_metadata() filters internal features by default."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -254,16 +244,14 @@ def test_get_operator_metadata_filters_internal_features_by_default(
             assert "internal_feature" not in features
 
 
-def test_get_operator_metadata_includes_internal_features_when_requested(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_includes_internal_features_when_requested(mock_operator_factory, mock_session_info):
     """get_operator_metadata() includes internal features when internal_features=True."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -289,11 +277,11 @@ def test_get_operator_metadata_handles_missing_features_key(mock_session_info):
     factory.get_operator.return_value = Mock(is_available=Mock(return_value=True))
 
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=factory,
         ):
             metadata = OperatorMetadata()
@@ -308,19 +296,17 @@ def test_get_operator_metadata_handles_missing_features_key(mock_session_info):
 # ---------------------------------------------------------------------------
 
 
-def test_get_operator_metadata_logs_available_operators(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_logs_available_operators(mock_operator_factory, mock_session_info):
     """get_operator_metadata() logs available operators."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
-            with patch("core.operators.operator_metadata.logger") as mock_logger:
+            with patch("datasift.core.operators.operator_metadata.logger") as mock_logger:
                 metadata = OperatorMetadata()
                 metadata.get_operator_metadata()
 
@@ -330,19 +316,17 @@ def test_get_operator_metadata_logs_available_operators(
                 assert "Discovering operators" in call_args
 
 
-def test_get_operator_metadata_logs_warning_for_unavailable_operators(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_logs_warning_for_unavailable_operators(mock_operator_factory, mock_session_info):
     """get_operator_metadata() logs warning for unavailable operators with missing metadata."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
-            with patch("core.operators.operator_metadata.logger") as mock_logger:
+            with patch("datasift.core.operators.operator_metadata.logger") as mock_logger:
                 metadata = OperatorMetadata()
                 metadata.get_operator_metadata()
 
@@ -352,19 +336,17 @@ def test_get_operator_metadata_logs_warning_for_unavailable_operators(
                 assert "Metadata missing" in call_args
 
 
-def test_get_operator_metadata_does_not_warn_for_unavailable_operators(
-    mock_operator_factory, mock_session_info
-):
+def test_get_operator_metadata_does_not_warn_for_unavailable_operators(mock_operator_factory, mock_session_info):
     """get_operator_metadata() does not warn for operators that are not available."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
-            with patch("core.operators.operator_metadata.logger") as mock_logger:
+            with patch("datasift.core.operators.operator_metadata.logger") as mock_logger:
                 metadata = OperatorMetadata()
                 metadata.get_operator_metadata()
 
@@ -380,16 +362,14 @@ def test_get_operator_metadata_does_not_warn_for_unavailable_operators(
 # ---------------------------------------------------------------------------
 
 
-def test_get_features_returns_all_features_when_no_purpose(
-    mock_operator_factory, mock_session_info
-):
+def test_get_features_returns_all_features_when_no_purpose(mock_operator_factory, mock_session_info):
     """get_features() returns all features when purpose is None."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -402,16 +382,14 @@ def test_get_features_returns_all_features_when_no_purpose(
             assert "internal_feature" in result
 
 
-def test_get_features_filters_by_available_for_filter(
-    mock_operator_factory, mock_session_info
-):
+def test_get_features_filters_by_available_for_filter(mock_operator_factory, mock_session_info):
     """get_features() filters features by AVAILABLE_FOR_FILTER purpose."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -427,16 +405,14 @@ def test_get_features_filters_by_available_for_filter(
             assert "internal_feature" not in result
 
 
-def test_get_features_filters_by_available_for_vector_db(
-    mock_operator_factory, mock_session_info
-):
+def test_get_features_filters_by_available_for_vector_db(mock_operator_factory, mock_session_info):
     """get_features() filters features by AVAILABLE_FOR_VECTOR_DB purpose."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -452,16 +428,14 @@ def test_get_features_filters_by_available_for_vector_db(
             assert "internal_feature" not in result
 
 
-def test_get_features_returns_empty_dict_for_nonexistent_operator(
-    mock_operator_factory, mock_session_info
-):
+def test_get_features_returns_empty_dict_for_nonexistent_operator(mock_operator_factory, mock_session_info):
     """get_features() returns empty dict for nonexistent operator."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -472,16 +446,14 @@ def test_get_features_returns_empty_dict_for_nonexistent_operator(
             assert result == {}
 
 
-def test_get_features_returns_empty_dict_for_operator_without_features(
-    mock_operator_factory, mock_session_info
-):
+def test_get_features_returns_empty_dict_for_operator_without_features(mock_operator_factory, mock_session_info):
     """get_features() returns empty dict for operator without features."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -499,7 +471,7 @@ def test_get_features_returns_empty_dict_for_operator_without_features(
 
 def test_get_features_from_input_output_features_merges_features():
     """get_features_from_input_output_features() merges input and output features."""
-    with patch("core.operators.operator_metadata.get_session_info"):
+    with patch("datasift.core.operators.operator_metadata.get_session_info"):
         metadata = OperatorMetadata()
 
         input_features = {
@@ -525,7 +497,7 @@ def test_get_features_from_input_output_features_merges_features():
 
 def test_get_features_from_input_output_features_output_overwrites_input():
     """get_features_from_input_output_features() output features overwrite input features."""
-    with patch("core.operators.operator_metadata.get_session_info"):
+    with patch("datasift.core.operators.operator_metadata.get_session_info"):
         metadata = OperatorMetadata()
 
         input_features = {
@@ -547,7 +519,7 @@ def test_get_features_from_input_output_features_output_overwrites_input():
 
 def test_get_features_from_input_output_features_filters_by_purpose():
     """get_features_from_input_output_features() filters by purpose."""
-    with patch("core.operators.operator_metadata.get_session_info"):
+    with patch("datasift.core.operators.operator_metadata.get_session_info"):
         metadata = OperatorMetadata()
 
         input_features = {
@@ -573,7 +545,7 @@ def test_get_features_from_input_output_features_filters_by_purpose():
 
 def test_get_features_from_input_output_features_handles_none_input():
     """get_features_from_input_output_features() handles None input_features."""
-    with patch("core.operators.operator_metadata.get_session_info"):
+    with patch("datasift.core.operators.operator_metadata.get_session_info"):
         metadata = OperatorMetadata()
 
         output_features = {
@@ -591,7 +563,7 @@ def test_get_features_from_input_output_features_handles_none_input():
 
 def test_get_features_from_input_output_features_handles_none_output():
     """get_features_from_input_output_features() handles None output_features."""
-    with patch("core.operators.operator_metadata.get_session_info"):
+    with patch("datasift.core.operators.operator_metadata.get_session_info"):
         metadata = OperatorMetadata()
 
         input_features = {
@@ -609,7 +581,7 @@ def test_get_features_from_input_output_features_handles_none_output():
 
 def test_get_features_from_input_output_features_returns_empty_for_both_none():
     """get_features_from_input_output_features() returns empty dict when both are None."""
-    with patch("core.operators.operator_metadata.get_session_info"):
+    with patch("datasift.core.operators.operator_metadata.get_session_info"):
         metadata = OperatorMetadata()
 
         result = metadata.get_features_from_input_output_features(
@@ -629,11 +601,11 @@ def test_get_features_from_input_output_features_returns_empty_for_both_none():
 def test_required_feature_names_returns_list(mock_operator_factory, mock_session_info):
     """required_feature_names() returns list of required features."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -645,16 +617,14 @@ def test_required_feature_names_returns_list(mock_operator_factory, mock_session
             assert result == ["required_feature1"]
 
 
-def test_required_feature_names_returns_empty_list_for_nonexistent_operator(
-    mock_operator_factory, mock_session_info
-):
+def test_required_feature_names_returns_empty_list_for_nonexistent_operator(mock_operator_factory, mock_session_info):
     """required_feature_names() returns empty list for nonexistent operator."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -670,11 +640,11 @@ def test_required_feature_names_returns_empty_list_for_operator_without_required
 ):
     """required_feature_names() returns empty list for operator without required features."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -690,16 +660,14 @@ def test_required_feature_names_returns_empty_list_for_operator_without_required
 # ---------------------------------------------------------------------------
 
 
-def test_get_feature_operators_map_returns_defaultdict(
-    mock_operator_factory, mock_session_info
-):
+def test_get_feature_operators_map_returns_defaultdict(mock_operator_factory, mock_session_info):
     """get_feature_operators_map() returns a defaultdict."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -708,16 +676,14 @@ def test_get_feature_operators_map_returns_defaultdict(
             assert isinstance(result, defaultdict)
 
 
-def test_get_feature_operators_map_maps_features_to_operators(
-    mock_operator_factory, mock_session_info
-):
+def test_get_feature_operators_map_maps_features_to_operators(mock_operator_factory, mock_session_info):
     """get_feature_operators_map() creates feature-to-operators mapping."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -733,11 +699,11 @@ def test_get_feature_operators_map_calls_get_operator_metadata_with_internal_fea
 ):
     """get_feature_operators_map() calls get_operator_metadata with internal_features=True."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -749,16 +715,14 @@ def test_get_feature_operators_map_calls_get_operator_metadata_with_internal_fea
                 mock_get_metadata.assert_called_once_with(internal_features=True)
 
 
-def test_get_feature_operators_map_includes_internal_features(
-    mock_operator_factory, mock_session_info
-):
+def test_get_feature_operators_map_includes_internal_features(mock_operator_factory, mock_session_info):
     """get_feature_operators_map() includes internal features in mapping."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -784,11 +748,11 @@ def test_get_feature_operators_map_handles_operators_without_label(mock_session_
     factory.get_operator.return_value = Mock(is_available=Mock(return_value=True))
 
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=factory,
         ):
             metadata = OperatorMetadata()
@@ -812,11 +776,11 @@ def test_get_feature_operators_map_handles_empty_features(mock_session_info):
     factory.get_operator.return_value = Mock(is_available=Mock(return_value=True))
 
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=factory,
         ):
             metadata = OperatorMetadata()
@@ -831,16 +795,14 @@ def test_get_feature_operators_map_handles_empty_features(mock_session_info):
 # ---------------------------------------------------------------------------
 
 
-def test_multiple_calls_to_get_operator_metadata_accumulate(
-    mock_operator_factory, mock_session_info
-):
+def test_multiple_calls_to_get_operator_metadata_accumulate(mock_operator_factory, mock_session_info):
     """Multiple calls to get_operator_metadata() accumulate in cache."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
@@ -857,20 +819,20 @@ def test_multiple_calls_to_get_operator_metadata_accumulate(
 def test_get_features_uses_cached_metadata(mock_operator_factory, mock_session_info):
     """get_features() uses cached metadata from previous get_operator_metadata() call."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=mock_operator_factory,
         ):
             metadata = OperatorMetadata()
             metadata.get_operator_metadata(internal_features=True)
 
             # Manually modify cache to verify it's being used
-            metadata.operator_metadata["test_op1"][OperatorConstants.Config.FEATURES][
-                "custom_feature"
-            ] = {"type": "custom"}
+            metadata.operator_metadata["test_op1"][OperatorConstants.Config.FEATURES]["custom_feature"] = {
+                "type": "custom"
+            }
 
             result = metadata.get_features(short_name="test_op1")
 
@@ -883,11 +845,11 @@ def test_empty_operator_factory(mock_session_info):
     factory.operators = {}
 
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=factory,
         ):
             metadata = OperatorMetadata()
@@ -899,11 +861,11 @@ def test_empty_operator_factory(mock_session_info):
 def test_operator_factory_provider_called_with_python_orchestrator(mock_session_info):
     """get_operator_metadata() calls OperatorFactoryProvider with PYTHON orchestrator."""
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory"
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory"
         ) as mock_get_factory:
             mock_factory = Mock()
             mock_factory.operators = {}
@@ -912,9 +874,7 @@ def test_operator_factory_provider_called_with_python_orchestrator(mock_session_
             metadata = OperatorMetadata()
             metadata.get_operator_metadata()
 
-            mock_get_factory.assert_called_once_with(
-                orchestrator=OrchestratorType.PYTHON
-            )
+            mock_get_factory.assert_called_once_with(orchestrator=OrchestratorType.PYTHON)
 
 
 def test_get_operator_metadata_handles_non_static_get_metadata(mock_session_info):
@@ -926,9 +886,7 @@ def test_get_operator_metadata_handles_non_static_get_metadata(mock_session_info
     op_instance = Mock()
 
     # Simulate TypeError when calling get_metadata() as static method
-    op_class.get_metadata.side_effect = TypeError(
-        "get_metadata() missing 1 required positional argument: 'self'"
-    )
+    op_class.get_metadata.side_effect = TypeError("get_metadata() missing 1 required positional argument: 'self'")
 
     # Instance method should work
     op_instance.get_metadata.return_value = {
@@ -945,36 +903,28 @@ def test_get_operator_metadata_handles_non_static_get_metadata(mock_session_info
     factory.get_operator.return_value = op_instance
 
     with patch(
-        "core.operators.operator_metadata.get_session_info",
+        "datasift.core.operators.operator_metadata.get_session_info",
         return_value=mock_session_info,
     ):
         with patch(
-            "core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
+            "datasift.core.operators.operator_metadata.OperatorFactoryProvider.get_operator_factory",
             return_value=factory,
         ):
-            with patch("core.operators.operator_metadata.logger") as mock_logger:
+            with patch("datasift.core.operators.operator_metadata.logger") as mock_logger:
                 metadata = OperatorMetadata()
                 result = metadata.get_operator_metadata()
 
                 # Should successfully get metadata via instance method
                 assert "legacy_op" in result
-                assert (
-                    result["legacy_op"][OperatorConstants.Misc.LABEL]
-                    == "Legacy Operator"
-                )
-                assert (
-                    "legacy_feature"
-                    in result["legacy_op"][OperatorConstants.Config.FEATURES]
-                )
+                assert result["legacy_op"][OperatorConstants.Misc.LABEL] == "Legacy Operator"
+                assert "legacy_feature" in result["legacy_op"][OperatorConstants.Config.FEATURES]
                 assert result["legacy_op"]["required_features"] == ["input_feature"]
 
                 # Should log debug message about backward compatibility
                 mock_logger.debug.assert_called()
                 debug_calls = [str(call) for call in mock_logger.debug.call_args_list]
                 assert any(
-                    "non-static get_metadata()" in call
-                    and "backward compatibility" in call
-                    for call in debug_calls
+                    "non-static get_metadata()" in call and "backward compatibility" in call for call in debug_calls
                 )
 
 

@@ -17,8 +17,8 @@ except ImportError:
     print("python-dotenv not installed. Install with: pip install python-dotenv")
     print("Or set environment variables manually.")
 
-from core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter
-from core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
+from datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter import S3SourceAdapter
+from datasift.core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
 
 
 async def main():
@@ -62,9 +62,7 @@ async def main():
         print("  export S3_SECRET_KEY='your-secret-key'")
         print("  export S3_BUCKET='your-bucket-name'")
         print("  export S3_PREFIX='documents/'  # Optional")
-        print(
-            "  export S3_ENDPOINT_URL='https://s3.example.com'  # Optional, for S3-compatible storage"
-        )
+        print("  export S3_ENDPOINT_URL='https://s3.example.com'  # Optional, for S3-compatible storage")
         print("  export S3_REGION='us-east-1'  # Optional")
         print("  python examples/connectors/test_s3_adapter.py")
         sys.exit(1)
@@ -94,9 +92,7 @@ async def main():
         print(f"  File Extensions: {config.file_extensions}")
         print(f"  Skip Hidden Files: {config.skip_hidden_files}")
         print(
-            f"  Max File Size: {config.max_file_size_mb} MB"
-            if config.max_file_size_mb
-            else "  Max File Size: No limit"
+            f"  Max File Size: {config.max_file_size_mb} MB" if config.max_file_size_mb else "  Max File Size: No limit"
         )
     except Exception as e:
         print(f"\nERROR: Failed to create configuration: {e}")
@@ -149,12 +145,8 @@ async def main():
             if document.metadata:
                 print(f"    Bucket: {document.metadata.get('bucket', 'N/A')}")
                 print(f"    Key: {document.metadata.get('key', 'N/A')}")
-                print(
-                    f"    Content Type: {document.metadata.get('content_type', 'N/A')}"
-                )
-                print(
-                    f"    Storage Class: {document.metadata.get('storage_class', 'N/A')}"
-                )
+                print(f"    Content Type: {document.metadata.get('content_type', 'N/A')}")
+                print(f"    Storage Class: {document.metadata.get('storage_class', 'N/A')}")
 
             # Limit output for large buckets
             if doc_count >= 10:
@@ -179,5 +171,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-# Made with Bob

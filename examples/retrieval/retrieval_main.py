@@ -10,16 +10,18 @@ This script demonstrates the complete workflow:
 """
 
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Any
 
+from ollama_nl_to_sql_converter import OllamaNLToSQLConverter
+from opensearch_sql import OpenSearchSQLClient
+from opensearchpy import (
+    ConnectionError as OSConnectionError,
+)
 from opensearchpy import (
     OpenSearch,
-    ConnectionError as OSConnectionError,
     TransportError,
 )
-from opensearch_sql import OpenSearchSQLClient
 from result_combiner import OpenSearchResultCombiner
-from ollama_nl_to_sql_converter import OllamaNLToSQLConverter
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +37,12 @@ class CompleteQuerySystem:
         opensearch_host: str = "localhost",
         opensearch_port: int = 9200,
         opensearch_use_ssl: bool = False,
-        opensearch_username: Optional[str] = None,
-        opensearch_password: Optional[str] = None,
+        opensearch_username: str | None = None,
+        opensearch_password: str | None = None,
         ollama_host: str = "http://localhost:11434",
         ollama_model: str = "llama3",
         index_name: str = "documents",
-        schema_name: Optional[str] = None,
+        schema_name: str | None = None,
     ):
         """
         Initialize the complete query system.
@@ -89,9 +91,7 @@ class CompleteQuerySystem:
         self.sql_client = OpenSearchSQLClient(self.opensearch_client)
 
         # Initialize result combiner
-        self.result_combiner = OpenSearchResultCombiner(
-            ollama_model=self.ollama_model, temperature=0.3
-        )
+        self.result_combiner = OpenSearchResultCombiner(ollama_model=self.ollama_model, temperature=0.3)
 
         # Resolve schema:
         #   1. Explicit schema_name override → load from document_schemas.json by name.
@@ -132,17 +132,15 @@ class CompleteQuerySystem:
                 schema_dict=resolved_schema_dict,
             )
         except (FileNotFoundError, ValueError) as exc:
-            raise RuntimeError(
-                f"Failed to initialise OllamaNLToSQLConverter: {exc}"
-            ) from exc
+            raise RuntimeError(f"Failed to initialise OllamaNLToSQLConverter: {exc}") from exc
 
     def query(
         self,
         user_question: str,
         use_sql: bool = True,
         use_hybrid: bool = True,
-        sql_query: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        sql_query: str | None = None,
+    ) -> dict[str, Any]:
         """
         Process a user question through the complete workflow
 
@@ -188,13 +186,11 @@ class CompleteQuerySystem:
                     results["errors"].append(f"SQL Error: {sql_result.error}")
                 else:
                     results["sql_results"] = sql_result.to_dict_list()
-                    logger.info(
-                        f"SQL query returned {len(results['sql_results'])} results"
-                    )
+                    logger.info(f"SQL query returned {len(results['sql_results'])} results")
 
             except Exception as e:
-                logger.error(f"SQL exception: {str(e)}", exc_info=True)
-                results["errors"].append(f"SQL Exception: {str(e)}")
+                logger.error(f"SQL exception: {e!s}", exc_info=True)
+                results["errors"].append(f"SQL Exception: {e!s}")
 
         # Step 2: Get hybrid search results if enabled
         if use_hybrid:
@@ -204,8 +200,8 @@ class CompleteQuerySystem:
                 results["hybrid_results"] = hybrid_results
                 logger.info(f"Hybrid search returned {len(hybrid_results)} results")
             except Exception as e:
-                logger.error(f"Hybrid search exception: {str(e)}", exc_info=True)
-                results["errors"].append(f"Hybrid Search Exception: {str(e)}")
+                logger.error(f"Hybrid search exception: {e!s}", exc_info=True)
+                results["errors"].append(f"Hybrid Search Exception: {e!s}")
 
         # Step 3: Combine results and generate answer
         try:
@@ -220,17 +216,15 @@ class CompleteQuerySystem:
             if answer_result["success"]:
                 results["answer"] = answer_result["answer"]
                 results["model_used"] = answer_result["model_used"]
-                logger.info(
-                    f"Answer generated successfully using model: {answer_result['model_used']}"
-                )
+                logger.info(f"Answer generated successfully using model: {answer_result['model_used']}")
             else:
                 error_msg = answer_result.get("error", "Unknown error")
                 logger.error(f"Answer generation failed: {error_msg}")
                 results["errors"].append(f"Answer Generation Error: {error_msg}")
 
         except Exception as e:
-            logger.error(f"Answer generation exception: {str(e)}", exc_info=True)
-            results["errors"].append(f"Answer Generation Exception: {str(e)}")
+            logger.error(f"Answer generation exception: {e!s}", exc_info=True)
+            results["errors"].append(f"Answer Generation Exception: {e!s}")
 
         logger.info(f"Query completed with {len(results['errors'])} errors")
         return results
@@ -240,7 +234,7 @@ class CompleteQuerySystem:
         user_question: str,
         use_sql: bool = True,
         use_hybrid: bool = True,
-        sql_query: Optional[str] = None,
+        sql_query: str | None = None,
     ):
         """
         Process a user question with streaming answer generation
@@ -270,14 +264,14 @@ class CompleteQuerySystem:
                 if not sql_result.error:
                     sql_results = sql_result.to_dict_list()
             except Exception as e:
-                yield f"\n[SQL Error: {str(e)}]\n"
+                yield f"\n[SQL Error: {e!s}]\n"
 
         # Get hybrid search results
         if use_hybrid:
             try:
                 hybrid_results = self._execute_hybrid_search(user_question)
             except Exception as e:
-                yield f"\n[Hybrid Search Error: {str(e)}]\n"
+                yield f"\n[Hybrid Search Error: {e!s}]\n"
 
         # Stream answer
         try:
@@ -289,7 +283,7 @@ class CompleteQuerySystem:
             ):
                 yield chunk
         except Exception as e:
-            yield f"\n[Answer Generation Error: {str(e)}]"
+            yield f"\n[Answer Generation Error: {e!s}]"
 
     def _generate_sql_query(self, user_question: str) -> str:
         """
@@ -303,9 +297,7 @@ class CompleteQuerySystem:
         """
         return self.nl_to_sql_converter.convert_to_sql(user_question)
 
-    def _execute_hybrid_search(
-        self, query: str, size: int = 10
-    ) -> List[Dict[str, Any]]:
+    def _execute_hybrid_search(self, query: str, size: int = 10) -> list[dict[str, Any]]:
         """
         Execute hybrid search (combining keyword and semantic search)
 
@@ -351,13 +343,9 @@ class CompleteQuerySystem:
         }
 
         try:
-            response = self.opensearch_client.search(
-                index=self.index_name, body=search_body
-            )
+            response = self.opensearch_client.search(index=self.index_name, body=search_body)
         except OSConnectionError as exc:
-            raise RuntimeError(
-                f"Cannot connect to OpenSearch at {self.index_name}: {exc}"
-            ) from exc
+            raise RuntimeError(f"Cannot connect to OpenSearch at {self.index_name}: {exc}") from exc
         except TransportError as exc:
             # e.g. index_not_found_exception (404) or auth failure (401/403)
             status = getattr(exc, "status_code", "unknown")
@@ -365,10 +353,8 @@ class CompleteQuerySystem:
                 f"OpenSearch returned HTTP {status} for index '{self.index_name}'. "
                 f"Ensure the index exists and credentials are correct. Detail: {exc}"
             ) from exc
-        except Exception as exc:  # noqa: BLE001
-            raise RuntimeError(
-                f"Unexpected error during hybrid search on '{self.index_name}': {exc}"
-            ) from exc
+        except Exception as exc:
+            raise RuntimeError(f"Unexpected error during hybrid search on '{self.index_name}': {exc}") from exc
 
         results = []
         for hit in response.get("hits", {}).get("hits", []):

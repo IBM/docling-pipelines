@@ -88,9 +88,9 @@
 
 This reference is organized around four entry points:
 
-- **Operators**: flow node implementations under [`src/datasift_opensource/backend/core/operators`](src/datasift_opensource/backend/core/operators)
-- **Programmatic execution**: [`DatasiftFlowManager`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:24)
-- **CLI execution**: [`datasift-orchestrator`](src/datasift_opensource/backend/cli/datasift_cli.py:147)
+- **Operators**: flow node implementations under [`src/datasift/core/operators`](src/datasift/core/operators)
+- **Programmatic execution**: [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py:24)
+- **CLI execution**: [`datasift-orchestrator`](src/datasift/cli/datasift_cli.py:147)
 - **Flow JSON definitions**: DAG configuration consumed by the orchestrator
 
 ### How to use this reference
@@ -105,14 +105,14 @@ This reference is organized around four entry points:
 
 ### Common Operator Contract
 
-All operators ultimately inherit from [`AbstractOperator`](src/datasift_opensource/backend/core/operators/abstract_operator.py:28).
+All operators ultimately inherit from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:28).
 
 **Shared behavior**
 
 - Operators receive a `config` dictionary during initialization.
-- Operators expose metadata through the static method [`get_metadata()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:59), which can be called on the class without instantiation (e.g., `OperatorClass.get_metadata()`).
-- Input column requirements are expressed with [`get_required_features()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:55).
-- Validation hooks are implemented via [`validate()`](src/datasift_opensource/backend/core/operators/abstract_operator.py:51).
+- Operators expose metadata through the static method [`get_metadata()`](src/datasift/core/operators/abstract_operator.py:59), which can be called on the class without instantiation (e.g., `OperatorClass.get_metadata()`).
+- Input column requirements are expressed with [`get_required_features()`](src/datasift/core/operators/abstract_operator.py:55).
+- Validation hooks are implemented via [`validate()`](src/datasift/core/operators/abstract_operator.py:51).
 - Runtime work is usually performed by `transform()` or `runner()` methods depending on the operator.
 
 **Common input shape**
@@ -293,7 +293,7 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Exceptions**
 
-- [`FlowExecutionFailedException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py:79)
+- [`FlowExecutionFailedException`](src/datasift/common/exceptions/datasift_exceptions.py:79)
 - `ValueError` for invalid configuration
 - Provider-specific exceptions (Ollama, LiteLLM, Docling)
 
@@ -434,7 +434,7 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 - Entity modes: `ollama` (local LLM), `litellm` (100+ providers), `docling` (template-based), `none` (default)
 - VLM pipeline (docling_library mode) enhances extraction for complex documents
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
-- See [ExtractOperator README](src/datasift_opensource/backend/core/operators/extract/README.md) for complete documentation
+- See [ExtractOperator README](src/datasift/core/operators/extract/README.md) for complete documentation
 
 ---
 
@@ -473,7 +473,7 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py:8)
+- [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py:8)
 - validation messages
 - Ollama errors for semantic chunking
 
@@ -525,7 +525,7 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py:8)
+- [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py:8)
 - provider authentication/network failures
 
 **Example**
@@ -793,7 +793,7 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py:8)
+- [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py:8)
 
 ---
 
@@ -847,9 +847,9 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 
 **Exceptions**
 
-- [`FlowValidationException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py): Invalid configuration
-- [`FlowExecutionFailedException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py): Storage operation failed
-- [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py): General errors
+- [`FlowValidationException`](src/datasift/common/exceptions/datasift_exceptions.py): Invalid configuration
+- [`FlowExecutionFailedException`](src/datasift/common/exceptions/datasift_exceptions.py): Storage operation failed
+- [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py): General errors
 
 **Example Configuration**
 
@@ -880,7 +880,7 @@ Ingest → Extract → [Processing] → DocumentSetOperator → [Downstream Oper
 
 ## DatasiftFlowManager API
 
-**Class:** [`DatasiftFlowManager`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:24)
+**Class:** [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py:24)
 
 ### Constructor
 
@@ -890,7 +890,7 @@ Exactly one of `flow_file` or `flow_def` must be provided.
 
 ### `validate()`
 
-Defined at [`validate()`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:165).
+Defined at [`validate()`](src/datasift/lib/datasift_flow_manager.py:165).
 
 Returns:
 
@@ -904,40 +904,40 @@ Returns:
 
 ### `execute()`
 
-Defined at [`execute()`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:213).
+Defined at [`execute()`](src/datasift/lib/datasift_flow_manager.py:213).
 
 Returns the result of flow execution from the executor.
 
 ### `get_execution_metadata()`
 
-Defined at [`get_execution_metadata()`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:245).
+Defined at [`get_execution_metadata()`](src/datasift/lib/datasift_flow_manager.py:245).
 
 Returns job and flow metadata.
 
 ### `get_execution_logs()`
 
-Defined at [`get_execution_logs()`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:272).
+Defined at [`get_execution_logs()`](src/datasift/lib/datasift_flow_manager.py:272).
 
 Returns `list[str]`.
 
 ### `list_operators(verbose=False)`
 
-Defined at [`list_operators()`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:308).
+Defined at [`list_operators()`](src/datasift/lib/datasift_flow_manager.py:308).
 
-Returns a formatted operator listing via [`common.util.operators.display.list_operators()`](src/datasift_opensource/backend/common/util/operators/display.py:135).
+Returns a formatted operator listing via [`common.util.operators.display.list_operators()`](src/datasift/common/util/operators/display.py:135).
 
 ### Method name note
 
 The current class does **not** expose `execute_flow()` or `validate_flow()` methods. Use:
 
-- [`execute()`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:213)
-- [`validate()`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:165)
+- [`execute()`](src/datasift/lib/datasift_flow_manager.py:213)
+- [`validate()`](src/datasift/lib/datasift_flow_manager.py:165)
 
 ---
 
 ## CLI API Reference
 
-**Entry point:** [`main()`](src/datasift_opensource/backend/cli/datasift_cli.py:147)
+**Entry point:** [`main()`](src/datasift/cli/datasift_cli.py:147)
 
 ### Command forms
 
@@ -988,7 +988,7 @@ The sample flow structure in [`tests/sample_test_flows/invoice_processing/flow_i
 }
 ```
 
-[`DatasiftFlowManager`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:140) also accepts root-level flow definitions without a wrapping `flow` key.
+[`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py:140) also accepts root-level flow definitions without a wrapping `flow` key.
 
 ### Flow fields
 
@@ -1038,7 +1038,7 @@ and direct string references in some `output_edges` entries.
 
 ### Validation rules
 
-Validation is performed by [`FlowValidator`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:20) and CLI validation helpers.
+Validation is performed by [`FlowValidator`](src/datasift/lib/datasift_flow_manager.py:20) and CLI validation helpers.
 
 Practical rules from the reviewed code:
 
@@ -1052,7 +1052,7 @@ Practical rules from the reviewed code:
 
 ## Exception Reference
 
-All custom exception types reviewed here come from [`datasift_exceptions.py`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py).
+All custom exception types reviewed here come from [`datasift_exceptions.py`](src/datasift/common/exceptions/datasift_exceptions.py).
 
 ### `DatasiftException`
 
@@ -1138,7 +1138,7 @@ JSON encoder for validation alerts.
 
 ### PyArrow handler utilities
 
-Defined in [`pyarrow_handler.py`](src/datasift_opensource/backend/common/util/data/pyarrow_handler.py:1)
+Defined in [`pyarrow_handler.py`](src/datasift/common/util/data/pyarrow_handler.py:1)
 
 #### `BaseParquetTableHandler`
 
@@ -1146,10 +1146,10 @@ Abstract contract for parquet read/write/delete operations.
 
 Key methods:
 
-- [`read_table()`](src/datasift_opensource/backend/common/util/data/pyarrow_handler.py:46)
-- [`save_table()`](src/datasift_opensource/backend/common/util/data/pyarrow_handler.py:63)
-- [`delete_rows()`](src/datasift_opensource/backend/common/util/data/pyarrow_handler.py:73)
-- [`delete_file()`](src/datasift_opensource/backend/common/util/data/pyarrow_handler.py:96)
+- [`read_table()`](src/datasift/common/util/data/pyarrow_handler.py:46)
+- [`save_table()`](src/datasift/common/util/data/pyarrow_handler.py:63)
+- [`delete_rows()`](src/datasift/common/util/data/pyarrow_handler.py:73)
+- [`delete_file()`](src/datasift/common/util/data/pyarrow_handler.py:96)
 
 #### `CpdParquetTableHandler`
 
@@ -1157,51 +1157,51 @@ Concrete local-file implementation.
 
 #### `get_parquet_table_handler()`
 
-Defined at [`get_parquet_table_handler()`](src/datasift_opensource/backend/common/util/data/pyarrow_handler.py:151)
+Defined at [`get_parquet_table_handler()`](src/datasift/common/util/data/pyarrow_handler.py:151)
 
 Returns the default parquet handler implementation.
 
 ### Schema utilities
 
-Defined in [`schema_utils.py`](src/datasift_opensource/backend/common/util/data/schema_utils.py:1)
+Defined in [`schema_utils.py`](src/datasift/common/util/data/schema_utils.py:1)
 
 #### `align_table_schema(table, all_cols)`
 
-Defined at [`align_table_schema()`](src/datasift_opensource/backend/common/util/data/schema_utils.py:10)
+Defined at [`align_table_schema()`](src/datasift/common/util/data/schema_utils.py:10)
 
 Adds missing columns with null values and aligns ordering.
 
 #### `_combine_tables(tables, table_type)`
 
-Defined at [`_combine_tables()`](src/datasift_opensource/backend/common/util/data/schema_utils.py:34)
+Defined at [`_combine_tables()`](src/datasift/common/util/data/schema_utils.py:34)
 
 Safely concatenates tables and warns on duplicate IDs.
 
 #### `_total_rows(tables)`
 
-Defined at [`_total_rows()`](src/datasift_opensource/backend/common/util/data/schema_utils.py:68)
+Defined at [`_total_rows()`](src/datasift/common/util/data/schema_utils.py:68)
 
 Computes total row counts across a table, list, dict, or `None`.
 
 ### Document class utilities
 
-Defined in [`document_class_utils.py`](src/datasift_opensource/backend/common/util/document_class_utils.py:18)
+Defined in [`document_class_utils.py`](src/datasift/common/util/document_class_utils.py:18)
 
 #### `DocumentClassUtils.normalize_filename(name)`
 
-Defined at [`normalize_filename()`](src/datasift_opensource/backend/common/util/document_class_utils.py:36)
+Defined at [`normalize_filename()`](src/datasift/common/util/document_class_utils.py:36)
 
 Normalizes human labels into stable filenames.
 
 #### `DocumentClassUtils.load_document_class(doc_class_path)`
 
-Defined at [`load_document_class()`](src/datasift_opensource/backend/common/util/document_class_utils.py:46)
+Defined at [`load_document_class()`](src/datasift/common/util/document_class_utils.py:46)
 
 Loads a document class JSON definition.
 
 #### `DocumentClassUtils.generate_docling_template(doc_class_path, include_nested=True, max_fields=None)`
 
-Defined at [`generate_docling_template()`](src/datasift_opensource/backend/common/util/document_class_utils.py:167)
+Defined at [`generate_docling_template()`](src/datasift/common/util/document_class_utils.py:167)
 
 Builds a Docling extraction template from a document class schema.
 
@@ -1212,8 +1212,8 @@ Builds a Docling extraction template from a document class schema.
 
 ### Operator display utility
 
-Defined in [`display.py`](src/datasift_opensource/backend/common/util/operators/display.py:135)
+Defined in [`display.py`](src/datasift/common/util/operators/display.py:135)
 
 #### `list_operators(verbose=False, summary_only=False)`
 
-Generates the same operator catalog used by the CLI and [`DatasiftFlowManager.list_operators()`](src/datasift_opensource/backend/lib/datasift_flow_manager.py:308).
+Generates the same operator catalog used by the CLI and [`DatasiftFlowManager.list_operators()`](src/datasift/lib/datasift_flow_manager.py:308).

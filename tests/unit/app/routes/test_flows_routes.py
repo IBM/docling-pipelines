@@ -6,13 +6,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes.flows import flows_router, get_flow_service
-from common.exceptions.datasift_exceptions import (
+from datasift.api.routes.flows import flows_router, get_flow_service
+from datasift.core.flows.application.services.flow_service import FlowService
+from datasift.exceptions.datasift_exceptions import (
     FlowAlreadyExistsException,
     FlowNotFoundException,
     FlowStorageException,
 )
-from core.assets_management.application.services.flow_service import FlowService
 
 
 @pytest.fixture
@@ -25,13 +25,13 @@ def app():
     from fastapi.exceptions import RequestValidationError
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
-    from app.middleware.error_handler import (
+    from datasift.api.middleware.error_handler import (
         datasift_exception_handler,
         generic_exception_handler,
         http_exception_handler,
         validation_exception_handler,
     )
-    from common.exceptions.datasift_exceptions import DatasiftException
+    from datasift.exceptions.datasift_exceptions import DatasiftException
 
     app = FastAPI()
     app.include_router(flows_router)
@@ -68,9 +68,7 @@ def override_service(app, mock_service):
 class TestCreateFlowEndpoint:
     """Tests for POST /flows endpoint."""
 
-    def test_create_flow_with_valid_data_returns_201(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_create_flow_with_valid_data_returns_201(self, client, override_service, sample_flow_with_id):
         """Test creating a flow with valid data returns 201."""
         # Arrange
         override_service.create_flow.return_value = sample_flow_with_id
@@ -90,9 +88,7 @@ class TestCreateFlowEndpoint:
         assert response.json()["flow_id"] == "12345678-1234-1234-1234-123456789abc"
         override_service.create_flow.assert_called_once()
 
-    def test_create_flow_with_minimal_data_returns_201(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_create_flow_with_minimal_data_returns_201(self, client, override_service, sample_flow_with_id):
         """Test creating a flow with only required fields returns 201."""
         # Arrange
         override_service.create_flow.return_value = sample_flow_with_id
@@ -145,9 +141,7 @@ class TestCreateFlowEndpoint:
         data = response.json()
         assert data["errors"][0]["code"] == "validation_error"
 
-    def test_create_flow_with_filesystem_error_returns_500(
-        self, client, override_service
-    ):
+    def test_create_flow_with_filesystem_error_returns_500(self, client, override_service):
         """Test creating a flow with filesystem error returns 500."""
         # Arrange
         override_service.create_flow.side_effect = FlowStorageException(
@@ -186,9 +180,7 @@ class TestCreateFlowEndpoint:
 class TestGetFlowEndpoint:
     """Tests for GET /flows/{flow_id} endpoint."""
 
-    def test_get_flow_with_existing_id_returns_200(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_get_flow_with_existing_id_returns_200(self, client, override_service, sample_flow_with_id):
         """Test retrieving an existing flow returns 200."""
         # Arrange
         override_service.get_flow.return_value = sample_flow_with_id
@@ -200,9 +192,7 @@ class TestGetFlowEndpoint:
         assert response.status_code == 200
         assert response.json()["flow_id"] == "12345678-1234-1234-1234-123456789abc"
         assert response.json()["name"] == "Test Flow"
-        override_service.get_flow.assert_called_once_with(
-            "12345678-1234-1234-1234-123456789abc"
-        )
+        override_service.get_flow.assert_called_once_with("12345678-1234-1234-1234-123456789abc")
 
     def test_get_flow_with_nonexistent_id_returns_404(self, client, override_service):
         """Test retrieving a non-existent flow returns 404."""
@@ -249,10 +239,7 @@ class TestGetFlowEndpoint:
         assert response.status_code == 400
         data = response.json()
         assert data["errors"][0]["code"] == "validation_error"
-        assert (
-            "flow_id" in data["errors"][0]["message"].lower()
-            or "uuid" in data["errors"][0]["message"].lower()
-        )
+        assert "flow_id" in data["errors"][0]["message"].lower() or "uuid" in data["errors"][0]["message"].lower()
 
     def test_get_flow_with_short_uuid_returns_422(self, client):
         """Test retrieving a flow with too short UUID returns 400."""
@@ -268,9 +255,7 @@ class TestGetFlowEndpoint:
 class TestListFlowsEndpoint:
     """Tests for GET /flows endpoint."""
 
-    def test_list_flows_without_filters_returns_200(
-        self, client, override_service, multiple_sample_flows
-    ):
+    def test_list_flows_without_filters_returns_200(self, client, override_service, multiple_sample_flows):
         """Test listing all flows without filters returns 200."""
         # Arrange
         override_service.list_flows.return_value = multiple_sample_flows
@@ -287,9 +272,7 @@ class TestListFlowsEndpoint:
         assert data["offset"] == 0
         assert data["limit"] == 100
 
-    def test_list_flows_with_pagination_returns_200(
-        self, client, override_service, multiple_sample_flows
-    ):
+    def test_list_flows_with_pagination_returns_200(self, client, override_service, multiple_sample_flows):
         """Test listing flows with pagination returns 200."""
         # Arrange
         override_service.list_flows.return_value = multiple_sample_flows[2:4]
@@ -306,9 +289,7 @@ class TestListFlowsEndpoint:
         assert data["limit"] == 2
         assert data["next"] is not None  # Has more pages
 
-    def test_list_flows_with_name_filter_returns_200(
-        self, client, override_service, multiple_sample_flows
-    ):
+    def test_list_flows_with_name_filter_returns_200(self, client, override_service, multiple_sample_flows):
         """Test listing flows with name filter returns 200."""
         # Arrange
         filtered_flows = [f for f in multiple_sample_flows if "Flow 2" in f.name]
@@ -327,9 +308,7 @@ class TestListFlowsEndpoint:
         call_kwargs = override_service.list_flows.call_args.kwargs
         assert call_kwargs["name_filter"] == "Flow 2"
 
-    def test_list_flows_with_tags_filter_returns_200(
-        self, client, override_service, multiple_sample_flows
-    ):
+    def test_list_flows_with_tags_filter_returns_200(self, client, override_service, multiple_sample_flows):
         """Test listing flows with tags filter returns 200."""
         # Arrange
         override_service.list_flows.return_value = [multiple_sample_flows[1]]
@@ -345,9 +324,7 @@ class TestListFlowsEndpoint:
         call_kwargs = override_service.list_flows.call_args.kwargs
         assert call_kwargs["tags_filter"] == ["tag-1"]
 
-    def test_list_flows_with_is_hidden_filter_returns_200(
-        self, client, override_service, multiple_sample_flows
-    ):
+    def test_list_flows_with_is_hidden_filter_returns_200(self, client, override_service, multiple_sample_flows):
         """Test listing flows with is_hidden filter returns 200."""
         # Arrange
         hidden_flows = [f for f in multiple_sample_flows if f.is_hidden]
@@ -384,9 +361,7 @@ class TestListFlowsEndpoint:
         data = response.json()
         assert data["errors"][0]["code"] == "validation_error"
 
-    def test_list_flows_with_filesystem_error_returns_500(
-        self, client, override_service
-    ):
+    def test_list_flows_with_filesystem_error_returns_500(self, client, override_service):
         """Test listing flows with filesystem error returns 500."""
         # Arrange
         override_service.list_flows.side_effect = FlowStorageException(
@@ -406,9 +381,7 @@ class TestListFlowsEndpoint:
 class TestUpdateFlowEndpoint:
     """Tests for PUT /flows/{flow_id} endpoint."""
 
-    def test_update_flow_with_valid_data_returns_200(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_update_flow_with_valid_data_returns_200(self, client, override_service, sample_flow_with_id):
         """Test updating a flow with valid data returns 200."""
         # Arrange
         updated_flow = sample_flow_with_id
@@ -417,18 +390,14 @@ class TestUpdateFlowEndpoint:
         request_data = {"name": "Updated Flow", "description": "Updated description"}
 
         # Act
-        response = client.put(
-            "/flows/12345678-1234-1234-1234-123456789abc", json=request_data
-        )
+        response = client.put("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
 
         # Assert
         assert response.status_code == 200
         assert response.json()["name"] == "Updated Flow"
         override_service.update_flow.assert_called_once()
 
-    def test_update_flow_with_nonexistent_id_returns_404(
-        self, client, override_service
-    ):
+    def test_update_flow_with_nonexistent_id_returns_404(self, client, override_service):
         """Test updating a non-existent flow returns 404."""
         # Arrange
         nonexistent_id = "12345678-1234-1234-1234-000000000000"
@@ -452,9 +421,7 @@ class TestUpdateFlowEndpoint:
         request_data = {"name": ""}
 
         # Act
-        response = client.put(
-            "/flows/12345678-1234-1234-1234-123456789abc", json=request_data
-        )
+        response = client.put("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
 
         # Assert - FastAPI validation errors now return 400
         assert response.status_code == 400
@@ -475,9 +442,7 @@ class TestUpdateFlowEndpoint:
         assert data["errors"][0]["code"] == "validation_error"
         assert "flow_id" in data["errors"][0]["message"].lower()
 
-    def test_update_flow_with_filesystem_error_returns_500(
-        self, client, override_service
-    ):
+    def test_update_flow_with_filesystem_error_returns_500(self, client, override_service):
         """Test updating a flow with filesystem error returns 500."""
         # Arrange
         test_id = "12345678-1234-1234-1234-123456789def"
@@ -501,9 +466,7 @@ class TestUpdateFlowEndpoint:
 class TestPartialUpdateFlowEndpoint:
     """Tests for PATCH /flows/{flow_id} endpoint."""
 
-    def test_partial_update_flow_with_valid_data_returns_200(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_partial_update_flow_with_valid_data_returns_200(self, client, override_service, sample_flow_with_id):
         """Test partially updating a flow with valid data returns 200."""
         # Arrange
         updated_flow = sample_flow_with_id
@@ -512,18 +475,14 @@ class TestPartialUpdateFlowEndpoint:
         request_data = {"description": "Partially updated"}
 
         # Act
-        response = client.patch(
-            "/flows/12345678-1234-1234-1234-123456789abc", json=request_data
-        )
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
 
         # Assert
         assert response.status_code == 200
         assert response.json()["description"] == "Partially updated"
         override_service.partial_update_flow.assert_called_once()
 
-    def test_partial_update_flow_with_name_change_returns_200(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_partial_update_flow_with_name_change_returns_200(self, client, override_service, sample_flow_with_id):
         """Test partially updating flow name returns 200."""
         # Arrange
         updated_flow = sample_flow_with_id
@@ -532,17 +491,13 @@ class TestPartialUpdateFlowEndpoint:
         request_data = {"name": "New Name"}
 
         # Act
-        response = client.patch(
-            "/flows/12345678-1234-1234-1234-123456789abc", json=request_data
-        )
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
 
         # Assert
         assert response.status_code == 200
         assert response.json()["name"] == "New Name"
 
-    def test_partial_update_flow_with_nonexistent_id_returns_404(
-        self, client, override_service
-    ):
+    def test_partial_update_flow_with_nonexistent_id_returns_404(self, client, override_service):
         """Test partially updating a non-existent flow returns 404."""
         # Arrange
         nonexistent_id = "12345678-1234-1234-1234-000000000000"
@@ -574,17 +529,13 @@ class TestPartialUpdateFlowEndpoint:
         assert data["errors"][0]["code"] == "validation_error"
         assert "flow_id" in data["errors"][0]["message"].lower()
 
-    def test_partial_update_flow_with_invalid_data_returns_400(
-        self, client, override_service
-    ):
+    def test_partial_update_flow_with_invalid_data_returns_400(self, client, override_service):
         """Test partially updating a flow with invalid data returns 400."""
         # Arrange
         request_data = {"name": ""}
 
         # Act
-        response = client.patch(
-            "/flows/12345678-1234-1234-1234-123456789abc", json=request_data
-        )
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
 
         # Assert - FastAPI validation errors now return 400
         assert response.status_code == 400
@@ -592,18 +543,14 @@ class TestPartialUpdateFlowEndpoint:
         assert data["errors"][0]["code"] == "validation_error"
         assert "name" in data["errors"][0]["message"].lower()
 
-    def test_partial_update_flow_with_empty_body_returns_200(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_partial_update_flow_with_empty_body_returns_200(self, client, override_service, sample_flow_with_id):
         """Test partially updating a flow with empty body returns 200."""
         # Arrange
         override_service.partial_update_flow.return_value = sample_flow_with_id
         request_data = {}
 
         # Act
-        response = client.patch(
-            "/flows/12345678-1234-1234-1234-123456789abc", json=request_data
-        )
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
 
         # Assert
         assert response.status_code == 200
@@ -623,13 +570,9 @@ class TestDeleteFlowEndpoint:
         # Assert
         assert response.status_code == 204
         assert response.content == b""
-        override_service.delete_flow.assert_called_once_with(
-            "12345678-1234-1234-1234-123456789abc"
-        )
+        override_service.delete_flow.assert_called_once_with("12345678-1234-1234-1234-123456789abc")
 
-    def test_delete_flow_with_nonexistent_id_returns_404(
-        self, client, override_service
-    ):
+    def test_delete_flow_with_nonexistent_id_returns_404(self, client, override_service):
         """Test deleting a non-existent flow returns 404."""
         # Arrange
         nonexistent_id = "12345678-1234-1234-1234-000000000000"
@@ -646,9 +589,7 @@ class TestDeleteFlowEndpoint:
         assert data["errors"][0]["code"] == "flow_not_found"
         assert "not found" in data["errors"][0]["message"].lower()
 
-    def test_delete_flow_with_filesystem_error_returns_500(
-        self, client, override_service
-    ):
+    def test_delete_flow_with_filesystem_error_returns_500(self, client, override_service):
         """Test deleting a flow with filesystem error returns 500."""
         # Arrange
         test_id = "12345678-1234-1234-1234-123456789def"
@@ -671,9 +612,7 @@ class TestDeleteFlowEndpoint:
 class TestFlowRoutesIntegration:
     """Integration tests for flow routes."""
 
-    def test_create_and_get_flow_workflow(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_create_and_get_flow_workflow(self, client, override_service, sample_flow_with_id):
         """Test creating and then retrieving a flow."""
         # Arrange
         override_service.create_flow.return_value = sample_flow_with_id
@@ -691,9 +630,7 @@ class TestFlowRoutesIntegration:
         assert get_response.status_code == 200
         assert get_response.json()["flow_id"] == flow_id
 
-    def test_create_update_and_delete_flow_workflow(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_create_update_and_delete_flow_workflow(self, client, override_service, sample_flow_with_id):
         """Test creating, updating, and deleting a flow."""
         # Arrange
         override_service.create_flow.return_value = sample_flow_with_id
@@ -753,9 +690,7 @@ class TestParameterValidation:
         data = response.json()
         assert data["errors"][0]["code"] == "validation_error"
 
-    def test_get_flow_with_valid_uuid_format(
-        self, client, override_service, sample_flow_with_id
-    ):
+    def test_get_flow_with_valid_uuid_format(self, client, override_service, sample_flow_with_id):
         """Test that valid UUID format passes validation."""
         # Arrange
         valid_uuid = "550e8400-e29b-41d4-a716-446655440000"

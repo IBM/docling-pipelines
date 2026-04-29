@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import call, patch
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.infrastructure.retry import retry_with_exponential_backoff
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.utils.infrastructure.retry import retry_with_exponential_backoff
 
 
 class RetriableException(Exception):
@@ -27,18 +27,14 @@ class TestRetryWithExponentialBackoff(unittest.TestCase):
         def flaky_function():
             nonlocal call_count
             call_count += 1
-            raise RetriableException(
-                {"errorType": "TEMPORARY", "message": "Temporary failure"}
-            )
+            raise RetriableException({"errorType": "TEMPORARY", "message": "Temporary failure"})
 
         with self.assertRaises(RetriableException):
             flaky_function()
 
         self.assertEqual(call_count, 3)
         self.assertEqual(mock_sleep.call_count, 2)
-        mock_sleep.assert_has_calls(
-            [call(1), call(2)]
-        )  # delay doubles until max_retries is hit
+        mock_sleep.assert_has_calls([call(1), call(2)])  # delay doubles until max_retries is hit
 
     @patch("time.sleep", return_value=None)
     def test_eventually_succeeds_on_exception(self, mock_sleep):
@@ -95,9 +91,7 @@ class TestRetryWithExponentialBackoff(unittest.TestCase):
 
         self.assertEqual(call_count, 3)
         self.assertEqual(mock_sleep.call_count, 2)
-        mock_sleep.assert_has_calls(
-            [call(1), call(2)]
-        )  # delay doubles until max_retries is hit
+        mock_sleep.assert_has_calls([call(1), call(2)])  # delay doubles until max_retries is hit
 
     @patch("time.sleep", return_value=None)
     def test_eventually_succeeds_on_result(self, mock_sleep):

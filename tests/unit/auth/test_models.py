@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.datasift_opensource.backend.app.auth.models import (
+from datasift.api.auth.models import (
     LoginRequest,
     TokenResponse,
     User,

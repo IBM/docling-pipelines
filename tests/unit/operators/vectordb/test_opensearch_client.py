@@ -3,12 +3,13 @@
 Unit tests for OpenSearchClient
 """
 
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, Mock
 from botocore.credentials import Credentials
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from core.operators.vectordb.opensearch_client import OpenSearchClient
+from datasift.core.operators.vectordb.opensearch_client import OpenSearchClient
+from datasift.exceptions.datasift_exceptions import DatasiftException
 
 
 class TestOpenSearchClientInitialization:
@@ -107,16 +108,14 @@ class TestParameterValidation:
             aws_region=None,
         )
 
-        with pytest.raises(
-            DatasiftException, match="aws_region is required when aws_auth is enabled"
-        ):
+        with pytest.raises(DatasiftException, match="aws_region is required when aws_auth is enabled"):
             client.connect()
 
 
 class TestConnectionSetup:
     """Test connection setup with different authentication methods"""
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_connect_with_basic_auth(self, mock_opensearch):
         """Test connection with username/password authentication"""
         mock_client = MagicMock()
@@ -140,8 +139,8 @@ class TestConnectionSetup:
         assert call_kwargs["use_ssl"] is False
         assert call_kwargs["verify_certs"] is False
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_client.boto3.Session")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.boto3.Session")
     def test_connect_with_aws_auth(self, mock_session, mock_opensearch):
         """Test connection with AWS IAM authentication"""
         mock_client = MagicMock()
@@ -166,7 +165,7 @@ class TestConnectionSetup:
         assert "http_auth" in call_kwargs
         assert call_kwargs["use_ssl"] is True
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_connect_without_auth(self, mock_opensearch):
         """Test connection without authentication"""
         mock_client = MagicMock()
@@ -181,7 +180,7 @@ class TestConnectionSetup:
         call_kwargs = mock_opensearch.call_args[1]
         assert "http_auth" not in call_kwargs
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_connect_with_ssl_settings(self, mock_opensearch):
         """Test connection with SSL settings"""
         mock_client = MagicMock()
@@ -200,7 +199,7 @@ class TestConnectionSetup:
         assert call_kwargs["use_ssl"] is True
         assert call_kwargs["verify_certs"] is True
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_connect_with_custom_timeout(self, mock_opensearch):
         """Test connection with custom timeout"""
         mock_client = MagicMock()
@@ -217,7 +216,7 @@ class TestConnectionSetup:
 class TestClientLifecycle:
     """Test client lifecycle management"""
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_client_creates_if_none(self, mock_opensearch):
         """Test get_client creates client if not exists"""
         mock_client = MagicMock()
@@ -230,7 +229,7 @@ class TestClientLifecycle:
         assert result == mock_client
         assert client._client == mock_client
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_client_reuses_existing(self, mock_opensearch):
         """Test get_client reuses existing client"""
         mock_client = MagicMock()
@@ -246,7 +245,7 @@ class TestClientLifecycle:
         assert result1 == result2
         mock_opensearch.assert_called_once()
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_close_client(self, mock_opensearch):
         """Test closing client connection"""
         mock_client = MagicMock()
@@ -261,7 +260,7 @@ class TestClientLifecycle:
         assert client._client is None
         assert client._version is None
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_close_handles_errors(self, mock_opensearch):
         """Test close handles errors gracefully"""
         mock_client = MagicMock()
@@ -280,7 +279,7 @@ class TestClientLifecycle:
 class TestVersionDetection:
     """Test OpenSearch version detection"""
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_version_success(self, mock_opensearch):
         """Test successful version detection"""
         mock_client = MagicMock()
@@ -294,7 +293,7 @@ class TestVersionDetection:
         assert version == (2, 11, 0)
         assert client._version == (2, 11, 0)
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_version_caches_result(self, mock_opensearch):
         """Test version is cached after first call"""
         mock_client = MagicMock()
@@ -309,7 +308,7 @@ class TestVersionDetection:
         assert version1 == version2
         mock_client.info.assert_called_once()
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_version_handles_missing_info(self, mock_opensearch):
         """Test version detection with missing version info"""
         mock_client = MagicMock()
@@ -322,7 +321,7 @@ class TestVersionDetection:
 
         assert version == (0, 0, 0)
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_version_handles_error(self, mock_opensearch):
         """Test version detection handles errors"""
         mock_client = MagicMock()
@@ -335,7 +334,7 @@ class TestVersionDetection:
 
         assert version == (0, 0, 0)
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_version_parses_different_formats(self, mock_opensearch):
         """Test version parsing with different version formats"""
         mock_client = MagicMock()
@@ -359,7 +358,7 @@ class TestVersionDetection:
 class TestConnectionTesting:
     """Test connection testing functionality"""
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_connection_test_success(self, mock_opensearch):
         """Test successful connection test"""
         mock_client = MagicMock()
@@ -373,7 +372,7 @@ class TestConnectionTesting:
         assert result is True
         mock_client.info.assert_called_once()
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_connection_test_failure(self, mock_opensearch):
         """Test connection test failure"""
         mock_client = MagicMock()
@@ -386,7 +385,7 @@ class TestConnectionTesting:
 
         assert result is False
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_connection_test_network_error(self, mock_opensearch):
         """Test connection test with network error"""
         mock_client = MagicMock()
@@ -403,7 +402,7 @@ class TestConnectionTesting:
 class TestEdgeCases:
     """Test edge cases and error scenarios"""
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_whitespace_only_host(self, mock_opensearch):
         """Test that whitespace-only host is rejected"""
         client = OpenSearchClient(host="   ", port=9200)
@@ -411,7 +410,7 @@ class TestEdgeCases:
         with pytest.raises(DatasiftException, match="host must be a non-empty string"):
             client.connect()
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_reconnect_after_close(self, mock_opensearch):
         """Test reconnecting after closing connection"""
         mock_client = MagicMock()
@@ -427,8 +426,8 @@ class TestEdgeCases:
         assert result == mock_client
         assert mock_opensearch.call_count == 2
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_client.boto3.Session")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.boto3.Session")
     def test_aws_auth_with_none_credentials(self, mock_session, mock_opensearch):
         """Test AWS auth when credentials are None raises error"""
         mock_client = MagicMock()

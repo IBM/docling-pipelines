@@ -5,7 +5,7 @@ from datetime import UTC
 import pytest
 from pydantic import ValidationError
 
-from app.dto.flow_dto import (
+from datasift.api.dto.flow_dto import (
     FlowCreateRequest,
     FlowResponse,
     FlowUpdateRequest,
@@ -168,9 +168,7 @@ class TestFlowCreateRequestValidation:
     def test_create_request_with_valid_container_id(self):
         """Test that valid UUID for container_id is accepted."""
         # Act
-        dto = FlowCreateRequest(
-            name="Test", container_id="550e8400-e29b-41d4-a716-446655440000"
-        )
+        dto = FlowCreateRequest(name="Test", container_id="550e8400-e29b-41d4-a716-446655440000")
 
         # Assert
         assert dto.container_id == "550e8400-e29b-41d4-a716-446655440000"
@@ -186,9 +184,7 @@ class TestFlowCreateRequestValidation:
     def test_create_request_with_valid_job_id(self):
         """Test that valid UUID for job_id is accepted."""
         # Act
-        dto = FlowCreateRequest(
-            name="Test", job_id="660e8400-e29b-41d4-a716-446655440000"
-        )
+        dto = FlowCreateRequest(name="Test", job_id="660e8400-e29b-41d4-a716-446655440000")
 
         # Assert
         assert dto.job_id == "660e8400-e29b-41d4-a716-446655440000"
@@ -250,9 +246,7 @@ class TestFlowCreateRequestValidation:
     def test_create_request_deduplicates_tags(self):
         """Test that duplicate tags are removed."""
         # Act
-        dto = FlowCreateRequest(
-            name="Test", tags=["tag1", "tag2", "tag1", "tag3", "tag2"]
-        )
+        dto = FlowCreateRequest(name="Test", tags=["tag1", "tag2", "tag1", "tag3", "tag2"])
 
         # Assert
         assert dto.tags == ["tag1", "tag2", "tag3"]
@@ -425,9 +419,7 @@ class TestPaginatedFlowResponseValidation:
         )
 
         # Act
-        dto = PaginatedFlowResponse(
-            flows=[flow_response], total_count=1, offset=0, limit=10
-        )
+        dto = PaginatedFlowResponse(flows=[flow_response], total_count=1, offset=0, limit=10)
 
         # Assert
         assert len(dto.flows) == 1

@@ -4,7 +4,7 @@
 
 This directory is a technical reference index for OpenSearch-related documentation in datasift.
 
-The [`VectorDBOperator`](../../src/datasift_opensource/backend/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter stores document embeddings in OpenSearch for vector similarity search within datasift pipelines.
+The [`VectorDBOperator`](../../src/datasift/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter stores document embeddings in OpenSearch for vector similarity search within datasift pipelines.
 
 ## Reference Index
 

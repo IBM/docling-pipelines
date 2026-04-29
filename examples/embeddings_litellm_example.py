@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pyarrow as pa
 
-from core.operators.functional.embeddings.embeddings_operator import EmbeddingsOperator
+from datasift.core.operators.functional.embeddings.embeddings_operator import EmbeddingsOperator
 
 # Add backend to path
 backend_path = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
@@ -42,9 +42,7 @@ def example_openai():
 
     try:
         # Initialize operator with LiteLLM provider
-        operator = EmbeddingsOperator(
-            provider="litellm", model_name="text-embedding-3-small"
-        )
+        operator = EmbeddingsOperator(provider="litellm", model_name="text-embedding-3-small")
 
         # Create sample data
         table = pa.table(
@@ -67,9 +65,7 @@ def example_openai():
 
         print(f"\nOutput: {len(result)} embeddings generated")
         print(f"Embedding dimension: {len(result['embeddings'][0].as_py())}")
-        print(
-            f"First embedding (first 5 values): {result['embeddings'][0].as_py()[:5]}"
-        )
+        print(f"First embedding (first 5 values): {result['embeddings'][0].as_py()[:5]}")
 
         print("\nSuccess! OpenAI embeddings generated via LiteLLM.")
 
@@ -130,9 +126,7 @@ def example_azure():
 
     except Exception as e:
         print(f"\nError: {e}")
-        print(
-            "\nNote: Replace 'your-deployment-name' with your actual Azure deployment name"
-        )
+        print("\nNote: Replace 'your-deployment-name' with your actual Azure deployment name")
 
 
 def example_cohere():
@@ -150,9 +144,7 @@ def example_cohere():
 
     try:
         # Initialize operator with Cohere model
-        operator = EmbeddingsOperator(
-            provider="litellm", model_name="embed-english-v3.0"
-        )
+        operator = EmbeddingsOperator(provider="litellm", model_name="embed-english-v3.0")
 
         # Create sample data
         table = pa.table(
@@ -191,9 +183,7 @@ def example_error_handling():
 
     try:
         # Try to initialize with missing API key
-        operator = EmbeddingsOperator(
-            provider="litellm", model_name="text-embedding-3-small"
-        )
+        operator = EmbeddingsOperator(provider="litellm", model_name="text-embedding-3-small")
 
         # This will fail if OPENAI_API_KEY is not set
         table = pa.table({"text": ["test"], "doc_id": ["doc1"]})
@@ -242,9 +232,7 @@ def main():
     print("\nThese examples demonstrate using LiteLLM adapter with various providers.")
     print("LiteLLM provides a unified interface to 100+ embedding providers.")
     print("\nFor detailed documentation, see:")
-    print(
-        "  src/datasift_opensource/backend/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md"
-    )
+    print("  src/datasift_opensource/backend/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md")
 
     # Run examples
     example_openai()
@@ -282,5 +270,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# Made with Bob

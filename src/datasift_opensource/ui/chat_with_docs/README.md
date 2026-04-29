@@ -36,11 +36,11 @@ ollama pull granite4
 ### 1. Backend `.venv` (required — the UI invokes the backend as a subprocess)
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 uv sync
 ```
 
-This creates `src/datasift_opensource/backend/.venv/`.
+This creates `.venv/` at the project root.
 
 ### 2. UI `.venv`
 
@@ -206,7 +206,7 @@ Answer displayed in chat window with source snippets
 |---|---|
 | "Error querying documents" in chat | Ensure OpenSearch is running and the index exists (run pipeline first) |
 | Pipeline fails with Ollama error | Run `ollama serve` and `ollama pull granite4` |
-| Backend `.venv` not found | Run `uv sync` in `src/datasift_opensource/backend/` |
+| Backend `.venv` not found | Run `uv sync` in `src/datasift/` |
 | No files ingested / empty results | Check that `input_folder` in the flow JSON matches `src/datasift_opensource/ui/chat_with_docs/uploaded_files/` |
 | Chat input stays disabled after pipeline | Check logs — if `pipeline_ran` is False, the pipeline may have crashed before writing output |
 | Log tearsheet shows no output | Check `logs/datasift_pipeline.log` exists and is being written |

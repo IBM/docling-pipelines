@@ -16,9 +16,9 @@ from unittest.mock import MagicMock, patch
 import pyarrow as pa
 import pytest
 
-from common.constants.constants import DatasiftConstants
-from common.exceptions.datasift_exceptions import FlowExecutionFailedException
-from core.orchestrator.batch_manager import BatchManager
+from datasift.core.constants.constants import DatasiftConstants
+from datasift.core.orchestration.batch_manager import BatchManager
+from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
 
 class TestBatchSemaphore:
@@ -66,9 +66,7 @@ class TestBatchSemaphore:
             try:
                 with lock:
                     concurrent_count += 1
-                    max_concurrent_observed = max(
-                        max_concurrent_observed, concurrent_count
-                    )
+                    max_concurrent_observed = max(max_concurrent_observed, concurrent_count)
 
                 time.sleep(0.1)
 
@@ -119,9 +117,7 @@ class TestBatchSemaphore:
         finally:
             semaphore.release()
 
-        assert semaphore.acquire(blocking=False), (
-            "Semaphore should be released after failure"
-        )
+        assert semaphore.acquire(blocking=False), "Semaphore should be released after failure"
         semaphore.release()
 
     def test_reset_batch_semaphore(self):
@@ -168,19 +164,13 @@ class TestBatchSemaphore:
         for thread in threads:
             thread.join()
 
-        assert all(stage == "complete" for stage in batch_stages.values()), (
-            "All batches should complete"
-        )
+        assert all(stage == "complete" for stage in batch_stages.values()), "All batches should complete"
 
         # Verify each batch went through all stages in order
         expected_order = ["ingest", "extract", "chunk", "complete"]
         for batch_num in range(3):
-            batch_stages_list = [
-                stage for batch, stage in stage_history if batch == batch_num
-            ]
-            assert batch_stages_list == expected_order, (
-                f"Batch {batch_num} stages out of order: {batch_stages_list}"
-            )
+            batch_stages_list = [stage for batch, stage in stage_history if batch == batch_num]
+            assert batch_stages_list == expected_order, f"Batch {batch_num} stages out of order: {batch_stages_list}"
 
 
 class TestBatchConfiguration:
@@ -237,9 +227,7 @@ class TestBatchCreation:
     def test_create_batches_multiple_batches(self):
         """Verify creating multiple batches from larger table."""
         batch_manager = BatchManager()
-        table = pa.table(
-            {"id": list(range(25)), "value": [f"val_{i}" for i in range(25)]}
-        )
+        table = pa.table({"id": list(range(25)), "value": [f"val_{i}" for i in range(25)]})
 
         batches = batch_manager.create_batches(table=table, batch_size=10)
 
@@ -306,9 +294,7 @@ class TestBatchPreparation:
         batch_manager = BatchManager()
         table = pa.table({"id": [1, 2]})
 
-        with pytest.raises(
-            FlowExecutionFailedException, match="micro_batch_size must be set"
-        ):
+        with pytest.raises(FlowExecutionFailedException, match="micro_batch_size must be set"):
             batch_manager.prepare_batches(
                 ingested_table=table,
                 global_config={
@@ -322,7 +308,7 @@ class TestBatchPreparation:
 class TestBatchDataAccess:
     """Test DataAccess creation for batches."""
 
-    @patch("core.orchestrator.batch_manager.DataAccessFactory")
+    @patch("datasift.core.orchestration.batch_manager.DataAccessFactory")
     def test_create_batch_data_access(self, mock_factory_class):
         """Verify DataAccess creation for batch table."""
         # Setup mock
@@ -378,9 +364,7 @@ class TestBatchUUIDPropagation:
 
         # Verify batch_num is sequential starting from 0
         batch_nums = [b.batch_num for b in batches]
-        assert batch_nums == list(range(len(batches))), (
-            f"Expected sequential batch_nums, got {batch_nums}"
-        )
+        assert batch_nums == list(range(len(batches))), f"Expected sequential batch_nums, got {batch_nums}"
 
     def test_non_batch_mode_has_batch_id(self):
         """Verify non-batch mode still creates BatchInfo with batch_id for consistency."""
@@ -414,9 +398,7 @@ class TestEmptyBatchFiltering:
         batches = batch_manager.create_batches(table=table, batch_size=1)
 
         # Verify no empty batches
-        assert all(b.table.num_rows > 0 for b in batches), (
-            "All batches should be non-empty"
-        )
+        assert all(b.table.num_rows > 0 for b in batches), "All batches should be non-empty"
         assert len(batches) == 2, "Should only have 2 non-empty batches"
 
     def test_empty_table_returns_empty_list(self):
@@ -449,9 +431,7 @@ class TestEmptyBatchFiltering:
 
         # Even if some batches were filtered, batch_num should be 0, 1, 2, ...
         batch_nums = [b.batch_num for b in batches]
-        assert batch_nums == list(range(len(batches))), (
-            "batch_num should be sequential after filtering"
-        )
+        assert batch_nums == list(range(len(batches))), "batch_num should be sequential after filtering"
 
 
 class TestIngestExclusionFromMicroBatching:
@@ -526,7 +506,7 @@ class TestPrefectEngineValidation:
 
     def test_batch_outer_flow_rejects_non_positive_max_concurrent_batches(self):
         """Verify error when max_concurrent_batches is non-positive."""
-        from core.orchestrator.prefect.prefect_engine import PrefectEngine
+        from datasift.core.orchestration.prefect.prefect_engine import PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
@@ -544,9 +524,7 @@ class TestPrefectEngineValidation:
             job_log_path="job.log",
         )
 
-        with pytest.raises(
-            FlowExecutionFailedException, match="must be a positive integer"
-        ):
+        with pytest.raises(FlowExecutionFailedException, match="must be a positive integer"):
             engine.batch_outer_flow_impl(
                 op_flow=[],
                 batches=[],
@@ -559,7 +537,7 @@ class TestPrefectEngineCleanup:
 
     def test_wait_for_sub_flows_waits_for_cancelled_futures_before_reset(self):
         """Verify cancelled futures are waited on before semaphore reset."""
-        from core.orchestrator.prefect.prefect_engine import BatchFuture, PrefectEngine
+        from datasift.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
@@ -592,9 +570,7 @@ class TestPrefectEngineCleanup:
             engine._wait_for_sub_flows(
                 batch_futures=[
                     BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
-                    BatchFuture(
-                        batch_id="batch-1", batch_num=1, future=cancelled_future
-                    ),
+                    BatchFuture(batch_id="batch-1", batch_num=1, future=cancelled_future),
                 ]
             )
 
@@ -603,7 +579,7 @@ class TestPrefectEngineCleanup:
 
     def test_wait_for_sub_flows_resets_semaphore_when_cancelled_wait_errors(self):
         """Verify semaphore reset even when cancelled future wait fails."""
-        from core.orchestrator.prefect.prefect_engine import BatchFuture, PrefectEngine
+        from datasift.core.orchestration.prefect.prefect_engine import BatchFuture, PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
@@ -635,9 +611,7 @@ class TestPrefectEngineCleanup:
             engine._wait_for_sub_flows(
                 batch_futures=[
                     BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
-                    BatchFuture(
-                        batch_id="batch-1", batch_num=1, future=cancelled_future
-                    ),
+                    BatchFuture(batch_id="batch-1", batch_num=1, future=cancelled_future),
                 ]
             )
 

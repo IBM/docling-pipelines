@@ -6,14 +6,14 @@ These tests require:
 2. A model to be available (e.g., ollama pull granite4 or llama2)
 """
 
-import pytest
 import pyarrow as pa
+import pytest
 import requests
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from core.operators.functional.embeddings.embeddings_operator import (
+from datasift.core.operators.functional.embeddings.embeddings_operator import (
     EmbeddingsOperator,
 )
+from datasift.exceptions.datasift_exceptions import DatasiftException
 
 
 def is_ollama_running():
@@ -49,9 +49,7 @@ def available_model():
     """Get an available model for testing."""
     models = get_available_models()
     if not models:
-        pytest.skip(
-            "No Ollama models available. Pull a model first (e.g., ollama pull granite4)"
-        )
+        pytest.skip("No Ollama models available. Pull a model first (e.g., ollama pull granite4)")
     # Prefer smaller models for faster tests
     preferred_models = ["granite4", "llama2", "mistral", "phi"]
     for model in preferred_models:
@@ -100,9 +98,7 @@ def sample_table_multiple_docs():
 class TestEmbeddingsOllamaIntegration:
     """Integration tests for embeddings generation with real Ollama service."""
 
-    def test_generate_embeddings_single_document(
-        self, sample_config, sample_table_single_doc
-    ):
+    def test_generate_embeddings_single_document(self, sample_config, sample_table_single_doc):
         """Test generating embeddings for a single document."""
         operator = EmbeddingsOperator(sample_config)
         result_tables, metadata = operator.transform(sample_table_single_doc)
@@ -125,9 +121,7 @@ class TestEmbeddingsOllamaIntegration:
         assert metadata["failed_docs_count"] == 0
         assert metadata["node_status"] == "Completed"
 
-    def test_generate_embeddings_multiple_documents(
-        self, sample_config, sample_table_multiple_docs
-    ):
+    def test_generate_embeddings_multiple_documents(self, sample_config, sample_table_multiple_docs):
         """Test generating embeddings for multiple documents."""
         operator = EmbeddingsOperator(sample_config)
         result_tables, metadata = operator.transform(sample_table_multiple_docs)
@@ -194,9 +188,7 @@ class TestEmbeddingsOllamaIntegration:
         # Check if embeddings are very similar (allowing for small numerical differences)
         differences = sum(abs(a - b) for a, b in zip(embedding1, embedding2))
         avg_difference = differences / len(embedding1)
-        assert avg_difference < 0.01, (
-            "Embeddings for same text should be nearly identical"
-        )
+        assert avg_difference < 0.01, "Embeddings for same text should be nearly identical"
 
     def test_long_text_chunking(self, sample_config):
         """Test embeddings generation with long text requiring chunking."""
@@ -229,7 +221,7 @@ class TestOllamaClientIntegration:
 
     def test_ollama_client_generate_embeddings(self, available_model):
         """Test OllamaClient.generate_embeddings() directly."""
-        from common.clients.ollama_client import OllamaClient
+        from datasift.integrations.ollama.client import OllamaClient
 
         client = OllamaClient(model_name=available_model)
 
@@ -241,8 +233,9 @@ class TestOllamaClientIntegration:
 
     def test_ollama_client_empty_response_raises_error(self, available_model):
         """Test that OllamaClient raises error for empty embeddings."""
-        from common.clients.ollama_client import OllamaClient
         from unittest.mock import patch
+
+        from datasift.integrations.ollama.client import OllamaClient
 
         client = OllamaClient(model_name=available_model)
 
@@ -258,8 +251,9 @@ class TestOllamaClientIntegration:
 
     def test_ollama_client_missing_embedding_key_raises_error(self, available_model):
         """Test that OllamaClient raises error when embedding key is missing."""
-        from common.clients.ollama_client import OllamaClient
         from unittest.mock import patch
+
+        from datasift.integrations.ollama.client import OllamaClient
 
         client = OllamaClient(model_name=available_model)
 

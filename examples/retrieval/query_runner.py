@@ -25,7 +25,6 @@ import logging
 import os
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 # Path bootstrap — makes this file importable from any working directory
@@ -61,7 +60,7 @@ class QueryConfig:
     # Schema table name for SQL generation.  When None (default) the schema is
     # inferred automatically from *index* via
     # OllamaNLToSQLConverter.infer_schema_from_index().
-    schema: Optional[str] = None
+    schema: str | None = None
     # Maximum number of source snippets to return
     max_sources: int = 3
     # Characters per source snippet
@@ -74,7 +73,7 @@ class QueryResult:
 
     content: str
     sources: list[str] = field(default_factory=list)
-    error: Optional[str] = None
+    error: str | None = None
 
     @property
     def ok(self) -> bool:
@@ -95,8 +94,7 @@ _system_cache: dict[str, CompleteQuerySystem] = {}
 def _get_system(cfg: QueryConfig) -> CompleteQuerySystem:
     """Return a cached CompleteQuerySystem for the given config key."""
     cache_key = (
-        f"{cfg.opensearch_host}:{cfg.opensearch_port}:"
-        f"{cfg.index}:{cfg.model}:{cfg.ollama_host}:{cfg.schema or ''}"
+        f"{cfg.opensearch_host}:{cfg.opensearch_port}:{cfg.index}:{cfg.model}:{cfg.ollama_host}:{cfg.schema or ''}"
     )
     if cache_key not in _system_cache:
         logger.debug("Initialising CompleteQuerySystem (cache key: %s)", cache_key)
@@ -154,7 +152,7 @@ def run_query(cfg: QueryConfig) -> QueryResult:
         msg = f"Failed to initialise query system: {exc}"
         logger.error(msg)
         return QueryResult(content=msg, error=msg)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         msg = f"Unexpected error initialising query system: {exc}"
         logger.exception(msg)
         return QueryResult(content=msg, error=msg)
@@ -162,7 +160,7 @@ def run_query(cfg: QueryConfig) -> QueryResult:
     # --- Execute query ---------------------------------------------------------
     try:
         raw = system.query(user_question=cfg.query, use_sql=True, use_hybrid=True)
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         msg = f"Query execution failed: {exc}"
         logger.exception(msg)
         return QueryResult(content=msg, error=msg)
@@ -187,11 +185,7 @@ def run_query(cfg: QueryConfig) -> QueryResult:
                 sources.append(snippet)
 
     # Surface internal errors in the result but don't treat them as hard failures
-    error_out = (
-        "; ".join(internal_errors)
-        if internal_errors and not raw.get("answer")
-        else None
-    )
+    error_out = "; ".join(internal_errors) if internal_errors and not raw.get("answer") else None
     return QueryResult(content=answer, sources=sources, error=error_out)
 
 
@@ -205,20 +199,14 @@ def _build_parser() -> argparse.ArgumentParser:
         description="Run a hybrid-search query against OpenSearch and answer with Ollama.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    p.add_argument(
-        "--query", default="List the invoices", help="Natural language question"
-    )
+    p.add_argument("--query", default="List the invoices", help="Natural language question")
     p.add_argument("--host", default="localhost", help="OpenSearch host")
     p.add_argument("--port", type=int, default=9200, help="OpenSearch port")
     p.add_argument("--username", default="admin", help="OpenSearch username")
     p.add_argument("--password", default="MyStrongPass123!", help="OpenSearch password")
-    p.add_argument(
-        "--index", default="invoices_entities_test", help="OpenSearch index name"
-    )
+    p.add_argument("--index", default="invoices_entities_test", help="OpenSearch index name")
     p.add_argument("--model", default="granite4", help="Ollama model name")
-    p.add_argument(
-        "--ollama-host", default="http://localhost:11434", help="Ollama host URL"
-    )
+    p.add_argument("--ollama-host", default="http://localhost:11434", help="Ollama host URL")
     p.add_argument(
         "--schema",
         default="purchase_orders",
@@ -227,9 +215,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "Inferred automatically from --index when omitted."
         ),
     )
-    p.add_argument(
-        "--max-sources", type=int, default=3, help="Max source snippets to return"
-    )
+    p.add_argument("--max-sources", type=int, default=3, help="Max source snippets to return")
     return p
 
 
@@ -256,9 +242,7 @@ def main() -> None:
     )
 
     result = run_query(cfg)
-    logger.info(
-        f"Query execution completed: ok={result.ok}, sources={len(result.sources)}"
-    )
+    logger.info(f"Query execution completed: ok={result.ok}, sources={len(result.sources)}")
     print(json.dumps(result.to_dict()), flush=True)
 
     if not result.ok:
@@ -267,5 +251,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-# Made with Bob

@@ -11,7 +11,8 @@ from unittest.mock import Mock
 import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
-from src.datasift_opensource.backend.app.middleware.payload_validation import (
+
+from datasift.api.middleware.payload_validation import (
     MAX_PAYLOAD_SIZE,
     validate_payload_size,
 )
@@ -48,9 +49,7 @@ class TestPayloadValidationMiddleware:
     # Valid Requests Tests
 
     @pytest.mark.anyio
-    async def test_small_payload_passes_through(
-        self, create_mock_request, mock_call_next
-    ):
+    async def test_small_payload_passes_through(self, create_mock_request, mock_call_next):
         """Test that small payloads (< 5MB) pass through successfully"""
         # Arrange
         small_payload_size = 1024 * 1024  # 1MB
@@ -64,9 +63,7 @@ class TestPayloadValidationMiddleware:
         assert response.body == b'{"status":"success"}'
 
     @pytest.mark.anyio
-    async def test_no_content_length_header_passes(
-        self, create_mock_request, mock_call_next
-    ):
+    async def test_no_content_length_header_passes(self, create_mock_request, mock_call_next):
         """Test that requests without content-length header pass through"""
         # Arrange
         request = create_mock_request("POST", None)
@@ -78,9 +75,7 @@ class TestPayloadValidationMiddleware:
         assert response.status_code == 200
 
     @pytest.mark.anyio
-    async def test_get_request_passes_without_validation(
-        self, create_mock_request, mock_call_next
-    ):
+    async def test_get_request_passes_without_validation(self, create_mock_request, mock_call_next):
         """Test that GET requests pass through without payload validation"""
         # Arrange
         request = create_mock_request("GET", None)
@@ -92,9 +87,7 @@ class TestPayloadValidationMiddleware:
         assert response.status_code == 200
 
     @pytest.mark.anyio
-    async def test_get_request_with_large_content_length_passes(
-        self, create_mock_request, mock_call_next
-    ):
+    async def test_get_request_with_large_content_length_passes(self, create_mock_request, mock_call_next):
         """Test that GET requests pass even with large content-length header"""
         # Arrange
         large_size = MAX_PAYLOAD_SIZE + 1000
@@ -134,18 +127,14 @@ class TestPayloadValidationMiddleware:
         # Assert
         assert response.status_code == 413
         # Parse response body
-        body_bytes = (
-            response.body if isinstance(response.body, bytes) else bytes(response.body)
-        )
+        body_bytes = response.body if isinstance(response.body, bytes) else bytes(response.body)
         body = json.loads(body_bytes.decode())
         assert "detail" in body
         assert "Payload too large" in body["detail"]
         assert "5.0MB" in body["detail"]
 
     @pytest.mark.anyio
-    async def test_error_response_content_type(
-        self, create_mock_request, mock_call_next
-    ):
+    async def test_error_response_content_type(self, create_mock_request, mock_call_next):
         """Test that error response has correct content type"""
         # Arrange
         large_payload_size = MAX_PAYLOAD_SIZE + 1024
@@ -161,9 +150,7 @@ class TestPayloadValidationMiddleware:
     # Edge Cases Tests
 
     @pytest.mark.anyio
-    async def test_exactly_5mb_payload_passes(
-        self, create_mock_request, mock_call_next
-    ):
+    async def test_exactly_5mb_payload_passes(self, create_mock_request, mock_call_next):
         """Test that exactly 5MB payload passes through"""
         # Arrange
         exact_size = MAX_PAYLOAD_SIZE
@@ -189,9 +176,7 @@ class TestPayloadValidationMiddleware:
         assert response.status_code == 413
 
     @pytest.mark.anyio
-    async def test_missing_content_length_on_post_passes(
-        self, create_mock_request, mock_call_next
-    ):
+    async def test_missing_content_length_on_post_passes(self, create_mock_request, mock_call_next):
         """Test that POST without content-length header passes (no validation)"""
         # Arrange
         request = create_mock_request("POST", None)
@@ -209,9 +194,7 @@ class TestPayloadValidationMiddleware:
         "method",
         ["POST", "PUT", "PATCH"],
     )
-    async def test_validation_applies_to_write_methods(
-        self, method, create_mock_request, mock_call_next
-    ):
+    async def test_validation_applies_to_write_methods(self, method, create_mock_request, mock_call_next):
         """Test that validation applies to POST, PUT, and PATCH methods"""
         # Arrange
         large_size = MAX_PAYLOAD_SIZE + 1024
@@ -228,9 +211,7 @@ class TestPayloadValidationMiddleware:
         "method",
         ["GET", "DELETE", "HEAD", "OPTIONS"],
     )
-    async def test_validation_skipped_for_read_methods(
-        self, method, create_mock_request, mock_call_next
-    ):
+    async def test_validation_skipped_for_read_methods(self, method, create_mock_request, mock_call_next):
         """Test that validation is skipped for GET, DELETE, HEAD, OPTIONS"""
         # Arrange
         large_size = MAX_PAYLOAD_SIZE + 1024
@@ -258,9 +239,7 @@ class TestPayloadValidationMiddleware:
             (MAX_PAYLOAD_SIZE * 10, False),  # 50MB
         ],
     )
-    async def test_payload_size_boundaries(
-        self, payload_size, should_pass, create_mock_request, mock_call_next
-    ):
+    async def test_payload_size_boundaries(self, payload_size, should_pass, create_mock_request, mock_call_next):
         """Test various payload sizes around the 5MB boundary"""
         # Arrange
         request = create_mock_request("POST", payload_size)
@@ -295,9 +274,7 @@ class TestPayloadValidationMiddleware:
         assert response.status_code == 200
 
     @pytest.mark.anyio
-    async def test_middleware_short_circuits_on_large_payload(
-        self, create_mock_request
-    ):
+    async def test_middleware_short_circuits_on_large_payload(self, create_mock_request):
         """Test that middleware doesn't call next handler for large payloads"""
         # Arrange
         large_size = MAX_PAYLOAD_SIZE + 1024
@@ -314,14 +291,10 @@ class TestPayloadValidationMiddleware:
 
         # Assert
         assert response.status_code == 413
-        assert not call_next_called, (
-            "call_next should not be invoked for large payloads"
-        )
+        assert not call_next_called, "call_next should not be invoked for large payloads"
 
     @pytest.mark.anyio
-    async def test_zero_content_length_passes(
-        self, create_mock_request, mock_call_next
-    ):
+    async def test_zero_content_length_passes(self, create_mock_request, mock_call_next):
         """Test that zero content-length passes validation"""
         # Arrange
         request = create_mock_request("POST", 0)

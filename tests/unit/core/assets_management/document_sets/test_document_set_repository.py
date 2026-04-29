@@ -12,12 +12,12 @@ Tests cover:
 
 import pytest
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from core.assets_management.document_sets.adapters.repositories.document_set_repository import (
+from datasift.core.flows.document_sets.adapters.repositories.document_set_repository import (
     DocumentSetRepository,
 )
-from core.assets_management.document_sets.domain.models.document_set import DocumentSet
-from storage.duckdb_storage import DuckDBStorage
+from datasift.core.flows.document_sets.domain.models.document_set import DocumentSet
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.storage.duckdb_storage import DuckDBStorage
 
 
 @pytest.fixture
@@ -176,9 +176,7 @@ class TestUpdateDocumentSet:
         with pytest.raises(DatasiftException):
             repository.update(doc_set)
 
-    def test_update_document_set_updates_timestamp(
-        self, repository, sample_document_set
-    ):
+    def test_update_document_set_updates_timestamp(self, repository, sample_document_set):
         """Test that update modifies updated_at timestamp."""
         created = repository.create(sample_document_set)
         original_updated_at = created.updated_at
@@ -428,9 +426,7 @@ class TestRepositoryWithInMemoryDatabase:
         storage = DuckDBStorage(":memory:")
         repository = DocumentSetRepository(storage)
 
-        doc_set = DocumentSet(
-            name="Test Documents", database_path=":memory:", table_name="test_table"
-        )
+        doc_set = DocumentSet(name="Test Documents", database_path=":memory:", table_name="test_table")
         created = repository.create(doc_set)
 
         retrieved = repository.get_by_id(created.id or "")

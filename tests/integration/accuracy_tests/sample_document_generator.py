@@ -10,20 +10,21 @@ Extended Features:
 - Export documents to files for testing and validation
 """
 
+import argparse
 import json
 import random
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from pathlib import Path
+from typing import Any
+
 from faker import Faker
 from opensearchpy import OpenSearch, helpers
-import argparse
-from pathlib import Path
 
 
 class DocumentGenerator:
     """Generate realistic sample documents for various types"""
 
-    def __init__(self, seed: Optional[int] = None):
+    def __init__(self, seed: int | None = None):
         """
         Initialize document generator
 
@@ -35,7 +36,7 @@ class DocumentGenerator:
             Faker.seed(seed)
             random.seed(seed)
 
-    def generate_purchase_order(self) -> Dict[str, Any]:
+    def generate_purchase_order(self) -> dict[str, Any]:
         """Generate a sample purchase order"""
         order_date = self.fake.date_time_between(start_date="-1y", end_date="now")
         delivery_date = order_date + timedelta(days=random.randint(7, 30))
@@ -68,9 +69,7 @@ class DocumentGenerator:
                 "id": f"SUP-{self.fake.random_number(digits=5)}",
                 "contact": self.fake.company_email(),
             },
-            "department": random.choice(
-                ["IT", "Marketing", "Sales", "Operations", "HR", "Finance"]
-            ),
+            "department": random.choice(["IT", "Marketing", "Sales", "Operations", "HR", "Finance"]),
             "total_amount": round(total, 2),
             "currency": random.choice(["USD", "EUR", "GBP", "INR"]),
             "status": random.choice(["pending", "approved", "delivered", "cancelled"]),
@@ -88,7 +87,7 @@ class DocumentGenerator:
             "notes": self.fake.text(max_nb_chars=200),
         }
 
-    def generate_invoice(self) -> Dict[str, Any]:
+    def generate_invoice(self) -> dict[str, Any]:
         """Generate a sample invoice"""
         invoice_date = self.fake.date_time_between(start_date="-6m", end_date="now")
         due_date = invoice_date + timedelta(days=30)
@@ -124,18 +123,13 @@ class DocumentGenerator:
                 }
             )
 
-        discount_total = sum(
-            item["quantity"] * item["unit_price"] * (item["discount"] / 100)
-            for item in line_items
-        )
+        discount_total = sum(item["quantity"] * item["unit_price"] * (item["discount"] / 100) for item in line_items)
         tax_total = sum(item["tax_amount"] for item in line_items)
         total_amount = sum(item["total"] for item in line_items)
 
         payment_status = random.choice(["unpaid", "partial", "paid", "overdue"])
         payment_date = (
-            invoice_date + timedelta(days=random.randint(1, 45))
-            if payment_status in ["paid", "partial"]
-            else None
+            invoice_date + timedelta(days=random.randint(1, 45)) if payment_status in ["paid", "partial"] else None
         )
 
         return {
@@ -177,15 +171,13 @@ class DocumentGenerator:
             "payment_status": payment_status,
             "payment_method": random.choice(["wire", "check", "credit_card", "ach"]),
             "payment_date": payment_date.isoformat() if payment_date else None,
-            "payment_reference": f"PAY-{self.fake.random_number(digits=8)}"
-            if payment_date
-            else None,
+            "payment_reference": f"PAY-{self.fake.random_number(digits=8)}" if payment_date else None,
             "po_number": f"PO-{self.fake.year()}-{self.fake.random_number(digits=5)}",
             "terms": "Net 30 days. 2% discount if paid within 10 days.",
             "notes": self.fake.text(max_nb_chars=150),
         }
 
-    def generate_bank_statement(self) -> Dict[str, Any]:
+    def generate_bank_statement(self) -> dict[str, Any]:
         """Generate a sample bank statement"""
         end_date = self.fake.date_time_between(start_date="-3m", end_date="now")
         start_date = end_date - timedelta(days=30)
@@ -215,28 +207,20 @@ class DocumentGenerator:
             else:  # debit
                 amount = round(random.uniform(10, 2000), 2)
                 current_balance -= amount
-                category = random.choice(
-                    ["payment", "withdrawal", "purchase", "transfer"]
-                )
+                category = random.choice(["payment", "withdrawal", "purchase", "transfer"])
 
             transactions.append(
                 {
                     "transaction_id": f"TXN-{self.fake.random_number(digits=10)}",
                     "date": trans_date.isoformat(),
-                    "post_date": (
-                        trans_date + timedelta(days=random.randint(0, 2))
-                    ).isoformat(),
-                    "description": self.fake.company()
-                    if category in ["payment", "purchase"]
-                    else self.fake.bs(),
+                    "post_date": (trans_date + timedelta(days=random.randint(0, 2))).isoformat(),
+                    "description": self.fake.company() if category in ["payment", "purchase"] else self.fake.bs(),
                     "type": trans_type,
                     "category": category,
                     "amount": amount,
                     "balance": round(current_balance, 2),
                     "reference": f"REF-{self.fake.random_number(digits=8)}",
-                    "payee": self.fake.name()
-                    if trans_type in ["debit", "credit"]
-                    else None,
+                    "payee": self.fake.name() if trans_type in ["debit", "credit"] else None,
                     "check_number": str(self.fake.random_number(digits=4))
                     if category == "payment" and random.random() > 0.7
                     else None,
@@ -245,13 +229,9 @@ class DocumentGenerator:
 
         closing_balance = current_balance
         total_deposits = sum(t["amount"] for t in transactions if t["type"] == "credit")
-        total_withdrawals = sum(
-            t["amount"] for t in transactions if t["type"] == "debit"
-        )
+        total_withdrawals = sum(t["amount"] for t in transactions if t["type"] == "debit")
         total_fees = sum(t["amount"] for t in transactions if t["type"] == "fee")
-        interest_earned = sum(
-            t["amount"] for t in transactions if t["type"] == "interest"
-        )
+        interest_earned = sum(t["amount"] for t in transactions if t["type"] == "interest")
 
         return {
             "statement_id": f"STMT-{self.fake.year()}-{self.fake.random_number(digits=6)}",
@@ -296,12 +276,10 @@ class DocumentGenerator:
             "average_balance": round((opening_balance + closing_balance) / 2, 2),
             "minimum_balance": round(min(t["balance"] for t in transactions), 2),
             "overdraft_count": sum(1 for t in transactions if t["balance"] < 0),
-            "notes": self.fake.text(max_nb_chars=100)
-            if random.random() > 0.7
-            else None,
+            "notes": self.fake.text(max_nb_chars=100) if random.random() > 0.7 else None,
         }
 
-    def generate_credit_card_statement(self) -> Dict[str, Any]:
+    def generate_credit_card_statement(self) -> dict[str, Any]:
         """Generate a sample credit card statement"""
         statement_date = self.fake.date_time_between(start_date="-3m", end_date="now")
         start_date = statement_date - timedelta(days=30)
@@ -317,9 +295,7 @@ class DocumentGenerator:
 
         for _ in range(num_transactions):
             trans_date = start_date + timedelta(days=random.randint(0, 30))
-            trans_type = random.choice(
-                ["purchase"] * 85 + ["payment"] * 10 + ["refund"] * 3 + ["fee"] * 2
-            )
+            trans_type = random.choice(["purchase"] * 85 + ["payment"] * 10 + ["refund"] * 3 + ["fee"] * 2)
 
             if trans_type == "purchase":
                 amount = round(random.uniform(5, 500), 2)
@@ -348,9 +324,7 @@ class DocumentGenerator:
                 amount = round(random.uniform(25, 50), 2)
                 fees_total += amount
                 category = "fee"
-                merchant_name = random.choice(
-                    ["Late Fee", "Over Limit Fee", "Foreign Transaction Fee"]
-                )
+                merchant_name = random.choice(["Late Fee", "Over Limit Fee", "Foreign Transaction Fee"])
 
             foreign_transaction = random.random() > 0.9
 
@@ -358,22 +332,14 @@ class DocumentGenerator:
                 {
                     "transaction_id": f"TXN-{self.fake.random_number(digits=12)}",
                     "date": trans_date.isoformat(),
-                    "post_date": (
-                        trans_date + timedelta(days=random.randint(1, 3))
-                    ).isoformat(),
+                    "post_date": (trans_date + timedelta(days=random.randint(1, 3))).isoformat(),
                     "description": merchant_name,
                     "category": category,
                     "type": trans_type,
                     "amount": amount,
-                    "foreign_amount": round(amount * random.uniform(0.8, 1.2), 2)
-                    if foreign_transaction
-                    else None,
-                    "foreign_currency": random.choice(["EUR", "GBP", "JPY", "CAD"])
-                    if foreign_transaction
-                    else None,
-                    "exchange_rate": round(random.uniform(0.8, 1.2), 4)
-                    if foreign_transaction
-                    else None,
+                    "foreign_amount": round(amount * random.uniform(0.8, 1.2), 2) if foreign_transaction else None,
+                    "foreign_currency": random.choice(["EUR", "GBP", "JPY", "CAD"]) if foreign_transaction else None,
+                    "exchange_rate": round(random.uniform(0.8, 1.2), 4) if foreign_transaction else None,
                     "merchant": {
                         "name": merchant_name,
                         "city": self.fake.city(),
@@ -385,19 +351,10 @@ class DocumentGenerator:
                 }
             )
 
-        payments_credits = sum(
-            abs(t["amount"]) for t in transactions if t["amount"] < 0
-        )
-        interest_charged = (
-            round(previous_balance * 0.015, 2) if previous_balance > 0 else 0
-        )
+        payments_credits = sum(abs(t["amount"]) for t in transactions if t["amount"] < 0)
+        interest_charged = round(previous_balance * 0.015, 2) if previous_balance > 0 else 0
         new_balance = round(
-            previous_balance
-            + purchases_total
-            + cash_advances_total
-            + fees_total
-            + interest_charged
-            - payments_credits,
+            previous_balance + purchases_total + cash_advances_total + fees_total + interest_charged - payments_credits,
             2,
         )
 
@@ -420,9 +377,7 @@ class DocumentGenerator:
                     "country": self.fake.country(),
                 },
             },
-            "card_issuer": random.choice(
-                ["Chase", "American Express", "Citibank", "Capital One", "Discover"]
-            ),
+            "card_issuer": random.choice(["Chase", "American Express", "Citibank", "Capital One", "Discover"]),
             "card_type": random.choice(["Visa", "Mastercard", "Amex", "Discover"]),
             "card_category": random.choice(["personal", "business", "corporate"]),
             "statement_period": {
@@ -458,12 +413,10 @@ class DocumentGenerator:
             "overlimit_fee": 0.0,
             "payment_history": "On time for last 12 months",
             "alerts": None,
-            "notes": self.fake.text(max_nb_chars=100)
-            if random.random() > 0.8
-            else None,
+            "notes": self.fake.text(max_nb_chars=100) if random.random() > 0.8 else None,
         }
 
-    def generate_passport(self) -> Dict[str, Any]:
+    def generate_passport(self) -> dict[str, Any]:
         """Generate a sample passport"""
         issue_date = self.fake.date_time_between(start_date="-10y", end_date="-1y")
         expiry_date = issue_date + timedelta(days=3650)  # 10 years
@@ -475,32 +428,24 @@ class DocumentGenerator:
         num_visas = random.randint(0, 5)
         visas = []
         for _ in range(num_visas):
-            visa_issue = self.fake.date_time_between(
-                start_date=issue_date, end_date="now"
-            )
+            visa_issue = self.fake.date_time_between(start_date=issue_date, end_date="now")
             visas.append(
                 {
                     "visa_number": f"V-{self.fake.random_number(digits=9)}",
                     "country": self.fake.country(),
                     "type": random.choice(["tourist", "business", "student", "work"]),
                     "issue_date": visa_issue.isoformat(),
-                    "expiry_date": (
-                        visa_issue + timedelta(days=random.randint(90, 1825))
-                    ).isoformat(),
+                    "expiry_date": (visa_issue + timedelta(days=random.randint(90, 1825))).isoformat(),
                     "entries": random.choice(["single", "multiple"]),
                     "duration": f"{random.randint(30, 180)} days",
-                    "purpose": random.choice(
-                        ["Tourism", "Business", "Education", "Employment"]
-                    ),
+                    "purpose": random.choice(["Tourism", "Business", "Education", "Employment"]),
                 }
             )
 
         num_stamps = random.randint(0, 15)
         entry_stamps = []
         for _ in range(num_stamps):
-            stamp_date = self.fake.date_time_between(
-                start_date=issue_date, end_date="now"
-            )
+            stamp_date = self.fake.date_time_between(start_date=issue_date, end_date="now")
             entry_stamps.append(
                 {
                     "country": self.fake.country(),
@@ -547,9 +492,7 @@ class DocumentGenerator:
             "entry_stamps": sorted(entry_stamps, key=lambda x: x["date"]),
             "emergency_contact": {
                 "name": self.fake.name(),
-                "relationship": random.choice(
-                    ["Spouse", "Parent", "Sibling", "Friend"]
-                ),
+                "relationship": random.choice(["Spouse", "Parent", "Sibling", "Friend"]),
                 "phone": self.fake.phone_number(),
                 "address": self.fake.address(),
             },
@@ -559,9 +502,7 @@ class DocumentGenerator:
             },
             "chip_data": None,  # Binary data not included
             "security_features": "Hologram, UV ink, microprinting",
-            "status": random.choice(["active", "expired"])
-            if expiry_date < datetime.now()
-            else "active",
+            "status": random.choice(["active", "expired"]) if expiry_date < datetime.now() else "active",
             "previous_passport_number": f"{self.fake.random_letter().upper()}{self.fake.random_number(digits=8)}"
             if random.random() > 0.7
             else None,
@@ -573,7 +514,7 @@ class DocumentFormatter:
     """Format documents into various output formats (PDF, HTML, Markdown)"""
 
     @staticmethod
-    def to_markdown(doc: Dict[str, Any], doc_type: str) -> str:
+    def to_markdown(doc: dict[str, Any], doc_type: str) -> str:
         """Convert document to Markdown format"""
         if doc_type == "purchase_order":
             return DocumentFormatter._purchase_order_to_markdown(doc)
@@ -589,7 +530,7 @@ class DocumentFormatter:
             return f"# {doc_type.upper()}\n\n```json\n{json.dumps(doc, indent=2)}\n```"
 
     @staticmethod
-    def to_html(doc: Dict[str, Any], doc_type: str) -> str:
+    def to_html(doc: dict[str, Any], doc_type: str) -> str:
         """Convert document to HTML format"""
         if doc_type == "purchase_order":
             return DocumentFormatter._purchase_order_to_html(doc)
@@ -605,7 +546,7 @@ class DocumentFormatter:
             return f"<html><body><h1>{doc_type.upper()}</h1><pre>{json.dumps(doc, indent=2)}</pre></body></html>"
 
     @staticmethod
-    def to_pdf_content(doc: Dict[str, Any], doc_type: str) -> str:
+    def to_pdf_content(doc: dict[str, Any], doc_type: str) -> str:
         """
         Generate PDF-ready content (HTML that can be converted to PDF).
         Note: Actual PDF generation requires additional libraries like reportlab or weasyprint.
@@ -633,7 +574,7 @@ class DocumentFormatter:
 </html>"""
 
     @staticmethod
-    def _purchase_order_to_markdown(doc: Dict[str, Any]) -> str:
+    def _purchase_order_to_markdown(doc: dict[str, Any]) -> str:
         """Convert purchase order to Markdown"""
         md = f"""# Purchase Order: {doc["po_number"]}
 
@@ -672,7 +613,7 @@ class DocumentFormatter:
         return md
 
     @staticmethod
-    def _purchase_order_to_html(doc: Dict[str, Any]) -> str:
+    def _purchase_order_to_html(doc: dict[str, Any]) -> str:
         """Convert purchase order to HTML"""
         items_html = ""
         for item in doc["items"]:
@@ -734,7 +675,7 @@ class DocumentFormatter:
 """
 
     @staticmethod
-    def _invoice_to_markdown(doc: Dict[str, Any]) -> str:
+    def _invoice_to_markdown(doc: dict[str, Any]) -> str:
         """Convert invoice to Markdown"""
         md = f"""# Invoice: {doc["invoice_number"]}
 
@@ -783,7 +724,7 @@ class DocumentFormatter:
         return md
 
     @staticmethod
-    def _invoice_to_html(doc: Dict[str, Any]) -> str:
+    def _invoice_to_html(doc: dict[str, Any]) -> str:
         """Convert invoice to HTML"""
         items_html = ""
         for item in doc["line_items"]:
@@ -845,7 +786,7 @@ class DocumentFormatter:
 """
 
     @staticmethod
-    def _bank_statement_to_markdown(doc: Dict[str, Any]) -> str:
+    def _bank_statement_to_markdown(doc: dict[str, Any]) -> str:
         """Convert bank statement to Markdown"""
         md = f"""# Bank Statement: {doc["statement_id"]}
 
@@ -884,7 +825,7 @@ class DocumentFormatter:
         return md
 
     @staticmethod
-    def _bank_statement_to_html(doc: Dict[str, Any]) -> str:
+    def _bank_statement_to_html(doc: dict[str, Any]) -> str:
         """Convert bank statement to HTML"""
         txn_html = ""
         for txn in doc["transactions"][:20]:
@@ -932,7 +873,7 @@ class DocumentFormatter:
 """
 
     @staticmethod
-    def _credit_card_to_markdown(doc: Dict[str, Any]) -> str:
+    def _credit_card_to_markdown(doc: dict[str, Any]) -> str:
         """Convert credit card statement to Markdown"""
         return f"""# Credit Card Statement: {doc["statement_id"]}
 
@@ -966,7 +907,7 @@ class DocumentFormatter:
 """
 
     @staticmethod
-    def _credit_card_to_html(doc: Dict[str, Any]) -> str:
+    def _credit_card_to_html(doc: dict[str, Any]) -> str:
         """Convert credit card statement to HTML"""
         return f"""
 <div class="header">
@@ -986,7 +927,7 @@ class DocumentFormatter:
 """
 
     @staticmethod
-    def _passport_to_markdown(doc: Dict[str, Any]) -> str:
+    def _passport_to_markdown(doc: dict[str, Any]) -> str:
         """Convert passport to Markdown"""
         return f"""# Passport: {doc["passport_number"]}
 
@@ -1011,7 +952,7 @@ Total Stamps: {len(doc["entry_stamps"])}
 """
 
     @staticmethod
-    def _passport_to_html(doc: Dict[str, Any]) -> str:
+    def _passport_to_html(doc: dict[str, Any]) -> str:
         """Convert passport to HTML"""
         return f"""
 <div class="header">
@@ -1046,8 +987,8 @@ class OpenSearchDocumentInserter:
         host: str = "localhost",
         port: int = 9200,
         use_ssl: bool = False,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
     ):
         """
         Initialize OpenSearch client
@@ -1099,9 +1040,9 @@ class OpenSearchDocumentInserter:
         self,
         doc_type: str,
         count: int,
-        index_name: Optional[str] = None,
+        index_name: str | None = None,
         batch_size: int = 100,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate and insert documents into OpenSearch
 
@@ -1130,9 +1071,7 @@ class OpenSearchDocumentInserter:
         }
 
         if doc_type not in generators:
-            raise ValueError(
-                f"Unknown document type: {doc_type}. Valid types: {list(generators.keys())}"
-            )
+            raise ValueError(f"Unknown document type: {doc_type}. Valid types: {list(generators.keys())}")
 
         generator_func = generators[doc_type]
 
@@ -1154,19 +1093,13 @@ class OpenSearchDocumentInserter:
 
             # Bulk insert
             try:
-                success, errors = helpers.bulk(
-                    self.client, actions, raise_on_error=False, raise_on_exception=False
-                )
+                success, errors = helpers.bulk(self.client, actions, raise_on_error=False, raise_on_exception=False)
                 success_count += success
                 if errors:
                     error_count += len(errors)
-                    print(
-                        f"Batch {batch_start}-{batch_end}: {success} succeeded, {len(errors)} failed"
-                    )
+                    print(f"Batch {batch_start}-{batch_end}: {success} succeeded, {len(errors)} failed")
                 else:
-                    print(
-                        f"Batch {batch_start}-{batch_end}: {success} documents inserted"
-                    )
+                    print(f"Batch {batch_start}-{batch_end}: {success} documents inserted")
             except Exception as e:
                 print(f"Error inserting batch {batch_start}-{batch_end}: {e}")
                 error_count += batch_count
@@ -1189,9 +1122,7 @@ class OpenSearchDocumentInserter:
 
         return result
 
-    def export_csv(
-        self, doc_type: str, count: int, output_dir: str = "exported_documents"
-    ) -> Dict[str, Any]:
+    def export_csv(self, doc_type: str, count: int, output_dir: str = "exported_documents") -> dict[str, Any]:
         """
         Generate and export documents to CSV file
 
@@ -1325,7 +1256,7 @@ class OpenSearchDocumentInserter:
         count: int,
         output_format: str = "json",
         output_dir: str = "exported_documents",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Generate and export documents to files in specified format
 
@@ -1430,9 +1361,7 @@ class OpenSearchDocumentInserter:
 
 def main():
     """Main function with CLI interface"""
-    parser = argparse.ArgumentParser(
-        description="Generate and insert sample documents into OpenSearch"
-    )
+    parser = argparse.ArgumentParser(description="Generate and insert sample documents into OpenSearch")
     parser.add_argument(
         "--type",
         choices=[
@@ -1453,17 +1382,11 @@ def main():
         help="Number of documents to generate (default: 10)",
     )
     parser.add_argument("--index", help="Index name (defaults to document type)")
-    parser.add_argument(
-        "--host", default="localhost", help="OpenSearch host (default: localhost)"
-    )
-    parser.add_argument(
-        "--port", type=int, default=9200, help="OpenSearch port (default: 9200)"
-    )
+    parser.add_argument("--host", default="localhost", help="OpenSearch host (default: localhost)")
+    parser.add_argument("--port", type=int, default=9200, help="OpenSearch port (default: 9200)")
     parser.add_argument("--username", help="OpenSearch username")
     parser.add_argument("--password", help="OpenSearch password")
-    parser.add_argument(
-        "--force", action="store_true", help="Force recreate index (deletes existing)"
-    )
+    parser.add_argument("--force", action="store_true", help="Force recreate index (deletes existing)")
     parser.add_argument("--seed", type=int, help="Random seed for reproducible data")
     parser.add_argument(
         "--export",
@@ -1481,9 +1404,7 @@ def main():
         default="exported_documents",
         help="Output directory for exported documents (default: exported_documents)",
     )
-    parser.add_argument(
-        "--export-csv", action="store_true", help="Export documents to a CSV file"
-    )
+    parser.add_argument("--export-csv", action="store_true", help="Export documents to a CSV file")
 
     args = parser.parse_args()
 
@@ -1523,14 +1444,10 @@ def main():
                 "passport",
             ]
             for doc_type in doc_types:
-                inserter.export_documents(
-                    doc_type, args.count, args.format, args.output_dir
-                )
+                inserter.export_documents(doc_type, args.count, args.format, args.output_dir)
                 print()
         else:
-            inserter.export_documents(
-                args.type, args.count, args.format, args.output_dir
-            )
+            inserter.export_documents(args.type, args.count, args.format, args.output_dir)
     else:
         # Insert documents to OpenSearch
         if args.type == "all":
@@ -1566,14 +1483,10 @@ if __name__ == "__main__":
     print("   python insert_sample_documents.py --type purchase_order --count 10")
     print()
     print("2. Insert 50 invoices into custom index:")
-    print(
-        "   python insert_sample_documents.py --type invoice --count 50 --index my_invoices"
-    )
+    print("   python insert_sample_documents.py --type invoice --count 50 --index my_invoices")
     print()
     print("3. Insert 100 bank statements with authentication:")
-    print(
-        "   python insert_sample_documents.py --type bank_statement --count 100 --username admin --password pass"
-    )
+    print("   python insert_sample_documents.py --type bank_statement --count 100 --username admin --password pass")
     print()
     print("4. Insert all document types (10 each):")
     print("   python insert_sample_documents.py --type all --count 10")

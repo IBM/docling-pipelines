@@ -8,23 +8,23 @@ from unittest.mock import patch
 
 import pytest
 
-from common.constants.constants import ExecutionStatus, Metrics
-from common.constants.operator_constants import OperatorConstants
-from common.util.operators.logging import (
-    epoch_to_datetime,
-    _operator_log_split,
-    get_log_and_job_file_path,
-    read_json_if_exists,
-    _parse_sequential_log_content,
+from datasift.core.constants.constants import ExecutionStatus, Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.utils.operators.logging import (
+    _count_and_remove_lists,
+    _extract_document_level_errors,
     _handle_dict_with_logs_key,
     _handle_string_logs,
-    get_logs,
-    retrieve_node_specific_operator_logs,
-    retrieve_operators_sequence,
-    _extract_document_level_errors,
-    _count_and_remove_lists,
+    _operator_log_split,
+    _parse_sequential_log_content,
+    epoch_to_datetime,
     format_node_stats,
     format_operator_logs,
+    get_log_and_job_file_path,
+    get_logs,
+    read_json_if_exists,
+    retrieve_node_specific_operator_logs,
+    retrieve_operators_sequence,
 )
 
 
@@ -57,9 +57,7 @@ class TestOperatorLogSplit:
         value = "NodeID: node_123\nLog line 1\nLog line 2"
         operator_logs_combined = {"node_sequence": []}
 
-        result = _operator_log_split(
-            value=value, operator_logs_combined=operator_logs_combined
-        )
+        result = _operator_log_split(value=value, operator_logs_combined=operator_logs_combined)
 
         assert "node_123" in result["node_sequence"]
         assert "node_123" in result
@@ -71,9 +69,7 @@ class TestOperatorLogSplit:
         value = "No colon here"
         operator_logs_combined = {"node_sequence": []}
 
-        result = _operator_log_split(
-            value=value, operator_logs_combined=operator_logs_combined
-        )
+        result = _operator_log_split(value=value, operator_logs_combined=operator_logs_combined)
 
         assert len(result["node_sequence"]) == 0
 
@@ -82,9 +78,7 @@ class TestOperatorLogSplit:
         value = "NodeID: node_456\n\nLog line\n\n"
         operator_logs_combined = {"node_sequence": []}
 
-        result = _operator_log_split(
-            value=value, operator_logs_combined=operator_logs_combined
-        )
+        result = _operator_log_split(value=value, operator_logs_combined=operator_logs_combined)
 
         assert "node_456" in result["node_sequence"]
         assert "Log line" in result["node_456"]
@@ -93,14 +87,12 @@ class TestOperatorLogSplit:
 class TestGetLogAndJobFilePath:
     """Test get_log_and_job_file_path function."""
 
-    @patch("common.util.infrastructure.filesystem.get_data_path")
+    @patch("datasift.utils.infrastructure.filesystem.get_data_path")
     def test_get_log_and_job_file_path(self, mock_data_path):
         """Test getting log and job file paths."""
         mock_data_path.return_value = "/test/warehouse"
 
-        log_path, job_path, metadata_path, agg_path = get_log_and_job_file_path(
-            job_id="job_123", jobrun_id="run_456"
-        )
+        log_path, job_path, metadata_path, agg_path = get_log_and_job_file_path(job_id="job_123", jobrun_id="run_456")
 
         assert "job_123" in log_path
         assert "run_456" in log_path
@@ -177,9 +169,7 @@ class TestHandleDictWithLogsKey:
 
     def test_handle_dict_with_logs_key_no_jobs(self):
         """Test with no jobs key."""
-        content = {
-            "logs": ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nNodeID: node_1\nLog"
-        }
+        content = {"logs": ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nNodeID: node_1\nLog"}
         operator_logs_combined = {"node_sequence": []}
 
         result = _handle_dict_with_logs_key(content, operator_logs_combined)
@@ -201,16 +191,14 @@ class TestHandleStringLogs:
         assert "node_1" in result["node_sequence"]
         assert "node_1" in result
 
-    @patch("common.util.operators.logging.read_json_if_exists")
+    @patch("datasift.utils.operators.logging.read_json_if_exists")
     def test_handle_string_logs_with_job_stats(self, mock_read_json):
         """Test with job stats file."""
         mock_read_json.return_value = {"status": "completed"}
         content = ">>> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\nNodeID: node_1\nLog"
         operator_logs_combined = {"node_sequence": []}
 
-        result = _handle_string_logs(
-            content, operator_logs_combined, "/path/to/job_stats.json", None
-        )
+        result = _handle_string_logs(content, operator_logs_combined, "/path/to/job_stats.json", None)
 
         assert "job_stats" in result
         assert result["job_stats"]["status"] == "completed"
@@ -266,7 +254,7 @@ class TestGetLogs:
 class TestRetrieveNodeSpecificOperatorLogs:
     """Test retrieve_node_specific_operator_logs function."""
 
-    @patch("common.util.operators.logging.retrieve_operator_logs")
+    @patch("datasift.utils.operators.logging.retrieve_operator_logs")
     def test_retrieve_node_specific_operator_logs(self, mock_retrieve):
         """Test retrieving node-specific logs."""
         mock_retrieve.return_value = {
@@ -274,9 +262,7 @@ class TestRetrieveNodeSpecificOperatorLogs:
             "node_2": "Log for node 2",
         }
 
-        result = retrieve_node_specific_operator_logs(
-            job_id="job_123", jobrun_id="run_456", node_id="node_1"
-        )
+        result = retrieve_node_specific_operator_logs(job_id="job_123", jobrun_id="run_456", node_id="node_1")
 
         assert result == "Log for node 1"
 
@@ -284,7 +270,7 @@ class TestRetrieveNodeSpecificOperatorLogs:
 class TestRetrieveOperatorsSequence:
     """Test retrieve_operators_sequence function."""
 
-    @patch("common.util.operators.logging.retrieve_operator_logs")
+    @patch("datasift.utils.operators.logging.retrieve_operator_logs")
     def test_retrieve_operators_sequence(self, mock_retrieve):
         """Test retrieving operators sequence."""
         mock_retrieve.return_value = {"node_sequence": ["node_1", "node_2", "node_3"]}
@@ -293,7 +279,7 @@ class TestRetrieveOperatorsSequence:
 
         assert result == ["node_1", "node_2", "node_3"]
 
-    @patch("common.util.operators.logging.retrieve_operator_logs")
+    @patch("datasift.utils.operators.logging.retrieve_operator_logs")
     def test_retrieve_operators_sequence_empty(self, mock_retrieve):
         """Test with no sequence."""
         mock_retrieve.return_value = {}
@@ -402,9 +388,7 @@ class TestFormatNodeStats:
         node_stats = {
             "node_1": {
                 OperatorConstants.Columns.NAME: "Node 1",
-                OperatorConstants.Metadata.NODE_METADATA: {
-                    Metrics.External.FAILED_DOCS: ["doc1"]
-                },
+                OperatorConstants.Metadata.NODE_METADATA: {Metrics.External.FAILED_DOCS: ["doc1"]},
                 "document_level_errors": {},
             }
         }
@@ -430,7 +414,7 @@ class TestFormatNodeStats:
 class TestFormatOperatorLogs:
     """Test format_operator_logs function."""
 
-    @patch("common.util.operators.logging.retrieve_operators_sequence")
+    @patch("datasift.utils.operators.logging.retrieve_operators_sequence")
     def test_format_operator_logs_basic(self, mock_sequence):
         """Test basic operator logs formatting."""
         mock_sequence.return_value = ["node_1"]
@@ -450,9 +434,7 @@ class TestFormatOperatorLogs:
             "node_stats": {"node_1": {OperatorConstants.Columns.NAME: "Node 1"}},
         }
 
-        result = format_operator_logs(
-            job_id="job_123", job_stats=job_stats, node_sequence=["node_1"]
-        )
+        result = format_operator_logs(job_id="job_123", job_stats=job_stats, node_sequence=["node_1"])
 
         assert "job_123" in result
         assert "run_123" in result
@@ -476,9 +458,7 @@ class TestFormatOperatorLogs:
             "node_stats": {},
         }
 
-        result = format_operator_logs(
-            job_id="job_123", job_stats=job_stats, node_sequence=[]
-        )
+        result = format_operator_logs(job_id="job_123", job_stats=job_stats, node_sequence=[])
 
         assert "COMPLETED" in result
 

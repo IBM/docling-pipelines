@@ -5,13 +5,13 @@ Tests hashing document content using SHA-256 and adding a doc_id_hash column.
 """
 
 import hashlib
-import pytest
+
 import pyarrow as pa
+import pytest
 
-from core.operators.functional.doc_id_hash import DocIdHashOperator
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import Metrics
-
+from datasift.core.constants.constants import Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.functional.doc_id_hash import DocIdHashOperator
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -165,9 +165,7 @@ def test_hash_matches_expected_sha256():
     hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
     for i, content in enumerate(contents):
         expected = sha256_hex(content)
-        assert hashes[i] == expected, (
-            f"Hash mismatch for row {i}: expected {expected}, got {hashes[i]}"
-        )
+        assert hashes[i] == expected, f"Hash mismatch for row {i}: expected {expected}, got {hashes[i]}"
 
 
 # ---------------------------------------------------------------------------
@@ -199,9 +197,7 @@ def test_all_hashes_unique_for_unique_content():
     result = result_tables[0]
 
     hashes = result[OperatorConstants.Columns.DOC_ID_HASH_DEFAULT].to_pylist()
-    assert len(set(hashes)) == len(hashes), (
-        "All hashes should be unique for unique content"
-    )
+    assert len(set(hashes)) == len(hashes), "All hashes should be unique for unique content"
 
 
 def test_identical_content_produces_same_hash():

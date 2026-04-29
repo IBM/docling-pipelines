@@ -42,12 +42,12 @@ This comprehensive guide walks you through setting up and executing a complete D
 >
 > **Incorrect:**
 > ```bash
-> # From backend directory - WILL FAIL with ModuleNotFoundError
-> cd src/datasift_opensource/backend
-> datasift-orchestrator --flow-file ...  # ERROR: No module named 'datasift_opensource'
+> # From datasift directory - WILL FAIL with ModuleNotFoundError
+> cd src/datasift
+> datasift-orchestrator --flow-file ...  # ERROR: No module named 'datasift'
 > ```
 >
-> **Why:** The PYTHONPATH must point to `src/datasift_opensource/backend` as the source root. Running from subdirectories breaks Python imports.
+> **Why:** The PYTHONPATH must point to `src/datasift` as the source root. Running from subdirectories breaks Python imports.
 
 ---
 
@@ -115,7 +115,7 @@ For more control over what gets installed:
 **Python Environment:**
 - Verifies Python 3.12 is installed
 - Installs uv package manager
-- Creates virtual environment in `src/datasift_opensource/backend/.venv`
+- Creates virtual environment in `src/datasift/.venv`
 - Installs all project dependencies
 
 **Ollama (for LLM operations):**
@@ -136,7 +136,7 @@ The script creates two files:
 - `.datasift_setup_config` - Configuration settings
 - `datasift_setup.log` - Detailed setup log
 
-Flow repository storage location is configured in `src/datasift_opensource/backend/config/datasift.yaml`:
+Flow repository storage location is configured in `src/datasift/config/datasift.yaml`:
 
 ```yaml
 assets_management:
@@ -155,14 +155,14 @@ Override precedence for flow storage:
 
 1. Set PYTHONPATH from project root:
    ```bash
-   export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+   export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
    ```
    
-   > **Warning:** This must be run from the project root directory (`datasift-opensource`), not from the backend subdirectory. The PYTHONPATH must point to the backend directory as the source root for Python imports to work correctly.
+   > **Warning:** This must be run from the project root directory (`datasift-opensource`), not from the datasift subdirectory. The PYTHONPATH must point to the datasift directory as the source root for Python imports to work correctly.
 
 2. Activate the virtual environment:
    ```bash
-   cd src/datasift_opensource/backend
+   cd src/datasift
    source .venv/bin/activate
    ```
 
@@ -266,9 +266,9 @@ datasift-opensource supports pluggable job stats storage for job runs, node exec
 
 ### Backend Selection
 
-Job-management components are wired through [`JobManagementFactory`](src/datasift_opensource/backend/core/job_management/adapters/config/job_management_factory.py). Backend selection is controlled by [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml) and environment overrides.
+Job-management components are wired through [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py). Backend selection is controlled by [`datasift.yaml`](src/datasift/config/datasift.yaml) and environment overrides.
 
-The main user-facing configuration lives under [`job_management`](src/datasift_opensource/backend/config/datasift.yaml:8) in [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml):
+The main user-facing configuration lives under [`job_management`](src/datasift/config/datasift.yaml:8) in [`datasift.yaml`](src/datasift/config/datasift.yaml):
 
 ```yaml
 job_management:
@@ -282,10 +282,10 @@ job_management:
 ```
 
 This allows users to configure:
-- the job framework type under [`job_management.framework.type`](src/datasift_opensource/backend/config/datasift.yaml:9)
-- the job stats store backend under [`job_management.store.type`](src/datasift_opensource/backend/config/datasift.yaml:12)
-- the job stats store runtime config under [`job_management.store.config`](src/datasift_opensource/backend/config/datasift.yaml:15)
-- the flow repository separately under [`assets_management.flow_repository`](src/datasift_opensource/backend/config/datasift.yaml:1)
+- the job framework type under [`job_management.framework.type`](src/datasift/config/datasift.yaml:9)
+- the job stats store backend under [`job_management.store.type`](src/datasift/config/datasift.yaml:12)
+- the job stats store runtime config under [`job_management.store.config`](src/datasift/config/datasift.yaml:15)
+- the flow repository separately under [`assets_management.flow_repository`](src/datasift/config/datasift.yaml:1)
 
 Common overrides include:
 - `DATASIFT_CONFIG_PATH`
@@ -300,8 +300,8 @@ Common overrides include:
 
 Effective precedence for job-management runtime selection is:
 1. explicit environment overrides
-2. values from [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml)
-3. built-in defaults in [`JobManagementFactory`](src/datasift_opensource/backend/core/job_management/adapters/config/job_management_factory.py)
+2. values from [`datasift.yaml`](src/datasift/config/datasift.yaml)
+3. built-in defaults in [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py)
 
 ### JSON Storage Guidance
 
@@ -325,23 +325,23 @@ Use PostgreSQL when:
 
 ### Metadata Aggregation Maintenance
 
-Node stats are aggregated on the read path, not in the storage adapter. When operators add new metadata fields, maintainers must review [`DEFAULT_STRATEGIES`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py) and update it if the field should not use the default `LAST` aggregation behavior.
+Node stats are aggregated on the read path, not in the storage adapter. When operators add new metadata fields, maintainers must review [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py) and update it if the field should not use the default `LAST` aggregation behavior.
 
 See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) for the maintainer workflow.
 
 ### Distributed Execution and Work Pool Environment Inheritance
 
-For distributed Prefect execution, work pool runtime configuration is modeled in [`work_pool_config.py`](src/datasift_opensource/backend/core/orchestrator/prefect/config/work_pool_config.py) and applied by [`WorkPoolAdapter`](src/datasift_opensource/backend/core/orchestrator/prefect/adapters/work_pool_adapter.py).
+For distributed Prefect execution, work pool runtime configuration is modeled in [`work_pool_config.py`](src/datasift/core/orchestrator/prefect/config/work_pool_config.py) and applied by [`WorkPoolAdapter`](src/datasift/core/orchestrator/prefect/adapters/work_pool_adapter.py).
 
 Important behavior:
 - worker `env` values configured directly in the work pool take highest precedence
 - if job-management env values are omitted from the work pool config, workers inherit the submitter's effective job-management configuration
 - the inherited effective configuration is resolved from:
   - submitter environment variables
-  - [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml)
+  - [`datasift.yaml`](src/datasift/config/datasift.yaml)
   - code defaults
 
-This makes it possible to keep a single source of truth in [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml) while still overriding specific values per environment or per deployment.
+This makes it possible to keep a single source of truth in [`datasift.yaml`](src/datasift/config/datasift.yaml) while still overriding specific values per environment or per deployment.
 
 For full distributed execution examples and work-pool-specific configuration, see [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md).
 
@@ -398,36 +398,29 @@ cd datasift-opensource
 > cd datasift-opensource
 > ```
 
-**2. Navigate to the backend directory:**
+**2. Create virtual environment and install dependencies:**
 ```bash
-cd src/datasift_opensource/backend
-```
-
-**3. Create virtual environment and install dependencies:**
-```bash
+# From project root
 uv sync --extra dev
 ```
 
 This command:
-- Installs CPython 3.12.13 in a virtual environment (`.venv/`)
+- Installs CPython 3.12.13 in a virtual environment (`.venv/` at project root)
 - Installs all project dependencies
 - Installs development dependencies
 
-**4. Activate the virtual environment:**
+**3. Activate the virtual environment:**
 
 **macOS/Linux:**
 ```bash
+# From project root
 source .venv/bin/activate
 ```
 
 **Windows:**
 ```bash
+# From project root
 .venv\Scripts\activate
-```
-
-**5. Return to project root:**
-```bash
-cd ../../..
 ```
 
 ### Verify Installation
@@ -1256,7 +1249,7 @@ python -m json.tool my-first-flow.json
 >
 > **ALL commands in this section MUST be run from the project root directory (`datasift-opensource/`).**
 >
-> Running from any subdirectory (e.g., `src/datasift_opensource/backend/`) will cause `ModuleNotFoundError: No module named 'datasift_opensource'`.
+> Running from any subdirectory (e.g., `src/datasift/`) will cause `ModuleNotFoundError: No module named 'datasift_opensource'`.
 
 ### Setting PYTHONPATH
 
@@ -1265,16 +1258,16 @@ Before running any datasift-orchestrator commands, you must set the PYTHONPATH f
 ```bash
 # MUST be run from project root (datasift-opensource/)
 # Current directory: datasift-opensource/
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 ```
 
-> **⚠️ Warning:** This command MUST be run from the project root directory (`datasift-opensource/`), not from a subdirectory. The PYTHONPATH must point to the backend directory as the source root for Python imports to work correctly. If you run this from the wrong directory, you will get `ModuleNotFoundError` when executing flows.
+> **⚠️ Warning:** This command MUST be run from the project root directory (`datasift-opensource/`), not from a subdirectory. The PYTHONPATH must point to the datasift directory as the source root for Python imports to work correctly. If you run this from the wrong directory, you will get `ModuleNotFoundError` when executing flows.
 
 ### Activating the Virtual Environment
 
 ```bash
 # From project root (datasift-opensource/)
-source src/datasift_opensource/backend/.venv/bin/activate
+source src/datasift/.venv/bin/activate
 ```
 
 **Important:** Both PYTHONPATH and virtual environment activation are required every time you open a new terminal session. The virtual environment contains all the necessary dependencies for running DataSift pipelines.
@@ -1388,7 +1381,7 @@ This error occurs when running `datasift-orchestrator` from the wrong directory.
 ModuleNotFoundError: No module named 'datasift_opensource'
 ```
 
-**Cause:** You are running the command from a subdirectory (e.g., `src/datasift_opensource/backend/`) instead of the project root.
+**Cause:** You are running the command from a subdirectory (e.g., `src/datasift/`) instead of the project root.
 
 **Solution:**
 ```bash
@@ -1399,13 +1392,13 @@ cd /path/to/datasift-opensource/
 ls
 
 # 3. Set PYTHONPATH from project root
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
 # 4. Run datasift-orchestrator from project root
 datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 ```
 
-**Why this happens:** The PYTHONPATH must point to `src/datasift_opensource/backend` as the source root. When you run commands from subdirectories, the relative path calculation breaks, causing Python to be unable to find the `datasift_opensource` module.
+**Why this happens:** The PYTHONPATH must point to `src/datasift` as the source root. When you run commands from subdirectories, the relative path calculation breaks, causing Python to be unable to find the `datasift_opensource` module.
 
 ---
 
@@ -1424,7 +1417,7 @@ podman-compose -f docker-compose.opensearch.yml up -d
 **Import errors:**
 ```bash
 # Set PYTHONPATH from project root
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 ```
 
 **Model not found:**
@@ -1540,7 +1533,7 @@ datasift-orchestrator --list-operators --verbose
 
 ### 11.1 Introduction
 
-The [`DatasiftFlowManager`](src/datasift_opensource/backend/datasift_flow_manager.py) class provides a Python API for programmatic flow execution, offering greater flexibility than the CLI for integration scenarios.
+The [`DatasiftFlowManager`](src/datasift/datasift_flow_manager.py) class provides a Python API for programmatic flow execution, offering greater flexibility than the CLI for integration scenarios.
 
 **When to Use the Programmatic API:**
 - **Jupyter Notebooks**: Interactive data exploration and pipeline development
@@ -1561,17 +1554,17 @@ Before using the programmatic API, ensure your environment is properly configure
 
 **1. Set PYTHONPATH**
 
-The `PYTHONPATH` must include the backend directory as the source root:
+The `PYTHONPATH` must include the datasift directory as the source root:
 
 ```bash
 # From repository root
-export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 ```
 
 **2. Activate Virtual Environment**
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 source .venv/bin/activate
 ```
 
@@ -2108,7 +2101,7 @@ This guide covers:
 
 - [DataSift README](../README.md) - Project overview
 - [OpenSearch Documentation](../examples/opensearch_example_README.md) - Detailed OpenSearch guide
-- [Operator Documentation](../src/datasift_opensource/backend/core/operators/) - Operator source code
+- [Operator Documentation](../src/datasift/core/operators/) - Operator source code
 - [Example Flows](../tests/) - More flow examples
 
 ---

@@ -13,17 +13,13 @@ from typing import Any
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(
-    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
-)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from common.constants.operator_constants import OperatorConstants
-from core.operators.quality.language_detection.lang_id import LanguageDetect
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.quality.language_detection.lang_id import LanguageDetect
 
 
-def run_with_provider(
-    provider: str, content: pa.Array, names: pa.Array, doc_ids: pa.Array
-) -> None:
+def run_with_provider(provider: str, content: pa.Array, names: pa.Array, doc_ids: pa.Array) -> None:
     """Run language detection with specified provider."""
     print(f"\n{'=' * 80}")
     print(f"Testing with provider: {provider}")
@@ -47,9 +43,7 @@ def run_with_provider(
         OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
         OperatorConstants.Misc.NAME,
     ]
-    input_table: pa.Table = pa.Table.from_arrays(
-        [doc_ids, content, names], names=col_names
-    )
+    input_table: pa.Table = pa.Table.from_arrays([doc_ids, content, names], names=col_names)
 
     # Run the operator
     table_list: list[pa.Table]
@@ -89,9 +83,7 @@ def main() -> None:
             "Contact support: support@example.com, Phone: 08012345678",
         ]
     )
-    names: pa.Array = pa.array(
-        ["english.txt", "french.txt", "spanish.txt", "kazakh.txt", "mixed.txt"]
-    )
+    names: pa.Array = pa.array(["english.txt", "french.txt", "spanish.txt", "kazakh.txt", "mixed.txt"])
     doc_ids: pa.Array = pa.array(["1", "2", "3", "4", "5"])
 
     # Test with explicit langdetect provider (55 languages)
@@ -111,9 +103,7 @@ def main() -> None:
     print(f"{'=' * 80}")
     print("\nKey differences:")
     print("  - langdetect: Fast, 55 languages, no model download required")
-    print(
-        "  - fasttext: 176+ languages, requires model download (~131MB), higher accuracy"
-    )
+    print("  - fasttext: 176+ languages, requires model download (~131MB), higher accuracy")
 
 
 if __name__ == "__main__":

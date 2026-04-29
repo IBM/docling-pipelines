@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from common.util.infrastructure.logging import (
+from datasift.utils.infrastructure.logging import (
     ConditionalFormatter,
     get_log_level,
     get_logger,
@@ -86,9 +86,7 @@ class TestGetLogger:
         logger = get_logger(name="test_file_logger", file=log_file)
 
         # Check that file handler was added
-        file_handlers = [
-            h for h in logger.handlers if isinstance(h, logging.FileHandler)
-        ]
+        file_handlers = [h for h in logger.handlers if isinstance(h, logging.FileHandler)]
         assert len(file_handlers) > 0
 
     def test_get_logger_without_json_format(self):
@@ -174,7 +172,7 @@ class TestConditionalFormatter:
     @pytest.fixture
     def mock_session_info(self):
         """Mock session info."""
-        with patch("common.models.session_info.get_session_info") as mock:
+        with patch("datasift.core.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.transaction_id = "test-transaction-id"
             mock.return_value = session_info
@@ -310,7 +308,7 @@ class TestEdgeCases:
         """Test formatting record with empty message."""
         formatter = ConditionalFormatter()
 
-        with patch("common.models.session_info.get_session_info") as mock:
+        with patch("datasift.core.models.session_info.get_session_info") as mock:
             session_info = MagicMock()
             session_info.transaction_id = "test-id"
             mock.return_value = session_info

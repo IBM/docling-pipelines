@@ -37,12 +37,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.routes.operators import get_operator_metadata_service, operators_router
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.exceptions.error_codes import ErrorCode
-from core.operators.application.services.operator_metadata_service import (
+from datasift.api.routes.operators import get_operator_metadata_service, operators_router
+from datasift.core.operators.application.services.operator_metadata_service import (
     OperatorMetadataService,
 )
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.exceptions.error_codes import ErrorCode
 
 
 @pytest.fixture
@@ -55,13 +55,13 @@ def app():
     from fastapi.exceptions import RequestValidationError
     from starlette.exceptions import HTTPException as StarletteHTTPException
 
-    from app.middleware.error_handler import (
+    from datasift.api.middleware.error_handler import (
         datasift_exception_handler,
         generic_exception_handler,
         http_exception_handler,
         validation_exception_handler,
     )
-    from common.exceptions.datasift_exceptions import DatasiftException
+    from datasift.exceptions.datasift_exceptions import DatasiftException
 
     app = FastAPI()
     app.include_router(operators_router)
@@ -151,14 +151,10 @@ class TestGetOperatorMetadataEndpoint:
     - Content-Type headers
     """
 
-    def test_get_operator_metadata_returns_200(
-        self, client, override_service, sample_operator_metadata
-    ):
+    def test_get_operator_metadata_returns_200(self, client, override_service, sample_operator_metadata):
         """Test getting operator metadata returns 200."""
         # Arrange
-        override_service.get_all_operator_metadata.return_value = (
-            sample_operator_metadata
-        )
+        override_service.get_all_operator_metadata.return_value = sample_operator_metadata
 
         # Act
         response = client.get("/operators/metadata")
@@ -169,18 +165,12 @@ class TestGetOperatorMetadataEndpoint:
         assert "extract_docling" in data
         assert "chunker" in data
         assert data["extract_docling"]["category"] == "Extract"
-        override_service.get_all_operator_metadata.assert_called_once_with(
-            internal_features=False
-        )
+        override_service.get_all_operator_metadata.assert_called_once_with(internal_features=False)
 
-    def test_get_operator_metadata_returns_dict_structure(
-        self, client, override_service, sample_operator_metadata
-    ):
+    def test_get_operator_metadata_returns_dict_structure(self, client, override_service, sample_operator_metadata):
         """Test that response has correct dictionary structure."""
         # Arrange
-        override_service.get_all_operator_metadata.return_value = (
-            sample_operator_metadata
-        )
+        override_service.get_all_operator_metadata.return_value = sample_operator_metadata
 
         # Act
         response = client.get("/operators/metadata")
@@ -199,14 +189,10 @@ class TestGetOperatorMetadataEndpoint:
         assert "features" in operator
         assert "required_features" in operator
 
-    def test_get_operator_metadata_includes_all_operators(
-        self, client, override_service, sample_operator_metadata
-    ):
+    def test_get_operator_metadata_includes_all_operators(self, client, override_service, sample_operator_metadata):
         """Test that all operators from service are included in response."""
         # Arrange
-        override_service.get_all_operator_metadata.return_value = (
-            sample_operator_metadata
-        )
+        override_service.get_all_operator_metadata.return_value = sample_operator_metadata
 
         # Act
         response = client.get("/operators/metadata")
@@ -218,9 +204,7 @@ class TestGetOperatorMetadataEndpoint:
         for operator_name in sample_operator_metadata:
             assert operator_name in data
 
-    def test_get_operator_metadata_handles_service_exception(
-        self, client, override_service
-    ):
+    def test_get_operator_metadata_handles_service_exception(self, client, override_service):
         """Test that service exceptions are handled properly."""
         # Arrange
         override_service.get_all_operator_metadata.side_effect = DatasiftException(
@@ -239,9 +223,7 @@ class TestGetOperatorMetadataEndpoint:
         assert len(data["errors"]) > 0
         assert data["errors"][0]["code"] == ErrorCode.OPERATOR_METADATA_FAILED
 
-    def test_get_operator_metadata_handles_generic_exception(
-        self, client, override_service
-    ):
+    def test_get_operator_metadata_handles_generic_exception(self, client, override_service):
         """Test that generic exceptions are wrapped in DatasiftException by service."""
         # Arrange
         # Service wraps all exceptions in DatasiftException
@@ -265,9 +247,7 @@ class TestGetOperatorMetadataEndpoint:
     ):
         """Test that raw metadata is converted to proper response model."""
         # Arrange
-        override_service.get_all_operator_metadata.return_value = (
-            sample_operator_metadata
-        )
+        override_service.get_all_operator_metadata.return_value = sample_operator_metadata
 
         # Act
         response = client.get("/operators/metadata")
@@ -284,9 +264,7 @@ class TestGetOperatorMetadataEndpoint:
         assert "features" in operator
         assert "required_features" in operator
 
-    def test_get_operator_metadata_handles_missing_optional_fields(
-        self, client, override_service
-    ):
+    def test_get_operator_metadata_handles_missing_optional_fields(self, client, override_service):
         """Test that missing optional fields are handled gracefully."""
         # Arrange
         minimal_metadata = {
@@ -311,9 +289,7 @@ class TestGetOperatorMetadataEndpoint:
         # Description should be None
         assert data["test_operator"]["description"] is None
 
-    def test_get_operator_metadata_handles_empty_features(
-        self, client, override_service
-    ):
+    def test_get_operator_metadata_handles_empty_features(self, client, override_service):
         """Test that operators with no features are handled correctly."""
         # Arrange
         metadata_with_empty_features = {
@@ -324,9 +300,7 @@ class TestGetOperatorMetadataEndpoint:
                 "required_features": [],
             }
         }
-        override_service.get_all_operator_metadata.return_value = (
-            metadata_with_empty_features
-        )
+        override_service.get_all_operator_metadata.return_value = metadata_with_empty_features
 
         # Act
         response = client.get("/operators/metadata")
@@ -338,17 +312,13 @@ class TestGetOperatorMetadataEndpoint:
         assert data["noop"]["features"] == {}
         assert data["noop"]["required_features"] == []
 
-    def test_get_operator_metadata_logs_request(
-        self, client, override_service, sample_operator_metadata
-    ):
+    def test_get_operator_metadata_logs_request(self, client, override_service, sample_operator_metadata):
         """Test that requests are logged."""
         # Arrange
-        override_service.get_all_operator_metadata.return_value = (
-            sample_operator_metadata
-        )
+        override_service.get_all_operator_metadata.return_value = sample_operator_metadata
 
         # Act
-        with patch("app.routes.operators.logger") as mock_logger:
+        with patch("datasift.api.routes.operators.logger") as mock_logger:
             response = client.get("/operators/metadata")
 
             # Assert
@@ -361,27 +331,19 @@ class TestGetOperatorMetadataEndpoint:
     ):
         """Test that internal_features=False is passed to service."""
         # Arrange
-        override_service.get_all_operator_metadata.return_value = (
-            sample_operator_metadata
-        )
+        override_service.get_all_operator_metadata.return_value = sample_operator_metadata
 
         # Act
         response = client.get("/operators/metadata")
 
         # Assert
         assert response.status_code == 200
-        override_service.get_all_operator_metadata.assert_called_once_with(
-            internal_features=False
-        )
+        override_service.get_all_operator_metadata.assert_called_once_with(internal_features=False)
 
-    def test_get_operator_metadata_response_content_type(
-        self, client, override_service, sample_operator_metadata
-    ):
+    def test_get_operator_metadata_response_content_type(self, client, override_service, sample_operator_metadata):
         """Test that response has correct content type."""
         # Arrange
-        override_service.get_all_operator_metadata.return_value = (
-            sample_operator_metadata
-        )
+        override_service.get_all_operator_metadata.return_value = sample_operator_metadata
 
         # Act
         response = client.get("/operators/metadata")
@@ -390,9 +352,7 @@ class TestGetOperatorMetadataEndpoint:
         assert response.status_code == 200
         assert "application/json" in response.headers["content-type"]
 
-    def test_get_operator_metadata_handles_unknown_category(
-        self, client, override_service
-    ):
+    def test_get_operator_metadata_handles_unknown_category(self, client, override_service):
         """Test that operators with missing category get default value."""
         # Arrange
         metadata_without_category = {
@@ -402,9 +362,7 @@ class TestGetOperatorMetadataEndpoint:
                 "required_features": [],
             }
         }
-        override_service.get_all_operator_metadata.return_value = (
-            metadata_without_category
-        )
+        override_service.get_all_operator_metadata.return_value = metadata_without_category
 
         # Act
         response = client.get("/operators/metadata")
@@ -412,9 +370,7 @@ class TestGetOperatorMetadataEndpoint:
         # Assert
         assert response.status_code == 200
         data = response.json()
-        assert (
-            data["unknown_op"]["category"] == "Custom"
-        )  # Default is now "Custom" (valid enum value)
+        assert data["unknown_op"]["category"] == "Custom"  # Default is now "Custom" (valid enum value)
 
 
 class TestOperatorMetadataServiceDependency:

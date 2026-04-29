@@ -6,7 +6,7 @@ Tests for PyArrow table transformation operations.
 import pyarrow as pa
 import pytest
 
-from common.util.data.transform import TransformUtils
+from datasift.utils.data.transform import TransformUtils
 
 
 class TestTransformUtils:

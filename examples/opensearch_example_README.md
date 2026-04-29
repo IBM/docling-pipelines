@@ -6,7 +6,7 @@ This example demonstrates how to use the OpenSearch operator for vector similari
 
 1. **Install Dependencies**
    ```bash
-   cd src/datasift_opensource/backend
+   # From project root
    uv sync --extra dev
    ```
 
@@ -149,37 +149,38 @@ To use OpenSearch in a complete pipeline:
 
 ```python
 # 1. Ingest documents
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalFolderOperator
+from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
 
 ingest_config = {
     "input_folder": "/path/to/documents",
     "file_extensions": [".pdf", ".docx", ".txt"]
 }
-ingest_op = IngestLocalFolderOperator(ingest_config)
+ingest_op = IngestLocalOperator(ingest_config)
 table = ingest_op.transform()
 
 # 2. Extract content
-from core.operators.universal.extract.extract_operator import ExtractOperator
+from datasift.core.operators.extract.extract_operator import ExtractOperator
 
 extract_config = {}
 extract_op = ExtractOperator(extract_config)
 table, _ = extract_op.transform(table)
 
 # 3. Chunk documents
-from core.operators.universal.chunker.docling_chunker import DoclingChunkerOperator
+from datasift.core.operators.functional.chunker import ChunkerOperator
 
 chunk_config = {
     "chunk_size": 512,
     "chunk_overlap": 50
 }
-chunk_op = DoclingChunkerOperator(chunk_config)
+chunk_op = ChunkerOperator(chunk_config)
 table, _ = chunk_op.transform(table)
 
 # 4. Generate embeddings (you would use your embedding operator here)
 # table = add_embeddings(table)
 
 # 5. Index in OpenSearch
-from common.util.env_config import get_opensearch_config
+from datasift.utils.infrastructure.config import get_opensearch_config
+from datasift.core.operators.vectordb import VectorDBOperator
 
 # Load configuration from environment variables
 opensearch_config = get_opensearch_config()
@@ -220,8 +221,7 @@ curl -u username:password https://your-opensearch-host:9200
 
 ### Import Errors
 ```bash
-# Make sure dependencies are installed
-cd src/datasift_opensource/backend
+# Make sure dependencies are installed from project root
 uv sync --extra dev
 ```
 

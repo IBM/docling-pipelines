@@ -4,22 +4,23 @@ Unit tests for FastText Language Detection Adapter
 Tests the FastText adapter integration with the LanguageDetect operator.
 """
 
-import pytest
-import pyarrow as pa
 import threading
 import time
 
-from common.constants.constants import (
+import pyarrow as pa
+import pytest
+
+from datasift.core.constants.constants import (
     Metrics,
 )
-from common.constants.operator_constants import (
+from datasift.core.constants.operator_constants import (
     OperatorConstants,
 )
-from core.operators.quality.language_detection.lang_id import (
-    LanguageDetect,
-)
-from core.operators.quality.fasttext_model_manager import (
+from datasift.core.operators.quality.fasttext_model_manager import (
     FastTextModelManager,
+)
+from datasift.core.operators.quality.language_detection.lang_id import (
+    LanguageDetect,
 )
 
 
@@ -87,18 +88,9 @@ class TestLanguageDetectFastText:
         metadata = operator.get_metadata()
 
         assert metadata[OperatorConstants.Misc.LABEL] == "Language Annotator"
-        assert (
-            OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE
-            in metadata[OperatorConstants.Config.ATTRIBUTES]
-        )
-        assert (
-            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-            in metadata[OperatorConstants.Config.FEATURES]
-        )
-        assert (
-            OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
-            in metadata[OperatorConstants.Config.FEATURES]
-        )
+        assert OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE in metadata[OperatorConstants.Config.ATTRIBUTES]
+        assert OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in metadata[OperatorConstants.Config.FEATURES]
+        assert OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY in metadata[OperatorConstants.Config.FEATURES]
 
         # Cleanup
         operator.cleanup()
@@ -114,14 +106,8 @@ class TestLanguageDetectFastText:
             result_table = result_tables[0]
 
             # Check that language columns were added
-            assert (
-                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-                in result_table.column_names
-            )
-            assert (
-                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
-                in result_table.column_names
-            )
+            assert OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in result_table.column_names
+            assert OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY in result_table.column_names
 
             # Check that all rows were processed
             assert result_table.num_rows == sample_table.num_rows
@@ -131,18 +117,12 @@ class TestLanguageDetectFastText:
             assert metadata[Metrics.External.PROCESSED_DOCS] >= 0
 
             # Verify language codes are detected (should be ISO 639-1 codes)
-            languages = result_table[
-                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-            ].to_pylist()
+            languages = result_table[OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY].to_pylist()
             assert all(isinstance(lang, str) for lang in languages)
-            assert all(
-                len(lang) >= 2 for lang in languages
-            )  # ISO codes are at least 2 chars
+            assert all(len(lang) >= 2 for lang in languages)  # ISO codes are at least 2 chars
 
             # Verify confidence scores are between 0 and 1
-            scores = result_table[
-                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
-            ].to_pylist()
+            scores = result_table[OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY].to_pylist()
             assert all(isinstance(score, float) for score in scores)
             assert all(0.0 <= score <= 1.0 for score in scores)
 
@@ -161,12 +141,8 @@ class TestLanguageDetectFastText:
             names = result_table[OperatorConstants.Columns.NAME].to_pylist()
             uzbek_idx = names.index("uzbek.txt")
 
-            detected_lang = result_table[
-                OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-            ][uzbek_idx].as_py()
-            confidence = result_table[
-                OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
-            ][uzbek_idx].as_py()
+            detected_lang = result_table[OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY][uzbek_idx].as_py()
+            confidence = result_table[OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY][uzbek_idx].as_py()
 
             # Uzbek should be detected (uz is the ISO 639-1 code)
             assert detected_lang is not None
@@ -308,9 +284,7 @@ class TestLanguageDetectFastText:
 
         try:
             # Try to release - should timeout
-            with pytest.raises(
-                RuntimeError, match="Failed to acquire model lock for release"
-            ):
+            with pytest.raises(RuntimeError, match="Failed to acquire model lock for release"):
                 manager.release_model(timeout=0.5)
         finally:
             manager._model_lock.release()
@@ -363,9 +337,7 @@ class TestLanguageDetectFastText:
 
         try:
             # Attempt should immediately fail with stored error
-            with pytest.raises(
-                RuntimeError, match="FastText model loading previously failed"
-            ):
+            with pytest.raises(RuntimeError, match="FastText model loading previously failed"):
                 manager.acquire_model(timeout=5.0)
 
         finally:

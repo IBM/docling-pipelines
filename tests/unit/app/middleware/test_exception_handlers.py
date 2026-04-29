@@ -9,14 +9,14 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.middleware.error_handler import (
+from datasift.api.middleware.error_handler import (
     datasift_exception_handler,
     generic_exception_handler,
     get_trace_id,
     http_exception_handler,
     validation_exception_handler,
 )
-from common.exceptions.datasift_exceptions import RepositoryConfigurationException
+from datasift.exceptions.datasift_exceptions import RepositoryConfigurationException
 
 
 @pytest.fixture
@@ -143,13 +143,8 @@ async def test_validation_exception_handler_nested_field(mock_request):
     content = json.loads(response.body)
 
     # Should use ' -> ' separator and skip 'body'
-    assert (
-        "definition -> nodes -> 0 -> operator_type" in content["errors"][0]["message"]
-    )
-    assert (
-        content["errors"][0]["target"]["name"]
-        == "definition -> nodes -> 0 -> operator_type"
-    )
+    assert "definition -> nodes -> 0 -> operator_type" in content["errors"][0]["message"]
+    assert content["errors"][0]["target"]["name"] == "definition -> nodes -> 0 -> operator_type"
 
 
 @pytest.mark.anyio
@@ -258,7 +253,7 @@ async def test_generic_exception_handler_unknown_exception(mock_request):
 @pytest.mark.anyio
 async def test_exception_handlers_log_errors(mock_request):
     """Test that exception handlers log errors with stack traces."""
-    with patch("app.middleware.error_handler.logger") as mock_logger:
+    with patch("datasift.api.middleware.error_handler.logger") as mock_logger:
         exc = StarletteHTTPException(status_code=500, detail="Test error")
 
         await http_exception_handler(mock_request, exc)
@@ -287,9 +282,7 @@ def repo_config_app():
         )
 
     # Register the exception handler
-    test_app.add_exception_handler(
-        RepositoryConfigurationException, datasift_exception_handler
-    )
+    test_app.add_exception_handler(RepositoryConfigurationException, datasift_exception_handler)
 
     return test_app
 

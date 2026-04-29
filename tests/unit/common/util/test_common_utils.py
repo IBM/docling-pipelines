@@ -1,8 +1,7 @@
 import json
 import unittest
 
-from common.util.core.patterns import Singleton
-from common.util.core.collections import (
+from datasift.utils.core.collections import (
     batch_list,
     get_index,
     get_list_from_map,
@@ -10,13 +9,14 @@ from common.util.core.collections import (
     lowercase_keys,
     process_in_batches,
 )
-from common.util.core.strings import (
+from datasift.utils.core.patterns import Singleton
+from datasift.utils.core.strings import (
     escape_query_value,
     get_truncated_text,
     is_null_or_empty,
     split_text_into_chunks,
 )
-from common.util.core.validation import (
+from datasift.utils.core.validation import (
     is_date_time_as_per_format,
     is_value_in_range,
     to_bool,
@@ -120,9 +120,7 @@ class TestProcessInBatches(unittest.TestCase):
             return [x * 2 for x in batch]
 
         input_list = [1, 2, 3, 4, 5]
-        result = process_in_batches(
-            processor=processor, input_list=input_list, batch_size=2
-        )
+        result = process_in_batches(processor=processor, input_list=input_list, batch_size=2)
         expected = [2, 4, 6, 8, 10]
         self.assertEqual(result, expected)
 
@@ -133,9 +131,7 @@ class TestProcessInBatches(unittest.TestCase):
             return [x * multiplier for x in batch]
 
         input_list = [1, 2, 3, 4]
-        result = process_in_batches(
-            processor=processor, input_list=input_list, batch_size=2, multiplier=3
-        )
+        result = process_in_batches(processor=processor, input_list=input_list, batch_size=2, multiplier=3)
         expected = [3, 6, 9, 12]
         self.assertEqual(result, expected)
 
@@ -146,9 +142,7 @@ class TestProcessInBatches(unittest.TestCase):
             return None
 
         input_list = [1, 2, 3]
-        result = process_in_batches(
-            processor=processor, input_list=input_list, batch_size=2
-        )
+        result = process_in_batches(processor=processor, input_list=input_list, batch_size=2)
         self.assertEqual(result, [])
 
     def test_process_in_batches_non_list_input(self):
@@ -158,9 +152,7 @@ class TestProcessInBatches(unittest.TestCase):
             return list(batch)
 
         input_tuple = (1, 2, 3, 4)
-        result = process_in_batches(
-            processor=processor, input_list=input_tuple, batch_size=2
-        )
+        result = process_in_batches(processor=processor, input_list=input_tuple, batch_size=2)
         expected = [1, 2, 3, 4]
         self.assertEqual(result, expected)
 
@@ -280,9 +272,7 @@ class TestIsDateTimeAsPerFormat(unittest.TestCase):
 
     def test_datetime_with_time(self):
         """Test with datetime including time."""
-        self.assertTrue(
-            is_date_time_as_per_format("2024-01-15 14:30:00", "%Y-%m-%d %H:%M:%S")
-        )
+        self.assertTrue(is_date_time_as_per_format("2024-01-15 14:30:00", "%Y-%m-%d %H:%M:%S"))
 
 
 class TestIsNullOrEmpty(unittest.TestCase):

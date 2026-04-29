@@ -6,14 +6,14 @@ Tests the pass-through operator that returns data unchanged while optionally
 adding metadata. Used for testing and debugging pipelines.
 """
 
-import pytest
-import pyarrow as pa
 import time
 
-from core.operators.functional.noop import NOOPOperator
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import Metrics
+import pyarrow as pa
+import pytest
 
+from datasift.core.constants.constants import Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.functional.noop import NOOPOperator
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -210,10 +210,7 @@ def test_metadata_processed_docs_equals_total_docs():
     operator = make_operator()
     _, metadata = operator.transform(table)
 
-    assert (
-        metadata[Metrics.External.PROCESSED_DOCS]
-        == metadata[Metrics.External.TOTAL_DOCS]
-    )
+    assert metadata[Metrics.External.PROCESSED_DOCS] == metadata[Metrics.External.TOTAL_DOCS]
 
 
 # ---------------------------------------------------------------------------
@@ -444,7 +441,7 @@ def test_short_name_value():
 
 def test_category_is_functional():
     """Operator category is Functional."""
-    from core.operators.abstract_operator import OperatorCategory
+    from datasift.core.operators.abstract_operator import OperatorCategory
 
     assert NOOPOperator.category == OperatorCategory.Functional
 

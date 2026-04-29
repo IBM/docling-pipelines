@@ -220,11 +220,11 @@ datasift-opensource includes a pluggable job-management subsystem for tracking j
 
 ### Job Stats Components
 
-- **[`JobStatsService`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_service.py)** - orchestration-facing service contract
-- **[`JobStatsStore`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_store.py)** - pluggable persistence contract for job and node stats
-- **[`JobTrackerService`](src/datasift_opensource/backend/core/job_management/adapters/services/job_tracker_service.py)** - production implementation built on the new hexagonal architecture
-- **[`NodeStatsAggregator`](src/datasift_opensource/backend/core/job_management/application/services/node_stats_aggregator.py)** - read-side aggregation of batch node stats
-- **[`JobManagementFactory`](src/datasift_opensource/backend/core/job_management/adapters/config/job_management_factory.py)** - backend selection and dependency wiring
+- **[`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py)** - orchestration-facing service contract
+- **[`JobStatsStore`](src/datasift/core/job_management/domain/ports/job_stats_store.py)** - pluggable persistence contract for job and node stats
+- **[`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py)** - production implementation built on the new hexagonal architecture
+- **[`NodeStatsAggregator`](src/datasift/core/job_management/application/services/node_stats_aggregator.py)** - read-side aggregation of batch node stats
+- **[`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py)** - backend selection and dependency wiring
 
 ### Supported Backends
 
@@ -234,7 +234,7 @@ datasift-opensource includes a pluggable job-management subsystem for tracking j
 
 ### API Surface
 
-Job run APIs are exposed through [`job_runs.py`](src/datasift_opensource/backend/app/routes/job_runs.py) for:
+Job run APIs are exposed through [`job_runs.py`](src/datasift/app/routes/job_runs.py) for:
 - creating job runs
 - listing job runs
 - reading current job run status
@@ -243,11 +243,11 @@ Job run APIs are exposed through [`job_runs.py`](src/datasift_opensource/backend
 
 ### User Configuration
 
-The primary user-facing runtime configuration lives in [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml), including:
-- [`assets_management.flow_repository`](src/datasift_opensource/backend/config/datasift.yaml:1) for the flow repository location
-- [`job_management.framework.type`](src/datasift_opensource/backend/config/datasift.yaml:9) for the job framework type
-- [`job_management.store.type`](src/datasift_opensource/backend/config/datasift.yaml:12) for the job stats store backend
-- [`job_management.store.config`](src/datasift_opensource/backend/config/datasift.yaml:15) for backend-specific settings such as JSON `base_dir` or PostgreSQL connection details
+The primary user-facing runtime configuration lives in [`datasift.yaml`](src/datasift/config/datasift.yaml), including:
+- [`assets_management.flow_repository`](src/datasift/config/datasift.yaml:1) for the flow repository location
+- [`job_management.framework.type`](src/datasift/config/datasift.yaml:9) for the job framework type
+- [`job_management.store.type`](src/datasift/config/datasift.yaml:12) for the job stats store backend
+- [`job_management.store.config`](src/datasift/config/datasift.yaml:15) for backend-specific settings such as JSON `base_dir` or PostgreSQL connection details
 
 Environment overrides can replace config values at runtime, including:
 - `DATASIFT_CONFIG_PATH`
@@ -260,7 +260,7 @@ Environment overrides can replace config values at runtime, including:
 - `DATASIFT_POSTGRES_USER`
 - `DATASIFT_POSTGRES_PASSWORD`
 
-When using distributed Prefect workers, all workers must resolve job stats storage consistently. JSON storage requires a shared filesystem path. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective job-management configuration resolved from environment variables and [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml).
+When using distributed Prefect workers, all workers must resolve job stats storage consistently. JSON storage requires a shared filesystem path. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective job-management configuration resolved from environment variables and [`datasift.yaml`](src/datasift/config/datasift.yaml).
 
 ## Setup
 
@@ -313,24 +313,24 @@ git clone <repository-url>
 cd datasift-opensource
 ```
 
-2. Navigate to the backend directory and create a virtual environment:
+2. Create a virtual environment and install dependencies:
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 uv sync --extra dev
 ```
 
 This will:
 
-- Create a virtual environment in `.venv/`
+- Create a virtual environment in `.venv/` at project root
 - Install all project dependencies
 - Install development dependencies
 
 3. Activate the virtual environment:
 
 ```bash
+# From project root
 source .venv/bin/activate
-cd ../../..  # Return to project root
 ```
 
 **See also:**
@@ -356,10 +356,10 @@ cd ../../..  # Return to project root
 
 ```bash
 # Using uvicorn from project root
-uvicorn src.datasift_opensource.backend.app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn src.datasift.api.main:app --reload --host 0.0.0.0 --port 8000
 
-# Or using uv from backend directory
-cd src/datasift_opensource/backend
+# Or using uv from datasift directory
+cd src/datasift
 uv run uvicorn app.main:app --reload --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -661,7 +661,7 @@ datasift-orchestrator --flow-file my-flow.json
 Build a wheel distribution:
 
 ```bash
-cd src/datasift_opensource/backend
+cd src/datasift
 uv build --wheel
 ```
 
@@ -938,17 +938,17 @@ The wheel file will be created in the `dist/` directory.
 
 ### Adding Dependencies
 
-Add a new dependency (from backend directory):
+Add a new dependency (from datasift directory):
 
 ```bash
-cd src/datasift_opensource/backend
+cd src/datasift
 uv add <package-name>==<version>  # Always specify a fixed version
 ```
 
 Add a development dependency:
 
 ```bash
-cd src/datasift_opensource/backend
+cd src/datasift
 uv add --dev <package-name>==<version>  # Always specify a fixed version
 ```
 
@@ -957,21 +957,21 @@ uv add --dev <package-name>==<version>  # Always specify a fixed version
 1. Sync dependencies and update lock file:
 
 ```bash
-cd src/datasift_opensource/backend
+cd src/datasift
 uv sync --extra dev
 ```
 
 2. Generate updated requirements.txt:
 
 ```bash
-cd src/datasift_opensource/backend
+cd src/datasift
 uv pip compile pyproject.toml -o requirements.txt
 ```
 
 3. Install package in editable mode and run tests:
 
 ```bash
-cd src/datasift_opensource/backend
+cd src/datasift
 uv pip install -e .
 export TEST_CP4D_USERNAME=udp_unittest_user
 export TEST_CP4D_PASSWORD="udp_unittest_pass@123"  # pragma: allowlist secret
@@ -987,26 +987,26 @@ The test suite uses pytest with colored output, coverage tracking, and test mark
 Run tests from the **project root** (recommended):
 
 ```bash
-# Activate virtual environment
-source src/datasift_opensource/backend/.venv/bin/activate
+# Activate virtual environment (from project root)
+source .venv/bin/activate
 
 # Run all tests with colored output
-pytest -v
+uv run pytest -v
 
 # Run with coverage report
-pytest -v --cov=src --cov-report=html
+uv run pytest -v --cov=src --cov-report=html
 
 # Run only unit tests
-pytest -m unit -v
+uv run pytest -m unit -v
 
 # Run only integration tests
-pytest -m integration -v
+uv run pytest -m integration -v
 
 # Show 10 slowest tests
-pytest --durations=10
+uv run pytest --durations=10
 
 # Run specific test file
-pytest tests/unit/operators/embeddings/test_embeddings_operator.py -v
+uv run pytest tests/unit/operators/embeddings/test_embeddings_operator.py -v
 ```
 
 #### Test Organization
@@ -1055,7 +1055,7 @@ This project uses pre-commit hooks to automatically check and format code before
 
 ```bash
 # Install pre-commit hooks (one-time setup)
-cd src/datasift_opensource/backend
+cd src/datasift
 uv run pre-commit install
 ```
 
@@ -1125,14 +1125,14 @@ uv run ruff format .
 
 ### Adding New Routes
 
-1. Create a new route file in `src/datasift_opensource/backend/app/routes/`
+1. Create a new route file in `src/datasift/app/routes/`
 2. Define your route handlers
-3. Import and include the router in `src/datasift_opensource/backend/app/main.py`
+3. Import and include the router in `src/datasift/app/main.py`
 
 Example:
 
 ```python
-# src/datasift_opensource/backend/app/routes/example.py
+# src/datasift/app/routes/example.py
 from fastapi import APIRouter
 
 router = APIRouter(prefix="/example", tags=["example"])
@@ -1197,7 +1197,7 @@ DATASIFT_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 ### Embeddings Operator — Ollama Setup
 
-The [`EmbeddingsOperator`](src/datasift_opensource/backend/core/operators/functional/embeddings/embeddings_operator.py) uses Ollama as its **default** embeddings provider (`embeddings_type = "ollama"`). Before using this operator, you must complete the following setup steps.
+The [`EmbeddingsOperator`](src/datasift/core/operators/functional/embeddings/embeddings_operator.py) uses Ollama as its **default** embeddings provider (`embeddings_type = "ollama"`). Before using this operator, you must complete the following setup steps.
 
 #### Step 1 — Install Ollama
 
@@ -1227,18 +1227,18 @@ The default model used by the operator is `granite4`. Other supported models inc
 pip install ollama
 ```
 
-> **Note**: If Ollama is not installed, the server is not running, or no model has been pulled, the operator will raise a [`DatasiftException`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py) at runtime.
+> **Note**: If Ollama is not installed, the server is not running, or no model has been pulled, the operator will raise a [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py) at runtime.
 
 **See also:**
 
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup) - Detailed Ollama configuration
-- [EmbeddingsOperator Documentation](src/datasift_opensource/backend/core/operators/functional/embeddings/embeddings_operator.py) - Operator reference
+- [EmbeddingsOperator Documentation](src/datasift/core/operators/functional/embeddings/embeddings_operator.py) - Operator reference
 - [Operator Reference](OPERATOR_REFERENCE.md) - EmbeddingsOperator parameters
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - Ollama connection issues
 
 ### OpenSearch Vector Store
 
-The [`VectorDBOperator`](src/datasift_opensource/backend/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter requires a running OpenSearch instance. The quickest way to get one locally is via the provided Compose file.
+The [`VectorDBOperator`](src/datasift/core/operators/vectordb/vectordb_operator.py) with OpenSearch adapter requires a running OpenSearch instance. The quickest way to get one locally is via the provided Compose file.
 
 #### Step 1 — Start OpenSearch
 
@@ -1298,7 +1298,7 @@ podman-compose -f docker-compose.opensearch.yml down
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#opensearch-setup) - Detailed OpenSearch configuration
 - [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
 - [OpenSearch Operator Reference](docs/operators/opensearch.md) - Technical API documentation
-- [VectorDBOperator Documentation](src/datasift_opensource/backend/core/operators/vectordb/vectordb_operator.py) - Operator reference
+- [VectorDBOperator Documentation](src/datasift/core/operators/vectordb/vectordb_operator.py) - Operator reference
 - [Operator Reference](OPERATOR_REFERENCE.md) - VectorDBOperator parameters
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - OpenSearch connection issues
 
@@ -1345,7 +1345,7 @@ podman-compose -f docker-compose.opensearch.yml down
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#opensearch-setup) - Detailed OpenSearch configuration
 - [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
 - [OpenSearch Operator Reference](docs/operators/opensearch.md) - Technical API documentation
-- [VectorDBOperator Documentation](src/datasift_opensource/backend/core/operators/vectordb/vectordb_operator.py) - Operator reference
+- [VectorDBOperator Documentation](src/datasift/core/operators/vectordb/vectordb_operator.py) - Operator reference
 - [Operator Reference](OPERATOR_REFERENCE.md) - VectorDBOperator parameters
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - OpenSearch connection issues
 

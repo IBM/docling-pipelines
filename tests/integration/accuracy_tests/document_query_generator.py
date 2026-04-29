@@ -9,7 +9,7 @@ The queries are saved to a CSV file for use in accuracy testing.
 """
 
 import csv
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 
 class DocumentQueryGenerator:
@@ -25,9 +25,7 @@ class DocumentQueryGenerator:
             "passport": "Passport",
         }
 
-    def generate_all_queries(
-        self, doc_type: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def generate_all_queries(self, doc_type: str | None = None) -> list[dict[str, Any]]:
         """
         Generate comprehensive test queries for document types
 
@@ -50,7 +48,7 @@ class DocumentQueryGenerator:
 
         return queries
 
-    def _generate_queries_for_type(self, doc_type: str) -> List[Dict[str, Any]]:
+    def _generate_queries_for_type(self, doc_type: str) -> list[dict[str, Any]]:
         """Generate queries for a specific document type"""
         if doc_type == "purchase_order":
             return self._generate_purchase_order_queries()
@@ -64,7 +62,7 @@ class DocumentQueryGenerator:
             return self._generate_passport_queries()
         return []
 
-    def _generate_purchase_order_queries(self) -> List[Dict[str, Any]]:
+    def _generate_purchase_order_queries(self) -> list[dict[str, Any]]:
         """Generate queries for purchase orders"""
         queries = []
 
@@ -193,7 +191,7 @@ class DocumentQueryGenerator:
 
         return queries
 
-    def _generate_invoice_queries(self) -> List[Dict[str, Any]]:
+    def _generate_invoice_queries(self) -> list[dict[str, Any]]:
         """Generate queries for invoices"""
         queries = []
 
@@ -240,7 +238,7 @@ class DocumentQueryGenerator:
 
         return queries
 
-    def _generate_bank_statement_queries(self) -> List[Dict[str, Any]]:
+    def _generate_bank_statement_queries(self) -> list[dict[str, Any]]:
         """Generate queries for bank statements"""
         queries = []
 
@@ -287,7 +285,7 @@ class DocumentQueryGenerator:
 
         return queries
 
-    def _generate_credit_card_queries(self) -> List[Dict[str, Any]]:
+    def _generate_credit_card_queries(self) -> list[dict[str, Any]]:
         """Generate queries for credit card statements"""
         queries = []
 
@@ -334,7 +332,7 @@ class DocumentQueryGenerator:
 
         return queries
 
-    def _generate_passport_queries(self) -> List[Dict[str, Any]]:
+    def _generate_passport_queries(self) -> list[dict[str, Any]]:
         """Generate queries for passports"""
         queries = []
 
@@ -381,9 +379,7 @@ class DocumentQueryGenerator:
 
         return queries
 
-    def save_to_csv(
-        self, queries: List[Dict[str, Any]], filename: str = "document_queries.csv"
-    ):
+    def save_to_csv(self, queries: list[dict[str, Any]], filename: str = "document_queries.csv"):
         """
         Save queries to CSV file
 
@@ -431,9 +427,7 @@ def main():
     """Main function with CLI"""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate natural language queries for document testing"
-    )
+    parser = argparse.ArgumentParser(description="Generate natural language queries for document testing")
     parser.add_argument(
         "--doc-type",
         choices=[

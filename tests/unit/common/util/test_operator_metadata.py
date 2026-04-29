@@ -1,17 +1,18 @@
 """Unit tests for operator_metadata module."""
 
-import pytest
 from unittest.mock import Mock, patch
 
-from common.constants.operator_constants import OperatorConstants
-from core.operators.operator_metadata import OperatorMetadata
+import pytest
+
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.operator_metadata import OperatorMetadata
 
 
 class TestOperatorMetadata:
     """Test OperatorMetadata class."""
 
-    @patch("core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_init(self, mock_session, mock_factory_provider):
         """Test OperatorMetadata initialization."""
         mock_session.return_value = Mock()
@@ -21,8 +22,8 @@ class TestOperatorMetadata:
         assert metadata.operator_metadata == {}
         assert metadata.session_info is not None
 
-    @patch("core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_get_operator_metadata_basic(self, mock_session, mock_factory_provider):
         """Test getting operator metadata."""
         mock_session.return_value = Mock()
@@ -54,11 +55,9 @@ class TestOperatorMetadata:
         assert "test_op" in result
         assert result["test_op"]["required_features"] == ["input_feature"]
 
-    @patch("core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("core.operators.operator_metadata.get_session_info")
-    def test_get_operator_metadata_filters_internal_features(
-        self, mock_session, mock_factory_provider
-    ):
+    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    def test_get_operator_metadata_filters_internal_features(self, mock_session, mock_factory_provider):
         """Test that internal features are filtered out."""
         mock_session.return_value = Mock()
 
@@ -75,9 +74,7 @@ class TestOperatorMetadata:
                 },
                 "internal_feature": {
                     OperatorConstants.Columns.NAME: "Internal",
-                    OperatorConstants.Misc.TAGS: [
-                        OperatorConstants.Misc.INTERNAL_FEATURE
-                    ],
+                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.INTERNAL_FEATURE],
                 },
             }
         }
@@ -94,11 +91,9 @@ class TestOperatorMetadata:
         assert "public_feature" in features
         assert "internal_feature" not in features
 
-    @patch("core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("core.operators.operator_metadata.get_session_info")
-    def test_get_operator_metadata_includes_internal_features(
-        self, mock_session, mock_factory_provider
-    ):
+    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    def test_get_operator_metadata_includes_internal_features(self, mock_session, mock_factory_provider):
         """Test that internal features are included when requested."""
         mock_session.return_value = Mock()
 
@@ -115,9 +110,7 @@ class TestOperatorMetadata:
                 },
                 "internal_feature": {
                     OperatorConstants.Columns.NAME: "Internal",
-                    OperatorConstants.Misc.TAGS: [
-                        OperatorConstants.Misc.INTERNAL_FEATURE
-                    ],
+                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.INTERNAL_FEATURE],
                 },
             }
         }
@@ -134,11 +127,9 @@ class TestOperatorMetadata:
         assert "public_feature" in features
         assert "internal_feature" in features
 
-    @patch("core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("core.operators.operator_metadata.get_session_info")
-    def test_get_operator_metadata_handles_exceptions(
-        self, mock_session, mock_factory_provider
-    ):
+    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    def test_get_operator_metadata_handles_exceptions(self, mock_session, mock_factory_provider):
         """Test handling of operator initialization exceptions."""
         mock_session.return_value = Mock()
 
@@ -147,9 +138,7 @@ class TestOperatorMetadata:
         mock_operator_class.side_effect = Exception("Initialization failed")
 
         mock_factory.operators = {"failing_op": mock_operator_class}
-        mock_factory.get_operator.return_value = Mock(
-            is_available=Mock(return_value=True)
-        )
+        mock_factory.get_operator.return_value = Mock(is_available=Mock(return_value=True))
         mock_factory_provider.get_operator_factory.return_value = mock_factory
 
         metadata = OperatorMetadata()
@@ -158,7 +147,7 @@ class TestOperatorMetadata:
         assert "failing_op" in result
         assert result["failing_op"] == {}
 
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_get_features_basic(self, mock_session):
         """Test getting features for an operator."""
         mock_session.return_value = Mock()
@@ -179,7 +168,7 @@ class TestOperatorMetadata:
         assert "feature1" in result
         assert "feature2" in result
 
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_get_features_with_purpose_filter(self, mock_session):
         """Test getting features filtered by purpose."""
         mock_session.return_value = Mock()
@@ -200,15 +189,13 @@ class TestOperatorMetadata:
             }
         }
 
-        result = metadata.get_features(
-            short_name="test_op", purpose=OperatorConstants.Config.AVAILABLE_FOR_FILTER
-        )
+        result = metadata.get_features(short_name="test_op", purpose=OperatorConstants.Config.AVAILABLE_FOR_FILTER)
 
         assert len(result) == 1
         assert "filterable_feature" in result
         assert "non_filterable_feature" not in result
 
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_get_features_nonexistent_operator(self, mock_session):
         """Test getting features for nonexistent operator."""
         mock_session.return_value = Mock()
@@ -220,7 +207,7 @@ class TestOperatorMetadata:
 
         assert result == {}
 
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_get_features_from_input_output_features(self, mock_session):
         """Test getting features from input and output features."""
         mock_session.return_value = Mock()
@@ -238,7 +225,7 @@ class TestOperatorMetadata:
         assert "input_feat" in result
         assert "output_feat" in result
 
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_get_features_from_input_output_features_with_purpose(self, mock_session):
         """Test getting features with purpose filter."""
         mock_session.return_value = Mock()
@@ -264,10 +251,8 @@ class TestOperatorMetadata:
         assert len(result) == 1
         assert "feat1" in result
 
-    @patch("core.operators.operator_metadata.get_session_info")
-    def test_get_features_from_input_output_features_output_overrides(
-        self, mock_session
-    ):
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    def test_get_features_from_input_output_features_output_overrides(self, mock_session):
         """Test that output features override input features."""
         mock_session.return_value = Mock()
 
@@ -282,21 +267,19 @@ class TestOperatorMetadata:
 
         assert result["shared_feat"]["name"] == "Output Version"
 
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_required_feature_names(self, mock_session):
         """Test getting required feature names."""
         mock_session.return_value = Mock()
 
         metadata = OperatorMetadata()
-        metadata.operator_metadata = {
-            "test_op": {"required_features": ["feature1", "feature2"]}
-        }
+        metadata.operator_metadata = {"test_op": {"required_features": ["feature1", "feature2"]}}
 
         result = metadata.required_feature_names(short_name="test_op")
 
         assert result == ["feature1", "feature2"]
 
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_required_feature_names_nonexistent(self, mock_session):
         """Test getting required features for nonexistent operator."""
         mock_session.return_value = Mock()
@@ -308,8 +291,8 @@ class TestOperatorMetadata:
 
         assert result == []
 
-    @patch("core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("core.operators.operator_metadata.get_session_info")
+    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
     def test_get_feature_operators_map(self, mock_session, mock_factory_provider):
         """Test getting feature to operators mapping."""
         mock_session.return_value = Mock()
@@ -340,11 +323,9 @@ class TestOperatorMetadata:
         assert "feature1" in result
         assert "Test Operator" in result["feature1"]
 
-    @patch("core.operators.operator_metadata.OperatorFactoryProvider")
-    @patch("core.operators.operator_metadata.get_session_info")
-    def test_get_feature_operators_map_no_label(
-        self, mock_session, mock_factory_provider
-    ):
+    @patch("datasift.core.operators.operator_metadata.OperatorFactoryProvider")
+    @patch("datasift.core.operators.operator_metadata.get_session_info")
+    def test_get_feature_operators_map_no_label(self, mock_session, mock_factory_provider):
         """Test feature operators map when operator has no label."""
         mock_session.return_value = Mock()
 

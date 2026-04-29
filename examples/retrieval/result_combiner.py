@@ -5,12 +5,12 @@ Combines SQL query results and hybrid search results, then uses Ollama to genera
 
 import json
 import logging
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
-from opensearchpy import OpenSearch
+from typing import Any
 
 # Import existing modules
-from ollama_client import OllamaClient, InteractionMode
+from ollama_client import InteractionMode, OllamaClient
+from opensearchpy import OpenSearch
 
 logger = logging.getLogger(__name__)
 
@@ -19,12 +19,12 @@ logger = logging.getLogger(__name__)
 class CombinedResults:
     """Container for combined search results"""
 
-    sql_results: List[Dict[str, Any]]
-    hybrid_results: List[Dict[str, Any]]
+    sql_results: list[dict[str, Any]]
+    hybrid_results: list[dict[str, Any]]
     user_question: str
-    sql_query: Optional[str] = None
+    sql_query: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization"""
         return {
             "user_question": self.user_question,
@@ -90,10 +90,10 @@ Always prioritize accuracy and clarity in your responses."""
     def combine_and_answer(
         self,
         user_question: str,
-        sql_results: List[Dict[str, Any]],
-        hybrid_results: List[Dict[str, Any]],
-        sql_query: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        sql_results: list[dict[str, Any]],
+        hybrid_results: list[dict[str, Any]],
+        sql_query: str | None = None,
+    ) -> dict[str, Any]:
         """
         Combine results and generate an answer using Ollama LLM
 
@@ -106,9 +106,7 @@ Always prioritize accuracy and clarity in your responses."""
         Returns:
             Dictionary containing the generated answer and metadata
         """
-        logger.info(
-            f"Combining results: {len(sql_results)} SQL results, {len(hybrid_results)} hybrid results"
-        )
+        logger.info(f"Combining results: {len(sql_results)} SQL results, {len(hybrid_results)} hybrid results")
 
         # Create combined results object
         combined = CombinedResults(
@@ -139,7 +137,7 @@ Always prioritize accuracy and clarity in your responses."""
                 "model_used": self.ollama_model,
             }
         except Exception as e:
-            logger.error(f"Failed to generate answer: {str(e)}", exc_info=True)
+            logger.error(f"Failed to generate answer: {e!s}", exc_info=True)
             return {
                 "success": False,
                 "user_question": user_question,
@@ -151,9 +149,9 @@ Always prioritize accuracy and clarity in your responses."""
     def combine_and_answer_streaming(
         self,
         user_question: str,
-        sql_results: List[Dict[str, Any]],
-        hybrid_results: List[Dict[str, Any]],
-        sql_query: Optional[str] = None,
+        sql_results: list[dict[str, Any]],
+        hybrid_results: list[dict[str, Any]],
+        sql_query: str | None = None,
     ):
         """
         Combine results and generate an answer with streaming
@@ -183,7 +181,7 @@ Always prioritize accuracy and clarity in your responses."""
             for chunk in self.llm_client.run(prompt, stream=True):
                 yield chunk
         except Exception as e:
-            yield f"\n\n[Error: {str(e)}]"
+            yield f"\n\n[Error: {e!s}]"
 
     def _build_prompt(self, combined: CombinedResults) -> str:
         """
@@ -205,9 +203,7 @@ Always prioritize accuracy and clarity in your responses."""
             prompt_parts.append(f"SQL Query Executed:\n{combined.sql_query}\n")
 
         # Add SQL results
-        prompt_parts.append(
-            f"\n=== SQL Query Results ({len(combined.sql_results)} results) ==="
-        )
+        prompt_parts.append(f"\n=== SQL Query Results ({len(combined.sql_results)} results) ===")
         if combined.sql_results:
             sql_context = self._format_results(combined.sql_results, "SQL")
             prompt_parts.append(sql_context)
@@ -215,9 +211,7 @@ Always prioritize accuracy and clarity in your responses."""
             prompt_parts.append("No SQL results found.")
 
         # Add hybrid search results
-        prompt_parts.append(
-            f"\n=== Hybrid Search Results ({len(combined.hybrid_results)} results) ==="
-        )
+        prompt_parts.append(f"\n=== Hybrid Search Results ({len(combined.hybrid_results)} results) ===")
         if combined.hybrid_results:
             hybrid_context = self._format_results(combined.hybrid_results, "Hybrid")
             prompt_parts.append(hybrid_context)
@@ -229,22 +223,17 @@ Always prioritize accuracy and clarity in your responses."""
         prompt_parts.append(
             "Based on the above SQL and hybrid search results, provide a comprehensive answer to the user's question."
         )
-        prompt_parts.append(
-            "Combine insights from both sources and cite specific data when relevant."
-        )
+        prompt_parts.append("Combine insights from both sources and cite specific data when relevant.")
 
         full_prompt = "\n".join(prompt_parts)
 
         # Truncate if too long
         if len(full_prompt) > self.max_context_length:
-            full_prompt = (
-                full_prompt[: self.max_context_length]
-                + "\n\n[Context truncated due to length...]"
-            )
+            full_prompt = full_prompt[: self.max_context_length] + "\n\n[Context truncated due to length...]"
 
         return full_prompt
 
-    def _format_results(self, results: List[Dict[str, Any]], source: str) -> str:
+    def _format_results(self, results: list[dict[str, Any]], source: str) -> str:
         """
         Format results for inclusion in prompt
 
@@ -266,9 +255,7 @@ Always prioritize accuracy and clarity in your responses."""
             formatted_parts.append(json.dumps(result, indent=2, ensure_ascii=False))
 
         if len(results) > max_results:
-            formatted_parts.append(
-                f"\n... and {len(results) - max_results} more results"
-            )
+            formatted_parts.append(f"\n... and {len(results) - max_results} more results")
 
         return "\n".join(formatted_parts)
 
@@ -396,9 +383,7 @@ def example_with_opensearch():
         user_question = "Show me documents about machine learning"
 
         # Execute SQL query
-        sql_query = (
-            "SELECT title, category, views FROM documents WHERE category = 'AI' LIMIT 5"
-        )
+        sql_query = "SELECT title, category, views FROM documents WHERE category = 'AI' LIMIT 5"
         sql_result = sql_client.execute(sql_query)
         sql_results = sql_result.to_dict_list()
 

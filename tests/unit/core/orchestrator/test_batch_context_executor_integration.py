@@ -5,12 +5,13 @@ Verifies that batch_id and batch_num flow correctly from global_config
 through the executor to start_node_execution and complete_node_execution calls.
 """
 
-import pytest
 from unittest.mock import Mock, patch
-import pyarrow as pa
 
-from common.constants.constants import DatasiftConstants, ExecutionStatus
-from common.constants.operator_constants import OperatorConstants
+import pyarrow as pa
+import pytest
+
+from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
+from datasift.core.constants.operator_constants import OperatorConstants
 
 
 class TestBatchContextExecutorIntegration:
@@ -27,9 +28,7 @@ class TestBatchContextExecutorIntegration:
     @pytest.fixture
     def sample_table(self):
         """Create a sample PyArrow table for testing."""
-        return pa.table(
-            {"id": ["doc1", "doc2", "doc3"], "content": ["text1", "text2", "text3"]}
-        )
+        return pa.table({"id": ["doc1", "doc2", "doc3"], "content": ["text1", "text2", "text3"]})
 
     @pytest.fixture
     def executor_params_with_batch(self):
@@ -57,7 +56,7 @@ class TestBatchContextExecutorIntegration:
         self, mock_job_stats_service, executor_params_with_batch, sample_table
     ):
         """Test that set_default_node_stats passes batch context to start_node_execution."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -87,7 +86,7 @@ class TestBatchContextExecutorIntegration:
         self, mock_job_stats_service, executor_params_without_batch, sample_table
     ):
         """Test that set_default_node_stats works without batch context."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -116,7 +115,7 @@ class TestBatchContextExecutorIntegration:
         self, mock_job_stats_service, executor_params_with_batch, sample_table
     ):
         """Test that update_final_node_stats passes batch context to complete_node_execution."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -147,7 +146,7 @@ class TestBatchContextExecutorIntegration:
         self, mock_job_stats_service, executor_params_without_batch, sample_table
     ):
         """Test that update_final_node_stats works without batch context."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -173,11 +172,9 @@ class TestBatchContextExecutorIntegration:
         assert call_kwargs["batch_id"] is None
         assert call_kwargs["batch_num"] is None
 
-    def test_batch_context_with_failed_docs(
-        self, mock_job_stats_service, executor_params_with_batch, sample_table
-    ):
+    def test_batch_context_with_failed_docs(self, mock_job_stats_service, executor_params_with_batch, sample_table):
         """Test batch context propagation when node has failed documents."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -203,11 +200,9 @@ class TestBatchContextExecutorIntegration:
         assert len(call_kwargs["failed_docs"]) == 1
         assert call_kwargs["failed_docs"][0] == "doc2"
 
-    def test_batch_context_with_dict_tables(
-        self, mock_job_stats_service, executor_params_with_batch, sample_table
-    ):
+    def test_batch_context_with_dict_tables(self, mock_job_stats_service, executor_params_with_batch, sample_table):
         """Test batch context with dict of tables (branching scenario)."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -247,11 +242,9 @@ class TestBatchStateTransitions:
         """Create a sample PyArrow table for testing."""
         return pa.table({"id": ["doc1", "doc2"], "content": ["text1", "text2"]})
 
-    def test_pending_to_running_transition_with_batch_context(
-        self, mock_job_stats_service, sample_table
-    ):
+    def test_pending_to_running_transition_with_batch_context(self, mock_job_stats_service, sample_table):
         """Test transition from PENDING to RUNNING state with batch context."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -282,11 +275,9 @@ class TestBatchStateTransitions:
         assert call_kwargs["batch_num"] == 1
         assert call_kwargs["node_id"] == "node-123"
 
-    def test_running_to_completed_transition_with_batch_context(
-        self, mock_job_stats_service, sample_table
-    ):
+    def test_running_to_completed_transition_with_batch_context(self, mock_job_stats_service, sample_table):
         """Test transition from RUNNING to COMPLETED state with batch context."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 
@@ -318,11 +309,9 @@ class TestBatchStateTransitions:
         assert call_kwargs["batch_num"] == 2
         assert call_kwargs["node_status"] == ExecutionStatus.COMPLETED.value
 
-    def test_running_to_failed_transition_with_batch_context(
-        self, mock_job_stats_service
-    ):
+    def test_running_to_failed_transition_with_batch_context(self, mock_job_stats_service):
         """Test transition from RUNNING to FAILED state with batch context."""
-        from core.orchestrator.flow_execution_event_handler import (
+        from datasift.core.orchestration.flow_execution_event_handler import (
             FlowExecutionEventHandler,
         )
 
@@ -342,12 +331,10 @@ class TestBatchStateTransitions:
         }
 
         # Mock get_job to return a dict or object with model_dump
-        mock_job_stats_service.get_job.return_value = (
-            None  # Simplest: skip stats injection
-        )
+        mock_job_stats_service.get_job.return_value = None  # Simplest: skip stats injection
 
         # Call after_node_failure (RUNNING -> FAILED transition)
-        with patch("core.orchestrator.flow_execution_event_handler.logger"):
+        with patch("datasift.core.orchestration.flow_execution_event_handler.logger"):
             handler.after_node_failure(
                 node_id=node_id,
                 node_name=node_name,
@@ -364,11 +351,9 @@ class TestBatchStateTransitions:
         assert call_kwargs["node_id"] == node_id
         assert call_kwargs["exception"] == exception
 
-    def test_multiple_batches_independent_state_transitions(
-        self, mock_job_stats_service, sample_table
-    ):
+    def test_multiple_batches_independent_state_transitions(self, mock_job_stats_service, sample_table):
         """Test that multiple batches can have independent state transitions."""
-        from core.orchestrator.python.python_operator_executor import (
+        from datasift.core.orchestration.python.python_operator_executor import (
             PythonOperatorExecutor,
         )
 

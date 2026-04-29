@@ -12,11 +12,9 @@ from pathlib import Path
 import pyarrow as pa
 
 # Add src to path for imports
-sys.path.insert(
-    0, str(Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend")
-)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from core.operators.quality.redaction import RedactionOperator
+from datasift.core.operators.quality.redaction import RedactionOperator
 
 
 def main():  # pragma: no cover
@@ -60,5 +58,3 @@ def main():  # pragma: no cover
 
 if __name__ == "__main__":  # pragma: no cover
     main()
-
-# Made with Bob

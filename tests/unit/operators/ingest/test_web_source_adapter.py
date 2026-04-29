@@ -7,14 +7,14 @@ import pytest
 import requests
 from pydantic import ValidationError
 
-from common.exceptions.datasift_exceptions import DatasiftException
-from common.util.core.datasift_utils import generate_hex_digest
-from core.operators.ingest.adapters.outbound.sources.web.adapter import (
+from datasift.core.operators.ingest.adapters.outbound.sources.web.adapter import (
     WebPageSourceAdapter,
 )
-from core.operators.ingest.adapters.outbound.sources.web.config import (
+from datasift.core.operators.ingest.adapters.outbound.sources.web.config import (
     WebPageSourceConfig,
 )
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.utils.core.datasift_utils import generate_hex_digest
 
 
 async def collect_async(async_gen):
@@ -188,10 +188,10 @@ class TestWebPageSourceAdapter:
     def test_generate_doc_id_is_deterministic(self):
         """Test that document ID generation is deterministic."""
         url = "https://example.com/page"
-        
+
         id1 = generate_hex_digest(text=url)
         id2 = generate_hex_digest(text=url)
-        
+
         assert id1 == id2
         assert len(id1) == 64  # SHA-256 produces 64 hex characters
 
@@ -199,7 +199,7 @@ class TestWebPageSourceAdapter:
         """Test that different URLs produce different document IDs."""
         id1 = generate_hex_digest(text="https://example.com/page1")
         id2 = generate_hex_digest(text="https://example.com/page2")
-        
+
         assert id1 != id2
 
     def test_fetch_documents_success(self):
@@ -221,7 +221,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.return_value = [mock_lc_doc]
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config=config)))
@@ -254,7 +254,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.side_effect = [[mock_doc1], [mock_doc2]]
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config=config)))
@@ -272,7 +272,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.return_value = []
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ) as mock_loader_class:
             asyncio.run(collect_async(adapter.fetch_documents(config=config)))
@@ -291,7 +291,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.return_value = []
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ) as mock_loader_class:
             asyncio.run(collect_async(adapter.fetch_documents(config=config)))
@@ -309,7 +309,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.return_value = []
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ) as mock_loader_class:
             asyncio.run(collect_async(adapter.fetch_documents(config=config)))
@@ -331,7 +331,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.return_value = [mock_lc_doc]
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config=config)))
@@ -361,7 +361,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.return_value = [mock_doc1, mock_doc2, mock_doc3]
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config=config)))
@@ -383,7 +383,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.side_effect = [Exception("Crawl failed"), [mock_doc]]
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config=config)))
@@ -399,13 +399,13 @@ class TestWebPageSourceAdapter:
 
         # Mock the import to fail at module level
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             side_effect=ImportError("No module named 'langchain_community'"),
         ):
             # The adapter should raise DatasiftException when import fails
             with pytest.raises(DatasiftException) as exc_info:
                 asyncio.run(collect_async(adapter.fetch_documents(config=config)))
-            
+
             assert "LangChain community dependencies not installed" in str(exc_info.value)
 
     def test_test_connection_success(self):
@@ -501,11 +501,11 @@ class TestWebPageSourceAdapter:
     def test_test_connection_no_urls(self):
         """Test connection test with no URLs provided."""
         adapter = WebPageSourceAdapter()
-        
+
         # Create a mock config that bypasses validation
         mock_config = Mock(spec=WebPageSourceConfig)
         mock_config.urls = []
-        
+
         success, message = asyncio.run(adapter.test_connection(config=mock_config))
 
         assert success is False
@@ -528,7 +528,7 @@ class TestWebPageSourceAdapter:
         mock_loader.load.return_value = [mock_lc_doc]
 
         with patch(
-            "core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
+            "datasift.core.operators.ingest.adapters.outbound.sources.web.adapter.RecursiveUrlLoader",
             return_value=mock_loader,
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config=config)))

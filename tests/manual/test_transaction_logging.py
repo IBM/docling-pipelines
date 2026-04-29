@@ -14,11 +14,11 @@ Run this script to verify the implementation:
 import logging
 import sys
 
-from app.middleware.transaction_middleware import (
+from datasift.api.middleware.transaction_middleware import (
     get_transaction_id,
     set_transaction_id,
 )
-from common.util.infrastructure.logging import ConditionalFormatter
+from datasift.utils.infrastructure.logging import ConditionalFormatter
 
 
 def test_transaction_logging():
@@ -42,18 +42,14 @@ def test_transaction_logging():
     logger.info("This is a test message without transaction ID")
 
     # Test 2: Set transaction ID in context and log
-    print(
-        "\n2. Logging with transaction ID 'test-123' (should show transaction_ID: test-123):"
-    )
+    print("\n2. Logging with transaction ID 'test-123' (should show transaction_ID: test-123):")
     set_transaction_id("test-123")
     logger.info("This message should have transaction ID test-123")
     logger.warning("Warning message with transaction ID")
     logger.error("Error message with transaction ID")
 
     # Test 3: Change transaction ID in context
-    print(
-        "\n3. Logging with different transaction ID 'abc-456' (should show transaction_ID: abc-456):"
-    )
+    print("\n3. Logging with different transaction ID 'abc-456' (should show transaction_ID: abc-456):")
     set_transaction_id("abc-456")
     logger.info("This message should have transaction ID abc-456")
 
@@ -65,9 +61,7 @@ def test_transaction_logging():
 
     print("\n" + "=" * 80)
     print("All tests passed! Transaction IDs are being injected correctly.")
-    print(
-        "Note: ConditionalFormatter outputs structured JSON format with transaction_ID field."
-    )
+    print("Note: ConditionalFormatter outputs structured JSON format with transaction_ID field.")
     print("=" * 80)
 
 

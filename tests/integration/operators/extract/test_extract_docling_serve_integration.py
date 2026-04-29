@@ -40,16 +40,11 @@ import pytest
 import requests
 
 # Add the backend directory to the Python path
-backend_dir = (
-    Path(__file__).parent.parent.parent.parent.parent
-    / "src"
-    / "datasift_opensource"
-    / "backend"
-)
+backend_dir = Path(__file__).parent.parent.parent.parent.parent / "src" / "datasift_opensource" / "backend"
 sys.path.insert(0, str(backend_dir))
 
-from common.constants.operator_constants import OperatorConstants  # noqa: E402
-from core.operators.extract.extract_operator import ExtractOperator  # noqa: E402
+from datasift.core.constants.operator_constants import OperatorConstants  # noqa: E402
+from datasift.core.operators.extract.extract_operator import ExtractOperator  # noqa: E402
 
 
 def is_docling_serve_available(*, base_url: str = "http://0.0.0.0:5001") -> bool:
@@ -173,16 +168,12 @@ def create_input_table(*, file_paths: list[Path]) -> pa.Table:
     return pa.table(data)
 
 
-@pytest.mark.skip(
-    reason="Need to add a constant running docling-serve to enable these tests"
-)
+@pytest.mark.skip(reason="Need to add a constant running docling-serve to enable these tests")
 @pytest.mark.integration
 class TestDoclingServeBasicExtraction:
     """Test basic document extraction with docling-serve."""
 
-    def test_docling_serve_basic_extraction(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_basic_extraction(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """
         Test basic document extraction using docling-serve.
 
@@ -223,16 +214,12 @@ class TestDoclingServeBasicExtraction:
         assert metadata.get("failed_docs_count", 0) == 0, "Should have no failed documents"
 
 
-@pytest.mark.skip(
-    reason="Need to add a constant running docling-serve to enable these tests"
-)
+@pytest.mark.skip(reason="Need to add a constant running docling-serve to enable these tests")
 @pytest.mark.integration
 class TestDoclingServeOCR:
     """Test OCR-enabled extraction with docling-serve."""
 
-    def test_docling_serve_with_ocr_enabled(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_with_ocr_enabled(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """
         Test document extraction with OCR enabled.
 
@@ -266,9 +253,7 @@ class TestDoclingServeOCR:
         # Verify metadata
         assert metadata.get("processed_docs", 0) == 1
 
-    def test_docling_serve_with_ocr_disabled(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_with_ocr_disabled(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """
         Test document extraction with OCR disabled.
 
@@ -300,16 +285,12 @@ class TestDoclingServeOCR:
         assert metadata.get("processed_docs", 0) == 1
 
 
-@pytest.mark.skip(
-    reason="Need to add a constant running docling-serve to enable these tests"
-)
+@pytest.mark.skip(reason="Need to add a constant running docling-serve to enable these tests")
 @pytest.mark.integration
 class TestDoclingServeTableExtraction:
     """Test table extraction modes with docling-serve."""
 
-    def test_docling_serve_fast_table_mode(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_fast_table_mode(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """
         Test fast table extraction mode.
 
@@ -338,9 +319,7 @@ class TestDoclingServeTableExtraction:
         assert content is not None
         assert len(content) > 0
 
-    def test_docling_serve_accurate_table_mode(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_accurate_table_mode(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """
         Test accurate table extraction mode.
 
@@ -370,9 +349,7 @@ class TestDoclingServeTableExtraction:
         assert len(content) > 0
 
 
-@pytest.mark.skip(
-    reason="Need to add a constant running docling-serve to enable these tests"
-)
+@pytest.mark.skip(reason="Need to add a constant running docling-serve to enable these tests")
 @pytest.mark.integration
 class TestDoclingServeBatchProcessing:
     """Test batch processing of multiple documents."""
@@ -409,18 +386,14 @@ class TestDoclingServeBatchProcessing:
 
         # Verify unique doc_id_hash for each document
         doc_id_hashes = result_table["doc_id_hash"].to_pylist()
-        assert len(set(doc_id_hashes)) == len(multiple_pdf_paths), (
-            "Each document should have unique doc_id_hash"
-        )
+        assert len(set(doc_id_hashes)) == len(multiple_pdf_paths), "Each document should have unique doc_id_hash"
 
         # Verify metadata
         assert metadata.get("processed_docs", 0) == len(multiple_pdf_paths)
         assert metadata.get("failed_docs_count", 0) == 0
 
 
-@pytest.mark.skip(
-    reason="Need to add a constant running docling-serve to enable these tests"
-)
+@pytest.mark.skip(reason="Need to add a constant running docling-serve to enable these tests")
 @pytest.mark.integration
 class TestDoclingServeErrorHandling:
     """Test error handling scenarios."""
@@ -435,12 +408,14 @@ class TestDoclingServeErrorHandling:
         - Processing continues for valid files
         """
         # Create table with invalid binary content
-        invalid_table = pa.table({
-            OperatorConstants.Columns.ID: ["invalid_doc"],
-            OperatorConstants.Columns.NAME: ["invalid.pdf"],
-            OperatorConstants.Columns.PATH: ["/tmp/invalid.pdf"],
-            OperatorConstants.Columns.BINARY_CONTENT: [b"not a valid pdf content"],
-        })
+        invalid_table = pa.table(
+            {
+                OperatorConstants.Columns.ID: ["invalid_doc"],
+                OperatorConstants.Columns.NAME: ["invalid.pdf"],
+                OperatorConstants.Columns.PATH: ["/tmp/invalid.pdf"],
+                OperatorConstants.Columns.BINARY_CONTENT: [b"not a valid pdf content"],
+            }
+        )
 
         # Initialize operator
         operator = ExtractOperator(config=docling_serve_config)
@@ -454,16 +429,12 @@ class TestDoclingServeErrorHandling:
         assert metadata.get("failed_docs_count", 0) >= 0  # May fail or succeed depending on docling-serve
 
 
-@pytest.mark.skip(
-    reason="Need to add a constant running docling-serve to enable these tests"
-)
+@pytest.mark.skip(reason="Need to add a constant running docling-serve to enable these tests")
 @pytest.mark.integration
 class TestDoclingServeConfiguration:
     """Test various configuration options."""
 
-    def test_docling_serve_pdf_backend_dlparse_v4(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_pdf_backend_dlparse_v4(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """Test with dlparse_v4 PDF backend."""
         config = docling_serve_config.copy()
         config[OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND] = "dlparse_v4"
@@ -475,9 +446,7 @@ class TestDoclingServeConfiguration:
         assert result_tables[0].num_rows == 1
         assert metadata.get("processed_docs", 0) == 1
 
-    def test_docling_serve_pdf_backend_dlparse_v3(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_pdf_backend_dlparse_v3(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """Test with dlparse_v3 PDF backend."""
         config = docling_serve_config.copy()
         config[OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND] = "dlparse_v3"
@@ -489,9 +458,7 @@ class TestDoclingServeConfiguration:
         assert result_tables[0].num_rows == 1
         assert metadata.get("processed_docs", 0) == 1
 
-    def test_docling_serve_image_export_modes(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_image_export_modes(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """Test different image export modes."""
         for mode in ["embedded", "referenced", "none"]:
             config = docling_serve_config.copy()
@@ -504,9 +471,7 @@ class TestDoclingServeConfiguration:
             assert result_tables[0].num_rows == 1
             assert metadata.get("processed_docs", 0) == 1
 
-    def test_docling_serve_custom_timeout(
-        self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]
-    ):
+    def test_docling_serve_custom_timeout(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """Test with custom timeout value."""
         config = docling_serve_config.copy()
         config[OperatorConstants.Config.DOCLING_SERVE_TIMEOUT] = 600  # 10 minutes
@@ -517,5 +482,6 @@ class TestDoclingServeConfiguration:
 
         assert result_tables[0].num_rows == 1
         assert metadata.get("processed_docs", 0) == 1
+
 
 # Made with Bob

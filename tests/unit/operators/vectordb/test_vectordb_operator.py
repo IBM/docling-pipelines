@@ -3,14 +3,16 @@
 Unit tests for VectorDB operator with OpenSearch adapter
 """
 
-import pytest
-import pyarrow as pa
-import numpy as np
 from unittest.mock import MagicMock, patch
-from common.exceptions.datasift_exceptions import DatasiftException
-from core.operators.vectordb import VectorDBOperator
-from common.constants.operator_constants import OperatorConstants
-from common.util.infrastructure.config import get_opensearch_config
+
+import numpy as np
+import pyarrow as pa
+import pytest
+
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.vectordb import VectorDBOperator
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.utils.infrastructure.config import get_opensearch_config
 
 
 @pytest.fixture
@@ -22,13 +24,9 @@ def basic_config():
     config = {
         OperatorConstants.Config.PROVIDER: "opensearch",
         OperatorConstants.VectorDB.INDEX_NAME: "test_index",
-        OperatorConstants.VectorDB.VECTOR_DIMENSION: env_config.get(
-            OperatorConstants.VectorDB.VECTOR_DIMENSION, 384
-        ),
+        OperatorConstants.VectorDB.VECTOR_DIMENSION: env_config.get(OperatorConstants.VectorDB.VECTOR_DIMENSION, 384),
         OperatorConstants.VectorDB.CREATE_INDEX: True,
-        OperatorConstants.Columns.DOC_ID_COLUMN: env_config.get(
-            OperatorConstants.Columns.DOC_ID_COLUMN, "doc_id_hash"
-        ),
+        OperatorConstants.Columns.DOC_ID_COLUMN: env_config.get(OperatorConstants.Columns.DOC_ID_COLUMN, "doc_id_hash"),
         OperatorConstants.Columns.EMBEDDINGS_COLUMN: env_config.get(
             OperatorConstants.Columns.EMBEDDINGS_COLUMN, "embeddings"
         ),
@@ -57,9 +55,7 @@ def basic_config():
             "content": "text",
             "embeddings": "vector_embeddings",
         },
-        OperatorConstants.Config.PROVIDER_CONFIG: env_config.get(
-            OperatorConstants.Config.PROVIDER_CONFIG, {}
-        ),
+        OperatorConstants.Config.PROVIDER_CONFIG: env_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}),
     }
     return config
 
@@ -88,7 +84,7 @@ class TestVectorDBOperatorInitialization:
 
     def test_basic_initialization(self, basic_config):
         """Test basic operator initialization"""
-        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
+        with patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch"):
             operator = VectorDBOperator(basic_config)
             assert operator.index_name == "test_index"
             assert operator.provider == "opensearch"
@@ -111,20 +107,16 @@ class TestVectorDBOperatorInitialization:
         config = basic_config.copy()
         config["provider"] = "invalid_db"
 
-        with pytest.raises(
-            DatasiftException, match="Failed to initialize vector database adapter"
-        ):
+        with pytest.raises(DatasiftException, match="Failed to initialize vector database adapter"):
             VectorDBOperator(config)
 
 
 class TestBatchProcessing:
     """Test batch processing functionality through public interface"""
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
-    def test_transform_basic(
-        self, mock_bulk, mock_opensearch, basic_config, sample_table
-    ):
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    def test_transform_basic(self, mock_bulk, mock_opensearch, basic_config, sample_table):
         """Test basic transform operation"""
         mock_client = MagicMock()
         mock_client.indices.exists.return_value = True
@@ -141,7 +133,7 @@ class TestBatchProcessing:
         assert metadata["processed_docs"] == 3
         assert metadata["failed_docs_count"] == 0
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_transform_missing_doc_id_column(self, mock_opensearch, basic_config):
         """Test transform with missing doc_id column"""
         mock_client = MagicMock()
@@ -155,7 +147,7 @@ class TestBatchProcessing:
 
         assert metadata["node_status"] == "Failed"
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_transform_empty_table(self, mock_opensearch, basic_config):
         """Test transform with empty table"""
         mock_client = MagicMock()
@@ -174,11 +166,9 @@ class TestBatchProcessing:
 class TestChunkedEmbeddings:
     """Test chunked embeddings produce correct OpenSearch documents"""
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
-    def test_chunks_store_chunk_specific_text(
-        self, mock_bulk, mock_opensearch, basic_config
-    ):
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    def test_chunks_store_chunk_specific_text(self, mock_bulk, mock_opensearch, basic_config):
         """Verify OpenSearch documents contain chunk-specific text, not full document content"""
         # Real scenario: 2 documents with 3 chunks each = 6 total chunks
         data = {
@@ -239,7 +229,7 @@ class TestChunkedEmbeddings:
 class TestQueryCapabilities:
     """Test query and delete capabilities through public interface"""
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_query_by_doc_names(self, mock_opensearch, basic_config):
         """Test querying documents by names"""
         mock_client = MagicMock()
@@ -261,8 +251,8 @@ class TestQueryCapabilities:
         assert docs[0]["name"] == "doc1"
         assert docs[1]["name"] == "doc2"
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
-    @patch("core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_batch_processor.helpers.bulk")
     def test_delete_documents_by_ids(self, mock_bulk, mock_opensearch, basic_config):
         """Test deleting documents by IDs"""
         mock_client = MagicMock()
@@ -276,7 +266,7 @@ class TestQueryCapabilities:
         assert success == 2
         assert failed == 0
 
-    @patch("core.operators.vectordb.opensearch_client.OpenSearch")
+    @patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch")
     def test_get_document_count(self, mock_opensearch, basic_config):
         """Test getting document count"""
         mock_client = MagicMock()
@@ -307,7 +297,7 @@ class TestMetadata:
             "algorithm": "hnsw",
         }
 
-        with patch("core.operators.vectordb.opensearch_client.OpenSearch"):
+        with patch("datasift.core.operators.vectordb.opensearch_client.OpenSearch"):
             operator = VectorDBOperator(config)
             metadata = operator.get_metadata()
 

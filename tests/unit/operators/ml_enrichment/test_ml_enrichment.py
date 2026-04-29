@@ -2,14 +2,14 @@
 Unit tests for ML Enrichment Operator
 """
 
-import pytest
 import pyarrow as pa
+import pytest
 
-from src.datasift_opensource.backend.common.constants import (
-    OperatorConstants,
+from datasift.core.constants import (
     Metrics,
+    OperatorConstants,
 )
-from src.datasift_opensource.backend.core.operators.quality.ml_enrichment import (
+from datasift.core.operators.quality.ml_enrichment import (
     MLEnrichmentOperator,
 )
 
@@ -119,9 +119,7 @@ Numbers: 1234567890""",
         operator = MLEnrichmentOperator(config)
 
         assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        assert (
-            operator.lang_column == OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-        )
+        assert operator.lang_column == OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
         assert operator.output_column_prefix == ""
 
     def test_operator_metadata(self, sample_config):
@@ -130,18 +128,9 @@ Numbers: 1234567890""",
         metadata = operator.get_metadata()
 
         assert metadata[OperatorConstants.Misc.LABEL] == "ML Text Enrichment"
-        assert (
-            OperatorConstants.Columns.DOC_COLUMN
-            in metadata[OperatorConstants.Config.ATTRIBUTES]
-        )
-        assert (
-            OperatorConstants.Columns.LANG_COLUMN
-            in metadata[OperatorConstants.Config.ATTRIBUTES]
-        )
-        assert (
-            OperatorConstants.Columns.OUTPUT_COLUMN_PREFIX
-            in metadata[OperatorConstants.Config.ATTRIBUTES]
-        )
+        assert OperatorConstants.Columns.DOC_COLUMN in metadata[OperatorConstants.Config.ATTRIBUTES]
+        assert OperatorConstants.Columns.LANG_COLUMN in metadata[OperatorConstants.Config.ATTRIBUTES]
+        assert OperatorConstants.Columns.OUTPUT_COLUMN_PREFIX in metadata[OperatorConstants.Config.ATTRIBUTES]
         assert OperatorConstants.Config.FEATURES in metadata
         assert metadata[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is True
 
@@ -294,10 +283,7 @@ Numbers: 1234567890""",
 
         # Check that error column is in metadata (without prefix)
         assert "processing_error" in features
-        assert (
-            features["processing_error"][OperatorConstants.Misc.NAME]
-            == "Processing Error"
-        )
+        assert features["processing_error"][OperatorConstants.Misc.NAME] == "Processing Error"
 
     def test_custom_column_prefix(self):
         """Test custom output column prefix"""
@@ -362,11 +348,9 @@ Numbers: 1234567890""",
         operator = MLEnrichmentOperator(sample_config)
         metadata = operator.get_metadata()
 
-        from core.operators.abstract_operator import OperatorCategory
+        from datasift.core.operators.abstract_operator import OperatorCategory
 
-        assert (
-            metadata[OperatorConstants.Misc.CATEGORY] == OperatorCategory.Quality.value
-        )
+        assert metadata[OperatorConstants.Misc.CATEGORY] == OperatorCategory.Quality.value
 
     def test_metadata_counts(self, sample_config, sample_table):
         """Test that metadata contains correct document counts"""
@@ -488,9 +472,7 @@ Numbers: 1234567890""",
         """Test transform with optional filename parameter"""
         operator = MLEnrichmentOperator(sample_config)
 
-        result_tables, metadata = operator.transform(
-            sample_table, file_name="test_file.txt"
-        )
+        result_tables, metadata = operator.transform(sample_table, file_name="test_file.txt")
 
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == sample_table.num_rows

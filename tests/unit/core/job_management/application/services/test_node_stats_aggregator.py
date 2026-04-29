@@ -8,10 +8,10 @@ Tests cover:
 - Edge cases and error handling
 """
 
-from core.job_management.application.services.node_stats_aggregator import (
+from datasift.core.job_management.application.services.node_stats_aggregator import (
     NodeStatsAggregator,
 )
-from core.job_management.domain.models import NodeStats
+from datasift.core.job_management.domain.models import NodeStats
 
 # Valid UUIDs for testing
 NODE_1_ID = "12345678-1234-1234-1234-123456789abc"
@@ -277,11 +277,7 @@ class TestEdgeCases:
         """get_batch_node_stats should pass through to store."""
         store = MockJobStatsStore()
         store.batch_node_stats_data = {
-            NODE_1_ID: {
-                BATCH_1_ID: NodeStats(
-                    node_id=NODE_1_ID, name="Test", batch_id=BATCH_1_ID, batch_num=0
-                )
-            }
+            NODE_1_ID: {BATCH_1_ID: NodeStats(node_id=NODE_1_ID, name="Test", batch_id=BATCH_1_ID, batch_num=0)}
         }
 
         aggregator = NodeStatsAggregator(job_stats_store=store)

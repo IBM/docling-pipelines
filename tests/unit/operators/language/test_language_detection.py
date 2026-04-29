@@ -12,32 +12,32 @@ import pyarrow as pa
 import pytest
 
 # Import to trigger adapter registration
-import core.operators.quality.language_detection.adapters.outbound.langdetect_adapter  # noqa: F401
-from common.constants.constants import (
+import datasift.core.operators.quality.language_detection.adapters.outbound.langdetect_adapter  # noqa: F401
+from datasift.core.constants.constants import (
     ExecutionStatus,
     Metrics,
 )
-from common.constants.operator_constants import (
+from datasift.core.constants.operator_constants import (
     OperatorConstants,
 )
-from common.exceptions.datasift_exceptions import (
-    ExternalServiceError,
+from datasift.core.operators.quality.language_detection.adapters.outbound.factories.language_adapter_factory import (
+    LanguageAdapterFactory,
 )
-from core.operators.quality.language_detection.lang_id import (
+from datasift.core.operators.quality.language_detection.adapters.outbound.langdetect_adapter import (
+    LangdetectAdapter,
+)
+from datasift.core.operators.quality.language_detection.domain.models import (
+    LanguageDetectionResult,
+)
+from datasift.core.operators.quality.language_detection.lang_id import (
     DEFAULT_LANGUAGE_PROVIDER,
     LanguageDetect,
 )
-from core.operators.quality.language_detection.adapters.outbound.factories.language_adapter_factory import (
-    LanguageAdapterFactory,
-)
-from core.operators.quality.language_detection.adapters.outbound.langdetect_adapter import (
-    LangdetectAdapter,
-)
-from core.operators.quality.language_detection.domain.models import (
-    LanguageDetectionResult,
-)
-from core.operators.quality.language_detection.ports.outbound.language_service import (
+from datasift.core.operators.quality.language_detection.ports.outbound.language_service import (
     LanguageServicePort,
+)
+from datasift.exceptions.datasift_exceptions import (
+    ExternalServiceError,
 )
 
 
@@ -258,18 +258,9 @@ class TestLanguageDetectOperator:
         metadata = operator.get_metadata()
 
         assert metadata[OperatorConstants.Misc.LABEL] == "Language Annotator"
-        assert (
-            OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE
-            in metadata[OperatorConstants.Config.ATTRIBUTES]
-        )
-        assert (
-            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-            in metadata[OperatorConstants.Config.FEATURES]
-        )
-        assert (
-            OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
-            in metadata[OperatorConstants.Config.FEATURES]
-        )
+        assert OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE in metadata[OperatorConstants.Config.ATTRIBUTES]
+        assert OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in metadata[OperatorConstants.Config.FEATURES]
+        assert OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY in metadata[OperatorConstants.Config.FEATURES]
 
     def test_operator_transform_basic(self, sample_config, sample_table):
         """Test basic language detection transformation"""
@@ -280,14 +271,8 @@ class TestLanguageDetectOperator:
         result_table = result_tables[0]
 
         # Check that language columns were added
-        assert (
-            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-            in result_table.column_names
-        )
-        assert (
-            OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
-            in result_table.column_names
-        )
+        assert OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in result_table.column_names
+        assert OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY in result_table.column_names
 
         # Check that all rows were processed
         assert result_table.num_rows == sample_table.num_rows
@@ -303,14 +288,10 @@ class TestLanguageDetectOperator:
         result_table = result_tables[0]
 
         # Verify language codes are detected
-        languages = result_table[
-            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-        ].to_pylist()
+        languages = result_table[OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY].to_pylist()
 
         assert all(isinstance(lang, str) for lang in languages)
-        assert all(
-            len(lang) >= 2 for lang in languages
-        )  # ISO codes are at least 2 chars
+        assert all(len(lang) >= 2 for lang in languages)  # ISO codes are at least 2 chars
 
         # First document should be English
         assert languages[0] == "en"
@@ -322,9 +303,7 @@ class TestLanguageDetectOperator:
         result_table = result_tables[0]
 
         # Verify confidence scores are between 0 and 1
-        scores = result_table[
-            OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY
-        ].to_pylist()
+        scores = result_table[OperatorConstants.Columns.LANGUAGE_SCORE_COLUMN_KEY].to_pylist()
 
         assert all(isinstance(score, float) for score in scores)
         assert all(0.0 <= score <= 1.0 for score in scores)
@@ -363,10 +342,7 @@ class TestLanguageDetectOperator:
         # Empty content should be filtered out
         assert result_table.num_rows < table.num_rows
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] > 0
-        assert (
-            metadata[Metrics.External.NODE_STATUS]
-            == ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        )
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
     def test_operator_no_filter_marks_unknown(self):
         """Test that without filtering, unknown languages are marked as UNKNOWN"""
@@ -402,16 +378,11 @@ class TestLanguageDetectOperator:
         assert result_table.num_rows == table.num_rows
 
         # Check that empty content is marked as UNKNOWN
-        languages = result_table[
-            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-        ].to_pylist()
+        languages = result_table[OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY].to_pylist()
         assert "UNKNOWN" in languages
 
         # Check warning status
-        assert (
-            metadata[Metrics.External.NODE_STATUS]
-            == ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-        )
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_WARNINGS.value
 
     def test_operator_required_features(self, sample_config):
         """Test that required features are correctly specified"""
@@ -463,10 +434,7 @@ class TestLanguageDetectOperator:
         result_table = result_tables[0]
 
         assert result_table.num_rows == 1
-        assert (
-            OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY
-            in result_table.column_names
-        )
+        assert OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY in result_table.column_names
 
 
 class TestLanguageDetectionErrorHandling:
@@ -496,9 +464,7 @@ class TestLanguageDetectionErrorHandling:
             pytest.fail("Should have raised ValueError")
         except ValueError as e:
             error_msg = str(e)
-            assert (
-                "Available adapters:" in error_msg or "available" in error_msg.lower()
-            )
+            assert "Available adapters:" in error_msg or "available" in error_msg.lower()
 
     def test_langdetect_adapter_handles_detection_failure(self):
         """Test that LangdetectAdapter properly wraps detection failures"""

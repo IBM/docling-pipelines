@@ -6,11 +6,11 @@ Requires .env file with connection details
 
 import sys
 from pathlib import Path
+
 import pytest
-
 from opensearchpy import OpenSearch
-from common.util.infrastructure.config import get_env_var, get_env_bool, get_env_int
 
+from datasift.utils.infrastructure.config import get_env_bool, get_env_int, get_env_var
 
 # Check if .env file exists
 env_file = Path(".env")
@@ -94,7 +94,7 @@ def test_jwt_token_from_environment():
     test_token = "test-jwt-token-for-testing-only"  # pragma: allowlist secret
     os.environ["OPENSEARCH_JWT_TOKEN"] = test_token
 
-    from common.util.infrastructure.config import get_opensearch_config
+    from datasift.utils.infrastructure.config import get_opensearch_config
 
     config = get_opensearch_config()
 

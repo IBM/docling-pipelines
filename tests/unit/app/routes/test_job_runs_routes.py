@@ -5,10 +5,10 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from app.dependencies import get_job_management_service, get_job_stats_service
-from app.main import app
-from common.exceptions.datasift_exceptions import JobRunOperationFailedException
-from common.constants.constants import ExecutionStatus
+from datasift.api.dependencies import get_job_management_service, get_job_stats_service
+from datasift.api.main import app
+from datasift.core.constants.constants import ExecutionStatus
+from datasift.exceptions.datasift_exceptions import JobRunOperationFailedException
 
 
 @pytest.fixture
@@ -37,13 +37,9 @@ def mock_job_stats_service():
 class TestCreateJobRun:
     """Tests for create_job_run endpoint."""
 
-    def test_create_job_run_enterprise_format(
-        self, client, mock_job_management_service
-    ):
+    def test_create_job_run_enterprise_format(self, client, mock_job_management_service):
         """Test creating job run with enterprise format."""
-        mock_job_management_service.create_job_run_from_request.return_value = (
-            "33333333-3333-3333-3333-333333333333"
-        )
+        mock_job_management_service.create_job_run_from_request.return_value = "33333333-3333-3333-3333-333333333333"
 
         response = client.post(
             "/api/v1/job_runs",
@@ -70,9 +66,7 @@ class TestCreateJobRun:
 
     def test_create_job_run_legacy_format(self, client, mock_job_management_service):
         """Test creating job run with legacy format (backward compatibility)."""
-        mock_job_management_service.create_job_run_from_request.return_value = (
-            "44444444-4444-4444-4444-444444444444"
-        )
+        mock_job_management_service.create_job_run_from_request.return_value = "44444444-4444-4444-4444-444444444444"
 
         response = client.post(
             "/api/v1/job_runs",
@@ -104,10 +98,10 @@ class TestCreateJobRun:
 
     def test_create_job_run_service_error(self, client, mock_job_management_service):
         """Test handling service errors during job run creation."""
-        from common.exceptions.datasift_exceptions import JobRunOperationFailedException
+        from datasift.exceptions.datasift_exceptions import JobRunOperationFailedException
 
-        mock_job_management_service.create_job_run_from_request.side_effect = (
-            JobRunOperationFailedException("Database error")
+        mock_job_management_service.create_job_run_from_request.side_effect = JobRunOperationFailedException(
+            "Database error"
         )
 
         response = client.post(
@@ -167,9 +161,7 @@ class TestListJobRuns:
             "total": 0,
         }
 
-        response = client.get(
-            "/api/v1/job_runs?job_id=66666666-6666-6666-6666-666666666666&status=Completed&limit=50"
-        )
+        response = client.get("/api/v1/job_runs?job_id=66666666-6666-6666-6666-666666666666&status=Completed&limit=50")
 
         assert response.status_code == 200
         mock_job_management_service.list_job_runs.assert_called_once_with(
@@ -180,9 +172,7 @@ class TestListJobRuns:
 
     def test_list_job_runs_service_error(self, client, mock_job_management_service):
         """Test handling service errors during listing."""
-        mock_job_management_service.list_job_runs.side_effect = (
-            JobRunOperationFailedException("Database error")
-        )
+        mock_job_management_service.list_job_runs.side_effect = JobRunOperationFailedException("Database error")
 
         response = client.get("/api/v1/job_runs")
 
@@ -241,9 +231,7 @@ class TestGetJobRunStatus:
             ],
         }
 
-        response = client.get(
-            "/api/v1/job_runs/12345678-1234-1234-1234-123456789abc?include_logs=true"
-        )
+        response = client.get("/api/v1/job_runs/12345678-1234-1234-1234-123456789abc?include_logs=true")
 
         assert response.status_code == 200
         data = response.json()
@@ -256,13 +244,11 @@ class TestGetJobRunStatus:
 
     def test_get_job_run_status_not_found(self, client, mock_job_stats_service):
         """Test getting status for non-existent job run."""
-        from common.exceptions.datasift_exceptions import JobRunNotFoundException
+        from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
 
-        mock_job_stats_service.get_formatted_job_stats.side_effect = (
-            JobRunNotFoundException(
-                "Job run not found: 00000000-0000-0000-0000-000000000000",
-                job_run_id="00000000-0000-0000-0000-000000000000",
-            )
+        mock_job_stats_service.get_formatted_job_stats.side_effect = JobRunNotFoundException(
+            "Job run not found: 00000000-0000-0000-0000-000000000000",
+            job_run_id="00000000-0000-0000-0000-000000000000",
         )
 
         response = client.get("/api/v1/job_runs/00000000-0000-0000-0000-000000000000")
@@ -272,9 +258,7 @@ class TestGetJobRunStatus:
 
     def test_get_job_run_status_service_error(self, client, mock_job_stats_service):
         """Test handling service errors during status retrieval."""
-        mock_job_stats_service.get_formatted_job_stats.side_effect = (
-            JobRunOperationFailedException("Database error")
-        )
+        mock_job_stats_service.get_formatted_job_stats.side_effect = JobRunOperationFailedException("Database error")
 
         response = client.get("/api/v1/job_runs/12345678-1234-1234-1234-123456789abc")
 
@@ -287,9 +271,7 @@ class TestCancelJobRun:
 
     def test_cancel_job_run_success(self, client, mock_job_management_service):
         """Test canceling a job run successfully."""
-        response = client.post(
-            "/api/v1/job_runs/12345678-1234-1234-1234-123456789abc/cancel"
-        )
+        response = client.post("/api/v1/job_runs/12345678-1234-1234-1234-123456789abc/cancel")
 
         assert response.status_code == 202
         data = response.json()
@@ -299,31 +281,23 @@ class TestCancelJobRun:
 
     def test_cancel_job_run_not_found(self, client, mock_job_management_service):
         """Test cancelling non-existent job run."""
-        from common.exceptions.datasift_exceptions import JobRunNotFoundException
+        from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
 
-        mock_job_management_service.cancel_job_run.side_effect = (
-            JobRunNotFoundException(
-                "Job run not found: 00000000-0000-0000-0000-000000000000",
-                job_run_id="00000000-0000-0000-0000-000000000000",
-            )
+        mock_job_management_service.cancel_job_run.side_effect = JobRunNotFoundException(
+            "Job run not found: 00000000-0000-0000-0000-000000000000",
+            job_run_id="00000000-0000-0000-0000-000000000000",
         )
 
-        response = client.post(
-            "/api/v1/job_runs/00000000-0000-0000-0000-000000000000/cancel"
-        )
+        response = client.post("/api/v1/job_runs/00000000-0000-0000-0000-000000000000/cancel")
 
         assert response.status_code == 404
         assert "not found" in response.text.lower()
 
     def test_cancel_job_run_service_error(self, client, mock_job_management_service):
         """Test handling service errors during cancellation."""
-        mock_job_management_service.cancel_job_run.side_effect = (
-            JobRunOperationFailedException("Cancellation failed")
-        )
+        mock_job_management_service.cancel_job_run.side_effect = JobRunOperationFailedException("Cancellation failed")
 
-        response = client.post(
-            "/api/v1/job_runs/12345678-1234-1234-1234-123456789abc/cancel"
-        )
+        response = client.post("/api/v1/job_runs/12345678-1234-1234-1234-123456789abc/cancel")
 
         assert response.status_code == 500
         assert "failed" in response.text.lower()
@@ -336,40 +310,30 @@ class TestDeleteJobRun:
         """Test deleting job run successfully."""
         mock_job_management_service.delete_job_run.return_value = None
 
-        response = client.delete(
-            "/api/v1/job_runs/12345678-1234-1234-1234-123456789abc"
-        )
+        response = client.delete("/api/v1/job_runs/12345678-1234-1234-1234-123456789abc")
 
         assert response.status_code == 204
         assert response.content == b""
 
     def test_delete_job_run_not_found(self, client, mock_job_management_service):
         """Test deleting non-existent job run."""
-        from common.exceptions.datasift_exceptions import JobRunNotFoundException
+        from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
 
-        mock_job_management_service.delete_job_run.side_effect = (
-            JobRunNotFoundException(
-                "Job run not found: 00000000-0000-0000-0000-000000000000",
-                job_run_id="00000000-0000-0000-0000-000000000000",
-            )
+        mock_job_management_service.delete_job_run.side_effect = JobRunNotFoundException(
+            "Job run not found: 00000000-0000-0000-0000-000000000000",
+            job_run_id="00000000-0000-0000-0000-000000000000",
         )
 
-        response = client.delete(
-            "/api/v1/job_runs/00000000-0000-0000-0000-000000000000"
-        )
+        response = client.delete("/api/v1/job_runs/00000000-0000-0000-0000-000000000000")
 
         assert response.status_code == 404
         assert "not found" in response.text.lower()
 
     def test_delete_job_run_service_error(self, client, mock_job_management_service):
         """Test handling service errors during deletion."""
-        mock_job_management_service.delete_job_run.side_effect = (
-            JobRunOperationFailedException("Deletion failed")
-        )
+        mock_job_management_service.delete_job_run.side_effect = JobRunOperationFailedException("Deletion failed")
 
-        response = client.delete(
-            "/api/v1/job_runs/12345678-1234-1234-1234-123456789abc"
-        )
+        response = client.delete("/api/v1/job_runs/12345678-1234-1234-1234-123456789abc")
 
         assert response.status_code == 500
         assert "failed" in response.text.lower()
@@ -378,38 +342,22 @@ class TestDeleteJobRun:
 class TestErrorHandling:
     """Tests for error handling consistency across routes."""
 
-    def test_all_routes_return_error_response_format(
-        self, client, mock_job_management_service, mock_job_stats_service
-    ):
+    def test_all_routes_return_error_response_format(self, client, mock_job_management_service, mock_job_stats_service):
         """Test that all routes return consistent error format."""
         # Mock for routes using JobManagementService
-        mock_job_management_service.create_job_run_from_request.side_effect = (
-            JobRunOperationFailedException("Error")
-        )
-        mock_job_management_service.list_job_runs.side_effect = (
-            JobRunOperationFailedException("Error")
-        )
-        mock_job_management_service.cancel_job_run.side_effect = (
-            JobRunOperationFailedException("Error")
-        )
-        mock_job_management_service.delete_job_run.side_effect = (
-            JobRunOperationFailedException("Error")
-        )
+        mock_job_management_service.create_job_run_from_request.side_effect = JobRunOperationFailedException("Error")
+        mock_job_management_service.list_job_runs.side_effect = JobRunOperationFailedException("Error")
+        mock_job_management_service.cancel_job_run.side_effect = JobRunOperationFailedException("Error")
+        mock_job_management_service.delete_job_run.side_effect = JobRunOperationFailedException("Error")
 
         # Mock for routes using JobStatsService
-        mock_job_stats_service.get_formatted_job_stats.side_effect = (
-            JobRunOperationFailedException("Error")
-        )
+        mock_job_stats_service.get_formatted_job_stats.side_effect = JobRunOperationFailedException("Error")
 
         endpoints = [
             (
                 "POST",
                 "/api/v1/job_runs",
-                {
-                    "entity": {
-                        "job": {"asset_ref": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}
-                    }
-                },
+                {"entity": {"job": {"asset_ref": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"}}},
             ),
             ("GET", "/api/v1/job_runs/55555555-5555-5555-5555-555555555555", None),
             (

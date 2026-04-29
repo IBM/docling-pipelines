@@ -1,16 +1,17 @@
 """Unit tests for flow_validator module."""
 
-import pytest
 from unittest.mock import Mock, patch
 
-from common.constants.constants import DatasiftConstants
-from common.constants.operator_constants import OperatorConstants
-from common.exceptions.datasift_exceptions import (
+import pytest
+
+from datasift.core.constants.constants import DatasiftConstants
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.abstract_operator import OperatorCategory
+from datasift.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
+from datasift.exceptions.datasift_exceptions import (
     FlowValidationException,
 )
-from common.exceptions.error_messages import ValidationCodeMessages
-from core.operators.abstract_operator import OperatorCategory
-from core.orchestrator.flow_validator import FlowValidator, ValidateStepResults
+from datasift.exceptions.error_messages import ValidationCodeMessages
 
 
 class TestValidateStepResults:
@@ -50,9 +51,7 @@ class TestFlowValidator:
         validator = FlowValidator(mock_orchestrator)
 
         flow_def = {
-            OperatorConstants.Config.GLOBAL_CONFIG: {
-                OperatorConstants.Config.DISABLE_VALIDATION: True
-            },
+            OperatorConstants.Config.GLOBAL_CONFIG: {OperatorConstants.Config.DISABLE_VALIDATION: True},
             DatasiftConstants.DAG: [],
         }
 
@@ -73,7 +72,7 @@ class TestFlowValidator:
 
         assert len(exc_info.value.errors) > 0
 
-    @patch("core.orchestrator.flow_validator.clean_up_prefect_home")
+    @patch("datasift.core.orchestration.flow_validator.clean_up_prefect_home")
     def test_validate_dag_empty_dag(self, mock_cleanup):
         """Test validation with empty DAG."""
         mock_orchestrator = Mock()
@@ -88,15 +87,13 @@ class TestFlowValidator:
 
         assert len(exc_info.value.errors) > 0
 
-    @patch("core.orchestrator.flow_validator.clean_up_prefect_home")
+    @patch("datasift.core.orchestration.flow_validator.clean_up_prefect_home")
     def test_validate_dag_unnamed_operators(self, mock_cleanup):
         """Test validation with unnamed operators."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
         mock_orchestrator.prefect_executor = Mock()
-        mock_orchestrator.prefect_executor.build_non_execute_flow = Mock(
-            return_value=Mock()
-        )
+        mock_orchestrator.prefect_executor.build_non_execute_flow = Mock(return_value=Mock())
 
         validator = FlowValidator(mock_orchestrator)
 
@@ -116,15 +113,13 @@ class TestFlowValidator:
         # Should have warnings about unnamed operators
         assert len(exc_info.value.warnings) > 0 or len(exc_info.value.errors) > 0
 
-    @patch("core.orchestrator.flow_validator.clean_up_prefect_home")
+    @patch("datasift.core.orchestration.flow_validator.clean_up_prefect_home")
     def test_validate_dag_duplicate_names(self, mock_cleanup):
         """Test validation with duplicate operator names."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
         mock_orchestrator.prefect_executor = Mock()
-        mock_orchestrator.prefect_executor.build_non_execute_flow = Mock(
-            return_value=Mock()
-        )
+        mock_orchestrator.prefect_executor.build_non_execute_flow = Mock(return_value=Mock())
 
         validator = FlowValidator(mock_orchestrator)
 
@@ -183,9 +178,7 @@ class TestFlowValidator:
         validate_results = ValidateStepResults({}, [], [])
 
         with patch.object(validator, "validate_operator_category") as mock_validate:
-            validator.validate_first_operator(
-                dag=dag, global_config={}, validate_results=validate_results
-            )
+            validator.validate_first_operator(dag=dag, global_config={}, validate_results=validate_results)
 
             mock_validate.assert_called_once()
 
@@ -275,9 +268,7 @@ class TestFlowValidator:
         validate_results = ValidateStepResults({}, [], [])
 
         # Should not add errors for connected graph
-        validator.validate_disjoint_operators(
-            dag=dag, validate_results=validate_results
-        )
+        validator.validate_disjoint_operators(dag=dag, validate_results=validate_results)
 
         assert len(validate_results.errors) == 0
 
@@ -295,9 +286,7 @@ class TestFlowValidator:
 
         validate_results = ValidateStepResults({}, [], [])
 
-        validator.validate_disjoint_operators(
-            dag=dag, validate_results=validate_results
-        )
+        validator.validate_disjoint_operators(dag=dag, validate_results=validate_results)
 
         # Should add error for disconnected graph
         assert len(validate_results.errors) > 0
@@ -319,9 +308,7 @@ class TestFlowValidator:
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
 
-            result = validator.check_duplicate_extract_operators(
-                sequence=sequence, global_config={}, errors=errors
-            )
+            result = validator.check_duplicate_extract_operators(sequence=sequence, global_config={}, errors=errors)
 
             assert result == 2
             assert len(errors) > 0  # Should have error for multiple extracts
@@ -362,7 +349,7 @@ class TestFlowValidator:
         with patch.object(validator, "get_operator_category") as mock_get_category:
             mock_get_category.return_value = OperatorCategory.Extract
 
-            from common.exceptions.error_messages import ValidationMessage
+            from datasift.exceptions.error_messages import ValidationMessage
 
             validator.validate_operator_category(
                 op_def=op_def,
@@ -390,10 +377,7 @@ class TestFlowValidator:
 
         # Verify that an alert was added for missing ID
         assert len(alerts) > 0
-        assert any(
-            "MISSING_NODE_ID" in str(alert) or "missing" in str(alert).lower()
-            for alert in alerts
-        )
+        assert any("MISSING_NODE_ID" in str(alert) or "missing" in str(alert).lower() for alert in alerts)
 
     def test_get_operator_category_missing_name(self):
         """Test getting operator category with missing name."""
@@ -411,10 +395,7 @@ class TestFlowValidator:
 
         # Verify that an alert was added for missing name
         assert len(alerts) > 0
-        assert any(
-            "MISSING_NODE_NAME" in str(alert) or "name" in str(alert).lower()
-            for alert in alerts
-        )
+        assert any("MISSING_NODE_NAME" in str(alert) or "name" in str(alert).lower() for alert in alerts)
 
     def test_get_operator_category_success(self):
         """Test successfully getting operator category."""
@@ -436,9 +417,7 @@ class TestFlowValidator:
         }
         alerts = []
 
-        result = validator.get_operator_category(
-            op_def=op_def, global_config={}, alerts=alerts
-        )
+        result = validator.get_operator_category(op_def=op_def, global_config={}, alerts=alerts)
 
         assert result == OperatorCategory.Ingest
 
@@ -453,10 +432,8 @@ class TestFlowValidator:
         messages = [Mock(), Mock()]
         alerts = []
 
-        with patch("core.orchestrator.flow_validator.add_validation_alert") as mock_add:
-            validator.create_validation_alerts(
-                op_def=op_def, messages=messages, alerts=alerts
-            )
+        with patch("datasift.core.orchestration.flow_validator.add_validation_alert") as mock_add:
+            validator.create_validation_alerts(op_def=op_def, messages=messages, alerts=alerts)
 
             assert mock_add.call_count == 2
 
@@ -507,7 +484,7 @@ class TestFlowValidatorIntegration:
     @pytest.fixture
     def orchestrator(self):
         """Create orchestrator instance for testing."""
-        from core.orchestrator.orchestrator_factory import OrchestratorFactory
+        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
 
         orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
         orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
@@ -518,9 +495,7 @@ class TestFlowValidatorIntegration:
         """Create flow validator instance."""
         return FlowValidator(orchestrator=orchestrator)
 
-    def test_valid_simple_flow_passes_validation(
-        self, validator, fixtures_invoices_dir
-    ):
+    def test_valid_simple_flow_passes_validation(self, validator, fixtures_invoices_dir):
         """Test that a valid simple flow passes validation without errors."""
         flow_def = {
             "dag": [
@@ -587,10 +562,9 @@ class TestFlowValidatorIntegration:
             validator.validate_dag(flow_def=flow_def, global_config={})
 
         errors = exc_info.value.errors or []
-        assert any(
-            ValidationCodeMessages.MISSING_FEATURES.name in str(error.message_code)
-            for error in errors
-        ), "Expected MISSING_FEATURES error not found"
+        assert any(ValidationCodeMessages.MISSING_FEATURES.name in str(error.message_code) for error in errors), (
+            "Expected MISSING_FEATURES error not found"
+        )
 
     def test_last_operator_not_vectordb_warns(self, validator, fixtures_invoices_dir):
         """Test that flow where last operator is not VectorDB generates warning."""
@@ -628,9 +602,7 @@ class TestFlowValidatorIntegration:
 
         warnings = exc_info.value.warnings or []
         assert any(
-            ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name
-            in str(warning.message_code)
-            for warning in warnings
+            ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name in str(warning.message_code) for warning in warnings
         ), "Expected GENERATE_OUTPUT_MISSING warning not found"
 
     def test_first_operator_not_ingest_fails(self, validator, fixtures_invoices_dir):
@@ -677,9 +649,7 @@ class TestFlowValidatorIntegration:
 
         errors = exc_info.value.errors or []
         assert any(
-            ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.name
-            in str(error.message_code)
-            for error in errors
+            ValidationCodeMessages.INGEST_OPERATOR_MISPLACED.name in str(error.message_code) for error in errors
         ), "Expected INGEST_OPERATOR_MISPLACED error not found"
 
     def test_integration_empty_dag_fails(self, validator):
@@ -690,14 +660,11 @@ class TestFlowValidatorIntegration:
             validator.validate_dag(flow_def=flow_def, global_config={})
 
         errors = exc_info.value.errors or []
-        assert any(
-            ValidationCodeMessages.DAG_PIPELINE_MISSING.name in str(error.message_code)
-            for error in errors
-        ), "Expected DAG_PIPELINE_MISSING error not found"
+        assert any(ValidationCodeMessages.DAG_PIPELINE_MISSING.name in str(error.message_code) for error in errors), (
+            "Expected DAG_PIPELINE_MISSING error not found"
+        )
 
-    def test_integration_duplicate_operator_names_fails(
-        self, validator, fixtures_invoices_dir
-    ):
+    def test_integration_duplicate_operator_names_fails(self, validator, fixtures_invoices_dir):
         """Test that duplicate operator names fail validation."""
         flow_def = {
             "dag": [
@@ -724,15 +691,11 @@ class TestFlowValidatorIntegration:
             validator.validate_dag(flow_def=flow_def, global_config={})
 
         errors = exc_info.value.errors or []
-        assert any(
-            ValidationCodeMessages.OPERATOR_NAME_REPEATED.name
-            in str(error.message_code)
-            for error in errors
-        ), "Expected OPERATOR_NAME_REPEATED error not found"
+        assert any(ValidationCodeMessages.OPERATOR_NAME_REPEATED.name in str(error.message_code) for error in errors), (
+            "Expected OPERATOR_NAME_REPEATED error not found"
+        )
 
-    def test_integration_disjoint_operators_fails(
-        self, validator, fixtures_invoices_dir
-    ):
+    def test_integration_disjoint_operators_fails(self, validator, fixtures_invoices_dir):
         """Test that disjoint operators fail validation."""
         flow_def = {
             "dag": [
@@ -760,14 +723,10 @@ class TestFlowValidatorIntegration:
 
         errors = exc_info.value.errors or []
         assert any(
-            ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.name
-            in str(error.message_code)
-            for error in errors
+            ValidationCodeMessages.DISJOINT_OPERATORS_DETECTED.name in str(error.message_code) for error in errors
         ), "Expected DISJOINT_OPERATORS_DETECTED error not found"
 
-    def test_integration_multiple_extract_operators_warns(
-        self, validator, fixtures_invoices_dir
-    ):
+    def test_integration_multiple_extract_operators_warns(self, validator, fixtures_invoices_dir):
         """Test that multiple extract operators generate warnings."""
         flow_def = {
             "dag": [

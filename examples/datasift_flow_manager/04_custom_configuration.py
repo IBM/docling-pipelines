@@ -23,7 +23,7 @@ Run:
     python examples/datasift_flow_manager/04_custom_configuration.py
 """
 
-from datasift_opensource.backend.datasift_flow_manager import DatasiftFlowManager
+from datasift.datasift_flow_manager import DatasiftFlowManager
 
 
 def main():

@@ -3,14 +3,15 @@
 
 """Unit tests for LiteLLM PII/HAP adapter."""
 
-import pytest
 from unittest.mock import patch
 
-import core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
-from core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter import (
+import pytest
+
+import datasift.core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
+from datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter import (
     LiteLLMAdapter,
 )
-from common.exceptions.datasift_exceptions import DatasiftException
+from datasift.exceptions.datasift_exceptions import DatasiftException
 
 
 class TestLiteLLMAdapter:
@@ -77,12 +78,8 @@ class TestLiteLLMAdapter:
         assert "temperature" in adapter.adapter_config
         assert adapter.adapter_config["temperature"] == 0.7
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
-    def test_detect_pii_hap_success(
-        self, mock_detect, sample_payload, sample_detection_response
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
+    def test_detect_pii_hap_success(self, mock_detect, sample_payload, sample_detection_response):
         """Test successful PII/HAP detection."""
         mock_detect.return_value = sample_detection_response
 
@@ -104,12 +101,8 @@ class TestLiteLLMAdapter:
             api_base=None,
         )
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
-    def test_detect_pii_hap_with_api_key(
-        self, mock_detect, sample_payload, sample_detection_response
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
+    def test_detect_pii_hap_with_api_key(self, mock_detect, sample_payload, sample_detection_response):
         """Test PII/HAP detection with API key."""
         mock_detect.return_value = sample_detection_response
 
@@ -127,12 +120,8 @@ class TestLiteLLMAdapter:
             api_base=None,
         )
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
-    def test_detect_pii_hap_with_custom_base_url(
-        self, mock_detect, sample_payload, sample_detection_response
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
+    def test_detect_pii_hap_with_custom_base_url(self, mock_detect, sample_payload, sample_detection_response):
         """Test PII/HAP detection with custom base URL."""
         mock_detect.return_value = sample_detection_response
 
@@ -155,9 +144,7 @@ class TestLiteLLMAdapter:
         with pytest.raises(ValueError, match="Input text cannot be empty"):
             adapter.detect_pii_hap({"input": "", "detectors": {}})
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
     def test_detect_pii_hap_empty_detections(self, mock_detect, sample_payload):
         """Test handling of empty detections list."""
         mock_detect.return_value = {"detections": []}
@@ -168,9 +155,7 @@ class TestLiteLLMAdapter:
         assert result is not None
         assert len(result.detections) == 0
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
     def test_detect_pii_hap_multiple_detections(self, mock_detect, sample_payload):
         """Test handling of multiple detections."""
         mock_detect.return_value = {
@@ -202,26 +187,18 @@ class TestLiteLLMAdapter:
         assert result.detections[0].detection == "email"
         assert result.detections[1].detection == "phone"
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
     def test_detect_pii_hap_api_error(self, mock_detect, sample_payload):
         """Test that API errors are properly propagated."""
-        mock_detect.side_effect = DatasiftException(
-            message="LiteLLM API call failed", status_code=500
-        )
+        mock_detect.side_effect = DatasiftException(message="LiteLLM API call failed", status_code=500)
 
         adapter = LiteLLMAdapter(model_name="gpt-4")
 
         with pytest.raises(DatasiftException, match="LiteLLM API call failed"):
             adapter.detect_pii_hap(sample_payload)
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
-    def test_detect_pii_hap_with_adapter_config(
-        self, mock_detect, sample_payload, sample_detection_response
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
+    def test_detect_pii_hap_with_adapter_config(self, mock_detect, sample_payload, sample_detection_response):
         """Test detection with additional adapter configuration."""
         mock_detect.return_value = sample_detection_response
 
@@ -251,12 +228,8 @@ class TestLiteLLMAdapter:
         """Test that adapter display name constant is correct."""
         assert LiteLLMAdapter.ADAPTER_DISPLAY_NAME == "LiteLLM (Multi-Provider)"
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
-    def test_detect_pii_hap_anthropic_model(
-        self, mock_detect, sample_payload, sample_detection_response
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
+    def test_detect_pii_hap_anthropic_model(self, mock_detect, sample_payload, sample_detection_response):
         """Test detection with Anthropic model."""
         mock_detect.return_value = sample_detection_response
 
@@ -267,12 +240,8 @@ class TestLiteLLMAdapter:
         mock_detect.assert_called_once()
         assert mock_detect.call_args.kwargs["model_name"] == "claude-3-opus-20240229"
 
-    @patch(
-        "core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm"
-    )
-    def test_detect_pii_hap_azure_model(
-        self, mock_detect, sample_payload, sample_detection_response
-    ):
+    @patch("datasift.core.operators.quality.pii_and_hap.adapters.outbound.litellm_adapter.detect_pii_hap_litellm")
+    def test_detect_pii_hap_azure_model(self, mock_detect, sample_payload, sample_detection_response):
         """Test detection with Azure OpenAI model."""
         mock_detect.return_value = sample_detection_response
 

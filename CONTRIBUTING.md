@@ -81,24 +81,24 @@ This installs Python 3.12, uv, Ollama, OpenSearch, and all dependencies.
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. **Navigate to backend directory and install dependencies**:
+2. **Install dependencies**:
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 uv sync --extra dev
 ```
 
 3. **Activate the virtual environment**:
 
 ```bash
+# From project root
 source .venv/bin/activate
-cd ../../..  # Return to project root
 ```
 
 4. **Install pre-commit hooks**:
 
 ```bash
-cd src/datasift_opensource/backend
+# From project root
 uv run pre-commit install
 ```
 
@@ -150,13 +150,10 @@ git checkout -b feature/your-feature-name
 2. **Run code quality checks**:
 
 ```bash
-# From backend directory
-cd src/datasift_opensource/backend
-
-# Run pre-commit hooks
+# Run pre-commit hooks (from project root)
 uv run pre-commit run --all-files
 
-# Or run individual tools
+# Or run individual tools (from project root)
 uv run ruff check --fix .
 uv run ruff format .
 uv run mypy .
@@ -166,10 +163,10 @@ uv run mypy .
 
 ```bash
 # From project root with activated venv
-pytest -v
+uv run pytest -v
 
 # Run with coverage
-pytest -v --cov=src --cov-report=html
+uv run pytest -v --cov=src --cov-report=html
 ```
 
 4. **Commit your changes** following [Commit Message Guidelines](#commit-message-guidelines)
@@ -177,7 +174,7 @@ pytest -v --cov=src --cov-report=html
 ### Job Metadata Aggregation Reminder
 
 If your change adds or modifies operator-emitted metadata used in job stats:
-- review [`DEFAULT_STRATEGIES`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py)
+- review [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py)
 - add or update aggregation tests when the field should not use the default `LAST` behavior
 - update [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) when the change introduces a new aggregation pattern or maintainer rule
 
@@ -261,7 +258,7 @@ def extract_text(file_path: str, use_ocr: bool = False) -> str:
 
 #### For Operator Users: Accessing Operator Metadata
 
-Use the [`OperatorMetadata`](src/datasift_opensource/backend/core/operators/operator_metadata.py) class to query metadata about available operators, their features, and requirements:
+Use the [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) class to query metadata about available operators, their features, and requirements:
 
 ```python
 from core.operators.operator_metadata import OperatorMetadata
@@ -298,14 +295,14 @@ print(feature_map['content'])  # ['Extract Docling', 'Extract Entities (Ollama)'
 
 **Key Methods:**
 
-- [`get_operator_metadata()`](src/datasift_opensource/backend/core/operators/operator_metadata.py:59): Returns metadata for all registered operators
-- [`get_features()`](src/datasift_opensource/backend/core/operators/operator_metadata.py:153): Gets features from a specific operator, optionally filtered by purpose
-- [`required_feature_names()`](src/datasift_opensource/backend/core/operators/operator_metadata.py:255): Returns list of required input features for an operator
-- [`get_feature_operators_map()`](src/datasift_opensource/backend/core/operators/operator_metadata.py:278): Builds reverse mapping from features to operators that produce them
+- [`get_operator_metadata()`](src/datasift/core/operators/operator_metadata.py:59): Returns metadata for all registered operators
+- [`get_features()`](src/datasift/core/operators/operator_metadata.py:153): Gets features from a specific operator, optionally filtered by purpose
+- [`required_feature_names()`](src/datasift/core/operators/operator_metadata.py:255): Returns list of required input features for an operator
+- [`get_feature_operators_map()`](src/datasift/core/operators/operator_metadata.py:278): Builds reverse mapping from features to operators that produce them
 
 #### For Operator Developers: Implementing Metadata Methods
 
-When creating new operators, you **must implement** two static methods so [`OperatorMetadata`](src/datasift_opensource/backend/core/operators/operator_metadata.py) can discover and aggregate your operator's information:
+When creating new operators, you **must implement** two static methods so [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) can discover and aggregate your operator's information:
 
 **Required Static Methods:**
 
@@ -341,7 +338,7 @@ def get_required_features() -> list[str]:
 - **Class-Level Attributes**: Reference class attributes (e.g., `MyOperator.category`, `MyOperator.is_available()`)
 - **No Instance Access**: Do not use `self` - information must be determinable without instantiation
 - **Type Hints**: Always include return type annotations
-- **Metadata Keys**: Use constants from [`OperatorConstants`](src/datasift_opensource/backend/common/constants/operator_constants.py)
+- **Metadata Keys**: Use constants from [`OperatorConstants`](src/datasift/common/constants/operator_constants.py)
 
 **Complete Example:**
 
@@ -403,7 +400,7 @@ class MyCustomOperator(AbstractOperator):
 
 **Why Static Methods?**
 
-The static method pattern enables [`OperatorMetadata`](src/datasift_opensource/backend/core/operators/operator_metadata.py) to:
+The static method pattern enables [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) to:
 - Discover operator capabilities without instantiation
 - Validate flows before execution
 - Build feature dependency graphs
@@ -417,7 +414,7 @@ The static method pattern enables [`OperatorMetadata`](src/datasift_opensource/b
 
 ### Code Quality Tools
 
-The project uses the following tools (configured in [`pyproject.toml`](src/datasift_opensource/backend/pyproject.toml:159)):
+The project uses the following tools (configured in [`pyproject.toml`](src/datasift/pyproject.toml:159)):
 
 - **Ruff**: Linting and formatting (replaces black, isort, flake8)
 - **mypy**: Static type checking
@@ -510,13 +507,11 @@ git rebase main
 2. **Run all checks**:
 
 ```bash
-# Code quality
-cd src/datasift_opensource/backend
+# Code quality (from project root)
 uv run pre-commit run --all-files
 
-# Tests
-cd ../../..
-pytest -v --cov=src
+# Tests (from project root)
+uv run pytest -v --cov=src
 ```
 
 3. **Update documentation** if needed (see [Documentation Requirements](#documentation-requirements))

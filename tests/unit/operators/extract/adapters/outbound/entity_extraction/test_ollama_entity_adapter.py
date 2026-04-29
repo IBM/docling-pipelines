@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from common.constants.operator_constants import OperatorConstants
-from core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
     OllamaEntityAdapter,
 )
 
@@ -14,7 +14,7 @@ from core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_ad
 @pytest.fixture
 def mock_ollama_client():
     """Create a mock Ollama client."""
-    with patch("common.clients.ollama_client.OllamaClient") as mock_class:
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_class:
         mock_instance = MagicMock()
         mock_class.return_value = mock_instance
         yield mock_instance
@@ -60,9 +60,7 @@ def sample_schema():
 class TestOllamaEntityAdapterResponseParsing:
     """Tests for response parsing - verifying the empty entities fix."""
 
-    def test_extract_entities_with_clean_json_response(
-        self, mock_ollama_client, basic_config, sample_schema
-    ):
+    def test_extract_entities_with_clean_json_response(self, mock_ollama_client, basic_config, sample_schema):
         """Test that clean JSON response is parsed correctly."""
         adapter = OllamaEntityAdapter(config=basic_config)
 
@@ -99,18 +97,12 @@ class TestOllamaEntityAdapterResponseParsing:
         assert messages[0]["role"] == "system"
         assert messages[1]["role"] == "user"
 
-    def test_extract_entities_with_markdown_wrapped_json(
-        self, mock_ollama_client, basic_config, sample_schema
-    ):
+    def test_extract_entities_with_markdown_wrapped_json(self, mock_ollama_client, basic_config, sample_schema):
         """Test that JSON wrapped in markdown code fences is parsed correctly."""
         adapter = OllamaEntityAdapter(config=basic_config)
 
         # Mock response with markdown code fences
-        mock_response = (
-            "```json\n"
-            + json.dumps({"invoice_number": "INV-001", "total_amount": 100.0})
-            + "\n```"
-        )
+        mock_response = "```json\n" + json.dumps({"invoice_number": "INV-001", "total_amount": 100.0}) + "\n```"
         mock_ollama_client.chat.return_value = mock_response
 
         result = adapter.extract_entities_single(
@@ -126,18 +118,12 @@ class TestOllamaEntityAdapterResponseParsing:
         assert entities["invoice_number"] == "INV-001"
         assert entities["total_amount"] == 100.0
 
-    def test_extract_entities_with_extra_text(
-        self, mock_ollama_client, basic_config, sample_schema
-    ):
+    def test_extract_entities_with_extra_text(self, mock_ollama_client, basic_config, sample_schema):
         """Test that JSON with extra text before/after is parsed correctly."""
         adapter = OllamaEntityAdapter(config=basic_config)
 
         # Mock response with extra text
-        mock_response = (
-            "Here is the result:\n"
-            + json.dumps({"invoice_number": "INV-002"})
-            + "\nDone!"
-        )
+        mock_response = "Here is the result:\n" + json.dumps({"invoice_number": "INV-002"}) + "\nDone!"
         mock_ollama_client.chat.return_value = mock_response
 
         result = adapter.extract_entities_single(
@@ -180,9 +166,7 @@ class TestOllamaEntityAdapterResponseParsing:
         assert entities["organization"] == "Acme Corp"
         assert entities["location"] == "New York"
 
-    def test_extract_entities_with_invalid_json_returns_empty_dict(
-        self, mock_ollama_client, basic_config
-    ):
+    def test_extract_entities_with_invalid_json_returns_empty_dict(self, mock_ollama_client, basic_config):
         """Test that invalid JSON returns empty dict instead of failing."""
         adapter = OllamaEntityAdapter(config=basic_config)
 
@@ -202,9 +186,7 @@ class TestOllamaEntityAdapterResponseParsing:
         entities = result[OperatorConstants.Misc.ENTITIES]
         assert entities == {}
 
-    def test_extract_entities_handles_bytes_content(
-        self, mock_ollama_client, basic_config
-    ):
+    def test_extract_entities_handles_bytes_content(self, mock_ollama_client, basic_config):
         """Test that bytes content is converted to string."""
         adapter = OllamaEntityAdapter(config=basic_config)
 

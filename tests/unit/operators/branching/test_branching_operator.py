@@ -7,13 +7,12 @@ Also includes a regression test verifying that BranchingOperator is correctly
 registered by OperatorFactory (the primary bug that was previously fixed).
 """
 
-import pytest
 import pyarrow as pa
+import pytest
 
-from core.operators.functional.branching_operator import BranchingOperator
-from common.constants.operator_constants import OperatorConstants
-from common.constants.constants import Metrics, OrchestratorType
-
+from datasift.core.constants.constants import Metrics, OrchestratorType
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.functional.branching_operator import BranchingOperator
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -82,12 +81,10 @@ class TestOperatorFactoryRegistration:
         OperatorFactory for the Python orchestrator must contain BranchingOperator
         under the key OperatorConstants.Operators.BRANCHING ('branching').
         """
-        from core.orchestrator.operator_factory import OperatorFactory
+        from datasift.core.orchestration.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
-        operator_class = factory.get_operator(
-            operator_name=OperatorConstants.Operators.BRANCHING
-        )
+        operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)
 
         assert operator_class is not None, (
             f"BranchingOperator was not registered in OperatorFactory. "
@@ -104,12 +101,10 @@ class TestOperatorFactoryRegistration:
         rather than identity/issubclass to avoid false failures from module
         reloading.
         """
-        from core.orchestrator.operator_factory import OperatorFactory
+        from datasift.core.orchestration.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
-        operator_class = factory.get_operator(
-            operator_name=OperatorConstants.Operators.BRANCHING
-        )
+        operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)
 
         assert operator_class is not None
         assert operator_class.__name__ == "BranchingOperator", (
@@ -121,12 +116,10 @@ class TestOperatorFactoryRegistration:
         The class retrieved from OperatorFactory can be instantiated with a
         minimal config dict without raising an exception.
         """
-        from core.orchestrator.operator_factory import OperatorFactory
+        from datasift.core.orchestration.operator_factory import OperatorFactory
 
         factory = OperatorFactory(orchestrator=OrchestratorType.PYTHON)
-        operator_class = factory.get_operator(
-            operator_name=OperatorConstants.Operators.BRANCHING
-        )
+        operator_class = factory.get_operator(operator_name=OperatorConstants.Operators.BRANCHING)
 
         assert operator_class is not None
         instance = operator_class({"branches": []})
@@ -239,12 +232,8 @@ class TestConditionalBranchingCriteriaList:
         """
         table = make_table()
         branches = [
-            make_branch(
-                link_id="low", link_name="low_score", criteria_list=["score <= 3"]
-            ),
-            make_branch(
-                link_id="high", link_name="high_score", criteria_list=["score > 3"]
-            ),
+            make_branch(link_id="low", link_name="low_score", criteria_list=["score <= 3"]),
+            make_branch(link_id="high", link_name="high_score", criteria_list=["score > 3"]),
         ]
         operator = make_operator(branches)
 
@@ -253,20 +242,14 @@ class TestConditionalBranchingCriteriaList:
         assert len(result_tables) == 2
         low_scores = result_tables[0]["score"].to_pylist()
         high_scores = result_tables[1]["score"].to_pylist()
-        assert all(s <= 3 for s in low_scores), (
-            f"Low branch has unexpected scores: {low_scores}"
-        )
-        assert all(s > 3 for s in high_scores), (
-            f"High branch has unexpected scores: {high_scores}"
-        )
+        assert all(s <= 3 for s in low_scores), f"Low branch has unexpected scores: {low_scores}"
+        assert all(s > 3 for s in high_scores), f"High branch has unexpected scores: {high_scores}"
 
     def test_branch_with_language_filter(self):
         """Branch filters rows by language = 'en'."""
         table = make_table()
         branches = [
-            make_branch(
-                link_id="en", link_name="english", criteria_list=["language = 'en'"]
-            ),
+            make_branch(link_id="en", link_name="english", criteria_list=["language = 'en'"]),
         ]
         operator = make_operator(branches)
 
@@ -279,9 +262,7 @@ class TestConditionalBranchingCriteriaList:
         """Branch where all rows match returns the full table."""
         table = make_table()
         branches = [
-            make_branch(
-                link_id="all", link_name="all_rows", criteria_list=["score > 0"]
-            ),
+            make_branch(link_id="all", link_name="all_rows", criteria_list=["score > 0"]),
         ]
         operator = make_operator(branches)
 
@@ -293,9 +274,7 @@ class TestConditionalBranchingCriteriaList:
         """Branch where no rows match returns an empty table."""
         table = make_table()
         branches = [
-            make_branch(
-                link_id="none", link_name="no_match", criteria_list=["score > 9999"]
-            ),
+            make_branch(link_id="none", link_name="no_match", criteria_list=["score > 9999"]),
         ]
         operator = make_operator(branches)
 
@@ -307,9 +286,7 @@ class TestConditionalBranchingCriteriaList:
         """Empty branch result still has the correct column schema."""
         table = make_table()
         branches = [
-            make_branch(
-                link_id="none", link_name="no_match", criteria_list=["score > 9999"]
-            ),
+            make_branch(link_id="none", link_name="no_match", criteria_list=["score > 9999"]),
         ]
         operator = make_operator(branches)
 
@@ -382,9 +359,7 @@ class TestConditionalBranchingCriteriaJson:
             "value": 3,
         }
         branches = [
-            make_branch(
-                link_id="high", link_name="high_score", criteria_json=criteria_json
-            ),
+            make_branch(link_id="high", link_name="high_score", criteria_json=criteria_json),
         ]
         operator = make_operator(branches)
 
@@ -404,9 +379,7 @@ class TestConditionalBranchingCriteriaJson:
             ],
         }
         branches = [
-            make_branch(
-                link_id="en_high", link_name="english_high", criteria_json=criteria_json
-            ),
+            make_branch(link_id="en_high", link_name="english_high", criteria_json=criteria_json),
         ]
         operator = make_operator(branches)
 
@@ -549,12 +522,8 @@ class TestEdgeCases:
         """
         table = make_table()
         branches = [
-            make_branch(
-                link_id="all", link_name="all_rows", criteria_list=["score > 0"]
-            ),
-            make_branch(
-                link_id="none", link_name="no_rows", criteria_list=["score > 9999"]
-            ),
+            make_branch(link_id="all", link_name="all_rows", criteria_list=["score > 0"]),
+            make_branch(link_id="none", link_name="no_rows", criteria_list=["score > 9999"]),
         ]
         operator = make_operator(branches)
 
@@ -605,12 +574,8 @@ class TestMetadata:
         """Each branch's metadata is keyed by its link_id."""
         table = make_table()
         branches = [
-            make_branch(
-                link_id="low_id", link_name="low", criteria_list=["score <= 3"]
-            ),
-            make_branch(
-                link_id="high_id", link_name="high", criteria_list=["score > 3"]
-            ),
+            make_branch(link_id="low_id", link_name="low", criteria_list=["score <= 3"]),
+            make_branch(link_id="high_id", link_name="high", criteria_list=["score > 3"]),
         ]
         operator = make_operator(branches)
 
@@ -743,9 +708,7 @@ class TestValidate:
     def test_validate_warns_when_only_one_branch(self):
         """validate() warns when there is only one branch (use Filter instead)."""
         branches = [
-            make_branch(
-                link_id="b1", link_name="only_branch", criteria_list=["score > 3"]
-            ),
+            make_branch(link_id="b1", link_name="only_branch", criteria_list=["score > 3"]),
         ]
         operator = make_operator(branches)
         errors, warnings = [], []
@@ -815,9 +778,7 @@ class TestValidate:
 
         assert len(errors) > 0, "Expected an error for missing link_id"
         error_messages = [str(e) for e in errors]
-        assert any(
-            "Branch Id" in msg or "branch" in msg.lower() for msg in error_messages
-        )
+        assert any("Branch Id" in msg or "branch" in msg.lower() for msg in error_messages)
 
     def test_validate_error_for_invalid_logical_operator(self):
         """validate() adds an error for an invalid logical operator."""
@@ -855,9 +816,7 @@ class TestValidate:
         ]
         operator = make_operator(branches)
         errors, warnings = [], []
-        operator.validate(
-            errors, warnings, available_features=["id", "name", "content", "score"]
-        )
+        operator.validate(errors, warnings, available_features=["id", "name", "content", "score"])
 
         assert len(errors) == 0, f"Unexpected errors: {errors}"
 

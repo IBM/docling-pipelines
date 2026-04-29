@@ -4,17 +4,16 @@ Unit tests for AbstractOperator base class.
 Tests initialization, validation, metadata handling, and utility methods.
 """
 
-import pytest
 import pyarrow as pa
+import pytest
 
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from common.constants.constants import (
+from datasift.core.constants.constants import (
     DatasiftConstants,
     ExecutionStatus,
     Metrics,
 )
-from common.constants.operator_constants import OperatorConstants
-
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 # ---------------------------------------------------------------------------
 # Test Operator Implementation
@@ -31,9 +30,7 @@ class TestOperator(AbstractOperator):
         super().__init__(config)
         self.required_features = config.get("required_features", [])
 
-    def transform(
-        self, table: pa.Table, file_name: str | None = None
-    ) -> tuple[list[pa.Table], dict]:
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict]:
         """Simple transform that returns input table unchanged."""
         metadata = self.create_base_metadata(total_docs_count=table.num_rows)
         metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
@@ -172,10 +169,7 @@ def test_init_common_log_arguments_structure():
     assert DatasiftConstants.JOB_ID in operator.common_log_arguments
     assert DatasiftConstants.JOB_RUN_ID in operator.common_log_arguments
     assert operator.common_log_arguments[DatasiftConstants.JOB_ID] == operator.job_id
-    assert (
-        operator.common_log_arguments[DatasiftConstants.JOB_RUN_ID]
-        == operator.job_run_id
-    )
+    assert operator.common_log_arguments[DatasiftConstants.JOB_RUN_ID] == operator.job_run_id
 
 
 # ---------------------------------------------------------------------------
@@ -386,18 +380,14 @@ def test_create_base_metadata_with_default_status():
 
 def test_create_base_metadata_with_custom_status_enum():
     """create_base_metadata() accepts ExecutionStatus enum for node_status."""
-    metadata = AbstractOperator.create_base_metadata(
-        total_docs_count=5, node_status=ExecutionStatus.FAILED
-    )
+    metadata = AbstractOperator.create_base_metadata(total_docs_count=5, node_status=ExecutionStatus.FAILED)
 
     assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value
 
 
 def test_create_base_metadata_with_custom_status_string():
     """create_base_metadata() accepts string for node_status."""
-    metadata = AbstractOperator.create_base_metadata(
-        total_docs_count=5, node_status="CustomStatus"
-    )
+    metadata = AbstractOperator.create_base_metadata(total_docs_count=5, node_status="CustomStatus")
 
     assert metadata[Metrics.External.NODE_STATUS] == "CustomStatus"
 
@@ -488,15 +478,9 @@ def test_record_failed_document_multiple_failures():
     """record_failed_document() handles multiple failed documents."""
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
 
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Reason 1"
-    )
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Reason 2"
-    )
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="doc3", doc_name="Document 3", reason="Reason 3"
-    )
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Reason 1")
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Reason 2")
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="doc3", doc_name="Document 3", reason="Reason 3")
 
     assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 3
     assert len(metadata[Metrics.External.FAILED_DOCS]) == 3
@@ -506,9 +490,7 @@ def test_record_failed_document_with_empty_strings():
     """record_failed_document() handles empty string values."""
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
 
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="", doc_name="", reason=""
-    )
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="", doc_name="", reason="")
 
     assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
     failed_doc = metadata[Metrics.External.FAILED_DOCS][0]
@@ -537,14 +519,10 @@ def test_record_failed_document_preserves_existing_failures():
     """record_failed_document() preserves previously recorded failures."""
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
 
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Reason 1"
-    )
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Reason 1")
     first_doc = metadata[Metrics.External.FAILED_DOCS][0]
 
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Reason 2"
-    )
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Reason 2")
 
     assert len(metadata[Metrics.External.FAILED_DOCS]) == 2
     assert metadata[Metrics.External.FAILED_DOCS][0] == first_doc
@@ -587,12 +565,8 @@ def test_record_skipped_document_multiple_skips():
     """record_skipped_document() handles multiple skipped documents."""
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
 
-    AbstractOperator.record_skipped_document(
-        metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Reason 1"
-    )
-    AbstractOperator.record_skipped_document(
-        metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Reason 2"
-    )
+    AbstractOperator.record_skipped_document(metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Reason 1")
+    AbstractOperator.record_skipped_document(metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Reason 2")
 
     assert metadata[Metrics.External.SKIPPED_DOCS_COUNT] == 2
     assert len(metadata[Metrics.External.SKIPPED_DOCS]) == 2
@@ -602,9 +576,7 @@ def test_record_skipped_document_with_empty_strings():
     """record_skipped_document() handles empty string values."""
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
 
-    AbstractOperator.record_skipped_document(
-        metadata=metadata, doc_id="", doc_name="", reason=""
-    )
+    AbstractOperator.record_skipped_document(metadata=metadata, doc_id="", doc_name="", reason="")
 
     assert metadata[Metrics.External.SKIPPED_DOCS_COUNT] == 1
     skipped_doc = metadata[Metrics.External.SKIPPED_DOCS][0]
@@ -617,14 +589,10 @@ def test_record_skipped_document_preserves_existing_skips():
     """record_skipped_document() preserves previously recorded skips."""
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
 
-    AbstractOperator.record_skipped_document(
-        metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Reason 1"
-    )
+    AbstractOperator.record_skipped_document(metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Reason 1")
     first_doc = metadata[Metrics.External.SKIPPED_DOCS][0]
 
-    AbstractOperator.record_skipped_document(
-        metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Reason 2"
-    )
+    AbstractOperator.record_skipped_document(metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Reason 2")
 
     assert len(metadata[Metrics.External.SKIPPED_DOCS]) == 2
     assert metadata[Metrics.External.SKIPPED_DOCS][0] == first_doc
@@ -639,12 +607,8 @@ def test_metadata_tracks_both_failed_and_skipped():
     """Metadata can track both failed and skipped documents simultaneously."""
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
 
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Failed"
-    )
-    AbstractOperator.record_skipped_document(
-        metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Skipped"
-    )
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Failed")
+    AbstractOperator.record_skipped_document(metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Skipped")
 
     assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
     assert metadata[Metrics.External.SKIPPED_DOCS_COUNT] == 1
@@ -656,12 +620,8 @@ def test_metadata_failed_and_skipped_are_independent():
     """Failed and skipped document lists are independent."""
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
 
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Failed"
-    )
-    AbstractOperator.record_skipped_document(
-        metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Skipped"
-    )
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="doc1", doc_name="Document 1", reason="Failed")
+    AbstractOperator.record_skipped_document(metadata=metadata, doc_id="doc2", doc_name="Document 2", reason="Skipped")
 
     failed_doc = metadata[Metrics.External.FAILED_DOCS][0]
     skipped_doc = metadata[Metrics.External.SKIPPED_DOCS][0]
@@ -743,9 +703,7 @@ def test_record_failed_document_with_long_reason():
     metadata = AbstractOperator.create_base_metadata(total_docs_count=10)
     long_reason = "A" * 10000
 
-    AbstractOperator.record_failed_document(
-        metadata=metadata, doc_id="doc1", doc_name="Document 1", reason=long_reason
-    )
+    AbstractOperator.record_failed_document(metadata=metadata, doc_id="doc1", doc_name="Document 1", reason=long_reason)
 
     failed_doc = metadata[Metrics.External.FAILED_DOCS][0]
     assert len(failed_doc["reason"]) == 10000

@@ -5,21 +5,19 @@ from unittest.mock import patch
 
 import pytest
 
-from common.exceptions.datasift_exceptions import (
+from datasift.core.flows.application.services.flow_service import FlowService
+from datasift.core.flows.domain.models.flow import Flow
+from datasift.exceptions.datasift_exceptions import (
     FlowAlreadyExistsException,
     FlowInvalidDataException,
     FlowNotFoundException,
 )
-from core.assets_management.application.services.flow_service import FlowService
-from core.assets_management.domain.models.flow import Flow
 
 
 class TestFlowServiceCreate:
     """Tests for FlowService.create_flow method."""
 
-    def test_create_flow_prevents_duplicate_name(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_create_flow_prevents_duplicate_name(self, mock_flow_repository, sample_flow_with_id):
         """Test that create_flow prevents creating flows with duplicate names."""
         # Arrange
         existing_flow = Flow(
@@ -37,9 +35,7 @@ class TestFlowServiceCreate:
         # Verify save was never called
         mock_flow_repository.save.assert_not_called()
 
-    def test_create_flow_with_valid_data(
-        self, mock_flow_repository, sample_flow_domain
-    ):
+    def test_create_flow_with_valid_data(self, mock_flow_repository, sample_flow_domain):
         """Test creating a flow with valid data."""
         # Arrange
         mock_flow_repository.save.return_value = sample_flow_domain
@@ -57,9 +53,7 @@ class TestFlowServiceCreate:
         """Test that flow validation occurs before saving."""
         # Arrange
         service = FlowService(repository=mock_flow_repository)
-        invalid_flow = Flow(
-            name="", definition={}
-        )  # Invalid: empty name and definition
+        invalid_flow = Flow(name="", definition={})  # Invalid: empty name and definition
 
         # Act & Assert
         with pytest.raises(FlowInvalidDataException, match="Flow name cannot be empty"):
@@ -68,9 +62,7 @@ class TestFlowServiceCreate:
         # Verify save was never called
         mock_flow_repository.save.assert_not_called()
 
-    def test_create_flow_with_existing_name_logs_warning(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_create_flow_with_existing_name_logs_warning(self, mock_flow_repository, sample_flow_with_id):
         """Test creating a flow when name already exists logs warning."""
         # Arrange
         existing_flow = Flow(
@@ -82,9 +74,7 @@ class TestFlowServiceCreate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with patch(
-            "core.assets_management.application.services.flow_service.logger"
-        ) as mock_logger:
+        with patch("datasift.core.flows.application.services.flow_service.logger") as mock_logger:
             with pytest.raises(FlowAlreadyExistsException, match="already exists"):
                 service.create_flow(sample_flow_with_id)
 
@@ -92,9 +82,7 @@ class TestFlowServiceCreate:
             mock_logger.warning.assert_called_once()
             assert "existing name" in mock_logger.warning.call_args[0][0].lower()
 
-    def test_create_flow_handles_repository_exception(
-        self, mock_flow_repository, sample_flow_domain
-    ):
+    def test_create_flow_handles_repository_exception(self, mock_flow_repository, sample_flow_domain):
         """Test that repository exceptions bubble up naturally."""
         # Arrange
         mock_flow_repository.find_all.return_value = []
@@ -162,9 +150,7 @@ class TestFlowServiceGet:
 class TestFlowServiceUpdate:
     """Tests for FlowService.update_flow method."""
 
-    def test_update_flow_with_valid_data(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_update_flow_with_valid_data(self, mock_flow_repository, sample_flow_with_id):
         """Test updating a flow with valid data."""
         # Arrange
         mock_flow_repository.exists.return_value = True
@@ -179,9 +165,7 @@ class TestFlowServiceUpdate:
         mock_flow_repository.exists.assert_called_once_with("test-flow-id-123")
         mock_flow_repository.update.assert_called_once()
 
-    def test_update_flow_updates_timestamp(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_update_flow_updates_timestamp(self, mock_flow_repository, sample_flow_with_id):
         """Test that update_flow updates the modified_on timestamp."""
         # Arrange
         mock_flow_repository.exists.return_value = True
@@ -190,34 +174,24 @@ class TestFlowServiceUpdate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act
-        with patch(
-            "core.assets_management.domain.models.flow.datetime"
-        ) as mock_datetime:
-            mock_datetime.now.return_value = datetime(
-                2024, 12, 31, 23, 59, 59, tzinfo=UTC
-            )
+        with patch("datasift.core.flows.domain.models.flow.datetime") as mock_datetime:
+            mock_datetime.now.return_value = datetime(2024, 12, 31, 23, 59, 59, tzinfo=UTC)
             service.update_flow(sample_flow_with_id)
 
         # Assert
         assert sample_flow_with_id.modified_on != original_modified
 
-    def test_update_flow_without_id_raises_error(
-        self, mock_flow_repository, sample_flow_domain
-    ):
+    def test_update_flow_without_id_raises_error(self, mock_flow_repository, sample_flow_domain):
         """Test updating a flow without flow_id raises FlowInvalidDataException."""
         # Arrange
         sample_flow_domain.flow_id = None
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with pytest.raises(
-            FlowInvalidDataException, match="Flow ID is required for update"
-        ):
+        with pytest.raises(FlowInvalidDataException, match="Flow ID is required for update"):
             service.update_flow(sample_flow_domain)
 
-    def test_update_flow_with_nonexistent_id_raises_error(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_update_flow_with_nonexistent_id_raises_error(self, mock_flow_repository, sample_flow_with_id):
         """Test updating a non-existent flow raises FlowNotFoundException."""
         # Arrange
         mock_flow_repository.exists.return_value = False
@@ -227,9 +201,7 @@ class TestFlowServiceUpdate:
         with pytest.raises(FlowNotFoundException, match="not found"):
             service.update_flow(sample_flow_with_id)
 
-    def test_update_flow_validates_before_saving(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_update_flow_validates_before_saving(self, mock_flow_repository, sample_flow_with_id):
         """Test that flow validation occurs before updating."""
         # Arrange
         mock_flow_repository.exists.return_value = True
@@ -253,17 +225,13 @@ class TestFlowServicePartialUpdate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with pytest.raises(
-            FlowInvalidDataException, match="updates dictionary cannot be empty"
-        ):
+        with pytest.raises(FlowInvalidDataException, match="updates dictionary cannot be empty"):
             service.partial_update_flow("test-123", {})
 
         # Verify repository was never called
         mock_flow_repository.find_by_id.assert_not_called()
 
-    def test_partial_update_flow_tracks_updated_fields(
-        self, mock_flow_repository, sample_flow_with_id, caplog
-    ):
+    def test_partial_update_flow_tracks_updated_fields(self, mock_flow_repository, sample_flow_with_id, caplog):
         """Test that partial_update_flow tracks and logs updated fields."""
         import logging
 
@@ -285,9 +253,7 @@ class TestFlowServicePartialUpdate:
         assert "name" in caplog.text
         assert "description" in caplog.text
 
-    def test_partial_update_flow_with_name_change(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_partial_update_flow_with_name_change(self, mock_flow_repository, sample_flow_with_id):
         """Test partial update with name change."""
         # Arrange
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
@@ -302,9 +268,7 @@ class TestFlowServicePartialUpdate:
         assert result.name == "Updated Flow Name"
         mock_flow_repository.update.assert_called_once()
 
-    def test_partial_update_flow_without_name_change(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_partial_update_flow_without_name_change(self, mock_flow_repository, sample_flow_with_id):
         """Test partial update without name change."""
         # Arrange
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
@@ -319,9 +283,7 @@ class TestFlowServicePartialUpdate:
         assert result.description == "Updated description"
         mock_flow_repository.update.assert_called_once()
 
-    def test_partial_update_flow_ignores_protected_fields(
-        self, mock_flow_repository, sample_flow_with_id, caplog
-    ):
+    def test_partial_update_flow_ignores_protected_fields(self, mock_flow_repository, sample_flow_with_id, caplog):
         """Test that protected fields (flow_id, created_on, created_by) are not updated."""
         import logging
 
@@ -348,9 +310,7 @@ class TestFlowServicePartialUpdate:
         # Verify warnings were logged for protected fields
         assert "protected field" in caplog.text.lower()
 
-    def test_partial_update_flow_validates_before_saving(
-        self, mock_flow_repository, sample_flow_with_id
-    ):
+    def test_partial_update_flow_validates_before_saving(self, mock_flow_repository, sample_flow_with_id):
         """Test that validation occurs before file operations."""
         # Arrange
         mock_flow_repository.find_by_id.return_value = sample_flow_with_id
@@ -364,9 +324,7 @@ class TestFlowServicePartialUpdate:
         # Verify update was never called
         mock_flow_repository.update.assert_not_called()
 
-    def test_partial_update_flow_with_nonexistent_id_raises_error(
-        self, mock_flow_repository
-    ):
+    def test_partial_update_flow_with_nonexistent_id_raises_error(self, mock_flow_repository):
         """Test partial update with non-existent flow ID raises FlowNotFoundException."""
         # Arrange
         mock_flow_repository.find_by_id.return_value = None
@@ -416,9 +374,7 @@ class TestFlowServiceDelete:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with pytest.raises(
-            FlowNotFoundException, match="Flow nonexistent-id not found"
-        ):
+        with pytest.raises(FlowNotFoundException, match="Flow nonexistent-id not found"):
             service.delete_flow("nonexistent-id")
 
     def test_delete_flow_handles_repository_exception(self, mock_flow_repository):
@@ -488,9 +444,7 @@ class TestFlowServiceBulkDelete:
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
-        with pytest.raises(
-            FlowInvalidDataException, match="flow_ids list cannot be empty"
-        ):
+        with pytest.raises(FlowInvalidDataException, match="flow_ids list cannot be empty"):
             service.bulk_delete_flows([])
 
         # Verify repository was never called
@@ -624,9 +578,7 @@ class TestFlowServiceList:
         with pytest.raises(FlowInvalidDataException, match="limit must be > 0"):
             service.list_flows(limit=-5)
 
-    def test_list_flows_without_filters(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_list_flows_without_filters(self, mock_flow_repository, multiple_sample_flows):
         """Test listing all flows without filters."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
@@ -639,9 +591,7 @@ class TestFlowServiceList:
         assert len(result) == 5
         assert result == multiple_sample_flows
 
-    def test_list_flows_with_pagination(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_list_flows_with_pagination(self, mock_flow_repository, multiple_sample_flows):
         """Test listing flows with pagination."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
@@ -655,9 +605,7 @@ class TestFlowServiceList:
         assert result[0].name == "Test Flow 2"
         assert result[1].name == "Test Flow 3"
 
-    def test_list_flows_with_name_filter(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_list_flows_with_name_filter(self, mock_flow_repository, multiple_sample_flows):
         """Test listing flows with name filter."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
@@ -670,9 +618,7 @@ class TestFlowServiceList:
         assert len(result) == 1
         assert result[0].name == "Test Flow 2"
 
-    def test_list_flows_with_tags_filter(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_list_flows_with_tags_filter(self, mock_flow_repository, multiple_sample_flows):
         """Test listing flows with tags filter."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
@@ -685,9 +631,7 @@ class TestFlowServiceList:
         assert len(result) == 1
         assert "tag-1" in result[0].tags
 
-    def test_list_flows_with_is_hidden_filter(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_list_flows_with_is_hidden_filter(self, mock_flow_repository, multiple_sample_flows):
         """Test listing flows with is_hidden filter."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
@@ -700,18 +644,14 @@ class TestFlowServiceList:
         assert len(result) == 3  # Flows 0, 2, 4 are hidden
         assert all(flow.is_hidden for flow in result)
 
-    def test_list_flows_with_combined_filters(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_list_flows_with_combined_filters(self, mock_flow_repository, multiple_sample_flows):
         """Test listing flows with multiple filters combined."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
         service = FlowService(repository=mock_flow_repository)
 
         # Act
-        result = service.list_flows(
-            name_filter="Flow", is_hidden=False, skip=0, limit=10
-        )
+        result = service.list_flows(name_filter="Flow", is_hidden=False, skip=0, limit=10)
 
         # Assert
         assert len(result) == 2  # Flows 1 and 3 are not hidden
@@ -721,9 +661,7 @@ class TestFlowServiceList:
 class TestFlowServiceCount:
     """Tests for FlowService.count_flows method."""
 
-    def test_count_flows_without_filters(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_count_flows_without_filters(self, mock_flow_repository, multiple_sample_flows):
         """Test counting all flows without filters."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
@@ -735,9 +673,7 @@ class TestFlowServiceCount:
         # Assert
         assert result == 5
 
-    def test_count_flows_with_name_filter(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_count_flows_with_name_filter(self, mock_flow_repository, multiple_sample_flows):
         """Test counting flows with name filter."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
@@ -749,9 +685,7 @@ class TestFlowServiceCount:
         # Assert
         assert result == 1
 
-    def test_count_flows_with_is_hidden_filter(
-        self, mock_flow_repository, multiple_sample_flows
-    ):
+    def test_count_flows_with_is_hidden_filter(self, mock_flow_repository, multiple_sample_flows):
         """Test counting flows with is_hidden filter."""
         # Arrange
         mock_flow_repository.find_all.return_value = multiple_sample_flows
