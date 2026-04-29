@@ -4,12 +4,12 @@
 `code_quality_check`
 
 ## Description
-Run a comprehensive code quality analysis on the folder 'src/datasift_opensource/backend' and generate a detailed report with the following structure:
+Run a comprehensive code quality analysis on the folder 'src/datasift' and generate a detailed report with the following structure:
 
 ## Analysis Requirements
 
 ### 1. Type Checking (MyPy)
-- Run: `cd src/datasift_opensource/backend && uv run mypy . --config-file=pyproject.toml 2>&1 | tee mypy_output.txt`
+- Run: `uv run mypy src/datasift --config-file=pyproject.toml 2>&1 | tee mypy_output.txt`
 - Count total errors
 - Categorize errors by type:
   - Missing library stubs
@@ -21,23 +21,23 @@ Run a comprehensive code quality analysis on the folder 'src/datasift_opensource
 - Identify top 5 critical type errors with file paths and line numbers
 
 ### 2. Linting (Ruff)
-- Run: `cd src/datasift_opensource/backend && uv run ruff check . --output-format=json 2>&1 | tee ruff_output.txt`
+- Run: `uv run ruff check src/datasift --output-format=json 2>&1 | tee ruff_output.txt`
 - Count total issues
 - Categorize by severity (High/Medium/Low)
 - Group by rule category (UP, B, E402, RUF, C4, etc.)
 - List all issues with file paths and line numbers
 
 ### 3. Formatting Check (Ruff Format)
-- Run: `cd src/datasift_opensource/backend && uv run ruff format --check . 2>&1 | tee format_output.txt`
+- Run: `uv run ruff format --check src/datasift 2>&1 | tee format_output.txt`
 - Count files needing formatting
 - Calculate percentage of formatted files
 
 ### 4. Syntax Errors (Flake8)
-- Run: `cd src/datasift_opensource/backend && uv run flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics 2>&1`
+- Run: `uv run flake8 src/datasift --count --select=E9,F63,F7,F82 --show-source --statistics 2>&1`
 - Report critical syntax error count
 
 ### 5. File Count
-- Run: `cd src/datasift_opensource/backend && find . -name "*.py" -not -path "./.venv/*" -not -path "./.ruff_cache/*" -not -path "./__pycache__/*" | wc -l`
+- Run: `find src/datasift -name "*.py" -not -path "./.venv/*" -not -path "./.ruff_cache/*" -not -path "./__pycache__/*" | wc -l`
 
 ## Report Structure
 
