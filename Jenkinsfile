@@ -66,40 +66,35 @@ timestamps {
         checkout scm
       }
 
-      // stage('Code Quality Check') {
-      //   script {
-      //     withCredentials([
-      //       usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
-      //     ]) {
-      //       sh '''
-      //         # Install uv
-      //         curl -LsSf https://astral.sh/uv/install.sh | sh
-      //         export PATH="$HOME/.cargo/bin:$PATH"
+      stage('Code Quality Check') {
+        script {
+          withCredentials([
+            usernamePassword(credentialsId: datasifttwinpypiCredentialsId, usernameVariable: 'PYPI_USERNAME', passwordVariable: 'PYPI_PASSWORD')  // pragma: allowlist secret
+          ]) {
+            sh '''
+              # Install uv
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              export PATH="$HOME/.cargo/bin:$PATH"
 
-      //         # Install system dependencies
-      //         sudo apt-get update
-      //         sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
+              # Install system dependencies
+              sudo apt-get update
+              sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
 
-      //         # Navigate to backend directory and sync dependencies
-      //         cd src/datasift_opensource/backend
-      //         uv sync --all-groups --all-extras
+              uv sync --all-groups --all-extras
 
-      //         # Install quality check tools using uv
-      //         uv pip install ruff mypy detect-secrets types-requests types-cachetools
+              # Install quality check tools using uv
+              uv pip install ruff mypy detect-secrets types-requests types-cachetools
 
-      //         # Activate virtual environment
-      //         source .venv/bin/activate
+              # Activate virtual environment
+              source .venv/bin/activate
 
-      //         # Return to project root
-      //         cd ../../..
-
-      //         # Make the script executable and run it
-      //         chmod +x scripts/check_modified_files.sh
-      //         ./scripts/check_modified_files.sh
-      //       '''
-      //     }
-      //   }
-      // }
+              # Make the script executable and run it
+              chmod +x scripts/check_modified_files.sh
+              ./scripts/check_modified_files.sh
+            '''
+          }
+        }
+      }
 
       stage('Pytest') {
         script {
