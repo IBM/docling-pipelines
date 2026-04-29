@@ -549,10 +549,11 @@ class EmbeddingsOperator(AbstractOperator):
                 reason=str(error),
             )
 
+        current_status = metadata[Metrics.External.NODE_STATUS]
         metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-            metadata[Metrics.External.NODE_STATUS],
+            current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
             ExecutionStatus.COMPLETED_WITH_ERRORS,
-        )
+        ).value
         return [table.slice(0, 0)], metadata
 
     def _update_doc_hash_column(self, table: pa.Table, doc_id_hashes: list[str]) -> pa.Table:
@@ -713,10 +714,11 @@ class EmbeddingsOperator(AbstractOperator):
                     reason=f"Failed to generate embeddings: {exc!s}",
                 )
 
+                current_status = metadata[Metrics.External.NODE_STATUS]
                 metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                    metadata[Metrics.External.NODE_STATUS],
+                    current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
                     ExecutionStatus.COMPLETED_WITH_ERRORS,
-                )
+                ).value
 
                 remove_row_idx.append(idx)
 

@@ -8,7 +8,7 @@ is NOT exposed to the domain layer (Orchestrator).
 
 from abc import ABC, abstractmethod
 
-import pyarrow as pa
+from core.orchestrator.batch_manager import BatchInfo
 
 
 class BatchExecutionPort(ABC):
@@ -31,7 +31,7 @@ class BatchExecutionPort(ABC):
 
     @abstractmethod
     def execute_batches(
-        self, *, batches: list[pa.Table], op_flow: list[dict], global_config: dict, job_run_id: str
+        self, *, batches: list[BatchInfo], op_flow: list[dict], global_config: dict, job_run_id: str
     ) -> None:
         """
         Execute batches using the strategy's execution model.
@@ -43,7 +43,7 @@ class BatchExecutionPort(ABC):
         4. Logging execution progress
 
         Args:
-            batches: List of PyArrow tables, one per batch
+            batches: List of BatchInfo objects with batch_id, batch_num, and table
             op_flow: Operator flow definition (list of operator configs)
             global_config: Global configuration dict
             job_run_id: Unique identifier for this job run (for logging)

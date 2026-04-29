@@ -5,19 +5,31 @@ This class encapsulates all batch-related logic including:
 - Batch creation from PyArrow tables
 - Batch configuration management
 - Semaphore management for concurrent operator execution
+- UUID batch_id generation for retained batches
 """
 
 import threading
+import uuid
 from typing import Any
 
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
 from common.constants.constants import DatasiftConstants
+from common.constants.operator_constants import OperatorConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 from common.util.infrastructure.logging import get_logger
 
 logger = get_logger()
+
+
+class BatchInfo:
+    """Container for batch data with metadata."""
+
+    def __init__(self, *, batch_id: str, batch_num: int, table: pa.Table):
+        self.batch_id = batch_id
+        self.batch_num = batch_num
+        self.table = table
 
 
 class BatchManager:
@@ -52,25 +64,137 @@ class BatchManager:
         batch_size = global_config.get(DatasiftConstants.MICRO_BATCH_SIZE, DatasiftConstants.DEFAULT_MICRO_BATCH_SIZE)
         return batching_enabled, batch_size
 
-    def create_batches(self, *, table: pa.Table, batch_size: int) -> list[pa.Table]:
+    def create_batches(self, *, table: pa.Table, batch_size: int) -> list[BatchInfo]:
         """
-        Split a PyArrow table into batches.
+        Split a PyArrow table into batches based on file size for balanced workload distribution.
+
+        Filters out empty batches and assigns UUID batch_id to each retained batch.
+        Uses file-size-based batching when SIZE column exists, falls back to record-count batching.
+
+        Algorithm:
+        - If SIZE column exists: Uses greedy bin-packing to distribute files by size
+        - If SIZE column missing: Falls back to simple record-count batching
+        - Memory-efficient: Uses numpy arrays and PyArrow's zero-copy operations
+        - Schema-preserving: Uses PyArrow's take() which maintains exact schema structure
 
         Args:
-            table: PyArrow table to split
-            batch_size: Maximum number of rows per batch
+            table: PyArrow table containing file metadata with SIZE field (in bytes)
+            batch_size: Target number of records per batch (used as fallback or to calculate num_batches)
 
         Returns:
-            List of PyArrow tables, each containing at most batch_size rows
+            List of BatchInfo objects with batch_id, batch_num, and non-empty tables
         """
-        batches = []
-        for batch in table.to_batches(max_chunksize=batch_size):
-            batches.append(pa.Table.from_batches([batch]))
-        return batches
+        import numpy as np
+
+        num_rows = table.num_rows
+
+        # Handle empty table
+        if num_rows == 0:
+            return []
+
+        # Check if SIZE column exists for file-size-based batching
+        if OperatorConstants.Misc.SIZE not in table.column_names:
+            self.logger.warning(
+                f"SIZE column not found in table. Falling back to record-count batching. "
+                f"Available columns: {table.column_names}"
+            )
+            # Fallback to record-count batching with empty-batch filtering
+            batches = []
+            batch_num = 0
+            for batch in table.to_batches(max_chunksize=batch_size):
+                batch_table = pa.Table.from_batches([batch])
+
+                # Filter out empty batches
+                if batch_table.num_rows == 0:
+                    self.logger.debug(f"Skipping empty batch at position {batch_num}")
+                    continue
+
+                # Generate UUID batch_id for retained batch
+                batch_id = str(uuid.uuid4())
+                batches.append(BatchInfo(batch_id=batch_id, batch_num=batch_num, table=batch_table))
+                batch_num += 1
+
+            return batches
+
+        # Calculate number of batches based on batch_size
+        num_batches = max(1, (num_rows + batch_size - 1) // batch_size)
+
+        # Extract file sizes as numpy array (memory-efficient, zero-copy when possible)
+        size_column = table.column(OperatorConstants.Misc.SIZE)
+        size_array = size_column.to_numpy(zero_copy_only=False)
+
+        # Handle None/null values and negative sizes
+        size_array = np.where(np.isnan(size_array) | (size_array < 0), 0, size_array).astype(np.int64)
+
+        total_size = size_array.sum()
+
+        # Handle edge case: all files have zero size
+        if total_size == 0:
+            self.logger.warning("All files have zero size. Using simple round-robin distribution.")
+            # Simple round-robin: create batches directly using take() to preserve schema
+            result_batches = []
+            batch_num = 0
+            for batch_idx in range(num_batches):
+                indices = list(range(batch_idx, num_rows, num_batches))
+                if indices:
+                    batch_table = table.take(indices)
+                    # Filter out empty batches
+                    if batch_table.num_rows == 0:
+                        continue
+                    batch_id = str(uuid.uuid4())
+                    result_batches.append(BatchInfo(batch_id=batch_id, batch_num=batch_num, table=batch_table))
+                    batch_num += 1
+            return result_batches
+
+        # Create index array and sort by size (largest first) for better bin-packing
+        sorted_indices = np.argsort(-size_array)  # Negative for descending order
+
+        # Initialize batch tracking arrays (memory-efficient)
+        batch_sizes = np.zeros(num_batches, dtype=np.int64)
+        batch_assignments = np.zeros(num_rows, dtype=np.int32)
+
+        # Greedy bin-packing: assign each file to the batch with smallest current total
+        for i in range(num_rows):
+            file_idx = sorted_indices[i]
+            file_size = size_array[file_idx]
+            # Find batch with minimum cumulative size
+            min_batch_idx = np.argmin(batch_sizes)
+            batch_assignments[file_idx] = min_batch_idx
+            batch_sizes[min_batch_idx] += file_size
+
+        # Log batch size distribution for monitoring
+        mb_divisor = 1024 * 1024
+        total_size_mb = total_size / mb_divisor
+        avg_size_mb = total_size_mb / num_batches
+        size_distribution = [f"Batch {i}: {batch_sizes[i] / mb_divisor:.2f} MB" for i in range(num_batches)]
+        self.logger.info(
+            f"Created {num_batches} size-balanced batches. "
+            f"Total size: {total_size_mb:.2f} MB, Avg per batch: {avg_size_mb:.2f} MB. "
+            f"Distribution: {'; '.join(size_distribution)}"
+        )
+
+        # Convert to BatchInfo objects using take() which preserves schema exactly
+        result_batches = []
+        batch_num = 0
+        for batch_idx in range(num_batches):
+            # Get indices for this batch (maintains original order)
+            batch_indices: Any = np.nonzero(batch_assignments == batch_idx)[0]
+            if len(batch_indices) > 0:
+                batch_table = table.take(batch_indices.tolist())
+                # Filter out empty batches
+                if batch_table.num_rows == 0:
+                    self.logger.debug(f"Skipping empty batch at index {batch_idx}")
+                    continue
+                # Generate UUID batch_id for retained batch
+                batch_id = str(uuid.uuid4())
+                result_batches.append(BatchInfo(batch_id=batch_id, batch_num=batch_num, table=batch_table))
+                batch_num += 1
+
+        return result_batches
 
     def prepare_batches(
         self, *, ingested_table: pa.Table, global_config: dict, common_log_arguments: dict | None = None
-    ) -> tuple[list[pa.Table], dict[str, Any]]:
+    ) -> tuple[list[BatchInfo], dict[str, Any]]:
         """
         Prepare batches for execution based on configuration.
 
@@ -84,7 +208,7 @@ class BatchManager:
 
         Returns:
             Tuple of (batches, updated_global_config)
-            - batches: List of PyArrow tables (single table for non-batch mode)
+            - batches: List of BatchInfo objects (single BatchInfo for non-batch mode)
             - updated_global_config: Config with batch-related parameters added
         """
         batching_enabled, batch_size = self.configure_batching(global_config=global_config)
@@ -106,7 +230,9 @@ class BatchManager:
             updated_config[DatasiftConstants.BATCH_COUNT] = batch_count
         else:
             # NON-BATCH MODE: Use entire table as single "batch"
-            batches = [ingested_table]
+            # Create a single BatchInfo with batch_id for consistency
+            batch_id: str = str(uuid.uuid4())
+            batches = [BatchInfo(batch_id=batch_id, batch_num=0, table=ingested_table)]
 
             self.logger.info(
                 f">>> Non-batch mode: Processing all {ingested_table.num_rows} rows in single execution",

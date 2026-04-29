@@ -170,7 +170,7 @@ def test_extract_operator_docling_serve_with_api_key():
         "text_extraction_mode": "docling_serve",
         "entity_extraction_mode": "none",
         "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
-        "docling_serve_api_key": "test-api-key-12345",
+        "docling_serve_api_key": "test-api-key-12345",  # pragma: allowlist secret
         "docling_serve_timeout": 600,
     }
 
@@ -455,7 +455,7 @@ def test_extract_operator_docling_serve_all_parameters():
         "entity_extraction_mode": "none",
         "doc_column": "content",
         "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
-        "docling_serve_api_key": "secret-key",
+        "docling_serve_api_key": "secret-key",  # pragma: allowlist secret
         "docling_serve_timeout": 600,
         "docling_serve_poll_interval": 5,
         "docling_serve_max_retries": 5,
@@ -582,7 +582,7 @@ def test_extract_operator_litellm_entity_mode():
         "entity_temperature": 0.0,
         "entity_max_tokens": 2000,
         "entity_provider_config": {
-            "api_key": "test-api-key",
+            "api_key": "test-api-key",  # pragma: allowlist secret
             "api_base": "https://api.test.local/v1",
         },
         "custom_schema": {"company": "string", "date": "string"},
@@ -620,7 +620,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
         "extract_images": False,
         "max_workers": 2,
         "entity_provider_config": {
-            "api_key": "test-api-key",
+            "api_key": "test-api-key",  # pragma: allowlist secret
             "api_base": "https://api.test.local/v1",
         },
         "custom_schema": {
@@ -697,7 +697,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
         "extract_images": False,
         "max_workers": 2,
         "entity_provider_config": {
-            "api_key": "test-api-key",
+            "api_key": "test-api-key",  # pragma: allowlist secret
             "api_base": "https://api.test.local/v1",
         },
         "custom_schema": {},
@@ -759,7 +759,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
         "expand_extracted_data": True,
         "max_workers": 2,
         "entity_provider_config": {
-            "api_key": "test-api-key",
+            "api_key": "test-api-key",  # pragma: allowlist secret
             "api_base": "https://api.test.local/v1",
         },
         "custom_schema": {
@@ -1106,7 +1106,7 @@ def test_extract_operator_docling_serve_comprehensive():
         "text_extraction_mode": "docling_serve",
         "entity_extraction_mode": "none",
         "docling_serve_base_url": "http://test-server:8080",
-        "docling_serve_api_key": "test-key-123",
+        "docling_serve_api_key": "test-key-123",  # pragma: allowlist secret
         "docling_serve_timeout": 600,
         "docling_serve_poll_interval": 5,
         "docling_serve_max_retries": 5,
@@ -1136,7 +1136,7 @@ def test_extract_operator_docling_library_vlm_all_parameters():
         "vlm_preset": "granite_docling",
         "vlm_engine_type": "transformers",
         "vlm_provider_config": {
-            "api_key": "test-key",
+            "api_key": "test-key",  # pragma: allowlist secret
             "api_base_url": "http://localhost:8000",
         },
     }
@@ -1248,7 +1248,7 @@ def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_ch
     assert consolidated[Metrics.External.PROCESSED_DOCS] == 1
     assert (
         consolidated[Metrics.External.NODE_STATUS]
-        == ExecutionStatus.COMPLETED_WITH_ERRORS
+        == ExecutionStatus.COMPLETED_WITH_ERRORS.value
     )
 
     assert failed_docs["doc-1"][OperatorConstants.Misc.REASON] == (

@@ -18,6 +18,7 @@ Supports configurable batch data transfer:
 import asyncio
 import json
 import os
+from pathlib import Path
 from typing import Any, Coroutine
 
 import pyarrow as pa
@@ -28,8 +29,11 @@ from prefect.deployments import run_deployment
 from prefect.flow_runs import wait_for_flow_run
 from prefect.states import Cancelled
 
+from common.constants import EnvironmentVariables
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 from common.util.infrastructure.logging import get_logger
+from core.job_management.adapters.config.job_management_factory import JobManagementFactory
+from core.orchestrator.batch_manager import BatchInfo
 from core.orchestrator.prefect.config.work_pool_config import (
     DockerWorkPoolConfig,
     ECSWorkPoolConfig,
@@ -171,7 +175,7 @@ class WorkPoolAdapter(BatchExecutionPort):
         self._ensure_deployment_exists()
 
     def execute_batches(
-        self, *, batches: list[pa.Table], op_flow: list[dict], global_config: dict, job_run_id: str
+        self, *, batches: list[BatchInfo], op_flow: list[dict], global_config: dict, job_run_id: str
     ) -> None:
         """
         Execute batches using distributed work pool.
@@ -183,7 +187,7 @@ class WorkPoolAdapter(BatchExecutionPort):
         4. Implement fail-fast: cancel remaining on first failure
 
         Args:
-            batches: List of PyArrow tables, one per batch
+            batches: List of BatchInfo objects with batch_id, batch_num, and table
             op_flow: Operator flow definition
             global_config: Global configuration dict
             job_run_id: Unique identifier for this job run
@@ -201,9 +205,11 @@ class WorkPoolAdapter(BatchExecutionPort):
         # 1. Submit all batches as flow runs (non-blocking)
         flow_runs: list[FlowRun] = []
 
-        for batch_num, batch_table in enumerate(batches):
+        for batch_info in batches:
             # Transfer batch data to storage and get reference
-            batch_transfer = self._transfer_batch(batch_table=batch_table, batch_num=batch_num, job_run_id=job_run_id)
+            batch_transfer = self._transfer_batch(
+                batch_table=batch_info.table, batch_num=batch_info.batch_num, job_run_id=job_run_id
+            )
 
             # Submit flow run via Prefect's run_deployment (non-blocking)
             deployment_full_name = f"{BatchStrategyConstants.BATCH_SUBFLOW_NAME}/{self.deployment_name}"
@@ -211,7 +217,8 @@ class WorkPoolAdapter(BatchExecutionPort):
             flow_run: FlowRun | Coroutine[Any, Any, FlowRun] = run_deployment(
                 name=deployment_full_name,
                 parameters={
-                    "batch_num": batch_num,
+                    "batch_id": batch_info.batch_id,
+                    "batch_num": batch_info.batch_num,
                     "batch_transfer": batch_transfer,
                     "op_flow": op_flow,
                     "global_config": global_config,
@@ -224,7 +231,8 @@ class WorkPoolAdapter(BatchExecutionPort):
             if flow_run and isinstance(flow_run, FlowRun):
                 flow_runs.append(flow_run)
                 self.prefect_engine.logger.info(
-                    f"Batch {batch_num} submitted: flow_run_id={flow_run.id}", extra={"job_run_id": job_run_id}
+                    f"Batch {batch_info.batch_num} submitted: flow_run_id={flow_run.id}",
+                    extra={"job_run_id": job_run_id},
                 )
 
         # 2. Wait for all flow runs with fail-fast cancellation
@@ -595,16 +603,52 @@ class WorkPoolAdapter(BatchExecutionPort):
                 f"For local setup, run: docker-compose -f docker-compose.distributed.yml up -d"
             ) from e
 
-    def _build_container_env(self, *, base_env: dict[str, str], deployment_path: str) -> dict[str, str]:
+    @staticmethod
+    def _resolve_job_management_config_path() -> Path:
+        config_path = os.getenv(EnvironmentVariables.DATASIFT_CONFIG_PATH)
+        if config_path:
+            return Path(config_path).resolve()
+        return Path(__file__).resolve().parents[4] / "config" / "datasift.yaml"
+
+    def _get_effective_job_management_env(self) -> dict[str, str]:
+        """Resolve effective submitter-side job-management environment for worker propagation."""
+        resolved_env: dict[str, str] = {}
+        config_path = self._resolve_job_management_config_path()
+
+        if config_path.exists():
+            resolved_env[EnvironmentVariables.DATASIFT_CONFIG_PATH] = str(config_path)
+
+        # Delegate to JobManagementFactory for resolving job management environment
+        try:
+            factory = JobManagementFactory.from_default_sources()
+            job_management_env = factory.resolve_worker_env()
+            resolved_env.update(job_management_env)
+        except Exception as exc:
+            logger.warning(f"Failed to resolve job management environment for work pool propagation: {exc}")
+
+        return resolved_env
+
+    def _build_container_env(self, *, base_env: dict[str, str], deployment_path: str | None) -> dict[str, str]:
         """Build container environment with required defaults."""
         env = base_env.copy()
 
-        if "PREFECT_API_URL" not in env:
-            env["PREFECT_API_URL"] = os.getenv("PREFECT_API_URL", "http://prefect-server:4200/api")
-        if "PREFECT_MODE" not in env:
-            env["PREFECT_MODE"] = "server"
-        if "PYTHONPATH" not in env:
-            env["PYTHONPATH"] = deployment_path
+        if EnvironmentVariables.PREFECT_API_URL not in env:
+            env[EnvironmentVariables.PREFECT_API_URL] = os.getenv(
+                EnvironmentVariables.PREFECT_API_URL,
+                "http://prefect-server:4200/api",
+            )
+        if EnvironmentVariables.PREFECT_MODE not in env:
+            env[EnvironmentVariables.PREFECT_MODE] = "server"
+        if EnvironmentVariables.PYTHONPATH not in env:
+            env[EnvironmentVariables.PYTHONPATH] = deployment_path or os.getcwd()
+        if EnvironmentVariables.OLLAMA_HOST not in env:
+            env[EnvironmentVariables.OLLAMA_HOST] = os.getenv(
+                EnvironmentVariables.OLLAMA_HOST, "http://localhost:11434"
+            )
+        effective_job_management_env = self._get_effective_job_management_env()
+        for env_key, env_value in effective_job_management_env.items():
+            if env_key not in env:
+                env[env_key] = env_value
 
         return env
 
@@ -680,16 +724,13 @@ class WorkPoolAdapter(BatchExecutionPort):
             return {"image": config.image}
 
         if isinstance(config, ProcessWorkPoolConfig):
-            # Process workers need environment variables passed via job_variables
-            # Reference: Prefect docs show job_variables={"env": {...}} pattern
-            import os
-
+            # Process workers need environment variables passed via job_variables.
+            # Start with config-provided env, then fill runtime defaults/overrides.
             return {
-                "env": {
-                    "PREFECT_API_URL": os.getenv("PREFECT_API_URL", "http://localhost:4200/api"),
-                    "PREFECT_MODE": os.getenv("PREFECT_MODE", "server"),
-                    "PYTHONPATH": os.getenv("PYTHONPATH", ""),
-                }
+                "env": self._build_container_env(
+                    base_env=config.env,
+                    deployment_path=config.deployment_path,
+                )
             }
 
         return None
@@ -751,39 +792,48 @@ class WorkPoolAdapter(BatchExecutionPort):
             else:
                 entrypoint = "core/orchestrator/prefect/batch_subflow.py:batch_subflow"
 
-            # For process workers: Prefect 3.x requires storage configuration even for
-            # module entrypoints. Without it, Prefect creates a default LocalFileSystem
-            # with path=None, causing: FileNotFoundError: '/tmp/tmpXXX/None'
+            # For process workers: Determine where the flow code lives on the
+            # WORKER's filesystem.
+            #
+            # Two scenarios:
+            # 1. Local dev (guide Steps 1-4): submitter and worker share the same
+            #    filesystem → os.getcwd() is correct.
+            # 2. Docker (docker-compose): worker runs in a container where code is
+            #    at a different path (e.g. /app/src/datasift_opensource/backend)
+            #    → user must set deployment_path in their flow config.
+            #
+            # If deployment_path is None (default), we fall back to os.getcwd().
             if isinstance(self.work_pool_runtime_config, ProcessWorkPoolConfig):
-                import os
-
-                from prefect.filesystems import LocalFileSystem
-
-                # Create LocalFileSystem storage block pointing to workspace directory
-                # This tells Prefect where the code is (no download needed)
-                workspace_dir = os.getcwd()
-                storage_block_name = "datasift-workspace-storage"
-
-                try:
-                    storage = LocalFileSystem(basepath=workspace_dir)
-                    storage_document_id = storage.save(name=storage_block_name, overwrite=True)
-                    self.prefect_engine.logger.info(f"Created storage block '{storage_block_name}' at {workspace_dir}")
-                except Exception as e:
-                    self.prefect_engine.logger.error(f"Failed to create storage block: {e}")
-                    storage_document_id = None
+                worker_code_dir = self.work_pool_runtime_config.deployment_path or os.getcwd()
+                self.prefect_engine.logger.info(
+                    f"Process work pool: worker code directory = {worker_code_dir}"
+                    f" (source={'config' if self.work_pool_runtime_config.deployment_path else 'os.getcwd()'})"
+                )
 
                 deployment_params = {
                     "flow_id": flow_obj.id,
                     "name": self.deployment_name,
                     "work_pool_name": self.work_pool_name,
                     "entrypoint": entrypoint,
-                    "storage_document_id": storage_document_id,
-                    "path": ".",  # Relative path from basepath
-                    "pull_steps": [],  # No download - code already at basepath
+                    "path": worker_code_dir,
+                    "pull_steps": [
+                        {
+                            "prefect.deployments.steps.set_working_directory": {
+                                "directory": worker_code_dir,
+                            }
+                        }
+                    ],
                 }
             else:
-                # Container-based workers need path for code deployment
-                deployment_path = self.work_pool_runtime_config.deployment_path
+                # Container-based workers need path for code deployment.
+                # Default to the pre-baked path in the Docker image (/app/...)
+                deployment_path = (
+                    self.work_pool_runtime_config.deployment_path or BatchStrategyConstants.DEFAULT_DEPLOYMENT_PATH
+                )
+                self.prefect_engine.logger.info(
+                    f"Container work pool: deployment path = {deployment_path}"
+                    f" (source={'config' if self.work_pool_runtime_config.deployment_path else 'default'})"
+                )
                 deployment_params = {
                     "flow_id": flow_obj.id,
                     "name": self.deployment_name,
@@ -877,6 +927,3 @@ class WorkPoolAdapter(BatchExecutionPort):
     def get_strategy_name(self) -> str:
         """Return strategy name for logging."""
         return f"work-pool-{self.work_pool_type}"
-
-
-# Made with Bob

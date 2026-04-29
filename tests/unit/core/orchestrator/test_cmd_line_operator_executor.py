@@ -23,7 +23,10 @@ class TestCommandLineOperatorExecutor:
         )
 
         mock_parent_init.assert_called_once_with(
-            "test_executor", "test_operator", {"param1": "value1"}
+            name="test_executor",
+            operator="test_operator",
+            params={"param1": "value1"},
+            job_stats_service=None,
         )
 
     @patch(
@@ -35,7 +38,12 @@ class TestCommandLineOperatorExecutor:
 
         _ = CommandLineOperatorExecutor(name="executor", operator="operator", params={})
 
-        mock_parent_init.assert_called_once_with("executor", "operator", {})
+        mock_parent_init.assert_called_once_with(
+            name="executor",
+            operator="operator",
+            params={},
+            job_stats_service=None,
+        )
 
     @patch(
         "core.orchestrator.cmdline.cmd_line_operator_executor.PythonOperatorExecutor.__init__"
@@ -56,7 +64,10 @@ class TestCommandLineOperatorExecutor:
         )
 
         mock_parent_init.assert_called_once_with(
-            "complex_executor", "complex_operator", complex_params
+            name="complex_executor",
+            operator="complex_operator",
+            params=complex_params,
+            job_stats_service=None,
         )
 
     def test_inherits_from_python_operator_executor(self):
@@ -95,15 +106,29 @@ class TestCommandLineOperatorExecutor:
         """Test creating multiple instances."""
         mock_parent_init.return_value = None
 
-        _ = CommandLineOperatorExecutor("exec1", "op1", {"p1": "v1"})
-        _ = CommandLineOperatorExecutor("exec2", "op2", {"p2": "v2"})
+        _ = CommandLineOperatorExecutor(
+            name="exec1", operator="op1", params={"p1": "v1"}
+        )
+        _ = CommandLineOperatorExecutor(
+            name="exec2", operator="op2", params={"p2": "v2"}
+        )
 
         assert mock_parent_init.call_count == 2
 
-        # Verify each instance was initialized with correct params
+        # Verify each instance was initialized with correct params (keyword args)
         calls = mock_parent_init.call_args_list
-        assert calls[0][0] == ("exec1", "op1", {"p1": "v1"})
-        assert calls[1][0] == ("exec2", "op2", {"p2": "v2"})
+        assert calls[0].kwargs == {
+            "name": "exec1",
+            "operator": "op1",
+            "params": {"p1": "v1"},
+            "job_stats_service": None,
+        }
+        assert calls[1].kwargs == {
+            "name": "exec2",
+            "operator": "op2",
+            "params": {"p2": "v2"},
+            "job_stats_service": None,
+        }
 
 
 if __name__ == "__main__":

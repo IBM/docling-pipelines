@@ -38,7 +38,7 @@ from app.dto.flow_dto import (
     FlowUpdateRequest,
     PaginatedFlowResponse,
 )
-from app.dto.flow_mapper import FlowMapper
+from app.dto.mappers.flow_mapper import FlowMapper
 from core.assets_management.adapters.config.repository_factory import RepositoryFactory
 from core.assets_management.application.services.flow_service import FlowService
 from core.assets_management.domain.ports.flow_repository import FlowRepository

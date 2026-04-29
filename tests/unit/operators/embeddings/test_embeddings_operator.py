@@ -39,7 +39,7 @@ def mock_ollama_client():
     This fixture is automatically used for all tests in this module to prevent
     OllamaClient from attempting to connect to a real Ollama server during
     model validation in __init__.
-    
+
     Tests MUST configure mock_client.embeddings behavior by setting return_value or side_effect.
     """
     with patch("ollama.Client") as mock_client_class:
@@ -475,7 +475,7 @@ class TestEmbeddingsOperatorTransform:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert (
             metadata[Metrics.External.NODE_STATUS]
-            == ExecutionStatus.COMPLETED_WITH_ERRORS
+            == ExecutionStatus.COMPLETED_WITH_ERRORS.value
         )
 
     @patch("ollama.embeddings")
@@ -729,7 +729,7 @@ class TestEmbeddingsErrorHandling:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert (
             metadata[Metrics.External.NODE_STATUS]
-            == ExecutionStatus.COMPLETED_WITH_ERRORS
+            == ExecutionStatus.COMPLETED_WITH_ERRORS.value
         )
 
     def test_invalid_model_name_error(
@@ -946,7 +946,7 @@ class TestEmbeddingsMetadataValidation:
 
         assert Metrics.External.NODE_STATUS in metadata
         # Should be Completed when all succeed
-        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED.value
 
     def test_metadata_node_status_with_errors(
         self, mock_ollama_client, sample_config, sample_table_single_doc
@@ -961,7 +961,7 @@ class TestEmbeddingsMetadataValidation:
 
         assert (
             metadata[Metrics.External.NODE_STATUS]
-            == ExecutionStatus.COMPLETED_WITH_ERRORS
+            == ExecutionStatus.COMPLETED_WITH_ERRORS.value
         )
 
     @patch("ollama.embeddings")
@@ -1049,7 +1049,9 @@ class TestEmbeddingsOperatorIntegration:
                 # Should process successfully with appropriate chunking
                 assert metadata[Metrics.External.PROCESSED_DOCS] == 1
 
-    def test_mixed_success_and_failure_documents(self, mock_ollama_client, sample_config):
+    def test_mixed_success_and_failure_documents(
+        self, mock_ollama_client, sample_config
+    ):
         """Test processing with mix of successful and failed documents."""
         # Make every other document fail
         call_count = [0]

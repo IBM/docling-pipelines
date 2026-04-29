@@ -1,125 +1,351 @@
 import os
+from typing import Any
 
 from common.constants import DatasiftConstants, ExecutionStatus
-from common.exceptions.error_codes import ErrorCode
 from common.models.session_info import get_session_info
 from common.util.infrastructure.filesystem import get_data_path
 from common.util.infrastructure.logging import get_logger
 from common.util.infrastructure.performance import log_elapsed_time
-from common.util.job_tracker.tracker.job_tracker import JobTracker
+from core.job_management.domain.ports import JobRunManager, JobStatsService
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_flow_execution_event_handler import AbstractFlowExecutionEventHandler
-from core.orchestrator.node_logger import NodeLogger
+from core.orchestrator.batch_manager import BatchInfo
 
 logger = get_logger()
 
 
 class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
     """
-    This class implement the methods that handles events triggered while flow is executed in open source version.
+    Event handler for open source flow execution with constructor-based dependency injection.
+
+    This class handles events triggered during flow execution, using the injected
+    job stats service for tracking job and node statistics.
     """
 
-    def __init__(self):
-        self.job_tracker = JobTracker()
-        self.node_logger: NodeLogger | None = None
+    def __init__(
+        self,
+        job_stats_service: JobStatsService | None = None,
+        job_run_manager: JobRunManager | None = None,
+    ):
+        """
+        Initialize event handler with job services.
+
+        Args:
+            job_stats_service: Optional job statistics service for tracking
+            job_run_manager: Optional framework job run manager for external status updates
+        """
+        self.job_stats_service = job_stats_service
+        self.job_run_manager = job_run_manager
+        # These will be set during initialize()
+        self.flow_id: str | None = None
+        self.job_id: str | None = None
+        self.job_run_id: str | None = None
+        self.job_log_path: str | None = None
+        self.common_log_arguments: dict | None = None
 
     def initialize(self, *, job_id, job_run_id, common_log_arguments):
+        """
+        Initialize event handler for a specific job run.
+
+        Args:
+            job_id: Job identifier
+            job_run_id: Job run identifier
+            common_log_arguments: Common logging arguments
+        """
         self.flow_id = get_session_info().flow_id
         self.job_id = job_id
         self.job_run_id = job_run_id
         self.job_log_path = self._create_log_folders(job_id=self.job_id, type_="job")
         self.common_log_arguments = common_log_arguments
-        self.node_logger = NodeLogger(common_log_arguments=self.common_log_arguments)
 
     def before_flow_execution_start(self, *, orchestrtor):
-        if self.job_tracker.cancel_job_run_if_cancelling(job_run_id=self.job_run_id, job_log_path=self.job_log_path):
-            return
-        self.job_tracker.start_tracking_job(orchestrator=orchestrtor, job_id=self.job_id, job_run_id=self.job_run_id)
+        if self.job_stats_service:
+            # Check if job is being canceled
+            if self.job_stats_service.cancel_job_run_if_cancelling(
+                job_run_id=self.job_run_id, job_log_path=self.job_log_path
+            ):
+                return
 
-    def after_flow_execution_complete(self, op_flow, present_job_status: str, message):
+            # Start tracking job
+            self.job_stats_service.start_tracking_job(
+                job_id=self.job_id, job_run_id=self.job_run_id, flow_name=self.flow_id or "unknown"
+            )
+
+    def after_flow_execution_complete(self, op_flow, present_job_status: ExecutionStatus, message):
+        """Finalize internal job stats and push final framework status with complete statistics."""
+        if not self.job_stats_service or not self.job_run_id:
+            logger.warning("Job stats service or job_run_id not available", extra=self.common_log_arguments)
+            return
+
         if present_job_status == ExecutionStatus.CANCELING:
             job_status = ExecutionStatus.CANCELED
         elif present_job_status == ExecutionStatus.FAILING:
             job_status = ExecutionStatus.FAILED
         else:
-            job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
+            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
             if job_stats and job_stats.node_stats:
-                self.job_tracker.determine_and_update_final_documents_count(job_stats=job_stats, dag_nodes=op_flow)
-                job_status = OperatorUtils.determine_final_job_status(node_stats_list=job_stats.node_stats)
-                job_stats.status = job_status
-            else:
-                # POC: Job stats not available in distributed execution, default to completed
-                logger.warning(f"Job stats not available for job_run_id={self.job_run_id}, defaulting to COMPLETED")
-                job_status = ExecutionStatus.COMPLETED
+                self.job_stats_service.determine_and_update_final_documents_count(
+                    job_stats=job_stats, dag_nodes=op_flow
+                )
+                # Debug: Log node stats before determining status
+                logger.info(
+                    f"Node stats count: {len(job_stats.node_stats) if job_stats.node_stats else 0}",
+                    extra=self.common_log_arguments,
+                )
+                if job_stats.node_stats:
+                    for node_id, node_stat in job_stats.node_stats.items():
+                        node_status_val = (
+                            node_stat.node_status
+                            if hasattr(node_stat, "node_status")
+                            else node_stat.get("node_status", "Unknown")
+                        )
+                        logger.info(f"Node {node_id}: status={node_status_val}", extra=self.common_log_arguments)
+                else:
+                    logger.warning(
+                        "No node stats found when determining final job status", extra=self.common_log_arguments
+                    )
 
-        self.job_tracker.end_job(
-            job_run_id=self.job_run_id, status=job_status, message=message, job_log_path=self.job_log_path
+                # Ensure node_stats is not None before passing to determine_final_job_status
+                node_stats_for_status = job_stats.node_stats if job_stats.node_stats else {}
+                logger.info(
+                    f"About to determine status. node_stats_for_status type: {type(node_stats_for_status)}, len: {len(node_stats_for_status) if node_stats_for_status else 0}",
+                    extra=self.common_log_arguments,
+                )
+                job_status = OperatorUtils.determine_final_job_status(node_stats_list=node_stats_for_status)
+            else:
+                logger.warning("Job stats not found when determining final status", extra=self.common_log_arguments)
+                job_status = ExecutionStatus.FAILED
+
+        self.job_stats_service.end_job(
+            job_run_id=self.job_run_id,
+            status=job_status.value,
+            job_run_stats={"message": message} if message else None,
         )
-        logger.info(f">>> Job status is {job_status}.", extra=self.common_log_arguments)
+
+        job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+        if job_stats and self.job_log_path:
+            self.job_stats_service.write_job_logs(job_stats=job_stats, job_log_path=self.job_log_path)
+
+        self._update_framework_status(
+            status=job_status.value,
+            job_run_stats=self._get_complete_job_stats(message=message),
+        )
+
+        logger.info(f"Job status is {job_status.value}.", extra=self.common_log_arguments)
 
     def before_step_execution_start(self, *, node_id, node_name, global_config, job_status, prev_results):
+        log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
+
         if prev_results is None:
-            if self.node_logger:
-                self.node_logger.log_error_in_previous_step(
-                    node_id=node_id, node_name=node_name, global_config=global_config
-                )
-        if self.node_logger:
-            self.node_logger.log_cancellation_or_abort_if_needed(
-                node_id=node_id, node_name=node_name, job_status=job_status, global_config=global_config
-            )
+            logger.info(f"Error detected in previous step - node {node_name} skipped.", extra=log_extra)
+
+        if job_status == ExecutionStatus.CANCELING:
+            logger.info(f"Cancelling the branch execution at node name: {node_name}", extra=log_extra)
+        elif job_status == ExecutionStatus.FAILING:
+            logger.info(f"Aborting the branch execution at node name: {node_name}", extra=log_extra)
 
     def after_step_execution_complete(
         self, *, node_id, node_name, operator_category, operator, global_config, is_last_step, metadata, start_time
     ):
         """
-        This method is called after a step is executed or skipped
+        Update internal step statistics and push periodic RUNNING updates to the framework.
         """
-        self.job_tracker.update_doc_counts(
-            job_run_id=self.job_run_id, metadata=metadata, operator_category=operator_category
-        )
-        log_elapsed_time(start_time=start_time, operator=operator)
-
-        if is_last_step and self.node_logger:
-            self.node_logger.log_branch_completion(node_id=node_id, node_name=node_name, global_config=global_config)
-
-    def after_node_skipped(self, *, node_id, node_name, operator, global_config, start_time, end_time, column_names):
-        node_stats = {
-            "name": node_name,
-            "node_status": ExecutionStatus.SKIPPED.value,
-            "start_time": start_time,
-            "end_time": end_time,
-            "col_names": column_names,
-            "time_taken": end_time - start_time,
-        }
-
-        if self.node_logger:
-            self.node_logger.log_skipped_execution(
-                node_id=node_id, node_name=node_name, operator=operator, global_config=global_config
+        if self.job_stats_service and self.job_run_id:
+            self.job_stats_service.update_doc_counts(
+                job_run_id=self.job_run_id, metadata=metadata, operator_category=operator_category.value
             )
 
-        self.job_tracker.update_node_stats(self.job_run_id, node_id=node_id, node_stats=node_stats)
+        self._update_framework_status(
+            status=ExecutionStatus.RUNNING.value,
+            job_run_stats=self._get_complete_job_stats(),
+        )
+
+        log_elapsed_time(start_time=start_time, operator=operator)
+
+        if is_last_step:
+            log_extra = {**self.common_log_arguments, "node_id": node_id, "node_name": node_name}
+            logger.info(f" Branch execution completed at node name: {node_name}", extra=log_extra)
+
+    def after_node_skipped(
+        self,
+        *,
+        node_id,
+        node_name,
+        operator_type,
+        global_config,
+        start_time,
+        end_time,
+        column_names,
+        reason: str | None = None,
+    ):
+        """
+        Record node as SKIPPED.
+
+        Handles both empty-data skips and upstream-failure skips.
+
+        Args:
+            node_id: Node identifier
+            node_name: Human-readable node name
+            operator_type: Operator type
+            global_config: Global configuration containing batch context
+            start_time: Start timestamp
+            end_time: End timestamp
+            column_names: Column names from node output
+            reason: Reason for skipping (defaults to "Skipped - no input data to process")
+        """
+
+        log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
+        logger.info(
+            f"Skipped execution for Step Name: {node_name}, operator: {operator_type} because no input data available for processing.",
+            extra=log_extra,
+        )
+
+        if self.job_stats_service and self.job_run_id:
+            # Extract batch context from global_config if micro-batching is enabled
+            batch_id = None
+            batch_num = None
+            if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
+                batch_id = global_config.get(DatasiftConstants.BATCH_ID)
+                batch_num = global_config.get(DatasiftConstants.BATCH_NUM)
+
+            # Use provided reason or default
+            skip_reason = reason if reason is not None else "Skipped - no input data to process"
+
+            # Use new terminal API with batch context
+            self.job_stats_service.skip_node_execution(
+                job_run_id=self.job_run_id,
+                node_id=node_id,
+                node_name=node_name,
+                reason=skip_reason,
+                col_names=column_names,
+                batch_id=batch_id,
+                batch_num=batch_num,
+            )
 
     def after_node_failure(self, *, node_id, node_name, global_config, e):
-        node_stats = {
-            "name": node_name,
-            "node_status": ExecutionStatus.FAILED.value,
-            "error": str(e),
-            "error_code": ErrorCode.OPERATOR_EXECUTION_FAILED.value,
-        }
-        self.job_tracker.update_node_stats(
-            job_run_id=self.job_run_id,
-            node_id=node_id,
-            node_stats=node_stats,
+        if self.job_stats_service and self.job_run_id:
+            # Extract batch context from global_config if micro-batching is enabled
+            batch_id = None
+            batch_num = None
+            if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
+                batch_id = global_config.get(DatasiftConstants.BATCH_ID)
+                batch_num = global_config.get(DatasiftConstants.BATCH_NUM)
+
+            # Use new terminal API with batch context
+            self.job_stats_service.fail_node_execution(
+                job_run_id=self.job_run_id,
+                node_id=node_id,
+                node_name=node_name,
+                exception=e,
+                batch_id=batch_id,
+                batch_num=batch_num,
+            )
+
+            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+            if job_stats and self.job_log_path:
+                self.job_stats_service.write_job_logs(job_stats=job_stats, job_log_path=self.job_log_path)
+
+        self._update_framework_status(
+            status=ExecutionStatus.FAILED.value,
+            job_run_stats=self._get_complete_job_stats(message=str(e)),
         )
+
         logger.error(e, stack_info=True, exc_info=True, extra=self.common_log_arguments)
-        # if any exception occur for any operator,
-        # we should add node_stats in above format in job_stats.json file
-        job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
-        self.job_tracker.write_job_logs(job_stats=job_stats, job_log_path=self.job_log_path)
-        # below logger will add failure reason in flow_execute.log
-        if self.node_logger:
-            self.node_logger.log_node_failure(
-                node_id=node_id, node_name=node_name, error=e, global_config=global_config
+
+        log_extra = {**self.common_log_arguments, "node_id": node_id, "node_name": node_name}
+        logger.error(
+            f">>> Node {node_name} failed and caused aborting the branch execution: {e} transaction_ID: {get_session_info().transaction_id}",
+            extra=log_extra,
+        )
+
+    def after_batches_prepared(
+        self, *, batches: list[BatchInfo], op_flow: list[dict[str, Any]], global_config: dict[str, Any]
+    ) -> None:
+        """
+        Initialize pending batch node stats after batches are materialized.
+
+        Creates PENDING stats for all batch/node combinations for downstream
+        batch-participating nodes (excludes ingest operator).
+
+        Args:
+            batches: List of BatchInfo objects with batch_id, batch_num, and table
+            op_flow: Operator flow definition (DAG)
+            global_config: Global configuration dictionary
+        """
+        # Only create pending stats if micro-batching is enabled
+        if not global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
+            return
+
+        if not self.job_stats_service or not self.job_run_id:
+            logger.warning("Job stats service or job_run_id not available for pending batch stats creation")
+            return
+
+        # Extract batch IDs and nums from retained batches
+        batch_ids = [batch_info.batch_id for batch_info in batches]
+        batch_nums = [batch_info.batch_num for batch_info in batches]
+
+        # Get downstream node IDs and names (exclude ingest operator at index 0)
+        from common.constants.operator_constants import OperatorConstants
+
+        downstream_node_ids: list[str] = [
+            str(op_def.get(OperatorConstants.Columns.ID))
+            for op_def in op_flow[1:]
+            if op_def.get(OperatorConstants.Columns.ID) is not None
+        ]
+
+        downstream_node_names: list[str] = [
+            str(op_def.get(OperatorConstants.Columns.NAME, ""))
+            for op_def in op_flow[1:]
+            if op_def.get(OperatorConstants.Columns.ID) is not None
+        ]
+
+        if batch_ids and downstream_node_ids:
+            self.job_stats_service.create_pending_batch_node_stats(
+                job_run_id=self.job_run_id,
+                batch_ids=batch_ids,
+                batch_nums=batch_nums,
+                downstream_node_ids=downstream_node_ids,
+                downstream_node_names=downstream_node_names,
+            )
+            logger.info(
+                f"Initialized pending stats for {len(batch_ids)} batches x {len(downstream_node_ids)} nodes",
+                extra=self.common_log_arguments,
+            )
+
+    def _get_complete_job_stats(self, *, message: str | None = None) -> dict[str, Any] | None:
+        """Return complete job stats including node_stats for framework updates."""
+        if not self.job_stats_service or not self.job_run_id:
+            return {"message": message} if message else None
+
+        job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+        if not job_stats:
+            return {"message": message} if message else None
+
+        job_run_stats = job_stats.model_dump()
+        if message:
+            job_run_stats["message"] = message
+        return job_run_stats
+
+    def _update_framework_status(self, *, status: str, job_run_stats: dict[str, Any] | None = None) -> None:
+        """Update external framework status without allowing framework failures to stop the flow."""
+        if not self.job_run_manager or not self.job_run_id:
+            return
+
+        try:
+            self.job_run_manager.update_job_run_status(
+                job_run_id=self.job_run_id,
+                status=status,
+                job_run_stats=job_run_stats,
+            )
+        except Exception as exc:
+            logger.warning(
+                "Failed to update external framework status",
+                extra={
+                    **(self.common_log_arguments or {}),
+                    "job_run_id": self.job_run_id,
+                    "status": status,
+                    "error": str(exc),
+                },
             )
 
     def _create_log_folders(self, *, job_id, type_):

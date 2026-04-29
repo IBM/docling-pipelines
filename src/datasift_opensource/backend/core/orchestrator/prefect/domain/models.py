@@ -8,6 +8,8 @@ including execution modes, work pool types, and storage configurations.
 import os
 from enum import StrEnum
 
+from common.constants import EnvironmentVariables
+
 
 class ExecutionStrategyType(StrEnum):
     """
@@ -116,20 +118,33 @@ class BatchStrategyConstants:
         """
         Get the current Prefect server max parameter size limit.
 
-        This value can be set using the command:
-        prefect config set PREFECT_SERVER_API_DEFAULT_LIMIT=500
-
-        Reads from PREFECT_SERVER_API_MAX_PARAMETER_SIZE environment variable.
-        Falls back to default (512 KB) if not set or invalid.
+        The limit can be configured via Prefect settings or the
+        PREFECT_SERVER_API_MAX_PARAMETER_SIZE environment variable.
+        Falls back to default (512 KB) if not configured.
 
         Returns:
             int: Maximum parameter size in bytes
         """
+        from prefect.settings import get_current_settings
+
+        # 1. Try to get from Prefect settings (if registered in this version)
         try:
-            env_value = os.environ.get("PREFECT_SERVER_API_MAX_PARAMETER_SIZE")
+            settings = get_current_settings()
+            # Some versions might have it in server.api.max_parameter_size
+            if hasattr(settings, "server") and hasattr(settings.server, "api"):
+                limit = getattr(settings.server.api, "max_parameter_size", None)
+                if limit is not None and isinstance(limit, int) and limit > 0:
+                    return limit
+        except Exception:
+            pass
+
+        # 2. Fallback to EnvironmentVariables constant (os.environ)
+        try:
+            env_value = os.environ.get(EnvironmentVariables.PREFECT_SERVER_API_MAX_PARAMETER_SIZE)
             if env_value is not None:
                 limit = int(env_value)
-                return limit if limit > 0 else BatchStrategyConstants.DEFAULT_INLINE_SIZE_LIMIT_BYTES
+                if limit > 0:
+                    return limit
         except (ValueError, TypeError):
             pass
 

@@ -14,18 +14,21 @@ from docling_core.types.io import DocumentStream
 from pyarrow import Table
 
 from common.constants.constants import (
-    DatasiftConstants,
     DocsStructure,
     ExecutionStatus,
     Metrics,
     internal_metrics,
 )
 from common.constants.operator_constants import OperatorConstants
-from common.exceptions.datasift_exceptions import FlowExecutionFailedException, FlowValidationException, ValidationAlert
+from common.exceptions.datasift_exceptions import (
+    FlowExecutionFailedException,
+    FlowValidationException,
+    ValidationAlert,
+)
 from common.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from common.util.infrastructure.logging import get_logger
-from common.util.job_tracker.model.models import normalize_node_stats_for_dto
-from common.util.job_tracker.tracker.job_tracker import NodeStatsDto
+from core.job_management import NodeStats
+from core.job_management.domain.utils import normalize_node_stats_for_dto
 
 status_codes = {
     ExecutionStatus.FAILED: 1,
@@ -106,63 +109,12 @@ class OperatorUtils:
     @staticmethod
     def merge_status(old_stat: ExecutionStatus, new_stat: ExecutionStatus) -> ExecutionStatus:
         """
-        Merge two JobStatus values by returning the one with the lower numeric code (i.e., higher severity).
-        If the old status is more severe, it is returned; otherwise, the new status is returned.
+        Merge two job statuses by returning the one with the lower numeric code
+        (higher severity).
         """
-
         if status_codes[old_stat] < status_codes[new_stat]:
             return old_stat
-        else:
-            return new_stat
-
-    @staticmethod
-    def store_node_metadata(operator: dict, node_metadata: dict):  # pragma: no cover
-        """
-        Function which add operators metadata to a json file.
-        Parameters -
-            operator: dict - {'operator': 'chunker', 'id': 1234}, etc.,
-            node_metadata: dict - {'num_rows': 10} etc.,
-            store_config: dict - {'cp4d_base_url': 'https://cpd.com', ...}
-        Returns -
-            None. Node Metadata is added to file.
-        """
-
-        from common.models.session_info import get_session_info
-
-        session_info = get_session_info()
-        job_id = session_info.job_id
-        job_run_id = session_info.job_run_id
-
-        common_log_arguments = {
-            DatasiftConstants.JOB_ID: job_id,
-            DatasiftConstants.JOB_RUN_ID: job_run_id,
-        }
-
-        metadata_file_path = f"{job_id}/{job_run_id}/{OperatorConstants.Config.NODES_METADATA_FILE}"
-
-        op_node_metadata = {
-            OperatorConstants.Misc.ID: operator[OperatorConstants.Misc.ID],
-            OperatorConstants.Misc.OPERATOR: operator[OperatorConstants.Misc.NAME],
-            OperatorConstants.Config.NODE_METADATA: node_metadata,
-        }
-
-        try:
-            from common.util.job_tracker.tracker.job_tracker import JobTracker
-
-            node_stats = {OperatorConstants.Config.NODE_METADATA: op_node_metadata}
-            JobTracker().update_node_stats(
-                job_run_id=job_run_id,
-                node_id=operator[OperatorConstants.Misc.ID],
-                node_stats=node_stats,
-            )
-
-        except Exception as e:
-            logger.error(
-                f"An error occurred while storing {operator[OperatorConstants.Misc.NAME]} metadata to {metadata_file_path} file: {e!s}",
-                exc_info=True,
-                stack_info=True,
-                extra=common_log_arguments,
-            )
+        return new_stat
 
     @staticmethod
     def get_feature(
@@ -244,7 +196,7 @@ class OperatorUtils:
         if isinstance(aggregated_flow_logs, dict) and "job_stats" in aggregated_flow_logs:
             job_stats = aggregated_flow_logs["job_stats"]
             if isinstance(job_stats, dict):
-                normalize_node_stats_for_dto(job_stats)
+                normalize_node_stats_for_dto(job_stats_data=job_stats)
         return aggregated_flow_logs
 
     @staticmethod
@@ -255,11 +207,11 @@ class OperatorUtils:
 
         min_code = min(
             status_codes.get(
-                ExecutionStatus(node.node_status if isinstance(node, NodeStatsDto) else node["node_status"]),
+                ExecutionStatus(node.node_status if isinstance(node, NodeStats) else node["node_status"]),
                 1000,
             )
             for node in node_stats_list.values()
-            if (isinstance(node, NodeStatsDto) and node.node_status)
+            if (isinstance(node, NodeStats) and node.node_status)
             or (isinstance(node, dict) and node.get("node_status"))
         )
 

@@ -62,20 +62,32 @@ class FlowExecutor:
         if orchestrator is not None:
             self.__orchestrator = orchestrator
 
-        try:
-            if self.__orchestrator.job_tracker.cancel_job_run_if_cancelling(
-                job_run_id=self.session_info.job_run_id,
+        # Check for cancellation before validation using the injected job stats service
+        job_stats_service = self.__orchestrator.job_stats_service
+
+        # Get job_run_id from params or session_info
+        job_run_id = (params.get(DatasiftConstants.JOB_RUN_ID) if params else None) or self.session_info.job_run_id
+
+        if (
+            job_stats_service
+            and job_run_id
+            and job_stats_service.cancel_job_run_if_cancelling(
+                job_run_id=job_run_id,
                 job_log_path=self.__orchestrator.flow_execution_event_handler.job_log_path,
-            ):
-                logger.info(
-                    ">>> Cancelled the execution: %s",
-                    params[DatasiftConstants.JOB_RUN_ID] if params else None,
-                )
-                return
+            )
+        ):
+            logger.info(
+                ">>> Cancelled the execution: %s",
+                job_run_id,
+            )
+            return
+
+        # Validate flow definition
+        try:
             flow_validator = FlowValidator(self.__orchestrator)
-            flow_validator.validate(flow_def=self.flow_def, params=params)
+            flow_validator.validate(flow_def=self.flow_def, params=params or {})
         except FlowValidationException as exc:
-            if len(exc.errors) == 0:
+            if not exc.errors or len(exc.errors) == 0:
                 # if there are no errors (only warnings), go ahead with the flow execution
                 logger.warning(
                     f"Flow definition has warnings: {json.dumps(exc.warnings, cls=ValidationAlertEncoder)}",

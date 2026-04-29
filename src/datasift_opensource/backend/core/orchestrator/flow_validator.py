@@ -146,6 +146,17 @@ class FlowValidator:
                 op_def=op_def, global_config=global_config, validate_results=validate_results, session_info=session_info
             )
 
+        if self.orchestrator.flow_engine is None:
+            raise FlowValidationException(
+                errors=[
+                    ValidationAlert(
+                        ErrorCode.FLOW_VALIDATION_FAILED.value,
+                        message="Flow engine not initialized",
+                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
+                    )
+                ]
+            )
+
         self.orchestrator.flow_engine.execute_non_execute_flow(
             flow_name="dag_validation_flow", task=node_validation_task, dag=dag
         )

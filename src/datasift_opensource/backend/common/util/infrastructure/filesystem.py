@@ -53,5 +53,3 @@ __all__ = [
     "delete_folders",
     "get_data_path",
 ]
-
-# Made with Bob

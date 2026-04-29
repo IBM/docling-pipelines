@@ -1,7 +1,7 @@
 """Tests for RepositoryFactory.
 
-This test module verifies the repository factory behavior with different
-environment variable configurations.
+This test module verifies the repository factory behavior with environment
+variables and datasift.yaml-backed configuration.
 """
 
 import os
@@ -9,9 +9,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 from common.exceptions.datasift_exceptions import RepositoryConfigurationException
 from core.assets_management.adapters.config.repository_factory import (
+    ENV_CONFIG_PATH_KEY,
     RepositoryFactory,
     RepositoryType,
 )
@@ -75,13 +77,70 @@ class TestRepositoryFactory:
         """Test that LocalFlowRepository can be created with custom flows_dir via environment."""
         custom_dir = Path("/tmp/test_flows")
 
-        # Set environment variable and create repository
         monkeypatch.setenv("LOCAL_FLOWS_DIR", str(custom_dir))
         repository = LocalFlowRepository()
 
         assert isinstance(repository, LocalFlowRepository)
-        # The repository should have the custom directory set
-        assert repository.flows_dir == custom_dir
+        assert repository.flows_dir == custom_dir.resolve()
+
+    def test_create_flow_repository_uses_yaml_base_dir_when_env_not_set(
+        self, tmp_path, monkeypatch
+    ):
+        """Test that repository factory reads base_dir from datasift.yaml."""
+        custom_dir = tmp_path / "yaml_flows"
+        config_path = tmp_path / "datasift.yaml"
+        config_path.write_text(
+            yaml.safe_dump(
+                {
+                    "assets_management": {
+                        "flow_repository": {
+                            "type": "local",
+                            "config": {"base_dir": str(custom_dir)},
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        monkeypatch.delenv("LOCAL_FLOWS_DIR", raising=False)
+        monkeypatch.delenv("FLOW_REPOSITORY_TYPE", raising=False)
+        monkeypatch.setenv(ENV_CONFIG_PATH_KEY, str(config_path))
+
+        repository = RepositoryFactory.create_flow_repository()
+
+        assert isinstance(repository, LocalFlowRepository)
+        assert repository.flows_dir == custom_dir.resolve()
+
+    def test_create_flow_repository_env_base_dir_overrides_yaml(
+        self, tmp_path, monkeypatch
+    ):
+        """Test that LOCAL_FLOWS_DIR overrides datasift.yaml base_dir."""
+        yaml_dir = tmp_path / "yaml_flows"
+        env_dir = tmp_path / "env_flows"
+        config_path = tmp_path / "datasift.yaml"
+        config_path.write_text(
+            yaml.safe_dump(
+                {
+                    "assets_management": {
+                        "flow_repository": {
+                            "type": "local",
+                            "config": {"base_dir": str(yaml_dir)},
+                        }
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        monkeypatch.setenv(ENV_CONFIG_PATH_KEY, str(config_path))
+        monkeypatch.setenv("LOCAL_FLOWS_DIR", str(env_dir))
+        monkeypatch.delenv("FLOW_REPOSITORY_TYPE", raising=False)
+
+        repository = RepositoryFactory.create_flow_repository()
+
+        assert isinstance(repository, LocalFlowRepository)
+        assert repository.flows_dir == env_dir.resolve()
 
     def test_create_flow_repository_with_flows_dir_as_string(self, monkeypatch):
         """Test that LocalFlowRepository accepts flows_dir as string via environment."""
@@ -93,7 +152,7 @@ class TestRepositoryFactory:
 
         assert isinstance(repository, LocalFlowRepository)
         assert isinstance(repository.flows_dir, Path)
-        assert str(repository.flows_dir) == custom_dir_str
+        assert repository.flows_dir == Path(custom_dir_str).resolve()
 
     def test_env_var_is_case_insensitive(self):
         """Test that FLOW_REPOSITORY_TYPE is case-insensitive."""

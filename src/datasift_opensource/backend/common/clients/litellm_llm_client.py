@@ -189,7 +189,13 @@ class LiteLLMLLMClient(BaseLLMClient):
         self._validate_text_input(text)
 
         try:
-            response = self.litellm.embedding(model=self.model_name, input=text)
+            response = self.litellm.embedding(
+                model=self.model_name,
+                input=text,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                **self.config,
+            )
 
             # Extract embeddings from response
             if hasattr(response, "data") and response.data:
@@ -241,7 +247,13 @@ class LiteLLMLLMClient(BaseLLMClient):
                 batch = texts[i : i + batch_size]
 
                 # LiteLLM supports batch input
-                response = self.litellm.embedding(model=self.model_name, input=batch)
+                response = self.litellm.embedding(
+                    model=self.model_name,
+                    input=batch,
+                    api_key=self.api_key,
+                    api_base=self.api_base,
+                    **self.config,
+                )
 
                 # Extract embeddings from response
                 if hasattr(response, "data") and response.data:
@@ -285,7 +297,16 @@ class LiteLLMLLMClient(BaseLLMClient):
             raise ConfigurationError("messages must be a non-empty list")
 
         try:
-            response = self.litellm.completion(model=self.model_name, messages=messages, **kwargs)
+            # Merge constructor config with call-time parameters
+            combined_kwargs = {**self.config, **kwargs}
+
+            response = self.litellm.completion(
+                model=self.model_name,
+                messages=messages,
+                api_key=self.api_key,
+                api_base=self.api_base,
+                **combined_kwargs,
+            )
 
             # Extract content from response
             if hasattr(response, "choices") and response.choices:

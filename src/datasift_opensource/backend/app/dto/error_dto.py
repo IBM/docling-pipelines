@@ -40,15 +40,49 @@ ErrorCode = Literal[
     "internal_error",
     "service_unavailable",
     "unknown_error",
-    # Flow CRUD operation error codes
+    # Flow operation error codes
     "flow_not_found",
     "flow_already_exists",
     "flow_invalid_data",
     "flow_storage_error",
-    # Configuration error codes
+    "flow_validation_failed",
+    "flow_execution_failed",
+    "prefect_flow_failed",
+    # Configuration and external service error codes
     "invalid_configuration",
+    "external_service_error",
     # Operator error codes
+    "operator_configuration_invalid",
+    "operator_execution_failed",
     "operator_metadata_failed",
+    "sql_filter_error",
+    # Job run operation error codes
+    "job_run_not_found",
+    "job_run_already_exists",
+    "job_run_invalid_state",
+    "job_run_operation_failed",
+    # Database and PostgreSQL error codes
+    "database_migration_failed",
+    "postgres_connection_failed",
+    "postgres_operation_failed",
+    "postgres_transaction_failed",
+    "postgres_query_failed",
+    # Job stats store error codes
+    "job_stats_store_read_failed",
+    "job_stats_store_write_failed",
+    "job_stats_store_delete_failed",
+    "job_stats_store_list_failed",
+    "job_stats_store_atomic_update_failed",
+    "job_stats_store_initialization_failed",
+    # Integration error codes
+    "ollama_connection_failed",
+    "ollama_model_not_found",
+    "opensearch_connection_failed",
+    "opensearch_index_error",
+    # REST client error codes
+    "http_error",
+    "connection_error",
+    "invalid_response",
 ]
 
 

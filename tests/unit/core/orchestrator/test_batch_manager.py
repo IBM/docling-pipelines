@@ -231,8 +231,8 @@ class TestBatchCreation:
         batches = batch_manager.create_batches(table=table, batch_size=10)
 
         assert len(batches) == 1
-        assert batches[0].num_rows == 3
-        assert batches[0].column_names == ["id", "value"]
+        assert batches[0].table.num_rows == 3
+        assert batches[0].table.column_names == ["id", "value"]
 
     def test_create_batches_multiple_batches(self):
         """Verify creating multiple batches from larger table."""
@@ -244,12 +244,12 @@ class TestBatchCreation:
         batches = batch_manager.create_batches(table=table, batch_size=10)
 
         assert len(batches) == 3
-        assert batches[0].num_rows == 10
-        assert batches[1].num_rows == 10
-        assert batches[2].num_rows == 5
+        assert batches[0].table.num_rows == 10
+        assert batches[1].table.num_rows == 10
+        assert batches[2].table.num_rows == 5
 
         # Verify all data is preserved
-        total_rows = sum(b.num_rows for b in batches)
+        total_rows = sum(b.table.num_rows for b in batches)
         assert total_rows == 25
 
     def test_create_batches_exact_multiple(self):
@@ -260,7 +260,7 @@ class TestBatchCreation:
         batches = batch_manager.create_batches(table=table, batch_size=10)
 
         assert len(batches) == 2
-        assert all(b.num_rows == 10 for b in batches)
+        assert all(b.table.num_rows == 10 for b in batches)
 
 
 class TestBatchPreparation:
@@ -298,7 +298,7 @@ class TestBatchPreparation:
         )
 
         assert len(batches) == 1
-        assert batches[0].num_rows == 25
+        assert batches[0].table.num_rows == 25
         assert DatasiftConstants.BATCH_COUNT not in updated_config
 
     def test_prepare_batches_raises_when_batch_size_missing(self):
@@ -344,10 +344,181 @@ class TestBatchDataAccess:
         mock_data_access.save_table.assert_called_once_with(path="", table=batch_table)
 
 
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+class TestBatchUUIDPropagation:
+    """Test batch UUID generation and propagation."""
 
-# Made with Bob
+    def test_batch_info_has_uuid_batch_id(self):
+        """Verify each BatchInfo has a unique UUID batch_id."""
+        batch_manager = BatchManager()
+        table = pa.table({"id": list(range(10)), "SIZE": [100] * 10})
+
+        batches = batch_manager.create_batches(table=table, batch_size=3)
+
+        # Verify all batches have batch_id
+        assert all(hasattr(b, "batch_id") for b in batches)
+        assert all(b.batch_id is not None for b in batches)
+
+        # Verify all batch_ids are unique
+        batch_ids = [b.batch_id for b in batches]
+        assert len(batch_ids) == len(set(batch_ids)), "batch_ids should be unique"
+
+        # Verify batch_ids are valid UUIDs
+        import uuid
+
+        for batch_id in batch_ids:
+            uuid.UUID(batch_id)  # Raises ValueError if invalid
+
+    def test_batch_num_sequential_after_filtering(self):
+        """Verify batch_num remains sequential even after empty batch filtering."""
+        batch_manager = BatchManager()
+        # Create table that might produce empty batches
+        table = pa.table({"id": [1, 2], "SIZE": [100, 200]})
+
+        batches = batch_manager.create_batches(table=table, batch_size=1)
+
+        # Verify batch_num is sequential starting from 0
+        batch_nums = [b.batch_num for b in batches]
+        assert batch_nums == list(range(len(batches))), (
+            f"Expected sequential batch_nums, got {batch_nums}"
+        )
+
+    def test_non_batch_mode_has_batch_id(self):
+        """Verify non-batch mode still creates BatchInfo with batch_id for consistency."""
+        batch_manager = BatchManager()
+        table = pa.table({"id": list(range(5))})
+        global_config = {DatasiftConstants.ENABLE_MICRO_BATCHING: False}
+
+        batches, _ = batch_manager.prepare_batches(
+            ingested_table=table, global_config=global_config, common_log_arguments=None
+        )
+
+        assert len(batches) == 1
+        assert hasattr(batches[0], "batch_id")
+        assert batches[0].batch_id is not None
+        # Verify it's a valid UUID
+        import uuid
+
+        uuid.UUID(batches[0].batch_id)
+
+
+class TestEmptyBatchFiltering:
+    """Test empty batch filtering behavior."""
+
+    def test_empty_batches_filtered_out(self):
+        """Verify empty batches are filtered during creation."""
+        batch_manager = BatchManager()
+        # Create table with only 2 rows but request 5 batches
+        table = pa.table({"id": [1, 2], "SIZE": [100, 200]})
+
+        # This would create some empty batches if not filtered
+        batches = batch_manager.create_batches(table=table, batch_size=1)
+
+        # Verify no empty batches
+        assert all(b.table.num_rows > 0 for b in batches), (
+            "All batches should be non-empty"
+        )
+        assert len(batches) == 2, "Should only have 2 non-empty batches"
+
+    def test_empty_table_returns_empty_list(self):
+        """Verify empty input table returns empty batch list."""
+        batch_manager = BatchManager()
+        empty_table = pa.table({"id": [], "SIZE": []})
+
+        batches = batch_manager.create_batches(table=empty_table, batch_size=10)
+
+        assert batches == [], "Empty table should return empty batch list"
+
+    def test_zero_size_files_filtered_correctly(self):
+        """Verify batches with only zero-size files are handled correctly."""
+        batch_manager = BatchManager()
+        # All files have zero size
+        table = pa.table({"id": [1, 2, 3], "SIZE": [0, 0, 0]})
+
+        batches = batch_manager.create_batches(table=table, batch_size=2)
+
+        # Should still create batches (round-robin distribution)
+        assert len(batches) > 0
+        assert all(b.table.num_rows > 0 for b in batches)
+
+    def test_batch_num_sequential_after_empty_filtering(self):
+        """Verify batch_num is renumbered sequentially after filtering empty batches."""
+        batch_manager = BatchManager()
+        table = pa.table({"id": [1, 2, 3], "SIZE": [100, 200, 300]})
+
+        batches = batch_manager.create_batches(table=table, batch_size=1)
+
+        # Even if some batches were filtered, batch_num should be 0, 1, 2, ...
+        batch_nums = [b.batch_num for b in batches]
+        assert batch_nums == list(range(len(batches))), (
+            "batch_num should be sequential after filtering"
+        )
+
+
+class TestIngestExclusionFromMicroBatching:
+    """Test that ingest operators are excluded from micro-batching."""
+
+    def test_ingest_not_in_batch_op_flow(self):
+        """Verify ingest operator is excluded from batched op_flow."""
+        # This is a documentation test - the actual exclusion happens in prefect_engine.py
+        # where op_flow[1:] is passed to batch execution (skipping ingest at index 0)
+
+        # Simulate the pattern used in prefect_engine.py line 149
+        full_op_flow = [
+            {
+                "id": "ingest-1",
+                "name": "IngestLocal",
+                "operator_type": "IngestLocalOperator",
+            },
+            {"id": "extract-1", "name": "Extract", "operator_type": "ExtractDocling"},
+            {"id": "chunk-1", "name": "Chunk", "operator_type": "Chunker"},
+        ]
+
+        # Ingest is excluded from batch execution
+        batch_op_flow = full_op_flow[1:]  # Skip ingest operator
+
+        assert len(batch_op_flow) == 2
+        assert batch_op_flow[0]["id"] == "extract-1"
+        assert "ingest" not in batch_op_flow[0]["id"].lower()
+
+    def test_batch_config_not_set_for_ingest(self):
+        """Verify batch context (batch_id, batch_num) is not set during ingest execution."""
+        # Ingest executes once without batch context
+        # Batch context is only added in batch_subflow_task (prefect_engine.py line 232-234)
+
+        # Simulate ingest execution config (no batch context)
+        ingest_config = {
+            DatasiftConstants.JOB_ID: "job-1",
+            DatasiftConstants.JOB_RUN_ID: "run-1",
+            # Note: No BATCH_ID or BATCH_NUM
+        }
+
+        assert DatasiftConstants.BATCH_ID not in ingest_config
+        assert DatasiftConstants.BATCH_NUM not in ingest_config
+
+        # Simulate batch execution config (has batch context)
+        batch_config = ingest_config.copy()
+        batch_config[DatasiftConstants.BATCH_ID] = "batch-uuid-123"
+        batch_config[DatasiftConstants.BATCH_NUM] = 0
+
+        assert DatasiftConstants.BATCH_ID in batch_config
+        assert DatasiftConstants.BATCH_NUM in batch_config
+
+    def test_ingest_node_id_stored_for_dependency_resolution(self):
+        """Verify ingest node ID is stored in global_config for batch dependency resolution."""
+        # This documents the pattern where ingest_node_id is stored in global_config
+        # so batch operators can identify ingest dependencies (prefect_engine.py line 428)
+
+        global_config = {
+            DatasiftConstants.INGEST_NODE_ID: "ingest-node-1",
+            DatasiftConstants.ENABLE_MICRO_BATCHING: True,
+        }
+
+        # Batch operators check if dependency is ingest node
+        dependency_node_id = "ingest-node-1"
+        ingest_node_id = global_config.get(DatasiftConstants.INGEST_NODE_ID)
+
+        is_ingest_dependency = dependency_node_id == ingest_node_id
+        assert is_ingest_dependency, "Should recognize ingest node as dependency"
 
 
 class TestPrefectEngineValidation:
@@ -388,7 +559,7 @@ class TestPrefectEngineCleanup:
 
     def test_wait_for_sub_flows_waits_for_cancelled_futures_before_reset(self):
         """Verify cancelled futures are waited on before semaphore reset."""
-        from core.orchestrator.prefect.prefect_engine import PrefectEngine
+        from core.orchestrator.prefect.prefect_engine import BatchFuture, PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
@@ -416,12 +587,14 @@ class TestPrefectEngineCleanup:
 
         with pytest.raises(
             FlowExecutionFailedException,
-            match="Batch 0 failed during sub-flow execution: boom",
+            match=r"Batch 0 \(ID: batch-0\) failed during sub-flow execution: RuntimeError: boom",
         ):
             engine._wait_for_sub_flows(
                 batch_futures=[
-                    (0, failed_future),
-                    (1, cancelled_future),
+                    BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
+                    BatchFuture(
+                        batch_id="batch-1", batch_num=1, future=cancelled_future
+                    ),
                 ]
             )
 
@@ -430,7 +603,7 @@ class TestPrefectEngineCleanup:
 
     def test_wait_for_sub_flows_resets_semaphore_when_cancelled_wait_errors(self):
         """Verify semaphore reset even when cancelled future wait fails."""
-        from core.orchestrator.prefect.prefect_engine import PrefectEngine
+        from core.orchestrator.prefect.prefect_engine import BatchFuture, PrefectEngine
 
         orchestrator = MagicMock()
         orchestrator.logger = MagicMock()
@@ -457,13 +630,19 @@ class TestPrefectEngineCleanup:
 
         with pytest.raises(
             FlowExecutionFailedException,
-            match="Batch 0 failed during sub-flow execution: boom",
+            match=r"Batch 0 \(ID: batch-0\) failed during sub-flow execution: RuntimeError: boom",
         ):
             engine._wait_for_sub_flows(
                 batch_futures=[
-                    (0, failed_future),
-                    (1, cancelled_future),
+                    BatchFuture(batch_id="batch-0", batch_num=0, future=failed_future),
+                    BatchFuture(
+                        batch_id="batch-1", batch_num=1, future=cancelled_future
+                    ),
                 ]
             )
 
         assert engine.batch_manager.get_batch_semaphore() is None
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

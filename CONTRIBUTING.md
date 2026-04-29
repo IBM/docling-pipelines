@@ -174,6 +174,13 @@ pytest -v --cov=src --cov-report=html
 
 4. **Commit your changes** following [Commit Message Guidelines](#commit-message-guidelines)
 
+### Job Metadata Aggregation Reminder
+
+If your change adds or modifies operator-emitted metadata used in job stats:
+- review [`DEFAULT_STRATEGIES`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py)
+- add or update aggregation tests when the field should not use the default `LAST` behavior
+- update [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) when the change introduces a new aggregation pattern or maintainer rule
+
 ## Code Style Guidelines
 
 ### Python Style Guide

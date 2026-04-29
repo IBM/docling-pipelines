@@ -1,6 +1,0 @@
-Welcome to DataSift!
-
-DataSift is a modular data processing framework for building flexible pipelines.
-It supports document extraction, chunking, embeddings, and vector storage.
-
-This is your first document being processed through the pipeline.

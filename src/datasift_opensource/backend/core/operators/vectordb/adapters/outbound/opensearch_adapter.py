@@ -211,6 +211,14 @@ class OpenSearchAdapter(VectorStorePort):
         """Refresh the index to make recent changes visible."""
         self.index_manager.refresh_index()
 
+    def index_exists(self) -> bool:
+        """Check if the OpenSearch index exists.
+
+        Returns:
+            True if index exists, False otherwise
+        """
+        return self.index_manager.index_exists()
+
     def detect_vector_dimension(self, table: pa.Table) -> int | None:
         """Detect vector dimension from embeddings data.
 

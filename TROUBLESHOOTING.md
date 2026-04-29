@@ -11,6 +11,7 @@ This comprehensive guide helps you diagnose and resolve common issues when worki
    - [OpenSearch Issues](#opensearch-issues)
    - [Pipeline Execution](#pipeline-execution)
    - [Import/Path Errors](#importpath-errors)
+   - [Job Stats and Execution Tracking](#job-stats-and-execution-tracking)
    - [Operator-Specific Issues](#operator-specific-issues)
 3. [Error Code Reference](#error-code-reference)
 4. [Debugging Guide](#debugging-guide)
@@ -188,6 +189,68 @@ Permission denied: './scripts/setup_datasift_environment.sh'
 chmod +x scripts/setup_datasift_environment.sh
 ./scripts/setup_datasift_environment.sh
 ```
+
+---
+
+#### Issue: Distributed workers show inconsistent or missing job status
+
+**Symptoms:**
+```text
+Job run exists on the submitter but worker updates do not appear in job status APIs
+```
+
+**Likely cause:**
+- JSON job stats storage is configured with a local path that workers cannot access
+- submitter and workers resolve different filesystem paths
+- worker environment does not receive the same job stats backend configuration
+
+**Solutions:**
+1. Check [`job_management.store`](src/datasift_opensource/backend/config/datasift.yaml:12) in [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml) and confirm the selected backend matches your deployment model.
+2. For distributed execution, prefer PostgreSQL job stats storage.
+3. If using JSON storage, configure a shared filesystem path visible to both submitter and workers.
+4. Ensure worker environments inherit the same effective backend configuration and connection settings.
+5. If needed, override config explicitly with `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, `DATASIFT_JOB_STATS_BASE_DIR`, and PostgreSQL env variables.
+6. Review [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.
+
+---
+
+#### Issue: Job status is stored, but aggregated node metadata looks wrong
+
+**Symptoms:**
+```text
+Counters are too low or too high
+Lists are overwritten instead of combined
+Batch progress looks incorrect in aggregated results
+```
+
+**Likely cause:**
+- a new operator metadata field was added without reviewing aggregation behavior
+- the field was left on the default `LAST` strategy when it should use `SUM`, `UNION`, `WEIGHTED_AVERAGE`, or another explicit strategy
+
+**Solutions:**
+1. Review [`DEFAULT_STRATEGIES`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py) in [`strategies.py`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py).
+2. Add explicit mappings for newly introduced metadata fields when needed.
+3. Add or update tests covering multi-batch aggregation behavior.
+4. See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) for maintainer guidance.
+
+---
+
+#### Issue: Job run ends in crashed or canceled state during batch execution
+
+**Symptoms:**
+```text
+Batch work starts, but the final job state becomes CRASHED or CANCELED unexpectedly
+```
+
+**Likely cause:**
+- the outer Prefect flow finished before submitted batch futures completed
+- task-runner shutdown canceled in-flight batch work before final job state was recorded cleanly
+
+**Solutions:**
+1. Confirm the execution path waits for submitted batch work before the outer flow exits.
+2. Check [`PrefectEngine`](src/datasift_opensource/backend/core/orchestrator/prefect/prefect_engine.py) behavior when debugging batch failures.
+3. Validate that job-management terminal-state updates are still reached on failure paths.
+4. Prefer PostgreSQL storage in concurrent/distributed environments to reduce ambiguity in final state updates.
 
 ---
 

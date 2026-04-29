@@ -15,7 +15,6 @@ from common.util.core.datetime import get_current_timestamp
 from common.util.data.incremental_update import IncrementalUpdateUtil
 from common.util.data.pyarrow_handler import BaseParquetTableHandler, get_parquet_table_handler
 from common.util.infrastructure.logging import get_logger
-from common.util.job_tracker.tracker.job_tracker import JobTracker
 from common.util.orchestration.deleted_rows_tracker import (
     combine_cumulative_deleted_rows,
 )
@@ -23,6 +22,7 @@ from common.util.orchestration.flow_utils import construct_deleted_rows_table_pa
 from common.util.orchestration.prefect_config import (
     clean_up_prefect_home,
 )
+from core.job_management.domain.ports import JobRunManager, JobStatsService
 from core.operators.abstract_operator import OperatorCategory
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
@@ -38,7 +38,18 @@ thread_pool_executor = ThreadPoolExecutor(max_workers=20)
 
 
 class AbstractOrchestrator(ABC):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        job_stats_service: JobStatsService | None = None,
+        job_run_manager: JobRunManager | None = None,
+    ) -> None:
+        """
+        Initialize orchestrator with optional job services.
+
+        Args:
+            job_stats_service: Optional job statistics service for tracking job execution
+            job_run_manager: Optional framework job run manager for external status updates
+        """
         self.job_status = ExecutionStatus.RUNNING
         self.job_run_id: str | None = None
         self.job_id: str | None = None
@@ -48,15 +59,24 @@ class AbstractOrchestrator(ABC):
         self.message = ""
         self.flow_id = None
         self.deleted_rows_list: Queue[pa.Table] = Queue()
-        self.flow_execution_event_handler = FlowExecutionEventHandler()
-        # Initialize batch manager
+        self.job_stats_service = job_stats_service
+        self.job_run_manager = job_run_manager
+        self.flow_execution_event_handler = FlowExecutionEventHandler(
+            job_stats_service=job_stats_service,
+            job_run_manager=job_run_manager,
+        )
         self.batch_manager = BatchManager()
-        self.job_tracker = JobTracker()
-        # Initialize Prefect flow executor
         self.flow_engine: AbstractFlowEngine | None = None
         self.common_log_arguments = None
 
     def initialize(self, *, job_id, job_run_id):
+        """
+        Initialize orchestrator for a specific job run.
+
+        Args:
+            job_id: Job identifier
+            job_run_id: Job run identifier
+        """
         self.flow_id = get_session_info().flow_id
         self.job_id = job_id
         self.job_run_id = job_run_id
@@ -64,9 +84,13 @@ class AbstractOrchestrator(ABC):
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
+
+        # Initialize event handler for this job run
         self.flow_execution_event_handler.initialize(
             job_id=job_id, job_run_id=job_run_id, common_log_arguments=self.common_log_arguments
         )
+
+        # Create Prefect engine for this job run
         self.flow_engine = PrefectEngine(
             orchestrator=self,
             batch_manager=self.batch_manager,
@@ -157,9 +181,6 @@ class AbstractOrchestrator(ABC):
 
         tables = self.__get_tables_from_data_accesses(executor=executor, data_accesses=data_accesses)
 
-        # storing node metadata to a json file
-        OperatorUtils.store_node_metadata(op_def, metadata)
-
         return data_accesses, tables, metadata, internal_metadata
 
     def _handle_skipped_execution(
@@ -188,7 +209,7 @@ class AbstractOrchestrator(ABC):
         self.flow_execution_event_handler.after_node_skipped(
             node_id=op_def.get(OperatorConstants.Columns.ID),
             node_name=op_def.get(OperatorConstants.Columns.NAME),
-            operator=op_def.get(OperatorConstants.Misc.OPERATOR),
+            operator_type=op_def.get(OperatorConstants.Misc.OPERATOR),
             global_config=global_config,
             start_time=start,
             end_time=end_time,
@@ -247,15 +268,11 @@ class AbstractOrchestrator(ABC):
             start_time=start,
         )
 
-        # POC: Handle missing job stats in distributed execution
-        job_stats = self.job_tracker.get_job(job_run_id=self.job_run_id)
-        if job_stats and hasattr(job_stats, "status"):
-            self.job_status = job_stats.status
-        else:
-            self.logger.warning(
-                f"Job stats not available for job_run_id={self.job_run_id}, keeping current status={self.job_status}",
-                extra=self.common_log_arguments,
-            )
+        # Update job status from job stats service
+        if self.job_stats_service and self.job_run_id:
+            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=False)
+            if job_stats:
+                self.job_status = ExecutionStatus(job_stats.status)
 
         return ExecuteStepResults(data_accesses, tables, internal_metadata)
 
@@ -313,19 +330,19 @@ class AbstractOrchestrator(ABC):
         """
         self.job_status = ExecutionStatus.CANCELING
 
-    def pause(self):  # noqa: B027
+    def pause(self):
         """
         Request for pausing a running job
         """
         pass
 
-    def resume(self):  # noqa: B027
+    def resume(self):
         """
         Request for resuming a paused job
         """
         pass
 
-    def get_type(self):  # noqa: B027
+    def get_type(self):
         """
         Returns the type of the orchestrator, Python or Spark
         """
@@ -354,18 +371,28 @@ class AbstractOrchestrator(ABC):
             | operator_config
             | operator_config_params
         )
+
+        # Pass job stats service explicitly via constructor (not params)
         return self.create_executor_impl(
             name=operator_name,
             operator=op_def[OperatorConstants.Misc.OPERATOR],
             params=config,
+            job_stats_service=self.job_stats_service,
         )
 
     @abstractmethod
-    def create_executor_impl(self, *, name: str, operator: str, params: dict) -> AbstractOperatorExecutor:
+    def create_executor_impl(
+        self,
+        *,
+        name: str,
+        operator: str,
+        params: dict,
+        job_stats_service: JobStatsService | None = None,
+    ) -> AbstractOperatorExecutor:
         """The concrete subclasses needs to implement this method"""
         pass
 
-    def visualize(self):  # noqa: B027
+    def visualize(self):
         # The concrete subclasses needs to implement this method
         pass
 
@@ -386,8 +413,30 @@ class AbstractOrchestrator(ABC):
             job_status=self.job_status,
             prev_results=prev_results,
         )
-        if prev_results is None or self.job_status in (ExecutionStatus.FAILING or ExecutionStatus.CANCELING):
+
+        # Record skipped node when upstream failure prevents execution
+        if prev_results is None or self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.CANCELING):
+            # Determine user-friendly skip reason based on specific condition
+            if self.job_status == ExecutionStatus.CANCELING:
+                skip_reason = "Skipped - job cancellation requested by user"
+            elif self.job_status == ExecutionStatus.FAILING:
+                skip_reason = "Skipped - cannot proceed due to failure in pipeline"
+            else:  # prev_results is None
+                skip_reason = "Skipped - no data received from previous step"
+
+            # Record skipped node via event handler (which extracts batch context from global_config)
+            self.flow_execution_event_handler.after_node_skipped(
+                node_id=op_def[OperatorConstants.Columns.ID],
+                node_name=op_def[OperatorConstants.Columns.NAME],
+                operator_type=op_def[OperatorConstants.Misc.OPERATOR],
+                global_config=global_config,
+                start_time=get_current_timestamp(),
+                end_time=get_current_timestamp(),
+                column_names=[],
+                reason=skip_reason,
+            )
             return None
+
         set_session_info(session_info)
 
         try:
@@ -488,6 +537,11 @@ class AbstractOrchestrator(ABC):
         # Store ingest node ID for batch processing (needed to handle references to excluded ingest operator)
         ingest_node_id = op_flow[0].get(OperatorConstants.Columns.ID) if op_flow else None
         global_config[DatasiftConstants.INGEST_NODE_ID] = ingest_node_id
+
+        # Initialize pending batch node stats after batches are materialized
+        self.flow_execution_event_handler.after_batches_prepared(
+            batches=batches, op_flow=op_flow, global_config=global_config
+        )
 
         # Build and execute batch flow (works for both single and multiple batches)
         self.flow_engine.execute_batch_flow(op_flow=op_flow, batches=batches, global_config=global_config)

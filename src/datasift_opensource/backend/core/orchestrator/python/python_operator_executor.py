@@ -14,6 +14,7 @@ from common.exceptions.datasift_exceptions import DatasiftException
 from common.exceptions.error_messages import ValidationCodeMessages
 from common.util.infrastructure.logging import get_logger
 from common.util.infrastructure.performance import cleanup_pyarrow_buffers, log_memory_usage
+from core.job_management.domain.ports import JobStatsService
 from core.operators.abstract_operator import AbstractOperator
 from core.operators.operator_utils import OperatorUtils
 from core.orchestrator.abstract_operator_executor import AbstractOperatorExecutor
@@ -25,8 +26,20 @@ logger = get_logger()
 class PythonOperatorExecutor(AbstractOperatorExecutor):
     operator_factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
 
-    def __init__(self, name: str, operator: str, params: dict):
-        super().__init__(name, operator, params)
+    def __init__(
+        self,
+        *,
+        name: str,
+        operator: str,
+        params: dict,
+        job_stats_service: JobStatsService | None = None,
+    ):
+        super().__init__(
+            name=name,
+            operator=operator,
+            params=params,
+            job_stats_service=job_stats_service,
+        )
 
     def _execute_impl(self, tables: pa.Table | dict[str, pa.Table] | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -39,7 +52,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         node_id = op_config.get(OperatorConstants.Columns.ID)
         if not isinstance(tables, dict):
             log_memory_usage(
-                operator_name=op.name,
+                operator_name=op.name or "unknown",
                 phase=MemoryLogPhases.START,
                 table=tables,
                 extra=op.common_log_arguments,
@@ -49,28 +62,17 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
 
         start = timeit.default_timer()
 
-        pg_params = {
-            DatasiftConstants.JOB_ID: op_config.get(DatasiftConstants.JOB_ID),
-            DatasiftConstants.JOB_RUN_ID: op_config.get(DatasiftConstants.JOB_RUN_ID),
-            DatasiftConstants.NODE_ID: node_id,
-            OperatorConstants.Columns.NAME: op_config.get(OperatorConstants.Columns.NAME),
-        }
-
         common_log_arguments = {
             DatasiftConstants.JOB_ID: op_config.get(DatasiftConstants.JOB_ID),
             DatasiftConstants.JOB_RUN_ID: op_config.get(DatasiftConstants.JOB_RUN_ID),
+            DatasiftConstants.NODE_ID: node_id,
         }
 
-        op.logger = get_logger(
-            name=f"{DatasiftConstants.LOGGER_NAME} : NodeLogger : {node_id} : {pg_params[DatasiftConstants.JOB_RUN_ID]}",
-            level="INFO",
-            is_pg=True,
-            pg_params=pg_params,
-        )
+        op.logger = get_logger(f"{DatasiftConstants.LOGGER_NAME} : NODE_LOGGER")
 
         try:
             self._log_start(
-                op_logger=op.logger,
+                op_logger=logger,
                 node_id=node_id,
                 name=op.name,
                 short_name=op.short_name,
@@ -102,7 +104,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             # Removing the internal metrics from the operator metadata if any to another dict
             _ = OperatorUtils.remove_internal_metrics_from_metadata(metadata=metadata)
             self._log_completion(
-                op_logger=op.logger,
+                op_logger=logger,
                 name=op.name,
                 time_taken=time_taken,
                 result=result,
@@ -117,13 +119,9 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
     def _handle_exception(self, *, op_logger, node_id, exception):
         from common.models.session_info import get_session_info
 
-        # add transaction id in node_logs shown to user only if any error occurs.
-        op_logger.error(
-            f"Error during transformation in node id: {node_id} transaction_ID: {get_session_info().transaction_id!s}"
-        )
-        # add trace info to console logs
+        # Log error with transaction id
         logger.error(
-            f"Error during transformation in node id: {node_id}: {exception!s}",
+            f"Error during transformation in node id: {node_id} transaction_ID: {get_session_info().transaction_id!s}",
             stack_info=True,
             exc_info=True,
         )
@@ -148,7 +146,12 @@ def main():  # pragma: no cover
         },
     }
 
-    executor = PythonOperatorExecutor(name=op_def["name"], operator=op_def["operator"], params=op_def["config"])
+    executor = PythonOperatorExecutor(
+        name=op_def["name"],
+        operator=op_def["operator"],
+        params=op_def["config"],
+        job_stats_service=None,
+    )
     print("\n\n>>> Starting execution...")
     content = pa.array(
         [
@@ -164,7 +167,7 @@ def main():  # pragma: no cover
     data_access = data_access_factory.create_data_access()
     data_access.save_table("", input_table)
 
-    tables, _ = executor.execute(data_access=data_access)
+    tables, _ = executor.execute(data_access=data_access, deleted_rows_list=None)
     print(tables[0])
 
     print(">>> Completed execution...")

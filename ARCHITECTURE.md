@@ -197,6 +197,72 @@ graph TB
 - Vector database for embeddings
 
 ---
+## Job Management and Execution Tracking
+
+datasift-opensource includes a dedicated job management subsystem under [`core/job_management`](src/datasift_opensource/backend/core/job_management) that separates orchestration concerns, persistent job statistics, and read-side aggregation.
+
+### Hexagonal Architecture for Job Stats
+
+The job stats implementation follows a ports-and-adapters design:
+
+- **Domain ports**
+  - [`JobStatsService`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_service.py) defines the orchestration-facing contract for starting jobs, updating node execution state, listing runs, and cancellation/deletion workflows.
+  - [`JobStatsStore`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_store.py) defines persistence operations for job-level and node-level statistics.
+- **Application services**
+  - [`NodeStatsAggregator`](src/datasift_opensource/backend/core/job_management/application/services/node_stats_aggregator.py) performs read-side aggregation of raw node stats records.
+  - [`JobManagementService`](src/datasift_opensource/backend/core/job_management/application/services/job_management_service.py) coordinates APIs, job execution, and framework integration.
+- **Adapters**
+  - [`JobTrackerService`](src/datasift_opensource/backend/core/job_management/adapters/services/job_tracker_service.py) is the production implementation of [`JobStatsService`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_service.py).
+  - Storage adapters include JSON, in-memory, and PostgreSQL implementations created by [`JobManagementFactory`](src/datasift_opensource/backend/core/job_management/adapters/config/job_management_factory.py).
+
+This runtime path does **not** depend on the legacy [`JobTracker`](src/datasift_opensource/backend/common/util/job_tracker/tracker/job_tracker.py). Legacy utilities remain in the repository for compatibility and reference, but the active job stats path uses the new `core/job_management` module.
+
+### Persistence and Aggregation Split
+
+A key architectural rule is that persistence adapters only store and retrieve raw records.
+
+- [`JobStatsStore`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_store.py) implementations must persist job stats and raw node stats.
+- Store adapters must **not** perform node aggregation.
+- [`NodeStatsAggregator`](src/datasift_opensource/backend/core/job_management/application/services/node_stats_aggregator.py) is the only layer responsible for combining batch-level node stats into an aggregated node view.
+
+This separation keeps write paths simple and makes aggregation behavior explicit, testable, and replaceable.
+
+### Micro-Batching Model
+
+For micro-batch execution, datasift stores node statistics at batch granularity.
+
+- Every batch execution can produce a separate [`NodeStatsDto`](src/datasift_opensource/backend/core/job_management/domain/models/node_stats_dto.py) record.
+- Batch records are keyed by `job_run_id`, `node_id`, and `batch_id`.
+- Read APIs can return:
+  - an aggregated per-node view
+  - detailed batch-level stats for the same node
+- Non-batch operators still produce a single node stats record.
+
+This design allows:
+- accurate per-batch progress tracking
+- bulk creation of pending node stats before execution
+- failure/cancel/abort handling at node-batch granularity
+- aggregation of document counts and metadata after execution
+
+### Prefect Execution Semantics
+
+The Prefect orchestration layer must keep the outer flow alive until submitted batch futures are resolved. This avoids a failure mode where the outer flow exits early, the task runner begins shutdown, and in-flight batch tasks are canceled or marked as crashed before the job-management layer can record final state consistently.
+
+Relevant implementation points:
+- [`PrefectEngine`](src/datasift_opensource/backend/core/orchestrator/prefect/prefect_engine.py) waits for submitted batch work before the outer flow completes.
+- [`JobTrackerService`](src/datasift_opensource/backend/core/job_management/adapters/services/job_tracker_service.py) updates terminal job state separately from node-state persistence.
+- The job-management layer is responsible for persisting terminal states such as completed, failed, canceled, and aborted.
+
+### Metadata Aggregation Contract
+
+Operators often emit custom metadata that is later aggregated across batches. Aggregation behavior is defined centrally in [`strategies.py`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py).
+
+Maintainer rule:
+- if a new operator adds metadata fields that need anything other than the default `LAST` behavior, update [`DEFAULT_STRATEGIES`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py)
+- add or update tests covering the new aggregation behavior
+- document the field in [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)
+
+See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) for detailed aggregation rules and maintainer guidance.
 
 ## Core Concepts
 
@@ -2783,6 +2849,11 @@ datasift/
 ├── src/datasift_opensource/          # Main source code
 │   ├── backend/                      # Backend components
 │   │   ├── app/                      # Backend API application
+│   │   │   ├── routes/               # API route handlers
+│   │   │   │   ├── flows.py          # Flow management endpoints
+│   │   │   │   └── job_runs.py       # Job run management endpoints
+│   │   │   ├── dependencies.py       # Dependency injection providers
+│   │   │   └── main.py               # FastAPI application
 │   │   ├── cli/                      # CLI implementation
 │   │   ├── common/                   # Shared utilities and models
 │   │   │   ├── clients/              # LLM client abstractions
@@ -2794,11 +2865,15 @@ datasift/
 │   │   │       ├── core/             # Core utilities (strings, validation, etc.)
 │   │   │       ├── data/             # Data handling utilities
 │   │   │       ├── infrastructure/   # Infrastructure utilities
-│   │   │       ├── job_tracker/      # Job tracking and statistics
+│   │   │       ├── job_tracker/      # Legacy job tracking (reference only)
 │   │   │       ├── operators/        # Operator utilities
 │   │   │       └── orchestration/    # Orchestration utilities
 │   │   ├── core/                     # Core orchestration framework
 │   │   │   ├── data_access/          # Data access abstractions
+│   │   │   ├── job_management/       # Job statistics and management (hexagonal)
+│   │   │   │   ├── domain/           # Domain models and ports
+│   │   │   │   ├── application/      # Application services
+│   │   │   │   └── adapters/         # Infrastructure adapters
 │   │   │   ├── operators/            # Operator implementations
 │   │   │   │   ├── extract/          # Extract operators
 │   │   │   │   ├── functional/       # Functional operators
@@ -3047,6 +3122,41 @@ Supporting Components:
 ```
 
 **Note**: There is no separate `CommandLineOrchestrator` class. The CLI uses `PythonOrchestrator` through the factory pattern.
+
+### 5. REST API (`src/datasift_opensource/backend/app/`)
+
+The FastAPI-based REST API provides programmatic access to flow and job management:
+
+#### Flow Management Endpoints (`/api/v1/flows`)
+- `POST /flows` - Create a new flow
+- `GET /flows/{flow_id}` - Retrieve flow by ID
+- `GET /flows` - List flows with pagination and filtering
+- `PUT /flows/{flow_id}` - Update flow (full replacement)
+- `PATCH /flows/{flow_id}` - Partial flow update
+- `DELETE /flows/{flow_id}` - Delete flow
+- `DELETE /flows` - Bulk delete flows
+
+#### Job Run Management Endpoints (`/api/v1/job-runs`)
+- `GET /job-runs/{job_run_id}` - Get job run status and statistics
+- `POST /job-runs/{job_run_id}/cancel` - Request job cancellation
+- `DELETE /job-runs/{job_run_id}` - Delete job run data
+
+#### Job Management Architecture
+The job management subsystem uses hexagonal architecture (ports and adapters pattern):
+- **Domain Layer**: `JobStatsDto`, `NodeStatsDto` models and `JobStatsService` port
+- **Application Layer**: `JobManagementService` for orchestrating job operations
+- **Adapters Layer**: Multiple storage implementations with pluggable backends
+  - `InMemoryJobStatsStore`: Fast in-memory storage for testing/development
+  - `JsonJobStatsStore`: JSON file-based storage for restart recovery and inspection
+  - `CompositeJobStatsStore`: Write-through composite (memory + persistent) for fast reads with durability
+- **Dependency Injection**: Factory pattern via `JobManagementFactory`
+
+This architecture enables:
+- Pluggable storage backends (in-memory, JSON, composite, PostgreSQL, Redis, etc.)
+- Framework-agnostic job tracking
+- Clean separation between business logic and infrastructure
+- Restart recovery with JSON persistence
+- Write-through caching for optimal performance
 
 ## Development Guidelines
 

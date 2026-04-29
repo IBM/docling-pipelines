@@ -1,50 +1,23 @@
 """Reusable field definitions and constants for Flow API DTOs.
 
-This module provides a centralized location for all field definitions, validation patterns,
-and constraints used across Flow API DTOs. It eliminates duplication and ensures consistency
-in API request/response validation.
+This module provides field definitions, validation patterns, and constraints
+used across Flow API DTOs and Job Statistics DTOs.
 
 Module Organization:
 --------------------
-1. Validation Patterns: Regex patterns for field validation
-2. Length Constraints: Min/max lengths for string and array fields
-3. Example Values: Realistic examples for documentation
-4. JSON Schema Extras: Additional OpenAPI schema constraints
-5. Field Descriptions: Human-readable field documentation
-6. Field Factory Functions: Reusable field generators with complex logic
+1. Shared Metadata: Unified patterns and constraints for all DTOs
+2. Flow-Specific Patterns: Validation patterns for Flow API
+3. Flow-Specific Constraints: Length and array constraints for Flow API
+4. Example Values: Realistic examples for documentation
+5. JSON Schema Extras: Additional OpenAPI schema constraints
+6. Flow Field Descriptions: Human-readable field documentation for Flow API
+7. Field Factory Functions: datetime_field() for complex OpenAPI schemas
 
-Design Rationale:
------------------
-Why Centralize Field Definitions?
-  - Single source of truth: Change once, apply everywhere
-  - Consistency: Same validation rules across create/update/response DTOs
-  - Maintainability: Easy to update constraints without touching multiple files
-  - Testing: Centralized constants make test data generation easier
-  - OpenAPI compliance: Ensures IBM validator requirements are met uniformly
-
-Why Only One Factory Function?
-  - datetime_field() is the only factory because it requires complex json_schema_extra
-  - Simple fields use Field() directly in DTOs for clarity and readability
-  - Factories add indirection; use only when complexity justifies it
-  - Previous refactoring removed unnecessary factories (name_field, description_field, etc.)
-
-Pattern Design Philosophy:
---------------------------
-All patterns follow these principles:
-  - Raw strings (r"...") for clarity and escape handling
-  - No end anchors ($) - Pydantic adds them automatically
-  - Unicode support where appropriate (names, descriptions)
-  - Control character exclusion for security (0x00-0x1F)
-  - Case-sensitive where needed (container_kind, UUIDs)
-
-IBM OpenAPI Validator Compliance:
-----------------------------------
-This module ensures all fields meet IBM validator requirements:
-  - String constraints: minLength, maxLength, pattern
-  - Array constraints: minItems, maxItems, items schema
-  - Integer constraints: minimum, maximum, format
-  - Pattern validation: All regex patterns tested and validated
-  - Example values: Realistic examples that pass validation
+Architectural Note:
+-------------------
+All field metadata (patterns, lengths, descriptions) has been consolidated
+into this module to simplify the DTO layer while maintaining strict validation.
+Core domain models remain decoupled from these API-specific validation rules.
 """
 
 from typing import Any
@@ -54,24 +27,158 @@ from pydantic import Field
 # ============================================================================
 # VALIDATION PATTERNS
 # ============================================================================
+
+# Identity Patterns
+UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+"""UUID v4 format pattern (lowercase hex with hyphens)."""
+
+USER_ID_PATTERN = r"^[a-zA-Z0-9@._-]+$"
+"""User identifier pattern (alphanumeric with common email/username characters)."""
+
+# Job/Node Patterns
+JOB_STATUS_PATTERN = r"^(Pending|Running|Completed|Failed|Canceled|Skipped|Queued|Starting|Paused|Resuming|Canceling|Failing|CompletedWithErrors|CompletedWithWarnings|Aborted)$"
+"""Job status pattern (exact match for ExecutionStatus values)."""
+
+ORCHESTRATOR_PATTERN = r"^[A-Za-z0-9_-]+$"
+"""Orchestrator type pattern (alphanumeric with separators)."""
+
+MESSAGE_PATTERN = r"^[\s\S]*$"
+"""Message/error pattern allowing all characters."""
+
+COLUMN_NAME_PATTERN = r"^[A-Za-z0-9_.-]+$"
+"""Column name pattern (alphanumeric with separators)."""
+
+# ============================================================================
+# LENGTH CONSTRAINTS
+# ============================================================================
+
+# Identity Field Lengths
+UUID_LENGTH = 36  # Standard UUID format: 8-4-4-4-12 + 4 hyphens
+USER_ID_MIN_LENGTH = 1
+USER_ID_MAX_LENGTH = 256
+
+# Job Runs Field Lengths
+JOB_STATUS_MIN_LENGTH = 1
+JOB_STATUS_MAX_LENGTH = 64
+ORCHESTRATOR_MIN_LENGTH = 1
+ORCHESTRATOR_MAX_LENGTH = 64
+MESSAGE_MIN_LENGTH = 0  # Allow empty messages
+MESSAGE_MAX_LENGTH = 5000
+ERROR_MESSAGE_MAX_LENGTH = 50000  # Longer for stack traces
+COLUMN_NAME_MIN_LENGTH = 1
+COLUMN_NAME_MAX_LENGTH = 256
+
+# Container Field Lengths
+CONTAINER_KIND_MIN_LENGTH = 1
+CONTAINER_KIND_MAX_LENGTH = 50
+
+# Account ID
+ACCOUNT_ID_MIN_LENGTH = 1
+ACCOUNT_ID_MAX_LENGTH = 256
+
+# Document ID Lists
+DOCS_IDS_LISTS_MIN_LENGTH = 0
+DOCS_IDS_LISTS_MAX_LENGTH = 100000  # Max number of document IDs in lists
+
+# ============================================================================
+# INTEGER CONSTRAINTS
+# ============================================================================
+
+# Timestamps (Unix epoch seconds)
+TIMESTAMP_MIN = 0  # Unix epoch start (1970-01-01)
+TIMESTAMP_MAX = 9999999999
+
+# Document Counts
+DOCS_COUNT_MIN = 0
+DOCS_COUNT_MAX = 1000000000  # 1 billion documents
+
+# Durations (seconds)
+DURATION_MIN = 0
+DURATION_MAX_SECONDS = 31536000  # 1 year in seconds
+
+# Batch Numbers
+BATCH_NUM_MIN = 0
+BATCH_NUM_MAX = 10000
+
+# Execution Time (seconds)
+EXECUTION_TIME_MIN = 0
+EXECUTION_TIME_MAX = 2147483647  # Max int32
+
+# Pages
+PAGES_COUNT_MIN = 0
+PAGES_COUNT_MAX = 1000000000  # 1 billion pages
+
+# ============================================================================
+# FIELD DESCRIPTIONS
+# ============================================================================
+
+# Identity Field Descriptions
+JOB_ID_DESC = "UUID of the associated Prefect job/execution"
+JOB_RUN_ID_DESC = "Unique identifier for the job run (UUID format)"
+NODE_ID_DESC = "Unique identifier for the node within the flow"
+USER_ID_DESC = "User identifier associated with the job run"
+
+# Status & Message Descriptions
+JOB_STATUS_DESC = "Current execution status of the job run"
+NODE_STATUS_DESC = "Execution status of the node"
+MESSAGE_DESC = "Status message"
+ERROR_DESC = "Error message if failed"
+
+# Timing Field Descriptions
+START_TIME_DESC = "Start timestamp (Unix epoch seconds)"
+END_TIME_DESC = "End timestamp (Unix epoch seconds)"
+DURATION_DESC = "Duration in seconds"
+HEARTBEAT_DESC = "Last heartbeat timestamp (Unix epoch seconds)"
+TIME_TAKEN_DESC = "Execution time for this node in seconds"
+EXECUTION_TIME_DESC = "Execution time in seconds"
+
+# Document Count Descriptions
+TOTAL_DOCS_DESC = "Total number of documents"
+PROCESSED_DOCS_DESC = "Number of processed documents"
+COMPLETED_DOCS_DESC = "Number of completed documents"
+FAILED_DOCS_DESC = "Number of failed documents"
+SKIPPED_DOCS_DESC = "Number of skipped documents"
+DELETED_DOCS_DESC = "Number of deleted documents"
+
+# Document List Descriptions
+TOTAL_DOCS_LIST_DESC = "List of total document IDs processed"
+FAILED_DOCS_LIST_DESC = "List of failed document IDs"
+SKIPPED_DOCS_LIST_DESC = "List of skipped document IDs"
+DOCS_COMPLETED_LIST_DESC = "List of successfully completed document IDs"
+DOCS_COMPLETED_COUNT_DESC = "Count of completed documents"
+
+# Page Processing Descriptions
+TOTAL_PAGES_DESC = "Total number of pages processed"
+PAGE_TYPE_STATS_DESC = "Page type statistics"
+
+# Execution Context Descriptions
+ORCHESTRATOR_DESC = "Orchestrator type used for execution (Python, Spark, etc.)"
+CONTAINER_TYPE_DESC = "Container type (PROJECT, SPACE, etc.)"
+CONTAINER_ID_DESC_JOB = "Container identifier"
+FLOW_ID_DESC_JOB = "Flow definition ID"
+ACCOUNT_ID_DESC = "Account/tenant identifier"
+USER_ENTITLEMENTS_DESC = "User entitlements and permissions for this job run"
+
+# Node Field Descriptions
+NAME_DESC_NODE = "Human-readable node name"
+COL_NAMES_DESC = "Column names from node output"
+NODE_METADATA_DESC = "Operator-specific metadata"
+
+# Batch Field Descriptions
+BATCH_ID_DESC = "Unique identifier for batch execution"
+BATCH_NUM_DESC = "Sequence number for batch execution"
+
+# Aggregated Stats Descriptions
+NODE_STATS_DESC = "Aggregated node-level statistics keyed by node_id"
+BATCH_NODE_STATS_DESC = "Batch-level node stats: {node_id: {batch_id: NodeStats}}"
+
+# ============================================================================
+# FLOW-SPECIFIC PATTERNS
+# ============================================================================
 # All patterns are designed for IBM OpenAPI validator compliance and security.
 # Patterns use raw strings and avoid end anchors for Pydantic compatibility.
 
 # Identity Patterns
-UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-"""UUID v4 format pattern (lowercase hex with hyphens).
-
-Matches standard UUID format: 8-4-4-4-12 hex digits separated by hyphens.
-Example: 550e8400-e29b-41d4-a716-446655440000
-"""
-
-USER_ID_PATTERN = r"^[a-zA-Z0-9@._-]+$"
-"""User identifier pattern (alphanumeric with common email/username characters).
-
-Allows: letters, numbers, @, ., _, -
-Use cases: email addresses, usernames, service account IDs
-Example: user@example.com, admin_user, service-account-123
-"""
 
 # Content Patterns
 NAME_PATTERN = r"^[^\x00-\x1F]*$"
@@ -96,6 +203,30 @@ TAG_PATTERN = r"^[A-Za-z0-9._:/# -]+$"
 Rationale: Tags are used for filtering/searching; flexible format supports various use cases.
 Can contain: uppercase/lowercase letters, digits, dots, underscores, colons, slashes, hashes, spaces, hyphens
 Example: "invoice", "Production-v2", "ml_model_123", "env:prod", "type/document"
+"""
+
+PARAM_NAME_PATTERN = r"^[A-Za-z0-9_.-]+$"
+"""Parameter name pattern (alphanumeric with underscore, dot, hyphen).
+
+Rationale: Parameter names should be simple identifiers.
+Can contain: uppercase/lowercase letters, digits, underscores, dots, hyphens
+Example: "batch_size", "max_workers", "timeout.seconds"
+"""
+
+PARAM_VALUE_PATTERN = r"^[\s\S]{1,1000}$"
+"""Parameter value pattern (any character, 1-1000 length).
+
+Rationale: Parameter values can be any string representation.
+Allows: Any character including newlines, Unicode
+Example: "100", "true", "{'key': 'value'}"
+"""
+
+ASSET_REF_TYPE_PATTERN = r"^[A-Za-z0-9_.-]+$"
+"""Asset reference type pattern (alphanumeric with underscore, dot, hyphen).
+
+Rationale: Asset types should be simple identifiers.
+Can contain: uppercase/lowercase letters, digits, underscores, dots, hyphens
+Example: "ibm_udp_flow", "custom_pipeline", "ml-model"
 """
 
 # Container Patterns
@@ -179,15 +310,12 @@ Example: "content", "doc_id_hash", "num_words", "avg_word_length"
 """
 
 # ============================================================================
-# LENGTH CONSTRAINTS
+# FLOW-SPECIFIC CONSTRAINTS
 # ============================================================================
 # Organized by category for easy maintenance and reference.
 # All constraints validated against IBM OpenAPI validator requirements.
 
 # Identity Field Lengths
-UUID_LENGTH = 36  # Standard UUID format: 8-4-4-4-12 + 4 hyphens
-USER_ID_MIN_LENGTH = 1
-USER_ID_MAX_LENGTH = 256
 
 # Content Field Lengths
 NAME_MIN_LENGTH = 1
@@ -196,10 +324,6 @@ DESCRIPTION_MIN_LENGTH = 0  # Allow empty strings for optional descriptions
 DESCRIPTION_MAX_LENGTH = 10000
 TAG_MIN_LENGTH = 1
 TAG_MAX_LENGTH = 256
-
-# Container Field Lengths
-CONTAINER_KIND_MIN_LENGTH = 5
-CONTAINER_KIND_MAX_LENGTH = 7
 
 # Version Field Lengths
 VERSION_MIN_LENGTH = 1
@@ -248,6 +372,36 @@ OPERATOR_FEATURES_MIN = 0  # Some operators have no features
 OPERATOR_FEATURES_MAX = 100  # Maximum features per operator
 OPERATOR_REQUIRED_FEATURES_MIN = 0  # Most operators have no required features
 OPERATOR_REQUIRED_FEATURES_MAX = 50  # Maximum required features
+
+# Job Parameters and Configuration
+PARAM_NAME_MIN_LENGTH = 1
+PARAM_NAME_MAX_LENGTH = 128
+PARAM_VALUE_MIN_LENGTH = 1
+PARAM_VALUE_MAX_LENGTH = 1000
+CONFIG_VALUE_MIN_LENGTH = 1
+CONFIG_VALUE_MAX_LENGTH = 1000
+METADATA_VALUE_MIN_LENGTH = 1
+METADATA_VALUE_MAX_LENGTH = 1000
+
+# Array Limits
+JOB_PARAMS_MIN_ITEMS = 0
+JOB_PARAMS_MAX_ITEMS = 100
+NODE_SEQUENCE_MIN_ITEMS = 0
+NODE_SEQUENCE_MAX_ITEMS = 1000
+NODE_METADATA_MIN_ITEMS = 0
+NODE_METADATA_MAX_ITEMS = 1000
+
+# List Response Limits
+JOB_RUNS_LIST_MIN_ITEMS = 0
+JOB_RUNS_LIST_MAX_ITEMS = 1000
+LIST_COUNT_MIN = 0
+LIST_COUNT_MAX = 1000
+LIST_TOTAL_MIN = 0
+LIST_TOTAL_MAX = 1000000
+
+# Asset Reference
+ASSET_REF_TYPE_MIN_LENGTH = 1
+ASSET_REF_TYPE_MAX_LENGTH = 64
 
 # ============================================================================
 # EXAMPLE VALUES
@@ -312,7 +466,6 @@ Applied via json_schema_extra parameter in Field definitions.
 # Identity Field Descriptions
 FLOW_ID_DESC = "Unique identifier for the flow (UUID format)"
 CONTAINER_ID_DESC = "UUID of the container (project/space) this flow belongs to"
-JOB_ID_DESC = "UUID of the associated Prefect job/execution"
 CREATED_BY_DESC = "User identifier of the flow creator"
 MODIFIED_BY_DESC = "User identifier of the last person to modify the flow"
 
@@ -358,6 +511,9 @@ FIRST_URL_DESC = "URL to the first page of results"
 NEXT_URL_DESC = "URL to the next page of results (null if no more pages)"
 PREV_URL_DESC = "URL to the previous page of results (null if on first page)"
 
+# Job Run, Node Field Descriptions
+NODE_SEQUENCE_DESC = "Ordered list of node IDs in execution sequence"
+
 # Operator Field Descriptions
 OPERATOR_TYPE_DESC = "Data type of the feature (e.g., 'string', 'int64', 'double', 'float', 'int32', 'boolean', 'list')"
 OPERATOR_FEATURE_DESCRIPTION_DESC = "Human-readable description of the feature"
@@ -400,19 +556,6 @@ def datetime_field(description: str, example: str, **kwargs):
         - Centralizing prevents duplication and ensures consistency
         - OpenAPI "date-time" format requires specific schema structure
 
-    Why Other Factories Were Removed:
-        - name_field, description_field, etc. were too simple
-        - They just wrapped Field() with constants from this module
-        - Direct Field() usage is clearer: Field(min_length=NAME_MIN_LENGTH, ...)
-        - Factories should only exist when complexity justifies abstraction
-
-    How It Works:
-        - Returns a FieldInfo object (from Pydantic's Field() function)
-        - The FieldInfo is used with a `datetime` type annotation in the model
-        - Pydantic auto-serializes datetime objects to ISO 8601 strings
-        - json_schema_extra constraints apply to the serialized string format
-        - The actual field type comes from the model's type annotation, not this function
-
     Args:
         description: Field description for API documentation
         example: Example datetime value in ISO 8601 format (e.g., "2026-04-01T11:00:00Z")
@@ -421,13 +564,6 @@ def datetime_field(description: str, example: str, **kwargs):
     Returns:
         FieldInfo: Pydantic FieldInfo object with datetime-specific OpenAPI schema constraints.
             Must be used with a `datetime` type annotation in the model.
-
-    Example:
-        >>> from datetime import datetime
-        >>> created_on: datetime = datetime_field(
-        ...     description="When the flow was created",
-        ...     example="2026-04-01T11:00:00Z"
-        ... )
     """
     return Field(
         description=description,

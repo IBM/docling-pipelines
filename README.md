@@ -101,6 +101,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ### Architecture & Design
 
 - **[Architecture Documentation](ARCHITECTURE.md)** - System design and architectural decisions
+- **[Job Stats Metadata Aggregation Guide](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Batch metadata aggregation rules and maintainer update requirements
 
 ### API & Reference
 
@@ -212,6 +213,54 @@ datasift-opensource/
 ├── Dockerfile                 # Docker configuration
 └── README.md
 ```
+
+## Job Runs and Execution Tracking
+
+datasift-opensource includes a pluggable job-management subsystem for tracking job runs, node execution state, micro-batch progress, and terminal outcomes.
+
+### Job Stats Components
+
+- **[`JobStatsService`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_service.py)** - orchestration-facing service contract
+- **[`JobStatsStore`](src/datasift_opensource/backend/core/job_management/domain/ports/job_stats_store.py)** - pluggable persistence contract for job and node stats
+- **[`JobTrackerService`](src/datasift_opensource/backend/core/job_management/adapters/services/job_tracker_service.py)** - production implementation built on the new hexagonal architecture
+- **[`NodeStatsAggregator`](src/datasift_opensource/backend/core/job_management/application/services/node_stats_aggregator.py)** - read-side aggregation of batch node stats
+- **[`JobManagementFactory`](src/datasift_opensource/backend/core/job_management/adapters/config/job_management_factory.py)** - backend selection and dependency wiring
+
+### Supported Backends
+
+- **In-memory** - useful for tests and local development
+- **JSON storage** - simple persistent storage for single-host setups
+- **PostgreSQL** - durable storage with stronger concurrency behavior for multi-process and distributed execution
+
+### API Surface
+
+Job run APIs are exposed through [`job_runs.py`](src/datasift_opensource/backend/app/routes/job_runs.py) for:
+- creating job runs
+- listing job runs
+- reading current job run status
+- canceling job runs
+- deleting job runs
+
+### User Configuration
+
+The primary user-facing runtime configuration lives in [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml), including:
+- [`assets_management.flow_repository`](src/datasift_opensource/backend/config/datasift.yaml:1) for the flow repository location
+- [`job_management.framework.type`](src/datasift_opensource/backend/config/datasift.yaml:9) for the job framework type
+- [`job_management.store.type`](src/datasift_opensource/backend/config/datasift.yaml:12) for the job stats store backend
+- [`job_management.store.config`](src/datasift_opensource/backend/config/datasift.yaml:15) for backend-specific settings such as JSON `base_dir` or PostgreSQL connection details
+
+Environment overrides can replace config values at runtime, including:
+- `DATASIFT_CONFIG_PATH`
+- `DATASIFT_STORAGE_BACKEND`
+- `DATASIFT_FRAMEWORK_TYPE`
+- `DATASIFT_JOB_STATS_BASE_DIR`
+- `DATASIFT_POSTGRES_HOST`
+- `DATASIFT_POSTGRES_PORT`
+- `DATASIFT_POSTGRES_DB`
+- `DATASIFT_POSTGRES_USER`
+- `DATASIFT_POSTGRES_PASSWORD`
+
+When using distributed Prefect workers, all workers must resolve job stats storage consistently. JSON storage requires a shared filesystem path. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective job-management configuration resolved from environment variables and [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml).
 
 ## Setup
 
@@ -925,7 +974,7 @@ uv pip compile pyproject.toml -o requirements.txt
 cd src/datasift_opensource/backend
 uv pip install -e .
 export TEST_CP4D_USERNAME=udp_unittest_user
-export TEST_CP4D_PASSWORD="udp_unittest_pass@123"
+export TEST_CP4D_PASSWORD="udp_unittest_pass@123"  # pragma: allowlist secret
 uv run pytest ../../../tests/ -v
 ```
 
@@ -1117,6 +1166,14 @@ Create a `.env` file in the project root for environment-specific configuration:
 API_HOST=0.0.0.0
 API_PORT=8000
 DEBUG=true
+
+# Job Stats Storage Configuration
+DATASIFT_STORAGE_BACKEND=json  # Options: inmemory, json, postgresql
+DATASIFT_POSTGRES_HOST=localhost
+DATASIFT_POSTGRES_PORT=5432
+DATASIFT_POSTGRES_DB=datasift
+DATASIFT_POSTGRES_USER=datasift_user
+DATASIFT_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 # Add other environment variables as needed
 ```

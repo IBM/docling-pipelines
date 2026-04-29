@@ -5,8 +5,7 @@ This adapter wraps the existing PrefectEngine batch execution logic,
 maintaining backward compatibility while following the strategy pattern.
 """
 
-import pyarrow as pa
-
+from core.orchestrator.batch_manager import BatchInfo
 from core.orchestrator.prefect.domain.models import ExecutionStrategyType
 from core.orchestrator.prefect.ports.batch_execution_port import BatchExecutionPort
 
@@ -44,7 +43,7 @@ class ThreadPoolAdapter(BatchExecutionPort):
         self.batch_manager = batch_manager
 
     def execute_batches(
-        self, *, batches: list[pa.Table], op_flow: list[dict], global_config: dict, job_run_id: str
+        self, *, batches: list[BatchInfo], op_flow: list[dict], global_config: dict, job_run_id: str
     ) -> None:
         """
         Execute batches using thread pool (current implementation).
@@ -64,11 +63,8 @@ class ThreadPoolAdapter(BatchExecutionPort):
             name="batch_outer_flow", flow_impl=self.prefect_engine.batch_outer_flow_impl
         )
 
-        # Execute the flow
-        batch_futures = batch_outer_flow(op_flow=op_flow, batches=batches, global_config=global_config)
-
-        # Wait for all batches to complete with fail-fast cancellation
-        self.prefect_engine._wait_for_sub_flows(batch_futures=batch_futures)
+        # Execute the flow (which now waits for all batches internally to keep the task runner alive)
+        batch_outer_flow(op_flow=op_flow, batches=batches, global_config=global_config)
 
         self.prefect_engine.logger.info("All batches completed successfully", extra={"job_run_id": job_run_id})
 

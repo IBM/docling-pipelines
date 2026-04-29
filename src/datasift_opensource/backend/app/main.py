@@ -12,6 +12,7 @@ This module configures the FastAPI application with:
 import logging
 import os
 import sys
+from contextlib import asynccontextmanager
 from typing import Annotated, Any, cast
 
 import uvicorn
@@ -38,6 +39,7 @@ from app.middleware.error_handler import (
 from app.middleware.transaction_middleware import TransactionMiddleware
 from common.exceptions.datasift_exceptions import DatasiftException
 from common.util.infrastructure.logging import ConditionalFormatter
+from core.job_management.adapters.config.job_management_factory import get_default_factory
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -87,6 +89,14 @@ uvicorn_access_logger.propagate = False  # Prevent duplicate logs
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    del app
+    get_default_factory().initialize_storage()
+    yield
+
+
 app = FastAPI(
     title="DataSift Opensource API",
     description="API for DataSift opensource",
@@ -108,10 +118,15 @@ app = FastAPI(
             "description": "Operator metadata operations for retrieving information about available operators, their configurations, and capabilities",
         },
         {
+            "name": "job-runs",
+            "description": "Job run operations for creating, listing, monitoring, canceling, and deleting executions",
+        },
+        {
             "name": "System",
             "description": "System health and status endpoints",
         },
     ],
+    lifespan=lifespan,
 )
 
 
@@ -138,31 +153,27 @@ def custom_openapi():
     )
 
     def remove_nullable_keywords(schema: dict) -> dict:
-        """Recursively remove all nullable keywords from the schema.
-
-        IBM validator rejects the `nullable` keyword entirely. Since nullable fields
-        are optional in our API (they have defaults or are not required), we simply
-        remove the nullable keyword without replacement.
-
-        The semantic meaning is preserved because:
-        - Optional fields are already marked as not required in the schema
-        - Fields with defaults will use those defaults when null is provided
-        - The API handles null values appropriately in validation
-
-        Args:
-            schema: OpenAPI schema object (dict) to process
-
-        Returns:
-            dict: Processed schema with all nullable keywords removed
-        """
+        """Recursively remove nullable and OpenAPI 3.1 null-union patterns for IBM validator compatibility."""
         if not isinstance(schema, dict):
             return schema
 
-        # Simply remove nullable keyword if present
         if "nullable" in schema:
             schema.pop("nullable")
 
-        # Recursively process nested schemas
+        if "anyOf" in schema and isinstance(schema["anyOf"], list):
+            non_null_options = [
+                remove_nullable_keywords(item)
+                for item in schema["anyOf"]
+                if not (isinstance(item, dict) and item.get("type") == "null")
+            ]
+            if len(non_null_options) == 1:
+                preserved = non_null_options[0]
+                schema.pop("anyOf", None)
+                for merge_key, merge_value in preserved.items():
+                    schema[merge_key] = merge_value
+            else:
+                schema["anyOf"] = non_null_options
+
         for key, value in list(schema.items()):
             if isinstance(value, dict):
                 schema[key] = remove_nullable_keywords(value)
@@ -173,8 +184,10 @@ def custom_openapi():
 
     # Process component schemas
     if "components" in openapi_schema and "schemas" in openapi_schema["components"]:
-        for schema_name, schema_def in openapi_schema["components"]["schemas"].items():
-            openapi_schema["components"]["schemas"][schema_name] = remove_nullable_keywords(schema_def)
+        schemas = openapi_schema["components"]["schemas"]
+
+        for schema_name, schema_def in schemas.items():
+            schemas[schema_name] = remove_nullable_keywords(schema_def)
 
             # Add description to HTTPValidationError schema if missing
             if schema_name == "HTTPValidationError" and "description" not in schema_def:
@@ -182,24 +195,32 @@ def custom_openapi():
 
     # Process path operation schemas
     if "paths" in openapi_schema:
-        for path_item in openapi_schema["paths"].values():
+        for path, path_item in openapi_schema["paths"].items():
+            if not isinstance(path_item, dict):
+                continue
+
+            if path.startswith("/api/v1/job_runs/") or path == "/api/v1/job_runs":
+                path_item.pop("parameters", None)
+
             for operation in path_item.values():
                 if not isinstance(operation, dict):
                     continue
 
-                # Process parameters
+                if path.startswith("/api/v1/job_runs"):
+                    responses = operation.get("responses")
+                    if isinstance(responses, dict):
+                        responses.pop("422", None)
+
                 if "parameters" in operation:
                     for param in operation["parameters"]:
                         if "schema" in param:
                             param["schema"] = remove_nullable_keywords(param["schema"])
 
-                # Process request body
                 if "requestBody" in operation and "content" in operation["requestBody"]:
                     for content in operation["requestBody"]["content"].values():
                         if "schema" in content:
                             content["schema"] = remove_nullable_keywords(content["schema"])
 
-                # Process responses
                 if "responses" in operation:
                     for response in operation["responses"].values():
                         if isinstance(response, dict) and "content" in response:

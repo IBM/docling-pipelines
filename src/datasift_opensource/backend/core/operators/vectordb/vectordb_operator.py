@@ -176,11 +176,19 @@ class VectorDBOperator(AbstractOperator):
         # Create index if needed
         if self.create_index:
             try:
-                self.adapter.create_index(dimension_to_use)
+                if self.adapter.index_exists():
+                    logger.info(
+                        f"Index '{self.index_name}' already exists, skipping creation",
+                        extra=self.common_log_arguments,
+                    )
+                else:
+                    self.adapter.create_index(dimension_to_use)
             except Exception as e:
                 logger.error(f"Failed to create index: {e!s}", extra=self.common_log_arguments)
-                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
-                return [table], metadata
+                raise DatasiftException(
+                    message=f"Failed to create index: {e!s}",
+                    error_code=ErrorCode.OPENSEARCH_INDEX_ERROR,
+                ) from e
 
         # Prepare documents for bulk indexing
         documents: list[tuple[str, dict[str, Any]]] = []

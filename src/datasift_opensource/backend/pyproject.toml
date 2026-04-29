@@ -65,6 +65,10 @@ dependencies = [
     "pygments==2.20.0",
     "accelerate==1.13.0",
     "torch==2.11.0",
+    "sqlalchemy>=2.0.0,<3.0.0",
+    "sqlmodel>=0.0.14",
+    "psycopg2-binary>=2.9.9",
+    "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]

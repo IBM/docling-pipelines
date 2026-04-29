@@ -101,6 +101,7 @@ class DatasiftConstants:
     MICRO_BATCH_SIZE = "micro_batch_size"
     DEFAULT_MICRO_BATCH_SIZE = 100
     BATCH_NUM = "batch_num"
+    BATCH_ID = "batch_id"
     BATCH_COUNT = "batch_count"
     INGEST_NODE_ID = "ingest_node_id"
     # Batch-level concurrency control
@@ -122,11 +123,77 @@ class DatasiftConstants:
     FLOW_EXECUTION_EVENT_HANDLER = "flow_execution_event_handler"
     JOB_LOG_PATH = "job_log_path"
     FLOW_EXECUTE_LOG = "flow_execute.log"
+    START_TIME = "start_time"
+    END_TIME = "end_time"
+    DURATION = "duration"
+    TOTAL_DOCS = "total_docs"
+    PROCESSED_DOCS = "processed_docs"
+    COMPLETED_DOCS = "completed_docs"
+    FAILED_DOCS = "failed_docs"
+    SKIPPED_DOCS = "skipped_docs"
+    ORCHESTRATOR = "orchestrator"
+    USER_ID = "user_id"
+    ACCOUNT_ID = "account_id"
+    USER_ENTITLEMENTS = "user_entitlements"
+    HEARTBEAT_TIMESTAMP = "heartbeat_timestamp"
+    DELETED_DOC_COUNT = "deleted_doc_count"
+    TOTAL_PAGES_PROCESSED = "total_pages_processed"
+    PAGE_TYPE_STATS = "page_type_stats"
+    EXECUTION_TIME = "execution_time"
+    CONTAINER_KIND = "container_kind"
+    CONTAINER_ID = "container_id"
+    NODE_STATS = "node_stats"
+    BATCH_NODE_STATS = "batch_node_stats"
 
-    # Use absolute path to ensure consistency across different working directories
     # Find project root by searching for marker files (pyproject.toml, .git)
     _PROJECT_ROOT = _find_project_root()
     DOCUMENT_SET_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "document_sets.duckdb")
+
+
+class DatasiftConfigKeys:
+    """YAML configuration keys for Datasift."""
+
+    JOB_MANAGEMENT = "job_management"
+    FRAMEWORK = "framework"
+    STORE = "store"
+    TYPE = "type"
+    STORAGE_BACKEND = "storage_backend"
+    FRAMEWORK_TYPE = "framework_type"
+    STORAGE_CONFIG = "storage_config"
+    FRAMEWORK_CONFIG = "framework_config"
+    CONFIG = "config"
+    STORAGE_INITIALIZED = "storage_initialized"
+    RUN_MIGRATIONS = "run_migrations"
+    BASE_DIR = "base_dir"
+    POSTGRES = "postgres"
+    LOCK_TIMEOUT = "lock_timeout"
+    HOST = "host"
+    PORT = "port"
+    DATABASE = "database"
+    USER = "user"
+    PASSWORD = "password"  # pragma: allowlist secret
+    POOL_SIZE = "pool_size"
+    MAX_OVERFLOW = "max_overflow"
+    POOL_TIMEOUT = "pool_timeout"
+
+
+class EnvironmentVariables:
+    """Environment variable names used across Datasift runtime components."""
+
+    PREFECT_API_URL = "PREFECT_API_URL"
+    PREFECT_MODE = "PREFECT_MODE"
+    OLLAMA_HOST = "OLLAMA_HOST"
+    PYTHONPATH = "PYTHONPATH"
+    PREFECT_SERVER_API_MAX_PARAMETER_SIZE = "PREFECT_SERVER_API_MAX_PARAMETER_SIZE"
+    DATASIFT_CONFIG_PATH = "DATASIFT_CONFIG_PATH"
+    DATASIFT_STORAGE_BACKEND = "DATASIFT_STORAGE_BACKEND"
+    DATASIFT_FRAMEWORK_TYPE = "DATASIFT_FRAMEWORK_TYPE"
+    DATASIFT_JOB_STATS_BASE_DIR = "DATASIFT_JOB_STATS_BASE_DIR"
+    DATASIFT_POSTGRES_HOST = "DATASIFT_POSTGRES_HOST"
+    DATASIFT_POSTGRES_PORT = "DATASIFT_POSTGRES_PORT"
+    DATASIFT_POSTGRES_DB = "DATASIFT_POSTGRES_DB"
+    DATASIFT_POSTGRES_USER = "DATASIFT_POSTGRES_USER"
+    DATASIFT_POSTGRES_PASSWORD = "DATASIFT_POSTGRES_PASSWORD"  # pragma: allowlist secret
 
 
 class ServiceConstants:
@@ -149,6 +216,7 @@ class Metrics:
     class External:
         JOB_RUN_STATUS = "job_run_status"
         TOTAL_DOCS = "total_docs_count"
+        COMPLETED_DOCS_COUNT = "completed_docs_count"
         TOTAL_DOCS_COUNT_FROM_LOGS = "total_docs"
         PROCESSED_DOCS = "processed_docs"
         PROCESSED_ROWS = "processed_rows"
@@ -250,6 +318,7 @@ class DataSourceType:
 
 class ExecutionStatus(StrEnum):
     QUEUED = "Queued"
+    PENDING = "Pending"
     STARTING = "Starting"
     RUNNING = "Running"
     PAUSED = "Paused"
@@ -262,6 +331,7 @@ class ExecutionStatus(StrEnum):
     COMPLETED_WITH_ERRORS = "CompletedWithErrors"
     COMPLETED_WITH_WARNINGS = "CompletedWithWarnings"
     SKIPPED = "Skipped"
+    ABORTED = "Aborted"
 
 
 # efficient membership checks (O(1) instead of O(n))
@@ -272,8 +342,11 @@ COMPLETED_JOB_STATUSES = frozenset(
         ExecutionStatus.COMPLETED_WITH_WARNINGS,
         ExecutionStatus.CANCELED,
         ExecutionStatus.FAILED,
+        ExecutionStatus.ABORTED,
     ]
 )
+
+TERMINAL_NODE_STATES = frozenset(COMPLETED_JOB_STATUSES | {ExecutionStatus.SKIPPED})
 
 active_states = [
     ExecutionStatus.STARTING,

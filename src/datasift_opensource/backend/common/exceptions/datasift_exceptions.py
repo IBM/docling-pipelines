@@ -300,8 +300,346 @@ class RepositoryConfigurationException(DatasiftException):
         self.valid_types = valid_types
 
 
+class JobRunNotFoundException(DatasiftException):
+    """
+    Exception raised when a job run is not found.
+
+    Used in job run operations when attempting to retrieve, update,
+    cancel, or delete a job run that does not exist.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        job_run_id: str | None = None,
+    ):
+        if job_run_id and not message:
+            message = f"Job run {job_run_id} not found"
+        super().__init__(
+            message,
+            status_code=404,
+            error_code=ErrorCode.JOB_RUN_NOT_FOUND,
+        )
+        self.job_run_id = job_run_id
+
+
+class JobRunAlreadyExistsException(DatasiftException):
+    """
+    Exception raised when attempting to create a job run that already exists.
+
+    Used in job run creation when a job run with the same ID already exists.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        job_run_id: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=409,
+            error_code=ErrorCode.JOB_RUN_ALREADY_EXISTS,
+        )
+        self.job_run_id = job_run_id
+
+
+class JobRunInvalidStateException(DatasiftException):
+    """
+    Exception raised when job run operation is invalid for current state.
+
+    Used when attempting operations that are not valid for the job run's
+    current state (e.g., canceling a completed job, deleting a running job).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        job_run_id: str | None = None,
+        current_state: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=400,
+            error_code=ErrorCode.JOB_RUN_INVALID_STATE,
+        )
+        self.job_run_id = job_run_id
+        self.current_state = current_state
+
+
+class JobRunOperationFailedException(DatasiftException):
+    """
+    Exception raised when a job run operation fails.
+
+    Used for general job run operation failures such as cancellation
+    failures, deletion failures, or status update failures.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        job_run_id: str | None = None,
+        operation: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=500,
+            error_code=ErrorCode.JOB_RUN_OPERATION_FAILED,
+        )
+        self.job_run_id = job_run_id
+        self.operation = operation
+
+
+class DatabaseMigrationException(DatasiftException):
+    """
+    Exception raised when database migration operations fail.
+
+    Used for Alembic migration failures, schema initialization errors,
+    or migration configuration issues.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        operation: str | None = None,
+        status_code: int = 500,
+    ):
+        super().__init__(
+            message,
+            status_code=status_code,
+            error_code=ErrorCode.DATABASE_MIGRATION_FAILED,
+        )
+        self.operation = operation
+
+
+class JobStatsStoreException(DatasiftException):
+    """
+    Base exception for job stats store operations.
+
+    Used as base class for all job stats store-related exceptions.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        error_code: ErrorCode,
+        job_run_id: str | None = None,
+        operation: str | None = None,
+        status_code: int = 500,
+    ):
+        super().__init__(
+            message,
+            status_code=status_code,
+            error_code=error_code,
+        )
+        self.job_run_id = job_run_id
+        self.operation = operation
+
+
+class JobStatsStoreReadException(JobStatsStoreException):
+    """
+    Exception raised when reading from job stats store fails.
+
+    Used for get_job_stats, get_node_stats, list_jobs failures.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        job_run_id: str | None = None,
+        operation: str | None = None,
+    ):
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.JOB_STATS_STORE_READ_FAILED,
+            job_run_id=job_run_id,
+            operation=operation,
+            status_code=500,
+        )
+
+
+class JobStatsStoreWriteException(JobStatsStoreException):
+    """
+    Exception raised when writing to job stats store fails.
+
+    Used for store_job_stats, store_node_stats, bulk_store_node_stats failures.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        job_run_id: str | None = None,
+        operation: str | None = None,
+    ):
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.JOB_STATS_STORE_WRITE_FAILED,
+            job_run_id=job_run_id,
+            operation=operation,
+            status_code=500,
+        )
+
+
+class JobStatsStoreDeleteException(JobStatsStoreException):
+    """
+    Exception raised when deleting from job stats store fails.
+
+    Used for delete_job_stats failures.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        job_run_id: str | None = None,
+    ):
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.JOB_STATS_STORE_DELETE_FAILED,
+            job_run_id=job_run_id,
+            operation="delete",
+            status_code=500,
+        )
+
+
+class JobStatsStoreAtomicUpdateException(JobStatsStoreException):
+    """
+    Exception raised when atomic update operations fail.
+
+    Used for atomic_increment_fields failures.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        job_run_id: str | None = None,
+    ):
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.JOB_STATS_STORE_ATOMIC_UPDATE_FAILED,
+            job_run_id=job_run_id,
+            operation="atomic_update",
+            status_code=500,
+        )
+
+
+class JobStatsStoreInitializationException(JobStatsStoreException):
+    """
+    Exception raised when job stats store initialization fails.
+
+    Used for store initialization, connection setup, migration failures.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        store_type: str | None = None,
+    ):
+        super().__init__(
+            message=message,
+            error_code=ErrorCode.JOB_STATS_STORE_INITIALIZATION_FAILED,
+            operation="initialization",
+            status_code=500,
+        )
+        self.store_type = store_type
+
+
+class PostgresConnectionException(DatasiftException):
+    """
+    Exception raised when PostgreSQL connection fails.
+
+    Used for connection establishment, engine creation failures.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        host: str | None = None,
+        database: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=500,
+            error_code=ErrorCode.POSTGRES_CONNECTION_FAILED,
+        )
+        self.host = host
+        self.database = database
+
+
+class PostgresOperationException(DatasiftException):
+    """
+    Exception raised when PostgreSQL operations fail.
+
+    Used for DAO/DAL operation failures (insert, update, delete, select).
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        operation: str | None = None,
+        table: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=500,
+            error_code=ErrorCode.POSTGRES_OPERATION_FAILED,
+        )
+        self.operation = operation
+        self.table = table
+
+
+class PostgresTransactionException(DatasiftException):
+    """
+    Exception raised when PostgreSQL transaction fails.
+
+    Used for transaction commit, rollback failures.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        operation: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=500,
+            error_code=ErrorCode.POSTGRES_TRANSACTION_FAILED,
+        )
+        self.operation = operation
+
+
+class PostgresQueryException(DatasiftException):
+    """
+    Exception raised when PostgreSQL query execution fails.
+
+    Used for SQL query execution failures, syntax errors.
+    """
+
+    def __init__(
+        self,
+        *,
+        message: str,
+        query: str | None = None,
+    ):
+        super().__init__(
+            message,
+            status_code=500,
+            error_code=ErrorCode.POSTGRES_QUERY_FAILED,
+        )
+        self.query = query
+
+
 __all__ = [
     "ConfigurationError",
+    "DatabaseMigrationException",
     "DatasiftException",
     "DependencyError",
     "ExternalServiceError",
@@ -311,6 +649,20 @@ __all__ = [
     "FlowNotFoundException",
     "FlowStorageException",
     "FlowValidationException",
+    "JobRunAlreadyExistsException",
+    "JobRunInvalidStateException",
+    "JobRunNotFoundException",
+    "JobRunOperationFailedException",
+    "JobStatsStoreAtomicUpdateException",
+    "JobStatsStoreDeleteException",
+    "JobStatsStoreException",
+    "JobStatsStoreInitializationException",
+    "JobStatsStoreReadException",
+    "JobStatsStoreWriteException",
+    "PostgresConnectionException",
+    "PostgresOperationException",
+    "PostgresQueryException",
+    "PostgresTransactionException",
     "PrefectFlowFailed",
     "RepositoryConfigurationException",
     "ValidationAlert",

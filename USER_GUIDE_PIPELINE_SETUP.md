@@ -24,6 +24,7 @@ This comprehensive guide walks you through setting up and executing a complete D
     - [11.7 Advanced Features](#117-advanced-features)
     - [11.8 Error Handling and Debugging](#118-error-handling-and-debugging)
 12. [Execution Models](#12-execution-models)
+13. [Job Stats Storage Configuration](#13-job-stats-storage-configuration)
 
 ---
 
@@ -135,6 +136,21 @@ The script creates two files:
 - `.datasift_setup_config` - Configuration settings
 - `datasift_setup.log` - Detailed setup log
 
+Flow repository storage location is configured in `src/datasift_opensource/backend/config/datasift.yaml`:
+
+```yaml
+assets_management:
+  flow_repository:
+    type: local
+    config:
+      base_dir: ./sample_flows
+```
+
+Override precedence for flow storage:
+1. `LOCAL_FLOWS_DIR` environment variable
+2. `assets_management.flow_repository.config.base_dir` in `datasift.yaml`
+3. Default fallback: `~/Documents/pipeline/assets`
+
 **Next steps:**
 
 1. Set PYTHONPATH from project root:
@@ -235,6 +251,99 @@ Before starting, you'll need:
 - **Ollama** - Local LLM server for embeddings
 - **Podman or Docker** - For running OpenSearch
 - **Basic command-line knowledge** - For running commands
+
+---
+
+## Job Stats Storage Configuration
+
+datasift-opensource supports pluggable job stats storage for job runs, node execution state, and micro-batch progress tracking.
+
+### Available Backends
+
+- **In-memory** - test and development scenarios
+- **JSON storage** - local file-backed persistence
+- **PostgreSQL** - durable storage for concurrent and distributed execution
+
+### Backend Selection
+
+Job-management components are wired through [`JobManagementFactory`](src/datasift_opensource/backend/core/job_management/adapters/config/job_management_factory.py). Backend selection is controlled by [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml) and environment overrides.
+
+The main user-facing configuration lives under [`job_management`](src/datasift_opensource/backend/config/datasift.yaml:8) in [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml):
+
+```yaml
+job_management:
+  framework:
+    type: default
+    config: {}
+  store:
+    type: json
+    config:
+      base_dir: ./data/job_stats_store_data
+```
+
+This allows users to configure:
+- the job framework type under [`job_management.framework.type`](src/datasift_opensource/backend/config/datasift.yaml:9)
+- the job stats store backend under [`job_management.store.type`](src/datasift_opensource/backend/config/datasift.yaml:12)
+- the job stats store runtime config under [`job_management.store.config`](src/datasift_opensource/backend/config/datasift.yaml:15)
+- the flow repository separately under [`assets_management.flow_repository`](src/datasift_opensource/backend/config/datasift.yaml:1)
+
+Common overrides include:
+- `DATASIFT_CONFIG_PATH`
+- `DATASIFT_STORAGE_BACKEND`
+- `DATASIFT_FRAMEWORK_TYPE`
+- `DATASIFT_JOB_STATS_BASE_DIR`
+- `DATASIFT_POSTGRES_HOST`
+- `DATASIFT_POSTGRES_PORT`
+- `DATASIFT_POSTGRES_DB`
+- `DATASIFT_POSTGRES_USER`
+- `DATASIFT_POSTGRES_PASSWORD`
+
+Effective precedence for job-management runtime selection is:
+1. explicit environment overrides
+2. values from [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml)
+3. built-in defaults in [`JobManagementFactory`](src/datasift_opensource/backend/core/job_management/adapters/config/job_management_factory.py)
+
+### JSON Storage Guidance
+
+JSON storage is useful for single-host execution and simple local testing.
+
+Important requirements:
+- the job stats base directory must be writable
+- for distributed Prefect workers, the configured path must resolve to the same shared filesystem location for the submitter and workers
+- local-only paths on the submitter machine are not sufficient for distributed workers
+- when JSON storage is selected from config, worker propagation resolves `base_dir` to an absolute path before injecting it into the worker environment
+
+### PostgreSQL Guidance
+
+PostgreSQL is the recommended backend for multi-process and distributed execution because it provides durable shared storage and stronger concurrency behavior than file-backed JSON storage.
+
+Use PostgreSQL when:
+- multiple workers need to update job stats concurrently
+- workers do not share a reliable filesystem path
+- you need a single durable backend for job status APIs
+- you want workers on different containers, pods, or machines to share a single backend without filesystem coupling
+
+### Metadata Aggregation Maintenance
+
+Node stats are aggregated on the read path, not in the storage adapter. When operators add new metadata fields, maintainers must review [`DEFAULT_STRATEGIES`](src/datasift_opensource/backend/core/job_management/application/aggregation/strategies.py) and update it if the field should not use the default `LAST` aggregation behavior.
+
+See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md) for the maintainer workflow.
+
+### Distributed Execution and Work Pool Environment Inheritance
+
+For distributed Prefect execution, work pool runtime configuration is modeled in [`work_pool_config.py`](src/datasift_opensource/backend/core/orchestrator/prefect/config/work_pool_config.py) and applied by [`WorkPoolAdapter`](src/datasift_opensource/backend/core/orchestrator/prefect/adapters/work_pool_adapter.py).
+
+Important behavior:
+- worker `env` values configured directly in the work pool take highest precedence
+- if job-management env values are omitted from the work pool config, workers inherit the submitter's effective job-management configuration
+- the inherited effective configuration is resolved from:
+  - submitter environment variables
+  - [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml)
+  - code defaults
+
+This makes it possible to keep a single source of truth in [`datasift.yaml`](src/datasift_opensource/backend/config/datasift.yaml) while still overriding specific values per environment or per deployment.
+
+For full distributed execution examples and work-pool-specific configuration, see [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md).
 
 ---
 

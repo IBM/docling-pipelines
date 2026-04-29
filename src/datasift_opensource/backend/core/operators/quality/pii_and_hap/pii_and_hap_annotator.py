@@ -717,8 +717,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
         reason = f"Error: {getattr(e, 'message', str(e)) if getattr(e, 'message', str(e)) else repr(e)}"
         self.record_failed_document(metadata=metadata, doc_id=_id, doc_name=file_name, reason=reason)
 
+        current_status = metadata[Metrics.External.NODE_STATUS]
         metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-            metadata[Metrics.External.NODE_STATUS],
+            current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
             ExecutionStatus.COMPLETED_WITH_ERRORS,
         ).value
 

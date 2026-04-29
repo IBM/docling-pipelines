@@ -106,10 +106,14 @@ class LiteLLMLLMAdapter(LLMServicePort):
             )
         """
         self.model_name = model_name
+        # Pop explicit arguments to avoid duplicate values in **adapter_config
+        api_key = adapter_config.pop("api_key", None)
+        api_base = adapter_config.pop("api_base", None)
+
         self.client = LiteLLMLLMClient(
             model_name=model_name,
-            api_key=adapter_config.get("api_key"),
-            api_base=adapter_config.get("api_base"),
+            api_key=api_key,
+            api_base=api_base,
             **adapter_config,
         )
 

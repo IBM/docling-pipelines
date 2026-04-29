@@ -7,7 +7,7 @@ from typing import Any
 from common.constants.constants import DatasiftConstants, ExecutionStatus, Metrics
 from common.constants.operator_constants import OperatorConstants
 from common.util.infrastructure.filesystem import get_data_path
-from common.util.job_tracker.model.models import NodeStatsDto
+from core.job_management.domain.models import NodeStats
 
 
 def epoch_to_datetime(*, epoch_time):
@@ -245,7 +245,7 @@ def format_node_stats(*, node_stats: dict, node_sequence: list) -> str:
             continue  # Skip nodes not present in stats
 
         node_stat = node_stats[node]
-        if isinstance(node_stat, NodeStatsDto):
+        if isinstance(node_stat, NodeStats):
             node_info = copy.deepcopy(node_stat.model_dump())
         else:
             node_info = copy.deepcopy(node_stat)

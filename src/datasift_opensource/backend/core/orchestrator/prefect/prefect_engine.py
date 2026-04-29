@@ -15,27 +15,26 @@ from common.util.orchestration.prefect_config import set_prefect_env_variables
 
 set_prefect_env_variables()
 
-from prefect import flow, task
-from prefect.futures import PrefectFuture
-from prefect.runtime import task_run
-from prefect.states import Completed
-from prefect.task_runners import ThreadPoolTaskRunner
+from prefect import flow, task  # noqa: E402
+from prefect.futures import PrefectFuture  # noqa: E402
+from prefect.runtime import task_run  # noqa: E402
+from prefect.states import Completed  # noqa: E402
+from prefect.task_runners import ThreadPoolTaskRunner  # noqa: E402
 
-from common.constants.constants import DatasiftConstants, TaskType
-from common.constants.operator_constants import OperatorConstants
-from common.exceptions.datasift_exceptions import (
+from common.constants.constants import DatasiftConstants, TaskType  # noqa: E402
+from common.constants.operator_constants import OperatorConstants  # noqa: E402
+from common.exceptions.datasift_exceptions import (  # noqa: E402
     ErrorCode,
     FlowExecutionFailedException,
     FlowValidationException,
     PrefectFlowFailed,
 )
-from common.models.session_info import get_session_info
-from common.util.data.incremental_update import IncrementalUpdateUtil
-from common.util.infrastructure.logging import get_logger
-from common.util.job_tracker.tracker.job_tracker import JobTracker
-from common.util.orchestration.flow_utils import create_node_id_to_index_map
-from core.orchestrator.futured_list import FuturedList
-from core.orchestrator.prefect.ports.batch_execution_port import (
+from common.models.session_info import get_session_info  # noqa: E402
+from common.util.data.incremental_update import IncrementalUpdateUtil  # noqa: E402
+from common.util.infrastructure.logging import get_logger  # noqa: E402
+from common.util.orchestration.flow_utils import create_node_id_to_index_map  # noqa: E402
+from core.orchestrator.futured_list import FuturedList  # noqa: E402
+from core.orchestrator.prefect.ports.batch_execution_port import (  # noqa: E402
     BatchExecutionPort,
 )
 
@@ -56,6 +55,39 @@ class ExecuteStepResults:
         self.data_accesses = data_accesses
         self.tables = tables
         self.internal_metadata = internal_metadata
+
+
+class BatchFuture:
+    """Container for batch execution future with metadata."""
+
+    def __init__(self, *, batch_id: str, batch_num: int, future: PrefectFuture):
+        self.batch_id = batch_id
+        self.batch_num = batch_num
+        self.future = future
+
+    def describe_state(self) -> str:
+        state_parts: list[str] = []
+
+        try:
+            state_parts.append(f"is_completed={self.future.state.is_completed()}")
+            state_parts.append(f"is_failed={self.future.state.is_failed()}")
+            state_parts.append(f"is_crashed={self.future.state.is_crashed()}")
+            state_parts.append(f"is_cancelled={self.future.state.is_cancelled()}")
+            state_parts.append(f"state_type={getattr(self.future.state.type, 'value', self.future.state.type)}")
+            state_parts.append(f"state_name={getattr(self.future.state, 'name', 'unknown')}")
+        except Exception as exc:
+            state_parts.append(f"state_unavailable={exc}")
+
+        wrapped_future = getattr(self.future, "_wrapped_future", None)
+        if wrapped_future is not None:
+            try:
+                state_parts.append(f"wrapped_done={wrapped_future.done()}")
+                state_parts.append(f"wrapped_cancelled={wrapped_future.cancelled()}")
+                state_parts.append(f"wrapped_running={wrapped_future.running()}")
+            except Exception as exc:
+                state_parts.append(f"wrapped_state_unavailable={exc}")
+
+        return ", ".join(state_parts)
 
 
 class AbstractFlowEngine(ABC):
@@ -175,7 +207,7 @@ class PrefectEngine(AbstractFlowEngine):
             task_runner=ThreadPoolTaskRunner(max_workers=prefect_config["max_workers"]),
         )(self.__non_execute_inner_flow)
 
-    def batch_outer_flow_impl(self, op_flow, batches, global_config):
+    def batch_outer_flow_impl(self, op_flow, batches, global_config) -> list[BatchFuture]:
         """
         Process batches using Prefect sub-flows with DAG parallelism.
 
@@ -204,11 +236,11 @@ class PrefectEngine(AbstractFlowEngine):
         # Create a task wrapper for subflow execution
         def batch_cache_key_fn(context, parameters):
             """Custom cache key that excludes batch_data_access to avoid serialization errors."""
-            return f"{parameters.get('batch_num')}_{self.job_run_id}"
+            return f"{parameters.get('batch_id')}_{self.job_run_id}"
 
         # 2. Define a task to execute inner flow
         @task(cache_key_fn=batch_cache_key_fn)
-        def batch_subflow_task(batch_num, op_flow, global_config, batch_data_access):
+        def batch_subflow_task(batch_id, batch_num, op_flow, global_config, batch_data_access):
             """Execute a single batch as a Prefect subflow."""
             batch_semaphore = self.batch_manager.get_batch_semaphore()
 
@@ -216,43 +248,68 @@ class PrefectEngine(AbstractFlowEngine):
             if batch_semaphore:
                 batch_semaphore.acquire()
                 self.logger.info(
-                    f"Batch {batch_num}: acquired batch semaphore slot",
+                    f"Batch {batch_num} (ID: {batch_id}): acquired batch semaphore slot",
                     extra=self.common_log_arguments,
                 )
 
             try:
-                self.logger.info(f"Batch {batch_num}: starting execution", extra=self.common_log_arguments)
+                self.logger.info(
+                    f"Batch {batch_num} (ID: {batch_id}): starting execution", extra=self.common_log_arguments
+                )
                 batch_global_config = global_config.copy()
                 if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
                     batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
+                    batch_global_config[DatasiftConstants.BATCH_ID] = batch_id
 
-                result = inner_flow(op_flow=op_flow, data_access=batch_data_access, global_config=batch_global_config)
-                self.logger.info(f"Batch {batch_num}: completed execution", extra=self.common_log_arguments)
+                result = inner_flow(
+                    op_flow=op_flow,
+                    data_access=batch_data_access,
+                    global_config=batch_global_config,
+                )
+                self.logger.info(
+                    f"Batch {batch_num} (ID: {batch_id}): completed execution", extra=self.common_log_arguments
+                )
                 return result
             finally:
                 # Release batch semaphore in finally block to ensure cleanup
                 if batch_semaphore:
                     batch_semaphore.release()
                     self.logger.info(
-                        f"Batch {batch_num}: released batch semaphore slot",
+                        f"Batch {batch_num} (ID: {batch_id}): released batch semaphore slot",
                         extra=self.common_log_arguments,
                     )
 
         # Submit all batches as tasks
-        batch_futures = []
+        batch_futures: list[BatchFuture] = []
 
-        for batch_num, batch_table in enumerate(batches):
-            batch_data_access = self.batch_manager.create_batch_data_access(batch_table=batch_table)
+        for batch_info in batches:
+            batch_data_access = self.batch_manager.create_batch_data_access(batch_table=batch_info.table)
 
             # 3. Submit task that executes sub flow for each batch
             future = batch_subflow_task.submit(
-                batch_num=batch_num, op_flow=op_flow, global_config=global_config, batch_data_access=batch_data_access
+                batch_id=batch_info.batch_id,
+                batch_num=batch_info.batch_num,
+                op_flow=op_flow,
+                global_config=global_config,
+                batch_data_access=batch_data_access,
             )
-            batch_futures.append((batch_num, future))
+            batch_future = BatchFuture(batch_id=batch_info.batch_id, batch_num=batch_info.batch_num, future=future)
+            batch_futures.append(batch_future)
+            self.logger.info(
+                f"Submitted batch {batch_future.batch_num} (ID: {batch_future.batch_id}) future: {batch_future.describe_state()}",
+                extra=self.common_log_arguments,
+            )
+
+        # IMPORTANT: Wait for all batch futures INSIDE the outer flow.
+        # When the @flow function returns, Prefect exits its run_context which
+        # calls ThreadPoolTaskRunner.__exit__ → cancel_all() → executor.shutdown(cancel_futures=True).
+        # Any tasks still running at that point get cancelled with CancelledError → Crashed state.
+        # By resolving all futures here, we ensure the ThreadPoolTaskRunner is still active.
+        self._wait_for_sub_flows(batch_futures=batch_futures)
 
         return batch_futures
 
-    def _wait_for_sub_flows(self, *, batch_futures):
+    def _wait_for_sub_flows(self, *, batch_futures: list[BatchFuture]):
         """
         Wait for all sub-flows (batches) to complete with fail-fast cancellation.
 
@@ -261,73 +318,80 @@ class PrefectEngine(AbstractFlowEngine):
         """
         failed_batch = None
         cancellation_event = threading.Event()
-        cancelled_futures: list[tuple[int, PrefectFuture]] = []
+        cancelled_batch_futures: list[BatchFuture] = []
 
         try:
-            for future_index, (batch_num, future) in enumerate(batch_futures):
+            for future_index, batch_future in enumerate(batch_futures):
+                self.logger.info(
+                    f"Resolving batch {batch_future.batch_num} (ID: {batch_future.batch_id}) future before result(): {batch_future.describe_state()}",
+                    extra=self.common_log_arguments,
+                )
+
                 # Check if another batch already failed
                 if cancellation_event.is_set():
                     try:
-                        future.cancel()
-                        cancelled_futures.append((batch_num, future))
+                        # PrefectFuture.cancel() exists at runtime in Prefect 2.x
+                        cancel_result = batch_future.future.cancel()  # type: ignore[attr-defined]
+                        cancelled_batch_futures.append(batch_future)
                         self.logger.info(
-                            f"Cancelled batch {batch_num} due to failure in batch {failed_batch}",
+                            f"Cancelled batch {batch_future.batch_num} (ID: {batch_future.batch_id}) due to failure in batch {failed_batch}; cancel_result={cancel_result}; state_after_cancel={batch_future.describe_state()}",
                             extra=self.common_log_arguments,
                         )
                     except Exception as cancel_error:
                         self.logger.warning(
-                            f"Could not cancel batch {batch_num}: {cancel_error}",
+                            f"Could not cancel batch {batch_future.batch_num} (ID: {batch_future.batch_id}): {cancel_error}; state_on_cancel_error={batch_future.describe_state()}",
                             extra=self.common_log_arguments,
                         )
                     continue
 
                 try:
-                    future.result()
+                    batch_future.future.result()
                     self.logger.info(
-                        f"Batch {batch_num} completed successfully",
+                        f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) completed successfully; state_after_result={batch_future.describe_state()}",
                         extra=self.common_log_arguments,
                     )
 
                 except Exception as e:
                     # Batch failed - trigger cancellation
-                    failed_batch = batch_num
+                    failed_batch = batch_future.batch_num
                     cancellation_event.set()
 
                     self.logger.error(
-                        f"Batch {batch_num} failed, cancelling all remaining batches: {e}",
+                        f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed in future.result(); exception_type={type(e).__name__}; exception={e}; state_on_failure={batch_future.describe_state()}; cancelling all remaining batches",
                         extra=self.common_log_arguments,
                         exc_info=True,
                     )
 
-                    for remaining_num, remaining_future in batch_futures[future_index + 1 :]:
+                    for remaining_batch_future in batch_futures[future_index + 1 :]:
                         try:
-                            remaining_future.cancel()
-                            cancelled_futures.append((remaining_num, remaining_future))
+                            # PrefectFuture.cancel() exists at runtime in Prefect 2.x
+                            cancel_result = remaining_batch_future.future.cancel()  # type: ignore[attr-defined]
+                            cancelled_batch_futures.append(remaining_batch_future)
                             self.logger.info(
-                                f"Cancelled batch {remaining_num}",
+                                f"Cancelled batch {remaining_batch_future.batch_num} (ID: {remaining_batch_future.batch_id}); cancel_result={cancel_result}; state_after_cancel={remaining_batch_future.describe_state()}",
                                 extra=self.common_log_arguments,
                             )
                         except Exception as cancel_error:
                             self.logger.warning(
-                                f"Could not cancel batch {remaining_num}: {cancel_error}",
+                                f"Could not cancel batch {remaining_batch_future.batch_num} (ID: {remaining_batch_future.batch_id}): {cancel_error}; state_on_cancel_error={remaining_batch_future.describe_state()}",
                                 extra=self.common_log_arguments,
                             )
 
                     # Re-raise the exception to fail the entire job
                     raise FlowExecutionFailedException(
-                        f"Batch {batch_num} failed during sub-flow execution: {e}"
+                        f"Batch {batch_future.batch_num} (ID: {batch_future.batch_id}) failed during sub-flow execution: {type(e).__name__}: {e}"
                     ) from e
         finally:
-            for cancelled_batch_num, cancelled_future in cancelled_futures:
+            for cancelled_batch_future in cancelled_batch_futures:
                 try:
-                    cancelled_future.wait()
+                    cancelled_batch_future.future.wait()
                     self.logger.info(
-                        f"Cancelled batch {cancelled_batch_num} reached terminal state before semaphore reset",
+                        f"Cancelled batch {cancelled_batch_future.batch_num} (ID: {cancelled_batch_future.batch_id}) reached terminal state before semaphore reset",
                         extra=self.common_log_arguments,
                     )
                 except Exception as wait_error:
                     self.logger.warning(
-                        f"Error while waiting for cancelled batch {cancelled_batch_num} to finish: {wait_error}",
+                        f"Error while waiting for cancelled batch {cancelled_batch_future.batch_num} (ID: {cancelled_batch_future.batch_id}) to finish: {wait_error}",
                         extra=self.common_log_arguments,
                     )
 
@@ -634,8 +698,13 @@ class PrefectEngine(AbstractFlowEngine):
     def _collect_failed_doc_ids(self) -> list[str]:
         """Collect all failed document IDs from node stats"""
 
-        job_tracker = JobTracker()
-        job_stats = job_tracker.get_job(job_run_id=self.job_run_id)
+        # Get job stats service from orchestrator
+        job_stats_service = self.orchestrator.job_stats_service
+        if not job_stats_service:
+            logger.warning("Job stats service not available")
+            return []
+
+        job_stats = job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
         if not job_stats or not job_stats.node_stats:
             self.logger.warning(
                 f"Job stats not available for job_run_id={self.job_run_id}, cannot collect failed doc IDs",
@@ -645,6 +714,8 @@ class PrefectEngine(AbstractFlowEngine):
 
         failed_doc_ids: list[str] = []
         for node_stats in job_stats.node_stats.values():
-            if node_stats.failed_docs:
+            if hasattr(node_stats, "failed_docs") and node_stats.failed_docs:
                 failed_doc_ids.extend(node_stats.failed_docs)
+            elif isinstance(node_stats, dict) and node_stats.get("failed_docs"):
+                failed_doc_ids.extend(node_stats["failed_docs"])
         return failed_doc_ids

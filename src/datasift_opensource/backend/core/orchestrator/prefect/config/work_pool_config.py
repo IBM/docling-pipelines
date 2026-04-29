@@ -21,14 +21,22 @@ class ProcessWorkPoolConfig:
     Configuration for process work pools.
 
     Process work pools execute in the worker's local Python environment and do
-    not require container image or container environment configuration.
+    not require container images, but still need runtime environment variables
+    for Prefect connectivity and Datasift dependency/config bootstrapping.
 
     Attributes:
         deployment_path: Runtime path where the flow entrypoint is available in
-            the worker execution environment.
+            the worker execution environment.  Defaults to ``None`` which tells
+            the adapter to use ``os.getcwd()`` (correct when submitter and
+            worker share the same filesystem, e.g. local dev).  Set this
+            explicitly when the worker runs in a different filesystem context
+            (e.g. Docker container where code lives at
+            ``/app/src/datasift_opensource/backend``).
+        env: Environment variables injected into the worker job process.
     """
 
-    deployment_path: str = BatchStrategyConstants.DEFAULT_DEPLOYMENT_PATH
+    deployment_path: str | None = None
+    env: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

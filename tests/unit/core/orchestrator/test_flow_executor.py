@@ -89,9 +89,13 @@ class TestFlowExecutor:
         mock_validator.return_value = mock_validator_instance
 
         mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = None  # Explicitly set to None
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
+        mock_orchestrator.flow_execution_event_handler = Mock(
+            job_log_path="/tmp/test.log"
+        )
         mock_data_access = Mock()
         mock_orchestrator.execute.return_value = mock_data_access
 
@@ -144,9 +148,13 @@ class TestFlowExecutor:
         mock_validator.return_value = mock_validator_instance
 
         mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = None  # Explicitly set to None
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
+        mock_orchestrator.flow_execution_event_handler = Mock(
+            job_log_path="/tmp/test.log"
+        )
         mock_orchestrator.execute.return_value = Mock()
 
         flow_def = {"name": "Test", "dag": []}
@@ -176,9 +184,13 @@ class TestFlowExecutor:
         mock_validator.return_value = mock_validator_instance
 
         mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = None  # Explicitly set to None
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
+        mock_orchestrator.flow_execution_event_handler = Mock(
+            job_log_path="/tmp/test.log"
+        )
         flow_def = {"name": "Test", "dag": []}
         executor = FlowExecutor(flow_def=flow_def)
 
@@ -199,9 +211,13 @@ class TestFlowExecutor:
         mock_validator.return_value = mock_validator_instance
 
         mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = None  # Explicitly set to None
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
+        mock_orchestrator.flow_execution_event_handler = Mock(
+            job_log_path="/tmp/test.log"
+        )
         mock_orchestrator.execute.side_effect = Exception("Execution failed")
 
         flow_def = {"name": "Test", "dag": []}
@@ -274,9 +290,13 @@ class TestFlowExecutor:
         mock_validator.return_value = mock_validator_instance
 
         mock_orchestrator = Mock()
+        mock_orchestrator.job_stats_service = None  # Explicitly set to None
         mock_tracker_instance = Mock()
         mock_tracker_instance.cancel_job_run_if_cancelling.return_value = False
         mock_orchestrator.job_tracker = mock_tracker_instance
+        mock_orchestrator.flow_execution_event_handler = Mock(
+            job_log_path="/tmp/test.log"
+        )
         mock_orchestrator.execute.return_value = Mock()
 
         flow_def = {"name": "Test", "dag": []}

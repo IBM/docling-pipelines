@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 
 class AbstractFlowExecutionEventHandler(ABC):
@@ -26,10 +27,49 @@ class AbstractFlowExecutionEventHandler(ABC):
 
     @abstractmethod
     def after_node_skipped(
-        self, *, node_id, node_name, operator_type, global_config, start_time, end_time, column_names
+        self,
+        *,
+        node_id,
+        node_name,
+        operator_type,
+        global_config,
+        start_time,
+        end_time,
+        column_names,
+        reason: str | None = None,
     ):
+        """
+        Record node as SKIPPED.
+
+        Args:
+            node_id: Node identifier
+            node_name: Human-readable node name
+            operator_type: Operator type
+            global_config: Global configuration containing batch context
+            start_time: Start timestamp
+            end_time: End timestamp
+            column_names: Column names from node output
+            reason: Optional reason for skipping (defaults to "Skipped - no input data to process")
+        """
         pass
 
     @abstractmethod
     def after_node_failure(self, *, node_id, node_name, global_config, e):
+        pass
+
+    @abstractmethod
+    def after_batches_prepared(
+        self, *, batches: list[Any], op_flow: list[dict[str, Any]], global_config: dict[str, Any]
+    ) -> None:
+        """
+        Initialize pending batch node stats after batches are materialized.
+
+        Creates PENDING stats for all batch/node combinations for downstream
+        batch-participating nodes (excludes ingest operator).
+
+        Args:
+            batches: List of BatchInfo objects with batch_id, batch_num, and table
+            op_flow: Operator flow definition (DAG)
+            global_config: Global configuration dictionary
+        """
         pass

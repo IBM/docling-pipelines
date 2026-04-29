@@ -141,8 +141,9 @@ class RedactionOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
             metadata[Metrics.External.PROCESSED_DOCS] = OperatorUtils.find_doc_count(table=table)
+            current_status = metadata[Metrics.External.NODE_STATUS]
             metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                metadata[Metrics.External.NODE_STATUS],
+                current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
                 ExecutionStatus.COMPLETED_WITH_WARNINGS,
             ).value
             return [table], metadata

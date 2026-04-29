@@ -104,6 +104,15 @@ class VectorStorePort(ABC):
         pass
 
     @abstractmethod
+    def index_exists(self) -> bool:
+        """Check if the vector database index already exists.
+
+        Returns:
+            True if index exists, False otherwise
+        """
+        pass
+
+    @abstractmethod
     def detect_vector_dimension(self, table: pa.Table) -> int | None:
         """Detect vector dimension from embeddings data.
 

@@ -209,6 +209,7 @@ datasift-orchestrator --operator-help ingest_local
 - **[Complete Setup Guide](USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
 - **[Architecture Overview](ARCHITECTURE.md)** - System design and operator details
 - **[README](README.md)** - Full operator reference and examples
+- **[Job Stats Metadata Aggregation Guide](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Maintainer rules for micro-batch metadata aggregation
 - **[Examples Directory](examples/)** - More complex pipeline examples
 
 ---

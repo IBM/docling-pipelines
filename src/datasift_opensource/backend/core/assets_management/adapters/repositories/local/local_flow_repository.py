@@ -9,10 +9,10 @@ Example:
     >>> from datasift_opensource.backend.core.assets_management.adapters.repositories.local import LocalFlowRepository
     >>> from datasift_opensource.backend.core.assets_management.domain.models import Flow
     >>>
-    >>> # Set flows directory via environment variable
+    >>> # Set flows directory via environment variable or datasift.yaml
     >>> os.environ["LOCAL_FLOWS_DIR"] = "/path/to/flows"
     >>>
-    >>> # Initialize repository with concurrency control (default)
+    >>> # Initialize repository (self-configures from env or yaml)
     >>> repo = LocalFlowRepository()
     >>>
     >>> # Create and save a flow (thread-safe with locking enabled)
@@ -92,15 +92,17 @@ class LocalFlowRepository(FlowRepository):
 
     def __init__(
         self,
+        *,
         enable_locking: bool = True,
         lock_timeout: float = 30.0,
         lock_retry_interval: float = 0.1,
     ):
         """Initialize LocalFlowRepository.
 
-        Configuration is strictly environment-based following 12-factor app principles.
-        The flows directory is determined by the LOCAL_FLOWS_DIR environment variable,
-        or defaults to ~/Documents/pipeline/assets if not set.
+        The flows directory resolution order:
+        1. LOCAL_FLOWS_DIR environment variable
+        2. datasift.yaml configuration (assets_management.flow_repository.config.base_dir)
+        3. Built-in default: ~/Documents/pipeline/assets
 
         Args:
             enable_locking (bool): Enable file-level locking for thread/process safety.
@@ -109,10 +111,6 @@ class LocalFlowRepository(FlowRepository):
                                  Default: 30.0 seconds
             lock_retry_interval (float): Time between lock acquisition retries in seconds.
                                         Default: 0.1 seconds
-
-        Environment Variables:
-            LOCAL_FLOWS_DIR: Directory path for flow storage. If not set, defaults to
-                           ~/Documents/pipeline/assets
 
         Raises:
             ValueError: If flows_dir exists but is not a directory
@@ -150,30 +148,49 @@ class LocalFlowRepository(FlowRepository):
     @staticmethod
     def get_flows_dir() -> Path:
         """
-        Get the flows directory from environment variable.
+        Get the flows directory from explicit config, environment variable, or default.
 
-        Reads the flows directory path from the LOCAL_FLOWS_DIR environment variable.
-        If not set, defaults to ~/Documents/pipeline/assets.
-
-        This default is cross-platform because Path.home() resolves to the
-        current user's home directory on macOS, Linux, and Windows.
-
-        Example resolved paths:
-            macOS/Linux: /Users/<user>/Documents/pipeline/assets
-            Windows: C:\\Users\\<user>\\Documents\\pipeline\\assets
+        Resolution order:
+        1. LOCAL_FLOWS_DIR environment variable
+        2. datasift.yaml configuration (assets_management.flow_repository.config.base_dir)
+        3. Built-in default: ~/Documents/pipeline/assets
 
         Returns:
             Path: Absolute path to the flows directory
-
-        Environment Variables:
-            LOCAL_FLOWS_DIR: Directory path for flow storage. If not set, defaults to
-                           ~/Documents/pipeline/assets
         """
+        # 1. Environment variable (highest priority for overrides)
         env_path = os.getenv("LOCAL_FLOWS_DIR")
         if env_path:
-            return Path(env_path).expanduser().resolve()
+            resolved_path = Path(env_path).expanduser().resolve()
+            logger.info(f"Using flows directory from environment (LOCAL_FLOWS_DIR): {resolved_path}")
+            return resolved_path
 
-        return (Path.home() / "Documents" / "pipeline" / "assets").resolve()
+        # 2. Try to load from datasift.yaml
+        try:
+            backend_dir = Path(__file__).resolve().parents[5]
+            config_path = Path(os.getenv("DATASIFT_CONFIG_PATH", str(backend_dir / "config" / "datasift.yaml")))
+
+            if config_path.exists():
+                import yaml
+
+                with open(config_path) as f:
+                    yaml_config = yaml.safe_load(f)
+                    if yaml_config:
+                        assets_config = yaml_config.get("assets_management", {}) or {}
+                        repo_config = assets_config.get("flow_repository", {}) or {}
+                        base_dir = repo_config.get("config", {}).get("base_dir")
+
+                        if base_dir:
+                            resolved_path = Path(base_dir).expanduser().resolve()
+                            logger.info(f"Using flows directory from config ({config_path}): {resolved_path}")
+                            return resolved_path
+        except Exception as e:
+            logger.warning(f"Failed to load flows directory from config: {e}")
+
+        # 3. Default path fallback
+        resolved_path = (Path.home() / "Documents" / "pipeline" / "assets").resolve()
+        logger.info(f"Using default flows directory: {resolved_path}")
+        return resolved_path
 
     def _get_lock_file_path(self, flow_id: str) -> Path:
         """Get the lock file path for a flow.

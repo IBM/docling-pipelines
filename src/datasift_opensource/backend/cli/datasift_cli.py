@@ -20,7 +20,7 @@ def run_command_line_executor(flow_def: dict) -> None:
     logger.info(">>> Creating the flow executor")
     executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
     logger.info(">>> Setting up execution parameters")
-    job_id = "001"
+    job_id = "b639fbec-de29-487f-9798-45e2f44a9b4d"
     job_run_id = str(uuid.uuid4())
 
     params: dict[str, Any] = {

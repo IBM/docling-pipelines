@@ -209,25 +209,14 @@ def get_logger(
     name: str = DatasiftConstants.LOGGER_NAME,
     level: int | str | None = None,
     file: str | None = None,
-    *,
-    is_pg: bool = False,
-    pg_params: dict | None = None,
 ) -> logging.Logger:
     """
-    Returns a logger configured with stdout, file output, and optional Postgres handler.
+    Returns a logger configured with stdout and optional file output.
 
     Args:
         name: Logger name.
         level: Log level string or int (e.g., "INFO" or logging.INFO).
         file: Optional file path for logs.
-        is_pg: Enable Postgres logging if True.
-        pg_params: Dict containing:
-            {
-                "job_id": str,
-                "job_run_id": str,
-                "node_id": str,
-                "name": str
-            }
 
     Returns:
         logging.Logger

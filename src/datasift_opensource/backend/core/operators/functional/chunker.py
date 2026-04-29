@@ -736,8 +736,10 @@ class ChunkerOperator(AbstractOperator):
             metadata[Metrics.External.PROCESSING_MESSAGE] = (
                 "Failed to generate summary as summarization model initialization failed"
             )
+            current_status = metadata[Metrics.External.NODE_STATUS]
             metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
+                current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
+                ExecutionStatus.COMPLETED_WITH_WARNINGS,
             ).value
             return ""
 
@@ -794,10 +796,11 @@ class ChunkerOperator(AbstractOperator):
                 doc_name=str(doc.get(OperatorConstants.Misc.NAME, "")),
                 reason=f"Failed to create a data chunk for the document '{doc.get(OperatorConstants.Misc.NAME)}' due to the following error: {getattr(exc, 'message', str(exc)) if getattr(exc, 'message', str(exc)) else getattr(exc, 'message', repr(exc))}",
             )
+            current_status = metadata[Metrics.External.NODE_STATUS]
             metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                metadata[Metrics.External.NODE_STATUS],
+                current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
                 ExecutionStatus.COMPLETED_WITH_ERRORS,
-            )
+            ).value
             return None, True
 
         chunked_content: list[dict[str, Any]] = []
@@ -822,8 +825,10 @@ class ChunkerOperator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
                 metadata[Metrics.External.PROCESSING_MESSAGE] = "Failed to generate summary for some or all documents"
+                current_status = metadata[Metrics.External.NODE_STATUS]
                 metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                    metadata[Metrics.External.NODE_STATUS], ExecutionStatus.COMPLETED_WITH_WARNINGS
+                    current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
+                    ExecutionStatus.COMPLETED_WITH_WARNINGS,
                 ).value
 
         return chunked_content, False

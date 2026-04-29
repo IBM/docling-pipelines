@@ -437,15 +437,15 @@ class ExtractOperator(AbstractOperator):
             Execution status string
         """
         if failed_count > 0 and processed_count == 0:
-            return ExecutionStatus.FAILED
+            return ExecutionStatus.FAILED.value
         elif failed_count > 0:
-            return ExecutionStatus.COMPLETED_WITH_ERRORS
+            return ExecutionStatus.COMPLETED_WITH_ERRORS.value
         elif skipped_count > 0 and processed_count == 0:
-            return ExecutionStatus.COMPLETED_WITH_WARNINGS
+            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
         elif skipped_count > 0:
-            return ExecutionStatus.COMPLETED_WITH_WARNINGS
+            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
         else:
-            return ExecutionStatus.COMPLETED
+            return ExecutionStatus.COMPLETED.value
 
     def transform(
         self, table: pa.Table, file_name: str | None = None, metadata: dict[str, Any] | None = None
@@ -671,7 +671,7 @@ class ExtractOperator(AbstractOperator):
                 },
                 "entity_provider_config": {
                     OperatorConstants.Misc.NAME: "Entity Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction (e.g., {'api_key': 'xxx', 'api_base': 'http://...'})",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction (e.g., {'api_key': 'xxx', 'api_base': 'http://...'})",  # pragma: allowlist secret
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: None,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,

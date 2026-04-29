@@ -7,6 +7,9 @@ Supports multiple repository types through the Abstract Factory pattern.
 import logging
 import os
 from enum import Enum
+from pathlib import Path
+
+import yaml
 
 from common.exceptions.datasift_exceptions import RepositoryConfigurationException
 from core.assets_management.adapters.repositories.local.local_flow_repository import LocalFlowRepository
@@ -21,18 +24,26 @@ class RepositoryType(Enum):
     LOCAL = "local"
 
 
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[4] / "config" / "datasift.yaml"
+ENV_CONFIG_PATH_KEY = "DATASIFT_CONFIG_PATH"
+
+
 class RepositoryFactory:
     """Factory for creating FlowRepository instances.
 
     Enables switching between repository implementations via environment
     configuration. Follows the Abstract Factory pattern for extensibility.
 
+    Configuration precedence:
+        1. Environment variables
+        2. datasift.yaml
+        3. Built-in defaults
+
     Environment Variables:
         FLOW_REPOSITORY_TYPE: Repository type (default: "local")
                              Valid values: "local"
         LOCAL_FLOWS_DIR: Directory for local repository storage
-                        (default: ~/Documents/pipeline/assets)
-                        Only used when FLOW_REPOSITORY_TYPE="local"
+                        Overrides yaml/base default when set
     """
 
     @staticmethod
@@ -45,12 +56,34 @@ class RepositoryFactory:
         return [t.value for t in RepositoryType]
 
     @staticmethod
-    def create_flow_repository() -> FlowRepository:
-        """Create a flow repository based on environment configuration.
+    def _load_yaml_config() -> dict:
+        config_path = Path(os.getenv(ENV_CONFIG_PATH_KEY, str(DEFAULT_CONFIG_PATH)))
+        if not config_path.exists():
+            return {}
 
-        Reads FLOW_REPOSITORY_TYPE to determine repository implementation.
-        Each repository type reads its own specific configuration from
-        environment variables (e.g., LOCAL_FLOWS_DIR for local type).
+        try:
+            with open(config_path) as file:
+                yaml_config = yaml.safe_load(file)
+        except yaml.YAMLError as exc:
+            logger.warning(f"Invalid repository YAML configuration at {config_path}: {exc}")
+            return {}
+
+        return yaml_config or {}
+
+    @staticmethod
+    def _get_repository_config() -> tuple[str, dict]:
+        yaml_config = RepositoryFactory._load_yaml_config()
+        assets_config = yaml_config.get("assets_management", {}) or {}
+        repo_config = assets_config.get("flow_repository", {}) or {}
+
+        repo_type_str = os.getenv("FLOW_REPOSITORY_TYPE", repo_config.get("type", RepositoryType.LOCAL.value))
+        resolved_config = repo_config.get("config", {}) or {}
+
+        return repo_type_str, resolved_config
+
+    @staticmethod
+    def create_flow_repository() -> FlowRepository:
+        """Create a flow repository based on environment configuration and datasift.yaml.
 
         Returns:
             FlowRepository: Configured repository instance
@@ -58,17 +91,11 @@ class RepositoryFactory:
         Raises:
             RepositoryConfigurationException: If repository type is invalid
                                              or not yet implemented
-
-        Note:
-            Currently only "local" type is implemented. Future types may
-            include "git", "s3", "database", etc.
         """
-        repo_type_str = os.getenv("FLOW_REPOSITORY_TYPE", "local")
+        repo_type_str, repository_config = RepositoryFactory._get_repository_config()
         valid_types = RepositoryFactory._get_valid_types()
 
-        logger.info(
-            f"Creating flow repository of type: '{repo_type_str}'",
-        )
+        logger.info(f"Creating flow repository of type: '{repo_type_str}'")
 
         if repo_type_str.lower() not in valid_types:
             logger.info(
@@ -84,7 +111,8 @@ class RepositoryFactory:
 
         match repository_type:
             case RepositoryType.LOCAL:
-                return LocalFlowRepository()
+                enable_locking = repository_config.get("enable_locking", True)
+                return LocalFlowRepository(enable_locking=enable_locking)
             case _:
                 raise RepositoryConfigurationException(
                     f"Repository type '{repository_type.value}' is not yet implemented",
@@ -94,13 +122,6 @@ class RepositoryFactory:
 
     @staticmethod
     def create_default_flow_repository() -> FlowRepository:
-        """Create a FlowRepository with default configuration.
-
-        Convenience method that creates LocalFlowRepository with default settings.
-        Equivalent to calling create_flow_repository() with FLOW_REPOSITORY_TYPE="local".
-
-        Returns:
-            FlowRepository: LocalFlowRepository instance with default configuration
-        """
-        logger.info("Creating default FlowRepository (LocalFlowRepository)")
-        return LocalFlowRepository()
+        """Create a FlowRepository with default configuration sources."""
+        logger.info("Creating default FlowRepository")
+        return RepositoryFactory.create_flow_repository()

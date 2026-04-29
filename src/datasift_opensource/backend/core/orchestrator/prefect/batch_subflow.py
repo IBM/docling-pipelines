@@ -21,6 +21,7 @@ from common.constants.constants import DatasiftConstants
 from common.exceptions.datasift_exceptions import FlowExecutionFailedException
 from common.models.session_info import SessionInfo, set_session_info
 from common.util.infrastructure.logging import get_logger
+from core.job_management.adapters.config.job_management_factory import get_default_factory
 from core.orchestrator.batch_manager import BatchManager
 from core.orchestrator.python.python_orchestrator import PythonOrchestrator
 
@@ -28,7 +29,9 @@ logger = get_logger()
 
 
 @flow(name="datasift-batch-subflow", log_prints=True)
-def batch_subflow(*, job_run_id: str, batch_num: int, batch_transfer: dict, op_flow: list[dict], global_config: dict):
+def batch_subflow(
+    *, job_run_id: str, batch_id: str, batch_num: int, batch_transfer: dict, op_flow: list[dict], global_config: dict
+):
     """
     Process a single batch of data through the operator flow.
 
@@ -42,6 +45,7 @@ def batch_subflow(*, job_run_id: str, batch_num: int, batch_transfer: dict, op_f
 
     Args:
         job_run_id: Unique identifier for the job run
+        batch_id: Unique identifier for the batch (UUID)
         batch_num: Batch number (0-based index)
         batch_transfer: Batch transfer descriptor containing storage type and reference:
             - {"type": "s3", "ref": "s3://bucket/path/batch-0.parquet"}
@@ -55,6 +59,7 @@ def batch_subflow(*, job_run_id: str, batch_num: int, batch_transfer: dict, op_f
     """
     common_log_arguments = {
         DatasiftConstants.JOB_RUN_ID: job_run_id,
+        DatasiftConstants.BATCH_ID: batch_id,
         DatasiftConstants.BATCH_NUM: batch_num,
     }
 
@@ -78,22 +83,31 @@ def batch_subflow(*, job_run_id: str, batch_num: int, batch_transfer: dict, op_f
 
         # 3. Update global config with batch-specific information
         batch_config = global_config.copy()
+        batch_config[DatasiftConstants.BATCH_ID] = batch_id
         batch_config[DatasiftConstants.BATCH_NUM] = batch_num
 
         # Extract job_id from config
         job_id = batch_config.get(DatasiftConstants.JOB_ID)
 
-        # 4. Create minimal orchestrator context for execution
+        # 4. Bootstrap worker-local job management dependencies from config/env
+        job_management_factory = get_default_factory()
+        job_stats_service = job_management_factory.create_job_stats_service()
+        job_run_manager = job_management_factory.create_job_run_manager()
+
+        # 5. Create minimal orchestrator context for execution
         # This provides the necessary infrastructure for PrefectEngine
-        orchestrator = PythonOrchestrator()
+        orchestrator = PythonOrchestrator(
+            job_stats_service=job_stats_service,
+            job_run_manager=job_run_manager,
+        )
         orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 
         # Set context_id for incremental update functionality
         # This matches the behavior in AbstractOrchestrator.execute() (line 99)
         orchestrator.context_id = job_id
 
-        # 5. Set session info for the worker
-        session_info = SessionInfo(
+        # 6. Set session info for the worker
+        session_info: SessionInfo = SessionInfo(
             orchestrator=orchestrator,
             job_id=job_id,
             job_run_id=job_run_id,
@@ -102,8 +116,11 @@ def batch_subflow(*, job_run_id: str, batch_num: int, batch_transfer: dict, op_f
         )
         set_session_info(session_info=session_info)
 
-        # 6. Execute the operator flow using PrefectEngine.execute_operator_flow()
+        # 7. Execute the operator flow using PrefectEngine.execute_operator_flow()
         # This reuses the existing execution logic - no code duplication
+        if orchestrator.flow_engine is None:
+            raise FlowExecutionFailedException("Failed to initialize PrefectEngine for batch subflow worker")
+
         orchestrator.flow_engine.execute_operator_flow(
             op_flow=op_flow, data_access=batch_data_access, global_config=batch_config
         )
