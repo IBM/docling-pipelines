@@ -2,6 +2,35 @@
 
 This directory contains example scripts demonstrating various operators in the datasift project.
 
+## Environment Variables for Credentials
+
+Some examples require API credentials (e.g., VLM engines like Watsonx, OpenAI). These should be stored in a `.env` file in the **project root** for security.
+
+**Setup:**
+1. Copy `.env.example` to `.env` in the project root:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` and add your credentials:
+   ```bash
+   # For Watsonx AI
+   WATSONX_API_KEY=your_api_key_here
+   WATSONX_CONTAINER_KIND=project  # optional: project, space, or catalog
+   WATSONX_CONTAINER_ID=your_project_or_space_id_here
+   WATSONX_MODEL=meta-llama/llama-3-2-90b-vision-instruct
+   
+   # For OpenAI
+   OPENAI_API_KEY=your_api_key_here
+   
+   # For Generic API
+   GENERIC_API_BASE_URL=https://your-api.com/v1/chat
+   ```
+
+3. The `.env` file is automatically loaded by examples that need credentials
+
+**Security Note:** Never commit `.env` files to version control. The `.gitignore` file already excludes them.
+
 ## Operator Examples
 
 ### Core Operators
@@ -67,6 +96,101 @@ python examples/ExtractOperator with Docling Serve mode
 - Configurable table extraction modes (accurate/fast)
 - Multi-language OCR support
 - Scalable for production workloads
+
+#### [`extract_operator_example.py`](extract_operator_example.py)
+Comprehensive examples of document extraction with independent text and entity extraction modes. Demonstrates the ExtractOperator's flexible architecture where text extraction and entity extraction are independent dimensions that can be combined in multiple ways.
+
+**Text Extraction Modes:**
+- **Basic**: Docling Library mode - standard extraction (fast)
+- **VLM**: Docling Library with VLM pipeline - vision-enhanced extraction with 7 engine options
+- **Serve**: Docling Serve API - remote extraction for scalable production workloads
+
+**Entity Extraction Modes:**
+- **None**: Text extraction only (default)
+- **Ollama**: LLM-based entity extraction using local Ollama models
+- **Docling**: Template-based entity extraction with JSON schemas
+- **LiteLLM**: Multi-provider LLM entity extraction (OpenAI, Anthropic, Cohere, etc.)
+
+**Supported VLM Engines:**
+- **Transformers**: Local inference (GPU recommended) - no credentials needed
+- **MLX**: macOS Apple Silicon optimized - no credentials needed
+- **Ollama**: Local or remote API - no credentials needed
+- **LM Studio**: Local API server - no credentials needed
+- **Watsonx AI**: IBM Cloud enterprise - **requires credentials in `.env`**
+- **OpenAI**: Cloud-based API - **requires credentials in `.env`**
+- **Generic API**: Custom endpoints - **requires credentials in `.env`**
+
+**Prerequisites:**
+```bash
+# For basic text extraction
+pip install docling
+
+# For VLM text extraction (Transformers/MLX)
+pip install docling[vlm]
+
+# For Ollama VLM or entity extraction
+brew install ollama
+ollama serve
+ollama pull llama3.2-vision  # For VLM text extraction
+ollama pull llama3.2          # For entity extraction
+
+# For Docling Serve
+docker run -p 5001:5001 ds4sd/docling-serve:latest
+
+# For Watsonx, OpenAI, or Generic API engines
+# Add credentials to .env file (see "Environment Variables" section above)
+```
+
+**Usage:**
+```bash
+# Activate venv and set PYTHONPATH
+cd src/datasift_opensource/backend
+source .venv/bin/activate
+PYTHONPATH=. python ../../../examples/extract_operator_example.py [OPTIONS]
+
+# Text extraction only (basic, default)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py
+
+# VLM text extraction with Ollama
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vlm --vlm-engine ollama
+
+# Docling Serve text extraction
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode serve
+
+# Basic text + Ollama entity extraction (no schema - free-form)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode ollama
+
+# Basic text + Ollama entity extraction with custom schema
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode ollama --schema '{"invoice_number": "string", "total_amount": "float"}'
+
+# Basic text + Docling template entity extraction (schema required)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --entity-mode docling --schema '{"type": "object", "properties": {"invoice_number": {"type": "string"}}}'
+
+# VLM text + Ollama entity extraction with schema
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vlm --entity-mode ollama --schema '{"vendor": "string", "amount": "float"}'
+
+# Docling Serve + Ollama entity extraction (no schema)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode serve --entity-mode ollama
+
+# Custom PDF
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --pdf path/to/document.pdf
+
+# VLM with Watsonx (requires WATSONX_* in .env)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vlm --vlm-engine watsonx
+
+# VLM with OpenAI (requires OPENAI_API_KEY in .env)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vlm --vlm-engine openai
+
+# VLM with Generic API (requires GENERIC_API_BASE_URL in .env)
+PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vlm --vlm-engine generic
+```
+
+**Key Features:**
+- **Independent modes**: Text and entity extraction can be combined flexibly
+- **VLM text extraction**: Enhanced table extraction, complex layouts, visual elements
+- **Entity extraction**: Structured data extraction with custom schemas
+- **Multiple providers**: Support for local (Ollama) and cloud (LiteLLM) LLMs
+- **Template-based extraction**: Fast, deterministic extraction with Docling templates
 
 ### Functional Operators
 
