@@ -34,7 +34,7 @@ python3.12 --version
 which python  # Should point to .venv/bin/python
 
 # 3. Verify PYTHONPATH is set correctly
-echo $PYTHONPATH  # Should include src/datasift
+echo $PYTHONPATH  # Should include src
 
 # 4. Check Ollama service
 curl http://localhost:11434/api/tags
@@ -793,7 +793,7 @@ ModuleNotFoundError: No module named 'core'
 cd /path/to/datasift-opensource
 
 # Set PYTHONPATH
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Verify
 echo $PYTHONPATH
@@ -819,7 +819,7 @@ source .venv/bin/activate
 
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-echo 'export PYTHONPATH="/path/to/datasift-opensource/src/datasift:${PYTHONPATH}"' >> ~/.bashrc
+echo 'export PYTHONPATH="/path/to/datasift-opensource/src:${PYTHONPATH}"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -843,7 +843,7 @@ cd /path/to/datasift-opensource
 datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 
 # ❌ INCORRECT: From subdirectory - will cause path resolution issues
-cd src/datasift
+cd some/subdirectory
 datasift-orchestrator --flow-file ...  # WILL FAIL
 ```
 
@@ -1584,7 +1584,7 @@ ls -lh document.pdf
 3. **Verify Docling dependencies:**
 
 ```bash
-cd src/datasift
+# From project root
 uv sync --extra dev
 ```
 
@@ -1595,7 +1595,7 @@ uv sync --extra dev
 ```json
 {
   "operator_type": "ExtractOperator",
-  "operator_params": {
+  "config": {
     "text_extraction_mode": "docling_library",
     "entity_extraction_mode": "none",
     "timeout": 300  // Increase from default 60 seconds
@@ -1701,14 +1701,27 @@ ModuleNotFoundError: No module named 'datasift_opensource'
 
 ```bash
 # From project root
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 ```
+
+**Verify PYTHONPATH is set correctly:**
+
+```bash
+echo $PYTHONPATH
+```
+
+**Expected output:**
+```
+/Users/username/codebase/datasift-opensource/src:...
+```
+
+The output should show your project's `src` directory as the first entry. The actual path will match your project location.
 
 **Make permanent:**
 
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
-echo 'export PYTHONPATH="/path/to/datasift-opensource/src/datasift:${PYTHONPATH}"' >> ~/.bashrc
+echo 'export PYTHONPATH="/path/to/datasift-opensource/src:${PYTHONPATH}"' >> ~/.bashrc
 source ~/.bashrc
 ```
 
@@ -1878,8 +1891,7 @@ python3.12 --version
 # OS information
 uname -a
 
-# Package versions
-cd src/datasift
+# Package versions (from project root)
 uv pip list
 ```
 
@@ -1958,9 +1970,9 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 ### Useful Commands Reference
 
 ```bash
-# Environment setup
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
-cd src/datasift && source .venv/bin/activate && cd ../..
+# Environment setup (from project root)
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+source .venv/bin/activate
 
 # Service management
 ollama serve &

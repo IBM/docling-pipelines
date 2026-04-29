@@ -386,7 +386,7 @@ Run tests:
 ```bash
 # From project root
 source .venv/bin/activate
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv run pytest tests/unit/operators/pii_and_hap/ -v
 ```
 

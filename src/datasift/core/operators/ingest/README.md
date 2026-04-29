@@ -212,7 +212,7 @@ Before running tests, ensure:
 2. **PYTHONPATH is set** (if needed):
    ```bash
    # From project root
-   export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+   export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
    ```
 
 3. **Test fixtures exist**:

@@ -47,7 +47,7 @@ This comprehensive guide walks you through setting up and executing a complete D
 > datasift-orchestrator --flow-file ...  # ERROR: No module named 'datasift'
 > ```
 >
-> **Why:** The PYTHONPATH must point to `src/datasift` as the source root. Running from subdirectories breaks Python imports.
+> **Why:** The PYTHONPATH must point to `src` as the source root. Running from subdirectories breaks Python imports.
 
 ---
 
@@ -155,14 +155,14 @@ Override precedence for flow storage:
 
 1. Set PYTHONPATH from project root:
    ```bash
-   export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+   export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
    ```
    
    > **Warning:** This must be run from the project root directory (`datasift-opensource`), not from the datasift subdirectory. The PYTHONPATH must point to the datasift directory as the source root for Python imports to work correctly.
 
 2. Activate the virtual environment:
    ```bash
-   cd src/datasift
+   # From project root
    source .venv/bin/activate
    ```
 
@@ -1258,7 +1258,7 @@ Before running any datasift-orchestrator commands, you must set the PYTHONPATH f
 ```bash
 # MUST be run from project root (datasift-opensource/)
 # Current directory: datasift-opensource/
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 ```
 
 > **⚠️ Warning:** This command MUST be run from the project root directory (`datasift-opensource/`), not from a subdirectory. The PYTHONPATH must point to the datasift directory as the source root for Python imports to work correctly. If you run this from the wrong directory, you will get `ModuleNotFoundError` when executing flows.
@@ -1267,7 +1267,7 @@ export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
 
 ```bash
 # From project root (datasift-opensource/)
-source src/datasift/.venv/bin/activate
+source .venv/bin/activate
 ```
 
 **Important:** Both PYTHONPATH and virtual environment activation are required every time you open a new terminal session. The virtual environment contains all the necessary dependencies for running DataSift pipelines.
@@ -1392,13 +1392,13 @@ cd /path/to/datasift-opensource/
 ls
 
 # 3. Set PYTHONPATH from project root
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # 4. Run datasift-orchestrator from project root
 datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 ```
 
-**Why this happens:** The PYTHONPATH must point to `src/datasift` as the source root. When you run commands from subdirectories, the relative path calculation breaks, causing Python to be unable to find the `datasift_opensource` module.
+**Why this happens:** The PYTHONPATH must point to `src` as the source root. When you run commands from subdirectories, the relative path calculation breaks, causing Python to be unable to find the `datasift` module.
 
 ---
 
@@ -1417,7 +1417,7 @@ podman-compose -f docker-compose.opensearch.yml up -d
 **Import errors:**
 ```bash
 # Set PYTHONPATH from project root
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 ```
 
 **Model not found:**
@@ -1558,7 +1558,7 @@ The `PYTHONPATH` must include the datasift directory as the source root:
 
 ```bash
 # From repository root
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 ```
 
 **2. Activate Virtual Environment**

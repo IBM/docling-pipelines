@@ -35,7 +35,7 @@ tests/
 3. **Set PYTHONPATH**:
    ```bash
    # From project root
-   export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+   export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
    ```
 
 ### Running All Tests

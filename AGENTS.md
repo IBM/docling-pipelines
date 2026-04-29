@@ -152,7 +152,7 @@ Example: Conditional processing based on document type, language, or custom crit
 - **Setup**: Use `docker-compose.opensearch.yml` for local development
 
 ### Environment Variables
-- **PYTHONPATH**: Must include `src/datasift` for imports to work
+- **PYTHONPATH**: Must include `src` for imports to work
 
 
 ## Python Coding Standards
@@ -273,7 +273,7 @@ For running test cases:
 source .venv/bin/activate
 
 # 2. Set PYTHONPATH (from project root)
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # 3. Sync dependencies (first time or after changes, from project root)
 uv sync --extra dev

@@ -319,8 +319,8 @@ The `deployment_path` parameter is **optional**:
 ```
 
 This matches:
-- **Dockerfile** line 43: `ENV PYTHONPATH=/app/src/datasift`
-- **docker-compose** line 67: `PYTHONPATH: /app/src/datasift`
+- **Dockerfile** line 43: `ENV PYTHONPATH=/app/src`
+- **docker-compose** line 67: `PYTHONPATH: /app/src`
 
 
 **Job stats store guidance:**
@@ -451,7 +451,7 @@ Private registries require authentication configured on the worker host machine.
       "image_pull_policy": "IfNotPresent",
       "networks": ["datasift-network"],
       "env": {
-        "PYTHONPATH": "/app/src/datasift",
+        "PYTHONPATH": "/app/src",
         "LOG_LEVEL": "INFO",
         "OLLAMA_HOST": "http://ollama:11434",
         "OPENSEARCH_HOST": "opensearch",
@@ -663,7 +663,7 @@ All pods in that namespace will inherit the secret.
       "memory_request": "2Gi",
       "memory_limit": "4Gi",
       "env": {
-        "PYTHONPATH": "/app/src/datasift",
+        "PYTHONPATH": "/app/src",
         "LOG_LEVEL": "INFO",
         "OLLAMA_HOST": "http://ollama-service:11434",
         "OPENSEARCH_HOST": "opensearch-service",
@@ -815,7 +815,7 @@ volumes:
         "image_pull_policy": "Never",
         "networks": ["datasift-network"],
         "env": {
-          "PYTHONPATH": "/app/src/datasift",
+          "PYTHONPATH": "/app/src",
           "LOG_LEVEL": "INFO",
           "OLLAMA_HOST": "http://ollama:11434",
           "OPENSEARCH_HOST": "opensearch",
@@ -885,7 +885,7 @@ volumes:
         "memory_request": "2Gi",
         "memory_limit": "4Gi",
         "env": {
-          "PYTHONPATH": "/app/src/datasift",
+          "PYTHONPATH": "/app/src",
           "LOG_LEVEL": "INFO",
           "OLLAMA_HOST": "http://ollama-service:11434",
           "OPENSEARCH_HOST": "opensearch-service",
@@ -1804,7 +1804,7 @@ export PREFECT_API_URL=http://localhost:4200/api
         "env": {
           "PREFECT_MODE": "server",
           "PREFECT_API_URL": "http://prefect-server:4200/api",
-          "PYTHONPATH": "/app/src/datasift"
+          "PYTHONPATH": "/app/src"
         },
         "batch_storage": {
           "type": "s3",
@@ -2281,7 +2281,7 @@ export PREFECT_API_URL=http://localhost:4200/api
         "env": {
           "PREFECT_MODE": "server",
           "PREFECT_API_URL": "http://prefect-server:4200/api",
-          "PYTHONPATH": "/app/src/datasift"
+          "PYTHONPATH": "/app/src"
         },
         "batch_storage": {
           "type": "s3",

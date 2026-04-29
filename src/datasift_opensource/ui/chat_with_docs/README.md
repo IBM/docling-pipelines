@@ -182,7 +182,7 @@ chat_with_docs/
 User uploads files
        ↓
 file_state.py: process_documents()
-  → runs: backend/.venv/python cmd_line_orchestrator.py --flow-file <flow_file>
+  → runs: .venv/bin/python cmd_line_orchestrator.py --flow-file <flow_file>
   → streams output to logs/datasift_pipeline.log
   → LogPollerState polls log file every 1s → updates live log tearsheet
        ↓
@@ -191,7 +191,7 @@ Documents indexed in OpenSearch
 User asks a question
        ↓
 chat_state.py: generate_response()
-  → runs: backend/.venv/python examples/retrieval/query_runner.py --query "..." --index <index>
+  → runs: .venv/bin/python examples/retrieval/query_runner.py --query "..." --index <index>
   → query_runner.py: hybrid search (OpenSearch) + LLM answer (Ollama granite4)
   → returns JSON: {"content": "...", "sources": [...]}
        ↓
@@ -206,7 +206,7 @@ Answer displayed in chat window with source snippets
 |---|---|
 | "Error querying documents" in chat | Ensure OpenSearch is running and the index exists (run pipeline first) |
 | Pipeline fails with Ollama error | Run `ollama serve` and `ollama pull granite4` |
-| Backend `.venv` not found | Run `uv sync` in `src/datasift/` |
+| Backend `.venv` not found | Run `uv sync` from project root |
 | No files ingested / empty results | Check that `input_folder` in the flow JSON matches `src/datasift_opensource/ui/chat_with_docs/uploaded_files/` |
 | Chat input stays disabled after pipeline | Check logs — if `pipeline_ran` is False, the pipeline may have crashed before writing output |
 | Log tearsheet shows no output | Check `logs/datasift_pipeline.log` exists and is being written |

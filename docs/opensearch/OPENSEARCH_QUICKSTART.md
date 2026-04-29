@@ -9,7 +9,7 @@ This page only keeps OpenSearch-specific test and reference pointers that are no
 ```bash
 # From project root
 source .venv/bin/activate
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv run pytest tests/unit/operators/vectordb/test_vectordb_operator.py -v
 ```
 

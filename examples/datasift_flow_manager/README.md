@@ -9,7 +9,7 @@ This directory contains comprehensive examples demonstrating how to use the Data
 ```bash
 # From repository root, with venv activated:
 source .venv/bin/activate
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Make sure Ollama is running with the required model
 ollama pull nomic-embed-text
@@ -71,7 +71,7 @@ The datasift directory must be in PYTHONPATH for imports to work correctly:
 
 ```bash
 # From repository root
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 ```
 
 ### 3. Start Required Services
@@ -94,7 +94,7 @@ docker-compose -f docker-compose.opensearch.yml up -d
 ```bash
 # From repository root:
 source .venv/bin/activate
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Run examples
 python examples/datasift_flow_manager/00_complete_example.py
@@ -262,7 +262,7 @@ ImportError: No module named 'datasift'
 ```
 **Solution:** Make sure PYTHONPATH is set correctly:
 ```bash
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 ```
 
 ### Connection Errors

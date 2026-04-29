@@ -94,7 +94,7 @@ EOF
 
 ```bash
 # Set PYTHONPATH (from project root)
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Activate virtual environment (from project root)
 source .venv/bin/activate
@@ -259,7 +259,7 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 **"ModuleNotFoundError" or import errors:**
 ```bash
 # Ensure PYTHONPATH is set correctly (from project root)
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Verify you're in the right directory
 pwd  # Should end with /datasift
@@ -325,7 +325,7 @@ ls -la sample_flows/complete_pipeline_flow.json
 
 ```bash
 # Activate environment (from project root)
-export PYTHONPATH="$(pwd)/src/datasift:${PYTHONPATH}"
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 source .venv/bin/activate
 
 # Run a flow

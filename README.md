@@ -186,24 +186,29 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 ```
 datasift-opensource/
-├── src/datasift_opensource/
-│   ├── backend/               # Backend components
-│   │   ├── config/           # Configuration management
-│   │   ├── common/           # Shared utilities
-│   │   ├── core/             # Core orchestration framework
-│   │   ├── operators/        # Python operators
-│   │   ├── app/              # FastAPI application
-│   │   │   ├── routes/       # API route handlers
-│   │   │   ├── models/       # Database models
-│   │   │   ├── utils/        # Utility functions
-│   │   │   └── main.py       # FastAPI app entry point
-│   │   ├── orchestrator/     # CLI orchestrator
-│   │   │   ├── cli.py        # Command-line interface
-│   │   │   └── __init__.py
-│   │   ├── pyproject.toml    # Backend dependencies and configuration
-│   │   ├── uv.lock           # UV lock file
-│   │   └── .python-version   # Python version
-│   └── ui/                    # UI components
+├── src/datasift/              # Main Python package
+│   ├── api/                   # FastAPI application
+│   │   ├── routes/           # API route handlers
+│   │   ├── dto/              # Data transfer objects
+│   │   ├── middleware/       # API middleware
+│   │   ├── auth/             # Authentication
+│   │   └── main.py           # FastAPI app entry point
+│   ├── cli/                   # CLI tools
+│   │   └── datasift_cli.py   # Command-line interface
+│   ├── core/                  # Core framework
+│   │   ├── operators/        # Operator implementations
+│   │   ├── orchestration/    # Workflow orchestration
+│   │   ├── flows/            # Flow management
+│   │   └── job_management/   # Job tracking
+│   ├── integrations/          # External service integrations
+│   │   ├── ollama/           # Ollama LLM integration
+│   │   ├── docling/          # Docling document processing
+│   │   └── litellm/          # LiteLLM multi-provider
+│   ├── storage/               # Storage backends
+│   ├── utils/                 # Utility functions
+│   └── lib/                   # Library components
+├── src/datasift_opensource/   # UI components
+│   └── ui/                    # Gradio and Reflex UIs
 ├── tests/                     # Test suites
 │   ├── unit/                  # Unit tests
 │   ├── integration/           # Integration tests
@@ -356,11 +361,10 @@ source .venv/bin/activate
 
 ```bash
 # Using uvicorn from project root
-uvicorn src.datasift.api.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn datasift.api.main:app --reload --host 0.0.0.0 --port 8000
 
-# Or using uv from datasift directory
-cd src/datasift
-uv run uvicorn app.main:app --reload --reload --host 0.0.0.0 --port 8000
+# Or using uv from project root
+uv run uvicorn datasift.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at:
@@ -661,7 +665,7 @@ datasift-orchestrator --flow-file my-flow.json
 Build a wheel distribution:
 
 ```bash
-cd src/datasift
+# From project root
 uv build --wheel
 ```
 
@@ -938,17 +942,17 @@ The wheel file will be created in the `dist/` directory.
 
 ### Adding Dependencies
 
-Add a new dependency (from datasift directory):
+Add a new dependency (from project root):
 
 ```bash
-cd src/datasift
+# From project root
 uv add <package-name>==<version>  # Always specify a fixed version
 ```
 
 Add a development dependency:
 
 ```bash
-cd src/datasift
+# From project root
 uv add --dev <package-name>==<version>  # Always specify a fixed version
 ```
 
@@ -957,25 +961,26 @@ uv add --dev <package-name>==<version>  # Always specify a fixed version
 1. Sync dependencies and update lock file:
 
 ```bash
-cd src/datasift
+# From project root
 uv sync --extra dev
 ```
 
 2. Generate updated requirements.txt:
 
 ```bash
-cd src/datasift
+# From project root
 uv pip compile pyproject.toml -o requirements.txt
 ```
 
 3. Install package in editable mode and run tests:
 
 ```bash
-cd src/datasift
+# From project root
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv pip install -e .
 export TEST_CP4D_USERNAME=udp_unittest_user
 export TEST_CP4D_PASSWORD="udp_unittest_pass@123"  # pragma: allowlist secret
-uv run pytest ../../../tests/ -v
+uv run pytest tests/ -v
 ```
 
 ### Testing
@@ -989,6 +994,9 @@ Run tests from the **project root** (recommended):
 ```bash
 # Activate virtual environment (from project root)
 source .venv/bin/activate
+
+# Set PYTHONPATH (from project root)
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 # Run all tests with colored output
 uv run pytest -v
@@ -1054,8 +1062,7 @@ This project uses pre-commit hooks to automatically check and format code before
 **Setup pre-commit hooks:**
 
 ```bash
-# Install pre-commit hooks (one-time setup)
-cd src/datasift
+# Install pre-commit hooks (one-time setup, from project root)
 uv run pre-commit install
 ```
 
