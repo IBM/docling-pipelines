@@ -96,7 +96,7 @@ class RepositoryReorganizer:
                     else:
                         dest_path.parent.mkdir(parents=True, exist_ok=True)
                         shutil.copy2(src_path, dest_path)
-                    manifest["backed_up_items"].append(item)
+                    manifest["backed_up_items"].append(item) # type: ignore
                     print(f"  ✓ Backed up: {item}")
 
             # Save manifest
@@ -225,9 +225,10 @@ class RepositoryReorganizer:
                     dest.parent.mkdir(parents=True, exist_ok=True)
 
                     if src.is_dir():
-                        if dest.exists():
-                            shutil.rmtree(dest)
-                        shutil.move(src, dest)
+                        #if dest.exists():
+                        #    shutil.rmtree(dest)
+                        shutil.copytree(src, dst=dest, dirs_exist_ok=True)
+                        shutil.rmtree(src)
                     else:
                         shutil.move(src, dest)
 
