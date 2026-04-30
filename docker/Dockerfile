@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --no-cache-dir uv
 
 COPY src/ ./src/
-WORKDIR /app/src/datasift_opensource/backend
+WORKDIR /app/src
 RUN uv pip install --system -e . && \
     uv pip install --system prefect-docker
 
@@ -40,5 +40,5 @@ RUN useradd -m -u 1000 datasift && \
 
 USER datasift
 
-ENV PYTHONPATH=/app/src/datasift_opensource/backend
+ENV PYTHONPATH=/app/src
 WORKDIR /app
