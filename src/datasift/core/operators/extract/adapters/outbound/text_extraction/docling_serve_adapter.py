@@ -6,10 +6,12 @@ processing and reducing local resource requirements.
 """
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
+from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.integrations.docling.client import DoclingServeClient
 from datasift.utils.infrastructure.logging import get_logger
 
@@ -103,7 +105,7 @@ class DoclingServeAdapter(TextExtractionPort):
         Polls for results and returns the extracted markdown content.
 
         Args:
-            file_path: Path to the document file (used for logging)
+            file_path: Path to the document file (used for logging and filename preservation)
             binary_content: Binary content of the document
             **kwargs: Additional parameters (currently unused)
 
@@ -117,6 +119,17 @@ class DoclingServeAdapter(TextExtractionPort):
         logger.info("Processing file with docling-serve: %s", file_path)
 
         try:
+            file_suffix = Path(file_path).suffix.lower()
+            if not file_suffix:
+                file_suffix = OperatorUtils.detect_extension_from_bytes(binary_content)
+
+            # Handle .txt specially (Docling cannot process them)
+            if file_suffix in [OperatorConstants.Extraction.TEXT_EXTENSION]:
+                return OperatorUtils.extract_text_file(file_path, binary_content)
+
+            # Extract filename from path to preserve extension for remote processing
+            filename = Path(file_path).name
+
             # Initialize client and process document
             client = DoclingServeClient(
                 base_url=self.base_url,
@@ -125,9 +138,10 @@ class DoclingServeAdapter(TextExtractionPort):
                 poll_interval=self.poll_interval,
                 max_retries=self.max_retries,
             )
-            result = client.process_document(binary_content=binary_content, options=self.processing_options)
+            result = client.process_document(
+                binary_content=binary_content, filename=filename, options=self.processing_options
+            )
             # Debug: Log the full result structure
-            logger.debug(f"Docling-serve result structure for {file_path}: {result}")
             logger.debug(
                 f"Docling-serve result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}"
             )
@@ -138,7 +152,7 @@ class DoclingServeAdapter(TextExtractionPort):
                 f"Document object keys: {list(document.keys()) if isinstance(document, dict) else 'Not a dict'}"
             )
             markdown_text = document.get("md_content", "")
-            logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0}")
+            logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0} for file {file_path}")
             metadata = {"processing_time": result.get("processing_time", 0)}
             if "page_count" in result:
                 metadata["page_count"] = result["page_count"]

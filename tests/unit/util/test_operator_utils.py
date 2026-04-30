@@ -626,9 +626,7 @@ def test_validate_filter_criteria_empty_list():
     criteria_list = []
     criteria_json = None
 
-    criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(
-        criteria_list=criteria_list, criteria_json=criteria_json
-    )
+    criteria_valid, _ = OperatorUtils.validate_filter_criteria(criteria_list=criteria_list, criteria_json=criteria_json)
 
     assert criteria_valid is False
 
@@ -638,9 +636,7 @@ def test_validate_filter_criteria_list_with_empty_strings():
     criteria_list = ["", "  ", ""]
     criteria_json = None
 
-    criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(
-        criteria_list=criteria_list, criteria_json=criteria_json
-    )
+    criteria_valid, _ = OperatorUtils.validate_filter_criteria(criteria_list=criteria_list, criteria_json=criteria_json)
 
     assert criteria_valid is False
 
@@ -650,9 +646,7 @@ def test_validate_filter_criteria_invalid_json_empty_group():
     criteria_list = None
     criteria_json = {"logical_operator": "AND", "criteria_list": []}
 
-    criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(
-        criteria_list=criteria_list, criteria_json=criteria_json
-    )
+    _, json_valid = OperatorUtils.validate_filter_criteria(criteria_list=criteria_list, criteria_json=criteria_json)
 
     assert json_valid is False
 
@@ -673,7 +667,7 @@ def test_validate_filter_criteria_nested_json():
         ],
     }
 
-    criteria_valid, json_valid = OperatorUtils.validate_filter_criteria(criteria_list=None, criteria_json=criteria_json)
+    _, json_valid = OperatorUtils.validate_filter_criteria(criteria_list=None, criteria_json=criteria_json)
 
     assert json_valid is True
 
@@ -950,3 +944,164 @@ def test_rename_features_duplicate_old_feature():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ---------------------------------------------------------------------------
+# 17. extract_text_file tests
+# ---------------------------------------------------------------------------
+
+
+class TestOperatorUtilsExtractTextFile:
+    """Test suite for OperatorUtils.extract_text_file method."""
+
+    def test_extract_text_file_is_public_method(self):
+        """Test that extract_text_file is a public static method."""
+        # Verify method exists and is callable
+        assert hasattr(OperatorUtils, "extract_text_file")
+        assert callable(OperatorUtils.extract_text_file)
+        # Verify it's a static method (not bound to instance)
+        assert isinstance(OperatorUtils.__dict__["extract_text_file"], staticmethod)
+
+    def test_extract_text_file_utf8_content_success(self):
+        """Test extraction of UTF-8 encoded text file."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"This is a test document.\nWith multiple lines."
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "This is a test document.\nWith multiple lines."
+        assert result[OperatorConstants.Columns.TABLES] == []
+        assert result[OperatorConstants.Columns.IMAGES] == []
+        assert OperatorConstants.Metadata.METADATA in result
+        assert result[OperatorConstants.Metadata.METADATA]["table_count"] == 0
+        assert result[OperatorConstants.Metadata.METADATA]["image_count"] == 0
+        assert result[OperatorConstants.Metadata.METADATA]["is_text_file"] is True
+
+    def test_extract_text_file_latin1_fallback(self):
+        """Test extraction falls back to latin-1 encoding when UTF-8 fails."""
+        file_path = "/path/to/document.txt"
+        # Create content with latin-1 specific characters that aren't valid UTF-8
+        binary_content = b"Text with special chars: \xe9\xe0\xf1"
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        # latin-1 should decode these characters
+        assert "Text with special chars:" in result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+
+    def test_extract_text_file_empty_content(self):
+        """Test extraction of empty text file."""
+        file_path = "/path/to/empty.txt"
+        binary_content = b""
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == ""
+        assert result[OperatorConstants.Metadata.METADATA]["char_count"] == 0
+
+    def test_extract_text_file_multiline_content(self):
+        """Test extraction of multiline text content."""
+        file_path = "/path/to/multiline.txt"
+        binary_content = b"Line 1\nLine 2\nLine 3\n"
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Line 1\nLine 2\nLine 3\n"
+        assert result[OperatorConstants.Metadata.METADATA]["char_count"] == len("Line 1\nLine 2\nLine 3\n")
+
+    def test_extract_text_file_unicode_content(self):
+        """Test extraction of Unicode text content."""
+        file_path = "/path/to/unicode.txt"
+        binary_content = "Hello 世界 🌍".encode()
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Hello 世界 🌍"
+
+    def test_extract_text_file_metadata_structure(self):
+        """Test that metadata has correct structure."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"Test content"
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        metadata = result[OperatorConstants.Metadata.METADATA]
+        assert "table_count" in metadata
+        assert "image_count" in metadata
+        assert "char_count" in metadata
+        assert "is_text_file" in metadata
+        assert metadata["table_count"] == 0
+        assert metadata["image_count"] == 0
+        assert metadata["char_count"] == len("Test content")
+        assert metadata["is_text_file"] is True
+
+    def test_extract_text_file_handles_txt_extension(self):
+        """Test that .txt files are handled correctly."""
+        file_path = "/path/to/notes.txt"
+        binary_content = b"Plain text notes"
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Plain text notes"
+
+    def test_extract_text_file_does_not_handle_md_files(self):
+        """Test that extract_text_file can be used for any text, including .md files."""
+        # Note: The adapter layer decides routing, not extract_text_file itself
+        file_path = "/path/to/readme.md"
+        binary_content = b"# Markdown Header\n\nContent"
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        # extract_text_file will process any text content given to it
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "# Markdown Header\n\nContent"
+
+    def test_extract_text_file_large_content(self):
+        """Test extraction of large text content."""
+        file_path = "/path/to/large.txt"
+        # Create large content (10KB)
+        binary_content = b"A" * 10000
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert len(result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]) == 10000
+        assert result[OperatorConstants.Metadata.METADATA]["char_count"] == 10000
+
+    def test_extract_text_file_whitespace_content(self):
+        """Test extraction of content with various whitespace."""
+        file_path = "/path/to/whitespace.txt"
+        binary_content = b"  \t\n  Text with spaces  \t\n  "
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        # Whitespace should be preserved
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "  \t\n  Text with spaces  \t\n  "
+
+    def test_extract_text_file_special_characters(self):
+        """Test extraction with special characters."""
+        file_path = "/path/to/special.txt"
+        binary_content = b"Special chars: @#$%^&*()_+-=[]{}|;:',.<>?/~`"
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Special chars: @#$%^&*()_+-=[]{}|;:',.<>?/~`"
+
+    def test_extract_text_file_returns_empty_tables_and_images(self):
+        """Test that tables and images are always empty lists for text files."""
+        file_path = "/path/to/document.txt"
+        binary_content = b"Text content"
+
+        result = OperatorUtils.extract_text_file(file_path, binary_content)
+
+        assert result[OperatorConstants.Columns.TABLES] == []
+        assert result[OperatorConstants.Columns.IMAGES] == []
+        assert result[OperatorConstants.Metadata.METADATA]["table_count"] == 0
+        assert result[OperatorConstants.Metadata.METADATA]["image_count"] == 0

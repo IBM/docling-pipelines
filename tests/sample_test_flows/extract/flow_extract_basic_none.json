@@ -17,7 +17,7 @@
         "operator": "ingest_local",
         "config": {
           "input_folder": "../../../tests/fixtures/invoices",
-          "include_filter": "pdf,docx,txt",
+          "include_filter": "pdf,docx,txt,md",
           "store_binary_content": true
         },
         "input_edges": [],

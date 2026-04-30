@@ -2938,7 +2938,7 @@ datasift/
 - **Ollama Client**: Integration with Ollama for local LLM operations
 - **LiteLLM Client**: Multi-provider LLM support
 - **HuggingFace Client**: HuggingFace model integration
-- **Docling Serve Client**: Document processing via Docling
+- **DoclingServeClient**: REST API client for Docling Serve document processing
 
 #### Exceptions (`common/exceptions/`)
 

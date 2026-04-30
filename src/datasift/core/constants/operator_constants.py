@@ -316,9 +316,13 @@ class OperatorConstants:
         KEY: Final[str] = "key"
 
         # File Extensions
+        TEXT_EXTENSION: Final[str] = ".txt"
         EXTRACTION_REQUIRED_FILE_EXTENSIONS: Final[list[str]] = [".pdf", ".docx", ".pptx", ".doc", ".ppt"]
         ACCEPTED_FILE_EXTENSIONS: Final[list[str]] = [*EXTRACTION_REQUIRED_FILE_EXTENSIONS, ".md", ".txt"]
         INGEST_FILE_EXTENSIONS: Final[list[str]] = [*ACCEPTED_FILE_EXTENSIONS, ".json"]
+
+        # Default Filenames
+        DEFAULT_FALLBACK_FILENAME: Final[str] = "document.pdf"
 
     class ExtractionModes:
         """Extraction mode constants for ExtractOperator."""

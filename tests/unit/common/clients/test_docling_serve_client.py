@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.exceptions.error_codes import ErrorCode
 from datasift.integrations.docling.client import DoclingServeClient
 
 
@@ -121,8 +122,183 @@ class TestDoclingServeClient:
         files = call_args.kwargs["files"]
         # Verify the file content is passed correctly
         assert "files" in files
-        filename, content, mime_type = files["files"]
+        _, content, _ = files["files"]
         assert content == binary_data
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_with_binary_content_and_filename(self, mock_rest_client_class):
+        """Test submit_document with binary content and custom filename."""
+        # Setup mock
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task-789"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        # Execute
+        client = DoclingServeClient()
+        binary_data = b"test binary content"
+        task_id = client.submit_document(binary_content=binary_data, filename="custom.docx")
+
+        # Verify
+        assert task_id == "test-task-789"
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        filename, content, mime_type = files["files"]
+        assert filename == "custom.docx"
+        assert content == binary_data
+        assert mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_mime_type_detection_pdf(self, mock_rest_client_class):
+        """Test MIME type detection for PDF files."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="document.pdf")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        _, _, mime_type = files["files"]
+        assert mime_type == "application/pdf"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_mime_type_detection_docx(self, mock_rest_client_class):
+        """Test MIME type detection for DOCX files."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="document.docx")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        _, _, mime_type = files["files"]
+        assert mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_mime_type_detection_html(self, mock_rest_client_class):
+        """Test MIME type detection for HTML files."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="page.html")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        _, _, mime_type = files["files"]
+        assert mime_type == "text/html"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_mime_type_detection_markdown(self, mock_rest_client_class):
+        """Test MIME type detection for Markdown files."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="readme.md")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        _, _, mime_type = files["files"]
+        assert mime_type == "text/markdown"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_mime_type_detection_txt(self, mock_rest_client_class):
+        """Test MIME type detection for TXT files."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="notes.txt")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        _, _, mime_type = files["files"]
+        assert mime_type == "text/plain"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_mime_type_detection_xlsx(self, mock_rest_client_class):
+        """Test MIME type detection for XLSX files."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="spreadsheet.xlsx")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        _, _, mime_type = files["files"]
+        assert mime_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_mime_type_detection_pptx(self, mock_rest_client_class):
+        """Test MIME type detection for PPTX files."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="presentation.pptx")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        _, _, mime_type = files["files"]
+        assert mime_type == "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_mime_type_detection_unknown_extension(self, mock_rest_client_class):
+        """Test MIME type detection defaults to octet-stream for unknown extensions."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="file.xyz")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        _, _, mime_type = files["files"]
+        assert mime_type == "application/octet-stream"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_filename_preservation_in_binary_content(self, mock_rest_client_class):
+        """Test that filename is preserved when using binary_content."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        client.submit_document(binary_content=b"data", filename="important_doc.pdf")
+
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        filename, _, _ = files["files"]
+        assert filename == "important_doc.pdf"
+
+    @patch("datasift.integrations.docling.client.RestClient")
+    def test_submit_document_filename_optional_backward_compatibility(self, mock_rest_client_class):
+        """Test that filename parameter is optional for backward compatibility."""
+        mock_rest_client_instance = MagicMock()
+        mock_rest_client_instance.call_rest_multipart.return_value = {"task_id": "test-task"}
+        mock_rest_client_class.return_value = mock_rest_client_instance
+
+        client = DoclingServeClient()
+        # Should not raise error when filename is not provided
+        task_id = client.submit_document(binary_content=b"data")
+
+        assert task_id == "test-task"
+        call_args = mock_rest_client_instance.call_rest_multipart.call_args
+        files = call_args.kwargs["files"]
+        filename, _, _ = files["files"]
+        # Should default to "document.pdf"
+        assert filename == "document.pdf"
 
     @patch("datasift.integrations.docling.client.RestClient.call_rest_multipart")
     def test_submit_document_http_error(self, mock_call_rest_multipart):
@@ -130,7 +306,7 @@ class TestDoclingServeClient:
         mock_call_rest_multipart.side_effect = DatasiftException(
             message="Connection failed",
             status_code=503,
-            error_code="CONNECTION_ERROR",
+            error_code=ErrorCode.CONNECTION_ERROR,
         )
 
         client = DoclingServeClient()
@@ -201,7 +377,7 @@ class TestDoclingServeClient:
         mock_call_rest_json.side_effect = DatasiftException(
             message="Network error",
             status_code=503,
-            error_code="CONNECTION_ERROR",
+            error_code=ErrorCode.CONNECTION_ERROR,
         )
 
         client = DoclingServeClient()

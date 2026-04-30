@@ -434,6 +434,8 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
 - Entity modes: `ollama` (local LLM), `litellm` (100+ providers), `docling` (template-based), `none` (default)
 - VLM pipeline (docling_library mode) enhances extraction for complex documents
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
+- **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured
+- **Extension Detection**: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)
 - See [ExtractOperator README](src/datasift/core/operators/extract/README.md) for complete documentation
 
 ---

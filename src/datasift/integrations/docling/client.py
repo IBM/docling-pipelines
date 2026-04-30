@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from datasift.core.constants.constants import DoclingClientConstants
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
 from datasift.integrations.base_llm_client import retry_with_backoff
@@ -99,6 +100,7 @@ class DoclingServeClient:
         *,
         file_path: str | None = None,
         binary_content: bytes | None = None,
+        filename: str | None = None,
         options: dict[str, Any] | None = None,
     ) -> str:
         """
@@ -107,6 +109,8 @@ class DoclingServeClient:
         Args:
             file_path: Path to file to process (mutually exclusive with binary_content)
             binary_content: Binary content of file (mutually exclusive with file_path)
+            filename: Filename to use when binary_content is provided. Preserves file extension
+                     for proper MIME type detection. If not provided, uses default fallback filename.
             options: Processing options (OCR, tables, images, PDF backend, etc.)
 
         Returns:
@@ -122,26 +126,26 @@ class DoclingServeClient:
 
         # Read file if path provided
         content: bytes
-        filename: str
+        actual_filename: str
         if file_path:
             path = Path(file_path)
             if not path.exists():
                 raise FileNotFoundError(f"File not found: {file_path}")
             content = path.read_bytes()
-            filename = path.name
+            actual_filename = path.name
             logger.info(f"Submitting document: {file_path}")
         else:
             # binary_content is guaranteed to be bytes here due to validation above
             content = binary_content  # type: ignore[assignment]
-            filename = "document.pdf"  # Default filename for binary content
-            logger.info("Submitting document from binary content")
+            actual_filename = filename if filename else OperatorConstants.Extraction.DEFAULT_FALLBACK_FILENAME
+            logger.info(f"Submitting document from binary content with filename: {actual_filename}")
 
         # Submit request using multipart/form-data
         endpoint = "/v1/convert/file/async"
         return self._submit_request_multipart(
             endpoint=endpoint,
             file_content=content,
-            filename=filename,
+            filename=actual_filename,
             options=options,
         )
 
@@ -168,8 +172,27 @@ class DoclingServeClient:
         Raises:
             DatasiftException: For HTTP or network errors
         """
+        # Determine MIME type based on file extension
+        mime_type = "application/octet-stream"
+        if filename:
+            ext = Path(filename).suffix.lower()
+            mime_map = {
+                ".html": "text/html",
+                ".htm": "text/html",
+                ".md": "text/markdown",
+                ".txt": "text/plain",
+                ".pdf": "application/pdf",
+                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".doc": "application/msword",
+                ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ".xls": "application/vnd.ms-excel",
+                ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                ".ppt": "application/vnd.ms-powerpoint",
+            }
+            mime_type = mime_map.get(ext, "application/octet-stream")
+
         # Build multipart form data
-        files = {"files": (filename, file_content, "application/octet-stream")}
+        files = {"files": (filename, file_content, mime_type)}
 
         # Build form data with options as individual fields
         data = self._build_options(options)
@@ -360,6 +383,7 @@ class DoclingServeClient:
         *,
         file_path: str | None = None,
         binary_content: bytes | None = None,
+        filename: str | None = None,
         options: dict[str, Any] | None = None,
         poll_interval: int | None = None,
         timeout: int = 7200,
@@ -370,6 +394,8 @@ class DoclingServeClient:
         Args:
             file_path: Path to file to process
             binary_content: Binary content of file
+            filename: Filename to use when binary_content is provided. Preserves file extension
+                     for proper MIME type detection. If not provided, defaults to "document.pdf".
             options: Processing options
             poll_interval: Override default polling interval
             timeout: Maximum time to wait in seconds (default: 7200 = 2 hours)
@@ -386,6 +412,7 @@ class DoclingServeClient:
         task_id = self.submit_document(
             file_path=file_path,
             binary_content=binary_content,
+            filename=filename,
             options=options,
         )
 

@@ -107,7 +107,7 @@ OpenAI:
   "use_vlm_pipeline": true,
   "vlm_engine_type": "api_openai",
   "vlm_provider_config": {
-    "vlm_api_key": "your-api-key",
+    "vlm_api_key": "your-api-key",  # pragma: allowlist secret
     "vlm_model_name": "gpt-4-vision-preview"
   }
 }
@@ -147,6 +147,27 @@ REST API-based extraction using the Docling-Serve service for scalable, producti
   "docling_serve_image_export_mode": "embedded"
 }
 ```
+
+**File Handling:**
+- `.txt` files are processed locally using basic text extraction (not sent to Docling Serve)
+- Binary content submissions preserve the original filename for proper MIME type detection
+- Supported MIME types are automatically detected based on file extension
+
+**MIME Type Mapping:**
+
+| Extension | MIME Type |
+|-----------|-----------|
+| `.html`, `.htm` | `text/html` |
+| `.md` | `text/markdown` |
+| `.txt` | `text/plain` |
+| `.pdf` | `application/pdf` |
+| `.docx` | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` |
+| `.doc` | `application/msword` |
+| `.xlsx` | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` |
+| `.xls` | `application/vnd.ms-excel` |
+| `.pptx` | `application/vnd.openxmlformats-officedocument.presentationml.presentation` |
+| `.ppt` | `application/vnd.ms-powerpoint` |
+| Other | `application/octet-stream` |
 
 **Prerequisites:**
 ```bash
@@ -292,7 +313,7 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
   "entity_temperature": 0.0,
   "entity_max_tokens": 2000,
   "entity_provider_config": {
-    "api_key": "your-api-key",
+    "api_key": "your-api-key",  # pragma: allowlist secret
     "api_base": "https://api.openai.com/v1"
   }
 }

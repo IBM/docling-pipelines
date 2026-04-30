@@ -792,7 +792,7 @@ class OperatorUtils:
         return ""
 
     @staticmethod
-    def _extract_text_file(file_path: str, binary_content: bytes) -> dict[str, Any]:
+    def extract_text_file(file_path: str, binary_content: bytes) -> dict[str, Any]:
         """
         Extract content from plain text files (.txt, .md).
 
@@ -921,9 +921,9 @@ class OperatorUtils:
             if not file_suffix:
                 file_suffix = OperatorUtils.detect_extension_from_bytes(binary_content)
 
-            # Handle .txt and .md files specially (Docling cannot process them)
-            if file_suffix in [".txt", ".md"]:
-                return OperatorUtils._extract_text_file(file_path, binary_content)
+            # Handle .txt files specially (Docling cannot process them)
+            if file_suffix in [OperatorConstants.Extraction.TEXT_EXTENSION]:
+                return OperatorUtils.extract_text_file(file_path, binary_content)
 
             # Initialize converter with optional configuration
             if converter_config and "format_options" in converter_config:
@@ -940,7 +940,7 @@ class OperatorUtils:
 
             # Export to markdown
             markdown_text = result.document.export_to_markdown()
-
+            logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0} for file {file_path}")
             # Extract tables and images using helper methods
             tables = OperatorUtils._extract_tables_from_result(result) if extract_tables else []
             images = OperatorUtils._extract_images_from_result(result) if extract_images else []
