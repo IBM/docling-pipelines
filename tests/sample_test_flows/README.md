@@ -123,7 +123,7 @@ Flows demonstrating quality checks and ML-based enrichment.
 - Document quality assessment
 - Language detection and metadata enrichment
 
-**Key Operators:** `pii_and_hap`, `lang_detect_fasttext`, `ml_enrichment`
+**Key Operators:** `pii_and_hap`, `lang_detect`, `ml_enrichment`
 
 **PII Types Detected:**
 - Email addresses, phone numbers

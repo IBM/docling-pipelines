@@ -5,11 +5,10 @@ Unit tests for ML Enrichment Operator
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants import (
-    Metrics,
-    OperatorConstants,
-)
+from datasift.core.constants import Metrics, OperatorConstants
 from datasift.core.operators.quality.ml_enrichment import (
+    ENRICHMENT_COLUMNS_KEY,
+    FEATURES_ADDED_KEY,
     MLEnrichmentOperator,
 )
 
@@ -70,7 +69,7 @@ class TestMLEnrichmentOperator:
             [
                 # Text with duplicates and special patterns
                 """This is a paragraph with some content.
-                
+
 This is a paragraph with some content.
 
 This paragraph has bullet points:
@@ -81,7 +80,7 @@ This paragraph has bullet points:
 Some text with ellipsis... and more text...""",
                 # Text with various character types
                 """Mixed content: ABC123 xyz789!
-                
+
 Special characters: @#$%^&*()
 Punctuation marks: .,;:!?
 Control characters and tabs:	indented text
@@ -178,14 +177,14 @@ Numbers: 1234567890""",
         # Check metadata
         assert metadata[Metrics.External.TOTAL_DOCS] == 3
         assert metadata[Metrics.External.PROCESSED_DOCS] >= 0
-        assert "features_added" in metadata
-        assert "enrichment_columns" in metadata
+        assert FEATURES_ADDED_KEY in metadata
+        assert ENRICHMENT_COLUMNS_KEY in metadata
 
     def test_enrichment_feature_values(self, sample_config, sample_table):
         """Test that enrichment features have reasonable values"""
         operator = MLEnrichmentOperator(sample_config)
 
-        result_tables, metadata = operator.transform(sample_table)
+        result_tables, _ = operator.transform(sample_table)
         result_table = result_tables[0]
 
         # Check first document's features
@@ -207,7 +206,7 @@ Numbers: 1234567890""",
         """Test enrichment on complex text with special patterns"""
         operator = MLEnrichmentOperator(sample_config)
 
-        result_tables, metadata = operator.transform(complex_text_table)
+        result_tables, _ = operator.transform(complex_text_table)
         result_table = result_tables[0]
 
         # First document has duplicates and bullet points
@@ -366,22 +365,22 @@ Numbers: 1234567890""",
         """Test that enrichment columns are properly tracked in metadata"""
         operator = MLEnrichmentOperator(sample_config)
 
-        result_tables, metadata = operator.transform(sample_table)
+        _, metadata = operator.transform(sample_table)
 
-        assert "features_added" in metadata
-        assert "enrichment_columns" in metadata
-        assert metadata["features_added"] > 0
-        assert len(metadata["enrichment_columns"]) > 0
+        assert FEATURES_ADDED_KEY in metadata
+        assert ENRICHMENT_COLUMNS_KEY in metadata
+        assert metadata[FEATURES_ADDED_KEY] > 0
+        assert len(metadata[ENRICHMENT_COLUMNS_KEY]) > 0
 
         # All enrichment columns should start with the prefix
-        for col in metadata["enrichment_columns"]:
+        for col in metadata[ENRICHMENT_COLUMNS_KEY]:
             assert col.startswith("ml_")
 
     def test_original_columns_preserved(self, sample_config, sample_table):
         """Test that original columns are preserved in output"""
         operator = MLEnrichmentOperator(sample_config)
 
-        result_tables, metadata = operator.transform(sample_table)
+        result_tables, _ = operator.transform(sample_table)
         result_table = result_tables[0]
 
         # Original columns should still be present
@@ -394,7 +393,7 @@ Numbers: 1234567890""",
         """Test that features have correct data types"""
         operator = MLEnrichmentOperator(sample_config)
 
-        result_tables, metadata = operator.transform(sample_table)
+        result_tables, _ = operator.transform(sample_table)
         result_table = result_tables[0]
 
         # Integer features
@@ -418,7 +417,7 @@ Numbers: 1234567890""",
 
         operator = MLEnrichmentOperator(config)
 
-        result_tables, metadata = operator.transform(complex_text_table)
+        result_tables, _ = operator.transform(complex_text_table)
         result_table = result_tables[0]
 
         # First document has multiple paragraphs
@@ -435,7 +434,7 @@ Numbers: 1234567890""",
 
         operator = MLEnrichmentOperator(config)
 
-        result_tables, metadata = operator.transform(complex_text_table)
+        result_tables, _ = operator.transform(complex_text_table)
         result_table = result_tables[0]
 
         # Documents with multiple paragraphs should have newlines
@@ -452,7 +451,7 @@ Numbers: 1234567890""",
 
         operator = MLEnrichmentOperator(config)
 
-        result_tables, metadata = operator.transform(complex_text_table)
+        result_tables, _ = operator.transform(complex_text_table)
         result_table = result_tables[0]
 
         # Third document is very short ("Short.")
@@ -472,10 +471,77 @@ Numbers: 1234567890""",
         """Test transform with optional filename parameter"""
         operator = MLEnrichmentOperator(sample_config)
 
-        result_tables, metadata = operator.transform(sample_table, file_name="test_file.txt")
+        result_tables, _ = operator.transform(sample_table, file_name="test_file.txt")
 
         assert len(result_tables) == 1
         assert result_tables[0].num_rows == sample_table.num_rows
+
+    def test_validate_missing_doc_column(self, sample_config):
+        """Test validation when required document column is missing"""
+        operator = MLEnrichmentOperator(sample_config)
+
+        errors = []
+        warnings = []
+        available_features = ["lang_name", "doc_id", "name"]  # Missing 'content'
+
+        operator.validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        # Parent class validation adds a ValidationMessage object
+        assert len(errors) == 1
+        error_msg = str(errors[0]) if hasattr(errors[0], "message") else errors[0]
+        assert "content" in error_msg
+
+    def test_validate_missing_lang_column(self, sample_config):
+        """Test validation when language column is missing (should warn, not error)"""
+        operator = MLEnrichmentOperator(sample_config)
+
+        errors = []
+        warnings = []
+        available_features = ["content", "doc_id", "name"]  # Missing 'lang_name'
+
+        operator.validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        assert len(errors) == 0
+        assert len(warnings) == 1
+        assert "lang_name" in warnings[0]
+        assert "not found" in warnings[0]
+
+    def test_validate_output_column_conflict(self, sample_config):
+        """Test validation when output columns already exist"""
+        operator = MLEnrichmentOperator(sample_config)
+
+        errors = []
+        warnings = []
+        # Include some output columns that would be generated
+        available_features = ["content", "lang_name", "ml_num_words", "ml_num_chars"]
+
+        operator.validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        assert len(errors) == 0
+        assert len(warnings) >= 2  # At least warnings for num_words and num_chars
+        assert any("ml_num_words" in w for w in warnings)
+        assert any("already exists" in w for w in warnings)
+
+    def test_validate_all_columns_present(self, sample_config):
+        """Test validation when all required columns are present"""
+        operator = MLEnrichmentOperator(sample_config)
+
+        errors = []
+        warnings = []
+        available_features = ["content", "lang_name", "doc_id", "name"]
+
+        operator.validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        assert len(errors) == 0
+        # May have warnings about output columns, but no errors
+
+    def test_get_required_features_returns_doc_column(self):
+        """Test that get_required_features returns the document column"""
+        required = MLEnrichmentOperator.get_required_features()
+
+        assert isinstance(required, list)
+        assert len(required) == 1
+        assert OperatorConstants.Columns.DOC_COLUMN_DEFAULT in required
 
 
 if __name__ == "__main__":

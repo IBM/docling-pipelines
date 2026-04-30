@@ -1,0 +1,410 @@
+{
+  "flow": {
+    "name": "Quality Pipeline with Branching",
+    "flow_id": "7b71c0ef-2e7e-471c-8cef-4d7a27c1a851",
+    "description": "Comprehensive quality operators showcase: Ingest → Extract → Language Detection → Dedup (removes 2 duplicate documents) → Readability → Branching (on flesch_ease) → [High Quality: ML Enrichment → Embeddings → OpenSearch] | [Low Quality: SQLFilter → Embeddings → OpenSearch]. Demonstrates Readability, Dedup, BranchingOperator, and SQLFilter operators with quality-based conditional routing.",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "global_config": {
+      "doc_column": "content",
+      "disable_validation": "true",
+      "force_ingest": true
+    },
+    "dag": [
+      {
+        "id": "133d6e65-9ef5-4a8b-9cb4-971e5bdbe03c",
+        "name": "ingest",
+        "operator": "ingest_local",
+        "config": {
+          "input_folder": "tests/fixtures/customer_support_docs/",
+          "include_filter": "txt,pdf",
+          "store_binary_content": true,
+          "max_workers": 2
+        },
+        "input_edges": [],
+        "output_edges": [
+          {
+            "node_id_ref": "2f673122-d4f3-4fb1-bed5-b4fbff087753"
+          }
+        ]
+      },
+      {
+        "id": "2f673122-d4f3-4fb1-bed5-b4fbff087753",
+        "name": "extract",
+        "operator": "extract_operator",
+        "config": {
+          "doc_column": "content",
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "133d6e65-9ef5-4a8b-9cb4-971e5bdbe03c"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "88bff0c8-4cb6-4459-8346-6af43a30110c"
+          }
+        ]
+      },
+      {
+        "id": "88bff0c8-4cb6-4459-8346-6af43a30110c",
+        "name": "detect_language",
+        "operator": "lang_detect",
+        "config": {
+          "doc_column": "content",
+          "lang_column": "lang_name"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "2f673122-d4f3-4fb1-bed5-b4fbff087753"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "1aee4061-4feb-4d99-9d8b-4055746f692d"
+          }
+        ]
+      },
+      {
+        "id": "1aee4061-4feb-4d99-9d8b-4055746f692d",
+        "name": "dedup",
+        "operator": "ededup",
+        "config": {
+          "doc_column": "content",
+          "doc_id_column": "doc_id_hash"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "88bff0c8-4cb6-4459-8346-6af43a30110c"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "fe454610-2aaa-4af3-aa25-88f40abedbdd"
+          }
+        ]
+      },
+      {
+        "id": "fe454610-2aaa-4af3-aa25-88f40abedbdd",
+        "name": "readability",
+        "operator": "readability",
+        "config": {
+          "doc_column": "content",
+          "readability_score_list": [
+            "flesch_ease",
+            "flesch_kincaid",
+            "gunning_fog",
+            "difficult_words",
+            "dale_chall_readability_score"
+          ]
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "1aee4061-4feb-4d99-9d8b-4055746f692d"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "1f63b885-1f0c-4d19-8386-569b1e554f96"
+          }
+        ]
+      },
+      {
+        "id": "1f63b885-1f0c-4d19-8386-569b1e554f96",
+        "name": "quality_branching",
+        "operator": "branching",
+        "config": {
+          "branches": [
+            {
+              "link_id": "high_quality_branch",
+              "link_name": "High Quality Documents",
+              "filter_criteria_json": {
+                "criteria_list": [
+                  "flesch_ease_textstat > 60"
+                ],
+                "logical_operator": "AND"
+              }
+            },
+            {
+              "link_id": "low_quality_branch",
+              "link_name": "Low Quality Documents",
+              "filter_criteria_json": {
+                "criteria_list": [
+                  "flesch_ease_textstat <= 60"
+                ],
+                "logical_operator": "AND"
+              }
+            }
+          ]
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "fe454610-2aaa-4af3-aa25-88f40abedbdd"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "57e66cab-da6f-479f-8e21-416c9763fa45",
+            "link_id": "high_quality_branch"
+          },
+          {
+            "node_id_ref": "eef2124a-3d77-4460-a136-7e49f7bed432",
+            "link_id": "low_quality_branch"
+          }
+        ]
+      },
+      {
+        "id": "57e66cab-da6f-479f-8e21-416c9763fa45",
+        "name": "ml_enrichment_high_quality",
+        "operator": "ml_enrichment",
+        "config": {
+          "doc_column": "content",
+          "lang_column": "lang_name",
+          "output_column_prefix": "ml_",
+          "error_column_name": "enrichment_error"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "1f63b885-1f0c-4d19-8386-569b1e554f96",
+            "link_id": "high_quality_branch"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "49e3e044-c7bf-4ac5-8311-6e110cdd7fd8"
+          }
+        ]
+      },
+      {
+        "id": "49e3e044-c7bf-4ac5-8311-6e110cdd7fd8",
+        "name": "embeddings_high_quality",
+        "operator": "embeddings",
+        "config": {
+          "embeddings_type": "ollama",
+          "embeddings_model_id": "granite4:latest",
+          "embeddings_column": "embeddings",
+          "overlap_ratio": 0.2,
+          "doc_column": "content"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "57e66cab-da6f-479f-8e21-416c9763fa45"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "915806a5-8fd1-4c27-93da-f38b45383bff"
+          }
+        ]
+      },
+      {
+        "id": "915806a5-8fd1-4c27-93da-f38b45383bff",
+        "name": "vectordb_high_quality",
+        "operator": "vectordb",
+        "config": {
+          "provider": "opensearch",
+          "index_name": "high_quality_docs",
+          "doc_id_column": "doc_id_hash",
+          "embeddings_column": "embeddings",
+          "vector_dimension": 2560,
+          "create_index": "true",
+          "provider_config": {
+            "host": "localhost",
+            "port": 9200,
+            "username": "admin",
+            "password": "MyStrongPass123!",
+            "use_ssl": false,
+            "verify_certs": false,
+            "batch_size": 100,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+            "space_type": "l2"
+          },
+          "available_features": {
+            "doc_id_hash": {
+              "name": "Document ID",
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "string",
+              "is_primary": true
+            },
+            "name": {
+              "name": "Document Name",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "content": {
+              "name": "Content",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "embeddings": {
+              "name": "Embeddings",
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "vector"
+            },
+            "lang_name": {
+              "name": "Language",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "flesch_ease_textstat": {
+              "name": "Flesch Reading Ease",
+              "available_for_vector_db": true,
+              "type": "float"
+            },
+            "ml_num_words": {
+              "name": "Word Count",
+              "available_for_vector_db": true,
+              "type": "integer"
+            }
+          },
+          "feature_mappings": {
+            "doc_id_hash": "pk",
+            "name": "doc_name",
+            "content": "text",
+            "embeddings": "vector_embeddings",
+            "lang_name": "language",
+            "flesch_ease_textstat": "readability_score",
+            "ml_num_words": "word_count"
+          }
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "49e3e044-c7bf-4ac5-8311-6e110cdd7fd8"
+          }
+        ],
+        "output_edges": []
+      },
+      {
+        "id": "eef2124a-3d77-4460-a136-7e49f7bed432",
+        "name": "sql_filter_low_quality",
+        "operator": "sql_filter",
+        "config": {
+          "filter_criteria_json": {
+            "criteria_list": [
+              "difficult_words_textstat < 100"
+            ],
+            "logical_operator": "AND"
+          }
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "1f63b885-1f0c-4d19-8386-569b1e554f96",
+            "link_id": "low_quality_branch"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "4c7971ea-72bc-4ccf-a3d1-9c8cf4ecc902"
+          }
+        ]
+      },
+      {
+        "id": "4c7971ea-72bc-4ccf-a3d1-9c8cf4ecc902",
+        "name": "embeddings_low_quality",
+        "operator": "embeddings",
+        "config": {
+          "embeddings_type": "ollama",
+          "embeddings_model_id": "granite4:latest",
+          "embeddings_column": "embeddings",
+          "overlap_ratio": 0.2,
+          "doc_column": "content"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "eef2124a-3d77-4460-a136-7e49f7bed432"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "63842d57-9331-4304-b06f-0f98d1220619"
+          }
+        ]
+      },
+      {
+        "id": "63842d57-9331-4304-b06f-0f98d1220619",
+        "name": "vectordb_low_quality",
+        "operator": "vectordb",
+        "config": {
+          "provider": "opensearch",
+          "index_name": "low_quality_docs",
+          "doc_id_column": "doc_id_hash",
+          "embeddings_column": "embeddings",
+          "vector_dimension": 2560,
+          "create_index": "true",
+          "provider_config": {
+            "host": "localhost",
+            "port": 9200,
+            "username": "admin",
+            "password": "MyStrongPass123!",
+            "use_ssl": false,
+            "verify_certs": false,
+            "batch_size": 100,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+            "space_type": "l2"
+          },
+          "available_features": {
+            "doc_id_hash": {
+              "name": "Document ID",
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "string",
+              "is_primary": true
+            },
+            "name": {
+              "name": "Document Name",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "content": {
+              "name": "Content",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "embeddings": {
+              "name": "Embeddings",
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "vector"
+            },
+            "lang_name": {
+              "name": "Language",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "flesch_ease_textstat": {
+              "name": "Flesch Reading Ease",
+              "available_for_vector_db": true,
+              "type": "float"
+            },
+            "difficult_words_textstat": {
+              "name": "Difficult Words Count",
+              "available_for_vector_db": true,
+              "type": "float"
+            }
+          },
+          "feature_mappings": {
+            "doc_id_hash": "pk",
+            "name": "doc_name",
+            "content": "text",
+            "embeddings": "vector_embeddings",
+            "lang_name": "language",
+            "flesch_ease_textstat": "readability_score",
+            "difficult_words_textstat": "difficult_words"
+          }
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "4c7971ea-72bc-4ccf-a3d1-9c8cf4ecc902"
+          }
+        ],
+        "output_edges": []
+      }
+    ]
+  }
+}

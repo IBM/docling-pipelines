@@ -4,13 +4,13 @@ This adapter wraps Facebook's FastText model to provide language detection for 1
 It implements efficient memory management through reference counting for parallel flow execution.
 """
 
-from datasift.core.operators.quality.fasttext_model_manager import FastTextModelManager
 from datasift.core.operators.quality.language_detection.adapters.outbound.factories.language_adapter_factory import (
     register_language_adapter,
 )
 from datasift.core.operators.quality.language_detection.domain.models import LanguageDetectionResult
 from datasift.core.operators.quality.language_detection.ports.outbound.language_service import LanguageServicePort
 from datasift.exceptions.datasift_exceptions import ExternalServiceError
+from datasift.utils.infrastructure.fasttext_model_manager import FastTextModelManager
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)

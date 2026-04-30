@@ -16,7 +16,7 @@
         "name": "ingest",
         "operator": "ingest_local",
         "config": {
-          "input_folder": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
+          "input_folder": "tests/fixtures/customer_support_docs/",
           "include_filter": "txt,pdf",
           "store_binary_content": true,
           "max_workers": 2
@@ -51,7 +51,7 @@
       {
         "id": "8def9abc-c1d2-4e3f-9a0b-1c2d3e4f5a6b",
         "name": "detect_language",
-        "operator": "lang_detect_fasttext",
+        "operator": "lang_detect",
         "config": {
           "doc_column": "content",
           "lang_column": "lang_name"

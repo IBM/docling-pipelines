@@ -10,18 +10,10 @@ import time
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants.constants import (
-    Metrics,
-)
-from datasift.core.constants.operator_constants import (
-    OperatorConstants,
-)
-from datasift.core.operators.quality.fasttext_model_manager import (
-    FastTextModelManager,
-)
-from datasift.core.operators.quality.language_detection.lang_id import (
-    LanguageDetect,
-)
+from datasift.core.constants.constants import Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.quality.language_detection.lang_id import LanguageDetect
+from datasift.utils.infrastructure.fasttext_model_manager import FastTextModelManager
 
 
 class TestLanguageDetectFastText:
@@ -45,7 +37,7 @@ class TestLanguageDetectFastText:
                 "Bonjour, monde! Ceci est un texte français.",
                 "¡Hola, mundo! Este es un texto en español.",
                 "Привет, мир! Это русский текст.",
-                "こんにちは世界！これは日本語のテキストです。",
+                "こんにちは世界!これは日本語のテキストです。",
                 "Salom dunyo! Bu o'zbek tilidagi matn.",  # Uzbek text
             ]
         )
@@ -134,7 +126,7 @@ class TestLanguageDetectFastText:
         operator = LanguageDetect(sample_config)
 
         try:
-            result_tables, metadata = operator.transform(sample_table)
+            result_tables, _ = operator.transform(sample_table)
             result_table = result_tables[0]
 
             # Find the Uzbek text row
