@@ -291,19 +291,31 @@ class DatasiftFlowManager:
         if self.orchestrator is None:
             return []
 
-        event_handler = getattr(self.orchestrator, DatasiftConstants.FLOW_EXECUTION_EVENT_HANDLER, None)
-        job_log_path = getattr(event_handler, DatasiftConstants.JOB_LOG_PATH, None)
-
-        if not job_log_path:
+        # Get the job stats service from the orchestrator
+        job_stats_service = getattr(self.orchestrator, "job_stats_service", None)
+        if not job_stats_service:
             return []
 
-        log_dir = Path(job_log_path).parent
-        flow_log_path = log_dir / DatasiftConstants.FLOW_EXECUTE_LOG
+        try:
+            # Get formatted job stats with logs included
+            job_stats_response = job_stats_service.get_formatted_job_stats(
+                job_run_id=self.job_run_id, include_logs=True
+            )
 
-        if not flow_log_path.exists() or not flow_log_path.is_file():
+            # Extract logs from the response
+            # The response has dynamic attributes for each node_id containing log strings
+            logs = []
+            if hasattr(job_stats_response, "node_sequence"):
+                for node_id in job_stats_response.node_sequence:
+                    if hasattr(job_stats_response, node_id):
+                        node_log = getattr(job_stats_response, node_id)
+                        if node_log:
+                            logs.append(node_log)
+
+            return logs
+        except Exception as e:
+            self.logger.warning(f"Failed to retrieve execution logs: {e}")
             return []
-
-        return flow_log_path.read_text(encoding="utf-8").splitlines()
 
     @staticmethod
     def list_operators(verbose: bool = False) -> str:

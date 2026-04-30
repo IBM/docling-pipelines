@@ -9,7 +9,6 @@ import json
 import os
 import tempfile
 import uuid
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -728,34 +727,39 @@ class TestLogs:
         simple_flow,
     ):
         """Test get_execution_logs() with valid log file."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            log_dir = Path(temp_dir)
-            job_log_path = log_dir / "job.log"
-            flow_log_path = log_dir / DatasiftConstants.FLOW_EXECUTE_LOG
+        mock_orchestrator = Mock()
 
-            # Create log file with content
-            flow_log_path.write_text("Log line 1\nLog line 2\nLog line 3\n")
+        # Mock job_stats_service with get_formatted_job_stats method
+        mock_job_stats_service = Mock()
+        mock_job_stats_response = Mock()
+        mock_job_stats_response.node_sequence = ["node1", "node2", "node3"]
+        mock_job_stats_response.node1 = "Log line 1"
+        mock_job_stats_response.node2 = "Log line 2"
+        mock_job_stats_response.node3 = "Log line 3"
+        mock_job_stats_service.get_formatted_job_stats.return_value = mock_job_stats_response
 
-            mock_orchestrator = Mock()
-            mock_event_handler = Mock()
-            mock_event_handler.job_log_path = str(job_log_path)
-            mock_orchestrator.flow_execution_event_handler = mock_event_handler
-            mock_factory.return_value = mock_orchestrator
-            mock_session = Mock(job_id="test-flow-123", job_run_id="run-123")
-            mock_create_session.return_value = mock_session
+        mock_orchestrator.job_stats_service = mock_job_stats_service
+        mock_factory.return_value = mock_orchestrator
+        mock_session = Mock(job_id="test-flow-123", job_run_id="run-123")
+        mock_create_session.return_value = mock_session
 
-            mock_flow_executor = Mock()
-            mock_executor_class.return_value = mock_flow_executor
+        mock_flow_executor = Mock()
+        mock_executor_class.return_value = mock_flow_executor
 
-            executor = DatasiftFlowManager(flow_def=simple_flow)
-            executor.execute()
+        executor = DatasiftFlowManager(flow_def=simple_flow, job_run_id="run-123")
+        executor.execute()
 
-            logs = executor.get_execution_logs()
+        logs = executor.get_execution_logs()
 
-            assert len(logs) == 3
-            assert logs[0] == "Log line 1"
-            assert logs[1] == "Log line 2"
-            assert logs[2] == "Log line 3"
+        assert len(logs) == 3
+        assert logs[0] == "Log line 1"
+        assert logs[1] == "Log line 2"
+        assert logs[2] == "Log line 3"
+
+        # Verify get_formatted_job_stats was called with correct parameters
+        mock_job_stats_service.get_formatted_job_stats.assert_called_once_with(
+            job_run_id="run-123", include_logs=True
+        )
 
 
 # ---------------------------------------------------------------------------
