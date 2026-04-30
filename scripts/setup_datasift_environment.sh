@@ -652,8 +652,8 @@ start_opensearch() {
         return 0
     fi
     
-    if [ ! -f "docker-compose.opensearch.yml" ]; then
-        log_error "docker-compose.opensearch.yml not found in current directory"
+    if [ ! -f "docker/docker-compose.opensearch.yml" ]; then
+        log_error "docker/docker-compose.opensearch.yml not found"
         return 1
     fi
     
@@ -662,9 +662,9 @@ start_opensearch() {
     log "Starting OpenSearch using $runtime..."
     
     if [ "$runtime" = "docker" ]; then
-        docker-compose -f docker-compose.opensearch.yml up -d
+        docker-compose -f docker/docker-compose.opensearch.yml up -d
     else
-        podman-compose -f docker-compose.opensearch.yml up -d
+        podman-compose -f docker/docker-compose.opensearch.yml up -d
     fi
     
     # Wait for OpenSearch to be ready (max 60 seconds)
@@ -685,7 +685,7 @@ start_opensearch() {
     done
     
     log_error "OpenSearch failed to start within 60 seconds"
-    log_info "Check logs with: podman-compose -f docker-compose.opensearch.yml logs"
+    log_info "Check logs with: podman-compose -f docker/docker-compose.opensearch.yml logs"
     return 1
 }
 
