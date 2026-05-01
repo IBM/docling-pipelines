@@ -34,7 +34,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from datasift.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 
 def create_test_data():
@@ -135,30 +135,37 @@ def main():
         print("  Pipeline: Ingest -> Extract -> Chunk -> Embeddings")
         print("  This may take a few moments...")
 
-        result = manager.execute()
+        manager.execute()
 
         # Step 5: Display results
         print("\n[Step 5/5] Execution Results:")
         print("=" * 80)
 
-        if result:
-            print("Status: SUCCESS")
+        # Get execution status from job stats service
+        status = None
+        if manager.orchestrator:
+            job_stats_service = getattr(manager.orchestrator, "job_stats_service", None)
+            if job_stats_service:
+                try:
+                    job_stats = job_stats_service.get_job_run_stats(job_run_id=manager.job_run_id)
+                    if job_stats and hasattr(job_stats, "status"):
+                        status = job_stats.status
+                except Exception as e:
+                    print(f"Warning: Could not retrieve job status: {e}")
 
-            # Display result data info
-            if hasattr(result, "data") and result.data is not None:
-                print(f"\nResult Data Type: {type(result.data)}")
-                if hasattr(result.data, "num_rows"):
-                    print(f"Number of rows processed: {result.data.num_rows}")
-                if hasattr(result.data, "column_names"):
-                    print(f"Columns: {', '.join(result.data.column_names)}")
+        if status:
+            print(f"Status: {status}")
 
-            # Display metadata
-            if hasattr(result, "metadata") and result.metadata:
-                print("\nExecution Metadata:")
-                for key, value in result.metadata.items():
-                    print(f"  {key}: {value}")
+            if status == "Completed":
+                print("\nExecution completed successfully!")
+                print(f"Job Run ID: {metadata['job_run_id']}")
+                print(f"Results saved to: ./data/UDP_logs/{metadata['job_id']}/{metadata['job_run_id']}/")
+            elif status == "Failed":
+                print("\nExecution failed. Check logs for details.")
+            else:
+                print(f"\nExecution ended with status: {status}")
         else:
-            print("Status: No result returned")
+            print("Status: Unable to determine")
 
         print("\n" + "=" * 80)
         print("Example completed successfully!")

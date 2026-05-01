@@ -6,41 +6,30 @@ executes a pipeline, and cleans up afterwards. Similar to 00_complete_example.py
 but with more detailed logging and result inspection.
 
 Prerequisites:
-- Backend virtual environment activated: source src/datasift_opensource/backend/.venv/bin/activate
-- PYTHONPATH set to backend directory: export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+- Virtual environment activated: source .venv/bin/activate
+- PYTHONPATH set: export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 - Ollama running with granite4 model: http://localhost:11434
 
 Setup (from repository root):
-    cd src/datasift_opensource/backend
     python3.12 -m venv .venv
     source .venv/bin/activate
     uv sync --extra dev
-    cd ../../..
-    export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+    export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
     # Pull the embedding model (first time only)
     ollama pull granite4
 
 Run:
-    source src/datasift_opensource/backend/.venv/bin/activate
-    export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+    source .venv/bin/activate
+    export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
     python examples/datasift_flow_manager/06_basic_test.py
 """
 
-import logging
 import shutil
 import sys
 from pathlib import Path
 
-# Add backend to path for imports
-backend_path = Path(__file__).parent.parent / "src" / "datasift_opensource" / "backend"
-sys.path.insert(0, str(backend_path))
-
-from datasift.lib.datasift_flow_manager import DatasiftFlowManager  # noqa: E402
-
-# Configure logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 
 def create_test_data():
@@ -80,8 +69,8 @@ workflows defined in JSON configuration files.
 """
 
     sample_file.write_text(sample_content)
-    logger.info(f"Created test data directory: {test_dir}")
-    logger.info(f"Created sample file: {sample_file}")
+    print(f"Created test data directory: {test_dir}")
+    print(f"Created sample file: {sample_file}")
 
     return test_dir
 
@@ -90,7 +79,7 @@ def cleanup_test_data(test_dir):
     """Remove test directory and files"""
     if test_dir.exists():
         shutil.rmtree(test_dir)
-        logger.info(f"Cleaned up test directory: {test_dir}")
+        print(f"Cleaned up test directory: {test_dir}")
 
 
 def main():
@@ -98,87 +87,100 @@ def main():
     test_dir = None
 
     try:
-        logger.info("=" * 80)
-        logger.info("Starting DatasiftFlowManager Test")
-        logger.info("=" * 80)
+        print("=" * 80)
+        print("Starting DatasiftFlowManager Test")
+        print("=" * 80)
 
         # Step 1: Create test data
-        logger.info("\n[Step 1] Creating test data...")
+        print("\n[Step 1] Creating test data...")
         test_dir = create_test_data()
 
         # Step 2: Initialize DatasiftFlowManager
-        logger.info("\n[Step 2] Initializing DatasiftFlowManager...")
+        print("\n[Step 2] Initializing DatasiftFlowManager...")
         flow_file = Path(__file__).parent / "06_basic_test_flow.json"
 
         if not flow_file.exists():
             raise FileNotFoundError(f"Flow file not found: {flow_file}")
 
-        logger.info(f"Loading flow from: {flow_file}")
+        print(f"Loading flow from: {flow_file}")
         manager = DatasiftFlowManager(flow_file=str(flow_file))
 
-        # Step 3: Execute the flow
-        logger.info("\n[Step 3] Executing flow...")
-        logger.info("Flow: ingest -> extract -> chunk -> embeddings")
-        logger.info("This may take a few moments...")
+        # Step 3: Get metadata before execution
+        print("\n[Step 3] Flow Metadata:")
+        metadata = manager.get_execution_metadata()
+        print(f"  Flow Name: {metadata['flow_name']}")
+        print(f"  Description: {metadata['flow_description']}")
+        print(f"  Number of Operators: {metadata['num_operators']}")
+        print(f"  Job ID: {metadata['job_id']}")
+        print(f"  Job Run ID: {metadata['job_run_id']}")
 
-        result = manager.execute()
+        # Step 4: Execute the flow
+        print("\n[Step 4] Executing flow...")
+        print("Flow: ingest -> extract -> chunk -> embeddings")
+        print("This may take a few moments...")
 
-        # Step 4: Print execution results
-        logger.info("\n[Step 4] Execution Results:")
-        logger.info("=" * 80)
+        manager.execute()
 
-        if result:
-            logger.info("Execution Status: SUCCESS")
+        # Step 5: Check execution status
+        print("\n[Step 5] Execution Results:")
+        print("=" * 80)
 
-            # Print metadata
-            if hasattr(result, "metadata") and result.metadata:
-                logger.info("\nExecution Metadata:")
-                for key, value in result.metadata.items():
-                    logger.info(f"  {key}: {value}")
+        # Get execution status from job stats service
+        status = None
+        if manager.orchestrator:
+            job_stats_service = getattr(manager.orchestrator, "job_stats_service", None)
+            if job_stats_service:
+                try:
+                    job_stats = job_stats_service.get_job_run_stats(job_run_id=manager.job_run_id)
+                    if job_stats and hasattr(job_stats, "status"):
+                        status = job_stats.status
+                except Exception as e:
+                    print(f"Warning: Could not retrieve job status: {e}")
 
-            # Print result data info
-            if hasattr(result, "data") and result.data is not None:
-                logger.info(f"\nResult Data Type: {type(result.data)}")
-                if hasattr(result.data, "num_rows"):
-                    logger.info(f"Number of rows: {result.data.num_rows}")
-                if hasattr(result.data, "column_names"):
-                    logger.info(f"Columns: {result.data.column_names}")
+        if status:
+            print(f"Status: {status}")
 
-            # Print logs if available
-            if hasattr(result, "logs") and result.logs:
-                logger.info("\nExecution Logs:")
-                for log_entry in result.logs[-10:]:  # Last 10 log entries
-                    logger.info(f"  {log_entry}")
+            if status == "Completed":
+                print("\nExecution completed successfully!")
+                print(f"Job Run ID: {metadata['job_run_id']}")
+                print(f"Results saved to: ./data/UDP_logs/{metadata['job_id']}/{metadata['job_run_id']}/")
+            elif status == "Failed":
+                print("\nExecution failed. Check logs for details.")
+            else:
+                print(f"\nExecution ended with status: {status}")
         else:
-            logger.warning("Execution returned no result")
+            print("Status: Unable to determine")
 
-        logger.info("\n" + "=" * 80)
-        logger.info("Test completed successfully!")
-        logger.info("=" * 80)
+        print("\n" + "=" * 80)
+        print("Test completed successfully!")
+        print("=" * 80)
 
     except FileNotFoundError as e:
-        logger.error(f"File not found: {e}")
+        print(f"File not found: {e}")
         sys.exit(1)
 
     except ImportError as e:
-        logger.error(f"Import error: {e}")
-        logger.error("Make sure all dependencies are installed and PYTHONPATH is set correctly")
+        print(f"Import error: {e}")
+        print("Make sure all dependencies are installed and PYTHONPATH is set correctly")
         sys.exit(1)
 
     except ConnectionError as e:
-        logger.error(f"Connection error: {e}")
-        logger.error("Make sure Ollama is running on http://localhost:11434")
-        logger.error("You can start it with: ollama serve")
+        print(f"Connection error: {e}")
+        print("Make sure Ollama is running on http://localhost:11434")
+        print("You can start it with: ollama serve")
         sys.exit(1)
 
     except Exception as e:
-        logger.error(f"Unexpected error during execution: {e}", exc_info=True)
+        print(f"Unexpected error during execution: {e}")
+        import traceback
+
+        traceback.print_exc()
         sys.exit(1)
 
     finally:
-        # Step 5: Cleanup
+        # Step 6: Cleanup
         if test_dir:
-            logger.info("\n[Step 5] Cleaning up test data...")
+            print("\n[Step 6] Cleaning up test data...")
             cleanup_test_data(test_dir)
 
 

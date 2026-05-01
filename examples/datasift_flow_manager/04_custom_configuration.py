@@ -23,7 +23,28 @@ Run:
     python examples/datasift_flow_manager/04_custom_configuration.py
 """
 
-from datasift.datasift_flow_manager import DatasiftFlowManager
+import shutil
+from pathlib import Path
+
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+
+
+def create_test_data():
+    """Create test directory and sample documents"""
+    test_dir = Path("./test_data")
+    test_dir.mkdir(exist_ok=True)
+
+    # Create sample text file
+    sample_file = test_dir / "sample_document.txt"
+    sample_content = """Sample document for custom configuration example."""
+    sample_file.write_text(sample_content)
+    return test_dir
+
+
+def cleanup_test_data(test_dir):
+    """Remove test directory and files"""
+    if test_dir.exists():
+        shutil.rmtree(test_dir)
 
 
 def main():
@@ -33,30 +54,36 @@ def main():
     Demonstrates advanced usage with custom job IDs, error handling,
     and metadata extraction.
     """
-    print("\n" + "=" * 70)
-    print("Example 4: Custom Configuration")
-    print("=" * 70)
+    test_dir = None
 
-    flow_file = "examples/datasift_flow_manager/sample_flow.json"
-
-    # Create flow manager with custom configuration
-    manager = DatasiftFlowManager(
-        flow_file=flow_file,
-        log_level="debug",  # More verbose logging
-        job_id="notebook-job-001",
-        job_run_id="custom-run-12345",
-        flow_id="custom-flow-id",
-    )
-
-    # Get and display metadata
-    metadata = manager.get_execution_metadata()
-    print("\nExecution Metadata:")
-    for key, value in metadata.items():
-        print(f"  {key}: {value}")
-
-    # Execute with error handling
-    print("\nExecuting flow with custom configuration...")
     try:
+        print("\n" + "=" * 70)
+        print("Example 4: Custom Configuration")
+        print("=" * 70)
+
+        # Create test data
+        print("\nCreating test data...")
+        test_dir = create_test_data()
+
+        flow_file = "examples/datasift_flow_manager/sample_flow.json"
+
+        # Create flow manager with custom configuration
+        manager = DatasiftFlowManager(
+            flow_file=flow_file,
+            log_level="debug",  # More verbose logging
+            job_id="notebook-job-001",
+            job_run_id="custom-run-12345",
+            flow_id="custom-flow-id",
+        )
+
+        # Get and display metadata
+        metadata = manager.get_execution_metadata()
+        print("\nExecution Metadata:")
+        for key, value in metadata.items():
+            print(f"  {key}: {value}")
+
+        # Execute with error handling
+        print("\nExecuting flow with custom configuration...")
         manager.execute()
         print("\nExecution successful!")
 
@@ -71,6 +98,11 @@ def main():
         import traceback
 
         traceback.print_exc()
+    finally:
+        # Cleanup
+        if test_dir:
+            print("\nCleaning up test data...")
+            cleanup_test_data(test_dir)
 
 
 if __name__ == "__main__":

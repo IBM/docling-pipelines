@@ -5,21 +5,20 @@ This example demonstrates the typical pattern for using DatasiftFlowManager
 in a Jupyter notebook environment.
 
 Prerequisites:
-- Backend virtual environment activated: source src/datasift_opensource/backend/.venv/bin/activate
-- PYTHONPATH set to backend directory: export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+- Virtual environment activated: source .venv/bin/activate
+- PYTHONPATH set: export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 - Ollama running (for LLM operations): http://localhost:11434
 - OpenSearch running (for vector storage): http://localhost:9200
 
 Setup (from repository root):
-    cd src/datasift_opensource/backend
     python3.12 -m venv .venv
     source .venv/bin/activate
     uv sync --extra dev
-    cd ../../..
-    export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+    export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 
 Run:
-    source src/datasift_opensource/backend/.venv/bin/activate
+    source .venv/bin/activate
+    export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
     python examples/datasift_flow_manager/05_notebook_usage.py
 """
 
@@ -38,9 +37,9 @@ def main():
     print("""
 # Typical Jupyter Notebook Usage:
 
-IMPORTANT: Before starting Jupyter, activate the backend virtual environment:
-    source src/datasift_opensource/backend/.venv/bin/activate
-    export PYTHONPATH="$(pwd)/src/datasift_opensource/backend:${PYTHONPATH}"
+IMPORTANT: Before starting Jupyter, activate the virtual environment:
+    source .venv/bin/activate
+    export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
     jupyter notebook
 
 ```python
@@ -48,9 +47,9 @@ IMPORTANT: Before starting Jupyter, activate the backend virtual environment:
 import sys
 from pathlib import Path
 
-# Add backend to path for local development
-backend_path = Path.cwd().parent.parent / "src" / "datasift_opensource" / "backend"
-sys.path.insert(0, str(backend_path))
+# Add src to path for local development
+src_path = Path.cwd().parent.parent / "src"
+sys.path.insert(0, str(src_path))
 from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 # Cell 2: List available operators
@@ -79,11 +78,16 @@ print(f"Flow: {metadata['flow_name']}")
 print(f"Operators: {metadata['num_operators']}")
 
 # Cell 6: Execute
-result = manager.execute()
+manager.execute()
 
-# Cell 7: Analyze results
-# Work with the result DataAccess object
-print(f"Execution completed: {result}")
+# Cell 7: Check execution status
+if manager.orchestrator:
+    job_stats_service = manager.orchestrator.job_stats_service
+    if job_stats_service:
+        job_stats = job_stats_service.get_job_run_stats(job_run_id=manager.job_run_id)
+        if job_stats:
+            print(f"Execution Status: {job_stats.status}")
+            print(f"Job Run ID: {manager.job_run_id}")
 ```
 
 Key Benefits for Notebooks:
@@ -92,6 +96,9 @@ Key Benefits for Notebooks:
 - Easy to inspect metadata
 - Good error messages
 - No need to manage CLI arguments
+
+Note: The execute() method returns None by design.
+Results are tracked through the job stats service.
     """)
 
 
