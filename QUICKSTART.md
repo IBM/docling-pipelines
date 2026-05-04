@@ -247,7 +247,7 @@ curl http://localhost:11434/api/tags
 curl -u admin:MyStrongPass123! http://localhost:9200
 
 # If not, start manually
-podman-compose -f docker-compose.opensearch.yml up -d
+podman-compose -f docker/docker-compose.opensearch.yml up -d
 
 # Wait 30 seconds for startup
 sleep 30
@@ -280,13 +280,13 @@ ollama pull nomic-embed-text
 **"Connection refused" to OpenSearch:**
 ```bash
 # Check OpenSearch status
-podman-compose -f docker-compose.opensearch.yml ps
+podman-compose -f docker/docker-compose.opensearch.yml ps
 
 # View logs if not running
-podman-compose -f docker-compose.opensearch.yml logs
+podman-compose -f docker/docker-compose.opensearch.yml logs
 
 # Restart if needed
-podman-compose -f docker-compose.opensearch.yml restart
+podman-compose -f docker/docker-compose.opensearch.yml restart
 ```
 
 **"File not found" errors:**
@@ -309,7 +309,7 @@ ls -la sample_flows/complete_pipeline_flow.json
 3. **Start fresh**: Clean up and re-run setup:
    ```bash
    # Stop services
-   podman-compose -f docker-compose.opensearch.yml down
+   podman-compose -f docker/docker-compose.opensearch.yml down
    pkill -f "ollama serve"
    
    # Remove config
@@ -339,7 +339,7 @@ curl http://localhost:11434/api/tags  # Ollama
 curl -u admin:MyStrongPass123! http://localhost:9200  # OpenSearch
 
 # Stop services
-podman-compose -f docker-compose.opensearch.yml down
+podman-compose -f docker/docker-compose.opensearch.yml down
 pkill -f "ollama serve"
 ```
 

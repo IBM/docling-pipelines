@@ -183,7 +183,7 @@ Advanced, domain-specific document processing flows.
 
 3. **OpenSearch (for vector storage):**
    ```bash
-   docker-compose -f docker-compose.opensearch.yml up -d
+   docker-compose -f docker/docker-compose.opensearch.yml up -d
    ```
 
 ### Execution

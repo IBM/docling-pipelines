@@ -209,7 +209,7 @@ class BatchExecutionFactory:
                 f"Falling back to ThreadPoolAdapter (local execution). "
                 f"To enable distributed execution, ensure Prefect Server is "
                 f"running and accessible. Run: "
-                f"docker-compose -f docker-compose.distributed.yml up -d",
+                f"docker-compose -f docker/docker-compose.distributed.yml up -d",
                 exc_info=True,
             )
 

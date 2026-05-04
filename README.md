@@ -1252,13 +1252,13 @@ The [`VectorDBOperator`](src/datasift/core/operators/vectordb/vectordb_operator.
 **Docker:**
 
 ```bash
-docker-compose -f docker-compose.opensearch.yml up -d
+docker-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 **Podman:**
 
 ```bash
-podman-compose -f docker-compose.opensearch.yml up -d
+podman-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 This starts:
@@ -1294,10 +1294,10 @@ Key variables:
 
 ```bash
 # Docker
-docker-compose -f docker-compose.opensearch.yml down
+docker-compose -f docker/docker-compose.opensearch.yml down
 
 # Podman
-podman-compose -f docker-compose.opensearch.yml down
+podman-compose -f docker/docker-compose.opensearch.yml down
 ```
 
 **See also:**
@@ -1341,10 +1341,10 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Docker
-docker-compose -f docker-compose.opensearch.yml down
+docker-compose -f docker/docker-compose.opensearch.yml down
 
 # Podman
-podman-compose -f docker-compose.opensearch.yml down
+podman-compose -f docker/docker-compose.opensearch.yml down
 ```
 
 **See also:**

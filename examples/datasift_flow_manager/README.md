@@ -84,7 +84,7 @@ ollama serve
 curl http://localhost:11434/api/tags
 
 # (Optional) Start OpenSearch for vector storage examples
-docker-compose -f docker-compose.opensearch.yml up -d
+docker-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 ## Running Examples

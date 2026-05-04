@@ -188,7 +188,7 @@ Override precedence for flow storage:
 
 **OpenSearch fails to start:**
 - Check if ports 9200 or 5601 are in use
-- View logs: `podman-compose -f docker-compose.opensearch.yml logs`
+- View logs: `podman-compose -f docker/docker-compose.opensearch.yml logs`
 - Ensure you're in the project root directory
 
 **Permission denied errors:**
@@ -198,7 +198,7 @@ Override precedence for flow storage:
 **Want to start fresh?**
 ```bash
 # Stop services
-podman-compose -f docker-compose.opensearch.yml down
+podman-compose -f docker/docker-compose.opensearch.yml down
 pkill -f "ollama serve"
 
 # Remove configuration
@@ -586,18 +586,18 @@ pip install podman-compose
 
 ### Starting OpenSearch Using podman-compose
 
-DataSift includes a pre-configured `docker-compose.opensearch.yml` file.
+DataSift includes a pre-configured `docker/docker-compose.opensearch.yml` file.
 
 **1. Start OpenSearch:**
 
 Using Podman:
 ```bash
-podman compose -f docker-compose.opensearch.yml up -d
+podman compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 Using Docker:
 ```bash
-docker compose -f docker-compose.opensearch.yml up -d
+docker compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 **2. Wait for services to start (30-60 seconds):**
@@ -654,7 +654,7 @@ http://localhost:5601
 
 ### Default Credentials and Security
 
-**Default credentials (from docker-compose.opensearch.yml):**
+**Default credentials (from docker/docker-compose.opensearch.yml):**
 - **Username:** `admin`
 - **Password:** `MyStrongPass123!`
 - **Port:** `9200` (API), `5601` (Dashboards)
@@ -674,22 +674,22 @@ http://localhost:5601
 
 **Stop services (keeps data):**
 ```bash
-podman-compose -f docker-compose.opensearch.yml down
+podman-compose -f docker/docker-compose.opensearch.yml down
 ```
 
 **Stop and remove data:**
 ```bash
-podman-compose -f docker-compose.opensearch.yml down -v
+podman-compose -f docker/docker-compose.opensearch.yml down -v
 ```
 
 **View logs:**
 ```bash
-podman-compose -f docker-compose.opensearch.yml logs -f
+podman-compose -f docker/docker-compose.opensearch.yml logs -f
 ```
 
 **Restart services:**
 ```bash
-podman-compose -f docker-compose.opensearch.yml restart
+podman-compose -f docker/docker-compose.opensearch.yml restart
 ```
 
 ---
@@ -1411,7 +1411,7 @@ ollama serve
 **OpenSearch connection error:**
 ```bash
 # Start OpenSearch
-podman-compose -f docker-compose.opensearch.yml up -d
+podman-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 **Import errors:**

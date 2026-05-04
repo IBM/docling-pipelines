@@ -149,7 +149,7 @@ Example: Conditional processing based on document type, language, or custom crit
 - **Requirement**: OpenSearch must be running (default: `http://localhost:9200`)
 - **Used By**: `VectorDBOperator` with OpenSearch adapter for vector storage and retrieval
 - **Configuration**: Requires `provider: "opensearch"`, index name, dimension, KNN engine selection (NMSLIB, Faiss, Lucene)
-- **Setup**: Use `docker-compose.opensearch.yml` for local development
+- **Setup**: Use `docker/docker-compose.opensearch.yml` for local development
 
 ### Environment Variables
 - **PYTHONPATH**: Must include `src` for imports to work

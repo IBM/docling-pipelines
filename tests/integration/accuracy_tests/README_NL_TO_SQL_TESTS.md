@@ -62,7 +62,7 @@ The `nl_to_sql.py` program tests the complete NL-to-SQL pipeline with **100+ tes
 ### 1. OpenSearch Running
 ```bash
 # Using Docker
-docker-compose -f docker-compose.opensearch.yml up -d
+docker-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 ### 2. Ollama Service Running

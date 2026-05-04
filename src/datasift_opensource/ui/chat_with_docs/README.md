@@ -11,15 +11,15 @@ A Reflex-based chat interface that lets you upload documents, run them through t
 | Python ≥ 3.11 | UI requires ≥ 3.14 per `pyproject.toml`; backend uses `.python-version` |
 | [uv](https://docs.astral.sh/uv/) | Package manager used for both UI and backend |
 | [Ollama](https://ollama.com/) | Local LLM server — must be running with `granite4` model pulled |
-| OpenSearch | Running on `localhost:9200` (see `docker-compose.opensearch.yml`) |
+| OpenSearch | Running on `localhost:9200` (see `docker/docker-compose.opensearch.yml`) |
 
 ### Start OpenSearch
 
 ```bash
 # From the project root
-podman-compose -f docker-compose.opensearch.yml up -d
+podman-compose -f docker/docker-compose.opensearch.yml up -d
 # or
-docker-compose -f docker-compose.opensearch.yml up -d
+docker-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 ### Start Ollama

@@ -50,7 +50,7 @@ Before running this flow, ensure you have:
 
    ```bash
    # Using the provided docker-compose file (from project root)
-   docker-compose -f docker-compose.opensearch.yml up -d
+   docker-compose -f docker/docker-compose.opensearch.yml up -d
    ```
 
    Verify: `curl -u admin:MyStrongPass123! http://localhost:9200`

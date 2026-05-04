@@ -988,7 +988,7 @@ volumes:
 
 #### Overview
 
-Docker-based distributed execution uses `docker-compose.distributed.yml` to run:
+Docker-based distributed execution uses `docker/docker-compose.distributed.yml` to run:
 
 **Core Services (Required):**
 - Prefect server (central coordinator)
@@ -1056,12 +1056,12 @@ podman build -t datasift-opensource:latest .
 
 ```bash
 # Start all services
-docker-compose -f docker-compose.distributed.yml up -d
+docker-compose -f docker/docker-compose.distributed.yml up -d
 ```
 
 Or with Podman:
 ```bash
-podman-compose -f docker-compose.distributed.yml up -d
+podman-compose -f docker/docker-compose.distributed.yml up -d
 ```
 
 This starts:
@@ -1078,7 +1078,7 @@ This starts:
 
 ```bash
 # Check containers
-docker-compose -f docker-compose.distributed.yml ps
+docker-compose -f docker/docker-compose.distributed.yml ps
 
 # Check Prefect server
 curl http://localhost:4200/api/health
@@ -1151,17 +1151,17 @@ All services must be on the same network (`datasift-net`).
 
 ```bash
 # Scale to 8 workers
-docker-compose -f docker-compose.distributed.yml up -d --scale prefect-worker=8
+docker-compose -f docker/docker-compose.distributed.yml up -d --scale prefect-worker=8
 ```
 
 #### Stopping the Stack
 
 ```bash
 # Stop services
-docker-compose -f docker-compose.distributed.yml down
+docker-compose -f docker/docker-compose.distributed.yml down
 
 # Stop and remove volumes (WARNING: deletes data)
-docker-compose -f docker-compose.distributed.yml down -v
+docker-compose -f docker/docker-compose.distributed.yml down -v
 ```
 
 ### 4.2 Kubernetes Deployment
@@ -1843,7 +1843,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 ### 7.3 Links to Examples
 
 - **Sample Flow**: [`sample_flows/complete_pipeline_flow.json`](../../sample_flows/complete_pipeline_flow.json)
-- **Docker Compose**: [`docker-compose.distributed.yml`](../../docker-compose.distributed.yml)
+- **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
 - **Kubernetes Manifests**: [`k8s/`](../../k8s/)
 
 ### 7.4 Related Documentation
@@ -2300,7 +2300,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 ### 7.3 Links to Examples
 
 - **Sample Flow**: [`sample_flows/complete_pipeline_flow.json`](../../sample_flows/complete_pipeline_flow.json)
-- **Docker Compose**: [`docker-compose.distributed.yml`](../../docker-compose.distributed.yml)
+- **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
 - **Kubernetes Manifests**: [`k8s/`](../../k8s/)
 
 ### 7.4 Related Documentation

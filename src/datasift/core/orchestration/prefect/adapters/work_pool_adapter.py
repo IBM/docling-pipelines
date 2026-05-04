@@ -600,7 +600,7 @@ class WorkPoolAdapter(BatchExecutionPort):
             raise ValueError(
                 f"Cannot connect to Prefect Server: {e}. "
                 f"Ensure Prefect Server is running and PREFECT_API_URL is set correctly. "
-                f"For local setup, run: docker-compose -f docker-compose.distributed.yml up -d"
+                f"For local setup, run: docker-compose -f docker/docker-compose.distributed.yml up -d"
             ) from e
 
     @staticmethod

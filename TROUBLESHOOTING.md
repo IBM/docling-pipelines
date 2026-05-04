@@ -452,20 +452,20 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 1. **Start OpenSearch using podman-compose:**
 
 ```bash
-podman-compose -f docker-compose.opensearch.yml up -d
+podman-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 2. **Or using docker-compose:**
 
 ```bash
-docker-compose -f docker-compose.opensearch.yml up -d
+docker-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 3. **Wait for startup (30-60 seconds):**
 
 ```bash
 # Check logs
-podman-compose -f docker-compose.opensearch.yml logs -f opensearch-node
+podman-compose -f docker/docker-compose.opensearch.yml logs -f opensearch-node
 
 # Wait for "Node started" message
 ```
@@ -561,7 +561,7 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/shards?v"
 1. **Restart OpenSearch:**
 
 ```bash
-podman-compose -f docker-compose.opensearch.yml restart
+podman-compose -f docker/docker-compose.opensearch.yml restart
 ```
 
 2. **Check disk space:**
@@ -574,8 +574,8 @@ df -h
 3. **Reset cluster (WARNING: deletes all data):**
 
 ```bash
-podman-compose -f docker-compose.opensearch.yml down -v
-podman-compose -f docker-compose.opensearch.yml up -d
+podman-compose -f docker/docker-compose.opensearch.yml down -v
+podman-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 ---
@@ -593,7 +593,7 @@ podman-compose -f docker-compose.opensearch.yml up -d
 1. **Verify credentials:**
 
 ```bash
-# Default credentials from docker-compose.opensearch.yml
+# Default credentials from docker/docker-compose.opensearch.yml
 # Username: admin
 # Password: MyStrongPass123!
 
@@ -603,19 +603,19 @@ curl -u admin:MyStrongPass123! http://localhost:9200
 2. **Check if credentials were changed:**
 
 ```bash
-# View docker-compose.opensearch.yml
-cat docker-compose.opensearch.yml | grep -A 5 "OPENSEARCH_INITIAL_ADMIN_PASSWORD"
+# View docker/docker-compose.opensearch.yml
+cat docker/docker-compose.opensearch.yml | grep -A 5 "OPENSEARCH_INITIAL_ADMIN_PASSWORD"
 ```
 
 3. **Reset admin password:**
 
 ```bash
 # Stop OpenSearch
-podman-compose -f docker-compose.opensearch.yml down
+podman-compose -f docker/docker-compose.opensearch.yml down
 
-# Edit docker-compose.opensearch.yml and change password
+# Edit docker/docker-compose.opensearch.yml and change password
 # Restart
-podman-compose -f docker-compose.opensearch.yml up -d
+podman-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 ---
@@ -1326,7 +1326,7 @@ tail -f /tmp/ollama.log  # Or wherever you redirected output
 **OpenSearch:**
 
 ```bash
-podman-compose -f docker-compose.opensearch.yml logs -f opensearch-node
+podman-compose -f docker/docker-compose.opensearch.yml logs -f opensearch-node
 ```
 
 ---
@@ -1522,7 +1522,7 @@ curl -X PUT -u admin:MyStrongPass123! "http://localhost:9200/my-index/_settings"
 # Check heap usage
 curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/nodes?v&h=heap.percent,heap.current,heap.max"
 
-# Adjust heap size in docker-compose.opensearch.yml
+# Adjust heap size in docker/docker-compose.opensearch.yml
 # OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
 ```
 
@@ -1745,7 +1745,7 @@ A:
 
 ```bash
 # Stop OpenSearch
-podman-compose -f docker-compose.opensearch.yml down
+podman-compose -f docker/docker-compose.opensearch.yml down
 
 # Stop Ollama
 pkill -f "ollama serve"
@@ -1775,7 +1775,7 @@ A: You can install in user space using `uv` and run services in containers witho
 ### Configuration Questions
 
 **Q: How do I change the OpenSearch password?**  
-A: Edit `docker-compose.opensearch.yml` and change `OPENSEARCH_INITIAL_ADMIN_PASSWORD`, then restart.
+A: Edit `docker/docker-compose.opensearch.yml` and change `OPENSEARCH_INITIAL_ADMIN_PASSWORD`, then restart.
 
 **Q: Can I use a different port for Ollama?**  
 A: Yes, set `OLLAMA_HOST` environment variable: `export OLLAMA_HOST=0.0.0.0:11435`
@@ -1976,7 +1976,7 @@ source .venv/bin/activate
 
 # Service management
 ollama serve &
-podman-compose -f docker-compose.opensearch.yml up -d
+podman-compose -f docker/docker-compose.opensearch.yml up -d
 
 # Pipeline execution
 datasift-orchestrator --flow-file my_flow.json
@@ -1990,7 +1990,7 @@ curl http://localhost:11434/api/tags
 curl -u admin:MyStrongPass123! http://localhost:9200
 
 # Cleanup
-podman-compose -f docker-compose.opensearch.yml down -v
+podman-compose -f docker/docker-compose.opensearch.yml down -v
 pkill -f "ollama serve"
 ```
 
