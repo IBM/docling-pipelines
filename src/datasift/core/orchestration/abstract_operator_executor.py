@@ -261,3 +261,178 @@ class AbstractOperatorExecutor:
             time_taken,
             extra=common_log_arguments,
         )
+
+    def _process_table_for_empty_docs(self, *, table: pa.Table, doc_column: str, metadata: dict[str, Any]) -> pa.Table:
+        """
+        Process a single table to handle empty documents using PyArrow operations.
+
+        Args:
+            table: PyArrow table to process
+            doc_column: Name of the document content column
+            metadata: Metadata dictionary to update
+
+        Returns:
+            Processed PyArrow table with empty documents removed
+        """
+        import pyarrow.compute as pc
+
+        # Skip processing if table is empty
+        if table.num_rows == 0:
+            return table
+
+        # Check if doc_column exists in the table
+        if doc_column not in table.column_names:
+            return table
+
+        doc_col = table[doc_column]
+
+        # Create mask for empty documents: null OR empty/whitespace-only strings
+        is_null = pc.is_null(doc_col)
+        doc_col_filled = pc.fill_null(doc_col, "")
+        stripped = pc.utf8_trim_whitespace(doc_col_filled)
+        is_empty_string = pc.equal(pc.utf8_length(stripped), 0)
+        is_empty_mask = pc.or_(is_null, is_empty_string)
+
+        # Get indices of empty documents for metadata tracking
+        empty_doc_indices = pc.indices_nonzero(is_empty_mask).to_pylist()
+
+        # If no empty documents, return table as is
+        if not empty_doc_indices:
+            return table
+
+        # Save empty documents to incremental metadata
+        empty_docs_table = table.filter(is_empty_mask)
+        self._save_empty_docs_to_incremental_metadata(table=empty_docs_table, empty_doc_indices=empty_doc_indices)
+
+        # Add empty documents as skipped in metadata
+        self._add_empty_docs_to_skipped_metadata(table=table, empty_doc_indices=empty_doc_indices, metadata=metadata)
+
+        # Filter out empty documents using inverted mask
+        non_empty_mask = pc.invert(is_empty_mask)
+        filtered_table = table.filter(non_empty_mask)
+
+        return filtered_table if filtered_table.num_rows > 0 else table.slice(0, 0)
+
+    def _save_empty_docs_to_incremental_metadata(self, *, table: pa.Table, empty_doc_indices: list):
+        """
+        Save empty documents to incremental metadata so they are marked as processed
+        and won't be reprocessed in subsequent incremental runs.
+
+        Args:
+            table: The PyArrow table containing all documents
+            empty_doc_indices: List of indices for documents with empty content
+        """
+        if not empty_doc_indices:
+            return
+
+        try:
+            from datasift.utils.data.incremental_update import IncrementalUpdateUtil
+
+            # Create a table with only the empty documents
+            empty_docs_table = table.take(empty_doc_indices)
+
+            # Initialize IncrementalUpdateUtil
+            incremental_util = IncrementalUpdateUtil()
+
+            # Save empty documents to incremental metadata
+            incremental_util.save_metadata_for_incremental_update(
+                job_id=self._params.get(DatasiftConstants.JOB_ID),
+                job_run_id=self._params.get(DatasiftConstants.JOB_RUN_ID),
+                tables=[empty_docs_table],
+                failed_doc_ids=None
+            )
+
+            logger.info(
+                f"Saved {len(empty_doc_indices)} empty documents to incremental metadata",
+                extra={DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
+                       DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID)}
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to save empty documents to incremental metadata: {e!s}",
+                extra={DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
+                       DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID)}
+            )
+
+    def _add_empty_docs_to_skipped_metadata(self, *, table: pa.Table, empty_doc_indices: list, metadata: dict[str, Any]):
+        """
+        Add empty documents to the skipped documents list in metadata.
+
+        Args:
+            table: The PyArrow table containing all documents
+            empty_doc_indices: List of indices for documents with empty content
+            metadata: Metadata dictionary to update
+        """
+        if not empty_doc_indices:
+            return
+
+        operator = self.get_operator()
+
+        # Extract columns once for better performance
+        id_col = table[OperatorConstants.Columns.ID] if OperatorConstants.Columns.ID in table.column_names else None
+        name_col = table[OperatorConstants.Columns.NAME] if OperatorConstants.Columns.NAME in table.column_names else None
+
+        for idx in empty_doc_indices:
+            doc_id = id_col[idx].as_py() if id_col is not None else f"doc_{idx}"
+            doc_name = name_col[idx].as_py() if name_col is not None else f"document_{idx}"
+
+            logger.info(
+                f"Skipping document '{doc_name}' (ID: {doc_id}) due to empty content",
+                extra={DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
+                       DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID)}
+            )
+
+            operator.record_skipped_document(
+                metadata=metadata,
+                doc_id=str(doc_id),
+                doc_name=str(doc_name),
+                reason="Extracted content is empty"
+            )
+
+        # Update processed_docs count to exclude empty documents
+        if Metrics.External.PROCESSED_DOCS in metadata:
+            metadata[Metrics.External.PROCESSED_DOCS] = metadata[Metrics.External.PROCESSED_DOCS] - len(empty_doc_indices)
+
+        # Update node status to indicate completion with warnings if there are skipped docs
+        if empty_doc_indices:
+            metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                metadata.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value),
+                ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+            )
+
+    def _handle_empty_documents(self, *, out_tables: list[pa.Table], metadata: dict[str, Any]) -> tuple[
+        list[pa.Table], dict[str, Any]]:
+        """
+        Handle empty documents after operator execution.
+        - Check if DOC_COLUMN is empty for any documents
+        - Save empty docs to incremental processing metadata
+        - Remove empty docs from the PyArrow table
+        - Add empty docs as skipped documents in metadata
+
+        Args:
+            out_tables: List of output PyArrow tables from operator execution
+            metadata: Metadata dictionary from operator execution
+
+        Returns:
+            tuple: (processed_tables, updated_metadata)
+        """
+        if not out_tables or len(out_tables) == 0:
+            return out_tables, metadata
+
+        processed_tables = []
+        operator = self.get_operator()
+        doc_column = getattr(operator, 'doc_column', OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+
+        for item in out_tables:
+            # Handle nested lists (e.g., from branching operator which returns multiple branches)
+            if isinstance(item, list):
+                processed_branch = []
+                for table in item:
+                    processed_table = self._process_table_for_empty_docs(table=table, doc_column=doc_column, metadata=metadata)
+                    processed_branch.append(processed_table)
+                processed_tables.append(processed_branch)
+            else:
+                processed_table = self._process_table_for_empty_docs(table=item, doc_column=doc_column, metadata=metadata)
+                processed_tables.append(processed_table)
+
+        return processed_tables, metadata

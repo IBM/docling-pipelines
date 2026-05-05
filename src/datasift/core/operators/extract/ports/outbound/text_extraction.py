@@ -292,22 +292,7 @@ class TextExtractionPort(ABC):
         """
         if result[OperatorConstants.Extraction.SUCCESS]:
             extracted_content = result.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-            if not extracted_content or (isinstance(extracted_content, str) and not extracted_content.strip()):
-                AbstractOperator.record_skipped_document(
-                    metadata=metadata,
-                    doc_id=str(task["doc_id"]),
-                    doc_name=task["doc_name"],
-                    reason="Empty extracted content",
-                )
-                logger.warning(
-                    "Skipping document %s due to empty extracted content",
-                    task["doc_name"],
-                    extra=self.common_log_arguments,
-                )
-                remove_row_idx.append(idx)
-                return
-
-            doc_contents[idx] = extracted_content
+            doc_contents[idx] = extracted_content if extracted_content else ""
             doc_metadata_list[idx] = result.get(OperatorConstants.Metadata.METADATA, {})
 
             # Extract tables if present

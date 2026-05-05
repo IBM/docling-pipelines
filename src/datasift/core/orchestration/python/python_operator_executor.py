@@ -91,7 +91,9 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
                         updated_features=op.updated_features,
                         input_features=result[0][0],
                     )
-            metadata = copy.deepcopy(result[1])
+            metadata_copy = copy.deepcopy(result[1])
+            # Handle empty documents after execution
+            out_tables, metadata = self._handle_empty_documents(out_tables=result[0], metadata=result[1])
             cleanup_pyarrow_buffers(
                 operator_name=op.name,
                 phase=MemoryLogPhases.TRANSFORM_COMPLETED,
@@ -99,10 +101,10 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
                 extra=op.common_log_arguments,
                 logger=logger,
             )
-            self.update_final_node_stats(tables=result[0], metadata=metadata)
+            self.update_final_node_stats(tables=out_tables, metadata=metadata)
             time_taken = timeit.default_timer() - start
             # Removing the internal metrics from the operator metadata if any to another dict
-            _ = OperatorUtils.remove_internal_metrics_from_metadata(metadata=metadata)
+            _ = OperatorUtils.remove_internal_metrics_from_metadata(metadata=metadata_copy)
             self._log_completion(
                 op_logger=logger,
                 name=op.name,
@@ -111,7 +113,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
                 metadata=metadata,
                 common_log_arguments=common_log_arguments,
             )
-            return result
+            return out_tables, metadata
         except Exception as e:
             self._handle_exception(op_logger=op.logger, node_id=node_id, exception=e)
             raise
