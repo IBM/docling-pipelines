@@ -141,6 +141,7 @@ class TestGoogleDriveSourceAdapter:
         config = self.make_config()
         langchain_doc = Mock()
         langchain_doc.page_content = "hello"
+        langchain_doc._binary_content = b"hello"
         langchain_doc.metadata = {
             "id": "doc1",
             "name": "file.pdf",

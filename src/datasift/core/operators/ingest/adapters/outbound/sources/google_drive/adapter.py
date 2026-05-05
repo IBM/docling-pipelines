@@ -3,13 +3,16 @@
 import os
 import pickle
 from datetime import datetime
+from io import BytesIO
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+from langchain_core.document_loaders import BaseLoader
+from langchain_core.documents import Document as LangChainDocument
 from langchain_google_community import GoogleDriveLoader
 
 from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
@@ -19,6 +22,93 @@ from datasift.core.operators.ingest.ports.outbound.document_source import Docume
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+class PyPDFFileLoader(BaseLoader):
+    """
+    Custom loader that preserves original binary content without text extraction.
+
+    This loader solves three problems:
+    1. Avoids deprecated PyPDF2 dependency (uses pypdf only for validation)
+    2. Returns single document per file (not one per PDF page)
+    3. Preserves original binary content for Extract operator
+
+    The loader stores binary content as _binary_content attribute, which is then
+    picked up by IngestSourceOperator and stored in the binary_content column
+    for downstream processing by ExtractOperator.
+    """
+
+    def __init__(self, *, file: BytesIO, **kwargs: Any) -> None:
+        """
+        Initialize the loader with a file object.
+
+        Args:
+            file: BytesIO object containing file content
+            **kwargs: Additional metadata from GoogleDriveLoader
+        """
+        self.file = file
+        self.metadata = kwargs
+
+    def load(self) -> list[LangChainDocument]:
+        """
+        Load binary content without text extraction.
+
+        For PDF files: Validates using pypdf but stores original binary content.
+        For non-PDF files: Stores original binary content as-is.
+
+        Returns:
+            List containing single LangChain Document with binary content attached,
+            or empty list if binary read fails
+        """
+        try:
+            self.file.seek(0)
+            binary_content = self.file.read()
+
+            # Skip empty files
+            if not binary_content or len(binary_content) == 0:
+                logger.warning("Skipping file: Either the file is empty or binary content extraction failed")
+                return []
+
+            # Check if this is a PDF file for metadata purposes
+            is_pdf = binary_content[:4] == b"%PDF"
+            file_type = "PDF" if is_pdf else "Unknown"
+
+            # For PDFs, validate and get page count using pypdf
+            total_pages = None
+            if is_pdf:
+                try:
+                    from pypdf import PdfReader
+
+                    self.file.seek(0)
+                    pdf_reader = PdfReader(self.file)
+                    total_pages = len(pdf_reader.pages)
+                    logger.info(
+                        f"GoogleDrive PyPDFFileLoader validated PDF: total_pages={total_pages}, "
+                        f"binary_size={len(binary_content)} bytes"
+                    )
+                except ImportError:
+                    logger.warning("pypdf not available for PDF validation, storing binary content anyway")
+                except Exception as e:
+                    logger.warning(f"Failed to validate PDF structure: {e}, storing binary content anyway")
+
+            # Create document with empty page_content (Extract operator will populate this)
+            doc_metadata = {**self.metadata, "file_type": file_type}
+            if total_pages is not None:
+                doc_metadata["total_pages"] = total_pages
+
+            doc = LangChainDocument(
+                page_content="",  # Empty - Extract operator will extract text
+                metadata=doc_metadata,
+            )
+
+            # Attach binary content as private attribute for IngestSourceOperator
+            doc._binary_content = binary_content  # type: ignore[attr-defined]
+
+            return [doc]
+
+        except Exception as e:
+            logger.error(f"Failed to load binary content: {e}")
+            return []
 
 
 @register_source_adapter
@@ -41,6 +131,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
       - Google Slides → PDF
       - Google Drawings → PDF
     - File extension filtering
+    - Secure PDF processing using pypdf (not PyPDF2)
 
     Benefits over direct API implementation:
     - 73% less code (80 lines vs 300+ lines)
@@ -48,6 +139,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
     - Automatic updates and bug fixes
     - Simpler error handling
     - Support for both OAuth and Service Account authentication
+    - Uses secure pypdf library instead of PyPDF2 for PDF processing
     """
 
     # Metadata for connector discovery
@@ -165,21 +257,36 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         config: GoogleDriveSourceConfig,
         recursive: bool | None = None,
     ) -> GoogleDriveLoader:
-        """Create a LangChain loader for Google Drive."""
+        """
+        Create a LangChain loader for Google Drive.
+
+        Uses custom PyPDFFileLoader (which uses pypdf) instead of PyPDF2 to avoid security issues.
+        """
         creds = self._get_credentials(config)
         return GoogleDriveLoader(
             folder_id=config.folder_id,
             credentials=creds,
             recursive=config.recursive if recursive is None else recursive,
             file_types=self._map_file_extensions_to_types(config.file_extensions),
+            file_loader_cls=PyPDFFileLoader,
         )
 
     def _prepare_document(self, lc_doc) -> Document:
-        """Convert a LangChain document to the domain document model."""
+        """
+        Convert a LangChain document to the domain document model.
+
+        Extracts binary content from the _binary_content attribute attached by
+        PyPDFFileLoader, preserving original file bytes for Extract operator.
+        """
         metadata = lc_doc.metadata
         doc_id = metadata.get("id", "")
         doc_name = metadata.get("name", "unknown")
-        content = lc_doc.page_content.encode("utf-8")
+
+        # Get binary content from _binary_content attribute (set by PyPDFFileLoader)
+        if not hasattr(lc_doc, "_binary_content"):
+            raise ValueError(f"Binary content missing for document {doc_name} (ID: {doc_id}). ")
+
+        content = lc_doc._binary_content
 
         modified_time = None
         if metadata.get("modified_time"):
@@ -199,14 +306,140 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
                 "file_size": len(content),
                 "drive_id": doc_id,
                 "drive_name": doc_name,
+                "file_type": metadata.get("file_type"),
+                "total_pages": metadata.get("total_pages"),
             },
         )
 
+    def _consolidate_multi_part_documents(self, *, langchain_docs: list) -> list:
+        """
+        Consolidate multi-part documents (like Google Sheets) into single documents.
+
+        Google Sheets come as multiple LangChain documents (one per sheet/tab).
+        This method groups them by file ID and consolidates their binary content.
+        """
+        # Group documents by file ID
+        file_groups: dict[str, list] = {}
+
+        for lc_doc in langchain_docs:
+            source = lc_doc.metadata.get("source", "")
+
+            # Extract file ID from source URL (ignore gid parameter for Google Sheets)
+            file_id = ""
+            if "/d/" in source:
+                file_id = source.split("/d/")[1].split("/")[0].split("?")[0]
+
+            if file_id:
+                if file_id not in file_groups:
+                    file_groups[file_id] = []
+                file_groups[file_id].append(lc_doc)
+
+        # Consolidate multi-part documents
+        consolidated_docs = []
+        for file_id, doc_group in file_groups.items():
+            if len(doc_group) == 1:
+                # Single document - use as-is (only if it has binary content)
+                if hasattr(doc_group[0], "_binary_content"):
+                    consolidated_docs.append(doc_group[0])
+                else:
+                    logger.warning(
+                        f"Skipping document {file_id} ({doc_group[0].metadata.get('name', 'unknown')}): "
+                        "no binary content"
+                    )
+            else:
+                # Multiple documents (e.g., Google Sheets) - consolidate
+                first_doc = doc_group[0]
+
+                # Combine binary content from all parts with sheet separators
+                all_content_parts = []
+                parts_with_content = 0
+                for idx, lc_doc in enumerate(doc_group):
+                    # Skip parts without binary content
+                    if not hasattr(lc_doc, "_binary_content"):
+                        continue
+
+                    source = lc_doc.metadata.get("source", "")
+
+                    # Extract sheet identifier
+                    sheet_id = "unknown"
+                    if "?gid=" in source:
+                        sheet_id = source.split("?gid=")[1].split("&")[0]
+
+                    # Add sheet separator
+                    sheet_header = f"\n\n--- Sheet {idx + 1} (gid: {sheet_id}) ---\n\n"
+                    all_content_parts.append(sheet_header.encode("utf-8"))
+
+                    # Add binary content
+                    all_content_parts.append(lc_doc._binary_content)
+                    parts_with_content += 1
+
+                # Only create consolidated doc if at least one part has content
+                if parts_with_content == 0:
+                    logger.warning(
+                        f"Skipping multi-part document {file_id} ({first_doc.metadata.get('name', 'unknown')}): "
+                        f"none of {len(doc_group)} parts have binary content"
+                    )
+                    continue
+
+                # Combine all binary content
+                combined_binary = b"".join(all_content_parts)
+
+                # Create consolidated document
+                consolidated_doc = LangChainDocument(page_content="", metadata=first_doc.metadata.copy())
+                # Remove gid parameter from source URL
+                if "source" in consolidated_doc.metadata:
+                    consolidated_doc.metadata["source"] = consolidated_doc.metadata["source"].split("?")[0]
+
+                # Attach combined binary content
+                consolidated_doc._binary_content = combined_binary  # type: ignore[attr-defined]
+                consolidated_docs.append(consolidated_doc)
+
+                logger.info(
+                    f"Consolidated {parts_with_content}/{len(doc_group)} parts into single document: {file_id} "
+                    f"({first_doc.metadata.get('name', 'unknown')})"
+                )
+
+        return consolidated_docs
+
     def _iter_documents(self, config: GoogleDriveSourceConfig) -> list[Document]:
-        """Load and convert Google Drive documents."""
+        """
+        Load and convert Google Drive documents.
+
+        Returns one document per file with binary content preserved.
+        Multi-part files (like Google Sheets) are consolidated into single documents.
+        """
         loader = self._create_loader(config)
         langchain_docs = loader.load()
-        return [self._prepare_document(lc_doc) for lc_doc in langchain_docs]
+
+        # Consolidate multi-part documents (e.g., Google Sheets with multiple tabs)
+        original_count = len(langchain_docs)
+        consolidated_langchain_docs = self._consolidate_multi_part_documents(langchain_docs=langchain_docs)
+
+        # Convert to domain documents
+        documents = [self._prepare_document(lc_doc) for lc_doc in consolidated_langchain_docs]
+
+        # Log summary
+        total_files = len(documents)
+        logger.info("Google Drive ingestion summary:")
+        logger.info(f"  Total unique files: {total_files}")
+        logger.info(f"  Original documents from loader: {original_count}")
+        logger.info(f"  Consolidated documents: {len(documents)}")
+
+        if original_count != len(documents):
+            logger.info("  Note: Multi-part files (like Google Sheets) were consolidated into single documents")
+
+        # Count file types
+        file_type_counts: dict[str, int] = {}
+        for doc in documents:
+            file_type = doc.metadata.get("file_type", "Unknown")
+            file_type_counts[file_type] = file_type_counts.get(file_type, 0) + 1
+
+        if file_type_counts:
+            logger.info("  File breakdown by type:")
+            for file_type, count in sorted(file_type_counts.items(), key=lambda x: x[1], reverse=True):
+                logger.info(f"    - {file_type}: {count} file(s)")
+
+        return documents
 
     async def fetch_documents(self, config: GoogleDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
