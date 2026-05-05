@@ -276,13 +276,13 @@ Examples:
 """
 
 # Operator Patterns
-OPERATOR_TYPE_PATTERN = r"^(boolean|crn|date|double|float|sfloat|enum|int32|int64|json|list|string|time|timestamp)$"
+OPERATOR_TYPE_PATTERN = r"^(bool|boolean|crn|date|double|float|sfloat|enum|int8|int16|int32|int64|json|list|string|time|timestamp|vector|vector_sparse)$"
 """Operator type pattern (exact match for DataTypes enum values and common aliases).
 
-Rationale: Operator types are predefined enums from DataTypes (AttributeDataTypes).
-Includes common aliases used in operators: "float" (alias for "sfloat"), "int32" (alias for "int64")
-Allowed values: "boolean", "crn", "date", "double", "float", "sfloat", "enum", "int32", "int64", "json", "list", "string", "time", "timestamp"
-Example: "string", "int64", "int32", "double", "float", "sfloat", "boolean", "list", "json"
+Rationale: Operator types are predefined enums from DataTypes (AttributeDataTypes) and OperatorConstants.Types.
+Includes common aliases used in operators: "float" (alias for "sfloat"), "int32" (alias for "int64"), "bool" (alias for "boolean")
+Allowed values: "bool", "boolean", "crn", "date", "double", "float", "sfloat", "enum", "int8", "int16", "int32", "int64", "json", "list", "string", "time", "timestamp", "vector", "vector_sparse"
+Example: "string", "int64", "int32", "double", "float", "sfloat", "boolean", "bool", "list", "json", "vector", "vector_sparse"
 """
 
 OPERATOR_LABEL_PATTERN = r"^[\w\s\-\(\)]+$"
@@ -293,12 +293,12 @@ Allows: word characters, spaces, hyphens, parentheses
 Example: "Entity Extraction (Ollama)", "ML Text Enrichment", "Document Classifier"
 """
 
-OPERATOR_CATEGORY_PATTERN = r"^(Extract|Ingest|Functional|Quality|VectorDB|Custom)$"
+OPERATOR_CATEGORY_PATTERN = r"^(Extract|Ingest|Functional|Quality|VectorDB|Storage|Custom)$"
 """Operator category pattern (exact match for OperatorCategory enum values).
 
 Rationale: Categories are predefined enums from OperatorCategory.
-Allowed values: "Extract", "Ingest", "Functional", "Quality", "VectorDB", "Custom"
-Example: "Extract", "Ingest", "Functional", "Quality", "VectorDB", "Custom"
+Allowed values: "Extract", "Ingest", "Functional", "Quality", "VectorDB", "Storage", "Custom"
+Example: "Extract", "Ingest", "Functional", "Quality", "VectorDB", "Storage", "Custom"
 """
 
 OPERATOR_FEATURE_NAME_PATTERN = r"^[\w_]+$"

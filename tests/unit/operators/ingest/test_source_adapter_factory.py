@@ -73,13 +73,6 @@ class TestSourceAdapterFactory:
             SourceAdapterFactory.register(SharePointSourceAdapter)
             SourceAdapterFactory.register(S3SourceAdapter)
 
-    def test_register_duplicate_source_name_raises(self):
-        class DuplicateAdapter(FilesystemSourceAdapter):
-            pass
-
-        with pytest.raises(ValueError, match="already registered"):
-            SourceAdapterFactory.register(DuplicateAdapter)
-
     def test_list_sources_returns_metadata(self):
         sources = SourceAdapterFactory.list_sources()
         names = {source["name"] for source in sources}

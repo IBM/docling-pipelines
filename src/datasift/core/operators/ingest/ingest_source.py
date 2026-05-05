@@ -10,6 +10,8 @@ import pyarrow as pa
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 
+# Import adapters to trigger registration via @register_source_adapter decorator
+import datasift.core.operators.ingest.adapters.outbound.sources  # noqa: F401
 from datasift.core.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -26,12 +28,6 @@ from datasift.core.operators.ingest.ingest_utils import (
     get_filter_extensions,
     is_doc_previously_processed,
 )
-
-# Import adapters to trigger registration via @register_source_adapter decorator
-# These imports are necessary for the factory to discover available adapters
-# Note: Adapters are now auto-discovered by FileFinder during operator loading
-# so explicit imports are not needed here. The FileFinder scans the adapters directory
-# and registers all adapters automatically.
 from datasift.integrations.rest_client import RestClient, RestClientConfig, RestMethod
 from datasift.utils.data.incremental_update import IncrementalUpdateUtil
 from datasift.utils.infrastructure.logging import get_logger
@@ -422,7 +418,7 @@ class IngestSourceOperator(AbstractOperator):
             # Try to use new adapter architecture first
             if SourceAdapterFactory.is_registered(self.provider):
                 # Use lazy loading for adapters to respect max_files limit
-                documents: list[Document] = self._load_documents_via_adapter()
+                documents: Iterator[Document] | list[Document] = self._load_documents_via_adapter()
             else:
                 loader: BaseLoader = self._get_loader()
                 # Use lazy_load if available, otherwise fall back to load()

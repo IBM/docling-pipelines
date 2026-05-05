@@ -373,6 +373,144 @@ class TestGetOperatorMetadataEndpoint:
         assert data["unknown_op"]["category"] == "Custom"  # Default is now "Custom" (valid enum value)
 
 
+class TestOperatorMetadataValidationPatterns:
+    """Tests for operator metadata validation patterns (regression tests for Issue #1).
+
+    These tests ensure that the Pydantic validation patterns accept all valid
+    operator types and categories, preventing validation errors like:
+    - "vector" type validation error
+    - "vector_sparse" type validation error
+    - "Storage" category validation error
+    """
+
+    def test_vector_type_accepted_in_features(self, client, override_service):
+        """Test that 'vector' type is accepted in operator features (Issue #1 regression)."""
+        # Arrange - metadata with vector type feature
+        metadata_with_vector = {
+            "embeddings_operator": {
+                "label": "Embeddings Operator",
+                "category": "Functional",
+                "description": "Generates vector embeddings",
+                "features": {
+                    "embeddings": {"name": "embeddings", "type": "vector", "description": "Dense vector embeddings"}
+                },
+                "is_operator_available": True,
+            }
+        }
+        override_service.get_all_operator_metadata.return_value = metadata_with_vector
+
+        # Act
+        response = client.get("/operators/metadata")
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data["embeddings_operator"]["features"]["embeddings"]["type"] == "vector"
+
+    def test_vector_sparse_type_accepted_in_features(self, client, override_service):
+        """Test that 'vector_sparse' type is accepted in operator features (Issue #1 regression)."""
+        # Arrange - metadata with vector_sparse type feature
+        metadata_with_vector_sparse = {
+            "sparse_embeddings_operator": {
+                "label": "Sparse Embeddings Operator",
+                "category": "Functional",
+                "description": "Generates sparse vector embeddings",
+                "features": {
+                    "sparse_embeddings": {
+                        "name": "sparse_embeddings",
+                        "type": "vector_sparse",
+                        "description": "Sparse vector embeddings",
+                    }
+                },
+                "is_operator_available": True,
+            }
+        }
+        override_service.get_all_operator_metadata.return_value = metadata_with_vector_sparse
+
+        # Act
+        response = client.get("/operators/metadata")
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data["sparse_embeddings_operator"]["features"]["sparse_embeddings"]["type"] == "vector_sparse"
+
+    def test_storage_category_accepted(self, client, override_service):
+        """Test that 'Storage' category is accepted (Issue #1 regression)."""
+        # Arrange - metadata with Storage category
+        metadata_with_storage = {
+            "document_set_operator": {
+                "label": "Document Set Operator",
+                "category": "Storage",
+                "description": "Stores document sets",
+                "features": {},
+                "is_operator_available": True,
+            }
+        }
+        override_service.get_all_operator_metadata.return_value = metadata_with_storage
+
+        # Act
+        response = client.get("/operators/metadata")
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data["document_set_operator"]["category"] == "Storage"
+
+    def test_all_integer_types_accepted(self, client, override_service):
+        """Test that all integer types (int8, int16, int32, int64) are accepted (Issue #1 regression)."""
+        # Arrange - metadata with various integer types
+        metadata_with_int_types = {
+            "test_operator": {
+                "label": "Test Operator",
+                "category": "Functional",
+                "description": "Test operator with integer types",
+                "features": {
+                    "int8_field": {"name": "int8_field", "type": "int8"},
+                    "int16_field": {"name": "int16_field", "type": "int16"},
+                    "int32_field": {"name": "int32_field", "type": "int32"},
+                    "int64_field": {"name": "int64_field", "type": "int64"},
+                },
+                "is_operator_available": True,
+            }
+        }
+        override_service.get_all_operator_metadata.return_value = metadata_with_int_types
+
+        # Act
+        response = client.get("/operators/metadata")
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        features = data["test_operator"]["features"]
+        assert features["int8_field"]["type"] == "int8"
+        assert features["int16_field"]["type"] == "int16"
+        assert features["int32_field"]["type"] == "int32"
+        assert features["int64_field"]["type"] == "int64"
+
+    def test_bool_type_accepted(self, client, override_service):
+        """Test that 'bool' type is accepted (Issue #1 regression)."""
+        # Arrange - metadata with bool type
+        metadata_with_bool = {
+            "test_operator": {
+                "label": "Test Operator",
+                "category": "Functional",
+                "description": "Test operator with bool type",
+                "features": {"is_valid": {"name": "is_valid", "type": "bool"}},
+                "is_operator_available": True,
+            }
+        }
+        override_service.get_all_operator_metadata.return_value = metadata_with_bool
+
+        # Act
+        response = client.get("/operators/metadata")
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data["test_operator"]["features"]["is_valid"]["type"] == "bool"
+
+
 class TestOperatorMetadataServiceDependency:
     """Tests for operator metadata service dependency injection.
 

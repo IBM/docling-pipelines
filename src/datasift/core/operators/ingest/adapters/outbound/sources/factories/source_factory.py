@@ -31,19 +31,14 @@ class SourceAdapterFactory:
             adapter_class: The adapter class to register
 
         Raises:
-            ValueError: If adapter doesn't have SOURCE_NAME or name already registered
+            ValueError: If adapter doesn't have SOURCE_NAME
         """
         source_name = getattr(adapter_class, "SOURCE_NAME", None)
 
         if not source_name:
             raise ValueError(f"Adapter {adapter_class.__name__} must define SOURCE_NAME class attribute")
 
-        if source_name in cls._adapters:
-            existing = cls._adapters[source_name]
-            raise ValueError(f"Source adapter '{source_name}' is already registered by {existing.__name__}")
-
         cls._adapters[source_name] = adapter_class
-        print(f"Registered source adapter: {source_name} ({adapter_class.__name__})")
 
     @classmethod
     def create(cls, source_name: str) -> DocumentSourcePort:

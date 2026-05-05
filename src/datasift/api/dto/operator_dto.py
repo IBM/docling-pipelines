@@ -106,7 +106,21 @@ class OperatorFeature(BaseModel):
         max_length=OPERATOR_TYPE_MAX_LENGTH,
         pattern=OPERATOR_TYPE_PATTERN,
         description=OPERATOR_TYPE_DESC,
-        examples=["string", "int64", "double", "float", "int32", "boolean", "list"],
+        examples=[
+            "string",
+            "int64",
+            "int32",
+            "int16",
+            "int8",
+            "double",
+            "float",
+            "boolean",
+            "bool",
+            "list",
+            "json",
+            "vector",
+            "vector_sparse",
+        ],
     )
     description: str | None = Field(
         default=None,
@@ -174,7 +188,7 @@ class OperatorMetadataItem(BaseModel):
         max_length=OPERATOR_CATEGORY_MAX_LENGTH,
         pattern=OPERATOR_CATEGORY_PATTERN,
         description=OPERATOR_CATEGORY_DESC,
-        examples=["Extract", "Ingest", "Functional", "Quality", "Unknown"],
+        examples=["Extract", "Ingest", "Functional", "Quality", "VectorDB", "Storage", "Custom"],
     )
     description: str | None = Field(
         default=None,
