@@ -132,6 +132,7 @@ def test_operator_metadata():
 
     expected_operator_metadata = {
         "category": "Quality",
+        "description": "Exact deduplication operator that removes duplicate documents based on content hash",
         "is_operator_available": True,
         "label": "De-duplicator",
     }
@@ -236,7 +237,7 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
             }
         )
 
-        result_tables, metadata = operator.transform(None)
+        result_tables, _ = operator.transform(None)
 
         # Should handle gracefully and return None in output
         self.assertIsNone(result_tables[0])
@@ -293,7 +294,7 @@ class TestEdedupOperatorEdgeCases(unittest.TestCase):
             }
         )
 
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _ = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Verify output table has same columns as input

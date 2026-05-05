@@ -791,14 +791,6 @@ Example response:
                     OperatorConstants.Config.DESCRIPTION: "Explanation for the classification decision",
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 },
-                DEFAULT_DOC_COLUMN: {
-                    OperatorConstants.Misc.NAME: "Document Content",
-                    OperatorConstants.Config.DESCRIPTION: "The markdown content extracted from the document",
-                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
-                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
-                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
-                },
             },
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Config.PROVIDER: {
@@ -861,6 +853,40 @@ Example response:
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                OperatorConstants.Config.EXTRACT_TABLES: {
+                    OperatorConstants.Misc.NAME: "Extract Tables",
+                    OperatorConstants.Config.DESCRIPTION: "Extract tables from documents during content extraction",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                OperatorConstants.Config.EXTRACT_IMAGES: {
+                    OperatorConstants.Misc.NAME: "Extract Images",
+                    OperatorConstants.Config.DESCRIPTION: "Extract images from documents during content extraction",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                OperatorConstants.Config.MAX_WORKERS: {
+                    OperatorConstants.Misc.NAME: "Max Workers",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum number of parallel workers for processing",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                OperatorConstants.Config.USE_PROCESSES: {
+                    OperatorConstants.Misc.NAME: "Use Processes",
+                    OperatorConstants.Config.DESCRIPTION: "Use process-based parallelism instead of threads",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                DOC_COLUMN_KEY: {
+                    OperatorConstants.Misc.NAME: "Document Column",
+                    OperatorConstants.Config.DESCRIPTION: "Column name containing document content to classify",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_DOC_COLUMN,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
             },
         }

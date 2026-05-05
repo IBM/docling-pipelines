@@ -64,6 +64,7 @@ class EdedupOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: EdedupOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: EdedupOperator.is_available(),
             OperatorConstants.Misc.LABEL: "De-duplicator",
+            OperatorConstants.Config.DESCRIPTION: "Exact deduplication operator that removes duplicate documents based on content hash",
         }
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:

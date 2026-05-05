@@ -20,6 +20,7 @@ logger: Logger = get_logger()
 
 # Default language detection provider
 DEFAULT_LANGUAGE_PROVIDER = "fasttext"
+LANGUAGE_PROVIDER_KEY = "language_provider"
 
 
 class LanguageDetect(AbstractOperator):
@@ -60,7 +61,7 @@ class LanguageDetect(AbstractOperator):
         self.filter_value: bool = config.get(OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE, False)
 
         # Get language detection provider from config (default: fasttext)
-        self.language_provider: str = config.get("language_provider", DEFAULT_LANGUAGE_PROVIDER)
+        self.language_provider: str = config.get(LANGUAGE_PROVIDER_KEY, DEFAULT_LANGUAGE_PROVIDER)
 
         # Initialize language detection adapter
         self.language_adapter: LanguageServicePort = self._initialize_language_adapter()
@@ -108,13 +109,20 @@ class LanguageDetect(AbstractOperator):
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: LanguageDetect.is_available(),
             OperatorConstants.Misc.LABEL: "Language Annotator",
             OperatorConstants.Config.ATTRIBUTES: {
+                LANGUAGE_PROVIDER_KEY: {
+                    OperatorConstants.Misc.NAME: "Language Detection Provider",
+                    OperatorConstants.Config.DESCRIPTION: "Language detection provider to use (fasttext or langdetect)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: DEFAULT_LANGUAGE_PROVIDER,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
                 OperatorConstants.Config.FILTER_UNKNOWN_LANGUAGE: {
                     OperatorConstants.Misc.NAME: "Filter Unknown Language document",
                     OperatorConstants.Config.DESCRIPTION: "Filters out all documents that have no language detected",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                }
+                },
             },
             OperatorConstants.Config.FEATURES: {
                 OperatorConstants.Columns.LANGUAGE_NAME_COLUMN_KEY: {

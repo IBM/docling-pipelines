@@ -114,6 +114,20 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 - **[OpenSearch Operator Reference](docs/operators/opensearch.md)** - Technical API documentation
 - **[Integration Examples](examples/opensearch_example_README.md)** - Code examples and patterns
 
+#### Operator Configuration Guides
+
+| Operator                | Configuration Guide                                                                     |
+|-------------------------|-----------------------------------------------------------------------------------------|
+| **PII & HAP Detection** | [Configuration Guide](docs/operators/pii_and_hap/pii_hap_config.md)                     |
+| **Language Detection**  | [Configuration Guide](docs/operators/language_detection/language_detection_config.md)   |
+| **Document Classifier** | [Configuration Guide](docs/operators/document_classifier/document_classifier_config.md) |
+| **SQL Filter**          | [Configuration Guide](docs/operators/sql_filter/sql_filter_config.md)                   |
+| **Readability**         | [Configuration Guide](docs/operators/readability/readability_config.md)                 |
+| **Redaction**           | [Configuration Guide](docs/operators/redaction/redaction_config.md)                     |
+| **Deduplication**       | [Configuration Guide](docs/operators/ededup/ededup_config.md)                           |
+| **ML Enrichment**       | [Configuration Guide](docs/operators/ml_enrichment/ml_enrichment_config.md)             |
+| **Document Quality**    | [Configuration Guide](docs/operators/doc_quality/doc_quality_config.md)                 |
+
 ### Additional Resources
 
 - **[Example Flows](examples/)** - Sample flow configurations and use cases
