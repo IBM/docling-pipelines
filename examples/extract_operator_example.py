@@ -86,8 +86,8 @@ from typing import Any
 import pyarrow as pa
 from dotenv import load_dotenv
 
-from common.constants.operator_constants import OperatorConstants
-from core.operators.extract.extract_operator import ExtractOperator
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.extract.extract_operator import ExtractOperator
 
 # Load environment variables from .env file
 load_dotenv()

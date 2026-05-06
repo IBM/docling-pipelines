@@ -60,6 +60,8 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "python-ldap>=3.4.0",
     "httpx>=0.28.0",
+    "babel==2.18.0",
+    "datefinder==1.0.0",
     "o365==2.1.9",
     "cryptography==46.0.7",
     "pygments==2.20.0",
@@ -245,7 +247,13 @@ module = [
     "langchain_google_community",
     "langchain_google_community.*",
     "google_auth_oauthlib",
-    "google_auth_oauthlib.*"
+    "google_auth_oauthlib.*",
+    "babel",
+    "babel.*",
+    "babel.core",
+    "babel.numbers",
+    "datefinder",
+    "datefinder.*"
 ]
 ignore_missing_imports = true
 follow_imports = "silent"

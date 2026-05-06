@@ -94,6 +94,7 @@ graph TB
         subgraph "Functional"
             BR[BranchingOperator]
             CH[Chunker]
+            EC[EntityCurationOperator]
             EMB[EmbeddingsOperator]
             NOOP[NoopOperator]
         end
@@ -3076,6 +3077,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 - **BranchingOperator**: Conditional workflow branching
 - **Chunker**: Document chunking (Simple, Semantic, Hybrid/Docling)
 - **DocIdHash**: Document ID generation (internal operator)
+- **EntityCurationOperator**: Schema-based entity transformation with 9 built-in transformations (currency, date, number parsing)
 - **NoopOperator**: Pass-through for testing
 - **EmbeddingsOperator**: Vector embedding generation
 

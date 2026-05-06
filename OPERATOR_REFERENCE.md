@@ -15,6 +15,7 @@
       - [ExtractOperators](#extractoperator)
     - [Functional Operators](#functional-operators)
       - [ChunkerOperator](#chunkeroperator)
+      - [EntityCurationOperator](#entitycurationoperator)
       - [EmbeddingsOperator](#embeddingsoperator)
       - [BranchingOperator](#branchingoperator)
       - [NOOPOperator](#noopoperator)
@@ -494,6 +495,73 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
   }
 }
 ```
+#### EntityCurationOperator
+
+**Purpose:** Transform extracted entities into structured, curated data using document class schemas with 4 core transformation functions for currency, date, number, and weight parsing.
+
+**Category:** Functional
+
+**Class:** `datasift.core.operators.functional.entity_curation.entity_curation_operator.EntityCurationOperator`
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---:|---|---|
+| `entities_column` | string | No | `entities` | Column containing extracted entities (dict) |
+| `document_type_column` | string | No | `document_type` | Column containing document type identifier |
+
+**Input Schema**
+
+- `entities` (dict): Extracted entity key-value pairs from ExtractOperator
+- `document_type` (string): Document class identifier (e.g., "invoice", "purchase_order")
+- Other columns are preserved
+
+**Output Schema**
+
+- All input columns preserved
+- `transformed_entities` column: JSON string containing nested structure of curated entities organized by target tables
+
+**Transformation Functions**
+
+The operator includes 4 core transformations:
+
+| Function | Purpose | Example |
+|---|---|---|
+| `currency_to_numeric` | Locale-aware currency parsing (Babel) | `"1.234,56 €"` (de_DE) → `1234.56` |
+| `make_date_uniform` | Date normalization to YYYY-MM-DD | `"January 15, 2024"` → `"2024-01-15"` |
+| `to_number` | Multi-language number parsing | `"一千二百三十四"` (Chinese) → `1234` |
+| `weight_to_numeric` | Locale-aware weight conversion to kg | `"5斤"` (zh_CN) → `2.5` |
+
+**Document Class Schemas**
+
+Schemas are defined in `src/datasift/common/document_classes/*.json` with `target_tables` specifying field mappings and transformations. Supports 40+ document classes including invoice, purchase_order, receipt, insurance_claim, passport, and more.
+
+**Exceptions**
+
+- [`ValidationError`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py) - Missing required columns
+- Transformation errors are logged but don't stop processing (graceful degradation)
+
+**Example**
+
+```json
+{
+  "id": "curate-node",
+  "name": "entity_curation",
+  "operator": "entity_curation",
+  "config": {
+    "entities_column": "entities",
+    "document_type_column": "document_type"
+  }
+}
+```
+
+**Usage Notes**
+
+- Should be placed after `ExtractOperator` in the pipeline when entity extraction is enabled
+- Requires document class schemas for transformation (returns empty dict for unknown document types)
+- Output is always in JSON format with nested structure matching schema's target tables
+- See [Entity Curation README](src/datasift/core/operators/functional/entity_curation/README.md) for detailed documentation
+
+---
+
 
 ---
 
