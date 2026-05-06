@@ -6,15 +6,14 @@ repos:
     rev: 0.6.5
     hooks:
       - id: uv-export
-        files: ^src/datasift_opensource/backend/(pyproject\.toml|uv\.lock)$
+        files: ^(pyproject\.toml|uv\.lock)$
         args:
           [
             "--no-hashes",
             "--frozen",
-            "--output-file=../../../requirements.txt",
+            "--output-file=requirements.txt",
             "--no-dev",
             "--all-packages",
-            "--directory=src/datasift_opensource/backend",
           ]
 
   # Python linting and formatting
@@ -31,9 +30,9 @@ repos:
     rev: v1.19.1
     hooks:
       - id: mypy
-        args: [--ignore-missing-imports, --config-file=src/datasift_opensource/backend/pyproject.toml]
+        args: [--ignore-missing-imports, --config-file=pyproject.toml]
         additional_dependencies: [types-requests, types-cachetools]
-        files: ^src/datasift_opensource/backend/.*\.py$    
+        files: ^src/datasift/.*\.py$
 
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
