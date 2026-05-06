@@ -697,20 +697,28 @@ setup_python_environment() {
         return 0
     fi
     
-    if [ ! -d "src/datasift_opensource/backend" ]; then
-        log_error "Backend directory not found. Are you in the project root?"
+    # Determine the correct project root path
+    local project_root=""
+    if [ -f "pyproject.toml" ]; then
+        project_root="."
+    elif [ -f "../pyproject.toml" ]; then
+        project_root=".."
+    else
+        log_error "pyproject.toml not found. Please run from project root or scripts directory."
         return 1
     fi
     
-    cd src/datasift_opensource/backend
+    local original_dir=$(pwd)
+    cd "$project_root"
     
     log "Creating virtual environment and installing dependencies..."
+    log_info "Working directory: $(pwd)"
     
     if command_exists uv; then
         uv sync --extra dev
     else
         log_error "uv not found. Cannot set up Python environment"
-        cd ../../..
+        cd "$original_dir"
         return 1
     fi
     
@@ -724,11 +732,11 @@ setup_python_environment() {
         fi
     else
         log_error "Virtual environment creation failed"
-        cd ../../..
+        cd "$original_dir"
         return 1
     fi
     
-    cd ../../..
+    cd "$original_dir"
 }
 
 verify_services() {
@@ -782,11 +790,10 @@ show_summary() {
         echo -e "${BLUE}Next Steps:${NC}"
         echo ""
         echo "1. Activate the virtual environment:"
-        echo "   cd src/datasift_opensource/backend"
         echo "   source .venv/bin/activate"
         echo ""
-        echo "2. Set PYTHONPATH:"
-        echo "   export PYTHONPATH=\"\$(pwd)/src/datasift_opensource/backend:\${PYTHONPATH}\""
+        echo "2. Set PYTHONPATH (from project root):"
+        echo "   export PYTHONPATH=\"\$(pwd)/src:\${PYTHONPATH}\""
         echo ""
         echo "3. Verify installation:"
         echo "   datasift-orchestrator --help"

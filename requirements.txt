@@ -24,6 +24,7 @@ bcrypt==5.0.0
 beautifulsoup4==4.14.3
 boto3==1.42.55
 botocore==1.42.55
+box-sdk-gen==1.17.0
 brotli==1.2.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 cachetools==5.5.2
 certifi==2026.1.4
@@ -126,6 +127,7 @@ langsmith==0.7.6
 latex2mathml==3.78.1
 lazy-loader==0.5 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 librosa==0.11.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
+librt==0.8.1 ; platform_python_implementation != 'PyPy'
 llvmlite==0.46.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 loguru==0.7.3
 lxml==6.1.0
@@ -149,6 +151,7 @@ msal==1.35.1
 msgpack==1.1.2 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 multidict==6.7.1
 multiprocess==0.70.16
+mypy==1.19.1
 mypy-boto3-glue==1.42.43
 mypy-extensions==1.1.0
 networkx==3.6.1
@@ -199,7 +202,6 @@ propcache==0.4.1
 proto-plus==1.27.1
 protobuf==6.33.5
 psutil==7.2.2
-psycopg2-binary==2.9.12
 pyarrow==17.0.0
 pyasn1==0.6.3
 pyasn1-modules==0.4.2
@@ -253,6 +255,7 @@ rpds-py==0.30.0
 rsa==4.9.1
 rtree==1.4.1
 ruamel-yaml==0.19.1
+ruff==0.15.5
 s3transfer==0.16.0
 safehttpx==0.1.7 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 safetensors==0.7.0
@@ -274,7 +277,6 @@ soupsieve==2.8.3
 soxr==1.0.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 sqlalchemy==2.0.46
 sqlglot==27.13.2
-sqlmodel==0.0.38
 starlette==0.52.1
 strictyaml==1.7.3
 sympy==1.14.0

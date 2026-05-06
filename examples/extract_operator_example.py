@@ -112,9 +112,7 @@ def get_basic_config() -> dict[str, Any]:
     }
 
 
-def get_docling_serve_config(
-    *, base_url: str = "http://localhost:5001"
-) -> dict[str, Any]:
+def get_docling_serve_config(*, base_url: str = "http://localhost:5001") -> dict[str, Any]:
     """
     Get configuration for Docling Serve (remote API extraction).
 
@@ -176,9 +174,7 @@ def get_vlm_config(
     }
 
     if engine not in engine_type_map:
-        raise ValueError(
-            f"Unknown VLM engine: {engine}. Supported: {list(engine_type_map.keys())}"
-        )
+        raise ValueError(f"Unknown VLM engine: {engine}. Supported: {list(engine_type_map.keys())}")
 
     # Base configuration
     config: dict[str, Any] = {
@@ -209,13 +205,8 @@ def get_vlm_config(
     elif engine == "watsonx":
         # IBM Watsonx AI
         if not all([api_key, container_id, model]):
-            raise ValueError(
-                "Watsonx engine requires api_key, container_id, and model parameters"
-            )
-        base_url = (
-            api_base_url
-            or "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29"
-        )
+            raise ValueError("Watsonx engine requires api_key, container_id, and model parameters")
+        base_url = api_base_url or "https://us-south.ml.cloud.ibm.com/ml/v1/text/chat?version=2023-05-29"
         config[OperatorConstants.Config.VLM_PROVIDER_CONFIG] = {
             OperatorConstants.Config.VLM_API_KEY: api_key,
             OperatorConstants.Config.VLM_WATSONX_CONTAINER_ID: container_id,
@@ -494,9 +485,7 @@ def main() -> int:
                     print(
                         "   WATSONX_CONTAINER_KIND=project  # optional: project, space, or catalog (default: project)"
                     )
-                    print(
-                        "   WATSONX_API_BASE_URL=https://...  # optional, has default"
-                    )
+                    print("   WATSONX_API_BASE_URL=https://...  # optional, has default")
                     print("\nSee .env.example for template")
                     return 1
 
@@ -526,9 +515,7 @@ def main() -> int:
                 if not api_key:
                     print("\n❌ OpenAI engine requires API key in .env file:")
                     print("   OPENAI_API_KEY=your_openai_api_key")
-                    print(
-                        "   OPENAI_MODEL=gpt-4-vision-preview  # optional, has default"
-                    )
+                    print("   OPENAI_MODEL=gpt-4-vision-preview  # optional, has default")
                     print("   OPENAI_API_BASE_URL=https://...  # optional, has default")
                     print("\nSee .env.example for template")
                     return 1
@@ -570,26 +557,18 @@ def main() -> int:
 
                 # Print engine-specific info
                 if args.vlm_engine == "transformers":
-                    print(
-                        "\nText Extraction: VLM with Transformers engine (local inference)"
-                    )
+                    print("\nText Extraction: VLM with Transformers engine (local inference)")
                     print("Note: First run will download the VLM model")
                 elif args.vlm_engine == "mlx":
-                    print(
-                        "\nText Extraction: VLM with MLX engine (macOS Apple Silicon optimized)"
-                    )
+                    print("\nText Extraction: VLM with MLX engine (macOS Apple Silicon optimized)")
                     print("Note: Requires macOS with Apple Silicon (M1/M2/M3)")
                 elif args.vlm_engine == "ollama":
                     print("\nText Extraction: VLM with Ollama API engine")
                     print("Note: Ensure Ollama is running: ollama serve")
-                    print(
-                        "      And vision model is available: ollama pull llama3.2-vision"
-                    )
+                    print("      And vision model is available: ollama pull llama3.2-vision")
                 elif args.vlm_engine == "lmstudio":
                     print("\nText Extraction: VLM with LM Studio API engine")
-                    print(
-                        "Note: Ensure LM Studio is running with a vision model loaded"
-                    )
+                    print("Note: Ensure LM Studio is running with a vision model loaded")
 
         except ValueError as e:
             logger.error(f"VLM configuration error: {e}")
@@ -635,9 +614,7 @@ def main() -> int:
         if not args.schema:
             logger.error("Docling entity extraction mode requires --schema parameter")
             print("\nExample:")
-            print(
-                '  --schema \'{"type": "object", "properties": {"invoice_number": {"type": "string"}}}\''
-            )
+            print('  --schema \'{"type": "object", "properties": {"invoice_number": {"type": "string"}}}\'')
             return 1
 
         import json
@@ -653,8 +630,7 @@ def main() -> int:
             custom_schema = {
                 "type": "object",
                 "properties": {
-                    key: {"type": value} if isinstance(value, str) else value
-                    for key, value in custom_schema.items()
+                    key: {"type": value} if isinstance(value, str) else value for key, value in custom_schema.items()
                 },
             }
 
@@ -689,9 +665,7 @@ def main() -> int:
         print("\nEntity Extraction: Docling template-based extraction")
         print("Fast, deterministic extraction for standardized documents")
         if custom_schema:
-            print(
-                f"      Using JSON schema with properties: {list(custom_schema.get('properties', {}).keys())}"
-            )
+            print(f"      Using JSON schema with properties: {list(custom_schema.get('properties', {}).keys())}")
 
     elif args.entity_mode == "litellm":
         print("\nLiteLLM entity extraction requires API configuration")
@@ -701,9 +675,7 @@ def main() -> int:
         print("      api_key='YOUR_API_KEY',")  # pragma: allowlist secret
         print("      custom_schema={'field': 'type', ...}")
         print("  )")
-        print(
-            "\nSupported providers: OpenAI, Anthropic, Cohere, Google, Azure, AWS Bedrock"
-        )
+        print("\nSupported providers: OpenAI, Anthropic, Cohere, Google, Azure, AWS Bedrock")
         return 0
     elif args.entity_mode == "none":
         # Entity extraction already set to "none" in base configs
@@ -780,9 +752,7 @@ def main() -> int:
         print("-" * 80)
 
     if OperatorConstants.Columns.EXTRACTED_DATA in result_table.column_names:
-        extracted_data = result_table[OperatorConstants.Columns.EXTRACTED_DATA][
-            0
-        ].as_py()
+        extracted_data = result_table[OperatorConstants.Columns.EXTRACTED_DATA][0].as_py()
         print("\nExtracted Data (Template-based):")
         print("-" * 80)
         print(extracted_data)

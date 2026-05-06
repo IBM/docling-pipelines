@@ -264,6 +264,9 @@ MAX_FILES_KEY: str = "max_files"
 MAX_FILES_DEFAULT_VALUE: int = 100
 INCLUDE_FILTER_KEY: str = "include_filter"
 EXCLUDE_FILTER_KEY: str = "exclude_filter"
+ADAPTER_MANAGED_PROVIDERS: frozenset[str] = frozenset(
+    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "filesystem"}
+)
 
 logger = get_logger()
 
@@ -416,9 +419,10 @@ class IngestSourceOperator(AbstractOperator):
             )
 
             # Try to use new adapter architecture first
+            documents: list[Document] | Iterator[Document]
             if SourceAdapterFactory.is_registered(self.provider):
                 # Use lazy loading for adapters to respect max_files limit
-                documents: Iterator[Document] | list[Document] = self._load_documents_via_adapter()
+                documents = self._load_documents_via_adapter()
             else:
                 loader: BaseLoader = self._get_loader()
                 # Use lazy_load if available, otherwise fall back to load()
@@ -484,11 +488,8 @@ class IngestSourceOperator(AbstractOperator):
                 f"Available providers: {', '.join(SourceAdapterFactory.get_registered_names())}"
             )
 
-        # Build provider-specific configuration
-        config = self._build_adapter_config(self.provider)
-
-        # Create adapter instance
-        adapter = SourceAdapterFactory.create(self.provider)
+        # Create adapter instance once and build config using it
+        adapter, config = self._build_adapter_config(self.provider)
 
         # Run async fetch in sync context and convert to LangChain Documents
         async def fetch_all():
@@ -535,7 +536,7 @@ class IngestSourceOperator(AbstractOperator):
             provider: The provider name (e.g., "filesystem", "google_drive")
 
         Returns:
-            Provider-specific configuration object (Pydantic model)
+            Tuple of (adapter instance, provider-specific configuration object)
 
         Raises:
             ValueError: If provider is not supported or configuration is invalid
@@ -544,12 +545,15 @@ class IngestSourceOperator(AbstractOperator):
         adapter = SourceAdapterFactory.create(provider)
 
         # Delegate configuration building to the adapter
-        return adapter.build_config_from_operator_params(
+        config = adapter.build_config_from_operator_params(
             connection_params=self.connection_params,
             credentials=self.credentials,
             included_extensions=self.included_extensions,
             max_files=self.max_files,
         )
+
+        # Return both adapter and config to avoid creating adapter twice
+        return adapter, config
 
     def process_document(self, doc: Document, idx: int, metadata: dict[str, Any]) -> dict[str, Any] | None:
         """
@@ -766,9 +770,9 @@ class IngestSourceOperator(AbstractOperator):
         should not call this method. They are handled via _load_documents_via_adapter().
         """
 
-        # 1. Amazon S3 / IBM COS (S3 Compatible), Microsoft SharePoint, OneDrive & Google Drive
+        # 1. Amazon S3 / IBM COS (S3 Compatible), Microsoft SharePoint, OneDrive, Google Drive & Box
         # These providers now use the hexagonal architecture adapter
-        if self.provider in ["s3", "ibm_cos", "sharepoint", "onedrive", "google_drive"]:
+        if self.provider in ADAPTER_MANAGED_PROVIDERS:
             raise ValueError(
                 f"{self.provider} provider should use _load_documents_via_adapter(). "
                 "This provider is registered with SourceAdapterFactory and should be handled automatically."

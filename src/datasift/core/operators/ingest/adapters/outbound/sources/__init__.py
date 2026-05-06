@@ -5,6 +5,7 @@ with the SourceAdapterFactory via the @register_source_adapter decorator.
 """
 
 # Import adapters to trigger registration
+from .box.adapter import BoxSourceAdapter
 from .filesystem.adapter import FilesystemSourceAdapter
 from .google_drive.adapter import GoogleDriveSourceAdapter
 from .onedrive.adapter import OneDriveSourceAdapter
@@ -13,6 +14,7 @@ from .sharepoint.adapter import SharePointSourceAdapter
 from .web.adapter import WebPageSourceAdapter
 
 __all__ = [
+    "BoxSourceAdapter",
     "FilesystemSourceAdapter",
     "GoogleDriveSourceAdapter",
     "OneDriveSourceAdapter",

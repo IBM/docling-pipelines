@@ -64,16 +64,13 @@ class PyPDFFileLoader(BaseLoader):
             self.file.seek(0)
             binary_content = self.file.read()
 
-            # Skip empty files
             if not binary_content or len(binary_content) == 0:
                 logger.warning("Skipping file: Either the file is empty or binary content extraction failed")
                 return []
 
-            # Check if this is a PDF file for metadata purposes
             is_pdf = binary_content[:4] == b"%PDF"
             file_type = "PDF" if is_pdf else "Unknown"
 
-            # For PDFs, validate and get page count using pypdf
             total_pages = None
             if is_pdf:
                 try:
@@ -91,17 +88,14 @@ class PyPDFFileLoader(BaseLoader):
                 except Exception as e:
                     logger.warning(f"Failed to validate PDF structure: {e}, storing binary content anyway")
 
-            # Create document with empty page_content (Extract operator will populate this)
             doc_metadata = {**self.metadata, "file_type": file_type}
             if total_pages is not None:
                 doc_metadata["total_pages"] = total_pages
 
             doc = LangChainDocument(
-                page_content="",  # Empty - Extract operator will extract text
+                page_content="",
                 metadata=doc_metadata,
             )
-
-            # Attach binary content as private attribute for IngestSourceOperator
             doc._binary_content = binary_content  # type: ignore[attr-defined]
 
             return [doc]

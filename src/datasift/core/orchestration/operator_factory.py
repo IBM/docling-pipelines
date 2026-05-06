@@ -109,7 +109,6 @@ class OperatorFactory:
         package = ""
         try:
             package = importlib.import_module(package_name)
-            importlib.reload(package)
             logger.info(f"Package {package_name} in {package} found.")
         except ModuleNotFoundError:
             logger.debug(f"Package {package_name} in {package} not found, skipping.")
@@ -118,7 +117,6 @@ class OperatorFactory:
         for path, module_name, _is_pkg in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
             try:
                 module = importlib.import_module(module_name)
-                module = importlib.reload(module)
                 self._process_module(
                     module=module,
                     module_name=module_name,
