@@ -450,7 +450,7 @@ datasift-orchestrator --list-operators --verbose
 Execute datasift flows programmatically using Python:
 
 ```python
-from datasift_opensource.lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 # Execute flow from file
 manager = DatasiftFlowManager(

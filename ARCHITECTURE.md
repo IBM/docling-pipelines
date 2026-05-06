@@ -2185,7 +2185,7 @@ Document sets can be created and managed through multiple approaches:
      - **Python API**:
 
        ```python
-       from lib.datasift_flow_manager import DatasiftFlowManager
+       from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
        manager = DatasiftFlowManager()
        manager.execute_flow_from_file("my_flow.json")

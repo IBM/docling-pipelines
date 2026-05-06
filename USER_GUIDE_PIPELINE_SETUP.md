@@ -1571,7 +1571,7 @@ source .venv/bin/activate
 **3. Import Statement**
 
 ```python
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 ```
 
 **4. Verify Prerequisites**
@@ -1586,7 +1586,7 @@ The simplest way to use the programmatic API is to execute an existing flow JSON
 
 ```python
 from pathlib import Path
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 def execute_flow():
     """Execute a flow file with basic error handling."""
@@ -1629,7 +1629,7 @@ For dynamic flow generation, define flows as Python dictionaries instead of JSON
 **Example: Inline Flow Definition**
 
 ```python
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 def build_flow_definition(input_folder: str, index_name: str) -> dict:
     """Build a complete flow definition as a Python dictionary."""
@@ -1757,7 +1757,7 @@ The programmatic API integrates seamlessly with Jupyter notebooks for interactiv
 # Cell 1: Setup and imports
 from pathlib import Path
 from pprint import pprint
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 print('Imports loaded successfully.')
 
@@ -1826,7 +1826,7 @@ Always validate flows before execution to catch configuration errors early.
 **Example: Validation Pattern**
 
 ```python
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 def validate_and_execute(flow_file: str):
     """Validate flow before execution."""
@@ -1941,7 +1941,7 @@ Implement robust error handling for production deployments.
 
 ```python
 import traceback
-from lib.datasift_flow_manager import DatasiftFlowManager
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 def execute_with_error_handling(flow_file: str):
     """Execute flow with comprehensive error handling."""
