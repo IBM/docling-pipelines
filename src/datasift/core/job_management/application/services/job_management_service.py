@@ -123,6 +123,8 @@ class JobManagementService:
         Returns:
             job_run_id: Unique identifier for this job run
         """
+        from datasift.utils.orchestration.elyra_converter import ElyraConverter
+
         flow = self.flow_repository.find_by_id(flow_id)
         if flow is None:
             raise FlowNotFoundException(f"Flow not found for flow_id: {flow_id}")
@@ -150,11 +152,15 @@ class JobManagementService:
             metadata=metadata or {},
         )
 
+        # Transform Elyra format to Internal DAG format for execution
+        converter = ElyraConverter()
+        flow_dag_definition = converter.transform_elyra_to_internal(elyra_json=flow.definition, flow_id=flow_id)
+
         self.executor.submit(
             self._execute_flow_async,
             job_id,
             job_run_id,
-            flow.definition,
+            flow_dag_definition,
             flow_config,
         )
 

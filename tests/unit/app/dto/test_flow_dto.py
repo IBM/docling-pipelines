@@ -36,14 +36,16 @@ class TestFlowCreateRequestValidation:
             name="Test Flow",
             description="Test description",
             definition={
-                "nodes": [
-                    {
-                        "id": "node1",
-                        "operator": "ingest_local",
-                        "operator_params": {"path": "/data"},
-                    }
-                ],
-                "edges": [],
+                "flow": {
+                    "dag": [
+                        {
+                            "id": "node1",
+                            "operator": "ingest_local",
+                            "operator_params": {"path": "/data"},
+                        }
+                    ],
+                    "global_config": {},
+                }
             },
             tags=["tag1", "tag2"],
             container_kind="project",
@@ -214,26 +216,29 @@ class TestFlowCreateRequestValidation:
         assert "pipelines" in dto.definition
 
     def test_create_request_with_definition_containing_nodes(self):
-        """Test that definition with nodes (DAG format) is valid."""
+        """Test that definition with nodes (Internal DAG format) is valid."""
         # Act
         dto = FlowCreateRequest(
             name="Test",
             definition={
-                "nodes": [
-                    {
-                        "id": "node1",
-                        "operator": "ingest_local",
-                        "operator_params": {"path": "/data"},
-                    }
-                ],
-                "edges": [],
+                "flow": {
+                    "dag": [
+                        {
+                            "id": "node1",
+                            "operator": "ingest_local",
+                            "operator_params": {"path": "/data"},
+                        }
+                    ],
+                    "global_config": {},
+                }
             },
         )
 
         # Assert
         assert dto.definition is not None
-        assert "nodes" in dto.definition
-        assert len(dto.definition["nodes"]) == 1
+        assert "flow" in dto.definition
+        assert "dag" in dto.definition["flow"]
+        assert len(dto.definition["flow"]["dag"]) == 1
 
     def test_create_request_with_invalid_definition_raises_error(self):
         """Test that definition without doc_type or nodes raises validation error."""
@@ -411,7 +416,6 @@ class TestPaginatedFlowResponseValidation:
                         "operator_params": {"path": "/data"},
                     }
                 ],
-                "edges": [],
             },
             tags=[],
             created_on=datetime.now(UTC),

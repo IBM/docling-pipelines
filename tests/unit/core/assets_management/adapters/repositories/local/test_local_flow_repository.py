@@ -44,7 +44,7 @@ class TestLocalFlowRepository:
         """Create a sample flow for testing."""
         return Flow(
             name="Test Flow",
-            definition={"nodes": [], "edges": []},
+            definition={"doc_type": "pipeline", "pipelines": []},
             flow_id=str(uuid4()),
             description="A test flow",
         )
@@ -132,7 +132,7 @@ class TestLocalFlowRepository:
         """Test saving flow with special characters in name."""
         flow = Flow(
             name="My Test Flow!",
-            definition={"nodes": [], "edges": []},
+            definition={"doc_type": "pipeline", "pipelines": []},
             flow_id=str(uuid4()),
         )
 
@@ -167,7 +167,7 @@ class TestLocalFlowRepository:
         flow_id = str(uuid4())
 
         # Create flow with one name
-        flow1 = Flow(name="Original Name", definition={"nodes": [], "edges": []}, flow_id=flow_id)
+        flow1 = Flow(name="Original Name", definition={"doc_type": "pipeline", "pipelines": []}, flow_id=flow_id)
         repository.save(flow1)
 
         # Should find it by ID
@@ -186,7 +186,7 @@ class TestLocalFlowRepository:
         for i in range(5):
             flow = Flow(
                 name=f"Flow {i}",
-                definition={"nodes": [], "edges": []},
+                definition={"doc_type": "pipeline", "pipelines": []},
                 flow_id=str(uuid4()),
             )
             flows_to_save.append(flow)
@@ -292,7 +292,7 @@ class TestLocalFlowRepository:
 
     def test_save_without_flow_id_raises_error(self, repository):
         """Test that saving flow without ID raises ValueError."""
-        flow = Flow(name="Test", definition={"nodes": [], "edges": []}, flow_id=None)
+        flow = Flow(name="Test", definition={"doc_type": "pipeline", "pipelines": []}, flow_id=None)
         # Flow.__post_init__ will generate an ID, so we need to explicitly set to None
         flow.flow_id = None
 
@@ -632,7 +632,7 @@ class TestLocalFlowRepositoryConcurrency:
         """Create a sample flow for testing."""
         return Flow(
             name="test_flow",
-            definition={"nodes": [], "edges": []},
+            definition={"doc_type": "pipeline", "pipelines": []},
             description="Test flow for concurrent access",
         )
 
@@ -696,7 +696,7 @@ class TestLocalFlowRepositoryConcurrency:
         def save_flow(index):
             flow = Flow(
                 name=f"flow_{index}",
-                definition={"nodes": [], "edges": []},
+                definition={"doc_type": "pipeline", "pipelines": []},
                 description=f"Flow {index}",
             )
             return repository_with_locking.save(flow)
@@ -779,7 +779,7 @@ class TestLocalFlowRepositoryConcurrency:
         for i in range(5):
             flow = Flow(
                 name=f"flow_{i}",
-                definition={"nodes": [], "edges": []},
+                definition={"doc_type": "pipeline", "pipelines": []},
                 description=f"Flow {i}",
             )
             repository_with_locking.save(flow)

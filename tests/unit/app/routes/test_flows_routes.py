@@ -176,6 +176,63 @@ class TestCreateFlowEndpoint:
         assert data["errors"][0]["code"] == "flow_already_exists"
         assert "Test Flow" in data["errors"][0]["message"]
 
+    def test_create_flow_with_is_elyra_false_returns_201(self, client, override_service, sample_flow_with_id):
+        """Test creating a flow with is_elyra=false query parameter returns 201."""
+        # Arrange
+        override_service.create_flow.return_value = sample_flow_with_id
+        request_data = {
+            "name": "Test Flow",
+            "definition": {"flow": {"dag": [{"id": "node1", "operator": "ingest_local"}]}},
+        }
+
+        # Act
+        response = client.post("/flows?is_elyra=false", json=request_data)
+
+        # Assert
+        assert response.status_code == 201
+        assert response.json()["name"] == "Test Flow"
+        # Verify service was called with is_elyra=False
+        call_args = override_service.create_flow.call_args
+        assert not call_args.kwargs.get("is_elyra")
+
+    def test_create_flow_with_is_elyra_true_returns_201(self, client, override_service, sample_flow_with_id):
+        """Test creating a flow with is_elyra=true query parameter returns 201."""
+        # Arrange
+        override_service.create_flow.return_value = sample_flow_with_id
+        request_data = {
+            "name": "Test Flow",
+            "definition": {
+                "doc_type": "pipeline",
+                "version": "3.0",
+                "pipelines": [{"id": "pipeline1", "nodes": [{"id": "node1", "type": "execution_node"}]}],
+            },
+        }
+
+        # Act
+        response = client.post("/flows?is_elyra=true", json=request_data)
+
+        # Assert
+        assert response.status_code == 201
+        assert response.json()["name"] == "Test Flow"
+        # Verify service was called with is_elyra=True
+        call_args = override_service.create_flow.call_args
+        assert call_args.kwargs.get("is_elyra")
+
+    def test_create_flow_without_is_elyra_defaults_to_false(self, client, override_service, sample_flow_with_id):
+        """Test creating a flow without is_elyra parameter defaults to false."""
+        # Arrange
+        override_service.create_flow.return_value = sample_flow_with_id
+        request_data = {"name": "Test Flow"}
+
+        # Act
+        response = client.post("/flows", json=request_data)
+
+        # Assert
+        assert response.status_code == 201
+        # Verify service was called with is_elyra=False (default)
+        call_args = override_service.create_flow.call_args
+        assert not call_args.kwargs.get("is_elyra")
+
 
 class TestGetFlowEndpoint:
     """Tests for GET /flows/{flow_id} endpoint."""

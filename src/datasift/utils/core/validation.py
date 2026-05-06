@@ -198,119 +198,45 @@ def _validate_dag_nodes(nodes: list[dict[str, Any]]) -> None:
             raise ValueError(f"node '{node_id}' has invalid 'operator_params'/'config': must be a dictionary")
 
 
-def _validate_dag_edges(edges: list[dict[str, Any]], node_ids: set[str]) -> None:
-    """Validate DAG edges structure and references.
-
-    Args:
-        edges: List of edge dictionaries to validate
-        node_ids: Set of valid node IDs for reference checking
-
-    Raises:
-        ValueError: If edges structure is invalid or references non-existent nodes
-    """
-    if not isinstance(edges, list):
-        raise ValueError(f"edges must be a list, got {type(edges).__name__}")
-
-    for idx, edge in enumerate(edges):
-        if not isinstance(edge, dict):
-            raise ValueError(f"edge at index {idx} must be a dictionary, got {type(edge).__name__}")
-
-        # Validate required fields
-        if "source" not in edge:
-            raise ValueError(f"edge at index {idx} is missing required field 'source'")
-        if "target" not in edge:
-            raise ValueError(f"edge at index {idx} is missing required field 'target'")
-
-        source = edge["source"]
-        target = edge["target"]
-
-        if not isinstance(source, str) or not source:
-            raise ValueError(f"edge at index {idx} has invalid 'source': must be a non-empty string")
-        if not isinstance(target, str) or not target:
-            raise ValueError(f"edge at index {idx} has invalid 'target': must be a non-empty string")
-
-        # Validate references
-        if source not in node_ids:
-            raise ValueError(f"edge at index {idx} references non-existent source node '{source}'")
-        if target not in node_ids:
-            raise ValueError(f"edge at index {idx} references non-existent target node '{target}'")
-
-        # Check for self-referencing edges
-        if source == target:
-            raise ValueError(f"edge at index {idx} is self-referencing (source == target == '{source}')")
-
-
-def _detect_cycles_in_dag(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> None:
-    """Detect cycles in the DAG using depth-first search.
-
-    Args:
-        nodes: List of node dictionaries
-        edges: List of edge dictionaries
-
-    Raises:
-        ValueError: If a cycle is detected in the DAG
-    """
-    # Build adjacency list
-    graph: dict[str, list[str]] = {node["id"]: [] for node in nodes}
-    for edge in edges:
-        graph[edge["source"]].append(edge["target"])
-
-    # DFS-based cycle detection
-    white, gray, black = 0, 1, 2
-    color = dict.fromkeys(graph, white)
-
-    def dfs(node_id: str, path: list[str]) -> bool:
-        """DFS helper that returns True if cycle detected."""
-        if color[node_id] == gray:
-            # Found a back edge - cycle detected
-            cycle_start = path.index(node_id)
-            cycle_path = " -> ".join([*path[cycle_start:], node_id])
-            raise ValueError(f"cycle detected in DAG: {cycle_path}")
-
-        if color[node_id] == black:
-            return False
-
-        color[node_id] = gray
-        path.append(node_id)
-
-        for neighbor in graph[node_id]:
-            dfs(neighbor, path)
-
-        path.pop()
-        color[node_id] = black
-        return False
-
-    for node_id in graph:
-        if color[node_id] == white:
-            dfs(node_id, [])
-
-
 def _validate_dag_format(value: dict[str, Any]) -> None:
-    """Validate modern DAG format structure.
+    """Validate Internal DAG format structure.
+
+    Validates the Internal DAG format with flow.dag structure. This format
+    will be transformed to Elyra format before execution.
 
     Args:
         value: The flow definition dictionary to validate
 
     Raises:
-        ValueError: If DAG format is invalid
+        ValueError: If Internal DAG format is invalid
     """
-    # Validate nodes
-    if "nodes" not in value:
-        raise ValueError("DAG format definition must contain 'nodes' key. Example: {'nodes': [...], 'edges': [...]}")
+    # Validate required 'flow' key
+    if "flow" not in value:
+        raise ValueError(
+            "Internal DAG format definition must contain 'flow' key. "
+            "Example: {'flow': {'dag': [...], 'global_config': {...}}}"
+        )
 
-    nodes = value["nodes"]
-    _validate_dag_nodes(nodes)
+    flow = value["flow"]
+    if not isinstance(flow, dict):
+        raise ValueError(f"flow must be a dictionary, got {type(flow).__name__}")
 
-    # Collect node IDs for edge validation
-    node_ids = {node["id"] for node in nodes}
+    # Validate 'dag' if present
+    if "dag" in flow:
+        dag = flow["dag"]
+        if not isinstance(dag, list):
+            raise ValueError(f"flow.dag must be a list, got {type(dag).__name__}")
 
-    # Validate edges if present
-    edges = value.get("edges", [])
-    _validate_dag_edges(edges, node_ids)
+        # Validate each node in the dag has required fields
+        for idx, node in enumerate(dag):
+            if not isinstance(node, dict):
+                raise ValueError(f"dag node at index {idx} must be a dictionary, got {type(node).__name__}")
 
-    # Detect cycles
-    if edges:
-        _detect_cycles_in_dag(nodes, edges)
+            if "id" not in node:
+                raise ValueError(f"dag node at index {idx} is missing required field 'id'")
+
+            if "operator" not in node:
+                raise ValueError(f"dag node at index {idx} is missing required field 'operator'")
 
 
 def _validate_elyra_format(value: dict[str, Any]) -> None:
@@ -351,16 +277,13 @@ def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | N
     endpoints to ensure consistent validation across all layers.
 
     Validation includes:
-    - Required top-level keys (nodes/edges for DAG, doc_type/pipelines for Elyra)
-    - Node structure validation (id, operator/operator_type, operator_params/config)
-    - Edge structure validation (source, target) with reference checking
-    - Cycle detection in DAG using depth-first search
-    - Operator type format validation (Python class path format)
-    - Duplicate node ID detection
+    - Required top-level keys (flow.dag for Internal DAG, doc_type/pipelines for Elyra)
+    - Minimal structure validation for Internal DAG format (will be transformed to Elyra)
+    - Full validation for Elyra format
 
     Supported Formats:
-    - Modern DAG format: {"nodes": [...], "edges": [...]}
-    - Legacy Elyra format: {"doc_type": "pipeline", "pipelines": [...], "primary_pipeline": "..."}
+    - Internal DAG format: {"flow": {"dag": [...], "global_config": {...}}}
+    - Elyra format: {"doc_type": "pipeline", "pipelines": [...], "primary_pipeline": "..."}
 
     Args:
         value: The flow definition dictionary to validate (can be None for optional fields)
@@ -370,22 +293,18 @@ def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | N
 
     Raises:
         ValueError: If the definition structure is invalid, with specific error messages for:
-            - Missing required keys (nodes, edges, doc_type, pipelines)
-            - Invalid node structure (missing id, operator, invalid types)
-            - Invalid edge references (non-existent nodes, self-references)
-            - Circular dependencies in the DAG
-            - Invalid operator type format
-            - Duplicate node IDs
+            - Missing required keys (flow, doc_type, pipelines)
+            - Invalid structure for Internal DAG or Elyra formats
 
     Examples:
-        >>> validate_flow_definition({"nodes": [{"id": "n1", "operator": "ingest"}], "edges": []})
-        {'nodes': [{'id': 'n1', 'operator': 'ingest'}], 'edges': []}
+        >>> validate_flow_definition({"flow": {"dag": [...]}})
+        {'flow': {'dag': [...]}}
         >>> validate_flow_definition({"doc_type": "pipeline", "pipelines": [...]})
         {'doc_type': 'pipeline', 'pipelines': [...]}
         >>> validate_flow_definition(None)
         None
         >>> validate_flow_definition({})
-        ValueError: definition must contain either 'doc_type' (Elyra format) or 'nodes' (DAG format)
+        ValueError: definition must contain either 'doc_type' (Elyra format) or 'flow' (Internal DAG format)
     """
     if value is None:
         return None
@@ -394,18 +313,19 @@ def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | N
         raise ValueError(f"definition must be a dictionary, got {type(value).__name__}")
 
     # Determine format and validate accordingly
-    has_nodes = "nodes" in value
+    has_flow = "flow" in value
     has_doc_type = "doc_type" in value
 
-    if not has_nodes and not has_doc_type:
+    if not has_flow and not has_doc_type:
         raise ValueError(
-            "definition must contain either 'doc_type' (Elyra format) or 'nodes' (DAG format). "
+            "definition must contain either 'doc_type' (Elyra format) or 'flow' (Internal DAG format). "
             "Examples:\n"
-            "  DAG: {'nodes': [...], 'edges': [...]}\n"
+            "  Internal DAG: {'flow': {'dag': [...], 'global_config': {...}}}\n"
             "  Elyra: {'doc_type': 'pipeline', 'pipelines': [...]}"
         )
 
-    if has_nodes:
+    if has_flow:
+        # DAG format - validate structure before transformation to Elyra
         _validate_dag_format(value)
     elif has_doc_type:
         _validate_elyra_format(value)

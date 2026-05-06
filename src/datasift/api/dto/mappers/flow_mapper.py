@@ -46,7 +46,7 @@ class FlowMapper:
         Example:
             >>> dto = FlowCreateRequest(
             ...     name="My Flow",
-            ...     definition={"nodes": [], "edges": []}
+            ...     definition={"doc_type": "pipeline", "pipelines": []}
             ... )
             >>> domain = FlowMapper.create_request_to_domain(dto)
             >>> isinstance(domain, Flow)
@@ -131,7 +131,7 @@ class FlowMapper:
             ...     container_kind="project",
             ...     container_id="550e8400-e29b-41d4-a716-446655440000",
             ...     name="My Flow",
-            ...     definition={"nodes": [], "edges": []}
+            ...     definition={"doc_type": "pipeline", "pipelines": []}
             ... )
             >>> dto = FlowMapper.domain_to_dto(domain)
             >>> isinstance(dto, FlowResponse)

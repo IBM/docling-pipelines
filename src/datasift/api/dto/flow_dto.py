@@ -144,7 +144,7 @@ class FlowCreateRequest(BaseModel):
         >>> request = FlowCreateRequest(
         ...     name="Invoice Processing",
         ...     description="Extracts invoice data",
-        ...     definition={"nodes": [...], "edges": [...]},
+        ...     definition={"doc_type": "pipeline", "pipelines": [...]},
         ...     tags=["invoice", "production", "invoice"],  # Deduped to ["invoice", "production"]
         ...     container_kind="project",
         ...     container_id="550e8400-e29b-41d4-a716-446655440000"
@@ -322,7 +322,7 @@ class FlowUpdateRequest(BaseModel):
 
         >>> # Update definition only
         >>> request = FlowUpdateRequest(
-        ...     definition={"nodes": [...], "edges": [...]}
+        ...     definition={"doc_type": "pipeline", "pipelines": [...]}
         ... )
     """
 
@@ -479,7 +479,7 @@ class FlowResponse(BaseModel):
         >>> response = FlowResponse(
         ...     flow_id="550e8400-e29b-41d4-a716-446655440000",
         ...     name="Invoice Pipeline",
-        ...     definition={"nodes": [...], "edges": [...]},
+        ...     definition={"doc_type": "pipeline", "pipelines": [...]},
         ...     tags=["invoice", "production"],
         ...     created_on=datetime(2026, 4, 1, 11, 0, 0),
         ...     modified_on=datetime(2026, 4, 1, 11, 30, 0),
@@ -756,7 +756,7 @@ class PaginatedFlowResponse(BaseModel):
                             "flow_id": "550e8400-e29b-41d4-a716-446655440000",
                             "name": "example-flow",
                             "description": "An example flow",
-                            "definition": {"nodes": [], "edges": []},
+                            "definition": {"doc_type": "pipeline", "pipelines": []},
                             "tags": ["example"],
                             "container_kind": None,
                             "container_id": None,

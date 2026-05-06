@@ -115,7 +115,7 @@ def multiple_sample_flows() -> list[Flow]:
             flow_id=f"flow-id-{i}",
             name=f"Test Flow {i}",
             description=f"Description for flow {i}",
-            definition={"nodes": [], "edges": []},
+            definition={"doc_type": "pipeline", "pipelines": []},
             tags=["test", f"tag-{i}"],
             is_hidden=(i % 2 == 0),
             created_on=datetime(2024, 1, i + 1, 12, 0, 0, tzinfo=UTC),

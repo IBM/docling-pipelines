@@ -14,11 +14,11 @@ class TestFlowCreation:
     def test_create_flow_with_minimal_required_fields(self):
         """Test creating a flow with only required fields."""
         # Arrange & Act
-        flow = Flow(name="Test Flow", definition={"nodes": [], "edges": []})
+        flow = Flow(name="Test Flow", definition={"doc_type": "pipeline", "pipelines": []})
 
         # Assert
         assert flow.name == "Test Flow"
-        assert flow.definition == {"nodes": [], "edges": []}
+        assert flow.definition == {"doc_type": "pipeline", "pipelines": []}
         assert flow.flow_id is not None  # Auto-generated
         assert flow.created_on is not None  # Auto-generated
         assert flow.modified_on is not None  # Auto-generated
@@ -200,7 +200,7 @@ class TestFlowDefinitionValidation:
     def test_validate_flow_with_valid_definition(self):
         """Test validation passes with valid definition."""
         # Arrange
-        flow = Flow(name="Test", definition={"nodes": [], "edges": []})
+        flow = Flow(name="Test", definition={"doc_type": "pipeline", "pipelines": []})
 
         # Act & Assert
         flow.validate()  # Should not raise
@@ -236,7 +236,6 @@ class TestFlowDefinitionValidation:
         # Arrange
         definition = {
             "nodes": [{"id": "node1", "operator_type": "IngestLocalFolder"}],
-            "edges": [],
         }
         flow = Flow(name="Test", definition=definition)
 

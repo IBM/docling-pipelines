@@ -98,7 +98,7 @@ class FlowService:
 
         return flows
 
-    def create_flow(self, flow: Flow) -> Flow:
+    def create_flow(self, *, flow: Flow, is_elyra: bool = False) -> Flow:
         """Create and store a new flow.
 
         This method creates a new flow in the repository with proper validation
@@ -110,6 +110,9 @@ class FlowService:
             flow (Flow): Flow domain entity to create. Must have valid name and definition.
                         If flow_id is None, a UUID will be generated automatically by the
                         repository. The flow must pass validation before creation.
+            is_elyra (bool): If False, the flow definition is in internal DAG format and will be
+                           transformed to Elyra format before saving. If True, the definition
+                           is already in Elyra format. Default: False.
 
         Returns:
             Flow: The created flow with generated metadata (flow_id, created_on, modified_on).
@@ -121,24 +124,23 @@ class FlowService:
             FlowStorageException: If storage operation fails (I/O errors, permission issues, etc.).
 
         Example:
-            >>> # Create flow with auto-generated ID
-            >>> flow = Flow(name="My Pipeline", definition={"nodes": [], "edges": []})
-            >>> created_flow = service.create_flow(flow)
-            >>> print(created_flow.flow_id)  # Auto-generated UUID
+            >>> # Create flow with internal DAG format (will be converted to Elyra)
+            >>> flow = Flow(name="My Pipeline", definition={"flow": {"dag": [], "global_config": {}}})
+            >>> created_flow = service.create_flow(flow=flow, is_elyra=False)
             >>>
-            >>> # Create flow with specific ID
+            >>> # Create flow with Elyra format (no conversion needed)
             >>> flow = Flow(
-            ...     flow_id="custom-id-123",
-            ...     name="Custom Pipeline",
-            ...     definition={"nodes": [], "edges": []}
+            ...     name="Elyra Pipeline",
+            ...     definition={"doc_type": "pipeline", "pipelines": [...]}
             ... )
-            >>> created_flow = service.create_flow(flow)
+            >>> created_flow = service.create_flow(flow=flow, is_elyra=True)
 
         Note:
             - created_at and modified_at are set automatically to current UTC time
             - Use update_flow() to modify existing flows
             - flow name must be unique across all flows in the repository
             - Validation occurs before any persistence operations
+            - If is_elyra=False, definition is transformed from internal DAG to Elyra format
         """
         try:
             flow.validate()
@@ -147,6 +149,19 @@ class FlowService:
             raise FlowInvalidDataException(f"Invalid flow data: {exc!s}") from exc
 
         logger.info(f"Creating flow with name: {flow.name}")
+
+        # Transform internal DAG format to Elyra format if needed
+        if not is_elyra:
+            logger.info(f"Transforming internal DAG format to Elyra format for flow: {flow.name}")
+            from datasift.utils.orchestration.elyra_converter import ElyraConverter
+
+            converter = ElyraConverter()
+            try:
+                flow.definition = converter.transform_internal_to_elyra(internal_json=flow.definition)
+                logger.info(f"Successfully transformed internal DAG to Elyra format for flow: {flow.name}")
+            except Exception as exc:
+                logger.error(f"Failed to transform internal DAG to Elyra format: {exc}")
+                raise FlowInvalidDataException(f"Failed to transform internal DAG to Elyra format: {exc!s}") from exc
 
         # Check for duplicate flow name using exact match
         all_flows = self.repository.find_all()

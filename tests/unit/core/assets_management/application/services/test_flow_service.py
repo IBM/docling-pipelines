@@ -23,14 +23,14 @@ class TestFlowServiceCreate:
         existing_flow = Flow(
             flow_id="different-id",
             name=sample_flow_with_id.name,  # Same name
-            definition={"nodes": [], "edges": []},
+            definition={"doc_type": "pipeline", "pipelines": []},
         )
         mock_flow_repository.find_all.return_value = [existing_flow]
         service = FlowService(repository=mock_flow_repository)
 
         # Act & Assert
         with pytest.raises(FlowAlreadyExistsException, match="already exists"):
-            service.create_flow(sample_flow_with_id)
+            service.create_flow(flow=sample_flow_with_id, is_elyra=True)
 
         # Verify save was never called
         mock_flow_repository.save.assert_not_called()
@@ -43,7 +43,7 @@ class TestFlowServiceCreate:
         service = FlowService(repository=mock_flow_repository)
 
         # Act
-        result = service.create_flow(sample_flow_domain)
+        result = service.create_flow(flow=sample_flow_domain, is_elyra=True)
 
         # Assert
         assert result == sample_flow_domain
@@ -57,7 +57,7 @@ class TestFlowServiceCreate:
 
         # Act & Assert
         with pytest.raises(FlowInvalidDataException, match="Flow name cannot be empty"):
-            service.create_flow(invalid_flow)
+            service.create_flow(flow=invalid_flow)
 
         # Verify save was never called
         mock_flow_repository.save.assert_not_called()
@@ -68,7 +68,7 @@ class TestFlowServiceCreate:
         existing_flow = Flow(
             flow_id="different-id",
             name=sample_flow_with_id.name,  # Same name
-            definition={"nodes": [], "edges": []},
+            definition={"doc_type": "pipeline", "pipelines": []},
         )
         mock_flow_repository.find_all.return_value = [existing_flow]
         service = FlowService(repository=mock_flow_repository)
@@ -76,7 +76,7 @@ class TestFlowServiceCreate:
         # Act & Assert
         with patch("datasift.core.flows.application.services.flow_service.logger") as mock_logger:
             with pytest.raises(FlowAlreadyExistsException, match="already exists"):
-                service.create_flow(sample_flow_with_id)
+                service.create_flow(flow=sample_flow_with_id, is_elyra=True)
 
             # Verify warning was logged before exception
             mock_logger.warning.assert_called_once()
@@ -91,7 +91,72 @@ class TestFlowServiceCreate:
 
         # Act & Assert
         with pytest.raises(OSError, match="Disk full"):
-            service.create_flow(sample_flow_domain)
+            service.create_flow(flow=sample_flow_domain, is_elyra=True)
+
+    def test_create_flow_with_is_elyra_false_transforms_to_elyra(self, mock_flow_repository):
+        """Test that is_elyra=False transforms internal DAG to Elyra format."""
+        # Arrange
+        internal_dag_flow = Flow(
+            flow_id="test-flow-id",
+            name="Test Flow",
+            definition={"flow": {"dag": [{"id": "node1", "operator": "ingest_local"}]}},
+        )
+        mock_flow_repository.find_all.return_value = []
+        mock_flow_repository.save.return_value = internal_dag_flow
+        service = FlowService(repository=mock_flow_repository)
+
+        # Act
+        with patch("datasift.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class:
+            mock_converter = mock_converter_class.return_value
+            mock_converter.transform_internal_to_elyra.return_value = {
+                "doc_type": "pipeline",
+                "pipelines": [],
+            }
+
+            result = service.create_flow(flow=internal_dag_flow, is_elyra=False)
+
+            # Assert
+            mock_converter.transform_internal_to_elyra.assert_called_once()
+            assert result == internal_dag_flow
+
+    def test_create_flow_with_is_elyra_true_no_transformation(self, mock_flow_repository):
+        """Test that is_elyra=True does not transform (flow already in Elyra format)."""
+        # Arrange
+        elyra_flow = Flow(
+            flow_id="test-flow-id",
+            name="Test Flow",
+            definition={"doc_type": "pipeline", "pipelines": []},
+        )
+        mock_flow_repository.find_all.return_value = []
+        mock_flow_repository.save.return_value = elyra_flow
+        service = FlowService(repository=mock_flow_repository)
+
+        # Act
+        with patch("datasift.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class:
+            result = service.create_flow(flow=elyra_flow, is_elyra=True)
+
+            # Assert - converter should not be instantiated when is_elyra=True
+            mock_converter_class.assert_not_called()
+            assert result == elyra_flow
+
+    def test_create_flow_transformation_failure_raises_exception(self, mock_flow_repository):
+        """Test that transformation failure raises FlowInvalidDataException."""
+        # Arrange
+        internal_dag_flow = Flow(
+            flow_id="test-flow-id",
+            name="Test Flow",
+            definition={"flow": {"dag": []}},
+        )
+        mock_flow_repository.find_all.return_value = []
+        service = FlowService(repository=mock_flow_repository)
+
+        # Act & Assert
+        with patch("datasift.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class:
+            mock_converter = mock_converter_class.return_value
+            mock_converter.transform_internal_to_elyra.side_effect = Exception("Transformation error")
+
+            with pytest.raises(FlowInvalidDataException, match="Failed to transform internal DAG to Elyra format"):
+                service.create_flow(flow=internal_dag_flow, is_elyra=False)
 
 
 class TestFlowServiceGet:

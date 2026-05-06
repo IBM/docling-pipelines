@@ -124,6 +124,14 @@ IsHiddenQuery = Annotated[
     ),
 ]
 
+IsElyraQuery = Annotated[
+    bool,
+    Query(
+        description="Indicates if the flow is in Elyra format. Defaults to False for DAG format.",
+        examples=[False, True],
+    ),
+]
+
 FlowIdsQuery = Annotated[
     str,
     Query(
@@ -243,7 +251,7 @@ FlowServiceDep = Annotated[FlowService, Depends(get_flow_service)]
                         "flow_id": "550e8400-e29b-41d4-a716-446655440000",
                         "name": "Invoice Processing Pipeline",
                         "description": "Extracts entities from invoices",
-                        "definition": {"nodes": [], "edges": []},
+                        "definition": {"doc_type": "pipeline", "pipelines": []},
                         "tags": ["invoice", "extraction"],
                         "container_kind": "project",
                         "container_id": "123e4567-e89b-12d3-a456-426614174000",
@@ -322,13 +330,19 @@ FlowServiceDep = Annotated[FlowService, Depends(get_flow_service)]
         },
     },
 )
-async def create_flow(request: Request, flow: FlowCreateRequest, service: FlowServiceDep):
+async def create_flow(
+    request: Request,
+    flow: FlowCreateRequest,
+    service: FlowServiceDep,
+    is_elyra: IsElyraQuery = False,
+):
     """Create and store a new flow.
 
     Args:
         request: FastAPI request object
         flow: FlowCreateRequest DTO containing flow definition
         service: Injected flow service instance
+        is_elyra: Query parameter indicating if flow is in Elyra format (default: False)
 
     Returns:
         FlowResponse: The stored flow with generated metadata
@@ -336,7 +350,7 @@ async def create_flow(request: Request, flow: FlowCreateRequest, service: FlowSe
     Raises:
         HTTPException: If flow creation fails (400, 409, 500)
     """
-    logger.debug(f"Creating flow: {flow.name}")
+    logger.debug(f"Creating flow: {flow.name}, is_elyra: {is_elyra}")
 
     # Convert DTO to domain model
     domain_flow = FlowMapper.create_request_to_domain(flow)
@@ -344,7 +358,7 @@ async def create_flow(request: Request, flow: FlowCreateRequest, service: FlowSe
     logger.debug(f"Converted to domain model: {domain_flow.name}")
 
     # Create flow using service - service raises typed exceptions
-    created_flow = service.create_flow(domain_flow)
+    created_flow = service.create_flow(flow=domain_flow, is_elyra=is_elyra)
 
     logger.info(f"Successfully created flow {created_flow.flow_id}")
 
@@ -366,7 +380,7 @@ async def create_flow(request: Request, flow: FlowCreateRequest, service: FlowSe
                         "flow_id": "550e8400-e29b-41d4-a716-446655440000",
                         "name": "Invoice Processing Pipeline",
                         "description": "Extracts entities from invoices",
-                        "definition": {"nodes": [], "edges": []},
+                        "definition": {"doc_type": "pipeline", "pipelines": []},
                         "tags": ["invoice", "extraction"],
                         "container_kind": "project",
                         "container_id": "123e4567-e89b-12d3-a456-426614174000",
@@ -482,7 +496,7 @@ async def get_flow(
                                 "flow_id": "550e8400-e29b-41d4-a716-446655440000",
                                 "name": "Invoice Processing Pipeline",
                                 "description": "Extracts entities from invoices",
-                                "definition": {"nodes": [], "edges": []},
+                                "definition": {"doc_type": "pipeline", "pipelines": []},
                                 "tags": ["invoice", "extraction"],
                                 "container_kind": "project",
                                 "container_id": "123e4567-e89b-12d3-a456-426614174000",
@@ -612,7 +626,7 @@ async def list_flows(
                         "flow_id": "550e8400-e29b-41d4-a716-446655440000",
                         "name": "Updated Invoice Pipeline",
                         "description": "Updated description",
-                        "definition": {"nodes": [], "edges": []},
+                        "definition": {"doc_type": "pipeline", "pipelines": []},
                         "tags": ["invoice", "extraction", "updated"],
                         "container_kind": "project",
                         "container_id": "123e4567-e89b-12d3-a456-426614174000",
@@ -734,7 +748,7 @@ async def update_flow(
                         "flow_id": "550e8400-e29b-41d4-a716-446655440000",
                         "name": "Invoice Processing Pipeline",
                         "description": "Extracts entities from invoices",
-                        "definition": {"nodes": [], "edges": []},
+                        "definition": {"doc_type": "pipeline", "pipelines": []},
                         "tags": ["invoice", "extraction", "updated"],
                         "container_kind": "project",
                         "container_id": "123e4567-e89b-12d3-a456-426614174000",
