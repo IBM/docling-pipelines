@@ -1,0 +1,77 @@
+{
+  "flow": {
+    "name": "document classification with watsonx",
+    "flow_id": "c3d4e5f6-a7b8-9012-cdef-123456789abc",
+    "description": "a flow to classify documents using IBM Watsonx.ai after extraction",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "global_config": {
+      "doc_column": "content",
+      "disable_validation": "true",
+      "force_ingest": true
+    },
+    "dag": [
+      {
+        "id": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd",
+        "name": "ingest",
+        "operator": "ingest_local",
+        "config": {
+          "input_folder": "./tests/fixtures/invoices/",
+           "include_filter": "txt,pdf,docx",
+          "store_binary_content": "true",
+          "max_workers": 2
+        },
+        "input_edges": [],
+        "output_edges": [
+          { "node_id_ref": "20fd7577-b061-4fc9-92d5-120ae0fbde89" }
+        ]
+      },
+      {
+        "id": "20fd7577-b061-4fc9-92d5-120ae0fbde89",
+        "name": "extract",
+        "operator": "extract_operator",
+        "config": {
+          "doc_column": "content"
+        },
+        "input_edges": [
+          { "node_id_ref": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
+        ],
+        "output_edges": [
+          { "node_id_ref": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
+        ]
+      },
+      {
+        "id": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
+        "name": "classify",
+        "operator": "document_classifier",
+        
+        "config": {
+          "provider": "ollama",
+        "model_id": "granite4:latest",
+         
+          "document_types": {
+            "invoice": "Business invoice with line items, totals, and payment terms",
+            "receipt": "Payment receipt or transaction confirmation",
+            "contract": "Legal contract or agreement document",
+            "report": "Business or technical report",
+            "letter": "Formal or informal letter",
+            "email": "Email correspondence",
+            "form": "Form or application document",
+            "purchase_order": "Purchase order for goods or services",
+            "other": "Other document types"
+          },
+          "confidence_threshold": 7.0,
+          "doc_column": "content",
+          "output_column": "document_type",
+          "include_confidence": true,
+          "include_reasoning": true,
+          "max_content_length": 8000
+        },
+        "input_edges": [
+          { "node_id_ref": "20fd7577-b061-4fc9-92d5-120ae0fbde89" }
+        ],
+        "output_edges": []
+      }
+    ]
+  }
+}

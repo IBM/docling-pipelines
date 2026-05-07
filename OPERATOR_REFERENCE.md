@@ -1,3 +1,7 @@
+---
+title: Operator Reference
+---
+
 # Operator Reference
 
 ## Table of Contents
@@ -85,7 +89,7 @@
 
 ## Overview
 
-[`OPERATOR_REFERENCE.md`](OPERATOR_REFERENCE.md) centralizes the public APIs that are visible to pipeline authors, application integrators, and operators users.
+[`OPERATOR_REFERENCE.md`](OPERATOR_REFERENCE.md) centralizes the public APIs that are visible to pipeline authors, application integrators, and operator users.
 
 This reference is organized around four entry points:
 
@@ -99,6 +103,7 @@ This reference is organized around four entry points:
 - Use the operator sections when authoring flow JSON.
 - Use the flow manager section when embedding datasift in Python code.
 - Use the CLI section when running or validating flows from the shell.
+- For classification-specific architecture details, see [`docs/operators/document_classifier.md`](docs/operators/document_classifier.md), which documents the runtime-native hexagonal package used by [`DocumentClassifierOperator`](src/datasift/core/operators/quality/document_classifier.py:26).
 
 ---
 
@@ -229,6 +234,204 @@ Most operators consume a `pyarrow.Table` with some subset of these columns:
   }
 }
 ```
+
+---
+
+### Quality Operators
+
+#### DocumentClassifierOperator
+
+**Purpose:** Classifies documents into predefined types using LLM-based classification with confidence scoring and reasoning. Implements hexagonal architecture supporting multiple LLM providers (Ollama, LiteLLM, Watsonx).
+
+**Category:** Quality
+
+**Class:** `core.operators.quality.classification.document_classifier.DocumentClassifierOperator`
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `provider` | string | No | `"ollama"` | LLM provider: `"ollama"`, `"litellm"`, or `"watsonx"` |
+| `model_id` | string | No | `"granite4:latest"` | Model identifier (e.g., `"granite4:latest"`, `"openai/gpt-4o-mini"`, `"claude-3-sonnet"`) |
+| `provider_config` | object | No | `{}` | Provider-specific configuration (api_key, api_base, etc.) |
+| `document_types` | list/dict | No | Auto-loaded | Document types to classify into (list or dict with descriptions) |
+| `confidence_threshold` | float | No | `7.0` | Minimum confidence for classification (1-10 scale) |
+| `doc_column` | string | No | `"content"` | Column containing document text |
+| `output_column` | string | No | `"document_type"` | Column name for classification result |
+| `include_confidence` | boolean | No | `true` | Include confidence score in output |
+| `include_reasoning` | boolean | No | `false` | Include reasoning explanation in output |
+| `max_content_length` | integer | No | `2000` | Maximum content length to send to LLM |
+| `max_workers` | integer | No | Auto | Number of parallel workers |
+| `use_processes` | boolean | No | `false` | Use processes instead of threads |
+
+**Provider-Specific Configuration**
+
+**Ollama:**
+```json
+{
+  "provider": "ollama",
+  "model_id": "granite4:latest"
+}
+```
+
+**LiteLLM (100+ providers):**
+```json
+{
+  "provider": "litellm",
+  "model_id": "openai/gpt-4o-mini",
+  "provider_config": {
+    "api_key": "${OPENAI_API_KEY}",
+    "request_timeout": 120
+  }
+}
+```
+
+Supported LiteLLM providers:
+- OpenAI: `openai/gpt-4o-mini`, `openai/gpt-4`, `openai/gpt-3.5-turbo`
+- Anthropic: `anthropic/claude-3-opus`, `anthropic/claude-3-sonnet`, `anthropic/claude-3-haiku`
+- Azure OpenAI: `azure/gpt-4`
+- AWS Bedrock: `bedrock/anthropic.claude-3-sonnet`
+- Google Vertex AI: `vertex_ai/gemini-pro`
+- Ollama via OpenAI-compatible endpoint: `openai/llama3` with `api_base: "http://localhost:11434/v1"`
+
+**Watsonx:**
+```json
+{
+  "provider": "watsonx",
+  "model_id": "ibm/granite-13b-chat-v2",
+  "provider_config": {
+    "api_base": "https://us-south.ml.cloud.ibm.com",
+    "api_key": "${WATSONX_API_KEY}",
+    "container_kind": "project",
+    "container_id": "${WATSONX_PROJECT_ID}",
+    "request_timeout": 120
+  }
+}
+```
+
+**Input Schema**
+
+- PyArrow Table with document content (text column or binary content for extraction)
+- Optional `content` column (if not present, will be fetched from binary content)
+
+**Output Schema**
+
+Adds the following columns:
+- `document_type` (string): Classified document type
+- `document_type_confidence` (float): Confidence score 1-10 (if `include_confidence=true`)
+- `document_type_reasoning` (string): Classification explanation (if `include_reasoning=true`)
+- `content` (string): Document content (if fetched and not already present)
+
+**Document Types Configuration**
+
+Simple list format:
+```json
+{
+  "document_types": ["invoice", "receipt", "contract", "report", "letter"]
+}
+```
+
+Detailed dictionary format (recommended):
+```json
+{
+  "document_types": {
+    "invoice": "Business invoice with line items, totals, and payment terms",
+    "receipt": "Payment receipt or transaction confirmation",
+    "contract": "Legal contract or agreement document",
+    "report": "Business or technical report with analysis and findings",
+    "other": "Other document types not fitting above categories"
+  }
+}
+```
+
+**Exceptions**
+
+- `DatasiftException`: Adapter initialization failures, invalid provider configuration
+- `ValueError`: Invalid response format from LLM
+- `json.JSONDecodeError`: Failed to parse LLM response
+
+**Example - Basic Ollama Classification**
+
+```json
+{
+  "id": "classify-node",
+  "name": "classify",
+  "operator": "document_classifier",
+  "config": {
+    "provider": "ollama",
+    "model_id": "granite4:latest",
+    "document_types": ["invoice", "receipt", "contract", "report"],
+    "confidence_threshold": 7.0,
+    "include_confidence": true,
+    "include_reasoning": false
+  }
+}
+```
+
+**Example - LiteLLM with OpenAI**
+
+```json
+{
+  "id": "classify-node",
+  "name": "classify",
+  "operator": "classification_operator",
+  "config": {
+    "provider": "litellm",
+    "model_id": "openai/gpt-4o-mini",
+    "provider_config": {
+      "api_key": "${OPENAI_API_KEY}"
+    },
+    "document_types": {
+      "invoice": "Business invoice with line items and totals",
+      "receipt": "Payment receipt or confirmation",
+      "contract": "Legal contract or agreement",
+      "report": "Business or technical report"
+    },
+    "confidence_threshold": 8.0,
+    "include_confidence": true,
+    "include_reasoning": true,
+    "max_content_length": 4000
+  }
+}
+```
+
+**Example - LiteLLM with Ollama OpenAI-Compatible Endpoint**
+
+```json
+{
+  "id": "classify-node",
+  "name": "classify",
+  "operator": "document_classifier",
+  "config": {
+    "provider": "litellm",
+    "model_id": "openai/llama3",
+    "provider_config": {
+      "api_key": "${api-key}",
+      "api_base": "http://localhost:11434/v1"
+    },
+    "document_types": {
+      "invoice": "Business invoice with line items, totals, and payment terms",
+      "receipt": "Payment receipt or transaction confirmation",
+      "contract": "Legal contract or agreement document",
+      "other": "Other document types"
+    },
+    "confidence_threshold": 7.0,
+    "include_confidence": true,
+    "include_reasoning": true
+  }
+}
+```
+
+**Architecture**
+
+Uses hexagonal architecture (ports and adapters pattern):
+- **Domain Layer**: Pure business logic with `ClassificationRequest`, `ClassificationResponse`, `ModelInfo` models
+- **Ports Layer**: `ClassificationServicePort` interface defining classification contract
+- **Adapters Layer**: Provider-specific implementations (OllamaClassificationAdapter, LiteLLMClassificationAdapter, WatsonxClassificationAdapter)
+- **Factory Layer**: `ClassificationAdapterFactory` with decorator-based auto-registration
+
+**Related Documentation**
+
+- [Classification Operator Guide](docs/operators/document_classifier.md)
+- [Extract Operator](docs/operators/extract_operator.md)
 
 ---
 

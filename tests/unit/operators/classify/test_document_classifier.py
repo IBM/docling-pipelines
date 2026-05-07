@@ -6,17 +6,19 @@ Tests the operator with sample documents from the fixtures directory.
 
 import json
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pyarrow as pa
 import pytest
 
-from datasift.core.operators.quality.document_classifier import DocumentClassifierOperator
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
+from datasift.exceptions.datasift_exceptions import DatasiftException, ExternalServiceError
 
 
 @pytest.mark.unit
-def test_document_classifier_basic():
+@patch("datasift.integrations.ollama.client.OllamaClient.is_server_running", return_value=True)
+@patch("datasift.integrations.ollama.client.OllamaClient.is_model_available", return_value=True)
+def test_document_classifier_basic(mock_model, mock_server):
     """Test the DocumentClassifierOperator with basic classification."""
 
     # Create sample documents with content
@@ -91,15 +93,10 @@ def test_document_classifier_basic():
         ),
     ]
 
-    # Mock the Ollama client
-    with patch("ollama.Client") as mock_client_class:
-        mock_client = Mock()
-        # Mock the chat method to return different responses for each call
-        mock_client.chat.side_effect = [{"message": {"content": resp}} for resp in mock_responses]
-        # Mock list method for validation
-        mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
-        mock_client_class.return_value = mock_client
-
+    with patch(
+        "datasift.core.operators.quality.classification.adapters.outbound.ollama_adapter.OllamaClient.run",
+        side_effect=mock_responses,
+    ):
         operator = DocumentClassifierOperator(config)
 
         # Transform the table
@@ -185,15 +182,20 @@ def test_document_classifier_without_content_column():
         ),
     ]
 
-    # Mock the Ollama client
-    with patch("ollama.Client") as mock_client_class:
-        mock_client = Mock()
-        # Mock the chat method to return different responses for each call
-        mock_client.chat.side_effect = [{"message": {"content": resp}} for resp in mock_responses]
-        # Mock list method for validation
-        mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
-        mock_client_class.return_value = mock_client
-
+    with (
+        patch(
+            "datasift.integrations.ollama.client.OllamaClient.is_server_running",
+            return_value=True,
+        ),
+        patch(
+            "datasift.integrations.ollama.client.OllamaClient.is_model_available",
+            return_value=True,
+        ),
+        patch(
+            "datasift.core.operators.quality.classification.adapters.outbound.ollama_adapter.OllamaClient.run",
+            side_effect=mock_responses,
+        ),
+    ):
         operator = DocumentClassifierOperator(config)
 
         # Transform the table
@@ -217,7 +219,9 @@ def test_document_classifier_without_content_column():
 
 
 @pytest.mark.unit
-def test_document_classifier_get_metadata():
+@patch("datasift.integrations.ollama.client.OllamaClient.is_server_running", return_value=True)
+@patch("datasift.integrations.ollama.client.OllamaClient.is_model_available", return_value=True)
+def test_document_classifier_get_metadata(mock_model, mock_server):
     """Test the get_metadata method."""
 
     # Create operator with minimal config
@@ -252,7 +256,9 @@ def test_document_classifier_get_metadata():
 
 
 @pytest.mark.unit
-def test_document_classifier_validation():
+@patch("datasift.integrations.ollama.client.OllamaClient.is_server_running", return_value=True)
+@patch("datasift.integrations.ollama.client.OllamaClient.is_model_available", return_value=True)
+def test_document_classifier_validation(mock_model, mock_server):
     """Test the validation method."""
 
     # Test with valid config
@@ -272,7 +278,9 @@ def test_document_classifier_validation():
 
 
 @pytest.mark.unit
-def test_document_classifier_empty_table():
+@patch("datasift.integrations.ollama.client.OllamaClient.is_server_running", return_value=True)
+@patch("datasift.integrations.ollama.client.OllamaClient.is_model_available", return_value=True)
+def test_document_classifier_empty_table(mock_model, mock_server):
     """Test the DocumentClassifierOperator with empty table."""
 
     # Create empty table
@@ -298,7 +306,9 @@ def test_document_classifier_empty_table():
 
 
 @pytest.mark.unit
-def test_document_classifier_with_existing_classification():
+@patch("datasift.integrations.ollama.client.OllamaClient.is_server_running", return_value=True)
+@patch("datasift.integrations.ollama.client.OllamaClient.is_model_available", return_value=True)
+def test_document_classifier_with_existing_classification(mock_model, mock_server):
     """Test that operator skips if document_type column already exists."""
 
     # Create table with existing document_type column
@@ -323,7 +333,7 @@ def test_document_classifier_with_existing_classification():
     operator = DocumentClassifierOperator(config)
 
     # Transform the table
-    result_tables, _ = operator.transform(table)
+    result_tables, _metadata = operator.transform(table)
     result_table = result_tables[0]
 
     # Assertions - should return original table unchanged
@@ -332,7 +342,9 @@ def test_document_classifier_with_existing_classification():
 
 
 @pytest.mark.unit
-def test_document_classifier_list_document_types():
+@patch("datasift.integrations.ollama.client.OllamaClient.is_server_running", return_value=True)
+@patch("datasift.integrations.ollama.client.OllamaClient.is_model_available", return_value=True)
+def test_document_classifier_list_document_types(mock_model, mock_server):
     """Test the DocumentClassifierOperator with list of document types (no descriptions)."""
 
     # Create sample document
@@ -365,19 +377,14 @@ def test_document_classifier_list_document_types():
         }
     )
 
-    # Mock the Ollama client
-    with patch("ollama.Client") as mock_client_class:
-        mock_client = Mock()
-        # Mock the chat method
-        mock_client.chat.return_value = {"message": {"content": mock_response}}
-        # Mock list method for validation
-        mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
-        mock_client_class.return_value = mock_client
-
+    with patch(
+        "datasift.core.operators.quality.classification.adapters.outbound.ollama_adapter.OllamaClient.run",
+        return_value=mock_response,
+    ):
         operator = DocumentClassifierOperator(config)
 
         # Transform the table
-        result_tables, _ = operator.transform(table)
+        result_tables, _metadata = operator.transform(table)
         result_table = result_tables[0]
 
         # Assertions
@@ -386,250 +393,452 @@ def test_document_classifier_list_document_types():
 
 
 @pytest.mark.unit
-def test_document_classifier_watsonx_provider_config():
-    """Test DocumentClassifierOperator with watsonx provider configuration."""
+class TestOllamaClassificationAdapter:
+    """Test class for Ollama classification adapter."""
 
-    # Create sample document
-    table = pa.table(
-        {
-            "id": ["doc1"],
-            "name": ["invoice.txt"],
-            "content": ["INVOICE\nInvoice Number: INV-001\nTotal: $1000"],
-        }
-    )
-
-    # Initialize operator with watsonx provider
-    config = {
-        "provider": "watsonx",
-        "provider_config": {
-            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "container_id": "test-project-id",
-            "container_kind": "project",
-            "request_timeout": 120,
-        },
-        "model_id": "ibm/granite-3-8b-instruct",
-        "document_types": ["invoice", "receipt", "contract"],
-        "doc_column": "content",
-        "output_column": "document_type",
-        "include_confidence": True,
-        "include_reasoning": True,
-    }
-
-    # Mock response in OpenAI Chat Completions API format (verified from actual watsonx response)
-    mock_response = {
-        "choices": [
+    def test_ollama_adapter_basic_classification(self):
+        """Test Ollama adapter with basic classification."""
+        sample_docs = [
             {
-                "message": {
-                    "content": json.dumps(
-                        {
-                            "document_type": "invoice",
-                            "confidence": 10,
-                            "reasoning": "Document contains invoice number and total amount.",
-                        }
-                    )
-                }
+                "id": "doc1",
+                "name": "invoice.txt",
+                "content": "INVOICE\nInvoice Number: INV-001\nTotal: $1000",
             }
         ]
-    }
 
-    # Mock RestClient for watsonx API calls
-    with patch("datasift.core.operators.quality.document_classifier.RestClient") as mock_rest_class:
-        mock_rest_instance = Mock()
-        mock_rest_instance.call_rest_json.return_value = mock_response
-        mock_rest_class.return_value = mock_rest_instance
+        table = pa.table(
+            {
+                "id": [doc["id"] for doc in sample_docs],
+                "name": [doc["name"] for doc in sample_docs],
+                "content": [doc["content"] for doc in sample_docs],
+            }
+        )
 
-        operator = DocumentClassifierOperator(config)
-
-        # Verify configuration was set correctly
-        assert operator.provider == "watsonx"
-        assert operator.model_id == "ibm/granite-3-8b-instruct"
-        assert operator.api_base == "https://us-south.ml.cloud.ibm.com/ml/v1"
-        assert operator.container_id == "test-project-id"
-        assert operator.container_kind == "project"
-        assert operator.request_timeout == 120
-
-        # Transform the table
-        result_tables, metadata = operator.transform(table)
-        result_table = result_tables[0]
-
-        # Assertions
-        assert "document_type" in result_table.column_names
-        assert "document_type_confidence" in result_table.column_names
-        assert "document_type_reasoning" in result_table.column_names
-        assert result_table["document_type"][0].as_py() == "invoice"
-        assert result_table["document_type_confidence"][0].as_py() == 10
-        assert metadata["processed_docs"] == 1
-
-
-@pytest.mark.unit
-def test_document_classifier_watsonx_missing_model_id():
-    """Test that watsonx provider requires model_id."""
-
-    config = {
-        "provider": "watsonx",
-        "provider_config": {
-            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "container_id": "test-project-id",
-            "container_kind": "project",
-        },
-        "document_types": ["invoice", "receipt"],
-        # model_id is missing - should raise exception
-    }
-
-    with pytest.raises(DatasiftException, match="model_id is required for watsonx provider"):
-        DocumentClassifierOperator(config)
-
-
-@pytest.mark.unit
-def test_document_classifier_watsonx_missing_api_base():
-    """Test that watsonx provider requires api_base in provider_config."""
-
-    config = {
-        "provider": "watsonx",
-        "provider_config": {
-            # api_base is missing
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "container_id": "test-project-id",
-        },
-        "model_id": "ibm/granite-3-8b-instruct",
-        "document_types": ["invoice", "receipt"],
-    }
-
-    with pytest.raises(
-        DatasiftException,
-        match="api_base is required in provider_config for watsonx provider",
-    ):
-        DocumentClassifierOperator(config)
-
-
-@pytest.mark.unit
-def test_document_classifier_watsonx_missing_api_key():
-    """Test that watsonx provider requires api_key in provider_config."""
-
-    config = {
-        "provider": "watsonx",
-        "provider_config": {
-            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
-            # api_key is missing
-            "container_id": "test-project-id",
-        },
-        "model_id": "ibm/granite-3-8b-instruct",
-        "document_types": ["invoice", "receipt"],
-    }
-
-    with pytest.raises(
-        DatasiftException,
-        match="api_key is required in provider_config for watsonx provider",
-    ):
-        DocumentClassifierOperator(config)
-
-
-@pytest.mark.unit
-def test_document_classifier_watsonx_missing_container_id():
-    """Test that watsonx provider requires container_id in provider_config."""
-
-    config = {
-        "provider": "watsonx",
-        "provider_config": {
-            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            # container_id is missing
-        },
-        "model_id": "ibm/granite-3-8b-instruct",
-        "document_types": ["invoice", "receipt"],
-    }
-
-    with pytest.raises(
-        DatasiftException,
-        match="container_id is required in provider_config for watsonx provider",
-    ):
-        DocumentClassifierOperator(config)
-
-
-@pytest.mark.unit
-def test_document_classifier_watsonx_validation():
-    """Test validation method for watsonx provider."""
-
-    # Test with valid config
-    config = {
-        "provider": "watsonx",
-        "provider_config": {
-            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "container_id": "test-project-id",
-        },
-        "model_id": "ibm/granite-3-8b-instruct",
-        "document_types": ["invoice", "receipt"],
-    }
-
-    operator = DocumentClassifierOperator(config)
-    errors = []
-    warnings = []
-    operator.validate(errors, warnings, [])
-
-    assert len(errors) == 0, "Should have no validation errors with valid config"
-
-
-@pytest.mark.unit
-def test_document_classifier_provider_config_empty_for_ollama():
-    """Test that ollama provider works with empty provider_config."""
-
-    table = pa.table(
-        {
-            "id": ["doc1"],
-            "name": ["test.txt"],
-            "content": ["Test content"],
+        config = {
+            "provider": "ollama",
+            "model_id": "granite4:latest",
+            "document_types": ["invoice", "receipt", "contract"],
+            "confidence_threshold": 7.0,
+            "doc_column": "content",
+            "output_column": "document_type",
+            "include_confidence": True,
+            "include_reasoning": True,
         }
-    )
 
-    config = {
-        "provider": "ollama",
-        "provider_config": {},  # Empty config is fine for ollama
-        "model_id": "granite4:latest",
-        "document_types": ["invoice", "receipt"],
-    }
+        mock_response = json.dumps(
+            {
+                "document_type": "invoice",
+                "confidence": 9,
+                "reasoning": "Document contains invoice number and total amount.",
+            }
+        )
 
-    mock_response = json.dumps(
-        {
-            "document_type": "invoice",
-            "confidence": 8,
-            "reasoning": "Test reasoning",
+        with (
+            patch(
+                "datasift.integrations.ollama.client.OllamaClient.is_server_running",
+                return_value=True,
+            ),
+            patch(
+                "datasift.integrations.ollama.client.OllamaClient.is_model_available",
+                return_value=True,
+            ),
+            patch(
+                "datasift.core.operators.quality.classification.adapters.outbound.ollama_adapter.OllamaClient.run",
+                return_value=mock_response,
+            ),
+        ):
+            operator = DocumentClassifierOperator(config)
+            result_tables, metadata = operator.transform(table)
+            result_table = result_tables[0]
+
+            assert "document_type" in result_table.column_names
+            assert result_table["document_type"][0].as_py() == "invoice"
+            assert metadata["processed_docs"] == 1
+
+    def test_ollama_adapter_server_not_running(self):
+        """Test Ollama adapter when server is not running."""
+        config = {
+            "provider": "ollama",
+            "model_id": "granite4:latest",
+            "document_types": ["invoice", "receipt"],
         }
-    )
 
-    with patch("ollama.Client") as mock_client_class:
-        mock_client = Mock()
-        mock_client.chat.return_value = {"message": {"content": mock_response}}
-        mock_client.list.return_value = Mock(models=[Mock(model="granite4:latest")])
-        mock_client_class.return_value = mock_client
+        with (
+            patch(
+                "datasift.integrations.ollama.client.OllamaClient.is_server_running",
+                return_value=False,
+            ),
+            patch(
+                "datasift.integrations.ollama.client.OllamaClient.is_model_available",
+                return_value=True,
+            ),
+        ):
+            # Should raise DatasiftException (fail-fast initialization)
+            with pytest.raises(DatasiftException, match="Ollama server is not running"):
+                DocumentClassifierOperator(config)
 
-        operator = DocumentClassifierOperator(config)
-        result_tables, metadata = operator.transform(table)
+    def test_ollama_adapter_model_not_available(self):
+        """Test Ollama adapter when model is not available."""
+        config = {
+            "provider": "ollama",
+            "model_id": "nonexistent-model",
+            "document_types": ["invoice", "receipt"],
+        }
 
-        assert metadata["processed_docs"] == 1
-        assert result_tables[0]["document_type"][0].as_py() == "invoice"
+        with (
+            patch(
+                "datasift.integrations.ollama.client.OllamaClient.is_server_running",
+                return_value=True,
+            ),
+            patch(
+                "datasift.integrations.ollama.client.OllamaClient.is_model_available",
+                return_value=False,
+            ),
+        ):
+            # Should raise DatasiftException (fail-fast initialization)
+            with pytest.raises(DatasiftException, match="is not available in Ollama"):
+                DocumentClassifierOperator(config)
 
 
 @pytest.mark.unit
-def test_document_classifier_watsonx_default_container_kind():
-    """Test that watsonx provider defaults container_kind to 'project'."""
+class TestLiteLLMClassificationAdapter:
+    """Test class for LiteLLM classification adapter."""
 
-    config = {
-        "provider": "watsonx",
-        "provider_config": {
-            "api_base": "https://us-south.ml.cloud.ibm.com/ml/v1",
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "container_id": "test-project-id",
-            # container_kind not specified - should default to "project"
-        },
-        "model_id": "ibm/granite-3-8b-instruct",
-        "document_types": ["invoice"],
-    }
+    def test_litellm_adapter_basic_classification(self):
+        """Test LiteLLM adapter with basic classification."""
+        sample_docs = [
+            {
+                "id": "doc1",
+                "name": "contract.txt",
+                "content": "CONTRACT AGREEMENT\nThis agreement is made between Party A and Party B.",
+            }
+        ]
 
-    operator = DocumentClassifierOperator(config)
-    assert operator.container_kind == "project", "Should default to 'project'"
+        table = pa.table(
+            {
+                "id": [doc["id"] for doc in sample_docs],
+                "name": [doc["name"] for doc in sample_docs],
+                "content": [doc["content"] for doc in sample_docs],
+            }
+        )
+
+        config = {
+            "provider": "litellm",
+            "model_id": "openai/gpt-4",
+            "provider_config": {
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "${api_key}",
+            },
+            "document_types": ["invoice", "receipt", "contract"],
+            "confidence_threshold": 7.0,
+            "doc_column": "content",
+            "output_column": "document_type",
+            "include_confidence": True,
+            "include_reasoning": True,
+        }
+
+        mock_response = json.dumps(
+            {
+                "document_type": "contract",
+                "confidence": 8,
+                "reasoning": "Document is a legal agreement between two parties.",
+            }
+        )
+
+        with patch(
+            "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+            return_value=mock_response,
+        ):
+            operator = DocumentClassifierOperator(config)
+            result_tables, metadata = operator.transform(table)
+            result_table = result_tables[0]
+
+            assert "document_type" in result_table.column_names
+            assert result_table["document_type"][0].as_py() == "contract"
+            assert metadata["processed_docs"] == 1
+
+    def test_litellm_adapter_missing_model_id(self):
+        """Test LiteLLM adapter with missing model_id."""
+        config = {
+            "provider": "litellm",
+            "document_types": ["invoice", "receipt"],
+        }
+
+        with pytest.raises(ValueError, match="model_id is required for LiteLLM adapter"):
+            DocumentClassifierOperator(config)
+
+    def test_litellm_adapter_with_custom_api_base(self):
+        """Test LiteLLM adapter with custom API base."""
+        sample_docs = [
+            {
+                "id": "doc1",
+                "name": "receipt.txt",
+                "content": "RECEIPT\nStore: ABC Store\nTotal: $13.00",
+            }
+        ]
+
+        table = pa.table(
+            {
+                "id": [doc["id"] for doc in sample_docs],
+                "name": [doc["name"] for doc in sample_docs],
+                "content": [doc["content"] for doc in sample_docs],
+            }
+        )
+
+        config = {
+            "provider": "litellm",
+            "model_id": "gpt-3.5-turbo",
+            "provider_config": {
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "${api_key}",
+            },
+            "document_types": ["invoice", "receipt", "contract"],
+            "doc_column": "content",
+            "output_column": "document_type",
+        }
+
+        mock_response = json.dumps(
+            {
+                "document_type": "receipt",
+                "confidence": 9,
+                "reasoning": "Document is a payment receipt.",
+            }
+        )
+
+        with patch(
+            "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+            return_value=mock_response,
+        ):
+            operator = DocumentClassifierOperator(config)
+            result_tables, _metadata = operator.transform(table)
+            result_table = result_tables[0]
+
+            assert result_table["document_type"][0].as_py() == "receipt"
+
+
+@pytest.mark.unit
+class TestWatsonxClassificationAdapter:
+    """Test class for Watsonx classification adapter."""
+
+    def test_watsonx_adapter_basic_classification(self):
+        """Test Watsonx adapter with basic classification."""
+        sample_docs = [
+            {
+                "id": "doc1",
+                "name": "report.txt",
+                "content": "QUARTERLY REPORT\nQ4 2024 Financial Summary",
+            }
+        ]
+
+        table = pa.table(
+            {
+                "id": [doc["id"] for doc in sample_docs],
+                "name": [doc["name"] for doc in sample_docs],
+                "content": [doc["content"] for doc in sample_docs],
+            }
+        )
+
+        config = {
+            "provider": "watsonx",
+            "model_id": "ibm/granite-3-8b-instruct",
+            "provider_config": {
+                "api_base": "https://us-south.ml.cloud.ibm.com",
+                "container_kind": "project",
+            },
+            "document_types": ["invoice", "receipt", "contract", "report"],
+            "confidence_threshold": 7.0,
+            "doc_column": "content",
+            "output_column": "document_type",
+            "include_confidence": True,
+            "include_reasoning": True,
+        }
+
+        mock_api_response = {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps(
+                            {
+                                "document_type": "report",
+                                "confidence": 8,
+                                "reasoning": "Document is a quarterly financial report.",
+                            }
+                        ),
+                    }
+                }
+            ]
+        }
+
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "WATSONX_API_KEY": "test-api-key",  # pragma: allowlist secret
+                    "WATSONX_CONTAINER_ID": "test-project-id",
+                },
+            ),
+            patch(
+                "datasift.integrations.docling.vlm_pipeline_options_provider.WatsonxPipelineOptionsProvider._get_iam_access_token",
+                return_value="test-token",
+            ),
+            patch(
+                "datasift.integrations.rest_client.RestClient.call_rest_json",
+                return_value=mock_api_response,
+            ),
+        ):
+            operator = DocumentClassifierOperator(config)
+            result_tables, metadata = operator.transform(table)
+            result_table = result_tables[0]
+
+            assert "document_type" in result_table.column_names
+            assert result_table["document_type"][0].as_py() == "report"
+            assert metadata["processed_docs"] == 1
+
+    def test_watsonx_adapter_missing_required_params(self):
+        """Test Watsonx adapter with missing required parameters."""
+        config = {
+            "provider": "watsonx",
+            "model_id": "ibm/granite-3-8b-instruct",
+            "provider_config": {
+                "api_base": "https://us-south.ml.cloud.ibm.com",
+            },
+            "document_types": ["invoice", "receipt"],
+        }
+
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "WATSONX_API_KEY": "test-api-key",  # pragma: allowlist secret
+                    "WATSONX_CONTAINER_ID": "test-container-id",
+                },
+            ),
+            pytest.raises(DatasiftException, match=r"container_kind.*required for watsonx provider"),
+        ):
+            DocumentClassifierOperator(config)
+
+    def test_watsonx_adapter_with_space_container(self):
+        """Test Watsonx adapter with space container kind."""
+        sample_docs = [
+            {
+                "id": "doc1",
+                "name": "letter.txt",
+                "content": "Dear Sir/Madam,\nThis is a formal letter.",
+            }
+        ]
+
+        table = pa.table(
+            {
+                "id": [doc["id"] for doc in sample_docs],
+                "name": [doc["name"] for doc in sample_docs],
+                "content": [doc["content"] for doc in sample_docs],
+            }
+        )
+
+        config = {
+            "provider": "watsonx",
+            "model_id": "ibm/granite-3-8b-instruct",
+            "provider_config": {
+                "api_base": "https://us-south.ml.cloud.ibm.com",
+                "container_kind": "space",
+            },
+            "document_types": ["invoice", "letter", "report"],
+            "doc_column": "content",
+            "output_column": "document_type",
+        }
+
+        mock_api_response = {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps(
+                            {
+                                "document_type": "letter",
+                                "confidence": 9,
+                                "reasoning": "Document is a formal letter.",
+                            }
+                        ),
+                    }
+                }
+            ]
+        }
+
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "WATSONX_API_KEY": "test-api-key",  # pragma: allowlist secret
+                    "WATSONX_CONTAINER_ID": "test-space-id",
+                },
+            ),
+            patch(
+                "datasift.integrations.docling.vlm_pipeline_options_provider.WatsonxPipelineOptionsProvider._get_iam_access_token",
+                return_value="test-token",
+            ),
+            patch(
+                "datasift.integrations.rest_client.RestClient.call_rest_json",
+                return_value=mock_api_response,
+            ),
+        ):
+            operator = DocumentClassifierOperator(config)
+            result_tables, _metadata = operator.transform(table)
+            result_table = result_tables[0]
+
+            assert result_table["document_type"][0].as_py() == "letter"
+
+    def test_watsonx_adapter_token_refresh(self):
+        """Test Watsonx adapter token refresh on error."""
+        sample_docs = [
+            {
+                "id": "doc1",
+                "name": "invoice.txt",
+                "content": "INVOICE\nInvoice Number: INV-001",
+            }
+        ]
+
+        table = pa.table(
+            {
+                "id": [doc["id"] for doc in sample_docs],
+                "name": [doc["name"] for doc in sample_docs],
+                "content": [doc["content"] for doc in sample_docs],
+            }
+        )
+
+        config = {
+            "provider": "watsonx",
+            "model_id": "ibm/granite-3-8b-instruct",
+            "provider_config": {
+                "api_base": "https://us-south.ml.cloud.ibm.com",
+                "container_kind": "project",
+            },
+            "document_types": ["invoice", "receipt"],
+            "doc_column": "content",
+            "output_column": "document_type",
+        }
+
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "WATSONX_API_KEY": "test-api-key",  # pragma: allowlist secret
+                    "WATSONX_CONTAINER_ID": "test-project-id",
+                },
+            ),
+            patch(
+                "datasift.integrations.rest_client.RestClient.call_rest_json",
+                side_effect=ExternalServiceError(message="Token expired"),
+            ),
+        ):
+            operator = DocumentClassifierOperator(config)
+            result_tables, metadata = operator.transform(table)
+            result_table = result_tables[0]
+
+            # Should handle error gracefully
+            assert result_table.num_rows == 1
+            # Check that failed_docs is a list with one entry
+            assert len(metadata["failed_docs"]) == 1
 
 
 if __name__ == "__main__":

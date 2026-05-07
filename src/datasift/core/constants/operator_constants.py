@@ -229,6 +229,14 @@ class OperatorConstants:
         MODEL_ID: Final[str] = "model_id"
         MODEL_NAME: Final[str] = "model_name"
 
+        # Classification Configuration
+        API_BASE: Final[str] = "api_base"
+        DOCUMENT_TYPES: Final[str] = "document_types"
+        CONFIDENCE_THRESHOLD: Final[str] = "confidence_threshold"
+        INCLUDE_CONFIDENCE: Final[str] = "include_confidence"
+        INCLUDE_REASONING: Final[str] = "include_reasoning"
+        MAX_CONTENT_LENGTH: Final[str] = "max_content_length"
+
         # Watsonx Configuration
         WATSONX_CONTAINER_KIND: Final[str] = "container_kind"
         WATSONX_CONTAINER_ID: Final[str] = "container_id"

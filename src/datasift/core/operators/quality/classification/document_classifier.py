@@ -2,39 +2,31 @@
 """
 Document Classification Operator
 Classifies documents into predefined types using LLM-based classification.
-Supports both watsonx-api and Ollama as LLM providers.
+Supports multiple LLM providers through hexagonal architecture.
 """
 
-import json
 import logging
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 import pyarrow as pa
 from data_processing.utils import TransformUtils
 
+# Import adapters to trigger registration
+import datasift.core.operators.quality.classification.adapters.outbound  # noqa: F401
 from datasift.core.constants import AttributeDataTypes, DatasiftConstants, Metrics, OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.operator_utils import OperatorUtils
-from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.exceptions.error_codes import ErrorCode
-from datasift.integrations.ollama.client import OllamaClient
-from datasift.integrations.rest_client import RestClient, RestClientConfig, RestMethod
+from datasift.core.operators.quality.classification.adapters.outbound.factories.classification_adapter_factory import (
+    ClassificationAdapterFactory,
+)
+from datasift.core.operators.quality.classification.domain.models import ClassificationRequest
+from datasift.core.operators.quality.classification.ports.outbound.classification_service import (
+    ClassificationServicePort,
+)
 from datasift.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
-
-# Configuration keys
-API_BASE_KEY: str = "api_base"
-API_KEY_KEY: str = "api_key"
-MODEL_ID_KEY: str = "model_id"
-DOCUMENT_TYPES_KEY: str = "document_types"
-CONFIDENCE_THRESHOLD_KEY: str = "confidence_threshold"
-DOC_COLUMN_KEY: str = "doc_column"
-OUTPUT_COLUMN_KEY: str = "output_column"
-INCLUDE_CONFIDENCE_KEY: str = "include_confidence"
-INCLUDE_REASONING_KEY: str = "include_reasoning"
-MAX_CONTENT_LENGTH_KEY: str = "max_content_length"
 
 # Default values
 DEFAULT_PROVIDER: str = "ollama"
@@ -44,6 +36,7 @@ DEFAULT_OUTPUT_COLUMN: str = "document_type"
 DEFAULT_DOC_COLUMN: str = OperatorConstants.Columns.DOC_COLUMN_DEFAULT
 DEFAULT_REQUEST_TIMEOUT: int = 120
 DEFAULT_MAX_CONTENT_LENGTH: int = 2000
+DOC_COLUMN_KEY: str = OperatorConstants.Columns.DOC_COLUMN
 
 
 class DocumentClassifierOperator(AbstractOperator):
@@ -80,19 +73,20 @@ class DocumentClassifierOperator(AbstractOperator):
             "document_types": ["invoice", "receipt", "contract"]
         }
 
-        # WatsonX provider (with provider_config)
+        # WatsonX provider (with environment variables for security)
         {
             "provider": "watsonx",
             "provider_config": {
                 "api_base": "https://api.watsonx.example.com",
-                "api_key": "your-api-key",   # pragma: allowlist secret
                 "container_kind": "project",
-                "container_id": "your-project-id",
                 "request_timeout": 120
             },
             "model_id": "ibm/granite-3-8b-instruct",
             "document_types": {...}
         }
+        # Required environment variables for watsonx:
+        # export WATSONX_API_KEY="${your-api-key}"
+        # export WATSONX_CONTAINER_ID="your-project-id"
     """
 
     short_name: str = OperatorConstants.Misc.DOCUMENT_CLASSIFIER
@@ -104,16 +98,20 @@ class DocumentClassifierOperator(AbstractOperator):
 
         Args:
             config: Configuration dictionary containing:
-                - provider: LLM provider ("watsonx" or "ollama", default: "ollama")
+                - provider: LLM provider ("watsonx", "ollama", or "litellm", default: "ollama")
                 - provider_config: Provider-specific configuration dictionary containing:
                     For watsonx:
                         - api_base: API endpoint URL
-                        - api_key: API key for authentication
                         - container_kind: Container type ("project" or "space", default: "project")
-                        - container_id: Container ID (required)
                         - request_timeout: Request timeout in seconds (default: 120)
+                        Note: api_key and container_id MUST be set via environment variables:
+                              WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config for security)
                     For ollama:
                         - (currently none, uses defaults)
+                    For litellm:
+                        - api_base: API endpoint URL (optional)
+                        - api_key: API key for authentication (optional)
+                        - request_timeout: Request timeout in seconds (default: 120)
                 - model_id: Model identifier
                 - document_types: List of document types or dict with descriptions
                 - confidence_threshold: Minimum confidence for classification (default: 7.0)
@@ -126,103 +124,46 @@ class DocumentClassifierOperator(AbstractOperator):
 
         # Provider configuration
         self.provider: str = config.get(OperatorConstants.Config.PROVIDER, DEFAULT_PROVIDER).lower()
+        self.model_id: str | None = config.get(OperatorConstants.Config.MODEL_ID)
 
-        # Extract provider_config dictionary
+        # The adapter factory will unpack and validate these parameters
         self.provider_config: dict[str, Any] = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
-        # Extract provider-specific parameters from provider_config
-        self.api_base: str | None = self.provider_config.get(API_BASE_KEY)
-        self.api_key: str | None = self.provider_config.get(API_KEY_KEY)
-        model_id_config: str | None = config.get(MODEL_ID_KEY)
-        self.container_kind: str = self.provider_config.get(
-            OperatorConstants.Config.WATSONX_CONTAINER_KIND, OperatorConstants.ContainerKinds.PROJECT
-        )
-        self.container_id: str | None = self.provider_config.get(OperatorConstants.Config.WATSONX_CONTAINER_ID)
-        self.request_timeout: int = self.provider_config.get("request_timeout", DEFAULT_REQUEST_TIMEOUT)
-        self.extract_tables: bool = config.get(OperatorConstants.Config.EXTRACT_TABLES, True)
-        self.extract_images: bool = config.get(OperatorConstants.Config.EXTRACT_IMAGES, True)
-
-        # Set defaults based on provider - model_id is guaranteed to be str after this block
-        self.model_id: str
-        if self.provider == "ollama":
-            self.model_id = model_id_config or DEFAULT_OLLAMA_MODEL
-        elif self.provider == "watsonx":
-            # For watsonx, model_id is required
-            if not model_id_config:
-                raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION, message="model_id is required for watsonx provider"
-                )
-            self.model_id = model_id_config
-            if not self.api_base:
-                raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message="api_base is required in provider_config for watsonx provider",
-                )
-            if not self.api_key:
-                raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message="api_key is required in provider_config for watsonx provider",
-                )
-            if not self.container_id:
-                raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message="container_id is required in provider_config for watsonx provider",
-                )
-            # Validate container_kind for watsonx
-            if self.container_kind not in [
-                OperatorConstants.ContainerKinds.PROJECT,
-                OperatorConstants.ContainerKinds.SPACE,
-            ]:
-                raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message=f"container_kind must be 'project' or 'space' for watsonx provider, got: {self.container_kind}",
-                )
-        else:
-            raise DatasiftException(
-                error_code=ErrorCode.INVALID_CONFIGURATION,
-                message=f"Unsupported provider: {self.provider}. Use 'watsonx' or 'ollama'",
-            )
-
         # Document types configuration
-        self.document_types: list[str] | dict[str, str] = config.get(DOCUMENT_TYPES_KEY, [])
+        self.document_types: list[str] | dict[str, str] = config.get(OperatorConstants.Config.DOCUMENT_TYPES, [])
         if not self.document_types:
             self.document_types = self._get_document_types()
 
         # Classification parameters
-        self.confidence_threshold: float = config.get(CONFIDENCE_THRESHOLD_KEY, DEFAULT_CONFIDENCE_THRESHOLD)
+        self.confidence_threshold: float = config.get(
+            OperatorConstants.Config.CONFIDENCE_THRESHOLD, DEFAULT_CONFIDENCE_THRESHOLD
+        )
 
         # Column configuration
-        self.doc_column: str = config.get(DOC_COLUMN_KEY, DEFAULT_DOC_COLUMN)
-        self.output_column: str = config.get(OUTPUT_COLUMN_KEY, DEFAULT_OUTPUT_COLUMN)
+        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, DEFAULT_DOC_COLUMN)
+        self.output_column: str = config.get(OperatorConstants.Columns.OUTPUT_COLUMN, DEFAULT_OUTPUT_COLUMN)
 
         # Output options
-        self.include_confidence: bool = config.get(INCLUDE_CONFIDENCE_KEY, True)
-        self.include_reasoning: bool = config.get(INCLUDE_REASONING_KEY, False)
+        self.include_confidence: bool = config.get(OperatorConstants.Config.INCLUDE_CONFIDENCE, True)
+        self.include_reasoning: bool = config.get(OperatorConstants.Config.INCLUDE_REASONING, False)
 
         # Content length limit
-        self.max_content_length: int = config.get(MAX_CONTENT_LENGTH_KEY, DEFAULT_MAX_CONTENT_LENGTH)
-
-        # Initialize RestClient for watsonx provider
-        self.rest_client: RestClient | None = None
-        if self.provider == "watsonx":
-            rest_config = RestClientConfig(
-                timeout=self.request_timeout, max_retries=3, retry_backoff_factor=2.0, verify_ssl=True
-            )
-            self.rest_client = RestClient(config=rest_config, base_url=self.api_base, auth_token=self.api_key)
-
-        # Validate provider setup
-        self._validate_provider_setup()
-
-        # Parallel processing configuration
-        self.max_workers: int = config.get(
-            OperatorConstants.Config.MAX_WORKERS, OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
+        self.max_content_length: int = config.get(
+            OperatorConstants.Config.MAX_CONTENT_LENGTH, DEFAULT_MAX_CONTENT_LENGTH
         )
-        self.use_processes: bool = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
+
+        self.classification_service = self._create_classification_service()
+
+        # Parallel processing configuration
+        # Uses ThreadPoolExecutor for I/O-bound LLM API calls
+        self.max_workers: int = config.get(
+            OperatorConstants.Config.MAX_WORKERS, OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
+        )
 
         logger.info(
             f"Initialized DocumentClassifierOperator with provider={self.provider}, "
@@ -240,33 +181,13 @@ class DocumentClassifierOperator(AbstractOperator):
         """
         super().validate(errors, warnings, available_features)
 
-        # Validate provider
+        available_adapters = ClassificationAdapterFactory.list_adapters()
         if self.should_validate_field(field_value=self.provider):
-            if self.provider not in ["ollama", "watsonx"]:
-                errors.append(f"Invalid provider '{self.provider}'. Must be 'ollama' or 'watsonx'.")
+            if self.provider not in available_adapters:
+                errors.append(f"provider must be one of {available_adapters}")
 
-        # Validate watsonx-specific requirements from provider_config
-        if self.provider == "watsonx":
-            if self.should_validate_field(field_value=self.model_id):
-                if not self.model_id:
-                    errors.append("model_id is required for watsonx provider")
-
-            if self.should_validate_field(field_value=self.api_base):
-                if not self.api_base:
-                    errors.append("api_base is required in provider_config for watsonx provider")
-
-            if self.should_validate_field(field_value=self.container_id):
-                if not self.container_id:
-                    errors.append("container_id is required in provider_config for watsonx provider")
-
-            if self.should_validate_field(field_value=self.container_kind):
-                if self.container_kind not in [
-                    OperatorConstants.ContainerKinds.PROJECT,
-                    OperatorConstants.ContainerKinds.SPACE,
-                ]:
-                    errors.append(
-                        f"container_kind in provider_config must be 'project' or 'space' for watsonx provider, got: {self.container_kind}"
-                    )
+        # Note: Provider-specific parameter validation (model_id, api_base, etc.) is handled
+        # by the adapters themselves during initialization, following hexagonal architecture
 
         # Validate document types
         if self.should_validate_field(field_value=self.document_types):
@@ -287,35 +208,13 @@ class DocumentClassifierOperator(AbstractOperator):
                 elif not (1.0 <= self.confidence_threshold <= 10.0):
                     errors.append("confidence_threshold must be between 1.0 and 10.0")
 
-    def _validate_provider_setup(self) -> None:
-        """Validate provider-specific setup and dependencies."""
-        if self.provider == "ollama":
-            try:
-                # Use OllamaClient static methods for validation
-                if not OllamaClient.is_server_running():
-                    logger.warning("Ollama server is not running")
-                    return
-
-                if not OllamaClient.is_model_available(model_name=self.model_id):
-                    logger.warning(f"Model '{self.model_id}' is not available in Ollama")
-                    return
-
-                logger.info("Validated Ollama connection and model availability")
-            except ImportError as e:
-                raise DatasiftException(
-                    error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                    message="ollama package not installed. Install with: pip install ollama",
-                ) from e
-            except Exception as e:
-                logger.warning(f"Could not validate Ollama setup: {e!s}")
-        elif self.provider == "watsonx":
-            # LATER: Validate watsonx configuration
-            if not self.api_base or not self.api_key:
-                raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message="api_base and api_key are required for watsonx provider",
-                )
-            logger.info(f"Validated watsonx configuration for {self.api_base}")
+    def _create_classification_service(self) -> ClassificationServicePort:
+        """Create and return the provider-specific classification service."""
+        return ClassificationAdapterFactory.create(
+            adapter_name=self.provider,
+            model_id=self.model_id,
+            **self.provider_config,
+        )
 
     @staticmethod
     def _get_document_types() -> dict[str, str]:
@@ -326,175 +225,6 @@ class DocumentClassifierOperator(AbstractOperator):
         from datasift.utils.document_class_utils import DocumentClassUtils
 
         return DocumentClassUtils.get_document_types()
-
-    def _call_ollama_chat(self, messages) -> str:
-        """
-        Call Ollama chat API using OllamaClient wrapper.
-
-        Args:
-            messages: List of message dictionaries with role and content
-
-        Returns:
-            Response content as string (JSON formatted)
-        """
-        try:
-            # Log message details for debugging
-            total_content_length = sum(len(msg.get("content", "")) for msg in messages)
-            logger.debug(f"Total message content length: {total_content_length} characters")
-            logger.debug(f"Number of messages: {len(messages)}")
-
-            # Extract system prompt and user message from messages
-            system_prompt = None
-            user_content = ""
-
-            for msg in messages:
-                role = msg.get("role", "")
-                content = msg.get("content", "")
-
-                if role == "system":
-                    system_prompt = content
-                elif role == "user":
-                    user_content = content
-
-            # Create OllamaClient instance with CHAT mode
-            from datasift.integrations.ollama.client import InteractionMode
-
-            client = OllamaClient(
-                model_name=self.model_id,
-                mode=InteractionMode.CHAT,
-                system_prompt=system_prompt,
-                validate_model=False,  # Already validated in _validate_provider_setup
-            )
-
-            logger.debug("Calling OllamaClient.run() for chat interaction")
-            response = client.run(prompt=user_content)
-            logger.debug("Successfully called OllamaClient.run()")
-
-            # Response is already a string
-            if response:
-                logger.debug(f"Received content length: {len(response)}")
-                return response
-
-            # Fallback: return empty JSON object
-            logger.warning("No content in response, returning empty JSON")
-            return "{}"
-
-        except Exception as e:
-            logger.error(f"Ollama chat API call failed: {e!s}")
-            logger.error(f"Error type: {type(e).__name__}")
-            logger.error(f"Error details: {e!r}")
-            import traceback
-
-            logger.error(f"Traceback: {traceback.format_exc()}")
-            raise DatasiftException(
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR, message=f"Ollama API call failed: {e!s}"
-            ) from e
-
-    def _call_openai_rest_api(self, messages: list[dict[str, str]]) -> str:
-        """
-        Call OpenAI-compatible REST API (for watsonx or OpenAI) using RestClient.
-
-        Args:
-            messages: List of message dictionaries with role and content
-
-        Returns:
-            Response content as string
-        """
-        # RestClient is only initialized for watsonx provider, not for ollama
-        if not self.rest_client:
-            raise DatasiftException(
-                error_code=ErrorCode.INVALID_CONFIGURATION,
-                message="RestClient not initialized. This method requires watsonx provider.",
-            )
-
-        try:
-            # Build headers
-            headers = {"Content-Type": "application/json"}
-
-            # Build request payload
-            payload = {
-                "model": self.model_id,
-                "messages": messages,
-                "temperature": 0.0,
-                "response_format": {"type": "json_object"},
-            }
-
-            # Add watsonx-specific container parameters to payload
-            if self.provider == "watsonx" and self.container_id:
-                payload[f"{self.container_kind}_id"] = self.container_id
-
-            # Make REST API call using RestClient
-            result = self.rest_client.call_rest_json(
-                method=RestMethod.POST,
-                endpoint="/chat/completions",
-                json_data=payload,
-                headers=headers,
-            )
-
-            return result.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-        except DatasiftException:
-            raise  # Re-raise DatasiftException as-is
-        except Exception as e:
-            logger.error(f"REST API call failed: {e!s}")
-            raise DatasiftException(
-                error_code=ErrorCode.EXTERNAL_SERVICE_ERROR, message=f"REST API call failed: {e!s}"
-            ) from e
-
-    def _call_llm(self, messages: list[dict[str, str]]) -> str:
-        """
-        Call the appropriate LLM API based on provider.
-
-        Args:
-            messages: List of message dictionaries with role and content
-
-        Returns:
-            Response content as string
-        """
-        if self.provider == "ollama":
-            return self._call_ollama_chat(messages)
-        else:
-            return self._call_openai_rest_api(messages)
-
-    def _build_classification_prompt(self, content: str) -> str:
-        """
-        Build the classification prompt for the LLM.
-
-        Args:
-            content: Document content to classify
-
-        Returns:
-            Formatted prompt string
-        """
-        # Build document types description
-        if isinstance(self.document_types, dict):
-            types_desc = "\n".join([f"- {name}: {desc}" for name, desc in self.document_types.items()])
-        else:
-            types_desc = "\n".join([f"- {t}" for t in self.document_types])
-
-        # Sanitize and limit content length
-        sanitized_content = content[: self.max_content_length] if content else ""
-
-        prompt = f"""Classify the following document into one of these types:
-
-{types_desc}
-
-Document content:
-{sanitized_content}
-
-Respond with a JSON object containing:
-- document_type: The document type that best matches (must be one of the types listed above)
-- confidence: Confidence score from 1-10 (10 = certain)
-- reasoning: Brief explanation for why this document type was chosen
-
-Example response:
-{{
-  "document_type": "invoice",
-  "confidence": 9,
-  "reasoning": "Contains line items, totals, and payment terms typical of invoices"
-}}"""
-
-        return prompt
 
     def _classify_document(self, *, content: str, doc_name: str | None = None) -> dict[str, Any]:
         """
@@ -508,54 +238,34 @@ Example response:
             Dictionary containing classification results
         """
         try:
-            prompt = self._build_classification_prompt(content)
+            request = ClassificationRequest(
+                content=content,
+                document_types=self.document_types,
+                max_content_length=self.max_content_length,
+                confidence_threshold=self.confidence_threshold,
+            )
+            response = self.classification_service.classify_document(request=request)
 
-            # Build messages
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are a document classification expert. Always respond with valid JSON.",
-                },
-                {"role": "user", "content": prompt},
-            ]
-
-            # Call LLM
-            result_text = self._call_llm(messages)
-
-            # Parse response
-            result = json.loads(result_text)
-            logger.info(f"Result from LLM: \n{result}")
-            # Validate result
-            if "document_type" not in result or "confidence" not in result:
-                raise ValueError("Invalid response format from LLM")
-
-            # Normalize document type
-            result["document_type"] = result["document_type"].lower().replace(" ", "_")
-
-            # Ensure confidence is in range
-            result["confidence"] = max(1, min(10, int(result["confidence"])))
+            if not response.success:
+                return {
+                    OperatorConstants.Extraction.SUCCESS: False,
+                    OperatorConstants.Extraction.ERROR: response.error or "Unknown classification error",
+                    "document_type": None,
+                    "confidence": 0,
+                    "reasoning": response.reasoning,
+                }
 
             logger.info(
                 f"Classified document {doc_name or 'unknown'}: "
-                f"type={result['document_type']}, confidence={result['confidence']}"
+                f"type={response.document_type}, confidence={response.confidence}"
             )
 
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
-                "document_type": result["document_type"],
-                "confidence": result["confidence"],
-                "reasoning": result.get("reasoning", ""),
-                "is_confident": result["confidence"] >= self.confidence_threshold,
-            }
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM response as JSON: {e!s}")
-            return {
-                OperatorConstants.Extraction.SUCCESS: False,
-                OperatorConstants.Extraction.ERROR: f"Invalid JSON response: {e!s}",
-                "document_type": None,
-                "confidence": 0,
-                "reasoning": "",
+                "document_type": response.document_type,
+                "confidence": response.confidence,
+                "reasoning": response.reasoning,
+                "is_confident": response.confidence >= self.confidence_threshold,
             }
         except Exception as e:
             logger.error(f"Classification failed for {doc_name or 'unknown'}: {e!s}")
@@ -595,7 +305,6 @@ Example response:
         content_was_fetched = False
         # Process documents in parallel
         doc_contents = []
-        doc_metadata_list: list[dict[str, Any]] = []
 
         if doc_column_exists:
             # Use existing content column
@@ -608,14 +317,10 @@ Example response:
             # Prepare document data for parallel processing
             doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table)
 
-            # Choose executor based on configuration
-            extraction_executor = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
-
             logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
-            # Process documents in parallel
+            # Process documents in parallel using ThreadPoolExecutor
             doc_contents.extend([None] * table.num_rows)
-            doc_metadata_list.extend([{}] * table.num_rows)
-            with extraction_executor(max_workers=self.max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
                 # Submit all tasks
                 future_to_task = {}
                 for task in doc_tasks:
@@ -633,8 +338,8 @@ Example response:
                         OperatorUtils.extract_content,
                         task["doc_name"],
                         task["binary_content"],
-                        self.extract_tables,
-                        self.extract_images,
+                        False,  # extract_tables - not needed for classification
+                        False,  # extract_images - not needed for classification
                     )
 
                     future_to_task[future] = task
@@ -649,8 +354,6 @@ Example response:
 
                         if result[OperatorConstants.Extraction.SUCCESS]:
                             doc_contents[idx] = result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
-                            doc_metadata_list[idx] = result.get(OperatorConstants.Metadata.METADATA, {})
-
                         else:
                             self.record_failed_document(
                                 metadata=metadata,
@@ -674,8 +377,8 @@ Example response:
         confidences: list = [0] * table.num_rows
         reasonings: list = [None] * table.num_rows
 
-        classification_executor = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
-        with classification_executor(max_workers=self.max_workers) as executor:
+        # Use ThreadPoolExecutor for classification (I/O-bound LLM API calls)
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all tasks
             future_to_task = {}
             for idx, content in enumerate(doc_contents):
@@ -795,36 +498,38 @@ Example response:
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Config.PROVIDER: {
                     OperatorConstants.Misc.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: "LLM provider (ollama or watsonx)",
+                    OperatorConstants.Config.DESCRIPTION: "LLM provider (ollama, litellm, or watsonx)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: DEFAULT_PROVIDER,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                    OperatorConstants.Config.VALID_VALUES: ["ollama", "watsonx"],
+                    OperatorConstants.Config.VALID_VALUES: ClassificationAdapterFactory.list_adapters(),
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
                     OperatorConstants.Config.DESCRIPTION: (
-                        "Provider-specific configuration parameters. "
-                        "For watsonx: api_base, api_key, container_kind, container_id, request_timeout. "
-                        "For ollama: (currently none, uses defaults)"
+                        "Provider-specific configuration dictionary. "
+                        "For watsonx: {'api_base': 'https://...', 'container_kind': 'project', 'request_timeout': 120}. "
+                        "Security: api_key and container_id MUST be set via environment variables WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config). "
+                        "For ollama: {} (uses defaults). "
+                        "For litellm: {'api_base': 'https://...', 'api_key': '...', 'request_timeout': 120}"
                     ),
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: {},
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
-                MODEL_ID_KEY: {
+                OperatorConstants.Config.MODEL_ID: {
                     OperatorConstants.Misc.NAME: "Model ID",
                     OperatorConstants.Config.DESCRIPTION: "Model identifier for the selected provider",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                DOCUMENT_TYPES_KEY: {
+                OperatorConstants.Config.DOCUMENT_TYPES: {
                     OperatorConstants.Misc.NAME: "Document Types",
                     OperatorConstants.Config.DESCRIPTION: "List of document types or dictionary with descriptions",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
-                CONFIDENCE_THRESHOLD_KEY: {
+                OperatorConstants.Config.CONFIDENCE_THRESHOLD: {
                     OperatorConstants.Misc.NAME: "Confidence Threshold",
                     OperatorConstants.Config.DESCRIPTION: "Minimum confidence score for classification (1-10)",
                     OperatorConstants.Config.REQUIRED: False,
@@ -833,53 +538,32 @@ Example response:
                     OperatorConstants.Filtering.MAX_VALUE: 10.0,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
-                OUTPUT_COLUMN_KEY: {
+                OperatorConstants.Columns.OUTPUT_COLUMN: {
                     OperatorConstants.Misc.NAME: "Output Column",
                     OperatorConstants.Config.DESCRIPTION: "Column name for classification result",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: DEFAULT_OUTPUT_COLUMN,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                INCLUDE_CONFIDENCE_KEY: {
+                OperatorConstants.Config.INCLUDE_CONFIDENCE: {
                     OperatorConstants.Misc.NAME: "Include Confidence",
                     OperatorConstants.Config.DESCRIPTION: "Include confidence score in output",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                INCLUDE_REASONING_KEY: {
+                OperatorConstants.Config.INCLUDE_REASONING: {
                     OperatorConstants.Misc.NAME: "Include Reasoning",
                     OperatorConstants.Config.DESCRIPTION: "Include reasoning explanation in output",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                OperatorConstants.Config.EXTRACT_TABLES: {
-                    OperatorConstants.Misc.NAME: "Extract Tables",
-                    OperatorConstants.Config.DESCRIPTION: "Extract tables from documents during content extraction",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
-                OperatorConstants.Config.EXTRACT_IMAGES: {
-                    OperatorConstants.Misc.NAME: "Extract Images",
-                    OperatorConstants.Config.DESCRIPTION: "Extract images from documents during content extraction",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
                 OperatorConstants.Config.MAX_WORKERS: {
                     OperatorConstants.Misc.NAME: "Max Workers",
-                    OperatorConstants.Config.DESCRIPTION: "Maximum number of parallel workers for processing",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum number of parallel workers for processing (uses ThreadPoolExecutor for I/O-bound LLM API calls)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                OperatorConstants.Config.USE_PROCESSES: {
-                    OperatorConstants.Misc.NAME: "Use Processes",
-                    OperatorConstants.Config.DESCRIPTION: "Use process-based parallelism instead of threads",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
                 DOC_COLUMN_KEY: {
                     OperatorConstants.Misc.NAME: "Document Column",

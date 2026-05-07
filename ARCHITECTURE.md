@@ -1,3 +1,7 @@
+---
+title: Datasift Architecture
+---
+
 # Datasift Architecture
 
 ## Table of Contents
@@ -34,7 +38,7 @@ Datasift-open is a modular, operator-based data processing framework designed fo
 
 Datasift-opensource intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
 
-- **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes.
+- **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes. Quality operators such as [`DocumentClassifierOperator`](src/datasift/core/operators/quality/document_classifier.py:26) and the PII/HAP stack also use runtime-native ports-and-adapters packages under [`src/datasift/core/operators/quality`](src/datasift/core/operators/quality).
 - **Factory Pattern**: `OrchestratorFactory` and `OperatorFactory` provide centralized instantiation logic for orchestrators and operators
 - **Strategy Pattern**: Different operator implementations can be swapped based on configuration without changing the orchestration logic
 - **Observer Pattern**: Event handling system (`AbstractFlowExecutionEventHandler`, `FlowExecutionEventHandler`) enables monitoring and logging of flow execution
@@ -1503,7 +1507,7 @@ graph TB
 
 ### 4. DocumentClassifier Pattern
 
-The DocumentClassifier operator is typically used **before** Extract operators to classify documents into predefined categories. This enables downstream operators to handle different document types appropriately.
+The DocumentClassifier operator uses **hexagonal architecture** (ports and adapters pattern) to classify documents into predefined categories using Large Language Models. It supports multiple LLM providers through a unified interface.
 
 **Typical Workflow Position:**
 
@@ -1523,54 +1527,86 @@ graph LR
     style F fill:#e1fff5
 ```
 
+**Hexagonal Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   DocumentClassifierOperator                 │
+│                     (Application Layer)                      │
+└────────────────────────┬────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Domain Layer                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  ClassificationRequest                                │  │
+│  │  ClassificationResponse                               │  │
+│  │  ModelInfo                                            │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Ports Layer                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  ClassificationServicePort (Interface)                │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+                         │
+        ┌────────────────┼────────────────┐
+        ▼                ▼                ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│   Ollama     │  │   LiteLLM    │  │   Watsonx    │
+│   Adapter    │  │   Adapter    │  │   Adapter    │
+└──────────────┘  └──────────────┘  └──────────────┘
+```
+
 **Classification Features:**
 
-1. **Pre-Extraction Classification**: Classifies documents before content extraction
-2. **Multi-Class Support**: Supports multiple document classes (invoices, contracts, forms, etc.)
-3. **Confidence Scoring**: Provides classification confidence scores
-4. **Metadata Enrichment**: Adds classification results to document metadata
+1. **LLM-Based Classification**: Uses Large Language Models for intelligent document classification
+2. **Multi-Provider Support**: Ollama, LiteLLM (100+ providers), and IBM Watsonx.ai
+3. **Hexagonal Architecture**: Clean separation between business logic and infrastructure
+4. **Confidence Scoring**: 1-10 scale confidence scores for each classification
+5. **Reasoning Output**: Optional explanations for classification decisions
+6. **Extensible Design**: Easy to add new LLM providers via adapter pattern
+
+**Supported Providers:**
+
+- **Ollama**: Local LLM deployment for privacy-focused classification
+- **LiteLLM**: Unified interface for 100+ providers (OpenAI, Anthropic, Azure, AWS Bedrock, Google, etc.)
+- **Watsonx**: IBM enterprise LLM platform
 
 **Example Configuration:**
 
 ```json
 {
-  "operator": "document_classifier",
-  "config": {
-    "provider": "ollama",
-    "provider_config": {},
-    "model_id": "granite4:latest",
-    "document_types": ["invoice", "contract", "receipt", "form"],
-    "confidence_threshold": 7.0,
-    "include_confidence": true,
-    "include_reasoning": false
-  }
-}
-```
-
-**WatsonX Provider Example:**
-
-```json
-{
-  "operator": "document_classifier",
-  "config": {
-    "provider": "watsonx",
+  "operator_type": "DocumentClassifier",
+  "operator_params": {
+    "provider": "litellm",
+    "model_id": "openai/gpt-4o-mini",
     "provider_config": {
-      "api_base": "https://api.watsonx.example.com",
-      "api_key": "your-api-key",   # pragma: allowlist secret
-      "container_kind": "project",
-      "container_id": "your-project-id",
-      "request_timeout": 120
+      "api_key": "${OPENAI_API_KEY}"
     },
-    "model_id": "ibm/granite-3-8b-instruct",
     "document_types": {
       "invoice": "Business invoice with line items and totals",
       "contract": "Legal contract or agreement",
-      "receipt": "Payment receipt or transaction confirmation"
+      "receipt": "Payment receipt or confirmation",
+      "report": "Business or technical report"
     },
-    "confidence_threshold": 7.0
-  }
+    "confidence_threshold": 7.0,
+    "include_confidence": true,
+    "include_reasoning": true
+}
+
 }
 ```
+
+**Architecture Benefits:**
+
+- **Testability**: Domain logic can be tested independently of LLM providers
+- **Flexibility**: Easy to switch between providers or add new ones
+- **Maintainability**: Clear separation of concerns
+- **Extensibility**: New adapters can be added without modifying core logic
 
 **Use Cases:**
 
@@ -3082,8 +3118,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 - **EmbeddingsOperator**: Vector embedding generation
 
 #### Quality Operators (`quality/`)
-
-- **DocumentClassifier**: Document classification
+- **DocumentClassifier**: LLM-based document classification (hexagonal architecture with Ollama, LiteLLM, and Watsonx adapters)
 - **Dedup**: Deduplication
 - **DocQuality**: Document quality assessment using dpk_doc_quality (word count, mean word length, symbol ratios, bad words, etc.)
 - **MLEnrichment**: ML-based enrichment

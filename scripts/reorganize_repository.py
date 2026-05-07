@@ -54,6 +54,8 @@ class RepositoryReorganizer:
         if not pyproject_root.exists() and not pyproject_backend.exists():
             print("⚠️  Warning: pyproject.toml not found at root or in backend directory")
             print("   It should be restored from git history or created manually")
+        elif pyproject_root.exists() and not pyproject_backend.exists():
+            print("Using root pyproject.toml for the reorganized repository structure")
 
         print("✅ Current structure validated")
         return True

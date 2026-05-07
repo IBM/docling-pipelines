@@ -1,0 +1,68 @@
+{
+  "flow": {
+    "name": "classify with litellm using ollama openai-compatible endpoint",
+    "flow_id": "a1b2c3d4-e5f6-4789-abcd-ef1234567890",
+    "description": "A flow to classify documents using LiteLLM with Ollama's OpenAI-compatible API endpoint",
+    "storage": "disk",
+    "execute_type": "local",
+    "global_config": {
+      "doc_column": "content",
+      "disable_validation": "true",
+      "force_ingest": true,
+      "output_folder": "./tests/fixtures/invoices/"
+    },
+    "dag": [
+      {
+        "id": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd",
+        "name": "ingest",
+        "operator": "ingest_local",
+        "config": {
+          "input_folder": "./tests/fixtures/invoices/",
+          "include_filter": "txt,pdf,docx",
+          "store_binary_content": "true",
+          "max_workers": 2
+        },
+        "input_edges": [],
+        "output_edges": [
+          { "node_id_ref": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
+        ]
+      },
+      {
+        "id": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
+        "name": "classify_litellm_ollama_openai_compat",
+        "operator": "document_classifier",
+        "config": {
+          "provider": "litellm",
+          "model_id": "openai/llama3",
+          "provider_config": {
+            "api_key": "${api_key}",
+            "api_base": "http://localhost:11434/v1",
+            "temperature": 0.0,
+            "max_tokens": 1000
+          },
+          "document_types": {
+            "invoice": "Business invoice with line items, totals, and payment terms",
+            "receipt": "Payment receipt or transaction confirmation",
+            "contract": "Legal contract or agreement document",
+            "report": "Business or technical report",
+            "letter": "Formal or informal letter",
+            "email": "Email correspondence",
+            "form": "Form or application document",
+            "purchase_order": "Purchase order for goods or services",
+            "other": "Other document types"
+          },
+          "confidence_threshold": 7.0,
+          "doc_column": "content",
+          "output_column": "document_type",
+          "include_confidence": true,
+          "include_reasoning": true,
+          "max_content_length": 8000
+        },
+        "input_edges": [
+          { "node_id_ref": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
+        ],
+        "output_edges": []
+      }
+    ]
+  }
+}
