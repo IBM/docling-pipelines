@@ -149,7 +149,7 @@ def create_input_table(*, file_paths: list[Path]) -> pa.Table:
     Returns:
         PyArrow table with file data
     """
-    data = {
+    data: dict[str, list[Any]] = {
         OperatorConstants.Columns.ID: [],
         OperatorConstants.Columns.NAME: [],
         OperatorConstants.Columns.PATH: [],
@@ -197,6 +197,7 @@ class TestDoclingServeBasicExtraction:
         assert result_table.num_rows == 1, "Should have one result row"
         assert "doc_content" in result_table.column_names
         assert "doc_id_hash" in result_table.column_names
+        assert "pages_processed" in result_table.column_names
 
         # Verify content extraction
         content = result_table["doc_content"][0].as_py()
@@ -209,9 +210,16 @@ class TestDoclingServeBasicExtraction:
         assert doc_id_hash is not None, "doc_id_hash should not be None"
         assert len(doc_id_hash) > 0, "doc_id_hash should not be empty"
 
+        # Verify pages_processed
+        pages_processed = result_table["pages_processed"][0].as_py()
+        assert pages_processed is not None, "pages_processed should not be None"
+        assert pages_processed > 0, "pages_processed should be greater than 0"
+
         # Verify metadata
         assert metadata.get("processed_docs", 0) == 1, "Should have processed 1 document"
         assert metadata.get("failed_docs_count", 0) == 0, "Should have no failed documents"
+        assert "pages_by_format" in metadata, "Should have pages_by_format in metadata"
+        assert "total_pages_converted" in metadata, "Should have total_pages_converted in metadata"
 
 
 @pytest.mark.skip(reason="Need to add a constant running docling-serve to enable these tests")
@@ -246,8 +254,11 @@ class TestDoclingServeOCR:
 
         # Verify extraction succeeded
         assert result_table.num_rows == 1
+        assert "pages_processed" in result_table.column_names
         content = result_table["doc_content"][0].as_py()
         assert content is not None
+        assert "pages_by_format" in metadata
+        assert "total_pages_converted" in metadata
         assert len(content) > 0
 
         # Verify metadata
@@ -310,7 +321,7 @@ class TestDoclingServeTableExtraction:
         operator = ExtractOperator(config=config)
 
         # Transform
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Verify extraction succeeded
@@ -339,7 +350,7 @@ class TestDoclingServeTableExtraction:
         operator = ExtractOperator(config=config)
 
         # Transform
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Verify extraction succeeded

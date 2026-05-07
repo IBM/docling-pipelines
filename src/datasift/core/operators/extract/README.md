@@ -22,6 +22,7 @@ This architecture enables:
 - **Dual-Mode Operation**: Supports both text extraction and entity extraction in a single operator
 - **Multiple Text Extraction Strategies**: Docling Library (with optional VLM pipeline) and Docling Serve API
 - **Multiple Entity Extraction Strategies**: Ollama LLM, Docling template-based, and LiteLLM
+- **Estimated Page Count Calculation**: Automatically calculates estimated page counts for extracted text
 - **Parallel Processing**: Automatic worker optimization based on CPU count
 - **Flexible Configuration**: Mode-specific parameters with sensible defaults
 - **Consistent Error Handling**: Unified error handling and metadata across all modes
@@ -418,10 +419,13 @@ The operator produces a PyArrow table with the following columns:
 | `name` | string | Document name |
 | `doc_content` | string | Extracted markdown content |
 | `doc_id_hash` | string | Hash ID of the document row |
+| `pages_processed` | int32 | Estimated number of pages for the extracted document text, calculated using 3000 characters = 1 page |
 | `entities` | string | Extracted entities as JSON (if entity extraction enabled) |
 | `extracted_data` | string | Structured data from template extraction (if applicable) |
 
 When `expand_extracted_data=true` is set for entity extraction, entity fields are expanded into individual columns.
+
+**Note:** Page counts are estimates derived from extracted text length using 3000 characters per page.
 
 ## Usage Examples
 
@@ -662,6 +666,15 @@ curl http://localhost:5001/health
 3. **Parallel Processing:**
    - Use `use_processes=true` for CPU-intensive tasks
    - Use `use_processes=false` (default) for I/O-bound tasks
+
+## Execution Metadata
+
+The operator provides the following metadata after execution:
+
+- **`pages_by_format`** (dict): Aggregate estimated pages grouped by source document format (e.g., `{"pdf": 120, "docx": 45}`)
+- **`total_pages_converted`** (int): Total estimated pages across all successfully processed documents
+
+These metrics are available through the operator's metadata and can be used for tracking document processing volume and performance analysis.
 
 ## Sample Flows
 

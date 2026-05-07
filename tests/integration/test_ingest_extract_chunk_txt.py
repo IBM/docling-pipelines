@@ -68,6 +68,7 @@ class TestIngestExtractChunkTxtIntegration:
         assert extract_table.num_rows > 0, "Should have extracted content"
         assert "doc_content" in extract_table.column_names, "Should have doc_content column"
         assert "doc_id_hash" in extract_table.column_names, "Should have doc_id_hash column"
+        assert "pages_processed" in extract_table.column_names, "Should have pages_processed column"
         assert "docling_document" not in extract_table.column_names, (
             "Should NOT have docling_document column (created in chunker now)"
         )
@@ -83,6 +84,9 @@ class TestIngestExtractChunkTxtIntegration:
 
         assert content_count > 0, "Should have extracted content from at least one .txt file"
         assert extract_metadata.get("processed_docs", 0) > 0, "Should have processed documents"
+        assert "pages_by_format" in extract_metadata, "Should have pages_by_format in metadata"
+        assert "total_pages_converted" in extract_metadata, "Should have total_pages_converted in metadata"
+        assert isinstance(extract_metadata["pages_by_format"], dict), "pages_by_format should be a dict"
 
         print(f"Extracted content from {content_count} .txt files")
         print(f"Extract metadata: {extract_metadata}")
@@ -150,7 +154,7 @@ class TestIngestExtractChunkTxtIntegration:
         }
 
         ingest_operator = IngestLocalOperator(config=ingest_config)
-        ingest_tables, ingest_metadata = ingest_operator.transform(None)
+        ingest_tables, _ingest_metadata = ingest_operator.transform(None)
         ingest_table = ingest_tables[0]
 
         if ingest_table.num_rows == 0:
@@ -173,6 +177,9 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Verify all files were processed
         assert extract_metadata.get("processed_docs", 0) > 0, "Should have processed documents"
+        assert "pages_by_format" in extract_metadata, "Should have pages_by_format in metadata"
+        assert "total_pages_converted" in extract_metadata, "Should have total_pages_converted in metadata"
+        assert "pages_processed" in extract_table.column_names, "Should have pages_processed column"
         print(f"Extracted content from {extract_metadata.get('processed_docs', 0)} files")
 
         # Step 3: Chunk the content

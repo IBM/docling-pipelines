@@ -3091,7 +3091,7 @@ Hexagonal architecture implementation for document set management:
 Operators are organized by category (defined in `OperatorCategory` enum):
 
 #### Extract Operators (`extract/`)
-- **ExtractOperator**: Extraction operator using hexagonal architecture with multiple adapters
+- **ExtractOperator**: Extraction operator using hexagonal architecture with multiple adapters; outputs extracted text plus estimated page-count metrics
   - **Text Extraction Modes**:
     - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) pipeline
     - `docling_serve`: Remote extraction via Docling Serve API with OCR support

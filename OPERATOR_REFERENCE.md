@@ -493,7 +493,15 @@ Uses hexagonal architecture (ports and adapters pattern):
 - `doc_id_hash` - Document hash identifier
 - `tables` - Extracted tables as JSON (if `extract_tables=true`)
 - `images` - Extracted images metadata as JSON (if `extract_images=true`)
+- `pages_processed` - Estimated number of pages for the extracted document text, calculated using 3000 characters = 1 page
 - Individual entity columns (if `expand_extracted_data=true`)
+
+**Execution Metadata**
+
+The operator provides the following metadata after execution:
+
+- `pages_by_format` (dict): Aggregate estimated pages grouped by source document format (e.g., `{"pdf": 120, "docx": 45}`)
+- `total_pages_converted` (int): Total estimated pages across all successfully processed documents
 
 **Exceptions**
 

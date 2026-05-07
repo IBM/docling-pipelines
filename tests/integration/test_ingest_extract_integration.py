@@ -66,6 +66,7 @@ class TestIngestExtractIntegration:
         assert extract_table.num_rows > 0, "Should have extracted content"
         assert "doc_content" in extract_table.column_names
         assert "doc_id_hash" in extract_table.column_names
+        assert "pages_processed" in extract_table.column_names
 
         content_count = 0
         for idx in range(extract_table.num_rows):
@@ -75,6 +76,10 @@ class TestIngestExtractIntegration:
 
         assert content_count > 0, "Should have extracted content from at least one document"
         assert extract_metadata.get("processed_docs", 0) > 0
+        assert "pages_by_format" in extract_metadata
+        assert "total_pages_converted" in extract_metadata
+        assert isinstance(extract_metadata["pages_by_format"], dict)
+        assert extract_metadata["total_pages_converted"] > 0
 
     def test_path_only_ingest_to_combined_docling_text_entity_extraction(self, fixtures_dir):
         """Test combined docling text+entity extraction works with path-only ingest."""
@@ -107,7 +112,10 @@ class TestIngestExtractIntegration:
         assert extract_table.num_rows == ingest_table.num_rows
         assert "doc_content" in extract_table.column_names
         assert "doc_id_hash" in extract_table.column_names
+        assert "pages_processed" in extract_table.column_names
         assert extract_metadata.get("processed_docs", 0) > 0
+        assert "pages_by_format" in extract_metadata
+        assert "total_pages_converted" in extract_metadata
 
     def test_metadata_preservation(self, fixtures_dir):
         """Test that ingest metadata columns are preserved through extraction."""

@@ -200,7 +200,7 @@ class TestExtractOperatorIntegration:
             }
 
             operator = ExtractOperator(config=config)
-            result_tables, metadata = operator.transform(sample_documents_table)
+            _result_tables, metadata = operator.transform(sample_documents_table)
 
             # Verify parallel processing was invoked
             assert mock_adapter.transform.called
@@ -247,7 +247,7 @@ class TestExtractOperatorIntegration:
             }
 
             operator = ExtractOperator(config=config)
-            result_tables, metadata = operator.transform(table)
+            _result_tables, metadata = operator.transform(table)
 
             # Verify error was handled
             assert metadata["failed_docs_count"] == 1
@@ -284,7 +284,7 @@ class TestExtractOperatorIntegration:
 
             # Pass initial metadata
             initial_metadata = {"upstream_operator": "test_ingest"}
-            result_tables, metadata = operator.transform(sample_documents_table, metadata=initial_metadata)
+            _result_tables, metadata = operator.transform(sample_documents_table, metadata=initial_metadata)
 
             # Verify metadata includes both initial and result metadata
             assert "processed_docs" in metadata
@@ -345,10 +345,13 @@ class TestExtractOperatorRealWorld:
         # Verify extraction succeeded
         assert metadata["processed_docs"] > 0
         assert len(result_tables) > 0
+        assert "pages_by_format" in metadata
+        assert "total_pages_converted" in metadata
 
         # Verify content was extracted
         result_table = result_tables[0]
         assert "document" in result_table.column_names
+        assert "pages_processed" in result_table.column_names
 
         # Check that extracted content is not empty
         for content in result_table["document"].to_pylist():

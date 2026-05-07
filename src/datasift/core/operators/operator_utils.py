@@ -945,6 +945,9 @@ class OperatorUtils:
             tables = OperatorUtils._extract_tables_from_result(result) if extract_tables else []
             images = OperatorUtils._extract_images_from_result(result) if extract_images else []
 
+            # Get native page count from Docling result
+            native_page_count = len(result.document.pages) if hasattr(result.document, "pages") else 0
+
             logger.info("Completed extraction for %s", file_path)
 
             return {
@@ -956,6 +959,7 @@ class OperatorUtils:
                     "table_count": len(tables),
                     "image_count": len(images),
                     "char_count": len(markdown_text),
+                    "page_count": native_page_count,
                 },
             }
 

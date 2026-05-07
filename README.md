@@ -162,6 +162,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
     - `ollama`: LLM-based entity extraction using Ollama models
     - `docling`: Template-based entity extraction using Docling templates
     - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
+  - Includes estimated page count output and aggregate page metadata
     - `none`: No entity extraction (default)
   - Supports dual-mode operation: text and entity extraction in a single operator
 

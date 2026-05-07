@@ -111,6 +111,9 @@ class OperatorConstants:
         TABLES: Final[str] = "tables"
         TRANSFORMED_ENTITIES_COLUMN_NAME: Final[str] = "transformed_entities"
 
+        # Page calculation columns
+        PAGES_PROCESSED: Final[str] = "pages_processed"
+
         # Language Detection Columns
         LANGUAGE_NAME_COLUMN_KEY: Final[str] = "lang_name"
         LANGUAGE_SCORE_COLUMN_KEY: Final[str] = "lang_score"
@@ -457,6 +460,9 @@ Rules:
         DOC_ID_HASH: Final[str] = "doc_id_hash_column"
         DOC_ID_HASH_DEFAULT: Final[str] = "doc_id_hash"
 
+        # Page calculation configuration
+        CHARS_PER_PAGE: Final[int] = 3000
+
     class Metadata:
         """Metadata constants."""
 
@@ -483,6 +489,9 @@ Rules:
 
         # Tracking and Identification
         TOTAL_PAGES_PROCESSED: Final[str] = "total_pages_converted"
+
+        # Page statistics
+        PAGES_BY_FORMAT: Final[str] = "pages_by_format"
 
     class Storage:
         """Storage constants."""
@@ -528,6 +537,7 @@ Rules:
         SHORT_NAME: Final[str] = "short_name"
         SIZE: Final[str] = "size"
         TAGS: Final[str] = "tags"
+        UNKNOWN: Final[str] = "unknown"
         URL: Final[str] = "url"
         VALUE: Final[str] = "value"
 

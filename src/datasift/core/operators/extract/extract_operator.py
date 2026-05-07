@@ -77,6 +77,7 @@ Example Usage:
 """
 
 import logging
+import os
 from typing import Any
 
 import pyarrow as pa
@@ -422,8 +423,108 @@ class ExtractOperator(AbstractOperator):
             Metrics.External.NODE_STATUS: final_status,
         }
 
+    @staticmethod
+    def _add_page_counts(*, tables: list[pa.Table], doc_column: str) -> list[pa.Table]:
+        """Add page count column to tables using vectorized operations.
+
+        Uses character-based estimation (3000 chars per page) with PyArrow vectorized operations.
+
+        Args:
+            tables: List of PyArrow tables to process
+            doc_column: Name of the column containing document content
+
+        Returns:
+            List of tables with added 'pages_processed' column
+        """
+        import pyarrow.compute as pc
+
+        result_tables = []
+
+        for table in tables:
+            if doc_column not in table.column_names:
+                logger.warning("Document column '%s' not found in table, skipping page calculation", doc_column)
+                result_tables.append(table)
+                continue
+
+            # Use vectorized character-based calculation
+            doc_content_column = table.column(doc_column)
+
+            # Use PyArrow compute to get string lengths
+            char_counts = pc.utf8_length(doc_content_column)
+
+            # Calculate pages: max(1, (char_count + CHARS_PER_PAGE - 1) // CHARS_PER_PAGE)
+            chars_per_page = OperatorConstants.Processing.CHARS_PER_PAGE
+            page_counts_computed = pc.divide(
+                pc.add(char_counts, pa.scalar(chars_per_page - 1)), pa.scalar(chars_per_page)
+            )
+            # Ensure minimum of 1 page per document
+            page_counts = pc.max_element_wise(page_counts_computed, pa.scalar(1))
+            # Cast to int32 before creating array to avoid type mismatch
+            page_counts_int32 = pc.cast(page_counts, pa.int32())
+            pages_array = pa.array(page_counts_int32, type=pa.int32())
+
+            # Add pages_processed column to table
+            table_with_pages = table.append_column(OperatorConstants.Columns.PAGES_PROCESSED, pages_array)
+            result_tables.append(table_with_pages)
+
+            logger.debug("Added page counts to %d documents", table.num_rows)
+
+        return result_tables
+
+    @staticmethod
+    def _add_page_statistics(*, metadata: dict[str, Any], table: pa.Table) -> dict[str, Any]:
+        """Add page statistics by format to metadata using PyArrow vectorized operations.
+
+        Args:
+            metadata: Existing metadata dictionary
+            table: PyArrow table containing 'name' and 'pages_processed' columns
+
+        Returns:
+            Updated metadata with pages_by_format and total_pages_converted statistics
+        """
+        import pyarrow.compute as pc
+
+        if OperatorConstants.Columns.PAGES_PROCESSED not in table.column_names:
+            logger.warning("Pages processed column not found in table, skipping page statistics")
+            return metadata
+
+        if OperatorConstants.Columns.NAME not in table.column_names:
+            logger.warning("Name column not found in table, skipping page statistics")
+            return metadata
+
+        # Use PyArrow compute for total pages calculation
+        pages_column = table.column(OperatorConstants.Columns.PAGES_PROCESSED)
+        total_pages = pc.sum(pages_column).as_py()
+
+        # For pages_by_format, we still need to iterate since we need to group by file extension
+        # This is more efficient than converting entire table to pylist
+        name_column = table.column(OperatorConstants.Columns.NAME)
+        pages_by_format: dict[str, int] = {}
+
+        for i in range(table.num_rows):
+            name = name_column[i].as_py()
+            pages = pages_column[i].as_py()
+
+            # Extract file extension from name
+            if name and isinstance(name, str):
+                _, ext = os.path.splitext(name)
+                format_key = ext.lower()[1:] if ext else OperatorConstants.Misc.UNKNOWN
+            else:
+                format_key = OperatorConstants.Misc.UNKNOWN
+
+            # Accumulate page counts by format
+            pages_by_format[format_key] = pages_by_format.get(format_key, 0) + pages
+
+        # Add to metadata
+        metadata[OperatorConstants.Metadata.PAGES_BY_FORMAT] = pages_by_format
+        metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = total_pages
+        logger.info("Page statistics by format: %s, total pages: %d", pages_by_format, total_pages)
+
+        return metadata
+
+    @staticmethod
     def _determine_final_status(
-        self, *, processed_count: int, failed_count: int, skipped_count: int, total_count: int
+        *, processed_count: int, failed_count: int, skipped_count: int, total_count: int
     ) -> str:
         """Determine final execution status based on processing results.
 
@@ -487,6 +588,9 @@ class ExtractOperator(AbstractOperator):
             metadata = self.create_base_metadata(total_docs_count=table.num_rows)
 
         if table.num_rows == 0:
+            # Add page metadata fields with zero/empty values for empty tables
+            metadata[OperatorConstants.Metadata.PAGES_BY_FORMAT] = {}
+            metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = 0
             return [table], metadata
 
         result_tables: list[pa.Table] = []
@@ -505,6 +609,12 @@ class ExtractOperator(AbstractOperator):
                     result_tables, result_metadata = self.entity_adapter.transform(table=table, metadata=metadata)
                 else:
                     raise FlowExecutionFailedException("Entity adapter not initialized for combined extraction")
+
+                # Add page counts to extracted content
+                result_tables = self._add_page_counts(tables=result_tables, doc_column=self.doc_column)
+
+                # Add page statistics to metadata
+                result_metadata = self._add_page_statistics(metadata=result_metadata, table=result_tables[0])
 
                 logger.info(
                     "Extraction completed: %s/%s documents processed",
@@ -541,6 +651,12 @@ class ExtractOperator(AbstractOperator):
             consolidated_metadata = self._consolidate_metadata(
                 text_metadata=text_metadata, entity_metadata=entity_metadata
             )
+
+            # Step 4: Calculate pages for extracted content
+            result_tables = self._add_page_counts(tables=result_tables, doc_column=self.doc_column)
+
+            # Step 5: Add page statistics to metadata
+            consolidated_metadata = self._add_page_statistics(metadata=consolidated_metadata, table=result_tables[0])
 
             logger.info(
                 "Final extraction results: %s/%s documents processed, %s failed, %s skipped",
@@ -609,6 +725,14 @@ class ExtractOperator(AbstractOperator):
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.TAGS: [],
+            },
+            OperatorConstants.Columns.PAGES_PROCESSED: {
+                OperatorConstants.Misc.NAME: "Pages Processed",
+                OperatorConstants.Config.DESCRIPTION: "Estimated page count based on content length (3000 chars per page)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_INT32,
                 OperatorConstants.Misc.TAGS: [],
             },
         }

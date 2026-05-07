@@ -61,6 +61,7 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     # Assertions
     assert "doc_content" in result_table.column_names, "Content column should exist"
     assert "doc_id_hash" in result_table.column_names, "Hash ID column should exist"
+    assert "pages_processed" in result_table.column_names, "Pages processed column should exist"
 
     # Check content
     first_content = result_table["doc_content"][0].as_py()
@@ -72,9 +73,18 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     assert first_hash is not None, "Hash should not be None"
     assert len(first_hash) > 0, "Hash should not be empty"
 
+    # Check pages_processed
+    first_pages = result_table["pages_processed"][0].as_py()
+    assert first_pages is not None, "Pages processed should not be None"
+    assert first_pages > 0, "Pages processed should be greater than 0"
+
     # Check metadata
     assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
     assert metadata["processed_docs"] > 0, "Should have processed at least one document"
+    assert "pages_by_format" in metadata, "Metadata should contain pages_by_format"
+    assert "total_pages_converted" in metadata, "Metadata should contain total_pages_converted"
+    assert isinstance(metadata["pages_by_format"], dict), "pages_by_format should be a dict"
+    assert metadata["total_pages_converted"] > 0, "total_pages_converted should be greater than 0"
 
 
 @pytest.mark.unit
