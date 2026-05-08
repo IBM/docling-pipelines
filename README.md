@@ -147,10 +147,18 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ### Ingest Operators
 
 - **Local Folder** - Ingest documents from local filesystem
-- **Cloud/Object Storage** - Ingest documents from supported remote storage providers
+**Cloud/Object Storage** - Ingest documents from multiple cloud providers ([see full list](docs/operators/ingest_source.md#supported-providers)):
+  - Amazon S3
+  - IBM Cloud Object Storage (COS)
+  - Microsoft SharePoint
+  - Microsoft OneDrive
+  - Google Drive
+  - Box
+  - Custom LangChain-compatible loaders
 - **CSV** - Ingest structured data from CSV files
-- **LangChain Loader** - Ingest using LangChain document loaders
 - **Web Pages** - Ingest web content with the `WebPageSourceAdapter`, backed by LangChain `RecursiveUrlLoader` for recursive crawling
+
+For detailed configuration and usage of each provider, see the [Ingest Source Operator documentation](docs/operators/ingest_source.md).
 
 ### Extract Operators
 

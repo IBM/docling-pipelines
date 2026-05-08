@@ -28,7 +28,7 @@ node_config = {
     },
     'credentials': {
         'access_key': 'YOUR_AWS_ACCESS_KEY',
-        'secret_key': 'YOUR_AWS_SECRET_KEY'
+        'secret_key': 'YOUR_AWS_SECRET_KEY'  # pragma: allowlist secret
     }
 }
 ```
@@ -53,7 +53,7 @@ node_config = {
     },
     'credentials': {
         'access_key': 'YOUR_IBM_ACCESS_KEY',
-        'secret_key': 'YOUR_IBM_SECRET_KEY'
+        'secret_key': 'YOUR_IBM_SECRET_KEY'  # pragma: allowlist secret
     }
 }
 ```
@@ -77,7 +77,7 @@ node_config = {
     },
     'credentials': {
         'client_id': 'YOUR_CLIENT_ID',
-        'client_secret': 'YOUR_CLIENT_SECRET',
+        'client_secret': 'YOUR_CLIENT_SECRET',  # pragma: allowlist secret
         'tenant_id': 'YOUR_TENANT_ID'
     }
 }
@@ -106,7 +106,7 @@ node_config = {
     },
     'credentials': {
         'client_id': 'YOUR_CLIENT_ID',
-        'client_secret': 'YOUR_CLIENT_SECRET',
+        'client_secret': 'YOUR_CLIENT_SECRET', # pragma: allowlist secret
         'tenant_id': 'YOUR_TENANT_ID'
     }
 }
@@ -162,7 +162,65 @@ The operator uses read-only access by default for security. Available scopes:
 
 **Important:** If you change scopes, you must delete the existing token file to re-authenticate with the new permissions.
 
-### 6. Custom Loaders
+### 6. Box
+Ingest documents from Box folders using JWT authentication.
+
+**Configuration:**
+```python
+node_config = {
+    'provider': 'box_driver',
+    'connection_params': {
+        'recursive': True,  # Optional: include subfolders
+        'max_file_size_mb': 50,  # Optional: max file size in MB
+        'exclude_patterns': ['*.tmp', 'Trash/*']  # Optional: patterns to exclude
+    },
+    'credentials': {
+        'credentials_json_path': '/path/to/box_jwt_config.json'
+    },
+    'included_extensions': ['.pdf', '.docx', '.txt', '.pptx', '.xlsx'],  # Optional
+    'max_files': 100  # Optional
+}
+```
+
+**Prerequisites:**
+- Box Enterprise account or Box Developer account
+- Box JWT application configured with appropriate permissions
+- JWT configuration file (JSON) downloaded from Box Developer Console
+- Dependencies: `pip install box-sdk-gen`
+
+**Parameters:**
+- `recursive` (optional): Boolean, include subfolders (default: False)
+- `max_file_size_mb` (optional): Maximum file size in MB to process
+- `exclude_patterns` (optional): List of glob patterns to exclude (e.g., `['*.tmp', 'Trash/*']`)
+- `credentials_json_path` (required): Path to Box JWT configuration JSON file
+- `included_extensions` (optional): List of file extensions to include (e.g., `['.pdf', '.docx']`)
+- `max_files` (optional): Maximum number of files to process
+
+**Box JWT Setup:**
+1. Create a Box application in the [Box Developer Console](https://app.box.com/developers/console)
+2. Choose "Server Authentication (with JWT)" as authentication method
+3. Configure application permissions:
+   - Read all files and folders stored in Box
+   - Manage enterprise properties
+4. Generate a public/private keypair
+5. Download the JWT configuration JSON file
+6. Submit application for admin approval (if required)
+7. Admin must authorize the application in Box Admin Console
+
+**Authentication Flow:**
+The adapter uses JWT (JSON Web Token) authentication which provides:
+- Service account access without user interaction
+- Secure authentication using public/private key cryptography
+- Enterprise-level access control
+- No OAuth redirect flow required
+
+**Security Notes:**
+- Store JWT configuration file securely with restricted permissions
+- Never commit JWT configuration to version control
+- Rotate keys periodically as per security policy
+- Use environment variables for file paths in production
+
+### 7. Custom Loaders
 Extend functionality with custom LangChain-compatible loaders.
 
 **Configuration:**
@@ -177,7 +235,7 @@ node_config = {
     },
     'credentials': {
         # Credentials specific to your loader
-        'api_key': 'YOUR_API_KEY'
+        'api_key': 'YOUR_API_KEY'  # pragma: allowlist secret
     }
 }
 ```
@@ -207,7 +265,7 @@ node_config = {
     },
     'credentials': {
         'access_key': 'YOUR_ACCESS_KEY',
-        'secret_key': 'YOUR_SECRET_KEY'
+        'secret_key': 'YOUR_SECRET_KEY'  # pragma: allowlist secret
     },
     'job_id': 'my-job-123',
     'job_run_id': 'run-456',
@@ -430,9 +488,9 @@ Test each provider independently:
 ```python
 # Test S3 connectivity
 import boto3
-s3_client = boto3.client('s3', 
+s3_client = boto3.client('s3',
     aws_access_key_id='YOUR_KEY',
-    aws_secret_access_key='YOUR_SECRET')
+    aws_secret_access_key='YOUR_SECRET')  # pragma: allowlist secret
 response = s3_client.list_objects_v2(Bucket='your-bucket', MaxKeys=1)
 print(f"Connection successful: {response['ResponseMetadata']['HTTPStatusCode'] == 200}")
 ```
@@ -469,6 +527,7 @@ botocore==1.42.55
 - **AWS/S3:** `boto3==1.42.55`, `langchain-community==0.4.1`
 - **Google Drive:** `google-auth-oauthlib==1.2.4`, `google-auth-httplib2==0.3.0`, `google-api-python-client==2.190.0`, `langchain-google-community==3.0.5`
 - **SharePoint/OneDrive:** `O365==2.1.9`, `langchain-community==0.4.1`
+- **Box:** `box-sdk-gen==1.17.0`, `langchain-community==0.4.1`
 - **PDF Processing:** `pypdf2==3.0.1`, `unstructured[pdf]>=0.10.0`
 - **GCP:** `google-cloud-storage==3.9.0`
 - **Azure:** `azure-storage-blob==12.28.0`
@@ -490,6 +549,9 @@ uv sync --extra google-drive
 # Microsoft (SharePoint/OneDrive) support
 uv sync --extra microsoft
 
+# Box support
+uv sync --extra box
+
 # All cloud providers
 uv sync --extra all-cloud
 
@@ -510,6 +572,9 @@ pip install google-auth-oauthlib==1.2.4 google-auth-httplib2==0.3.0 google-api-p
 
 # Microsoft support
 pip install O365==2.1.9 langchain-community==0.4.1
+
+# Box support
+pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 ```
 
 ## API Reference
@@ -586,7 +651,24 @@ node_config = {
 }
 ```
 
-### Example 3: IBM COS with Custom Endpoint
+### Example 3: Box with JWT Authentication
+```python
+node_config = {
+    'provider': 'box_driver',
+    'connection_params': {
+        'recursive': True,
+        'max_file_size_mb': 50,
+        'exclude_patterns': ['*.tmp', 'Trash/*']
+    },
+    'credentials': {
+        'credentials_json_path': os.getenv('BOX_JWT_CONFIG_FILE')
+    },
+    'included_extensions': ['.pdf', '.docx', '.txt', '.pptx', '.xlsx'],
+    'max_files': 100
+}
+```
+
+### Example 4: IBM COS with Custom Endpoint
 ```python
 node_config = {
     'provider': 'ibm_cos',
