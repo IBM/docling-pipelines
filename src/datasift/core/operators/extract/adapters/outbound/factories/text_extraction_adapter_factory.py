@@ -92,8 +92,12 @@ class TextExtractionAdapterFactory:
         # Common configuration for all text modes
         adapter_config: dict[str, Any] = {
             "doc_column": operator_config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT),
-            OperatorConstants.Config.EXTRACT_TABLES: operator_config.get(OperatorConstants.Config.EXTRACT_TABLES, True),
-            OperatorConstants.Config.EXTRACT_IMAGES: operator_config.get(OperatorConstants.Config.EXTRACT_IMAGES, True),
+            OperatorConstants.Config.EXTRACT_TABLES: operator_config.get(
+                OperatorConstants.Config.EXTRACT_TABLES, False
+            ),
+            OperatorConstants.Config.EXTRACT_IMAGES: operator_config.get(
+                OperatorConstants.Config.EXTRACT_IMAGES, False
+            ),
             "common_log_arguments": operator_config.get("common_log_arguments", {}),
         }
 

@@ -35,8 +35,6 @@
           "text_extraction_mode": "docling_library",
           "entity_extraction_mode": "none",
           "doc_column": "content",
-          "extract_tables": true,
-          "extract_images": true,
           "max_workers": 4
         },
         "input_edges": [

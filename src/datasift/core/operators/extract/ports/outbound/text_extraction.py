@@ -74,8 +74,8 @@ class TextExtractionPort(ABC):
         self.max_workers = config.get("max_workers", 4)
         self.use_processes = config.get("use_processes", False)
         self.doc_column = config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-        self.extract_tables = config.get("extract_tables", True)
-        self.extract_images = config.get("extract_images", True)
+        self.extract_tables = config.get("extract_tables", False)
+        self.extract_images = config.get("extract_images", False)
         self.common_log_arguments = config.get("common_log_arguments", {})
 
         # Subclasses should initialize their adapter-specific configuration
