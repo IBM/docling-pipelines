@@ -523,6 +523,43 @@ class ExtractOperator(AbstractOperator):
         return metadata
 
     @staticmethod
+    def _drop_binary_content_column(*, tables: list[pa.Table]) -> list[pa.Table]:
+        """Drop binary_content column from tables if present.
+
+        After extraction is complete, the binary_content column is no longer needed
+        and can be dropped to reduce memory usage and table size.
+
+        Args:
+            tables: List of PyArrow tables to process
+
+        Returns:
+            List of tables with binary_content column removed (if it existed)
+        """
+        result_tables = []
+
+        for idx, table in enumerate(tables):
+            if OperatorConstants.Columns.BINARY_CONTENT in table.column_names:
+                # Log columns before dropping
+                logger.info("Table %d BEFORE dropping binary_content - Columns: %s", idx, table.column_names)
+
+                # Drop binary_content column in-place for memory efficiency
+                table_without_binary = table.drop([OperatorConstants.Columns.BINARY_CONTENT])
+                result_tables.append(table_without_binary)
+
+                # Log columns after dropping
+                logger.info(
+                    "Table %d AFTER dropping binary_content - Columns: %s (dropped from %d rows)",
+                    idx,
+                    table_without_binary.column_names,
+                    table.num_rows,
+                )
+            else:
+                logger.info("Table %d - No binary_content column found. Columns: %s", idx, table.column_names)
+                result_tables.append(table)
+
+        return result_tables
+
+    @staticmethod
     def _determine_final_status(
         *, processed_count: int, failed_count: int, skipped_count: int, total_count: int
     ) -> str:
@@ -616,6 +653,9 @@ class ExtractOperator(AbstractOperator):
                 # Add page statistics to metadata
                 result_metadata = self._add_page_statistics(metadata=result_metadata, table=result_tables[0])
 
+                # Drop binary_content column after extraction is complete
+                result_tables = self._drop_binary_content_column(tables=result_tables)
+
                 logger.info(
                     "Extraction completed: %s/%s documents processed",
                     result_metadata.get(Metrics.External.PROCESSED_DOCS, 0),
@@ -657,6 +697,9 @@ class ExtractOperator(AbstractOperator):
 
             # Step 5: Add page statistics to metadata
             consolidated_metadata = self._add_page_statistics(metadata=consolidated_metadata, table=result_tables[0])
+
+            # Step 6: Drop binary_content column after extraction is complete
+            result_tables = self._drop_binary_content_column(tables=result_tables)
 
             logger.info(
                 "Final extraction results: %s/%s documents processed, %s failed, %s skipped",

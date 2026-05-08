@@ -1,0 +1,351 @@
+#!/usr/bin/env python3
+"""
+Integration tests for S3 ingest to extract pipeline.
+Tests the complete flow from S3 ingestion through extraction,
+verifying that binary_content column is properly handled.
+"""
+
+from datetime import datetime
+from unittest.mock import Mock, patch
+
+import pyarrow as pa
+import pytest
+
+
+@pytest.mark.integration
+class TestS3IngestExtractPipeline:
+    """Integration tests for S3 ingest followed by extract operator."""
+
+    @pytest.fixture
+    def mock_s3_documents(self):
+        """Fixture providing mock S3 documents."""
+        from datasift.core.operators.ingest.domain.models import Document
+
+        return [
+            Document(
+                id="test-doc-1.pdf",
+                name="test-doc-1.pdf",
+                content=b"%PDF-1.4 Mock PDF content for testing",
+                source_url="s3://test-bucket/documents/test-doc-1.pdf",
+                modified_time=datetime(2024, 1, 1, 12, 0, 0),
+                metadata={
+                    "bucket": "test-bucket",
+                    "key": "documents/test-doc-1.pdf",
+                    "size": 1024,
+                    "content_type": "application/pdf",
+                },
+            ),
+            Document(
+                id="test-doc-2.pdf",
+                name="test-doc-2.pdf",
+                content=b"%PDF-1.4 Another mock PDF for testing",
+                source_url="s3://test-bucket/documents/test-doc-2.pdf",
+                modified_time=datetime(2024, 1, 2, 12, 0, 0),
+                metadata={
+                    "bucket": "test-bucket",
+                    "key": "documents/test-doc-2.pdf",
+                    "size": 2048,
+                    "content_type": "application/pdf",
+                },
+            ),
+        ]
+
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    def test_s3_ingest_creates_binary_content_column(
+        self,
+        mock_fetch_documents,
+        mock_incremental_util,
+        mock_s3_documents,
+    ):
+        """Test that S3 ingest operator creates binary_content column."""
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
+
+        # Mock async generator for fetch_documents
+        async def mock_async_gen():
+            for doc in mock_s3_documents:
+                yield doc
+
+        mock_fetch_documents.return_value = mock_async_gen()
+
+        # Configure S3 ingest operator
+        config = {
+            "provider": "s3",
+            "connection_params": {
+                "bucket": "test-bucket",
+                "prefix": "documents/",
+            },
+            "credentials": {
+                "access_key": "test-access-key",
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
+            },
+            "job_id": "test-job-123",
+            "job_run_id": "test-run-456",
+            "force_ingest": True,
+        }
+
+        # Create empty input table (trigger)
+        empty_table = pa.Table.from_arrays([])
+
+        # Execute ingest
+        operator = IngestSourceOperator(config)
+        result_tables, _metadata = operator.transform(empty_table)
+        result_table = result_tables[0]
+
+        # Verify binary_content column exists
+        assert "binary_content" in result_table.column_names, "binary_content column should exist after S3 ingest"
+        assert result_table.num_rows == 2, "Should have 2 documents"
+
+        # Verify binary_content has data
+        binary_contents = result_table["binary_content"].to_pylist()
+        assert all(content is not None for content in binary_contents), "All binary_content values should be non-null"
+        assert all(len(content) > 0 for content in binary_contents), "All binary_content values should be non-empty"
+
+        # Verify other expected columns
+        assert "id" in result_table.column_names
+        assert "name" in result_table.column_names
+        assert "path" in result_table.column_names
+        assert "metadata" in result_table.column_names
+
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    @patch(
+        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.DoclingAdapter.extract_single_document"
+    )
+    def test_extract_operator_drops_binary_content_column(
+        self,
+        mock_extract_single,
+        mock_fetch_documents,
+        mock_incremental_util,
+        mock_s3_documents,
+    ):
+        """Test that extract operator drops binary_content column after extraction."""
+        from datasift.core.operators.extract.extract_operator import ExtractOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
+
+        # Mock async generator for fetch_documents
+        async def mock_async_gen():
+            for doc in mock_s3_documents:
+                yield doc
+
+        mock_fetch_documents.return_value = mock_async_gen()
+
+        # Mock DoclingAdapter.extract_single_document
+        mock_extract_single.return_value = {
+            "success": True,
+            "content": "# Extracted Content\n\nThis is extracted text from PDF.",
+            "pages_processed": 1,
+            "format": "pdf",
+        }
+
+        # Step 1: S3 Ingest
+        ingest_config = {
+            "provider": "s3",
+            "connection_params": {
+                "bucket": "test-bucket",
+                "prefix": "documents/",
+            },
+            "credentials": {
+                "access_key": "test-access-key",
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
+            },
+            "job_id": "test-job-123",
+            "job_run_id": "test-run-456",
+            "force_ingest": True,
+        }
+
+        empty_table = pa.Table.from_arrays([])
+        ingest_operator = IngestSourceOperator(ingest_config)
+        ingest_result_tables, _ingest_metadata = ingest_operator.transform(empty_table)
+        ingest_result_table = ingest_result_tables[0]
+
+        # Verify binary_content exists after ingest
+        assert "binary_content" in ingest_result_table.column_names, "binary_content should exist after ingest"
+
+        # Step 2: Extract
+        extract_config = {
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "doc_column": "content",
+            "extract_tables": False,
+            "extract_images": False,
+            "max_workers": 2,
+        }
+
+        extract_operator = ExtractOperator(config=extract_config)
+        extract_result_tables, extract_metadata = extract_operator.transform(ingest_result_table)
+        extract_result_table = extract_result_tables[0]
+
+        # Verify binary_content is dropped after extraction
+        assert "binary_content" not in extract_result_table.column_names, (
+            "binary_content column should be dropped after extraction"
+        )
+
+        # Verify extraction succeeded
+        assert "content" in extract_result_table.column_names, "Content column should exist after extraction"
+        assert extract_result_table.num_rows == 2, "Should have 2 documents after extraction"
+        assert extract_metadata["processed_docs"] == 2, "Should have processed 2 documents"
+
+        # Verify extracted content is not empty
+        contents = extract_result_table["content"].to_pylist()
+        assert all(content is not None for content in contents), "All content values should be non-null"
+        assert all(len(content) > 0 for content in contents), "All content values should be non-empty"
+
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    @patch(
+        "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.DoclingAdapter.extract_single_document"
+    )
+    def test_complete_s3_to_extract_pipeline_with_binary_content_handling(
+        self,
+        mock_extract_single,
+        mock_fetch_documents,
+        mock_incremental_util,
+        mock_s3_documents,
+    ):
+        """Test complete pipeline: S3 ingest → Extract, verifying binary_content lifecycle."""
+        from datasift.core.operators.extract.extract_operator import ExtractOperator
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
+
+        # Mock async generator for fetch_documents
+        async def mock_async_gen():
+            for doc in mock_s3_documents:
+                yield doc
+
+        mock_fetch_documents.return_value = mock_async_gen()
+
+        # Mock DoclingAdapter.extract_single_document
+        mock_extract_single.return_value = {
+            "success": True,
+            "content": "# Test Document\n\nExtracted content.",
+            "pages_processed": 1,
+            "format": "pdf",
+        }
+
+        # Configure operators
+        ingest_config = {
+            "provider": "s3",
+            "connection_params": {
+                "bucket": "test-bucket",
+                "prefix": "documents/",
+            },
+            "credentials": {
+                "access_key": "test-access-key",  # pragma: allowlist secret
+                "secret_key": "test-secret-key",  # pragma: allowlist secret
+            },
+            "include_filter": "pdf",
+            "max_files": 2,
+            "job_id": "test-job-123",
+            "job_run_id": "test-run-456",
+            "force_ingest": True,
+        }
+
+        extract_config = {
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "doc_column": "content",
+            "extract_tables": False,
+            "extract_images": False,
+            "max_workers": 2,
+        }
+
+        # Execute pipeline
+        empty_table = pa.Table.from_arrays([])
+
+        # Stage 1: Ingest from S3
+        ingest_operator = IngestSourceOperator(ingest_config)
+        ingest_tables, ingest_meta = ingest_operator.transform(empty_table)
+        ingest_table = ingest_tables[0]
+
+        # Verify Stage 1: binary_content present
+        assert "binary_content" in ingest_table.column_names
+        assert ingest_table.num_rows == 2
+        assert ingest_meta["processed_docs"] == 2
+
+        # Stage 2: Extract
+        extract_operator = ExtractOperator(config=extract_config)
+        extract_tables, extract_meta = extract_operator.transform(ingest_table)
+        extract_table = extract_tables[0]
+
+        # Verify Stage 2: binary_content dropped, content added
+        assert "binary_content" not in extract_table.column_names, "binary_content should be dropped"
+        assert "content" in extract_table.column_names, "content should be present"
+        assert extract_table.num_rows == 2
+        assert extract_meta["processed_docs"] == 2
+
+        # Verify data integrity
+        assert "id" in extract_table.column_names
+        assert "name" in extract_table.column_names
+        assert "doc_id_hash" in extract_table.column_names
+
+        # Verify no data loss (all original columns except binary_content should be preserved)
+        original_columns = set(ingest_table.column_names) - {"binary_content"}
+        for col in original_columns:
+            if col not in ["content", "doc_id_hash", "pages_processed"]:  # These are added/modified by extract
+                assert col in extract_table.column_names, f"Column {col} should be preserved"
+
+    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    def test_s3_ingest_with_empty_result_handles_binary_content(
+        self,
+        mock_fetch_documents,
+        mock_incremental_util,
+    ):
+        """Test that empty S3 ingest result still has correct schema with binary_content."""
+        from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
+
+        # Mock incremental update utility
+        mock_util_instance = Mock()
+        mock_util_instance.get_all_processed_docs.return_value = {}
+        mock_incremental_util.return_value = mock_util_instance
+
+        # Mock empty async generator
+        async def mock_async_gen():
+            if False:
+                yield
+
+        mock_fetch_documents.return_value = mock_async_gen()
+
+        config = {
+            "provider": "s3",
+            "connection_params": {
+                "bucket": "test-bucket",
+                "prefix": "nonexistent/",
+            },
+            "credentials": {
+                "access_key": "test-key",
+                "secret_key": "test-secret",  # pragma: allowlist secret
+            },
+            "job_id": "test-job-123",
+            "job_run_id": "test-run-456",
+            "force_ingest": True,
+        }
+
+        empty_table = pa.Table.from_arrays([])
+        operator = IngestSourceOperator(config)
+        result_tables, _metadata = operator.transform(empty_table)
+        result_table = result_tables[0]
+
+        # Verify schema includes binary_content even with no rows
+        assert result_table.num_rows == 0
+        assert "binary_content" in result_table.column_names
+        assert result_table.schema.field("binary_content").type == pa.binary()
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
