@@ -7,17 +7,19 @@ Available Implementations:
 - InMemoryJobStatsStore: Thread-safe in-memory storage (testing/development)
 - JsonJobStatsStore: JSON file-based storage (restart recovery/inspection)
 - PostgresJobStatsStore: PostgreSQL with atomic operations (production)
+- DuckDBJobStatsStore: DuckDB embedded database (production, no server required)
 
 Future Implementations:
 - RedisJobStatsStore: Redis for distributed systems (optional)
-- DuckDBJobStatsStore: DuckDB for analytics (optional)
 """
 
+from .duckdb import DuckDBJobStatsStore
 from .inmemory.inmemory_job_stats_store import InMemoryJobStatsStore
 from .json.json_job_stats_store import JsonJobStatsStore
 from .postgres import PostgresJobStatsStore
 
 __all__ = [
+    "DuckDBJobStatsStore",
     "InMemoryJobStatsStore",
     "JsonJobStatsStore",
     "PostgresJobStatsStore",

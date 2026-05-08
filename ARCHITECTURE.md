@@ -218,7 +218,7 @@ The job stats implementation follows a ports-and-adapters design:
   - [`JobManagementService`](src/datasift/core/job_management/application/services/job_management_service.py) coordinates APIs, job execution, and framework integration.
 - **Adapters**
   - [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) is the production implementation of [`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py).
-  - Storage adapters include JSON, in-memory, and PostgreSQL implementations created by [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py).
+  - Storage adapters include JSON, in-memory, DuckDB, and PostgreSQL implementations created by [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py).
 
 This runtime path does **not** depend on the legacy [`JobTracker`](src/datasift/common/util/job_tracker/tracker/job_tracker.py). Legacy utilities remain in the repository for compatibility and reference, but the active job stats path uses the new `core/job_management` module.
 

@@ -274,8 +274,8 @@ Job run APIs are exposed through [`job_runs.py`](src/datasift/app/routes/job_run
 The primary user-facing runtime configuration lives in [`datasift.yaml`](src/datasift/config/datasift.yaml), including:
 - [`assets_management.flow_repository`](src/datasift/config/datasift.yaml:1) for the flow repository location
 - [`job_management.framework.type`](src/datasift/config/datasift.yaml:9) for the job framework type
-- [`job_management.store.type`](src/datasift/config/datasift.yaml:12) for the job stats store backend
-- [`job_management.store.config`](src/datasift/config/datasift.yaml:15) for backend-specific settings such as JSON `base_dir` or PostgreSQL connection details
+- [`job_management.store.type`](src/datasift/config/datasift.yaml:12) for the job stats store backend (inmemory, json, duckdb, postgresql)
+- [`job_management.store.config`](src/datasift/config/datasift.yaml:15) for backend-specific settings such as JSON `base_dir`, DuckDB `database_path`, or PostgreSQL connection details
 
 Environment overrides can replace config values at runtime, including:
 - `DATASIFT_CONFIG_PATH`

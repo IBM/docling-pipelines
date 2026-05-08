@@ -148,6 +148,7 @@ class DatasiftConstants:
     # Find project root by searching for marker files (pyproject.toml, .git)
     _PROJECT_ROOT = _find_project_root()
     DOCUMENT_SET_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "document_sets.duckdb")
+    JOB_STATS_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "job_stats.duckdb")
 
 
 class DatasiftConfigKeys:

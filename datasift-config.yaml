@@ -10,14 +10,20 @@ job_management:
     type: default
     config: {}
   store:
-    # Storage backend options: inmemory, json, postgresql
+    # Storage backend options: inmemory, json, duckdb, postgresql
+    # Current active: json (file-based storage)
     type: json
     config:
       base_dir: ./data/job_stats_store_data
+#
+#    # To use DuckDB (embedded database, no server required), uncomment below:
+#    type: duckdb
+#    config:
+#      database_path: ./data/duckdb/job_stats.duckdb
+    
+    # To use PostgreSQL (requires running PostgreSQL server), uncomment below:
 #     type: postgresql
 #     config:
-#       # PostgreSQL configuration (applies only when store.type is postgresql).
-#       # Migrations run during server startup when PostgreSQL storage is selected.
 #       postgres:
 #         host: localhost
 #         port: 5432

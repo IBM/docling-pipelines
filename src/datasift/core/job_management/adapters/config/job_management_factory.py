@@ -49,6 +49,7 @@ class StorageBackend(StrEnum):
     IN_MEMORY = "inmemory"
     JSON = "json"
     POSTGRESQL = "postgresql"
+    DUCKDB = "duckdb"
 
 
 class FrameworkType(StrEnum):
@@ -200,8 +201,8 @@ class JobManagementFactory:
         Supports:
         - IN_MEMORY: Fast in-memory storage (testing/development)
         - JSON: Persistent JSON file storage (restart recovery)
-        - COMPOSITE: Write-through memory + JSON (fast reads + durability)
         - POSTGRESQL: PostgreSQL database storage (production)
+        - DUCKDB: DuckDB embedded database storage (production, no server required)
 
         Returns:
             JobStatsStore implementation
@@ -248,6 +249,13 @@ class JobManagementFactory:
                 self.initialize_storage()
                 self._job_stats_store = PostgresJobStatsStore(config=self.config)
                 logger.info("Created PostgresJobStatsStore")
+
+            case StorageBackend.DUCKDB:
+                from datasift.core.job_management.adapters.stores.duckdb import DuckDBJobStatsStore
+
+                self._job_stats_store = DuckDBJobStatsStore(config=self.config)
+                logger.info("Created DuckDBJobStatsStore")
+
             case _:
                 raise ValueError(f"Unknown storage backend: {self.storage_backend}")
 

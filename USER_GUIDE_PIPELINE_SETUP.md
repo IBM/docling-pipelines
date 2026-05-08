@@ -262,6 +262,7 @@ datasift-opensource supports pluggable job stats storage for job runs, node exec
 
 - **In-memory** - test and development scenarios
 - **JSON storage** - local file-backed persistence
+- **DuckDB** - embedded database for local development (no server required)
 - **PostgreSQL** - durable storage for concurrent and distributed execution
 
 ### Backend Selection
@@ -312,6 +313,31 @@ Important requirements:
 - for distributed Prefect workers, the configured path must resolve to the same shared filesystem location for the submitter and workers
 - local-only paths on the submitter machine are not sufficient for distributed workers
 - when JSON storage is selected from config, worker propagation resolves `base_dir` to an absolute path before injecting it into the worker environment
+
+### DuckDB Guidance
+
+DuckDB is an embedded analytical database that provides persistent storage without requiring a server. It's ideal for local development and testing.
+
+Use DuckDB when:
+- you want persistent storage without running a database server
+- you need SQL query capabilities for analyzing job statistics
+- you're working in a single-host environment
+- you want faster queries than JSON storage
+
+Configuration example:
+```yaml
+job_management:
+  store:
+    type: duckdb
+    config:
+      database_path: ./data/duckdb/job_stats.duckdb
+```
+
+Important notes:
+- DuckDB stores all data in a single file
+- Not recommended for distributed execution (use PostgreSQL instead)
+- Provides SQL interface for querying job statistics
+- See [`examples/duckdb_job_stats/`](examples/duckdb_job_stats/) for usage examples
 
 ### PostgreSQL Guidance
 
