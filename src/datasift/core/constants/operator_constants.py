@@ -198,6 +198,11 @@ class OperatorConstants:
         VLM_API_KEY: Final[str] = "vlm_api_key"
         VLM_PROVIDER_CONFIG: Final[str] = "vlm_provider_config"
 
+        # ASR (Automatic Speech Recognition) Configuration
+        USE_ASR_PIPELINE: Final[str] = "use_asr_pipeline"
+        ASR_MODEL_NAME: Final[str] = "asr_model_name"
+        ASR_MODEL_DEFAULT: Final[str] = "whisper_turbo"
+
         # Docling-Serve Configuration
         USE_DOCLING_SERVE: Final[str] = "use_docling_serve"
         DOCLING_SERVE_BASE_URL: Final[str] = "docling_serve_base_url"

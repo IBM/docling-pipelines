@@ -15,11 +15,16 @@ from docling.pipeline.vlm_pipeline import VlmPipeline
 
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
-from datasift.core.operators.operator_utils import OperatorUtils
+from datasift.core.operators.operator_utils import OperatorUtils, is_asr_available
 from datasift.integrations.docling.vlm_pipeline_options_provider import VlmPipelineOptionsProviderFactory
 from datasift.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
+
+# Check if ASR dependencies are available using utility function
+_ASR_AVAILABLE = is_asr_available()
+if not _ASR_AVAILABLE:
+    logger.debug("ASR dependencies not available. Install with: uv pip install -e '.[asr]'")
 
 
 class DoclingAdapter(TextExtractionPort):
@@ -69,19 +74,32 @@ class DoclingAdapter(TextExtractionPort):
                 - vlm_preset: VLM preset name (default: "granite_docling")
                 - vlm_engine_type: Engine type (optional)
                 - vlm_provider_config: Provider-specific configuration (optional)
+                - use_asr_pipeline: Enable ASR extraction for audio/video (default: False)
+                - asr_model_name: ASR model name (optional)
         """
         self.use_vlm_pipeline = config.get("use_vlm_pipeline", False)
         self.vlm_preset = config.get("vlm_preset", "granite_docling")
         self.vlm_engine_type = config.get("vlm_engine_type")
         self.vlm_provider_config = config.get("vlm_provider_config")
-
+        self.use_asr_pipeline = config.get("use_asr_pipeline", False) and _ASR_AVAILABLE
+        # Always use string default for ASR model name
+        self.asr_model_name = config.get("asr_model_name", "whisper_turbo")
         if self.use_vlm_pipeline:
             logger.info(
                 "Initialized DoclingAdapter with VLM enabled - preset: %s, engine: %s",
                 self.vlm_preset,
                 self.vlm_engine_type or "default",
             )
-        else:
+        if self.use_asr_pipeline:
+            logger.info(
+                "Initialized DoclingAdapter with ASR enabled - model: %s",
+                self.asr_model_name or "default",
+            )
+        elif config.get("use_asr_pipeline", False) and not _ASR_AVAILABLE:
+            logger.warning(
+                "ASR pipeline requested but dependencies not available. Install with: uv pip install -e '.[asr]'"
+            )
+        if not self.use_vlm_pipeline and not self.use_asr_pipeline:
             logger.info("Initialized DoclingAdapter with standard extraction")
 
     def _configure_vlm_engine(self) -> Any:
@@ -106,6 +124,45 @@ class DoclingAdapter(TextExtractionPort):
         pipeline_options = provider.create_pipeline_options(preset=self.vlm_preset, config=provider_config)
 
         return pipeline_options
+
+    def _configure_asr_engine(self) -> Any:
+        """Configure ASR pipeline options based on model configuration.
+        Returns:
+            AsrPipelineOptions configured for the model, or None to use Docling defaults
+        Raises:
+            ValueError: If required parameters are missing for ASR
+        """
+        # If no model name specified, return None to use Docling's defaults
+        if not self.asr_model_name:
+            logger.info("No ASR model specified - using Docling defaults (whisper_turbo)")
+            return None
+
+        try:
+            # Import the asr_model_specs module to access pre-configured model specs
+            from docling.datamodel import asr_model_specs
+            from docling.datamodel.pipeline_options import AsrPipelineOptions
+
+            # Convert model name to uppercase constant name (e.g., "whisper_turbo" -> "WHISPER_TURBO")
+            model_constant_name = self.asr_model_name.upper()
+
+            # Get the pre-configured model spec from the module
+            if hasattr(asr_model_specs, model_constant_name):
+                asr_options = getattr(asr_model_specs, model_constant_name)
+                logger.info("Using ASR model: %s (repo_id: %s)", self.asr_model_name, asr_options.repo_id)
+            else:
+                logger.warning(
+                    "Invalid ASR model name: %s. Using default WHISPER_TURBO. "
+                    "Valid options: whisper_tiny, whisper_small, whisper_medium, whisper_base, "
+                    "whisper_large, whisper_turbo, and their _mlx/_native variants",
+                    self.asr_model_name,
+                )
+                asr_options = asr_model_specs.WHISPER_TURBO
+
+            return AsrPipelineOptions(asr_options=asr_options)
+
+        except ImportError as e:
+            logger.warning("ASR pipeline dependencies not available: %s", str(e))
+            return None
 
     def extract_single_document(self, *, file_path: str, binary_content: bytes, **kwargs: Any) -> dict[str, Any]:
         """Extract content from a single document using Docling.
@@ -141,24 +198,40 @@ class DoclingAdapter(TextExtractionPort):
         try:
             # Prepare converter configuration
             converter_config = None
+            format_options: dict[InputFormat, Any] = {}
 
             if self.use_vlm_pipeline:
                 # Configure VLM pipeline options
                 pipeline_options = self._configure_vlm_engine()
 
                 # Set up VLM pipeline for PDF and image formats
-                converter_config = {
-                    "format_options": {
-                        InputFormat.PDF: PdfFormatOption(
-                            pipeline_cls=VlmPipeline,
-                            pipeline_options=pipeline_options,
-                        ),
-                        InputFormat.IMAGE: ImageFormatOption(
-                            pipeline_cls=VlmPipeline,
-                            pipeline_options=pipeline_options,
-                        ),
-                    }
-                }
+                format_options[InputFormat.PDF] = PdfFormatOption(
+                    pipeline_cls=VlmPipeline,
+                    pipeline_options=pipeline_options,
+                )
+                format_options[InputFormat.IMAGE] = ImageFormatOption(
+                    pipeline_cls=VlmPipeline,
+                    pipeline_options=pipeline_options,
+                )
+
+            if self.use_asr_pipeline and _ASR_AVAILABLE:
+                # Import ASR classes only when needed
+                from docling.document_converter import AudioFormatOption
+                from docling.pipeline.asr_pipeline import AsrPipeline
+                # Configure ASR pipeline options
+                asr_options = self._configure_asr_engine()
+
+                # Set up ASR pipeline for audio and video formats
+                # Note: Docling does not have a separate VIDEO InputFormat or VideoFormatOption
+                # Video files are handled through AUDIO format with ASR pipeline
+                format_options[InputFormat.AUDIO] = AudioFormatOption(
+                    pipeline_cls=AsrPipeline,
+                    pipeline_options=asr_options,
+                )
+
+                # Only set converter_config if we have format options
+            if format_options:
+                converter_config = {"format_options": format_options}
 
             # Use common extraction method
             result = OperatorUtils.extract_content(
@@ -175,7 +248,11 @@ class DoclingAdapter(TextExtractionPort):
                 result[OperatorConstants.Metadata.METADATA]["vlm_engine_type"] = (
                     self.vlm_engine_type or OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
                 )
-
+            # Add ASR-specific metadata if extraction succeeded and ASR was used
+            if self.use_asr_pipeline and result.get(OperatorConstants.Extraction.SUCCESS):
+                result[OperatorConstants.Metadata.METADATA]["asr_model_name"] = (
+                        self.asr_model_name or OperatorConstants.Config.ASR_MODEL_DEFAULT
+                )
             return result
 
         except ImportError as e:

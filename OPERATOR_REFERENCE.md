@@ -462,6 +462,9 @@ Uses hexagonal architecture (ports and adapters pattern):
 | `vlm_preset`                    | string | No | `granite_docling` | VLM preset name when VLM enabled |
 | `vlm_engine_type`               | string | No | `transformers` | VLM engine: `transformers`, `mlx`, `api_*` variants |
 | `vlm_provider_config`           | object | No | `null` | Provider-specific VLM configuration |
+| **ASR Parameters (docling_library mode for audio/video)** |
+| `use_asr_pipeline`              | bool | No | `false` | Enable ASR (Automatic Speech Recognition) for audio/video files |
+| `asr_model_name`                | string | No | `whisper_turbo` | ASR model name (e.g., `whisper_turbo`, `whisper_large`) |
 | **Docling Serve Parameters (docling_serve mode)** |
 | `docling_serve_base_url`        | string | No | `http://localhost:5001` | Docling Serve API endpoint |
 | `docling_serve_api_key`         | string | No | `null` | Optional API key for authentication |
@@ -638,6 +641,7 @@ The operator provides the following metadata after execution:
 - **Ollama** (for ollama entity mode): Server at `http://localhost:11434`, model pulled (e.g., `ollama pull llama3.2`)
 - **Docling Serve** (for docling_serve text mode): Service at configured URL (default `http://localhost:5001`)
 - **LiteLLM** (for litellm entity mode): API keys for chosen provider (OpenAI, Anthropic, etc.)
+- **ffmpeg** (for audio/video processing): Required for M4A, AAC, OGG, FLAC audio formats and all video formats (MP4, AVI, MOV). Not required for WAV/MP3. Install: `brew install ffmpeg` (macOS) or `sudo apt install ffmpeg` (Linux)
 
 **Usage Notes**
 
@@ -648,6 +652,7 @@ The operator provides the following metadata after execution:
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
 - **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured
 - **Extension Detection**: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)
+- Audio/Video Support Processes audio (WAV, MP3, M4A, AAC, OGG, FLAC) and video (MP4, AVI, MOV) files using ASR (Automatic Speech Recognition) via Docling. Requires ffmpeg for M4A, AAC, OGG, FLAC, and all video formats
 - See [ExtractOperator README](src/datasift/core/operators/extract/README.md) for complete documentation
 
 ---

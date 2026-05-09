@@ -20,7 +20,7 @@ This architecture enables:
 ## Key Features
 
 - **Dual-Mode Operation**: Supports both text extraction and entity extraction in a single operator
-- **Multiple Text Extraction Strategies**: Docling Library (with optional VLM pipeline) and Docling Serve API
+- **Multiple Text Extraction Strategies**: Docling Library (with optional VLM and ASR pipeline) and Docling Serve API
 - **Multiple Entity Extraction Strategies**: Ollama LLM, Docling template-based, and LiteLLM
 - **Estimated Page Count Calculation**: Automatically calculates estimated page counts for extracted text
 - **Parallel Processing**: Automatic worker optimization based on CPU count
@@ -47,7 +47,7 @@ This architecture enables:
 
 ### 1. Docling Library Mode (Default)
 
-Standard document extraction using the Docling library locally. Supports optional VLM (Vision-Language Model) pipeline for enhanced extraction.
+Standard document extraction using the Docling library locally. Supports optional VLM (Vision-Language Model) pipeline for enhanced extraction and ASR (Automatic Speech Recognition) pipeline for audio/video processing.
 
 **Basic Configuration:**
 ```json
@@ -113,11 +113,26 @@ OpenAI:
   }
 }
 ```
+**ASR Pipeline Configuration:**
+
+Enable ASR pipeline for audio and video file transcription:
+
+```json
+{
+  "text_extraction_mode": "docling_library",
+  "entity_extraction_mode": "none",
+  "doc_column": "content",
+  "use_asr_pipeline": true,
+  "asr_model_name": "whisper_turbo",
+  "max_workers": 2
+}
+```
 
 **Use Cases:**
 - Simple document conversion to markdown (without VLM)
 - Complex document layouts (with VLM)
 - Documents with mixed content types (with VLM)
+- Audio/video transcription (with ASR)
 - Local processing without external dependencies
 - High-accuracy extraction requirements (with VLM)
 - Quick prototyping and testing
@@ -125,6 +140,7 @@ OpenAI:
 **Sample Flows:**
 - Basic: [`tests/sample_test_flows/extract/flow_extract_basic.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic.json)
 - VLM: [`tests/sample_test_flows/extract/flow_extract_vlm.json`](../../../../tests/sample_test_flows/extract/flow_extract_vlm.json)
+- Audio/Video: [`tests/sample_test_flows/audio_video/flow_audio_video_extraction.json`](../../../../tests/sample_test_flows/audio_video/flow_audio_video_extraction.json)
 
 ### 2. Docling Serve Mode
 
@@ -544,8 +560,79 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
   }
 }
 ```
+### Example 7: ASR Pipeline for Audio/Video Transcription
+
+```json
+{
+
+  "operator_params": {
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "none",
+    "doc_column": "content",
+    "use_asr_pipeline": true,
+    "asr_model_name": "whisper_turbo",
+    "max_workers": 2
+  }
+}
+```
 
 ## Integration Requirements
+
+### ASR Dependencies (for Audio/Video Processing)
+
+**Requirement:** ASR (Automatic Speech Recognition) dependencies must be installed to process audio and video files
+
+**Installation:**
+```bash
+# Install ASR dependencies
+uv pip install -e '.[asr]'
+```
+
+**Supported Audio/Video Formats (when ASR is installed):**
+- Audio: MP3, WAV, M4A, FLAC, OGG
+- Video: MP4, AVI, MOV, MKV
+
+**Note:** If ASR dependencies are not installed, the operator will only support standard document formats (PDF, DOCX, PPTX, etc.) and will log a warning if `use_asr_pipeline=true` is configured.
+
+**Used By:** Text extraction with ASR when `use_asr_pipeline=true`
+
+### ffmpeg (for Audio/Video Processing)
+
+**Requirement:** ffmpeg must be installed and available on your PATH for processing certain audio and video formats
+
+**Required For:**
+- Audio formats: M4A, AAC, OGG, FLAC
+- All video formats: MP4, AVI, MOV, etc.
+
+**Not Required For:**
+- Audio formats: WAV, MP3
+- Document formats: PDF, images, etc.
+
+**Installation:**
+
+**macOS (using Homebrew):**
+```bash
+brew install ffmpeg
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**Linux (RHEL/CentOS/Fedora):**
+```bash
+sudo dnf install ffmpeg
+```
+
+**Verify Installation:**
+```bash
+ffmpeg -version
+```
+
+**Used By:** Text extraction with ASR (Automatic Speech Recognition) when processing audio/video files
+
 
 ### Ollama Integration (for Ollama entity extraction)
 
@@ -716,6 +803,21 @@ Complete sample flows are available in [`tests/sample_test_flows/extract/`](../.
 - Check `entity_max_doc_chars` is not too restrictive
 - For schema-based extraction, ensure the schema matches the document structure
 - Review LLM model capabilities for the extraction task
+
+**Issue: "Audio/video processing fails with codec errors"**
+- Ensure ffmpeg is installed: `ffmpeg -version`
+- Verify ffmpeg is in your PATH: `which ffmpeg` (macOS/Linux) or `where ffmpeg` (Windows)
+- Install ffmpeg if missing:
+  - macOS: `brew install ffmpeg`
+  - Linux: `sudo apt install ffmpeg` or `sudo dnf install ffmpeg`
+- Supported formats requiring ffmpeg: M4A, AAC, OGG, FLAC (audio), MP4, AVI, MOV (video)
+- WAV and MP3 audio files do not require ffmpeg
+
+**Issue: "ffmpeg not found" error during audio/video extraction**
+- Verify ffmpeg installation: `ffmpeg -version`
+- Add ffmpeg to your PATH if installed but not found
+- Restart your terminal/shell after installing ffmpeg
+- On macOS, ensure Homebrew's bin directory is in PATH: `export PATH="/opt/homebrew/bin:$PATH"`
 
 ## Architecture Details
 

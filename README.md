@@ -164,7 +164,7 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
 
 - **ExtractOperator** - Unified extraction operator with multiple adapters
   - **Text Extraction Modes**:
-    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) pipeline
+    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines
     - `docling_serve`: Remote extraction via Docling Serve API with OCR support
   - **Entity Extraction Modes**:
     - `ollama`: LLM-based entity extraction using Ollama models

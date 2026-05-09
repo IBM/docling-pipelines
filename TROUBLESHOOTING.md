@@ -921,6 +921,78 @@ Message code: CHUNKER_INVALID_CHUNK_TYPE
 }
 ```
 
+#### Issue: Audio/Video Processing Fails with ffmpeg Error
+
+**Error Message:**
+
+```
+ffmpeg not found or codec error during audio/video processing
+```
+
+**Symptoms:**
+
+- Audio files (M4A, AAC, OGG, FLAC) fail to process
+- Video files (MP4, AVI, MOV) fail to process
+- Error mentions "ffmpeg" or "codec"
+
+**Diagnosis:**
+
+```bash
+# Check if ffmpeg is installed
+ffmpeg -version
+
+# Check if ffmpeg is in PATH
+which ffmpeg  # macOS/Linux
+where ffmpeg  # Windows
+```
+
+**Solutions:**
+
+1. **Install ffmpeg:**
+
+**macOS:**
+```bash
+brew install ffmpeg
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**Linux (RHEL/CentOS/Fedora):**
+```bash
+sudo dnf install ffmpeg
+```
+
+2. **Verify installation:**
+```bash
+ffmpeg -version
+```
+
+3. **Add ffmpeg to PATH (if installed but not found):**
+
+**macOS:**
+```bash
+export PATH="/opt/homebrew/bin:$PATH"
+# Add to ~/.zshrc or ~/.bash_profile for persistence
+```
+
+**Linux:**
+```bash
+export PATH="/usr/local/bin:$PATH"
+# Add to ~/.bashrc for persistence
+```
+
+4. **Restart terminal after installation**
+
+**Note:** WAV and MP3 audio files do not require ffmpeg and should work without it.
+
+**Supported Formats:**
+- **Requires ffmpeg**: M4A, AAC, OGG, FLAC (audio), MP4, AVI, MOV (video)
+- **No ffmpeg needed**: WAV, MP3 (audio)
+
 ---
 
 #### Issue: Embeddings Invalid Type

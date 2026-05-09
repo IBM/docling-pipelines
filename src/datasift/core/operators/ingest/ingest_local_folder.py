@@ -17,6 +17,7 @@ from datasift.core.operators.ingest.ingest_utils import (
     get_filter_extensions,
     is_doc_previously_processed,
 )
+from datasift.core.operators.operator_utils import get_supported_file_extensions
 from datasift.utils.data.incremental_update import IncrementalUpdateUtil
 from datasift.utils.infrastructure.logging import get_logger
 
@@ -379,8 +380,8 @@ class IngestLocalOperator(AbstractOperator):
                 },
                 OperatorConstants.Filtering.INCLUDE_FILTER_KEY: {
                     OperatorConstants.Columns.NAME: "Include File Type",
-                    OperatorConstants.Config.DESCRIPTION: "File types to be included (comma-separated extensions)",
-                    OperatorConstants.Config.DEFAULT: "pdf,docx,pptx,txt,md",
+                    OperatorConstants.Config.DESCRIPTION: "File types to be included (comma-separated extensions). Audio/video formats (wav,mp3,mp4,etc.) only available if ASR dependencies installed.",
+                    OperatorConstants.Config.DEFAULT: get_supported_file_extensions(),
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },

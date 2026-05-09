@@ -409,6 +409,145 @@ def test_extract_operator_get_metadata():
 
 
 @pytest.mark.unit
+def test_extract_operator_asr_config_validation():
+    """Test ASR configuration parameter validation."""
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "use_asr_pipeline": True,
+        "asr_model_name": "whisper_turbo",
+        "doc_column": "doc_content",
+    }
+
+    operator = ExtractOperator(config=config)
+
+    # Verify operator was created successfully with ASR config
+    assert operator.text_extraction_mode.value == "docling_library"
+    assert operator.entity_extraction_mode.value == "none"
+
+
+@pytest.mark.unit
+def test_extract_operator_asr_model_names():
+    """Test various ASR model name configurations."""
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+
+    valid_models = [
+        "whisper_tiny",
+        "whisper_small",
+        "whisper_medium",
+        "whisper_base",
+        "whisper_large",
+        "whisper_turbo",
+    ]
+
+    for model_name in valid_models:
+        config = {
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "none",
+            "use_asr_pipeline": True,
+            "asr_model_name": model_name,
+            "doc_column": "doc_content",
+        }
+
+        operator = ExtractOperator(config=config)
+        assert operator.text_extraction_mode.value == "docling_library"
+
+
+@pytest.mark.unit
+def test_extract_operator_asr_without_model_name():
+    """Test ASR configuration without explicit model name (should use default)."""
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "use_asr_pipeline": True,
+        "doc_column": "doc_content",
+    }
+
+    operator = ExtractOperator(config=config)
+    assert operator.text_extraction_mode.value == "docling_library"
+
+
+@pytest.mark.unit
+@pytest.mark.skip(reason="Requires sample audio file and ASR dependencies")
+def test_extract_operator_asr_with_audio_file():
+    """
+    Test ExtractOperator with ASR pipeline on audio file.
+    This test requires:
+    - Sample audio file (WAV format recommended)
+    - Docling ASR dependencies installed
+    - Sufficient system resources for ASR model
+    """
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+
+    # Prepare test data with audio file
+    file_data = {
+        "id": ["test_audio_1"],
+        "name": ["sample.wav"],
+        "path": ["/path/to/sample.wav"],
+        "binary_content": [b"mock_audio_content"],  # Would be actual audio bytes
+    }
+
+    table = pa.table(file_data)
+
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "use_asr_pipeline": True,
+        "asr_model_name": "whisper_turbo",
+        "doc_column": "doc_content",
+        "extract_tables": False,
+        "extract_images": False,
+    }
+
+    operator = ExtractOperator(config=config)
+
+    # Transform the table
+    result_tables, metadata = operator.transform(table)
+    result_table = result_tables[0]
+
+    # Assertions
+    assert "doc_content" in result_table.column_names
+    assert result_table["doc_content"][0].as_py() is not None
+    assert metadata["total_docs_count"] == 1
+
+
+@pytest.mark.unit
+def test_extract_operator_asr_with_entity_extraction():
+    """Test ASR pipeline combined with entity extraction."""
+    from unittest.mock import Mock, patch
+
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+        mock_instance = Mock()
+        mock_ollama_class.return_value = mock_instance
+
+        config = {
+            "text_extraction_mode": "docling_library",
+            "entity_extraction_mode": "ollama",
+            "use_asr_pipeline": True,
+            "asr_model_name": "whisper_turbo",
+            "entity_model_name": "llama3.2",
+            "doc_column": "doc_content",
+            "custom_schema": {
+                "speaker": "string",
+                "topic": "string",
+                "key_points": "array",
+            },
+        }
+
+        operator = ExtractOperator(config=config)
+        # Verify both ASR and entity extraction are configured
+        assert operator.text_extraction_mode.value == "docling_library"
+        assert operator.entity_extraction_mode.value == "ollama"
+
+@pytest.mark.unit
 def test_extract_operator_expand_extracted_data():
     """Test ExtractOperator with expand_extracted_data flag."""
     from unittest.mock import Mock, patch

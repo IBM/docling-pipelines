@@ -192,7 +192,7 @@ passlib==1.7.4
 pathspec==1.1.1
 peft==0.19.1
 pendulum==3.2.0
-pillow==12.1.1
+pillow==12.2.0
 platformdirs==4.9.6 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 pluggy==1.6.0
 polars==1.32.3

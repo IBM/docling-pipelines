@@ -251,7 +251,7 @@ Before starting, you'll need:
 - **Ollama** - Local LLM server for embeddings
 - **Podman or Docker** - For running OpenSearch
 - **Basic command-line knowledge** - For running commands
-
+- **ffmpeg** - Required for audio/video processing (M4A, AAC, OGG, FLAC, MP4, AVI, MOV formats)
 ---
 
 ## Job Stats Storage Configuration
@@ -410,7 +410,33 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```bash
 uv --version
 ```
+### Installing ffmpeg (Required for Audio/Video Processing)
 
+ffmpeg is required for processing audio formats (M4A, AAC, OGG, FLAC) and all video formats (MP4, AVI, MOV) with Docling ASR.
+
+**macOS (using Homebrew):**
+```bash
+brew install ffmpeg
+```
+
+**Linux (Ubuntu/Debian):**
+```bash
+sudo apt update
+sudo apt install ffmpeg
+```
+
+**Linux (RHEL/CentOS/Fedora):**
+```bash
+sudo dnf install ffmpeg
+```
+
+**Verify installation:**
+```bash
+ffmpeg -version
+```
+
+**Note:** If you only process WAV or MP3 audio files, ffmpeg is not required. However, for M4A, AAC, OGG, FLAC audio formats and all video formats, ffmpeg must be installed and available on your PATH.
+ 
 ### Cloning and Setting Up the Project
 
 **1. Clone the repository:**

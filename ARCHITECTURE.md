@@ -54,17 +54,17 @@ This architectural diversity is a deliberate design choice that supports the fra
 
 ### Technology Stack
 
-| Layer                   | Technologies                                                                                                                              |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Orchestration**       | Prefect, Python 3.12+                                                                                                                     |
-| **Data Processing**     | PyArrow                                                                                                                                   |
-| **Document Processing** | Docling                                                                                                                                   |
+| Layer                   | Technologies                                                                                                                             |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Orchestration**       | Prefect, Python 3.12+                                                                                                                    |
+| **Data Processing**     | PyArrow                                                                                                                                  |
+| **Document Processing** | Docling (with ASR support for audio/video via ffmpeg)                                                                                    |
 | **LLM Integration**     | Ollama, LiteLLM (unified interface supporting 100+ LLM providers including OpenAI, Anthropic, Google, AWS Bedrock, and more), HuggingFace |
-| **Vector Storage**      | OpenSearch, NMSLIB, Faiss                                                                                                                 |
-| **Language Detection**  | FastText, langdetect                                                                                                                      |
-| **Web Framework**       | FastAPI (optional)                                                                                                                        |
-| **Testing**             | pytest, pytest-cov                                                                                                                        |
-| **Package Management**  | uv                                                                                                                                        |
+| **Vector Storage**      | OpenSearch, NMSLIB, Faiss                                                                                                                |
+| **Language Detection**  | FastText, langdetect                                                                                                                     |
+| **Web Framework**       | FastAPI (optional)                                                                                                                       |
+| **Testing**             | pytest, pytest-cov                                                                                                                       |
+| **Package Management**  | uv                                                                                                                                       |
 
 ---
 
@@ -3093,7 +3093,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 #### Extract Operators (`extract/`)
 - **ExtractOperator**: Extraction operator using hexagonal architecture with multiple adapters; outputs extracted text plus estimated page-count metrics
   - **Text Extraction Modes**:
-    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) pipeline
+    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines
     - `docling_serve`: Remote extraction via Docling Serve API with OCR support
   - **Entity Extraction Modes**:
     - `ollama`: LLM-based entity extraction using Ollama models

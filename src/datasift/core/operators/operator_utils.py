@@ -8,6 +8,7 @@ from typing import Any
 
 import pyarrow as pa
 from charset_normalizer import from_bytes
+from docling.datamodel.base_models import FormatToExtensions, InputFormat
 from docling.document_converter import DocumentConverter
 from docling_core.types.doc.document import PictureItem, TableItem
 from docling_core.types.io import DocumentStream
@@ -46,6 +47,39 @@ status_codes = {
 
 hash_functions = hashlib.sha3_512
 logger = get_logger()
+
+
+def is_asr_available() -> bool:
+    """Check if ASR (Automatic Speech Recognition) dependencies are available.
+    Returns:
+        True if ASR dependencies are installed, False otherwise
+    """
+    try:
+        from docling.datamodel.asr_model_specs import AsrModelType  # noqa: F401
+        from docling.document_converter import AudioFormatOption  # noqa: F401
+        from docling.pipeline.asr_pipeline import AsrPipeline  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+def get_supported_file_extensions() -> str:
+    """Get comma-separated list of supported file extensions based on available dependencies.
+    Returns base document formats always, and adds audio/video formats only if ASR is available.
+    Returns:
+        Comma-separated string of file extensions (e.g., "pdf,docx,mp3,wav")
+    """
+    # Base extensions always supported
+    base_extensions = ["pdf", "docx", "pptx", "txt", "md", "png", "jpeg", "jpg", "tiff", "tif", "bmp", "webp"]
+
+    # Add audio/video extensions only if ASR is available
+    # Audio: WAV, MP3, M4A, AAC, OGG, FLAC
+    # Video: MP4, AVI, MOV
+    if is_asr_available():
+        audio_video_extensions = ["wav", "mp3", "m4a", "aac", "ogg", "flac", "mp4", "avi", "mov"]
+        base_extensions.extend(audio_video_extensions)
+
+    return ",".join(base_extensions)
 
 
 class OperatorUtils:
@@ -932,11 +966,23 @@ class OperatorUtils:
                 converter = DocumentConverter()
 
             # Create DocumentStream from binary content (no temporary file needed)
+            audio_video_suffixes = {
+                f".{extension.lower()}" for extension in FormatToExtensions[InputFormat.AUDIO]
+            }
             doc_name = Path(file_path).name if file_path else f"document{file_suffix}"
-            doc_stream = DocumentStream(name=doc_name, stream=io.BytesIO(binary_content))
-
-            # Convert document directly from stream
-            result = converter.convert(doc_stream)
+            if file_suffix in audio_video_suffixes:
+                current_path_file = Path.cwd() / doc_name
+                try:
+                    current_path_file.write_bytes(binary_content)
+                    result = converter.convert(current_path_file)
+                finally:
+                    if current_path_file.exists():
+                        current_path_file.unlink()
+            else:
+                # Create DocumentStream from binary content (no temporary file needed)
+                doc_stream = DocumentStream(name=doc_name, stream=io.BytesIO(binary_content))
+                # Convert document directly from stream
+                result = converter.convert(doc_stream)
 
             # Export to markdown
             markdown_text = result.document.export_to_markdown()
