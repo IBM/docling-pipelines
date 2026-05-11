@@ -2,7 +2,7 @@
 BaseDAO: A generic synchronous Data Access Object for SQLModel models.
 """
 
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
@@ -13,6 +13,8 @@ from sqlmodel import SQLModel, delete, select, update
 from datasift.exceptions.datasift_exceptions import (
     PostgresTransactionException,
 )
+
+T = TypeVar("T", bound=SQLModel)
 
 
 class BaseDAO[T: SQLModel]:

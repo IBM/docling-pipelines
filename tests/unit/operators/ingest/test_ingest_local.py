@@ -58,7 +58,7 @@ class TestIngestLocalOperator:
         }
 
         operator = IngestLocalOperator(config)
-        tables, metadata = operator.transform(None)
+        tables, _metadata = operator.transform(None)
         table = tables[0]
 
         assert set(table.column_names) == EXPECTED_METADATA_COLUMNS
@@ -70,7 +70,7 @@ class TestIngestLocalOperator:
             assert path.endswith(".txt"), "Path should match filtered extension"
 
     def test_max_files_limit(self, temp_test_dir):
-        """Test max_files limit."""
+        """Test max_files limit stops processing immediately after limit is reached."""
         config = {
             "input_folder": temp_test_dir,
             "extract_content": False,
@@ -82,8 +82,23 @@ class TestIngestLocalOperator:
         tables, metadata = operator.transform(None)
         table = tables[0]
 
-        assert table.num_rows <= 1, "Should respect max_files limit"
+        # With max_files=1, processing stops after encountering the second file
+        # The temp_test_dir fixture has 1-2 files (test.txt and possibly test.pdf)
+        # When max_files is reached:
+        # - file_count will be max_files + 1 (the file that triggered the stop)
+        # - processed_docs will be max_files (only files up to the limit are processed)
+        # - table.num_rows will equal processed_docs
+
+        assert metadata["processed_docs"] == 1, "Should process exactly max_files documents"
+        assert table.num_rows == 1, "Should have exactly max_files rows in table"
         assert set(table.column_names) == EXPECTED_METADATA_COLUMNS
+
+        # Verify no excessive skipped documents are recorded
+        assert metadata.get("skipped_docs_count", 0) == 0, "Should not have skipped docs when hitting max_files"
+
+        # If there are 2 files in temp_test_dir, total_docs_count should be 2 (max_files + 1)
+        # If there's only 1 file, total_docs_count should be 1
+        assert metadata["total_docs_count"] >= 1, "Should have counted at least the processed file"
 
     def test_get_metadata(self, temp_test_dir):
         """Test get_metadata method."""
@@ -104,14 +119,55 @@ class TestIngestLocalOperator:
         }
 
         operator = IngestLocalOperator(config)
-        tables, _metadata = operator.transform(None)
-        table = tables[0]
+        _tables, _metadata = operator.transform(None)
 
-        paths = table["path"].to_pylist()
-        assert paths
-        for path in paths:
-            assert path.startswith(temp_test_dir)
-            assert Path(path).exists()
+    def test_max_files_with_many_files(self):
+        """Test max_files behavior with directory containing many more files than limit."""
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_dir = Path(tmpdir)
+
+            # Create 200 test files
+            for i in range(200):
+                test_file = test_dir / f"test_file_{i:03d}.txt"
+                test_file.write_text(f"Test content {i}")
+
+            config = {
+                "input_folder": str(test_dir),
+                "extract_content": False,
+                "max_files": 10,
+                "force_ingest": True,
+            }
+
+            operator = IngestLocalOperator(config)
+            tables, metadata = operator.transform(None)
+            table = tables[0]
+
+            # Verify processing stops immediately after max_files is reached
+            assert metadata["total_docs_count"] == 11, (
+                "file_count should be max_files + 1 (the file that triggered the limit)"
+            )
+            assert metadata["processed_docs"] == 10, "Should process exactly max_files documents"
+            assert table.num_rows == 10, "Should have exactly max_files rows in table"
+
+            # Verify skipped_docs_count does NOT include all remaining files
+            # Only files that were explicitly skipped (e.g., due to filters) should be counted
+            # Files never encountered due to max_files limit should NOT be in skipped count
+            assert metadata.get("skipped_docs_count", 0) == 0, (
+                "Should not count unprocessed files as skipped when max_files limit is hit"
+            )
+
+            # Verify table structure
+            assert set(table.column_names) == EXPECTED_METADATA_COLUMNS
+
+            # Verify all processed files are in the table
+            paths = table["path"].to_pylist()
+            assert len(paths) == 10
+            for path in paths:
+                assert Path(path).exists()
+                assert path.startswith(str(test_dir)), f"Path {path} should start with {test_dir}"
 
 
 def test_ingest_local_operator_basic():

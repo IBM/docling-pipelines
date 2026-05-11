@@ -166,11 +166,14 @@ class IngestLocalOperator(AbstractOperator):
         data: list[dict[str, Any]] = []
         file_count: int = 0
         processed_count: int = 0
+        max_files_reached: bool = False
 
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=0)
 
         for root, dirs, files in os.walk(root_folder, topdown=True):
+            if max_files_reached:
+                break
             if files and dirs:
                 logger.info(
                     ">>> %s/%s/%s",
@@ -196,6 +199,9 @@ class IngestLocalOperator(AbstractOperator):
                 if doc:
                     processed_count += 1
                     data.append(doc)
+                elif file_count > self.max_files:
+                    max_files_reached = True
+                    break
 
         # Update total docs and processed count
         metadata[Metrics.External.TOTAL_DOCS] = file_count
@@ -316,12 +322,6 @@ class IngestLocalOperator(AbstractOperator):
             logger.info(
                 f"File count exceeded max files permitted: {self.max_files}",
                 extra=self.common_log_arguments,
-            )
-            self.record_skipped_document(
-                metadata=metadata,
-                doc_id=str(file_stats.st_ino),
-                doc_name=abs_path,
-                reason="File count exceeded max files permitted",
             )
             return False
 

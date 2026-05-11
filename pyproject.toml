@@ -224,6 +224,8 @@ namespace_packages = true
 explicit_package_bases = true
 # Treat the backend directory as the source root
 files = ["."]
+# Set Python version to 3.12 to support PEP 695 type parameter syntax
+python_version = "3.12"
 # Disable import-untyped errors for third-party libraries without type stubs
 disable_error_code = ["import-untyped"]
 

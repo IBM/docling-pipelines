@@ -9,6 +9,7 @@ these strategies determine how to combine them into a single aggregated view.
 from enum import StrEnum
 
 from datasift.core.constants.constants import DatasiftConstants, Metrics
+from datasift.core.constants.operator_constants import OperatorConstants
 
 
 class AggregationStrategy(StrEnum):
@@ -92,4 +93,7 @@ DEFAULT_STRATEGIES = {
     "hashed_rows": AggregationStrategy.SUM,
     # Redaction operator
     "total_redactions": AggregationStrategy.SUM,
+    # Extract operator - page statistics
+    OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED: AggregationStrategy.SUM,
+    OperatorConstants.Metadata.PAGES_BY_FORMAT: AggregationStrategy.DEEP_MERGE,
 }
