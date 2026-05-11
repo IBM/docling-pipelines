@@ -37,4 +37,4 @@ USER datasift
 ENV PYTHONPATH=/opt/app-root/src
 
 EXPOSE 8080
-CMD ["uvicorn", "datasift.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "-m", "uvicorn", "datasift.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
