@@ -65,6 +65,7 @@ class DatasiftConstants:
     DEFAULT_TRANSACTION_ID = "TRANSACTION999"
     UDP_LOGS = "UDP_logs"
     INCREMENTAL_PROCESSING_METADATA_PATH = "inc_process_metadata"
+    INCREMENTAL_METADATA = "incremental_metadata"
     JOBS_STATS_PATH = "job-stats"
     NODE_STATS_PATH = "node-stats"
     TRANSACTION_ID = "transaction_id"

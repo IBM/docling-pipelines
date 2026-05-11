@@ -534,7 +534,9 @@ class PrefectEngine(AbstractFlowEngine):
         destinations: list[tuple[PrefectFuture, Any]] = []
         node_id_to_index_map = create_node_id_to_index_map(flow_def=op_flow)
         deleted_docs_count = 0
-        incremental_update_util = IncrementalUpdateUtil()
+        # Extract flow-level incremental metadata config if present
+        flow_incremental_config = global_config.get("incremental_metadata")
+        incremental_update_util = IncrementalUpdateUtil(flow_config=flow_incremental_config)
 
         is_sequential_flow = (
             False
