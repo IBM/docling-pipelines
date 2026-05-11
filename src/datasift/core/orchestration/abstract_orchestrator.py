@@ -42,6 +42,8 @@ class AbstractOrchestrator(ABC):
         self,
         job_stats_service: JobStatsService | None = None,
         job_run_manager: JobRunManager | None = None,
+        enable_custom_operators: bool = True,
+        custom_operator_packages: list[str] | None = None,
     ) -> None:
         """
         Initialize orchestrator with optional job services.
@@ -49,7 +51,11 @@ class AbstractOrchestrator(ABC):
         Args:
             job_stats_service: Optional job statistics service for tracking job execution
             job_run_manager: Optional framework job run manager for external status updates
+            enable_custom_operators: Whether to enable custom operators (passed to operator factory)
+            custom_operator_packages: List of custom operator packages (passed to operator factory)
         """
+        self.enable_custom_operators = enable_custom_operators
+        self.custom_operator_packages = custom_operator_packages
         self.job_status = ExecutionStatus.RUNNING
         self.job_run_id: str | None = None
         self.job_id: str | None = None

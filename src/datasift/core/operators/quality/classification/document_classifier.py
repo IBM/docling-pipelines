@@ -91,6 +91,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
     short_name: str = OperatorConstants.Misc.DOCUMENT_CLASSIFIER
     category: OperatorCategory = OperatorCategory.Functional
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

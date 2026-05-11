@@ -4,7 +4,7 @@ from typing import Any
 import pyarrow as pa
 from dpk_doc_quality.transform import DocQualityTransform
 
-from datasift.core.constants.constants import AttributeDataTypes, Metrics
+from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.operator_utils import OperatorUtils
@@ -33,6 +33,7 @@ class DocQuality(DocQualityTransform, AbstractOperator):
 
     short_name: str = OperatorConstants.Operators.DOC_QUALITY
     category: OperatorCategory = OperatorCategory.Quality
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         normalized_bad_word_filepath: str = BAD_WORD_FILEPATH_VALUE.replace(

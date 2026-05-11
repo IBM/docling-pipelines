@@ -8,7 +8,7 @@ import pyarrow as pa
 
 # Import adapters to trigger registration
 import datasift.core.operators.vectordb.adapters.outbound  # noqa: F401
-from datasift.core.constants.constants import AttributeDataTypes, ExecutionStatus, Metrics
+from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import VectorStoreFactory
@@ -50,6 +50,7 @@ class VectorDBOperator(AbstractOperator):
 
     short_name: str = "vectordb"
     category: OperatorCategory = OperatorCategory.VectorDB
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

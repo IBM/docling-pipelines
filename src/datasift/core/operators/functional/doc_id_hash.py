@@ -6,7 +6,7 @@ import pyarrow as pa
 from data_processing.utils import TransformUtils
 from dpk_doc_id import DocIDTransform, doc_column_name_key, hash_column_name_key
 
-from datasift.core.constants.constants import AttributeDataTypes, Metrics
+from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.operator_utils import OperatorUtils
@@ -28,6 +28,7 @@ class DocIdHashOperator(AbstractOperator):
 
     short_name: str = OperatorConstants.Operators.DOC_ID_OPERATOR
     category: OperatorCategory = OperatorCategory.Functional
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

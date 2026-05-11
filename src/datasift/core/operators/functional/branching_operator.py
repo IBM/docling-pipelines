@@ -7,6 +7,7 @@ from sqlglot import expressions as exp
 
 from datasift.core.constants.constants import (
     AttributeDataTypes,
+    DatasiftConstants,
     MemoryLogPhases,
     Metrics,
 )
@@ -32,6 +33,7 @@ class BranchingOperator(AbstractOperator):
 
     short_name: str = OperatorConstants.Operators.BRANCHING
     category: OperatorCategory = OperatorCategory.Functional
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)

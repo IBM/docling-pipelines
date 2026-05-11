@@ -75,6 +75,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
     short_name: str = "pii_and_hap"
     category: OperatorCategory = OperatorCategory.Quality
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     # Type hints for instance attributes
     doc_column_name: str

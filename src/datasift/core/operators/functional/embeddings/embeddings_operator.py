@@ -86,6 +86,7 @@ class EmbeddingsOperator(AbstractOperator):
 
     short_name: str = OperatorConstants.Operators.EMBEDDINGS
     category: OperatorCategory = OperatorCategory.Functional
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

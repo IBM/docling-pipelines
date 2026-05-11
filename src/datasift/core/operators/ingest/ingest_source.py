@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import importlib
 import json
-from typing import Any, ClassVar, Iterator
+from typing import Any, ClassVar, Iterator, cast
 
 import pyarrow as pa
 
@@ -10,8 +10,6 @@ import pyarrow as pa
 from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document
 
-# Import adapters to trigger registration via @register_source_adapter decorator
-import datasift.core.operators.ingest.adapters.outbound.sources  # noqa: F401
 from datasift.core.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -20,9 +18,6 @@ from datasift.core.constants.constants import (
 )
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
-    SourceAdapterFactory,
-)
 from datasift.core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
     get_filter_extensions,
@@ -270,6 +265,14 @@ ADAPTER_MANAGED_PROVIDERS: frozenset[str] = frozenset(
 
 logger = get_logger()
 
+# Import factory and adapters AFTER MicrosoftGraphLoader class definition to avoid circular imports
+from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory import (  # noqa: E402, I001
+    SourceAdapterFactory,
+)
+
+# Import adapters to trigger registration via @register_source_adapter decorator
+import datasift.core.operators.ingest.adapters.outbound.sources  # noqa: E402, F401
+
 
 class IngestSourceOperator(AbstractOperator):
     """
@@ -289,6 +292,7 @@ class IngestSourceOperator(AbstractOperator):
 
     short_name: str = "ingest_source"
     category: OperatorCategory = OperatorCategory.Ingest
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """
@@ -427,7 +431,7 @@ class IngestSourceOperator(AbstractOperator):
                 loader: BaseLoader = self._get_loader()
                 # Use lazy_load if available, otherwise fall back to load()
                 if hasattr(loader, "lazy_load"):
-                    documents = loader.lazy_load()
+                    documents = cast(Iterator[Document], loader.lazy_load())
                 else:
                     documents = loader.load()
 

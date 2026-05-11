@@ -59,6 +59,7 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
 
     short_name: str = short_name
     category: OperatorCategory = OperatorCategory.Quality
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config=config)

@@ -62,6 +62,7 @@ class DatasiftFlowManager:
         job_id: str | None = None,
         job_run_id: str | None = None,
         flow_id: str | None = None,
+        enable_custom_operators: bool | None = None,
     ):
         """
         Initialize DatasiftFlowManager.
@@ -73,6 +74,7 @@ class DatasiftFlowManager:
             job_id: Unique job identifier (priority: parameter > flow_def > UUID)
             job_run_id: Unique job run identifier (defaults to job_id if not provided)
             flow_id: Flow identifier (priority: parameter > flow_def > job_id)
+            enable_custom_operators: Whether to enable custom operators (default: from env or True)
 
         Raises:
             DatasiftException: If neither flow_file nor flow_def is provided
@@ -110,6 +112,10 @@ class DatasiftFlowManager:
         # flow_id priority: parameter > flow_def > job_id
         self.flow_id = flow_id or flow_def_flow_id or self.job_id
 
+        # Custom operator support
+        self.custom_operator_packages: list[str] = []
+        self.enable_custom_operators = enable_custom_operators
+
         # Execution state (initialized during execute())
         self.orchestrator: Any | None = None
         self.session_info: SessionInfo | None = None
@@ -141,11 +147,46 @@ class DatasiftFlowManager:
             return flow_data
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"Invalid JSON in flow definition file: {e.msg}", e.doc, e.pos) from e
+    def register_custom_operators(self, *, package_names: list[str]) -> None:
+        """
+        Register custom operator packages for use in flows.
+
+        This method allows programmatic registration of custom operators by specifying
+        Python package names. The packages will be loaded when the orchestrator is
+        initialized during flow execution.
+
+        Args:
+            package_names: List of Python package names containing custom operators
+                          (e.g., ["my_company.operators", "custom_ops"])
+
+        Example:
+            manager = DatasiftFlowManager(flow_file="flow.json")
+            manager.register_custom_operators(package_names=["my_company.operators"])
+            result = manager.execute()
+
+        Note:
+            - Custom operators must inherit from AbstractOperator
+            - Custom operators must have unique short_name values
+            - Custom operators take priority over datasift operators with same short_name
+            - Call this method before execute() to ensure operators are available
+        """
+        if not isinstance(package_names, list):
+            raise DatasiftException(message="package_names must be a list of strings", status_code=400)
+
+        if not all(isinstance(pkg, str) for pkg in package_names):
+            raise DatasiftException(message="All package names must be strings", status_code=400)
+
+        self.custom_operator_packages.extend(package_names)
+        self.logger.info(f"Registered custom operator packages: {package_names}")
+
 
     def _initialize_execution_environment(self) -> None:
         """Initialize orchestrator and session for execution."""
-        # Create orchestrator
-        self.orchestrator = OrchestratorFactory.create_orchestrator()
+        # Create orchestrator with custom operator settings
+        self.orchestrator = OrchestratorFactory.create_orchestrator(
+            enable_custom_operators=self.enable_custom_operators,
+            custom_operator_packages=self.custom_operator_packages if self.custom_operator_packages else None,
+        )
 
         # Validate flow definition is initialized
         if self.flow_def is None:

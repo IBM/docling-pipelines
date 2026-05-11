@@ -432,10 +432,12 @@ class TestExecutionEnvironment:
         """Test DatasiftException when flow_def is None."""
         executor = DatasiftFlowManager.__new__(DatasiftFlowManager)
         executor.flow_def = None
-        # Need to set logger since __init__ wasn't called
+        # Need to set attributes since __init__ wasn't called
         from datasift.utils.infrastructure.logging import get_logger
 
         executor.logger = get_logger()
+        executor.enable_custom_operators = True
+        executor.custom_operator_packages = []
 
         with pytest.raises(DatasiftException):
             executor._initialize_execution_environment()

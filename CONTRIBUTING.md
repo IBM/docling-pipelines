@@ -352,11 +352,12 @@ class MyCustomOperator(AbstractOperator):
     """Custom operator that processes documents."""
     
     short_name: str = OperatorConstants.Operators.MY_CUSTOM
-    category: OperatorCategory = OperatorCategory.Functional
+    category: OperatorCategory = OperatorCategory.Custom
+    owner: str = "custom"  # REQUIRED: Identifies this as a custom operator
     
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, *, config: dict[str, Any]) -> None:
         """Initialize with runtime configuration."""
-        super().__init__(config)
+        super().__init__(config=config)
         # Instance-level configuration from flow JSON
         self.param1 = config.get("param1")
     
@@ -396,6 +397,116 @@ class MyCustomOperator(AbstractOperator):
         """Process PyArrow table using instance configuration."""
         # Implementation using self.param1 and other instance attributes
         pass
+
+### Built-in Datasift Operator Requirements
+
+When creating built-in datasift operators (operators that ship with the datasift package), you **must**:
+
+1. **Set the owner attribute explicitly:**
+   ```python
+   from datasift.core.constants.constants import DatasiftConstants
+   
+   class MyDatasiftOperator(AbstractOperator):
+       short_name: str = "my_datasift_operator"
+       category: OperatorCategory = OperatorCategory.Functional
+       owner: str = DatasiftConstants.OWNER_DATASIFT  # REQUIRED for built-in operators
+   ```
+
+2. **Import DatasiftConstants:**
+   All built-in operators must import `DatasiftConstants` to access the `OWNER_DATASIFT` constant:
+   ```python
+   from datasift.core.constants.constants import DatasiftConstants
+   ```
+
+3. **Follow all other operator requirements** (implement `get_metadata()`, `get_required_features()`, etc.)
+
+### Custom Operator Requirements
+
+When creating custom operators, you **must**:
+
+1. **Set the owner attribute as a class variable:**
+   
+   The `owner` attribute must be declared at the class level, alongside `short_name` and `category`.
+   
+   **To override an existing datasift operator**, use the **same `short_name`** as the datasift operator:
+   
+   ```python
+   class CustomChunkerOperator(AbstractOperator):
+       """Custom chunker that overrides datasift's chunker."""
+       
+       short_name: str = OperatorConstants.Operators.CHUNKER  # Same as datasift!
+       category: OperatorCategory = OperatorCategory.Functional
+       owner: str = "custom"  # REQUIRED: Gives priority 1 (overrides datasift)
+       
+       def __init__(self, *, config: dict[str, Any]) -> None:
+           super().__init__(config=config)
+   ```
+   
+   **To create a new custom operator**, use a unique `short_name`:
+   
+   ```python
+   class MyNewOperator(AbstractOperator):
+       """Completely new custom operator."""
+       
+       short_name: str = "my_new_operator"  # Unique name
+       category: OperatorCategory = OperatorCategory.Functional
+       owner: str = "custom"  # REQUIRED: Must be set to "custom"
+       
+       def __init__(self, *, config: dict[str, Any]) -> None:
+           super().__init__(config=config)
+   ```
+   
+   **Why This Matters:**
+   - Custom operators with `owner="custom"` receive **priority 1** (highest)
+   - Datasift operators with `owner="datasift"` receive **priority 2**
+   - When both have the same `short_name`, only the custom operator (priority 1) is loaded
+   - Without setting `owner="custom"`, your operator inherits `owner=None` from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:32), which will be treated as a custom operator
+   - The `owner` attribute appears in operator metadata returned by `get_operator_metadata()`
+   - **All built-in datasift operators must explicitly set** `owner = DatasiftConstants.OWNER_DATASIFT`
+
+2. **Use keyword-only arguments:**
+   All function parameters must use `*` to enforce keyword-only arguments:
+   ```python
+   def __init__(self, *, config: dict[str, Any]) -> None:
+       super().__init__(config=config)
+   ```
+
+3. **Implement required static methods:**
+   - `get_metadata()` - Returns operator metadata
+   - `get_required_features()` - Returns required input features
+
+4. **Follow the operator contract:**
+   - Inherit from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:28)
+   - Implement `transform()` method
+   - Return `tuple[list[pa.Table], dict[str, Any]]`
+
+### Environment Variables for Custom Operators
+
+**DATASIFT_CUSTOM_OPERATORS:**
+
+Comma-separated list of Python package paths containing custom operators.
+
+```bash
+export DATASIFT_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
+```
+
+**Requirements:**
+- Must be a string value (non-string values are ignored with a warning)
+- Package paths separated by commas
+- Packages must be importable from PYTHONPATH
+
+**DATASIFT_ENABLE_CUSTOM_OPERATORS:**
+
+Boolean flag to enable/disable custom operator loading (default: `true`).
+
+```bash
+export DATASIFT_ENABLE_CUSTOM_OPERATORS="true"  # or "false"
+```
+
+**Validation:**
+
+The operator factory validates the `DATASIFT_CUSTOM_OPERATORS` environment variable to ensure it's a string. Non-string values will trigger a warning and be ignored to prevent factory initialization failures. See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:35) for implementation.
+
 ```
 
 **Why Static Methods?**

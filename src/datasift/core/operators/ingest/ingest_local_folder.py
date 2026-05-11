@@ -52,6 +52,7 @@ class IngestLocalOperator(AbstractOperator):
 
     short_name = OperatorConstants.Operators.INGEST_LOCAL
     category = OperatorCategory.Ingest
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

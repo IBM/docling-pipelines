@@ -8,6 +8,7 @@ import pyarrow as pa
 
 from datasift.core.constants.constants import (
     AttributeDataTypes,
+    DatasiftConstants,
     ExecutionStatus,
     Metrics,
 )
@@ -58,6 +59,7 @@ class SQLFilterOperator(AbstractOperator):
 
     short_name: str = OperatorConstants.Operators.SQL_FILTER
     category: OperatorCategory = OperatorCategory.Quality
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

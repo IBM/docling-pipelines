@@ -14,8 +14,15 @@ class PythonOrchestrator(AbstractOrchestrator):
         self,
         job_stats_service: JobStatsService | None = None,
         job_run_manager: JobRunManager | None = None,
+        enable_custom_operators: bool = True,
+        custom_operator_packages: list[str] | None = None,
     ):
-        super().__init__(job_stats_service=job_stats_service, job_run_manager=job_run_manager)
+        super().__init__(
+            job_stats_service=job_stats_service,
+            job_run_manager=job_run_manager,
+            enable_custom_operators=enable_custom_operators,
+            custom_operator_packages=custom_operator_packages,
+        )
 
     def create_executor_impl(
         self,

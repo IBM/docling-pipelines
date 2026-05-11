@@ -29,6 +29,7 @@ class OperatorCategory(StrEnum):
 class AbstractOperator(AbstractTableTransform):
     short_name: str
     category: OperatorCategory
+    owner: str | None = None  # None indicates custom operator, specific value (e.g., "datasift") for built-in operators
 
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
@@ -60,7 +61,7 @@ class AbstractOperator(AbstractTableTransform):
 
     @staticmethod
     def get_metadata():
-        # Returns operator metadata
+        # Returns operator metadata including owner
         return {}
 
     def should_validate_field(self, *, field_value: Any) -> bool:

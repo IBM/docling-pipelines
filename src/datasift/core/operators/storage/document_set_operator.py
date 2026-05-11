@@ -52,6 +52,7 @@ class DocumentSetOperator(AbstractOperator):
 
     short_name: str = "document_set"
     category: OperatorCategory = OperatorCategory.Storage
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """Initialize the Document Set operator.

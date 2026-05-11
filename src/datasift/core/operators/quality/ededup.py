@@ -32,6 +32,7 @@ class EdedupOperator(AbstractOperator):
 
     short_name: str = OperatorConstants.Operators.EDEDUP
     category: OperatorCategory = OperatorCategory.Quality
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

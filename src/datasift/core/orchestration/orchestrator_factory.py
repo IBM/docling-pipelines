@@ -22,6 +22,8 @@ class OrchestratorFactory:
         orchestrator_name: str = OrchestratorType.PYTHON,
         job_stats_service: JobStatsService | None = None,
         job_run_manager: JobRunManager | None = None,
+        enable_custom_operators: bool = True,
+        custom_operator_packages: list[str] | None = None,
     ) -> AbstractOrchestrator:  # pragma: no cover
         """
         Create an instance of the orchestrator with injected dependencies.
@@ -30,6 +32,8 @@ class OrchestratorFactory:
             orchestrator_name: Type of orchestrator to create
             job_stats_service: Optional job stats service (uses default if None)
             job_run_manager: Optional job run manager for framework status updates
+            enable_custom_operators: Whether to enable custom operators (passed to operator factory)
+            custom_operator_packages: List of custom operator packages (passed to operator factory)
 
         Returns:
             Configured orchestrator instance
@@ -42,6 +46,8 @@ class OrchestratorFactory:
         orchestrator = orchestrator_class(
             job_stats_service=job_stats_service,
             job_run_manager=job_run_manager,
+            enable_custom_operators=enable_custom_operators,
+            custom_operator_packages=custom_operator_packages,
         )
 
         return orchestrator

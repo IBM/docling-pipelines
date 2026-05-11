@@ -97,6 +97,20 @@ class DatasiftConstants:
     SKIP_CUSTOM_OP_VALIDATION = "skip_custom_op_validation"
     SUCCESS = "success"
     TMP = "tmp"
+
+    # Custom Operator Control
+    ENABLE_CUSTOM_OPERATORS = "enable_custom_operators"
+    ENABLE_CUSTOM_OPERATORS_DEFAULT = True
+
+    # Operator Ownership Tiers
+    OWNER_DATASIFT = "datasift"
+    OWNER_CUSTOM = "custom"
+    OWNER_ATTRIBUTE = "owner"
+
+    # Feature Flag States
+    FEATURE_ENABLED = "enabled"
+    FEATURE_DISABLED = "disabled"
+
     ENABLE_MICRO_BATCHING = "enable_micro_batching"
     MICRO_BATCH_SIZE = "micro_batch_size"
     DEFAULT_MICRO_BATCH_SIZE = 100
@@ -186,6 +200,10 @@ class EnvironmentVariables:
     OLLAMA_HOST = "OLLAMA_HOST"
     PYTHONPATH = "PYTHONPATH"
     PREFECT_SERVER_API_MAX_PARAMETER_SIZE = "PREFECT_SERVER_API_MAX_PARAMETER_SIZE"
+
+    # Custom Operator Control
+    DATASIFT_ENABLE_CUSTOM_OPERATORS = "DATASIFT_ENABLE_CUSTOM_OPERATORS"
+    DATASIFT_CUSTOM_OPERATORS = "DATASIFT_CUSTOM_OPERATORS"
     DATASIFT_CONFIG_PATH = "DATASIFT_CONFIG_PATH"
     DATASIFT_STORAGE_BACKEND = "DATASIFT_STORAGE_BACKEND"
     DATASIFT_FRAMEWORK_TYPE = "DATASIFT_FRAMEWORK_TYPE"

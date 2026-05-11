@@ -323,6 +323,69 @@ graph LR
     style FUN fill:#fff4e6
     style QUA fill:#e6ffe6
     style VDB fill:#f3e6ff
+
+### Custom Operator Ownership and Priority
+
+All operators must properly identify themselves using the `owner` attribute to ensure correct priority resolution in the operator factory.
+
+**Owner Attribute:**
+- **Datasift operators**: `owner = DatasiftConstants.OWNER_DATASIFT` (must be explicitly set for all built-in operators)
+- **Custom operators**: `owner = "custom"` (must be explicitly set)
+- **Default**: `owner = None` (inherited from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:32), treated as custom)
+
+**Priority Resolution:**
+
+When multiple operators share the same `short_name`, the operator factory uses priority-based resolution:
+- **Priority 1**: Custom operators (`owner="custom"` or `owner=None`)
+- **Priority 2**: Datasift operators (`owner="datasift"`)
+
+**Important:** Lower priority numbers carry higher precedence. Custom operators with `owner="custom"` will override datasift operators with the same `short_name`.
+
+**Example - Built-in Datasift Operator:**
+
+```python
+from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from datasift.core.constants.constants import DatasiftConstants
+
+class MyDatasiftOperator(AbstractOperator):
+    short_name: str = "my_operator"
+    category: OperatorCategory = OperatorCategory.Functional
+    owner: str = DatasiftConstants.OWNER_DATASIFT  # REQUIRED for built-in operators
+    
+    def __init__(self, *, config: dict[str, Any]) -> None:
+        super().__init__(config=config)
+        # Implementation
+```
+
+**Example - Custom Operator:**
+
+```python
+from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+
+class MyCustomOperator(AbstractOperator):
+    short_name: str = "my_operator"
+    category: OperatorCategory = OperatorCategory.Custom
+    owner: str = "custom"  # REQUIRED for custom operators
+    
+    def __init__(self, *, config: dict[str, Any]) -> None:
+        super().__init__(config=config)
+        # Custom implementation
+```
+
+**Environment Variable Validation:**
+
+The `DATASIFT_CUSTOM_OPERATORS` environment variable must be a comma-separated string of package paths. Non-string values will be logged as warnings and ignored to prevent operator factory failures.
+
+```bash
+# Valid
+export DATASIFT_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
+
+# Invalid (non-string values are ignored with warning)
+export DATASIFT_CUSTOM_OPERATORS=123  # Will be ignored
+```
+
+See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:35) for implementation details.
+
 ```
 
 ### 2. Operator Metadata Architecture

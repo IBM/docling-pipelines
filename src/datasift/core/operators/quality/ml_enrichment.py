@@ -55,6 +55,7 @@ class MLEnrichmentOperator(EnrichmentTransform, AbstractOperator):
 
     short_name: str = OperatorConstants.Operators.ML_ENRICHMENT
     category: OperatorCategory = OperatorCategory.Quality
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]) -> None:
         """

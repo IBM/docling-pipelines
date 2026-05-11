@@ -82,7 +82,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import AttributeDataTypes, ExecutionStatus, Metrics
+from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
@@ -125,6 +125,7 @@ class ExtractOperator(AbstractOperator):
 
     short_name = OperatorConstants.Operators.EXTRACT_OPERATOR
     category = OperatorCategory.Extract
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, *, config: dict[str, Any]):
         """Initialize the unified extract operator.

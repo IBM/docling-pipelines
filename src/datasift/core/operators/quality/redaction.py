@@ -32,6 +32,7 @@ class RedactionOperator(AbstractOperator):
 
     short_name = OperatorConstants.Operators.REDACTION
     category = OperatorCategory.Quality
+    owner = DatasiftConstants.OWNER_DATASIFT
 
     def __init__(self, config: dict[str, Any]):
         """
