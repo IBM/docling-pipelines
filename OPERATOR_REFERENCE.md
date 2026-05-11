@@ -1279,7 +1279,14 @@ Returns `list[str]`.
 
 Defined at [`list_operators()`](src/datasift/lib/datasift_flow_manager.py:308).
 
-Returns a formatted operator listing via [`common.util.operators.display.list_operators()`](src/datasift/common/util/operators/display.py:135).
+Returns a formatted operator listing via [`datasift.utils.operators.display.list_operators()`](src/datasift/utils/operators/display.py).
+
+**Display Modes:**
+- **Default (verbose=False)**: Summary table with Owner, Attributes (count), Features (count) columns
+- **Verbose (verbose=True)**: Detailed view with full operator parameters and descriptions
+
+**Category Sorting Order:**
+Operators are sorted by category: Ingest, Extract, Quality, Functional, VectorDB, Storage
 
 ### Method name note
 
@@ -1300,8 +1307,8 @@ The current class does **not** expose `execute_flow()` or `validate_flow()` meth
 datasift-orchestrator --flow-file ./path/to/flow.json
 datasift-orchestrator --flow-file ./path/to/flow.json --validate
 datasift-orchestrator validate-flow ./path/to/flow.json
-datasift-orchestrator --list-operators
-datasift-orchestrator --list-operators --verbose
+datasift-orchestrator --list-operators              # Summary table
+datasift-orchestrator --list-operators --verbose    # Detailed view
 ```
 
 ### Global arguments
@@ -1310,8 +1317,8 @@ datasift-orchestrator --list-operators --verbose
 | ------------------ | ----- | ----------: | ----------------------------------------------- |
 | `--flow-file`      | `-f`  | Conditional | Flow JSON path                                  |
 | `--log-level`      | `-l`  |          No | `debug`, `info`, `warning`, `error`, `critical` |
-| `--list-operators` | `-lo` |          No | List operators and exit                         |
-| `--verbose`        | `-v`  |          No | Verbose operator listing                        |
+| `--list-operators` | `-lo` |          No | List operators and exit (summary table format)  |
+| `--verbose`        | `-v`  |          No | Show detailed operator info (use with `-lo`)    |
 | `--validate`       | -     |          No | Validate instead of executing                   |
 
 ### Exit codes
@@ -1569,6 +1576,14 @@ Builds a Docling extraction template from a document class schema.
 
 Defined in [`display.py`](src/datasift/common/util/operators/display.py:135)
 
-#### `list_operators(verbose=False, summary_only=False)`
+#### `list_operators(verbose=False)`
 
 Generates the same operator catalog used by the CLI and [`DatasiftFlowManager.list_operators()`](src/datasift/lib/datasift_flow_manager.py:308).
+
+**Parameters:**
+- `verbose` (bool): If True, shows detailed operator information with all parameters. If False (default), shows summary table with Owner, Attributes, Features columns.
+
+**Output Format:**
+- **Summary mode**: Table with columns: Owner (operator name), Attributes (parameter count), Features (capability count)
+- **Verbose mode**: Detailed listing with full parameter descriptions, types, and default values
+- **Category order**: Ingest, Extract, Quality, Functional, VectorDB, Storage

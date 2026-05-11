@@ -236,7 +236,7 @@ Examples:
         print(
             list_operators(
                 verbose=args.verbose,
-                summary_only=not args.verbose,
+                summary_only=not args.verbose,  # Default: summary table, Verbose: detailed view
             )
         )
         return

@@ -457,12 +457,19 @@ datasift-orchestrator validate-flow flow.json
 List all available operators:
 
 ```bash
-# Summary view
+# Summary view - shows table with Owner, Attributes, Features columns
+# Operators sorted by category: Ingest, Extract, Quality, Functional, VectorDB, Storage
 datasift-orchestrator --list-operators
 
-# Detailed view with parameters
+# Detailed view - shows full operator details with all parameters
 datasift-orchestrator --list-operators --verbose
 ```
+
+**Summary table format:**
+- **Owner**: Operator name
+- **Attributes**: Count of configurable parameters
+- **Features**: Count of special features/capabilities
+- **Categories**: Ingest, Extract, Quality, Functional, VectorDB, Storage
 
 ### DatasiftFlowManager API
 

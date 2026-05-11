@@ -1560,10 +1560,11 @@ datasift-orchestrator --flow-file my-first-flow.json --log-level debug
 ### Explore More Operators
 
 ```bash
-# List all operators
+# List all operators (summary table with Owner, Attributes, Features)
+# Sorted by category: Ingest, Extract, Quality, Functional, VectorDB, Storage
 datasift-orchestrator --list-operators
 
-# View detailed info
+# View detailed info (full operator parameters and descriptions)
 datasift-orchestrator --list-operators --verbose
 ```
 
@@ -1817,9 +1818,13 @@ print('Imports loaded successfully.')
 flow_file = Path('sample_flows/complete_pipeline_flow.json')
 print(f'Using flow file: {flow_file}')
 
-# Cell 3: List available operators
+# Cell 3: List available operators (summary table)
 operators_summary = DatasiftFlowManager.list_operators()
 print(operators_summary)
+
+# Or get detailed view
+operators_detailed = DatasiftFlowManager.list_operators(verbose=True)
+print(operators_detailed)
 
 # Cell 4: Create flow manager with explicit IDs
 manager = DatasiftFlowManager(
@@ -1975,14 +1980,20 @@ print(f"Warnings: {len(warning_logs)}")
 **Listing Available Operators**
 
 ```python
-# Get operator summary
+# Get operator summary (table with Owner, Attributes, Features columns)
+# Sorted by category: Ingest, Extract, Quality, Functional, VectorDB, Storage
 operators_summary = DatasiftFlowManager.list_operators()
 print(operators_summary)
 
-# Get detailed operator information
+# Get detailed operator information (full parameters and descriptions)
 operators_detailed = DatasiftFlowManager.list_operators(verbose=True)
 print(operators_detailed)
 ```
+
+**Summary table format:**
+- **Owner**: Operator name
+- **Attributes**: Count of configurable parameters
+- **Features**: Count of special features/capabilities
 
 
 ### 11.8 Error Handling and Debugging
@@ -2161,6 +2172,6 @@ This guide covers:
 **Need Help?**
 
 - Check the [Troubleshooting](#9-troubleshooting) section
-- Review operator documentation with `--list-operators --verbose`
+- Review operator documentation with `datasift-orchestrator --list-operators --verbose`
 - Examine example flows in the `tests/` directory
 - Enable debug logging for detailed information

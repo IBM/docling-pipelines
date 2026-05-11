@@ -187,8 +187,11 @@ Navigate to **Dev Tools** to run queries against your indexed documents.
 ### Learn About Operators
 
 ```bash
-# List all available operators
+# List all available operators (summary table with Owner, Attributes, Features)
 datasift-orchestrator --list-operators
+
+# Detailed view with full operator parameters
+datasift-orchestrator --list-operators --verbose
 
 # Get help on a specific operator
 datasift-orchestrator --operator-help ingest_local
@@ -331,8 +334,11 @@ source .venv/bin/activate
 # Run a flow
 datasift-orchestrator --flow-file path/to/flow.json
 
-# List operators
+# List operators (summary table)
 datasift-orchestrator --list-operators
+
+# List operators (detailed view)
+datasift-orchestrator --list-operators --verbose
 
 # Check services
 curl http://localhost:11434/api/tags  # Ollama

@@ -8,35 +8,79 @@ if TYPE_CHECKING:
     pass
 
 
+# Category order for sorting operators
+CATEGORY_ORDER = {"Ingest": 1, "Extract": 2, "Quality": 3, "Functional": 4, "VectorDB": 5, "Storage": 6}
+
+# Sort order for unknown categories
+UNKNOWN_CATEGORY_SORT_ORDER = 999
+
+
+def _get_operator_sort_key(item: tuple[str, dict[str, Any] | None]) -> tuple[int, str]:
+    """
+    Get sort key for operator metadata items.
+
+    Sorts by category order first, then alphabetically by label within each category.
+    Handles None metadata gracefully.
+
+    Args:
+        item: Tuple of (short_name, metadata)
+
+    Returns:
+        Tuple of (category_order, label_lowercase) for sorting
+    """
+    short_name, metadata = item
+    if not metadata:
+        return (UNKNOWN_CATEGORY_SORT_ORDER, short_name.lower())
+    category = metadata.get(OperatorConstants.Misc.CATEGORY, "Unknown")
+    label = metadata.get(OperatorConstants.Misc.LABEL, short_name)
+    return (CATEGORY_ORDER.get(category, UNKNOWN_CATEGORY_SORT_ORDER), label.lower())
+
+
 def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = False) -> str:
     """
     Format operator metadata into a human-readable string.
 
+    Display modes:
+    - Default (verbose=False): Shows label, category, owner, status, description,
+      output features with details, and configuration parameters
+    - Verbose (verbose=True): Currently shows the same information as default mode
+
     Args:
         operator_metadata: Dictionary containing operator metadata
-        verbose: If True, include detailed feature and attribute information
+        verbose: If True, include additional details (currently unused, reserved for future use)
 
     Returns:
         Formatted string representation of the operator
     """
     lines = []
 
-    for short_name, metadata in sorted(operator_metadata.items()):
+    for short_name, metadata in sorted(operator_metadata.items(), key=_get_operator_sort_key):
         if not metadata:
             continue
 
-        # Operator header
+        # Extract metadata fields
+        label = metadata.get(OperatorConstants.Misc.LABEL, short_name)
         category = metadata.get(OperatorConstants.Misc.CATEGORY, "Unknown")
         is_available = metadata.get(OperatorConstants.Misc.IS_OPERATOR_AVAILABLE, False)
-        status = "✓ Available" if is_available else "✗ Unavailable"
+        status = "Available" if is_available else "Unavailable"
+        owner = metadata.get("owner", "datasift")
 
+        # Operator header
         lines.append(f"\n{'=' * 80}")
-        lines.append(f"Operator: {short_name}")
+        lines.append(f"Operator: {label} ({short_name})")
         lines.append(f"Category: {category}")
+        lines.append(f"Owner: {owner}")
         lines.append(f"Status: {status}")
         lines.append(f"{'=' * 80}")
 
-        # Features (output columns)
+        # Description (always shown in default and verbose)
+        description = metadata.get(OperatorConstants.Config.DESCRIPTION)
+        if description:
+            lines.append(f"\nDescription: {description}")
+        else:
+            lines.append("\nDescription: No description available")
+
+        # Features (output columns) - always shown with details
         features = metadata.get(OperatorConstants.Config.FEATURES, {})
         if features:
             lines.append(f"\nOutput Features ({len(features)}):")
@@ -45,25 +89,22 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
                 desc = feature_info.get(OperatorConstants.Config.DESCRIPTION, "No description")
                 feature_type = feature_info.get(OperatorConstants.Misc.TYPE, "unknown")
 
-                if verbose:
-                    lines.append(f"  • {feature_name} ({feature_type})")
-                    lines.append(f"    Name: {name}")
-                    lines.append(f"    Description: {desc}")
+                lines.append(f"  • {feature_name} ({feature_type})")
+                lines.append(f"    Name: {name}")
+                lines.append(f"    Description: {desc}")
 
-                    # Additional flags
-                    flags = []
-                    if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_FILTER):
-                        flags.append("filterable")
-                    if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB):
-                        flags.append("vectorizable")
-                    if feature_info.get(OperatorConstants.Misc.IS_PRIMARY):
-                        flags.append("primary")
-                    if flags:
-                        lines.append(f"    Flags: {', '.join(flags)}")
-                else:
-                    lines.append(f"  • {feature_name}: {name}")
+                # Additional flags
+                flags = []
+                if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_FILTER):
+                    flags.append("filterable")
+                if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB):
+                    flags.append("vectorizable")
+                if feature_info.get(OperatorConstants.Misc.IS_PRIMARY):
+                    flags.append("primary")
+                if flags:
+                    lines.append(f"    Flags: {', '.join(flags)}")
 
-        # Attributes (input parameters)
+        # Attributes (input parameters) - always shown
         attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
         if attributes:
             lines.append(f"\nConfiguration Parameters ({len(attributes)}):")
@@ -76,16 +117,12 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
 
                 req_marker = "[REQUIRED]" if required else "[OPTIONAL]"
 
-                if verbose:
-                    lines.append(f"  • {attr_name} {req_marker}")
-                    lines.append(f"    Name: {name}")
-                    lines.append(f"    Type: {attr_type}")
-                    lines.append(f"    Description: {desc}")
-                    if default is not None:
-                        lines.append(f"    Default: {default}")
-                else:
-                    default_str = f" (default: {default})" if default is not None else ""
-                    lines.append(f"  • {attr_name} {req_marker}: {name}{default_str}")
+                lines.append(f"  • {attr_name} {req_marker}")
+                lines.append(f"    Name: {name}")
+                lines.append(f"    Type: {attr_type}")
+                lines.append(f"    Description: {desc}")
+                if default is not None:
+                    lines.append(f"    Default: {default}")
 
         # Required features (input columns needed)
         required_features = metadata.get("required_features", [])
@@ -106,39 +143,56 @@ def display_operator_summary(operator_metadata: dict[str, Any]) -> str:
         Formatted summary table
     """
     lines = []
-    lines.append("\n" + "=" * 80)
+    lines.append("\n" + "=" * 120)
     lines.append("AVAILABLE OPERATORS SUMMARY")
-    lines.append("=" * 80)
-    lines.append(f"\n{'Operator':<25} {'Category':<15} {'Status':<12} {'Features':<10}")
-    lines.append("-" * 80)
+    lines.append("=" * 120)
+    lines.append(
+        f"\n{'Operator':<35} {'Category':<15} {'Owner':<12} {'Status':<12} {'Attributes':<15} {'Features':<15}"
+    )
+    lines.append("-" * 120)
 
-    for short_name, metadata in sorted(operator_metadata.items()):
+    for short_name, metadata in sorted(operator_metadata.items(), key=_get_operator_sort_key):
         if not metadata:
             continue
 
+        label = metadata.get(OperatorConstants.Misc.LABEL, short_name)
         category = metadata.get(OperatorConstants.Misc.CATEGORY, "Unknown")
+        owner = metadata.get("owner", "datasift")
         is_available = metadata.get(OperatorConstants.Misc.IS_OPERATOR_AVAILABLE, False)
         status = "Available" if is_available else "Unavailable"
         features = metadata.get(OperatorConstants.Config.FEATURES, {})
         feature_count = len(features)
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
+        attribute_count = len(attributes)
 
-        lines.append(f"{short_name:<25} {category:<15} {status:<12} {feature_count:<10}")
+        # Display label with short_name in parentheses
+        display_name = f"{label} ({short_name})"
 
-    lines.append("-" * 80)
+        lines.append(
+            f"{display_name:<35} {category:<15} {owner:<12} {status:<12} {attribute_count:<15} {feature_count:<15}"
+        )
+
+    lines.append("-" * 120)
     lines.append(f"\nTotal operators: {len(operator_metadata)}")
     lines.append("\nUse --list-operators --verbose for detailed information")
-    lines.append("=" * 80)
+    lines.append("=" * 120)
 
     return "\n".join(lines)
 
 
-def list_operators(verbose: bool = False, summary_only: bool = False) -> str:
+def list_operators(verbose: bool = False, summary_only: bool = True) -> str:
     """
     List all available operators with their details.
 
+    Display modes:
+    1. Summary only (summary_only=True, default): Shows summary table only
+    2. Default detailed (verbose=False, summary_only=False): Shows label, category, owner,
+       status, description, and output features with details
+    3. Full verbose (verbose=True): Shows everything including configuration parameters
+
     Args:
-        verbose: If True, show detailed information about each operator
-        summary_only: If True, show only a summary table
+        verbose: If True, show configuration parameters in addition to default details
+        summary_only: If True, show only a summary table (default: True)
 
     Returns:
         Formatted string with operator information
@@ -148,7 +202,7 @@ def list_operators(verbose: bool = False, summary_only: bool = False) -> str:
     operator_metadata_obj = OperatorMetadata()
     operator_metadata = operator_metadata_obj.get_operator_metadata(internal_features=False)
 
-    if summary_only or not verbose:
+    if summary_only:
         return display_operator_summary(operator_metadata)
     else:
         return format_operator_details(operator_metadata, verbose=verbose)
@@ -163,5 +217,3 @@ def main():  # pragma: no cover
 
 if __name__ == "__main__":  # pragma: no cover
     main()
-
-# Made with Bob
