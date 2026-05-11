@@ -1,0 +1,351 @@
+# Chunker Operator - Configuration Reference
+
+## Overview
+
+The Chunker Operator provides intelligent text chunking with support for three strategies: simple (fixed-size), semantic (content-aware), and hybrid (Docling-based hierarchical). It's essential for preparing documents for embedding generation and vector storage.
+
+- **Operator Name:** `chunker`
+- **Category**: Functional
+- **Short Name**: `chunker`
+
+## Configuration Parameters
+
+### 1. `chunk_type` (String)
+**Type:** String
+**Required:** Yes
+**Default:** `"simple"`
+**Description:** Chunking strategy to use.
+
+**Valid Values:**
+- `"simple"` - Fixed-size chunking with overlap (traditional approach)
+- `"semantic"` - Content-aware chunking based on semantic similarity (LangChain)
+- `"hybrid"` - Hierarchical + semantic chunking using Docling's HybridChunker
+
+**Examples:**
+```json
+"chunk_type": "simple"
+"chunk_type": "semantic"
+"chunk_type": "hybrid"
+```
+
+### 2. `chunk_size` (Integer)
+**Type:** Integer
+**Required:** No
+**Default:** `2048`
+**Description:** Size of each chunk. Units depend on chunk_type:
+- Simple: characters (500-5000)
+- Hybrid: tokens (100-2048)
+- Semantic: not used
+
+**Valid Values:**
+- Minimum: `100` (for hybrid) or `500` (for simple)
+- Maximum: `5000` (for simple) or `2048` (for hybrid)
+
+**Examples:**
+```json
+"chunk_size": 1000
+"chunk_size": 512
+```
+
+### 3. `chunk_overlap` (Integer)
+**Type:** Integer
+**Required:** No
+**Default:** `200`
+**Description:** Number of characters/tokens that consecutive chunks share to retain context across boundaries.
+
+**Valid Values:**
+- Minimum: `0`
+- Maximum: `512`
+
+**Examples:**
+```json
+"chunk_overlap": 200
+"chunk_overlap": 50
+```
+
+### 4. `semantic_embeddings_model` (String)
+**Type:** String
+**Required:** No (Yes for semantic chunking)
+**Default:** `"granite4"`
+**Description:** Ollama model name for generating embeddings in semantic chunking.
+
+**Valid Values:**
+- `"granite4"` - IBM Granite 4 (default)
+- `"nomic-embed-text"` - Nomic Embed Text
+- `"llama3.2"` - Meta Llama 3.2
+- Any Ollama-compatible embedding model
+
+**Examples:**
+```json
+"semantic_embeddings_model": "granite4"
+"semantic_embeddings_model": "nomic-embed-text"
+```
+
+### 5. `breakpoint_threshold_type` (String)
+**Type:** String
+**Required:** No (for semantic chunking)
+**Default:** `"percentile"`
+**Description:** Method for determining semantic chunk boundaries.
+
+**Valid Values:**
+- `"percentile"` - Split at percentile threshold of dissimilarity scores (e.g: 95th percentile = split at top 5% most dissimilar points)
+- `"standard_deviation"` - Split when dissimilarity exceeds N standard deviations (e.g: 2.0 = split at 2 std devs above mean)
+- `"interquartile"` - Split based on interquartile range (IQR)
+- `"gradient"` - Split at points with steepest changes in similarity
+
+**Examples:**
+```json
+"breakpoint_threshold_type": "percentile"
+"breakpoint_threshold_type": "standard_deviation"
+```
+
+### 6. `breakpoint_threshold_amount` (Float)
+**Type:** Float
+**Required:** No
+**Default:** `None` (uses LangChain defaults)
+**Description:** Threshold value for the selected breakpoint type.
+
+**Valid Values:**
+- For percentile: `0-100` (e.g., 95.0 for 95th percentile)
+- For standard_deviation: positive number (e.g., 2.0 for 2 std devs)
+- `null`: Use LangChain defaults
+
+**Examples:**
+```json
+"breakpoint_threshold_amount": 95.0
+"breakpoint_threshold_amount": 2.0
+"breakpoint_threshold_amount": None
+```
+
+### 7. `docling_tokenizer` (String)
+**Type:** String
+**Required:** No (for hybrid chunking)
+**Default:** `"sentence-transformers/all-MiniLM-L6-v2"`
+**Description:** HuggingFace tokenizer model for Docling chunking.
+
+**Valid Values:**
+- `"sentence-transformers/all-MiniLM-L6-v2"` (default)
+- `"sentence-transformers/all-mpnet-base-v2"`
+- Any HuggingFace tokenizer model
+
+**Examples:**
+```json
+"docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2"
+"docling_tokenizer": "sentence-transformers/all-mpnet-base-v2"
+```
+
+### 8. `retain_original_content` (Boolean)
+**Type:** Boolean
+**Required:** No
+**Default:** `true`
+**Description:** Whether to keep the original content column after chunking.
+
+**Valid Values:**
+- `true` - Keep original content alongside chunks
+- `false` - Remove original content column
+
+**Examples:**
+```json
+"retain_original_content": true
+"retain_original_content": false
+```
+
+### 9. `enable_summarization` (Boolean)
+**Type:** Boolean
+**Required:** No
+**Default:** `false`
+**Description:** Generate summaries for each chunk using LLM.
+
+**Valid Values:**
+- `true` - Generate summaries
+- `false` - No summarization
+
+**Examples:**
+```json
+"enable_summarization": false
+"enable_summarization": true
+```
+
+### 10. `summarization_model_id` (String)
+**Type:** String
+**Required:** Yes (if enable_summarization is true)
+**Default:** `"granite4"`
+**Description:** Ollama model used for summarization.
+
+**Valid Values:**
+- `"granite4"` - IBM Granite 4
+- `"llama3.2"` - Meta Llama 3.2
+- Any Ollama-compatible model
+
+**Examples:**
+```json
+"summarization_model_id": "granite4"
+"summarization_model_id": "llama3.2"
+```
+
+### 11. `summary_sentences` (Integer)
+**Type:** Integer
+**Required:** No
+**Default:** `2`
+**Description:** Number of sentences in each summary.
+
+**Valid Values:**
+- Minimum: `1`
+- Maximum: `5`
+
+**Examples:**
+```json
+"summary_sentences": 2
+"summary_sentences": 3
+```
+
+### 12. `summary_max_words` (Integer)
+**Type:** Integer
+**Required:** No
+**Default:** `20`
+**Description:** Maximum words per summary.
+
+**Valid Values:**
+- Minimum: `10`
+- Maximum: `100`
+
+**Examples:**
+```json
+"summary_max_words": 20
+"summary_max_words": 50
+```
+
+### 13. `max_input_tokens` (Integer)
+**Type:** Integer
+**Required:** No
+**Default:** `8000`
+**Description:** Maximum input tokens per summarization request.
+
+**Valid Values:**
+- Minimum: `1000`
+- Maximum: `32000`
+
+**Examples:**
+```json
+"max_input_tokens": 8000
+"max_input_tokens": 16000
+```
+
+## Output Features
+
+### 1. `chunk_sequence_number` (Integer)
+**Description:** Sequential chunk number for each text chunk, representing its position within a larger document.
+**Type:** Integer (int64)
+**Available for Vector DB:** Yes
+**Tags:** `mandatory`, `internal_feature`
+
+### 2. `start_index` (Integer)
+**Description:** Chunk starting token position in the source document.
+**Type:** Integer (int64)
+**Available for Vector DB:** Yes
+**Tags:** `mandatory`, `internal_feature`
+
+### 3. `chunked_content` (List)
+**Description:** Content containing segmented portions of larger text data.
+**Type:** List of dictionaries
+**Available for Filter:** No
+**Tags:** `mandatory`
+
+**Chunk Object Structure:**
+```json
+{
+  "chunk": "Text content of the chunk",
+  "start_index": 0,
+  "summary": "Optional summary if summarization enabled"
+}
+```
+
+## Configuration Examples
+
+### Example 1: Simple Chunking
+```json
+{
+  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
+  "operator": "chunker",
+  "config": {
+    "chunk_type": "simple",
+    "chunk_size": 1000,
+    "chunk_overlap": 200,
+    "retain_original_content": true
+  }
+}
+```
+
+### Example 2: Semantic Chunking
+```json
+{
+  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
+  "operator": "chunker",
+  "config": {
+    "chunk_type": "semantic",
+    "semantic_embeddings_model": "granite4",
+    "breakpoint_threshold_type": "percentile",
+    "breakpoint_threshold_amount": 95.0,
+    "retain_original_content": false
+  }
+}
+```
+
+### Example 3: Hybrid Chunking with Summarization
+```json
+{
+  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
+  "operator": "chunker",
+  "config": {
+    "chunk_type": "hybrid",
+    "chunk_size": 512,
+    "chunk_overlap": 50,
+    "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
+    "enable_summarization": true,
+    "summarization_model_id": "granite4",
+    "summary_sentences": 2,
+    "summary_max_words": 30,
+    "retain_original_content": true
+  }
+}
+```
+
+## Best Practices
+
+1. **Strategy Selection**:
+   - Use **simple** for general text and fast processing
+   - Use **semantic** for maintaining semantic coherence in narratives
+   - Use **hybrid** for structured documents (PDFs with sections, tables)
+
+2. **Chunk Size**:
+   - Smaller chunks (500-1000): Better for precise retrieval
+   - Larger chunks (1500-3000): Better for context preservation
+   - Balance based on your embedding model's token limit
+
+3. **Overlap**:
+   - 10-20% overlap recommended for context continuity
+   - Higher overlap for technical documents
+   - Lower overlap for simple text
+
+4. **Semantic Chunking**:
+   - Use percentile threshold (95.0) for most cases
+   - Adjust threshold based on document type
+   - Test with sample documents first
+
+5. **Summarization**:
+   - Enable for long chunks (>1000 tokens)
+   - Useful for improving retrieval relevance
+   - Adds processing time and cost
+
+## Validation Rules
+
+- `chunk_type` must be one of: simple, semantic, hybrid
+- `chunk_size` must be within valid range for the selected chunk_type
+- `chunk_overlap` must be less than `chunk_size`
+- Semantic chunking requires Ollama server running
+- Hybrid chunking requires Docling library
+- Summarization requires `enable_summarization: true` and valid `summarization_model_id`
+
+## Complete Flow Example
+
+- [Sample Flow](tests/sample_test_flows/invoice_processing/flow_invoice.json)

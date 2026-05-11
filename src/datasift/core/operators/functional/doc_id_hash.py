@@ -61,20 +61,29 @@ class DocIdHashOperator(AbstractOperator):
     def get_metadata() -> dict[str, Any]:
 
         return {
-            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocIdHashOperator.is_available(),
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: False,
             OperatorConstants.Misc.CATEGORY: DocIdHashOperator.category.value,
             OperatorConstants.Config.DESCRIPTION: "Generates document hash IDs by hashing content",
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Columns.DOC_COLUMN: {
                     OperatorConstants.Misc.NAME: "Document Column",
-                    OperatorConstants.Config.DESCRIPTION: "Column containing document content for deduplication",
+                    OperatorConstants.Config.DESCRIPTION: "Column containing document content for hashing",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
+                OperatorConstants.Columns.DOC_ID_HASH: {
+                    OperatorConstants.Misc.NAME: "Hash Column Name",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the output column for document hash IDs",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+            },
+            OperatorConstants.Config.FEATURES: {
                 OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
-                    OperatorConstants.Columns.NAME: "Hash ID",
-                    OperatorConstants.Config.DESCRIPTION: "Hash ID of the row",
+                    OperatorConstants.Misc.NAME: "Document Hash ID",
+                    OperatorConstants.Config.DESCRIPTION: "Generated hash ID for the document (output column)",
                     OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                     OperatorConstants.Misc.IS_PRIMARY: True,

@@ -270,6 +270,12 @@ class EmbeddingsOperator(AbstractOperator):
                     OperatorConstants.Filtering.MAX_VALUE: OVERLAP_RATIO_MAX,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
+                OperatorConstants.Config.PROVIDER_CONFIG: {
+                    OperatorConstants.Misc.NAME: "Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Additional configuration parameters for the embedding provider (e.g., API keys, endpoints)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                },
             },
         }
 

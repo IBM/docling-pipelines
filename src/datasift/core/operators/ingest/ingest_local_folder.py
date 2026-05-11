@@ -372,19 +372,52 @@ class IngestLocalOperator(AbstractOperator):
             },
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestLocalOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
-                OperatorConstants.Config.MAX_FILE_SIZE: {
-                    OperatorConstants.Columns.NAME: "Max File Size",
-                    OperatorConstants.Config.DESCRIPTION: "If the document is larger than the given max file size, then it will be skipped",
-                    OperatorConstants.Config.DEFAULT: 100,
+                INPUT_FOLDER_NAME_KEY: {
+                    OperatorConstants.Columns.NAME: "Input Folder",
+                    OperatorConstants.Config.DESCRIPTION: "Path to the folder containing documents to ingest",
+                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                MAX_FILES_KEY: {
+                    OperatorConstants.Columns.NAME: "Max Files",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum number of files to ingest",
+                    OperatorConstants.Config.DEFAULT: MAX_FILES_DEFAULT_VALUE,
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
-                OperatorConstants.Filtering.INCLUDE_FILTER_KEY: {
+                MAX_FILE_SIZE_KEY: {
+                    OperatorConstants.Columns.NAME: "Max File Size",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum file size in MB. Files larger than this will be skipped",
+                    OperatorConstants.Config.DEFAULT: MAX_FILE_SIZE_DEFAULT_VALUE,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                INCLUDE_FILTER_KEY: {
                     OperatorConstants.Columns.NAME: "Include File Type",
                     OperatorConstants.Config.DESCRIPTION: "File types to be included (comma-separated extensions). Audio/video formats (wav,mp3,mp4,etc.) only available if ASR dependencies installed.",
                     OperatorConstants.Config.DEFAULT: get_supported_file_extensions(),
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
+                },
+                EXCLUDE_FILTER_KEY: {
+                    OperatorConstants.Columns.NAME: "Exclude File Type",
+                    OperatorConstants.Config.DESCRIPTION: "File types to be excluded (comma-separated extensions)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
+                },
+                DatasiftConstants.FORCE_INGEST: {
+                    OperatorConstants.Columns.NAME: "Force Ingest",
+                    OperatorConstants.Config.DESCRIPTION: "Force re-ingestion of previously processed documents",
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                DatasiftConstants.RETAIN_DELETED_DOCS: {
+                    OperatorConstants.Columns.NAME: "Retain Deleted Documents",
+                    OperatorConstants.Config.DESCRIPTION: "Whether to retain documents that have been deleted from source",
+                    OperatorConstants.Config.DEFAULT: DatasiftConstants.RETAIN_DELETED_DOCS_DEFAULT,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
             },
         }

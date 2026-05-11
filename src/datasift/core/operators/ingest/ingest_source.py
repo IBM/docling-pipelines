@@ -894,5 +894,19 @@ class IngestSourceOperator(AbstractOperator):
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.LIST,
                 },
+                DatasiftConstants.FORCE_INGEST: {
+                    OperatorConstants.Columns.NAME: "Force Ingest",
+                    OperatorConstants.Config.DESCRIPTION: "Force re-ingestion of previously processed documents",
+                    OperatorConstants.Config.DEFAULT: False,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                "ignore_hidden_files": {
+                    OperatorConstants.Columns.NAME: "Ignore Hidden Files",
+                    OperatorConstants.Config.DESCRIPTION: "Skip files starting with '.' (hidden files)",
+                    OperatorConstants.Config.DEFAULT: True,
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
             },
         }

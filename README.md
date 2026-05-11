@@ -116,17 +116,27 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 #### Operator Configuration Guides
 
-| Operator                | Configuration Guide                                                                     |
-|-------------------------|-----------------------------------------------------------------------------------------|
-| **PII & HAP Detection** | [Configuration Guide](docs/operators/pii_and_hap/pii_hap_config.md)                     |
-| **Language Detection**  | [Configuration Guide](docs/operators/language_detection/language_detection_config.md)   |
-| **Document Classifier** | [Configuration Guide](docs/operators/document_classifier/document_classifier_config.md) |
-| **SQL Filter**          | [Configuration Guide](docs/operators/sql_filter/sql_filter_config.md)                   |
-| **Readability**         | [Configuration Guide](docs/operators/readability/readability_config.md)                 |
-| **Redaction**           | [Configuration Guide](docs/operators/redaction/redaction_config.md)                     |
-| **Deduplication**       | [Configuration Guide](docs/operators/ededup/ededup_config.md)                           |
-| **ML Enrichment**       | [Configuration Guide](docs/operators/ml_enrichment/ml_enrichment_config.md)             |
-| **Document Quality**    | [Configuration Guide](docs/operators/doc_quality/doc_quality_config.md)                 |
+| Category      | Operator                | Configuration Guide                                                                     |
+|---------------|-------------------------|-----------------------------------------------------------------------------------------|
+| **Extract**   | Extract                 | [Configuration Guide](docs/operators/extract/extract_operator_config.md)                |
+| **Ingest**    | Ingest Local            | [Configuration Guide](docs/operators/ingest_local/ingest_local_config.md)               |
+| **Ingest**    | Ingest Source           | [Configuration Guide](docs/operators/ingest_source/ingest_source_config.md)             |
+| **Functional**| Branching               | [Configuration Guide](docs/operators/branching_operator/branching_operator_config.md)   |
+| **Functional**| Chunker                 | [Configuration Guide](docs/operators/chunker/chunker_config.md)                         |
+| **Functional**| Doc ID Hash             | [Configuration Guide](docs/operators/doc_id_hash/doc_id_hash_config.md)                 |
+| **Functional**| Embeddings              | [Configuration Guide](docs/operators/embeddings/embeddings_config.md)                   |
+| **Functional**| NOOP                    | [Configuration Guide](docs/operators/noop/noop_config.md)                               |
+| **Quality**   | PII & HAP Detection     | [Configuration Guide](docs/operators/pii_and_hap/pii_and_hap_config.md)                 |
+| **Quality**   | Language Detection      | [Configuration Guide](docs/operators/language_detection/language_detection_config.md)   |
+| **Quality**   | Document Classifier     | [Configuration Guide](docs/operators/document_classifier/document_classifier_config.md) |
+| **Quality**   | SQL Filter              | [Configuration Guide](docs/operators/sql_filter/sql_filter_config.md)                   |
+| **Quality**   | Readability             | [Configuration Guide](docs/operators/readability/readability_config.md)                 |
+| **Quality**   | Redaction               | [Configuration Guide](docs/operators/redaction/redaction_config.md)                     |
+| **Quality**   | Deduplication           | [Configuration Guide](docs/operators/ededup/ededup_config.md)                           |
+| **Quality**   | ML Enrichment           | [Configuration Guide](docs/operators/ml_enrichment/ml_enrichment_config.md)             |
+| **Quality**   | Document Quality        | [Configuration Guide](docs/operators/doc_quality/doc_quality_config.md)                 |
+| **VectorDB**  | VectorDB                | [Configuration Guide](docs/operators/vectordb/vectordb_operator_config.md)              |
+| **Storage**   | Document Set            | [Configuration Guide](docs/operators/storage/document_set_config.md)                    |
 
 ### Additional Resources
 

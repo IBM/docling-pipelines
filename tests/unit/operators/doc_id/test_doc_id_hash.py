@@ -69,7 +69,7 @@ def test_basic_hashing_adds_doc_id_hash_column():
     """Operator adds a 'doc_id_hash' column to the output table."""
     table = make_table()
     operator = make_operator()
-    result_tables, metadata = operator.transform(table)
+    result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
     assert OperatorConstants.Columns.DOC_ID_HASH_DEFAULT in result.column_names, (
@@ -286,7 +286,7 @@ def test_get_metadata_is_operator_available_false():
     meta = DocIdHashOperator.get_metadata()
 
     assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in meta
-    assert meta[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is True
+    assert meta[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is False
 
 
 def test_get_metadata_returns_dict():
@@ -354,7 +354,7 @@ def test_empty_table_returns_empty_table_with_hash_column():
     )
 
     operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: "content"})
-    result_tables, metadata = operator.transform(table)
+    result_tables, _ = operator.transform(table)
     result = result_tables[0]
 
     # Should return a table (possibly empty) with the hash column

@@ -114,7 +114,7 @@ config = {
         "host": "localhost",
         "port": 9200,
         "username": "admin",
-        "password": "admin",
+        "password": "admin", # pragma: allowlist secret
         "use_ssl": False,
         OperatorConstants.VectorDB.ENGINE: "faiss",
         OperatorConstants.VectorDB.ALGORITHM: "hnsw",
@@ -278,7 +278,7 @@ print(f"Deleted {success} documents, {failed} failed")
       "host": "localhost",
       "port": 9200,
       "username": "admin",
-      "password": "admin",
+      "password": "admin", # pragma: allowlist secret
       "use_ssl": false,
       "verify_certs": false,
       "batch_size": 100,

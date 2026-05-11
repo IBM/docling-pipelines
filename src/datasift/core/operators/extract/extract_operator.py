@@ -755,17 +755,25 @@ class ExtractOperator(AbstractOperator):
                 OperatorConstants.Misc.IS_PRIMARY: True,
                 OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY, OperatorConstants.Misc.PRIMARY],
             },
-            OperatorConstants.Columns.EXTRACTED_DATA: {
-                OperatorConstants.Misc.NAME: "Extracted Data",
-                OperatorConstants.Config.DESCRIPTION: "Structured data extracted using template-based extraction",
+            OperatorConstants.Misc.ENTITIES: {
+                OperatorConstants.Misc.NAME: "Entities",
+                OperatorConstants.Config.DESCRIPTION: "Extracted entities from document content (when entity extraction is enabled)",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 OperatorConstants.Misc.TAGS: [],
             },
-            OperatorConstants.Misc.ENTITIES: {
-                OperatorConstants.Misc.NAME: "Entities",
-                OperatorConstants.Config.DESCRIPTION: "Extracted entities from document content (when entity extraction is enabled)",
+            OperatorConstants.Columns.TABLES: {
+                OperatorConstants.Misc.NAME: "Tables",
+                OperatorConstants.Config.DESCRIPTION: "Extracted tables from document (when extract_tables is enabled)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.TAGS: [],
+            },
+            OperatorConstants.Columns.IMAGES: {
+                OperatorConstants.Misc.NAME: "Images",
+                OperatorConstants.Config.DESCRIPTION: "Extracted images from document (when extract_images is enabled)",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
@@ -849,6 +857,13 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Name of the column to store document content",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Columns.OUTPUT_COLUMN: {
+                    OperatorConstants.Misc.NAME: "Output Column",
+                    OperatorConstants.Config.DESCRIPTION: "Name of the column to store extracted entities (entity extraction only)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Misc.ENTITIES,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.EXTRACT_TABLES: {

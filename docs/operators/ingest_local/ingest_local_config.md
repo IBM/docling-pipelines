@@ -1,0 +1,171 @@
+# Ingest Local Folder Operator - Configuration Reference
+
+## Overview
+
+The Ingest Local Folder Operator discovers and loads file metadata from a local filesystem directory. This operator performs metadata-only ingestion - it does NOT extract text content. Text extraction is handled by downstream operators like ExtractOperator.
+
+- **Operator Name:** `ingest_local`
+- **Category**: Ingest
+- **Short Name**: `ingest_local`
+
+## Configuration Parameters
+
+### 1. `input_folder` (String)
+**Type:** String
+**Required:** Yes
+**Description:** Path to the folder containing documents to ingest. Must be an existing directory.
+
+**Examples:**
+```json
+"input_folder": "/path/to/documents"
+```
+
+```json
+"input_folder": "./data/pdfs"
+```
+
+### 2. `max_files` (Integer)
+**Type:** Integer  
+**Required:** No  
+**Default:** `100`  
+**Description:** Maximum number of files to ingest. Processing stops after reaching this limit.
+
+**Examples:**
+```json
+"max_files": 100
+```
+
+### 3. `max_file_size` (Integer)
+**Type:** Integer  
+**Required:** No  
+**Default:** `100` (MB)  
+**Description:** Maximum file size in megabytes. Files larger than this will be skipped.
+
+**Examples:**
+```json
+"max_file_size": 50
+```
+
+### 4. `include_filter` (List)
+**Type:** List (comma-separated string)  
+**Required:** No  
+**Default:** `"pdf,docx,pptx,txt,md"`  
+**Description:** File extensions to include. Only files with these extensions will be processed.
+
+**Examples:**
+```json
+"include_filter": "pdf,docx,txt"
+```
+
+```json
+"include_filter": "md,rst,adoc"
+```
+
+### 5. `exclude_filter` (List)
+**Type:** List (comma-separated string)  
+**Required:** No  
+**Description:** File extensions to exclude. Files with these extensions will be skipped even if they match include_filter.
+
+**Examples:**
+```json
+"exclude_filter": "tmp,bak,log"
+```
+
+### 6. `force_ingest` (Boolean)
+**Type:** Boolean  
+**Required:** No  
+**Default:** `false`  
+**Description:** Force re-ingestion of previously processed documents. When false, documents are skipped if they haven't been modified since last ingestion.
+
+**Examples:**
+```json
+"force_ingest": true
+```
+
+### 7. `retain_deleted_docs` (Boolean)
+**Type:** Boolean  
+**Required:** No  
+**Default:** `false`  
+**Description:** Whether to retain documents in the system that have been deleted from the source folder.
+
+**Examples:**
+```json
+"retain_deleted_docs": true
+```
+
+## Output Features
+
+### `path` (String)
+**Type:** String  
+**Description:** The absolute path to the document file  
+**Available for Filter:** Yes  
+**Available for Vector DB:** No
+
+### `doc_id_hash` (String)
+**Type:** String  
+**Description:** Hash ID of the document row  
+**Available for Vector DB:** Yes  
+**Is Primary:** Yes  
+**Tags:** `mandatory`, `primary`
+
+## Configuration Examples
+
+### Example 1: Basic Local Ingestion
+```json
+{
+  "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
+  "operator": "ingest_local",
+  "config": {
+    "input_folder": "/data/documents",
+    "max_files": 500,
+    "include_filter": "pdf,docx"
+  }
+}
+```
+
+### Example 2: Filtered Ingestion with Size Limit
+```json
+{
+  "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
+  "operator": "ingest_local",
+  "config": {
+    "input_folder": "./documents",
+    "max_files": 1000,
+    "max_file_size": 50,
+    "include_filter": "pdf,txt,md",
+    "exclude_filter": "tmp,bak"
+  }
+}
+```
+
+### Example 3: Force Re-ingestion
+```json
+{
+  "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
+  "operator": "ingest_local",
+  "config": {
+    "input_folder": "/data/updated_docs",
+    "force_ingest": true,
+    "retain_deleted_docs": true
+  }
+
+```
+
+## Best Practices
+
+1. **Start Small**: Begin with a small `max_files` value to test your pipeline
+2. **Use Filters**: Leverage `include_filter` and `exclude_filter` to process only relevant files
+3. **Size Limits**: Set appropriate `max_file_size` to avoid memory issues with large files
+4. **Incremental Updates**: Leave `force_ingest` as false for efficient incremental processing
+5. **Path Validation**: Ensure `input_folder` exists and is accessible before running
+
+## Validation Rules
+
+- `input_folder` must exist and be a directory
+- `max_files` must be greater than 0
+- `max_file_size` must be greater than 0
+- File extensions in filters should not include the dot (use "pdf" not ".pdf")
+
+## Complete Flow Example
+
+- [Sample Flow](sample_flows/complete_pipeline_flow.json)
