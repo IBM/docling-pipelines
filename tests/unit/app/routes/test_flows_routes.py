@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from datasift.api.routes.flows import flows_router, get_flow_service
-from datasift.core.flows.application.services.flow_service import FlowService
+from datasift.core.assets.flows.application.services.flow_service import FlowService
 from datasift.exceptions.datasift_exceptions import (
     FlowAlreadyExistsException,
     FlowNotFoundException,

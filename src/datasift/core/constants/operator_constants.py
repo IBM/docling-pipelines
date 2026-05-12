@@ -620,10 +620,66 @@ Rules:
             "datasift.core.operators.functional",
             "datasift.core.operators.quality",
             "datasift.core.operators.vectordb",
-            "datasift.core.operators.storage",
+            "datasift.core.operators.document_sets",
         ]
 
     class ContainerKinds:
         CATALOG: Final[str] = "catalog"
         PROJECT: Final[str] = "project"
         SPACE: Final[str] = "space"
+
+    class DocumentSet:
+        """Document Set constants."""
+
+        # Adapter Names
+        ADAPTER_DUCKDB: Final[str] = "duckdb"
+        ADAPTER_FILESYSTEM: Final[str] = "filesystem"
+
+        # Configuration Keys
+        DATABASE_PATH: Final[str] = "database_path"
+        DATA_BACKEND: Final[str] = "data_backend"
+        METADATA_CONFIG: Final[str] = "metadata_config"
+        DATA_CONFIG: Final[str] = "data_config"
+        DOCUMENT_SET_NAME: Final[str] = "document_set_name"
+        DOCUMENT_SET_ID: Final[str] = "document_set_id"
+
+        # Table Names
+        TABLE_DOCUMENT_SETS_METADATA: Final[str] = "document_sets"
+
+        # Column Names
+        COL_ID: Final[str] = "id"
+        COL_NAME: Final[str] = "name"
+        COL_DESCRIPTION: Final[str] = "description"
+        COL_STORAGE_BACKEND: Final[str] = "storage_backend"
+        COL_DATABASE_PATH: Final[str] = "database_path"
+        COL_TABLE_NAME: Final[str] = "table_name"
+        COL_TOTAL_DOCUMENTS: Final[str] = "total_documents"
+        COL_TOTAL_SIZE_BYTES: Final[str] = "total_size_bytes"
+        COL_TOTAL_PAGES: Final[str] = "total_pages"
+        COL_CREATED_AT: Final[str] = "created_at"
+        COL_UPDATED_AT: Final[str] = "updated_at"
+        COL_METADATA: Final[str] = "metadata"
+
+        # Health Status
+        HEALTH_HEALTHY: Final[str] = "healthy"
+        HEALTH_UNHEALTHY: Final[str] = "unhealthy"
+
+        # Metadata Keys
+        META_DOCUMENT_SET_NAME: Final[str] = "document_set_name"
+        META_DOCUMENT_SET_ID: Final[str] = "document_set_id"
+        META_DATABASE_PATH: Final[str] = "database_path"
+        META_TABLE_NAME: Final[str] = "table_name"
+        META_STORED_DOCUMENTS: Final[str] = "stored_documents"
+        META_TOTAL_SIZE_BYTES: Final[str] = "total_size_bytes"
+        META_TOTAL_PAGES: Final[str] = "total_pages"
+        META_ERROR: Final[str] = "error"
+        META_DATA_CARD: Final[str] = "data_card"
+
+        # Query Strings
+        QUERY_TABLE_EXISTS: Final[str] = (
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'document_sets'"
+        )
+        QUERY_CONNECTIVITY_TEST: Final[str] = "SELECT 1"
+        QUERY_BEGIN_TRANSACTION: Final[str] = "BEGIN TRANSACTION"
+        QUERY_COMMIT: Final[str] = "COMMIT"
+        QUERY_ROLLBACK: Final[str] = "ROLLBACK"

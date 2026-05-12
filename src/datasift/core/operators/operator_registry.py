@@ -6,6 +6,8 @@ Operators are imported as class references for immediate access without runtime 
 """
 
 # Extract Operators
+# Storage Operators
+from datasift.core.operators.document_sets.document_set_operator import DocumentSetOperator
 from datasift.core.operators.extract.extract_operator import ExtractOperator
 
 # Functional Operators
@@ -28,39 +30,38 @@ from datasift.core.operators.quality.readability import ReadabilityOperator
 from datasift.core.operators.quality.redaction import RedactionOperator
 from datasift.core.operators.quality.sql_filter import SQLFilterOperator
 
-# Storage Operators
-from datasift.core.operators.storage.document_set_operator import DocumentSetOperator
-
 # VectorDB Operators
 from datasift.core.operators.vectordb.vectordb_operator import VectorDBOperator
 
 # Frozenset of all datasift (OSS) operators
 # Contains direct class references for immediate access
-DATASIFT_OPERATORS = frozenset({
-    # Extract
-    ExtractOperator,
-    # Ingest
-    IngestLocalOperator,
-    IngestSourceOperator,
-    # Functional
-    BranchingOperator,
-    ChunkerOperator,
-    DocIdHashOperator,
-    EmbeddingsOperator,
-    NOOPOperator,
-    # Quality
-    DocumentClassifierOperator,
-    EdedupOperator,
-    LanguageDetect,
-    MLEnrichmentOperator,
-    ReadabilityOperator,
-    RedactionOperator,
-    SQLFilterOperator,
-    # VectorDB
-    VectorDBOperator,
-    # Storage
-    DocumentSetOperator,
-})
+DATASIFT_OPERATORS = frozenset(
+    {
+        # Extract
+        ExtractOperator,
+        # Ingest
+        IngestLocalOperator,
+        IngestSourceOperator,
+        # Functional
+        BranchingOperator,
+        ChunkerOperator,
+        DocIdHashOperator,
+        EmbeddingsOperator,
+        NOOPOperator,
+        # Quality
+        DocumentClassifierOperator,
+        EdedupOperator,
+        LanguageDetect,
+        MLEnrichmentOperator,
+        ReadabilityOperator,
+        RedactionOperator,
+        SQLFilterOperator,
+        # VectorDB
+        VectorDBOperator,
+        # Storage
+        DocumentSetOperator,
+    }
+)
 
 
 def get_datasift_operators() -> frozenset:

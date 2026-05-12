@@ -12,11 +12,14 @@ title: Operator Reference
     - [How to use this reference](#how-to-use-this-reference)
   - [Operator API Reference](#operator-api-reference)
     - [Common Operator Contract](#common-operator-contract)
+      - [Operator Ownership Attribute](#operator-ownership-attribute)
     - [Ingest Operators](#ingest-operators)
       - [IngestLocalOperator](#ingestlocaloperator)
       - [IngestSourceOperator](#ingestsourceoperator)
+    - [Quality Operators](#quality-operators)
+      - [DocumentClassifierOperator](#documentclassifieroperator)
     - [Extract Operators](#extract-operators)
-      - [ExtractOperators](#extractoperator)
+      - [ExtractOperator](#extractoperator)
     - [Functional Operators](#functional-operators)
       - [ChunkerOperator](#chunkeroperator)
       - [EntityCurationOperator](#entitycurationoperator)
@@ -24,11 +27,11 @@ title: Operator Reference
       - [BranchingOperator](#branchingoperator)
       - [NOOPOperator](#noopoperator)
       - [DocIdHashOperator](#docidhashoperator)
-    - [Quality Operators](#quality-operators)
+    - [Quality Operators](#quality-operators-1)
       - [LanguageDetect](#languagedetect)
       - [ReadabilityOperator](#readabilityoperator)
       - [RedactionOperator](#redactionoperator)
-      - [DocumentClassifierOperator](#documentclassifieroperator)
+      - [DocumentClassifierOperator](#documentclassifieroperator-1)
       - [EdedupOperator](#ededupoperator)
       - [MLEnrichmentOperator](#mlenrichmentoperator)
       - [SQLFilterOperator](#sqlfilteroperator)
@@ -150,12 +153,12 @@ from datasift.core.constants.operator_constants import OperatorConstants
 
 class CustomChunkerOperator(AbstractOperator):
     """Custom chunking operator that overrides the datasift chunker."""
-    
+
     # Class-level attributes (declare these at the top)
     short_name: str = OperatorConstants.Operators.CHUNKER  # Same as datasift chunker!
     category: OperatorCategory = OperatorCategory.Functional
     owner: str = "custom"  # REQUIRED: This gives priority 1 (overrides datasift)
-    
+
     def __init__(self, *, config: dict[str, Any]) -> None:
         super().__init__(config=config)
         # Your custom chunking logic here
@@ -164,6 +167,7 @@ class CustomChunkerOperator(AbstractOperator):
 **Key Point**: When both datasift's `ChunkerOperator` and your `CustomChunkerOperator` have `short_name = "chunker"`, the operator factory will load **only your custom operator** because it has higher priority (1 vs 2), and lower priority numbers carry higher precedence.
 
 **For Datasift Operators:**
+
 ```python
 from datasift.core.constants.constants import DatasiftConstants
 
@@ -171,6 +175,7 @@ owner: str = DatasiftConstants.OWNER_DATASIFT  # MUST be explicitly set for buil
 ```
 
 **For Custom Operators:**
+
 ```python
 owner: str = "custom"  # MUST be explicitly set as shown above
 ```
@@ -187,11 +192,11 @@ owner: str = "custom"  # MUST be explicitly set as shown above
 **Priority Resolution Example:**
 
 If both a datasift operator and custom operator have `short_name="chunker"`:
+
 - Custom operator with `owner="custom"` → **Selected** (priority 1, highest)
 - Datasift operator with `owner="datasift"` → Overridden (priority 2)
 
 See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) for implementation details.
-
 
 ### Ingest Operators
 
@@ -512,43 +517,43 @@ Uses hexagonal architecture (ports and adapters pattern):
 
 **Class:** `core.operators.extract.extract_operator.ExtractOperator`
 
-| Parameter                                         | Type   | Required | Default                 | Description                                                                                       |
-| ------------------------------------------------- | ------ | -------: | ----------------------- | ------------------------------------------------------------------------------------------------- |
-| `text_extraction_mode`                            | string |       No | `docling_library`       | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API) |
-| `entity_extraction_mode`                          | string |       No | `none`                  | Entity extraction mode: `ollama`, `docling`, `litellm`, or `none`                                 |
-| `doc_column`                                      | string |       No | `doc_content`           | Column name for storing extracted text content                                                    |
-| `output_column`                                   | string |       No | `entities`              | Column name for storing extracted entities                                                        |
-| `extract_tables`                                  | bool   |       No | `true`                  | Extract tables from documents (text extraction)                                                   |
-| `extract_images`                                  | bool   |       No | `true`                  | Extract images from documents (text extraction)                                                   |
-| `max_workers`                                     | int    |       No | auto                    | Maximum parallel workers (auto-detected based on CPU)                                             |
-| `use_processes`                                   | bool   |       No | `false`                 | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                     |
-| `expand_extracted_data`                           | bool   |       No | `false`                 | Expand entity JSON into individual columns (entity extraction only)                               |
-| `custom_schema`                                   | object |       No | `{}`                    | Schema dictionary for structured extraction                                                       |
-| **VLM Parameters (docling_library mode)**         |
-| `use_vlm_pipeline`                                | bool   |       No | `false`                 | Enable VLM (Vision-Language Model) pipeline                                                       |
-| `vlm_preset`                                      | string |       No | `granite_docling`       | VLM preset name when VLM enabled                                                                  |
-| `vlm_engine_type`                                 | string |       No | `transformers`          | VLM engine: `transformers`, `mlx`, `api_*` variants                                               |
-| `vlm_provider_config`                             | object |       No | `null`                  | Provider-specific VLM configuration                                                               |
+| Parameter                                                 | Type   | Required | Default                 | Description                                                                                       |
+| --------------------------------------------------------- | ------ | -------: | ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `text_extraction_mode`                                    | string |       No | `docling_library`       | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API) |
+| `entity_extraction_mode`                                  | string |       No | `none`                  | Entity extraction mode: `ollama`, `docling`, `litellm`, or `none`                                 |
+| `doc_column`                                              | string |       No | `doc_content`           | Column name for storing extracted text content                                                    |
+| `output_column`                                           | string |       No | `entities`              | Column name for storing extracted entities                                                        |
+| `extract_tables`                                          | bool   |       No | `true`                  | Extract tables from documents (text extraction)                                                   |
+| `extract_images`                                          | bool   |       No | `true`                  | Extract images from documents (text extraction)                                                   |
+| `max_workers`                                             | int    |       No | auto                    | Maximum parallel workers (auto-detected based on CPU)                                             |
+| `use_processes`                                           | bool   |       No | `false`                 | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                     |
+| `expand_extracted_data`                                   | bool   |       No | `false`                 | Expand entity JSON into individual columns (entity extraction only)                               |
+| `custom_schema`                                           | object |       No | `{}`                    | Schema dictionary for structured extraction                                                       |
+| **VLM Parameters (docling_library mode)**                 |
+| `use_vlm_pipeline`                                        | bool   |       No | `false`                 | Enable VLM (Vision-Language Model) pipeline                                                       |
+| `vlm_preset`                                              | string |       No | `granite_docling`       | VLM preset name when VLM enabled                                                                  |
+| `vlm_engine_type`                                         | string |       No | `transformers`          | VLM engine: `transformers`, `mlx`, `api_*` variants                                               |
+| `vlm_provider_config`                                     | object |       No | `null`                  | Provider-specific VLM configuration                                                               |
 | **ASR Parameters (docling_library mode for audio/video)** |
-| `use_asr_pipeline`              | bool | No | `false` | Enable ASR (Automatic Speech Recognition) for audio/video files |
-| `asr_model_name`                | string | No | `whisper_turbo` | ASR model name (e.g., `whisper_turbo`, `whisper_large`) |
-| **Docling Serve Parameters (docling_serve mode)** |
-| `docling_serve_base_url`                          | string |       No | `http://localhost:5001` | Docling Serve API endpoint                                                                        |
-| `docling_serve_api_key`                           | string |       No | `null`                  | Optional API key for authentication                                                               |
-| `docling_serve_timeout`                           | int    |       No | `300`                   | Request timeout in seconds                                                                        |
-| `docling_serve_do_ocr`                            | bool   |       No | `true`                  | Enable OCR processing                                                                             |
-| `docling_serve_ocr_engine`                        | string |       No | `easyocr`               | OCR engine: `easyocr` or `tesseract`                                                              |
-| `docling_serve_pdf_backend`                       | string |       No | `dlparse_v2`            | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                                              |
-| **Ollama Entity Parameters (ollama mode)**        |
-| `entity_model_name`                               | string |    Yes\* | `llama3.2`              | Ollama model name (\*required for ollama mode)                                                    |
-| `entity_temperature`                              | float  |       No | `0.0`                   | Sampling temperature (0.0-1.0)                                                                    |
-| `entity_max_tokens`                               | int    |       No | `4096`                  | Maximum response tokens                                                                           |
-| `entity_max_doc_chars`                            | int    |       No | `8000`                  | Maximum document characters to send to LLM                                                        |
-| **LiteLLM Entity Parameters (litellm mode)**      |
-| `entity_model_name`                               | string |    Yes\* | `gpt-3.5-turbo`         | LLM model identifier (\*required for litellm mode)                                                |
-| `entity_temperature`                              | float  |       No | `0.0`                   | Sampling temperature                                                                              |
-| `entity_max_tokens`                               | int    |       No | `2000`                  | Maximum response tokens                                                                           |
-| `entity_provider_config`                          | object |       No | `{}`                    | Provider config with `api_key`, `api_base`                                                        |
+| `use_asr_pipeline`                                        | bool   |       No | `false`                 | Enable ASR (Automatic Speech Recognition) for audio/video files                                   |
+| `asr_model_name`                                          | string |       No | `whisper_turbo`         | ASR model name (e.g., `whisper_turbo`, `whisper_large`)                                           |
+| **Docling Serve Parameters (docling_serve mode)**         |
+| `docling_serve_base_url`                                  | string |       No | `http://localhost:5001` | Docling Serve API endpoint                                                                        |
+| `docling_serve_api_key`                                   | string |       No | `null`                  | Optional API key for authentication                                                               |
+| `docling_serve_timeout`                                   | int    |       No | `300`                   | Request timeout in seconds                                                                        |
+| `docling_serve_do_ocr`                                    | bool   |       No | `true`                  | Enable OCR processing                                                                             |
+| `docling_serve_ocr_engine`                                | string |       No | `easyocr`               | OCR engine: `easyocr` or `tesseract`                                                              |
+| `docling_serve_pdf_backend`                               | string |       No | `dlparse_v2`            | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                                              |
+| **Ollama Entity Parameters (ollama mode)**                |
+| `entity_model_name`                                       | string |    Yes\* | `llama3.2`              | Ollama model name (\*required for ollama mode)                                                    |
+| `entity_temperature`                                      | float  |       No | `0.0`                   | Sampling temperature (0.0-1.0)                                                                    |
+| `entity_max_tokens`                                       | int    |       No | `4096`                  | Maximum response tokens                                                                           |
+| `entity_max_doc_chars`                                    | int    |       No | `8000`                  | Maximum document characters to send to LLM                                                        |
+| **LiteLLM Entity Parameters (litellm mode)**              |
+| `entity_model_name`                                       | string |    Yes\* | `gpt-3.5-turbo`         | LLM model identifier (\*required for litellm mode)                                                |
+| `entity_temperature`                                      | float  |       No | `0.0`                   | Sampling temperature                                                                              |
+| `entity_max_tokens`                                       | int    |       No | `2000`                  | Maximum response tokens                                                                           |
+| `entity_provider_config`                                  | object |       No | `{}`                    | Provider config with `api_key`, `api_base`                                                        |
 
 **Input Schema**
 
@@ -1255,80 +1260,206 @@ Using a schema template:
 
 #### DocumentSetOperator
 
-**Purpose:** Store PyArrow table data in persistent document sets with DuckDB backend, enabling reusable document collections across workflows.
+**Purpose:** Store PyArrow table data and document-set metadata using a hexagonal architecture with pluggable metadata and data adapters.
 
 **Category:** Storage
 
-**Class:** `core.operators.storage.document_set_operator.DocumentSetOperator`
+**Class:** `core.operators.document_sets.document_set_operator.DocumentSetOperator`
 
-| Parameter             | Type   | Required | Default                            | Description                              |
-| --------------------- | ------ | -------: | ---------------------------------- | ---------------------------------------- |
-| `document_set_name`   | string |      Yes | -                                  | Name of the document set                 |
-| `description`         | string |       No | `null`                             | Description of the document set          |
-| `metadata`            | object |       No | `null`                             | Additional metadata as JSON              |
-| `retain_deleted_docs` | bool   |       No | `false`                            | Whether to retain soft-deleted documents |
-| `document_set_id`     | string |       No | `null`                             | Existing document set ID for updates     |
-| `database_path`       | string |       No | `data/duckdb/document_sets.duckdb` | Path to DuckDB database file             |
+| Parameter             | Type   | Required | Default                            | Description                                              |
+| --------------------- | ------ | -------: | ---------------------------------- | -------------------------------------------------------- |
+| `document_set_name`   | string |      Yes | -                                  | Unique name for the document set                         |
+| `description`         | string |       No | `null`                             | Description of the document set                          |
+| `metadata`            | object |       No | `null`                             | Additional metadata payload stored with the document set |
+| `retain_deleted_docs` | bool   |       No | `false`                            | Whether to retain soft-deleted documents                 |
+| `document_set_id`     | string |       No | `null`                             | Existing document set UUID for update flows              |
+| `database_path`       | string |       No | `data/duckdb/document_sets.duckdb` | Database file path used by DuckDB-backed adapters        |
+| `metadata_backend`    | string |       No | `duckdb`                           | Metadata repository backend                              |
+| `data_backend`        | string |       No | `duckdb`                           | Data store backend                                       |
+| `metadata_config`     | object |       No | `{}`                               | Backend-specific metadata repository configuration       |
+| `data_config`         | object |       No | `{}`                               | Backend-specific data store configuration                |
+
+**Description**
+
+The Document Set operator persists table rows and document-set metadata through separate port interfaces:
+
+- `DocumentSetMetadataRepository`
+- `DocumentSetDataStore`
+
+The operator creates concrete adapters through:
+
+- `MetadataRepositoryFactory`
+- `DataStoreFactory`
+
+Current production support is DuckDB for both metadata and data storage. The operator returns the input table unchanged, so it can be placed mid-pipeline without breaking downstream processing.
+
+**Architecture**
+
+- Hexagonal architecture with ports and adapters
+- Separate metadata and data storage abstractions
+- Factory-based backend creation
+- Shared DuckDB storage reuse for current adapters
 
 **Input Schema**
 
-- `id` (required): Document identifier
+- `id` (required): UUID document identifier
+
+Common upstream fields from the sample flow:
+
+- `name`
+- binary content from ingest
+- `content`
 
 **Output Schema**
 
 - Input table unchanged (pass-through design)
-- Side effect: data persisted to DuckDB
+- Side effect: data and metadata persisted through configured adapters
 
 **Metadata Output**
 
 - `document_set_id`: UUID of the document set
 - `document_set_name`: Name of the document set
-- `table_name`: DuckDB table name
-- `stored_documents`: Total document count
-- `total_size_bytes`: Total size in bytes
-- `total_pages`: Total pages processed
-- `deleted_documents`: Count of soft-deleted documents cleaned up
-- `database_path`: Path to DuckDB database
+- `database_path`: Database path used for storage
+- `stored_documents`: Number of rows written in the operation
+- error metadata when persistence fails
 
 **Features**
 
-- Persistent storage of document collections in DuckDB
-- Automatic handling of schema changes when new fields are added
-- Automatic calculation of document metrics (count, size, pages)
-- Optional cleanup of soft-deleted documents
+- Persistent storage of document collections
+- Hexagonal architecture for backend extensibility
+- Separate metadata and data persistence layers
+- Automatic schema handling through data-store adapters
+- Automatic metric recomputation through `DocumentSetService`
 - Pass-through design allows chaining with downstream operators
-- Data integrity verification during storage operations
 
 **Exceptions**
 
-- [`FlowValidationException`](src/datasift/common/exceptions/datasift_exceptions.py): Invalid configuration
-- [`FlowExecutionFailedException`](src/datasift/common/exceptions/datasift_exceptions.py): Storage operation failed
-- [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py): General errors
+- [`FlowValidationException`](src/datasift/exceptions/datasift_exceptions.py): Invalid operator configuration
+- [`FlowExecutionFailedException`](src/datasift/exceptions/datasift_exceptions.py): Storage execution failed
+- [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py): Adapter, validation, or persistence error
 
-**Example Configuration**
+**Sample Flow Configuration**
 
 ```json
 {
-  "operator": "document_set",
-  "config": {
-    "document_set_name": "processed_invoices",
-    "description": "Invoices processed through extraction pipeline",
-    "metadata": {
-      "source": "invoice_pipeline_v2",
-      "created_by": "data_team"
-    },
-    "retain_deleted_docs": false
-  }
+  "global_config": {
+    "storage_type": "duckdb",
+    "database_path": "data/assets.db"
+  },
+  "nodes": [
+    {
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+      "name": "store_in_document_set",
+      "operator_type": "datasift.core.operators.storage.document_set.DocumentSetOperator",
+      "operator_params": {
+        "document_set_name": "integration_test_documents",
+        "description": "Integration test for hexagonal architecture",
+        "data_backend": "duckdb"
+      }
+    }
+  ]
 }
 ```
 
-**Usage Pattern**
+**Configuration Notes:**
 
+- `storage_type` in `global_config` controls metadata storage backend (default: "duckdb")
+- `database_path` in `global_config` specifies the database file location
+- `data_backend` in operator parameters controls PyArrow table data storage
+- Metadata and data can use different backends independently
+
+**Flow Pattern**
+
+```text
+IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
 ```
-Ingest → Extract → [Processing] → DocumentSetOperator → [Downstream Operators]
-                                         │
-                                         └─> DuckDB Storage (side effect)
+
+**End-to-End Flow Example**
+
+```json
+{
+  "name": "ingest-extract-documentset",
+  "flow_id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+  "description": "Integration test flow for document set hexagonal architecture: Ingest -> Extract -> DocumentSet",
+  "global_config": {
+    "storage_type": "duckdb",
+    "database_path": "data/integration_test.db"
+  },
+  "storage": "in-memory",
+  "execute_type": "local",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true
+  },
+  "dag": [
+    {
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+      "name": "ingest_local_folder",
+      "operator": "ingest_local",
+      "config": {
+        "input_folder": "tests/fixtures/invoices",
+        "include_filter": "pdf,txt,md",
+        "store_binary_content": true
+      }
+    },
+    {
+      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+      "name": "extract_documents",
+      "operator": "extract_operator",
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "doc_column": "content"
+      }
+    },
+    {
+      "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+      "name": "store_in_document_set",
+      "operator": "document_set",
+      "config": {
+        "document_set_name": "integration_test_documents",
+        "description": "Integration test for hexagonal architecture",
+        "database_path": "data/integration_test.db",
+        "metadata_backend": "duckdb",
+        "data_backend": "duckdb"
+      }
+    }
+  ]
+}
 ```
+
+**API Integration**
+
+Document sets are also exposed through `/api/v1/document-sets`:
+
+- `POST /api/v1/document-sets`
+- `GET /api/v1/document-sets`
+- `GET /api/v1/document-sets/{id}`
+- `PATCH /api/v1/document-sets/{id}`
+- `DELETE /api/v1/document-sets/{id}`
+- `GET /api/v1/document-sets/{id}/preview`
+
+**Error Codes**
+
+- `document_set_not_found`
+- `document_set_invalid_data`
+- `document_set_storage_error`
+- `document_set_already_exists`
+- `document_set_data_store_error`
+- `document_set_table_not_found`
+
+**Testing**
+
+```bash
+source src/datasift_opensource/backend/.venv/bin/activate
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+uv run pytest tests/integration/api/test_document_sets_api.py -v
+```
+
+**Extension**
+
+For new backends, implement the document set ports, register adapters with the factories, and configure `metadata_backend` and `data_backend`. See [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ---
 

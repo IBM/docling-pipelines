@@ -8,7 +8,7 @@ keeping the router thin and focused on HTTP concerns.
 from uuid import uuid4
 
 from datasift.api.dto.flow_dto import FlowCreateRequest, FlowResponse
-from datasift.core.flows.domain.models.flow import Flow
+from datasift.core.assets.flows.domain.models.flow import Flow
 from datasift.exceptions.datasift_exceptions import FlowInvalidDataException
 
 

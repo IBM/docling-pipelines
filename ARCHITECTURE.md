@@ -54,17 +54,18 @@ This architectural diversity is a deliberate design choice that supports the fra
 
 ### Technology Stack
 
-| Layer                   | Technologies                                                                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Orchestration**       | Prefect, Python 3.12+                                                                                                                    |
-| **Data Processing**     | PyArrow                                                                                                                                  |
-| **Document Processing** | Docling (with ASR support for audio/video via ffmpeg)                                                                                    |
+| Layer                   | Technologies                                                                                                                              |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **Orchestration**       | Prefect, Python 3.12+                                                                                                                     |
+| **Data Processing**     | PyArrow                                                                                                                                   |
+| **Storage**             | DuckDB (metadata and tables), Filesystem (metadata only)                                                                                  |
+| **Document Processing** | Docling (with ASR support for audio/video via ffmpeg)                                                                                     |
 | **LLM Integration**     | Ollama, LiteLLM (unified interface supporting 100+ LLM providers including OpenAI, Anthropic, Google, AWS Bedrock, and more), HuggingFace |
-| **Vector Storage**      | OpenSearch, NMSLIB, Faiss                                                                                                                |
-| **Language Detection**  | FastText, langdetect                                                                                                                     |
-| **Web Framework**       | FastAPI (optional)                                                                                                                       |
-| **Testing**             | pytest, pytest-cov                                                                                                                       |
-| **Package Management**  | uv                                                                                                                                       |
+| **Vector Storage**      | OpenSearch, NMSLIB, Faiss                                                                                                                 |
+| **Language Detection**  | FastText, langdetect                                                                                                                      |
+| **Web Framework**       | FastAPI (optional)                                                                                                                        |
+| **Testing**             | pytest, pytest-cov                                                                                                                        |
+| **Package Management**  | uv                                                                                                                                        |
 
 ---
 
@@ -291,7 +292,7 @@ Operators are the fundamental building blocks of datasift. Each operator is a se
 
 **Operator Categories:**
 
-```mermaid
+````mermaid
 graph LR
     OP[Operator Categories]
     OP --> ING[Ingest]
@@ -355,11 +356,11 @@ class MyDatasiftOperator(AbstractOperator):
     short_name: str = "my_operator"
     category: OperatorCategory = OperatorCategory.Functional
     owner: str = DatasiftConstants.OWNER_DATASIFT  # REQUIRED for built-in operators
-    
+
     def __init__(self, *, config: dict[str, Any]) -> None:
         super().__init__(config=config)
         # Implementation
-```
+````
 
 **Example - Custom Operator:**
 
@@ -370,7 +371,7 @@ class MyCustomOperator(AbstractOperator):
     short_name: str = "my_operator"
     category: OperatorCategory = OperatorCategory.Custom
     owner: str = "custom"  # REQUIRED for custom operators
-    
+
     def __init__(self, *, config: dict[str, Any]) -> None:
         super().__init__(config=config)
         # Custom implementation
@@ -390,7 +391,7 @@ export DATASIFT_CUSTOM_OPERATORS=123  # Will be ignored
 
 See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:35) for implementation details.
 
-```
+````
 
 ### 2. Operator Metadata Architecture
 
@@ -421,7 +422,7 @@ required = metadata.required_feature_names(short_name='chunker')
 # Get reverse mapping: which operators produce a feature?
 feature_map = metadata.get_feature_operators_map()
 print(feature_map['content'])  # ['Extract Operator', 'Chunker', ...]
-```
+````
 
 **Key Capabilities:**
 
@@ -2433,144 +2434,228 @@ graph LR
 
 ### 8. Document Set Hexagonal Architecture Pattern
 
-The Document Set feature implements a complete hexagonal architecture for managing persistent document collections with DuckDB storage.
+The Document Set operator follows hexagonal architecture (ports and adapters pattern) for flexible storage backend support. It uses the storage layer interfaces (KeyValueStorage and TableStorage) for persistence.
 
-#### Architecture Layers
+#### Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Entry Points (Multiple)                   │
-│  1. REST API: /api/v1/document-sets/* (metadata CRUD)      │
-│  2. REST API: /api/v1/flows/* (flow definition management)  │
-│  3. Pipeline Execution: DocumentSetOperator (data storage)  │
-│     - CLI: datasift-orchestrator --flow-file <flow.json>   │
-│     - Python: DatasiftFlowManager().execute_flow_from_file()│
-└──────────────┬──────────────────┬──────────────────────────┘
-               │                  │
-               │                  │
-┌──────────────▼──────────────────▼──────────────────────────┐
-│              Operator Layer (Pipeline)                       │
-│  DocumentSetOperator (Storage Category)                     │
-│  - Stores PyArrow tables in document sets                   │
-│  - Pass-through design for operator chaining                │
+│                    DocumentSetOperator                      │
+│         (Orchestrates via DocumentSetService)               │
 └────────────────────┬────────────────────────────────────────┘
                      │
-┌────────────────────▼────────────────────────────────────────┐
-│           Application Layer (Service)                        │
-│  DocumentSetService                                          │
-│  - Business logic orchestration                             │
-│  - Idempotent create-or-get operations                      │
-│  - Metrics computation and updates                          │
-│  - Validation and error handling                            │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────────┐
-│            Adapter Layer (Repository)                        │
-│  DocumentSetRepository                                       │
-│  - Metadata CRUD operations                                 │
-│  - JSON serialization/deserialization                       │
-│  - Exception wrapping                                       │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────────┐
-│              Storage Layer (DuckDB)                          │
-│  DuckDBStorage (implements BaseStorage)                     │
-│  - Metadata table management                                │
-│  - Per-document-set data tables                             │
-│  - Atomic operations with verification                      │
-│  - Schema evolution                                         │
-│  - SQL injection prevention                                 │
-└────────────────────┬────────────────────────────────────────┘
-                     │
-┌────────────────────▼────────────────────────────────────────┐
-│                Domain Layer (Models)                         │
-│  - DocumentSet: Core entity                                 │
-│  - StorageReference: Physical storage metadata              │
-│  - DataCard: Lineage tracking                               │
-└─────────────────────────────────────────────────────────────┘
+        ┌────────────┴────────────┐
+        │                         │
+        ▼                         ▼
+┌──────────────────┐    ┌──────────────────┐
+│ Metadata Factory │    │ Data Store       │
+│                  │    │ Factory          │
+└────────┬─────────┘    └────────┬─────────┘
+         │                       │
+         ▼                       ▼
+┌──────────────────┐    ┌──────────────────┐
+│ Metadata Port    │    │ Data Store Port  │
+│ (Interface)      │    │ (Interface)      │
+└────────┬─────────┘    └────────┬─────────┘
+         │                       │
+         ▼                       ▼
+┌──────────────────┐    ┌──────────────────┐
+│ DuckDB Metadata  │    │ DuckDB Data      │
+│ Adapter          │    │ Adapter          │
+└────────┬─────────┘    └────────┬─────────┘
+         │                       │
+         ▼                       ▼
+┌──────────────────┐    ┌──────────────────┐
+│ KeyValueStorage  │    │ TableStorage     │
+│ (Interface)      │    │ (Interface)      │
+└──────────────────┘    └──────────────────┘
 ```
+
+#### Components
+
+**1. Domain Layer** (`src/datasift/core/assets/document_sets/domain/`)
+
+- **Models** (`models/`): Pure Python domain entities
+  - `DocumentSet`: Core entity for document collections
+  - `StorageReference`: Physical storage location metadata
+  - `DataCard`: Lineage and provenance tracking
+- **Ports** (`ports/`): Abstract interfaces defining contracts
+  - `DocumentSetMetadataRepository`: Metadata CRUD operations
+  - `DocumentSetDataStore`: PyArrow table data operations
+- **Types** (`types/`): TypedDict-based configuration types
+  - `RepositoryConfig`: Metadata repository configuration
+  - `DataStoreConfig`: Data store configuration
+  - `HealthCheckResult`: Health check response structure
+
+**2. Application Layer** (`src/datasift/core/assets/document_sets/application/`)
+
+- **DocumentSetService** (`services/`): Business logic using port interfaces
+- Orchestrates metadata and data operations
+- Handles idempotent create-or-get behavior, data storage, preview, delete, and metric recomputation
+- Independent of concrete storage implementation
+- Injected with metadata repository and data store adapters
+
+**3. Adapter Layer** (`src/datasift/core/assets/document_sets/adapters/`)
+
+- **DuckDB Adapters** (`duckdb/`):
+  - **DuckDBDocumentSetMetadataRepository**: Metadata persistence
+    - Uses KeyValueStorage interface for JSON-based metadata
+    - Stores in 'document_sets' collection
+  - **DuckDBDocumentSetDataStore**: Data persistence
+    - Uses TableStorage interface for PyArrow tables
+    - Handles schema creation, upsert, preview, deletion
+- Registered via `@MetadataRepositoryFactory.register()` and `@DataStoreFactory.register()` decorators
+- Supports health checks and configuration validation
+
+**4. Factory Layer** (`src/datasift/core/assets/document_sets/factories/`)
+
+- **MetadataRepositoryFactory**: Creates metadata repository adapters
+  - Decorator-based registration system
+  - Validates configuration before instantiation
+  - Supports multiple backends (currently: duckdb)
+- **DataStoreFactory**: Creates data store adapters
+  - Decorator-based registration system
+  - Validates configuration before instantiation
+  - Supports multiple backends (currently: duckdb)
+
+#### Configuration
+
+**Flow Configuration (global_config)**:
+
+```json
+{
+  "global_config": {
+    "storage_type": "duckdb",
+    "database_path": "data/assets.db"
+  },
+  "nodes": [
+    {
+      "operator_type": "datasift.core.operators.storage.document_set.DocumentSetOperator",
+      "operator_params": {
+        "document_set_name": "my_documents",
+        "description": "Document collection",
+        "data_backend": "duckdb"
+      }
+    }
+  ]
+}
+```
+
+**Note**: The `metadata_backend` parameter is deprecated. Metadata storage is now controlled by `storage_type` in `global_config`.
 
 #### Entry Points
 
-Document sets can be created and managed through multiple approaches:
+Document sets can be managed through multiple entry points that share the same application and adapter layers:
 
-1. **REST API - Document Sets** (`/api/v1/document-sets/*`):
-   - Direct HTTP access for CRUD operations on document set metadata
-   - Used by web UIs and external integrations
-   - Returns `DocumentSetDTO` for request/response
-   - Example: `POST /api/v1/document-sets` to create an empty document set
-   - Manages document set metadata only, not the actual data
+1. **Pipeline execution** via `DocumentSetOperator`
+   - Persists PyArrow tables during flow execution
+   - Returns the original input table unchanged for downstream operators
+   - Uses factory-created metadata and data adapters
+   - Storage backend configured via `global_config.storage_type`
 
-2. **REST API - Flows** (`/api/v1/flows/*`):
-   - HTTP endpoints for managing flow definitions (CRUD operations)
-   - Create, read, update, delete flow JSON configurations
-   - Flow definitions specify which operators to use, including `DocumentSetOperator`
-   - Example: `POST /api/v1/flows` to create a flow definition
+2. **REST API** via `/api/v1/document-sets`
+   - Creates, lists, retrieves, updates, deletes, and previews document sets
+   - Uses `DocumentSetService` with factory-created adapters
+   - Storage backend determined by API configuration
 
-3. **Pipeline Execution** (via `DocumentSetOperator`):
-   - Document sets created/updated as part of data processing pipelines
-   - `DocumentSetOperator` included in flow JSON definitions
-   - Stores PyArrow table data automatically during pipeline execution
-   - Can be executed via:
-     - **CLI**: `datasift-orchestrator --flow-file my_flow.json`
-     - **Python API**:
+3. **Flow definitions**
+   - Use the `document_set` operator in DAG JSON
+   - Typical pattern: `Ingest → Extract → [Other Operators] → DocumentSetOperator`
 
-       ```python
-       from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+#### Adding New Storage Backends
 
-       manager = DatasiftFlowManager()
-       manager.execute_flow_from_file("my_flow.json")
-       ```
+To add PostgreSQL, MongoDB, or other backends:
 
-**Summary**: REST APIs manage metadata (document sets and flow definitions), while pipeline execution stores actual document data. All approaches use the same underlying architecture (Application Layer → Domain Layer → Storage Layer), ensuring consistent behavior and data integrity.
+1. **Implement Storage Layer Interfaces** (if needed):
 
-#### Key Design Decisions
+```python
+# Implement KeyValueStorage for metadata
+class PostgreSQLKeyValueStorage(KeyValueStorage):
+    def save_record(self, *, collection: str, key: str, data: dict[str, Any]) -> None:
+        pass
+    # ... other methods
 
-1. **General-Purpose Storage Layer**:
-   - `BaseStorage` and `DuckDBStorage` are not document-set-specific
-   - Located at `storage/` for reuse across asset types
-   - Can be used for any PyArrow table persistence needs
+# Implement TableStorage for data
+class PostgreSQLTableStorage(TableStorage):
+    def create_table(self, *, table_name: str, schema: pa.Schema) -> None:
+        pass
+    # ... other methods
+```
 
-2. **Pass-Through Operator Design**:
-   - `DocumentSetOperator` returns original table unchanged
-   - Enables downstream operator chaining
-   - Storage is a side effect, not a transformation
+2. **Register Storage in Factory**:
 
-3. **Hexagonal Architecture Benefits**:
-   - Clear separation of concerns
-   - Testable business logic
-   - Swappable storage backends
-   - Domain-driven design
+```python
+# In StorageFactory
+@staticmethod
+def create_key_value_storage(*, storage_type: str, **config: Any) -> KeyValueStorage:
+    if storage_type == "postgresql":
+        return PostgreSQLKeyValueStorage(**config)
+    # ... existing types
+```
 
-4. **Exception Handling Chain**:
+3. **Implement Document Set Adapters**:
 
-   ```
-   Operator → Service → Repository → Storage → Domain
-   Each layer catches specific exceptions and wraps in DatasiftException
-   ```
+```python
+@MetadataRepositoryFactory.register(name="postgresql", display_name="PostgreSQL")
+class PostgreSQLMetadataRepository(DocumentSetMetadataRepository):
+    def __init__(self, *, key_value_storage: KeyValueStorage):
+        self.storage = key_value_storage
+    # ... implement port methods
 
-5. **Atomic Operations**:
-   - Row count verification before/after upsert
-   - Ensures data integrity
-   - Fails fast on inconsistencies
+@DataStoreFactory.register(name="postgresql", display_name="PostgreSQL")
+class PostgreSQLDataStore(DocumentSetDataStore):
+    def __init__(self, *, table_storage: TableStorage):
+        self.storage = table_storage
+    # ... implement port methods
+```
 
-6. **Schema Evolution**:
-   - Automatic column addition when new fields appear
-   - Preserves existing data
-   - No manual migration required
+4. **Update Configuration**:
+
+```json
+{
+  "global_config": {
+    "storage_type": "postgresql",
+    "connection_string": "postgresql://user:pass@localhost:5432/documents"  # pragma: allowlist secret
+  },
+  "nodes": [
+    {
+      "operator_params": {
+        "data_backend": "postgresql"
+      }
+    }
+  ]
+}
+```
+
+#### Benefits
+
+- **Pluggable Storage**: Easy to swap storage backends via configuration
+- **Testability**: Mock adapters can satisfy port contracts in unit tests
+- **Maintainability**: Clear separation of domain, application, adapters, and storage layers
+- **Type Safety**: TypedDict-based configuration and strong typing throughout
+- **Performance**: Singleton pattern for storage instances, pass-through operator execution
+- **Extensibility**: New adapters registered via decorators without changing business logic
+- **Consistency**: Shared storage layer across flows and document sets
 
 #### Usage Pattern
 
-```python
-# In a flow definition
+```json
 {
-  "operator": "document_set",
-  "config": {
-    "document_set_name": "my_documents",
-    "description": "Processed documents",
-    "metadata": {"source": "pipeline_v1"},
-    "retain_deleted_docs": false
-  }
+  "global_config": {
+    "storage_type": "duckdb",
+    "database_path": "data/assets.db"
+  },
+  "nodes": [
+    {
+      "operator_type": "datasift.core.operators.storage.document_set.DocumentSetOperator",
+      "operator_params": {
+        "document_set_name": "my_documents",
+        "description": "Processed documents",
+        "data_backend": "duckdb",
+        "metadata": { "source": "pipeline_v1" }
+      }
+    }
+  ]
 }
 ```
 
@@ -2579,10 +2664,25 @@ Document sets can be created and managed through multiple approaches:
 ```
 Ingest → Extract → [Other Operators] → DocumentSetOperator → [Downstream Operators]
                                               │
-                                              ├─> DuckDB Storage (side effect)
-                                              │
+                                              ├─> MetadataRepositoryFactory → DuckDB adapter → KeyValueStorage
+                                              ├─> DataStoreFactory → DuckDB adapter → TableStorage
                                               └─> Original table (pass-through)
 ```
+
+#### Storage Type Configuration
+
+The `storage_type` in `global_config` determines the storage backend for metadata:
+
+- **"duckdb"** (default): Uses DuckDB for both metadata and data storage
+  - Metadata stored in key-value tables
+  - Data stored as PyArrow tables
+  - Single database file for all assets
+- **"filesystem"**: Uses filesystem for metadata (key-value only)
+  - Metadata stored as JSON files
+  - Data storage still requires DuckDB (via `data_backend`)
+  - Suitable for development and small-scale deployments
+
+**Note**: The `data_backend` parameter in operator configuration is separate from `storage_type` and controls where PyArrow table data is stored.
 
 ## Deployment Patterns
 
@@ -3281,32 +3381,103 @@ datasift/
 
 ### 5. Storage Layer (`src/datasift/storage/`)
 
-The storage layer provides general-purpose data persistence capabilities for the datasift framework. It is designed to be reusable across different asset types and use cases.
+The storage layer provides a clean, interface-based abstraction for data persistence in datasift. It follows a port-adapter pattern with two primary interfaces for different storage needs.
 
-#### BaseStorage (Abstract Interface)
+#### Storage Interfaces
 
-- Defines the contract for storage implementations
-- Methods for table creation, upsert, query, schema evolution, and deletion
-- Not specific to document sets - can be used for any PyArrow table storage needs
+**KeyValueStorage Interface** (`interfaces/key_value_storage.py`)
 
-#### DuckDBStorage (Implementation)
+- Interface for storing JSON-serializable records in logical collections
+- Used for asset metadata (flows, document set metadata)
+- Operations: save_record, get_record, list_records, delete_record, collection_exists, record_exists
+- Implementations:
+  - **FileSystemStorage**: JSON files organized by collection directories
+  - **DuckDBKeyValueStorage**: DuckDB tables with JSON columns
 
-- DuckDB-based implementation of BaseStorage
+**TableStorage Interface** (`interfaces/table_storage.py`)
+
+- Interface for PyArrow table storage with SQL query capabilities
+- Used for document set data and structured data operations
+- Operations: create_table, upsert_data, read_data, delete_table, table_exists, get_row_count, execute_query
+- Implementations:
+  - **DuckDBTableStorage**: DuckDB-based PyArrow table storage with schema evolution
+
+#### Storage Factory
+
+**StorageFactory** (`factory.py`)
+
+- Factory pattern for creating storage instances
+- Methods:
+  - `create_key_value_storage(storage_type, **config)`: Creates KeyValueStorage instances
+  - `create_table_storage(storage_type, **config)`: Creates TableStorage instances
+- Supported types:
+  - Key-value: "filesystem", "duckdb"
+  - Table: "duckdb"
+- Validates storage types and provides clear error messages
+
+#### DuckDB Implementations
+
+**DuckDBKeyValueStorage** (`duck_db/key_value_storage.py`)
+
+- Stores records as JSON in DuckDB tables (one table per collection)
+- Schema: `key TEXT PRIMARY KEY, data JSON`
+- Singleton pattern per database path for connection reuse
+- Features: JSON serialization, SQL-based filtering, atomic operations
+
+**DuckDBTableStorage** (`duck_db/table_storage.py`)
+
+- Stores PyArrow tables directly in DuckDB
 - Features:
-  - Metadata table for tracking document sets
-  - Per-document-set data tables with PyArrow schema
-  - Atomic upsert operations with row count verification
   - Schema evolution support (automatic column addition)
-  - Metrics computation (document count, size, pages)
-  - SQL injection prevention via column identifier validation
-  - UUID validation for document and document set IDs
-  - Comprehensive exception handling with DatasiftException
+  - Atomic upsert operations with row count verification
+  - SQL query execution with parameterization
+  - Metrics computation (row counts, aggregations)
+  - Connection pooling and singleton pattern
 
-### 6. Assets Management (`src/datasift/core/assets_management/`)
+#### FileSystem Implementation
 
-The assets management layer provides domain-driven design for managing data assets like document sets.
+**FileSystemStorage** (`file_system/key_value_storage.py`)
 
-#### Document Sets (`assets_management/document_sets/`)
+- Stores records as JSON files in directory structure
+- Directory layout: `base_dir/collection/key.json`
+- Features: Atomic writes, file locking, directory creation
+- Suitable for development and small-scale deployments
+
+#### Storage Exceptions
+
+- **StorageException**: Base exception for storage errors
+- **StorageNotFoundError**: Record or table not found
+- **StorageValidationError**: Invalid parameters or data
+- **StorageConnectionError**: Database connection failures
+
+### 6. Assets Management (`src/datasift/core/assets/`)
+
+The assets management layer provides hexagonal architecture implementations for managing data assets like flows and document sets. It follows clean architecture principles with clear separation between domain, application, and adapter layers.
+
+#### Flows (`assets/flows/`)
+
+Hexagonal architecture implementation for flow management:
+
+**Domain Layer** (`domain/models/`):
+
+- **Flow**: Core entity representing pipeline definitions
+- **FlowMetadata**: Flow metadata and configuration
+- **FlowRepository (Port)**: Interface for flow persistence
+
+**Application Layer** (`application/services/`):
+
+- **FlowService**: Business logic for flow operations
+  - Flow creation, retrieval, updates, and deletion
+  - Flow validation and configuration management
+
+**Adapter Layer** (`adapters/repositories/`):
+
+- **StorageFlowRepository**: Generic repository using KeyValueStorage interface
+  - Works with any storage backend (DuckDB, filesystem)
+  - Stores flows in 'flows' collection with flow_id as key
+  - Exception wrapping with FlowNotFoundException, FlowStorageException
+
+#### Document Sets (`assets/document_sets/`)
 
 Hexagonal architecture implementation for document set management:
 
@@ -3316,30 +3487,37 @@ Hexagonal architecture implementation for document set management:
 - **StorageReference**: Physical storage location metadata
 - **DataCard**: Lineage and provenance tracking
 
+**Domain Ports** (`domain/ports/`):
+
+- **DocumentSetMetadataRepository**: Interface for metadata persistence
+- **DocumentSetDataStore**: Interface for PyArrow table data operations
+
 **Application Layer** (`application/services/`):
 
 - **DocumentSetService**: Business logic orchestration
   - Idempotent create-or-get operations
   - Metrics computation and updates
   - Data storage coordination
+  - Independent of concrete storage implementation
 
-**Adapter Layer** (`adapters/repositories/`):
+**Adapter Layer** (`adapters/`):
 
-- **DocumentSetRepository**: Metadata persistence
-  - CRUD operations for document set metadata
-  - JSON serialization/deserialization
-  - Exception wrapping with DatasiftException
+- **DuckDB Adapters** (`adapters/duckdb/`):
+  - **DuckDBDocumentSetMetadataRepository**: Metadata persistence using KeyValueStorage
+  - **DuckDBDocumentSetDataStore**: Data persistence using TableStorage
+  - Registered via factory decorators for automatic discovery
 
-- **40+ Predefined Schemas**: JSON schemas for common document types
-- **Insurance Forms, Bank Statements, Legal Documents, etc.**
+**Factory Layer** (`factories/`):
 
-#### Utilities (`common/util/`)
+- **MetadataRepositoryFactory**: Creates metadata repository adapters
+- **DataStoreFactory**: Creates data store adapters
+- Decorator-based registration system
+- Validates adapter configuration before instantiation
 
-- **Core Utilities**: String manipulation, validation, patterns
-- **Data Utilities**: PyArrow handling, schema management, transformations
-- **Infrastructure Utilities**: Logging, caching, retry logic, performance monitoring
-- **Job Tracker**: Job statistics and monitoring
-- **Orchestration Utilities**: Flow utilities, Prefect configuration, deleted rows tracking
+**Predefined Schemas**:
+
+- 40+ JSON schemas for common document types
+- Insurance forms, bank statements, legal documents, etc.
 
 ### 2. Core Framework (`src/datasift/core/`)
 

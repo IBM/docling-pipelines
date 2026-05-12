@@ -268,6 +268,7 @@ Before starting, you'll need:
 - **Podman or Docker** - For running OpenSearch
 - **Basic command-line knowledge** - For running commands
 - **ffmpeg** - Required for audio/video processing (M4A, AAC, OGG, FLAC, MP4, AVI, MOV formats)
+
 ---
 
 ## Job Stats Storage Configuration
@@ -339,12 +340,14 @@ Important requirements:
 DuckDB is an embedded analytical database that provides persistent storage without requiring a server. It's ideal for local development and testing.
 
 Use DuckDB when:
+
 - you want persistent storage without running a database server
 - you need SQL query capabilities for analyzing job statistics
 - you're working in a single-host environment
 - you want faster queries than JSON storage
 
 Configuration example:
+
 ```yaml
 job_management:
   store:
@@ -354,6 +357,7 @@ job_management:
 ```
 
 Important notes:
+
 - DuckDB stores all data in a single file
 - Not recommended for distributed execution (use PostgreSQL instead)
 - Provides SQL interface for querying job statistics
@@ -436,33 +440,38 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```bash
 uv --version
 ```
+
 ### Installing ffmpeg (Required for Audio/Video Processing)
 
 ffmpeg is required for processing audio formats (M4A, AAC, OGG, FLAC) and all video formats (MP4, AVI, MOV) with Docling ASR.
 
 **macOS (using Homebrew):**
+
 ```bash
 brew install ffmpeg
 ```
 
 **Linux (Ubuntu/Debian):**
+
 ```bash
 sudo apt update
 sudo apt install ffmpeg
 ```
 
 **Linux (RHEL/CentOS/Fedora):**
+
 ```bash
 sudo dnf install ffmpeg
 ```
 
 **Verify installation:**
+
 ```bash
 ffmpeg -version
 ```
 
 **Note:** If you only process WAV or MP3 audio files, ffmpeg is not required. However, for M4A, AAC, OGG, FLAC audio formats and all video formats, ffmpeg must be installed and available on your PATH.
- 
+
 ### Cloning and Setting Up the Project
 
 **1. Clone the repository:**
@@ -848,6 +857,38 @@ DataSift pipelines are defined using JSON configuration files. Let's understand 
 | `execute_type`  | string | Execution environment    | `"local"` or `"distributed"`             |
 | `global_config` | object | Global configuration     | See below                                |
 | `dag`           | array  | Operator nodes           | See operator sections                    |
+
+### Global Configuration Options
+
+The `global_config` object supports the following options:
+
+| Field                | Type    | Description                      | Default            | Example                      |
+| -------------------- | ------- | -------------------------------- | ------------------ | ---------------------------- |
+| `doc_column`         | string  | Column name for document content | `"content"`        | `"content"`                  |
+| `force_ingest`       | boolean | Force re-ingestion of documents  | `false`            | `true`                       |
+| `disable_validation` | string  | Disable flow validation          | `"false"`          | `"true"`                     |
+| `storage_type`       | string  | Storage backend for metadata     | `"duckdb"`         | `"duckdb"` or `"filesystem"` |
+| `database_path`      | string  | Database file path for storage   | `"data/assets.db"` | `"data/my_assets.db"`        |
+
+**Storage Configuration:**
+
+- `storage_type`: Controls the storage backend for flow and document set metadata
+  - `"duckdb"` (default): Uses DuckDB for metadata storage
+  - `"filesystem"`: Uses filesystem with JSON files for metadata storage
+- `database_path`: Specifies the database file location (used by DuckDB storage)
+
+**Example with storage configuration:**
+
+```json
+{
+  "global_config": {
+    "doc_column": "content",
+    "force_ingest": true,
+    "storage_type": "duckdb",
+    "database_path": "data/assets.db"
+  }
+}
+```
 
 ### Operator Configuration Examples
 

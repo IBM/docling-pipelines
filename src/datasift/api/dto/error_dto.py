@@ -83,6 +83,16 @@ ErrorCode = Literal[
     "http_error",
     "connection_error",
     "invalid_response",
+    # Document set operation error codes
+    "document_set_not_found",
+    "document_set_already_exists",
+    "document_set_invalid_data",
+    "document_set_creation_failed",
+    "document_set_update_failed",
+    "document_set_delete_failed",
+    "document_set_data_operation_failed",
+    "document_set_invalid_config",
+    "document_set_adapter_not_found",
 ]
 
 

@@ -114,11 +114,23 @@ class AbstractOrchestrator(ABC):
         # Initialize the orchestrator with job_id and job_run_id
         self.initialize(job_id=job_id, job_run_id=job_run_id)
 
-        global_config = (
-            flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
-            | params
-            | {DatasiftConstants.FLOW_DEFINITION: flow_def}
-        )
+        # Extract storage type from global_config
+        flow_global_config = flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {})
+        storage_type = flow_global_config.get(DatasiftConstants.STORAGE_TYPE, DatasiftConstants.DEFAULT_STORAGE_TYPE)
+
+        # Validate storage type
+        if storage_type not in DatasiftConstants.SUPPORTED_STORAGE_TYPES:
+            raise FlowExecutionFailedException(
+                f"Unsupported storage type: '{storage_type}'. "
+                f"Supported types: {', '.join(DatasiftConstants.SUPPORTED_STORAGE_TYPES)}"
+            )
+
+        # Add storage type to params for operators
+        params[DatasiftConstants.STORAGE_TYPE] = storage_type
+
+        self.logger.info(f"Using storage type: {storage_type}", extra=self.common_log_arguments)
+
+        global_config = flow_global_config | params | {DatasiftConstants.FLOW_DEFINITION: flow_def}
 
         if DatasiftConstants.DAG not in flow_def:
             raise FlowExecutionFailedException("Invalid flow: 'dag' not found in the flow definition")

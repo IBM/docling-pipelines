@@ -1,10 +1,11 @@
 """Document set management API routes."""
 
-from functools import lru_cache
+# Import to trigger adapter registration
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request
 
+import datasift.core.assets.document_sets.adapters.duckdb  # noqa: F401
 from datasift.api.dto.document_set_dto import (
     DocumentSetCreateRequest,
     DocumentSetListResponse,
@@ -23,14 +24,18 @@ from datasift.api.routes.document_set_utils import (
     document_set_to_response,
     table_to_preview_response,
 )
-from datasift.core.constants.constants import DatasiftConstants
-from datasift.core.flows.document_sets.adapters.repositories.document_set_repository import (
-    DocumentSetRepository,
-)
-from datasift.core.flows.document_sets.application.services.document_set_service import (
+from datasift.core.assets.document_sets.application.services.document_set_service import (
     DocumentSetService,
 )
-from datasift.storage.duckdb_storage import DuckDBStorage
+from datasift.core.assets.document_sets.domain.types import (
+    DataStoreConfig,
+    RepositoryConfig,
+)
+from datasift.core.assets.document_sets.factories import (
+    DataStoreFactory,
+    MetadataRepositoryFactory,
+)
+from datasift.core.constants.constants import DatasiftConstants
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -82,6 +87,7 @@ DeleteDataQuery = Annotated[
 
 
 def get_pagination_params(
+    *,
     limit: LimitQuery = 100,
     offset: OffsetQuery = 0,
 ) -> tuple[int, int]:
@@ -89,25 +95,29 @@ def get_pagination_params(
     return limit, offset
 
 
-@lru_cache(maxsize=1)
-def get_document_set_storage() -> DuckDBStorage:
-    """Create and cache the shared DuckDB storage backend."""
-    return DuckDBStorage(database_path=DatasiftConstants.DOCUMENT_SET_DEFAULT_DB_PATH)
+def get_document_set_service() -> DocumentSetService:
+    """Create a document set service with factory-created components."""
+    database_path = DatasiftConstants.DOCUMENT_SET_DEFAULT_DB_PATH
 
+    # Create metadata repository using factory
+    metadata_config: RepositoryConfig = {"database_path": database_path}
+    metadata_repository = MetadataRepositoryFactory.create(
+        adapter_name="duckdb",
+        config=metadata_config,  # type: ignore[arg-type]
+    )
 
-@lru_cache(maxsize=1)
-def get_document_set_repository() -> DocumentSetRepository:
-    """Create and cache the shared document set repository."""
-    storage = get_document_set_storage()
-    return DocumentSetRepository(storage=storage)
+    # Create data store using factory
+    data_config: DataStoreConfig = {"database_path": database_path}
+    data_store = DataStoreFactory.create(
+        adapter_name="duckdb",
+        config=data_config,  # type: ignore[arg-type]
+    )
 
-
-def get_document_set_service(
-    repository: DocumentSetRepository = Depends(get_document_set_repository),  # noqa: B008
-) -> DocumentSetService:
-    """Create a document set service with injected repository and storage."""
-    storage = repository.storage
-    return DocumentSetService(repository=repository, storage=storage)
+    # Create service with port interfaces
+    return DocumentSetService(
+        metadata_repository=metadata_repository,  # type: ignore[arg-type]
+        data_store=data_store,  # type: ignore[arg-type]
+    )
 
 
 DocumentSetServiceDep = Annotated[DocumentSetService, Depends(get_document_set_service)]
@@ -213,7 +223,7 @@ async def get_document_set(
 ) -> DocumentSetResponse:
     """Retrieve a document set by ID."""
     logger.debug("Retrieving document set: %s", document_set_id)
-    document_set = service.get_document_set(document_set_id)
+    document_set = service.get_document_set(document_set_id=document_set_id)
     logger.info("Successfully retrieved document set %s", document_set_id)
     return document_set_to_response(document_set=document_set)
 

@@ -1,7 +1,7 @@
 import os
 from enum import Enum, StrEnum
 from pathlib import Path
-from typing import TypedDict
+from typing import ClassVar, TypedDict
 
 # Import OperatorConstants for re-export
 
@@ -98,6 +98,11 @@ class DatasiftConstants:
     SKIP_CUSTOM_OP_VALIDATION = "skip_custom_op_validation"
     SUCCESS = "success"
     TMP = "tmp"
+
+    # Storage configuration
+    STORAGE_TYPE = "storage_type"
+    DEFAULT_STORAGE_TYPE = "duckdb"
+    SUPPORTED_STORAGE_TYPES: ClassVar[list[str]] = ["duckdb", "filesystem"]
 
     # Custom Operator Control
     ENABLE_CUSTOM_OPERATORS = "enable_custom_operators"

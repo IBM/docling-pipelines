@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from datasift.core.flows.domain.models.flow import Flow
+from datasift.core.assets.flows.domain.models.flow import Flow
 from datasift.exceptions.datasift_exceptions import FlowInvalidDataException
 
 

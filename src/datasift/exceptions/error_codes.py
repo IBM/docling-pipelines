@@ -11,6 +11,10 @@ class ErrorCode(StrEnum):
     FLOW_NOT_FOUND = "flow_not_found"
     FLOW_ALREADY_EXISTS = "flow_already_exists"
     FLOW_INVALID_DATA = "flow_invalid_data"
+    FLOW_SAVE_ERROR = "flow_save_error"
+    FLOW_LIST_ERROR = "flow_list_error"
+    FLOW_DELETE_ERROR = "flow_delete_error"
+    FLOW_UPDATE_ERROR = "flow_update_error"
 
     # Job run operations
     JOB_RUN_NOT_FOUND = "job_run_not_found"
@@ -23,6 +27,19 @@ class ErrorCode(StrEnum):
     DOCUMENT_SET_NOT_FOUND = "document_set_not_found"
     DOCUMENT_SET_INVALID_DATA = "document_set_invalid_data"
     DOCUMENT_SET_STORAGE_ERROR = "document_set_storage_error"
+    DOCUMENT_SET_ALREADY_EXISTS = "document_set_already_exists"
+    DOCUMENT_SET_CONSTRAINT_VIOLATION = "document_set_constraint_violation"
+
+    # Document Set Repository operations
+    DOCUMENT_SET_REPOSITORY_ERROR = "document_set_repository_error"
+    DOCUMENT_SET_REPOSITORY_CONNECTION_FAILED = "document_set_repository_connection_failed"
+    DOCUMENT_SET_TRANSACTION_FAILED = "document_set_transaction_failed"
+
+    # Document Set Data Store operations
+    DOCUMENT_SET_DATA_STORE_ERROR = "document_set_data_store_error"
+    DOCUMENT_SET_TABLE_NOT_FOUND = "document_set_table_not_found"
+    DOCUMENT_SET_TABLE_ALREADY_EXISTS = "document_set_table_already_exists"
+    DOCUMENT_SET_SCHEMA_MISMATCH = "document_set_schema_mismatch"
 
     # Operator errors
     OPERATOR_CONFIGURATION_INVALID = "operator_configuration_invalid"
@@ -52,6 +69,11 @@ class ErrorCode(StrEnum):
     JOB_STATS_STORE_LIST_FAILED = "job_stats_store_list_failed"
     JOB_STATS_STORE_ATOMIC_UPDATE_FAILED = "job_stats_store_atomic_update_failed"
     JOB_STATS_STORE_INITIALIZATION_FAILED = "job_stats_store_initialization_failed"
+
+    # Generic storage operations
+    STORAGE_ERROR = "storage_error"
+    STORAGE_VALIDATION_ERROR = "storage_validation_error"
+    STORAGE_CONNECTION_ERROR = "storage_connection_error"
 
     # Configuration and external services
     INVALID_CONFIGURATION = "invalid_configuration"

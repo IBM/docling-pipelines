@@ -7,22 +7,25 @@ This directory contains example scripts demonstrating various operators in the d
 Some examples require API credentials (e.g., VLM engines like Watsonx, OpenAI). These should be stored in a `.env` file in the **project root** for security.
 
 **Setup:**
+
 1. Copy `.env.example` to `.env` in the project root:
+
    ```bash
    cp .env.example .env
    ```
 
 2. Edit `.env` and add your credentials:
+
    ```bash
    # For Watsonx AI
    WATSONX_API_KEY=your_api_key_here
    WATSONX_CONTAINER_KIND=project  # optional: project, space, or catalog
    WATSONX_CONTAINER_ID=your_project_or_space_id_here
    WATSONX_MODEL=meta-llama/llama-3-2-90b-vision-instruct
-   
+
    # For OpenAI
    OPENAI_API_KEY=your_api_key_here
-   
+
    # For Generic API
    GENERIC_API_BASE_URL=https://your-api.com/v1/chat
    ```
@@ -36,6 +39,7 @@ Some examples require API credentials (e.g., VLM engines like Watsonx, OpenAI). 
 ### Core Operators
 
 #### [`operator_metadata_example.py`](operator_metadata_example.py)
+
 Demonstrates how to retrieve metadata for all available operators in the framework.
 
 ```bash
@@ -43,6 +47,7 @@ python examples/operator_metadata_example.py
 ```
 
 #### [`noop_operator_example.py`](noop_operator_example.py)
+
 Shows the NOOP (No Operation) operator, useful for testing and debugging pipelines.
 
 ```bash
@@ -52,6 +57,7 @@ python examples/noop_operator_example.py
 ### Ingestion Operators
 
 #### [`ingest_local_folder_example.py`](ingest_local_folder_example.py)
+
 Demonstrates ingesting documents from a local folder.
 
 ```bash
@@ -59,6 +65,7 @@ python examples/ingest_local_folder_example.py
 ```
 
 #### [`ingest_source_example.py`](ingest_source_example.py)
+
 Shows multi-provider ingestion from cloud sources (Google Drive, S3, OneDrive, SharePoint).
 
 ```bash
@@ -67,7 +74,8 @@ python examples/ingest_source_example.py
 
 ### Extraction Operators
 
-#### [`ExtractOperator (see core/operators/extract/README.md)`](ExtractOperator (see core/operators/extract/README.md))
+#### [`ExtractOperator (see core/operators/extract/README.md)`](ExtractOperator "see core/operators/extract/README.md")
+
 Demonstrates document content extraction using Docling (supports PDFs, DOCX, etc.).
 Supports both basic markdown extraction and template-based structured extraction.
 
@@ -76,20 +84,24 @@ python examples/ExtractOperator (see core/operators/extract/README.md)
 ```
 
 #### [`ExtractOperator with Docling Serve mode`](ExtractOperator with Docling Serve mode)
+
 Demonstrates document extraction using the Docling-Serve REST API. Provides scalable document processing with support for OCR, table extraction, and multiple PDF backends.
 
 **Prerequisites:**
+
 ```bash
 # Start docling-serve locally
 docker run -p 5001:5001 ds4sd/docling-serve:latest
 ```
 
 **Usage:**
+
 ```bash
 python examples/ExtractOperator with Docling Serve mode
 ```
 
 **Features:**
+
 - REST API-based document processing
 - OCR support with EasyOCR and Tesseract engines
 - Multiple PDF backends (dlparse_v4, dlparse_v3, pypdfium2)
@@ -98,20 +110,24 @@ python examples/ExtractOperator with Docling Serve mode
 - Scalable for production workloads
 
 #### [`extract_operator_example.py`](extract_operator_example.py)
+
 Comprehensive examples of document extraction with independent text and entity extraction modes. Demonstrates the ExtractOperator's flexible architecture where text extraction and entity extraction are independent dimensions that can be combined in multiple ways.
 
 **Text Extraction Modes:**
+
 - **Basic**: Docling Library mode - standard extraction (fast)
 - **VLM**: Docling Library with VLM pipeline - vision-enhanced extraction with 7 engine options
 - **Serve**: Docling Serve API - remote extraction for scalable production workloads
 
 **Entity Extraction Modes:**
+
 - **None**: Text extraction only (default)
 - **Ollama**: LLM-based entity extraction using local Ollama models
 - **Docling**: Template-based entity extraction with JSON schemas
 - **LiteLLM**: Multi-provider LLM entity extraction (OpenAI, Anthropic, Cohere, etc.)
 
 **Supported VLM Engines:**
+
 - **Transformers**: Local inference (GPU recommended) - no credentials needed
 - **MLX**: macOS Apple Silicon optimized - no credentials needed
 - **Ollama**: Local or remote API - no credentials needed
@@ -121,6 +137,7 @@ Comprehensive examples of document extraction with independent text and entity e
 - **Generic API**: Custom endpoints - **requires credentials in `.env`**
 
 **Prerequisites:**
+
 ```bash
 # For basic text extraction
 pip install docling
@@ -142,6 +159,7 @@ docker run -p 5001:5001 ds4sd/docling-serve:latest
 ```
 
 **Usage:**
+
 ```bash
 # Activate venv and set PYTHONPATH
 cd src/datasift_opensource/backend
@@ -186,6 +204,7 @@ PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vl
 ```
 
 **Key Features:**
+
 - **Independent modes**: Text and entity extraction can be combined flexibly
 - **VLM text extraction**: Enhanced table extraction, complex layouts, visual elements
 - **Entity extraction**: Structured data extraction with custom schemas
@@ -195,6 +214,7 @@ PYTHONPATH=. python ../../../examples/extract_operator_example.py --text-mode vl
 ### Functional Operators
 
 #### [`chunker_example.py`](chunker_example.py)
+
 Shows different chunking strategies: simple, semantic, and hybrid chunking.
 Includes a complete pipeline: Ingest → Extract → Chunk.
 
@@ -203,6 +223,7 @@ python examples/chunker_example.py
 ```
 
 #### [`embeddings_pipeline_example.py`](embeddings_pipeline_example.py)
+
 Complete end-to-end pipeline: Ingest → Extract → Chunk → Embeddings.
 Automatically handles Ollama setup and model management.
 
@@ -220,6 +241,7 @@ python examples/embeddings_pipeline_example.py --no-auto-setup
 ### Quality Operators
 
 #### [`deduplication_example.py`](deduplication_example.py)
+
 Demonstrates removing duplicate documents based on content.
 
 ```bash
@@ -227,6 +249,7 @@ python examples/deduplication_example.py
 ```
 
 #### [`language_detection_example.py`](language_detection_example.py)
+
 Shows basic language detection for documents using the default FastText provider.
 
 ```bash
@@ -234,6 +257,7 @@ python examples/language_detection_example.py
 ```
 
 #### [`language_detection_fasttext_example.py`](language_detection_fasttext_example.py)
+
 Demonstrates FastText-based language detection supporting 176 languages.
 
 ```bash
@@ -241,6 +265,7 @@ python examples/language_detection_fasttext_example.py
 ```
 
 #### [`ml_enrichment_example.py`](ml_enrichment_example.py)
+
 Shows ML-based document enrichment with quality metrics (word counts, character ratios, etc.).
 Supports multiple languages (English, Spanish, French, etc.).
 
@@ -249,6 +274,7 @@ python examples/ml_enrichment_example.py
 ```
 
 #### [`readability_example.py`](readability_example.py)
+
 Demonstrates calculating readability scores (Flesch Reading Ease, Flesch-Kincaid Grade Level, etc.).
 
 ```bash
@@ -256,6 +282,7 @@ python examples/readability_example.py
 ```
 
 #### [`redaction_example.py`](redaction_example.py)
+
 Shows how to redact sensitive information (SSN, emails, etc.) using regex patterns.
 
 ```bash
@@ -263,16 +290,43 @@ python examples/redaction_example.py
 ```
 
 #### [`pii_hap_detection_example.py`](pii_hap_detection_example.py)
+
 Demonstrates detection of Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP).
 
 ```bash
 python examples/pii_hap_detection_example.py
 ```
 
+### Storage Operators
+
+#### [`document_set_example.py`](document_set_example.py)
+
+Demonstrates the DocumentSetOperator with hexagonal architecture:
+
+- Creating document sets with metadata
+- Storing PyArrow table data
+- Querying and previewing documents
+- Getting statistics
+- Using DuckDB backend (default)
+
+```bash
+python examples/document_set_example.py
+```
+
+**Features Demonstrated**:
+
+- Hexagonal architecture (ports and adapters)
+- DuckDB storage backend
+- Metadata and data separation
+- PyArrow table operations
+- Document set CRUD operations
+
 ### Vector Database Integration
 
 #### [`opensearch_integration_example.py`](opensearch_integration_example.py)
+
 Comprehensive OpenSearch integration example showing:
+
 - Document indexing with different engines (FAISS, Lucene, NMSLIB)
 - Query and delete operations
 - Batch processing
@@ -287,12 +341,14 @@ python examples/opensearch_integration_example.py
 ## Prerequisites
 
 ### General Requirements
+
 ```bash
 # From project root
 uv sync --extra dev
 ```
 
 ### Ollama (for embeddings examples)
+
 The embeddings pipeline example requires Ollama for generating embeddings:
 
 ```bash
@@ -307,6 +363,7 @@ ollama pull granite4
 ```
 
 ### OpenSearch (for vector database examples)
+
 See [`opensearch_example_README.md`](opensearch_example_README.md) for OpenSearch setup instructions.
 
 ## Running Examples
@@ -331,6 +388,7 @@ python examples/embeddings_pipeline_example.py --pdf tests/fixtures/invoices/
 ## Common Patterns
 
 ### Basic Operator Usage
+
 ```python
 from datasift.core.operators.some_operator import SomeOperator
 
@@ -355,6 +413,7 @@ print(f"Processed {result_table.num_rows} rows")
 ```
 
 ### Pipeline Pattern
+
 ```python
 # Chain multiple operators
 ingest_tables, _ = ingest_operator.transform(None)

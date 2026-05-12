@@ -13,7 +13,7 @@ from datasift.api.dto.document_set_dto import (
     DocumentSetPreviewResponse,
     DocumentSetResponse,
 )
-from datasift.core.flows.document_sets.domain.models.document_set import DocumentSet
+from datasift.core.assets.document_sets.domain.models.document_set import DocumentSet
 
 
 def document_set_to_response(*, document_set: DocumentSet) -> DocumentSetResponse:

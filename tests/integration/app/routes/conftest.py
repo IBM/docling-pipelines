@@ -10,9 +10,8 @@ from fastapi.testclient import TestClient
 
 from datasift.api.main import app
 from datasift.api.routes.flows import get_flow_repository
-from datasift.core.flows.adapters.repositories.local.local_flow_repository import (
-    LocalFlowRepository,
-)
+from datasift.core.assets.flows.domain.ports.flow_repository import FlowRepository
+from datasift.core.assets.flows.factories.flow_repository_factory import FlowRepositoryFactory
 
 
 @pytest.fixture(scope="function")
@@ -37,23 +36,21 @@ def temp_flows_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture(scope="function")
-def test_repository(temp_flows_dir: Path, monkeypatch) -> LocalFlowRepository:
-    """Create a LocalFlowRepository instance using temporary directory.
+def test_repository(temp_flows_dir: Path) -> FlowRepository:
+    """Create a FlowRepository instance using temporary directory.
 
     Args:
         temp_flows_dir: Temporary directory fixture
-        monkeypatch: Pytest monkeypatch fixture
 
     Returns:
-        LocalFlowRepository: Repository instance configured for testing
+        FlowRepository: Repository instance configured for testing
     """
-    monkeypatch.setenv("LOCAL_FLOWS_DIR", str(temp_flows_dir))
-    return LocalFlowRepository()
+    return FlowRepositoryFactory.create(storage_type="filesystem", base_dir=str(temp_flows_dir))
 
 
 @pytest.fixture(scope="function")
 def test_client(
-    test_repository: LocalFlowRepository,
+    test_repository: FlowRepository,
 ) -> Generator[TestClient, None, None]:
     """Create FastAPI test client with dependency overrides.
 
