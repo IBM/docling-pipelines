@@ -35,12 +35,14 @@ This comprehensive guide walks you through setting up and executing a complete D
 > All `datasift-orchestrator` commands **MUST** be run from the **project root directory** (`datasift-opensource/`).
 >
 > **Correct:**
+>
 > ```bash
 > # From project root (datasift-opensource/)
 > datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flow_invoice.json
 > ```
 >
 > **Incorrect:**
+>
 > ```bash
 > # From datasift directory - WILL FAIL with ModuleNotFoundError
 > cd src/datasift
@@ -67,6 +69,7 @@ The `setup_datasift_environment.sh` script automates the entire setup process, i
 ```
 
 This single command will:
+
 - Verify Python 3.12 installation
 - Install uv package manager
 - Install and start Ollama
@@ -101,29 +104,32 @@ For more control over what gets installed:
 
 #### Available Options
 
-| Option | Description |
-|--------|-------------|
-| `--interactive` | Enable interactive mode with prompts for each step |
+| Option                   | Description                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------ |
+| `--interactive`          | Enable interactive mode with prompts for each step                                   |
 | `--models MODEL1,MODEL2` | Specify Ollama models (comma-separated). Default: granite4,llama3.2,nomic-embed-text |
-| `--skip-ollama` | Skip Ollama installation and setup |
-| `--skip-opensearch` | Skip OpenSearch installation and setup |
-| `--skip-python` | Skip Python environment setup |
-| `--help` | Show help message with all options |
+| `--skip-ollama`          | Skip Ollama installation and setup                                                   |
+| `--skip-opensearch`      | Skip OpenSearch installation and setup                                               |
+| `--skip-python`          | Skip Python environment setup                                                        |
+| `--help`                 | Show help message with all options                                                   |
 
 #### What the Script Installs
 
 **Python Environment:**
+
 - Verifies Python 3.12 is installed
 - Installs uv package manager
 - Creates virtual environment in `src/datasift/.venv`
 - Installs all project dependencies
 
 **Ollama (for LLM operations):**
+
 - Installs Ollama server
 - Starts Ollama service on `http://localhost:11434`
 - Downloads specified models (default: granite4, llama3.2, nomic-embed-text)
 
 **OpenSearch (for vector storage):**
+
 - Installs Podman or uses existing Docker
 - Installs podman-compose
 - Starts OpenSearch on `http://localhost:9200`
@@ -133,6 +139,7 @@ For more control over what gets installed:
 #### After Setup Completes
 
 The script creates two files:
+
 - `.datasift_setup_config` - Configuration settings
 - `datasift_setup.log` - Detailed setup log
 
@@ -147,6 +154,7 @@ assets_management:
 ```
 
 Override precedence for flow storage:
+
 1. `LOCAL_FLOWS_DIR` environment variable
 2. `assets_management.flow_repository.config.base_dir` in `datasift.yaml`
 3. Default fallback: `~/Documents/pipeline/assets`
@@ -154,19 +162,22 @@ Override precedence for flow storage:
 **Next steps:**
 
 1. Set PYTHONPATH from project root:
+
    ```bash
    export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
    ```
-   
+
    > **Warning:** This must be run from the project root directory (`datasift-opensource`), not from the datasift subdirectory. The PYTHONPATH must point to the datasift directory as the source root for Python imports to work correctly.
 
 2. Activate the virtual environment:
+
    ```bash
    # From project root
    source .venv/bin/activate
    ```
 
 3. Verify installation:
+
    ```bash
    datasift-orchestrator --help
    ```
@@ -179,23 +190,28 @@ Override precedence for flow storage:
 #### Troubleshooting the Setup Script
 
 **Script fails with "Python 3.12 not found":**
+
 - Install Python 3.12 manually (see [Prerequisites](#2-prerequisites-and-installation))
 - Run the script again
 
 **Ollama fails to start:**
+
 - Check if port 11434 is already in use: `lsof -i :11434`
 - Start manually: `ollama serve`
 
 **OpenSearch fails to start:**
+
 - Check if ports 9200 or 5601 are in use
 - View logs: `podman-compose -f docker/docker-compose.opensearch.yml logs`
 - Ensure you're in the project root directory
 
 **Permission denied errors:**
+
 - Make script executable: `chmod +x scripts/setup_datasift_environment.sh`
 - Some operations may require sudo (script will prompt)
 
 **Want to start fresh?**
+
 ```bash
 # Stop services
 podman-compose -f docker/docker-compose.opensearch.yml down
@@ -283,12 +299,14 @@ job_management:
 ```
 
 This allows users to configure:
+
 - the job framework type under [`job_management.framework.type`](src/datasift/config/datasift.yaml:9)
 - the job stats store backend under [`job_management.store.type`](src/datasift/config/datasift.yaml:12)
 - the job stats store runtime config under [`job_management.store.config`](src/datasift/config/datasift.yaml:15)
 - the flow repository separately under [`assets_management.flow_repository`](src/datasift/config/datasift.yaml:1)
 
 Common overrides include:
+
 - `DATASIFT_CONFIG_PATH`
 - `DATASIFT_STORAGE_BACKEND`
 - `DATASIFT_FRAMEWORK_TYPE`
@@ -300,6 +318,7 @@ Common overrides include:
 - `DATASIFT_POSTGRES_PASSWORD`
 
 Effective precedence for job-management runtime selection is:
+
 1. explicit environment overrides
 2. values from [`datasift.yaml`](src/datasift/config/datasift.yaml)
 3. built-in defaults in [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py)
@@ -309,6 +328,7 @@ Effective precedence for job-management runtime selection is:
 JSON storage is useful for single-host execution and simple local testing.
 
 Important requirements:
+
 - the job stats base directory must be writable
 - for distributed Prefect workers, the configured path must resolve to the same shared filesystem location for the submitter and workers
 - local-only paths on the submitter machine are not sufficient for distributed workers
@@ -344,6 +364,7 @@ Important notes:
 PostgreSQL is the recommended backend for multi-process and distributed execution because it provides durable shared storage and stronger concurrency behavior than file-backed JSON storage.
 
 Use PostgreSQL when:
+
 - multiple workers need to update job stats concurrently
 - workers do not share a reliable filesystem path
 - you need a single durable backend for job status APIs
@@ -360,6 +381,7 @@ See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job
 For distributed Prefect execution, work pool runtime configuration is modeled in [`work_pool_config.py`](src/datasift/core/orchestrator/prefect/config/work_pool_config.py) and applied by [`WorkPoolAdapter`](src/datasift/core/orchestrator/prefect/adapters/work_pool_adapter.py).
 
 Important behavior:
+
 - worker `env` values configured directly in the work pool take highest precedence
 - if job-management env values are omitted from the work pool config, workers inherit the submitter's effective job-management configuration
 - the inherited effective configuration is resolved from:
@@ -387,11 +409,13 @@ python --version
 If you need to install Python 3.12:
 
 **macOS (using Homebrew):**
+
 ```bash
 brew install python@3.12
 ```
 
 **Linux (Ubuntu/Debian):**
+
 ```bash
 sudo apt update
 sudo apt install python3.12 python3.12-venv
@@ -402,11 +426,13 @@ sudo apt install python3.12 python3.12-venv
 uv is a fast Python package manager that DataSift uses for dependency management.
 
 **Install uv:**
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 **Verify installation:**
+
 ```bash
 uv --version
 ```
@@ -440,23 +466,27 @@ ffmpeg -version
 ### Cloning and Setting Up the Project
 
 **1. Clone the repository:**
+
 ```bash
 git clone https://github.ibm.com/wdp-gov/datasift-opensource.git
 cd datasift-opensource
 ```
 
 > **Note:** If you already have the repository cloned, simply navigate to it:
+>
 > ```bash
 > cd datasift-opensource
 > ```
 
 **2. Create virtual environment and install dependencies:**
+
 ```bash
 # From project root
 uv sync --extra dev
 ```
 
 This command:
+
 - Installs CPython 3.12.13 in a virtual environment (`.venv/` at project root)
 - Installs all project dependencies
 - Installs development dependencies
@@ -464,12 +494,14 @@ This command:
 **3. Activate the virtual environment:**
 
 **macOS/Linux:**
+
 ```bash
 # From project root
 source .venv/bin/activate
 ```
 
 **Windows:**
+
 ```bash
 # From project root
 .venv\Scripts\activate
@@ -494,6 +526,7 @@ Ollama provides local LLM capabilities for generating embeddings. The DataSift p
 ### Installing Ollama
 
 **macOS:**
+
 ```bash
 brew install ollama
 ```
@@ -501,6 +534,7 @@ brew install ollama
 Or download from: https://ollama.ai/download
 
 **Linux:**
+
 ```bash
 curl -fsSL https://ollama.ai/install.sh | sh
 ```
@@ -511,6 +545,7 @@ Download the installer from: https://ollama.ai/download
 ### Starting the Ollama Server
 
 **Start Ollama in the background:**
+
 ```bash
 ollama serve
 ```
@@ -524,21 +559,25 @@ The server will run on `http://localhost:11434` by default.
 DataSift supports multiple Ollama models. For this guide, we'll use three models:
 
 **1. Download granite4 (recommended for general use):**
+
 ```bash
 ollama pull granite4
 ```
 
 **2. Download llama3.2 (optional - alternative model):**
+
 ```bash
 ollama pull llama3.2
 ```
 
 **3. Download nomic-embed-text (optimized for embeddings):**
+
 ```bash
 ollama pull nomic-embed-text
 ```
 
 **Model sizes and download times:**
+
 - `granite4`: ~2.5GB (5-10 minutes)
 - `llama3.2`: ~2GB (5-10 minutes)
 - `nomic-embed-text`: ~274MB (1-2 minutes)
@@ -546,6 +585,7 @@ ollama pull nomic-embed-text
 ### Verifying Ollama is Running
 
 **Check server status:**
+
 ```bash
 curl http://localhost:11434/api/tags
 ```
@@ -577,24 +617,28 @@ You should see a JSON response listing your downloaded models:
 ### Troubleshooting Common Ollama Issues
 
 **Issue: "Connection refused" error**
+
 ```bash
 # Solution: Start the Ollama server
 ollama serve
 ```
 
 **Issue: "Model not found" error**
+
 ```bash
 # Solution: Pull the model first
 ollama pull granite4
 ```
 
 **Issue: Ollama using too much memory**
+
 ```bash
 # Solution: Use a smaller model
 ollama pull nomic-embed-text  # Only 274MB
 ```
 
 **Issue: Slow model downloads**
+
 ```bash
 # Solution: Download smaller models first, or use a faster internet connection
 ollama pull nomic-embed-text  # Fastest download
@@ -609,6 +653,7 @@ OpenSearch is a vector database that stores embeddings and enables similarity se
 ### Installing Podman
 
 **macOS:**
+
 ```bash
 brew install podman
 podman machine init
@@ -616,22 +661,26 @@ podman machine start
 ```
 
 **Linux (Fedora/RHEL/CentOS):**
+
 ```bash
 sudo dnf install podman
 ```
 
 **Linux (Ubuntu/Debian):**
+
 ```bash
 sudo apt update
 sudo apt install podman
 ```
 
 **Verify installation:**
+
 ```bash
 podman --version
 ```
 
 **Install podman-compose:**
+
 ```bash
 pip install podman-compose
 ```
@@ -643,11 +692,13 @@ DataSift includes a pre-configured `docker/docker-compose.opensearch.yml` file.
 **1. Start OpenSearch:**
 
 Using Podman:
+
 ```bash
 podman compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 Using Docker:
+
 ```bash
 docker compose -f docker/docker-compose.opensearch.yml up -d
 ```
@@ -655,17 +706,20 @@ docker compose -f docker/docker-compose.opensearch.yml up -d
 **2. Wait for services to start (30-60 seconds):**
 
 The compose file starts two services:
+
 - **opensearch-node**: The OpenSearch server
 - **opensearch-dashboards**: Web UI for OpenSearch
 
 ### Verifying OpenSearch is Running
 
 **Check cluster health:**
+
 ```bash
 curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 ```
 
 **Expected response:**
+
 ```json
 {
   "cluster_name": "opensearch-cluster",
@@ -682,6 +736,7 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 ```
 
 **Status meanings:**
+
 - `green`: All shards allocated, cluster healthy
 - `yellow`: Primary shards allocated, some replicas missing (normal for single-node)
 - `red`: Some primary shards not allocated, cluster unhealthy
@@ -691,15 +746,18 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 OpenSearch Dashboards provides a web interface for managing and querying your data.
 
 **1. Open in browser:**
+
 ```
 http://localhost:5601
 ```
 
 **2. Login with default credentials:**
+
 - **Username:** `admin`
 - **Password:** `MyStrongPass123!`
 
 **3. Explore the interface:**
+
 - **Dev Tools**: Run queries and commands
 - **Index Management**: View and manage indices
 - **Discover**: Search and visualize data
@@ -707,16 +765,19 @@ http://localhost:5601
 ### Default Credentials and Security
 
 **Default credentials (from docker/docker-compose.opensearch.yml):**
+
 - **Username:** `admin`
 - **Password:** `MyStrongPass123!`
 - **Port:** `9200` (API), `5601` (Dashboards)
 
 **Security notes:**
+
 - SSL is **disabled** for local development (`opensearch_use_ssl: false`)
 - Certificate verification is **disabled** (`opensearch_verify_certs: false`)
 - **Do not use these settings in production!**
 
 **For production:**
+
 - Enable SSL/TLS
 - Use strong passwords
 - Enable certificate verification
@@ -725,21 +786,25 @@ http://localhost:5601
 ### Stopping and Cleaning Up OpenSearch
 
 **Stop services (keeps data):**
+
 ```bash
 podman-compose -f docker/docker-compose.opensearch.yml down
 ```
 
 **Stop and remove data:**
+
 ```bash
 podman-compose -f docker/docker-compose.opensearch.yml down -v
 ```
 
 **View logs:**
+
 ```bash
 podman-compose -f docker/docker-compose.opensearch.yml logs -f
 ```
 
 **Restart services:**
+
 ```bash
 podman-compose -f docker/docker-compose.opensearch.yml restart
 ```
@@ -774,15 +839,15 @@ DataSift pipelines are defined using JSON configuration files. Let's understand 
 
 ### Required Top-Level Fields
 
-| Field | Type | Description | Example |
-|-------|------|-------------|---------|
-| `name` | string | Human-readable flow name | `"invoice processing flow"` |
-| `flow_id` | string | Unique identifier (UUID) | `"55578a6c-96b0-4f51-af8f-3aa63c575141"` |
-| `description` | string | Flow purpose description | `"a flow to demonstrate..."` |
-| `storage` | string | Data storage type | `"in-memory"` or `"disk"` |
-| `execute_type` | string | Execution environment | `"local"` or `"distributed"` |
-| `global_config` | object | Global configuration | See below |
-| `dag` | array | Operator nodes | See operator sections |
+| Field           | Type   | Description              | Example                                  |
+| --------------- | ------ | ------------------------ | ---------------------------------------- |
+| `name`          | string | Human-readable flow name | `"invoice processing flow"`              |
+| `flow_id`       | string | Unique identifier (UUID) | `"55578a6c-96b0-4f51-af8f-3aa63c575141"` |
+| `description`   | string | Flow purpose description | `"a flow to demonstrate..."`             |
+| `storage`       | string | Data storage type        | `"in-memory"` or `"disk"`                |
+| `execute_type`  | string | Execution environment    | `"local"` or `"distributed"`             |
+| `global_config` | object | Global configuration     | See below                                |
+| `dag`           | array  | Operator nodes           | See operator sections                    |
 
 ### Operator Configuration Examples
 
@@ -801,7 +866,7 @@ Reads files from a local directory:
     "max_workers": 2
   },
   "input_edges": [],
-  "output_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}]
+  "output_edges": [{ "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }]
 }
 ```
 
@@ -812,16 +877,19 @@ Reads files from a local directory:
 The `extract_operator` handles both text extraction and entity extraction.
 
 **Supported text extraction modes:**
+
 - `docling_library`
 - `docling_serve`
 
 **Supported entity extraction modes:**
+
 - `ollama`
 - `docling`
 - `litellm`
 - `none`
 
 **Basic Text Extraction (DEFAULT):**
+
 ```json
 {
   "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
@@ -832,8 +900,8 @@ The `extract_operator` handles both text extraction and entity extraction.
     "entity_extraction_mode": "none",
     "doc_column": "content"
   },
-  "input_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"}],
-  "output_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}]
+  "input_edges": [{ "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }],
+  "output_edges": [{ "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129" }]
 }
 ```
 
@@ -857,8 +925,8 @@ For structured data extraction with predefined schemas, use `entity_extraction_m
       "total": "float"
     }
   },
-  "input_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"}],
-  "output_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}]
+  "input_edges": [{ "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }],
+  "output_edges": [{ "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129" }]
 }
 ```
 
@@ -880,7 +948,7 @@ Splits documents into chunks:
     "chunk_overlap": 128,
     "retain_original_content": "true"
   },
-  "input_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}],
+  "input_edges": [{ "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }],
   "output_edges": ["6de879bd-bbe0-4d60-998f-031f65472a02"]
 }
 ```
@@ -901,7 +969,7 @@ Generates vector embeddings:
     "overlap_ratio": 0.2,
     "doc_column": "content"
   },
-  "input_edges": [{"node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"}],
+  "input_edges": [{ "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129" }],
   "output_edges": ["87249dbf-4a1a-433a-91da-ee5fb3244284"]
 }
 ```
@@ -1008,8 +1076,90 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 - **space_type**: Distance metric - l2, cosine, inner_product (default: l2)
 - **batch_size**: Documents per batch (default: 100)
 - **engine_parameters**: Optional engine-specific parameters (e.g., {"ef_construction": 512, "m": 16} for HNSW)
+- **schema_template_path**: Path to JSON schema template (relative to `src/datasift/core/operators/vectordb/`)
+  - Built-in templates: `schemas/default_schema.v1.json`, `schemas/document_chunks_schema.v1.json`
+  - If not specified, schema is generated dynamically from `available_features`
 
 > **⚠️ Important**: The embeddings column is mandatory. The operator validates embeddings exist in the input table and will fail if missing. You must explicitly configure embeddings in `available_features` for them to be stored in OpenSearch.
+
+#### Using Schema Templates
+
+Schema templates provide reusable index configurations with consistent settings across pipelines. Instead of defining `available_features` and `feature_mappings` manually, you can use a pre-configured template.
+
+**Benefits of Schema Templates:**
+
+- Consistent index structure across different flows
+- Pre-configured analyzers and field types
+- Automatic placeholder replacement for dynamic values
+- Reduced configuration complexity
+
+**Built-in Templates:**
+
+1. **default_schema.v1.json**: Basic schema with standard field types
+   - Suitable for general document storage
+   - Includes standard text, numeric, and vector fields
+
+2. **document_chunks_schema.v1.json**: Optimized for document chunking
+   - Custom content analyzer with stemming and stop words
+   - Optimized for semantic search on document chunks
+
+**Example with Schema Template:**
+
+```json
+{
+  "id": "opensearch_node",
+  "operator": "vectordb",
+  "config": {
+    "provider": "opensearch",
+    "index_name": "document_chunks",
+    "doc_id_column": "doc_id_hash",
+    "embeddings_column": "embeddings",
+    "create_index": true,
+    "vector_dimension": 768,
+    "provider_config": {
+      "schema_template_path": "schemas/document_chunks_schema.v1.json",
+      "host": "localhost",
+      "port": 9200,
+      "username": "admin",
+      "password": "MyStrongPass123!",  # pragma: allowlist secret
+      "use_ssl": false,
+      "verify_certs": false,
+      "engine": "faiss",
+      "algorithm": "hnsw",
+      "space_type": "l2"
+    },
+    "feature_mappings": {
+      "content": "content",
+      "doc_id_hash": "id",
+      "embeddings": "embeddings"
+    },
+    "available_features": {
+      "embeddings": {
+        "type": "vector",
+        "available_for_vector_db": true
+      },
+      "content": {
+        "type": "content_text",
+        "available_for_vector_db": true
+      },
+      "doc_id_hash": {
+        "type": "string",
+        "available_for_vector_db": true
+      }
+    }
+  }
+}
+```
+
+**Note:** When using schema templates, the template defines the index settings and field type mappings. You still need to specify `available_features` and `feature_mappings` to control which columns from your data are stored.
+
+**Automatic Metadata Aggregation:**
+
+The VectorDBOperator automatically collects common metadata fields into a `metadata` object:
+
+- `name`, `size`, `created_time`, `modified_time`, `source`, `mimetype`, `extension`, `page_count`
+- Column name aliases are automatically applied (e.g., `path` → `source`, `pages_processed` → `page_count`)
+- Missing fields like `extension` and `mimetype` are derived when possible
 
 ### How to Connect Operators Using Edges
 
@@ -1061,6 +1211,7 @@ For more sample flows and details, see [`sample_flows/README.md`](sample_flows/R
 Each operator in your flow must have a unique UUID identifier. These IDs are used to connect operators via `input_edges` and `output_edges` in the flow configuration.
 
 **UUID Requirements:**
+
 - Each operator's `id` field must be a valid UUID (format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
 - IDs must be unique across all operators in the flow
 - IDs are used to reference operators in edge connections
@@ -1083,6 +1234,7 @@ for i, operator_id in enumerate(ids, 1):
 ```
 
 **Example Output:**
+
 ```
 Operator 1 ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 Operator 2 ID: b2c3d4e5-f6a7-8901-bcde-f12345678901
@@ -1092,11 +1244,11 @@ Operator 5 ID: e5f6a7b8-c9d0-1234-ef12-345678901234
 ```
 
 **Usage:**
+
 1. Run the helper script before creating your flow.json
 2. Copy the generated UUIDs
 3. Replace placeholder IDs (like `ingest-uuid`, `extract-uuid`) in your flow configuration with the generated UUIDs
 4. Ensure the same UUID is used consistently in both the operator's `id` field and any edge references
-
 
 ### Step-by-Step Guide
 
@@ -1151,7 +1303,7 @@ EOF
 
 **Note:** Replace the placeholder UUIDs (`ingest-uuid`, `extract-uuid`, etc.) in the flow configuration below with the actual UUIDs generated in step 2.
 
-```
+````
 
 **3. Create flow.json:**
 ```bash
@@ -1284,9 +1436,10 @@ cat > my-first-flow.json << 'EOF'
   }
 }
 EOF
-```
+````
 
 **4. Validate JSON:**
+
 ```bash
 # Working directory: project root (datasift-opensource)
 
@@ -1327,6 +1480,7 @@ source .venv/bin/activate
 ### Executing the Flow
 
 **1. Ensure services are running:**
+
 ```bash
 # From project root (datasift-opensource/)
 # Check Ollama
@@ -1339,12 +1493,14 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health"
 **2. Run the flow:**
 
 **Option A: Run your custom flow**
+
 ```bash
 # From project root (datasift-opensource/)
 datasift-orchestrator --flow-file my-first-flow.json
 ```
 
 **Option B: Test with the sample flow first**
+
 ```bash
 # From project root (datasift-opensource/)
 datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
@@ -1353,6 +1509,7 @@ datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 > **Tip:** If this is your first time running a pipeline, use the sample flow to verify your setup before running custom flows.
 
 **3. With debug logging:**
+
 ```bash
 # From project root (datasift-opensource/)
 datasift-orchestrator --flow-file my-first-flow.json --log-level debug
@@ -1429,6 +1586,7 @@ GET /my_documents/_search
 This error occurs when running `datasift-orchestrator` from the wrong directory.
 
 **Symptoms:**
+
 ```
 ModuleNotFoundError: No module named 'datasift_opensource'
 ```
@@ -1436,6 +1594,7 @@ ModuleNotFoundError: No module named 'datasift_opensource'
 **Cause:** You are running the command from a subdirectory (e.g., `src/datasift/`) instead of the project root.
 
 **Solution:**
+
 ```bash
 # 1. Navigate to project root
 cd /path/to/datasift-opensource/
@@ -1455,24 +1614,28 @@ datasift-orchestrator --flow-file tests/sample_test_flows/invoice_processing/flo
 ---
 
 **Ollama connection error:**
+
 ```bash
 # Start Ollama
 ollama serve
 ```
 
 **OpenSearch connection error:**
+
 ```bash
 # Start OpenSearch
 podman-compose -f docker/docker-compose.opensearch.yml up -d
 ```
 
 **Import errors:**
+
 ```bash
 # Set PYTHONPATH from project root
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 ```
 
 **Model not found:**
+
 ```bash
 # Pull model
 ollama pull nomic-embed-text
@@ -1481,6 +1644,7 @@ ollama pull nomic-embed-text
 **Setup Script: "externally-managed-environment" Error (macOS):**
 
 If you encounter this error when running `./scripts/setup_datasift_environment.sh` on macOS:
+
 ```
 error: externally-managed-environment
 × This environment is externally managed
@@ -1491,11 +1655,13 @@ This is due to PEP 668 protection in Homebrew's Python. The updated script (as o
 **Solutions:**
 
 1. **Re-run the setup script** (recommended) - The updated script automatically uses the correct installation method:
+
    ```bash
    ./scripts/setup_datasift_environment.sh
    ```
 
 2. **Manual installation using Homebrew:**
+
    ```bash
    brew install podman-compose
    ```
@@ -1507,6 +1673,7 @@ This is due to PEP 668 protection in Homebrew's Python. The updated script (as o
    ```
 
 After installation, verify podman-compose is available:
+
 ```bash
 podman-compose --version
 ```
@@ -1514,8 +1681,9 @@ podman-compose --version
 **Setup Script: Python 3.14 libexpat Error (macOS):**
 
 If you encounter this error when running the setup script on macOS with Python 3.14 installed:
+
 ```
-ImportError: dlopen(...pyexpat.cpython-314-darwin.so, 0x0002): 
+ImportError: dlopen(...pyexpat.cpython-314-darwin.so, 0x0002):
 Symbol not found: _XML_SetAllocTrackerActivationThreshold
 ```
 
@@ -1524,11 +1692,13 @@ This is a known compatibility issue between Python 3.14 and the `libexpat` libra
 **Solutions:**
 
 1. **Re-run the setup script** (recommended) - The updated script (as of 2026-04-13) now explicitly uses Python 3.12 with pipx:
+
    ```bash
    ./scripts/setup_datasift_environment.sh
    ```
 
 2. **Manual installation with Python 3.12:**
+
    ```bash
    brew install pipx
    export PIPX_DEFAULT_PYTHON=python3.12
@@ -1541,11 +1711,10 @@ This is a known compatibility issue between Python 3.14 and the `libexpat` libra
    ```
 
 After installation, verify podman-compose is available:
+
 ```bash
 podman-compose --version
 ```
-
-
 
 ### Debug Logging
 
@@ -1589,6 +1758,7 @@ datasift-orchestrator --list-operators --verbose
 The [`DatasiftFlowManager`](src/datasift/datasift_flow_manager.py) class provides a Python API for programmatic flow execution, offering greater flexibility than the CLI for integration scenarios.
 
 **When to Use the Programmatic API:**
+
 - **Jupyter Notebooks**: Interactive data exploration and pipeline development
 - **Custom Workflows**: Integration with existing Python applications
 - **Dynamic Flow Generation**: Creating flows programmatically based on runtime conditions
@@ -1596,6 +1766,7 @@ The [`DatasiftFlowManager`](src/datasift/datasift_flow_manager.py) class provide
 - **Multi-tenant Systems**: Generating and executing flows per tenant or dataset
 
 **Key Benefits:**
+
 - **Flexibility**: Define flows as Python dictionaries or load from JSON files
 - **Error Handling**: Programmatic access to validation results and execution logs
 - **Metadata Access**: Retrieve execution metadata, job IDs, and flow information
@@ -1644,25 +1815,25 @@ from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 def execute_flow():
     """Execute a flow file with basic error handling."""
     flow_file = Path("sample_flows/complete_pipeline_flow.json")
-    
+
     try:
         # Initialize the manager with a flow file
         manager = DatasiftFlowManager(
             flow_file=str(flow_file),
             log_level="info",
         )
-        
+
         print(f"Loaded flow file: {flow_file}")
-        
+
         # Execute the flow
         result = manager.execute()
-        
+
         # Access execution metadata
         metadata = manager.get_execution_metadata()
         print(f"Flow executed successfully")
         print(f"Job ID: {metadata.get('job_id')}")
         print(f"Flow Name: {metadata.get('name')}")
-        
+
     except FileNotFoundError as exc:
         print(f"Flow file not found: {exc}")
     except ValueError as exc:
@@ -1673,7 +1844,6 @@ def execute_flow():
 if __name__ == "__main__":
     execute_flow()
 ```
-
 
 ### 11.4 Execute Flow from Dictionary
 
@@ -1777,16 +1947,16 @@ def execute_inline_flow():
         input_folder="./sample_documents",
         index_name="inline-documents-index"
     )
-    
+
     try:
         manager = DatasiftFlowManager(
             flow_def=flow_def,
             log_level="info",
         )
-        
+
         result = manager.execute()
         print("Inline flow executed successfully")
-        
+
     except Exception as exc:
         print(f"Execution failed: {exc}")
 
@@ -1795,10 +1965,10 @@ if __name__ == "__main__":
 ```
 
 **Use Cases:**
+
 - **Dynamic Flow Generation**: Create flows based on runtime parameters (tenant ID, dataset type, etc.)
 - **Template-Based Flows**: Build flow templates and customize per execution
 - **Configuration Management**: Generate flows from external configuration systems
-
 
 ### 11.5 Jupyter Notebook Integration
 
@@ -1870,11 +2040,11 @@ print('Inspect these objects: result, metadata, logs')
 ```
 
 **Benefits in Notebooks:**
+
 - **Cell-by-Cell Execution**: Run validation, execution, and analysis in separate cells
 - **Interactive Debugging**: Inspect results, metadata, and logs interactively
 - **Visualization**: Combine with pandas/matplotlib for result visualization
 - **Documentation**: Embed explanations and results in notebook format
-
 
 ### 11.6 Validation Before Execution
 
@@ -1891,37 +2061,38 @@ def validate_and_execute(flow_file: str):
         flow_file=flow_file,
         log_level="info",
     )
-    
+
     # Validate the flow
     validation_result = manager.validate()
-    
+
     print("Validation Results:")
     print(f"  Valid: {validation_result['valid']}")
     print(f"  Errors: {validation_result['errors']}")
     print(f"  Warnings: {validation_result['warnings']}")
-    
+
     # Only execute if validation passes
     if not validation_result["valid"]:
         print("Validation failed. Aborting execution.")
         for error in validation_result["errors"]:
             print(f"  ERROR: {error}")
         return None
-    
+
     # Show warnings but continue
     if validation_result["warnings"]:
         print("Warnings detected:")
         for warning in validation_result["warnings"]:
             print(f"  WARNING: {warning}")
-    
+
     # Execute after successful validation
     print("Validation passed. Executing flow...")
     result = manager.execute()
     print("Execution completed successfully.")
-    
+
     return result
 ```
 
 **Validation Checks:**
+
 - **Operator Configuration**: Validates operator parameters and types
 - **Edge Connectivity**: Ensures proper connections between operators
 - **Required Fields**: Checks for missing required configuration fields
@@ -2014,7 +2185,7 @@ def execute_with_error_handling(flow_file: str):
             flow_file=flow_file,
             log_level="debug",  # Use "debug" for detailed logs
         )
-        
+
         # Validate first
         validation_result = manager.validate()
         if not validation_result["valid"]:
@@ -2022,33 +2193,33 @@ def execute_with_error_handling(flow_file: str):
             for error in validation_result["errors"]:
                 print(f"  - {error}")
             return None
-        
+
         # Execute the flow
         result = manager.execute()
-        
+
         # Log success
         metadata = manager.get_execution_metadata()
         print(f"Success: {metadata.get('name')} completed")
-        
+
         return result
-        
+
     except FileNotFoundError as exc:
         print(f"Flow file not found: {exc}")
         print("Check the file path and ensure it exists.")
-        
+
     except ValueError as exc:
         print(f"Invalid configuration value: {exc}")
         print("Review operator parameters in the flow definition.")
-        
+
     except ConnectionError as exc:
         print(f"Connection error: {exc}")
         print("Check Ollama (port 11434) and OpenSearch (port 9200) are running.")
-        
+
     except Exception as exc:
         print(f"Unexpected error: {exc}")
         print("\nFull traceback:")
         print(traceback.format_exc())
-        
+
         # Retrieve logs for debugging
         try:
             logs = manager.get_execution_logs()
@@ -2057,7 +2228,7 @@ def execute_with_error_handling(flow_file: str):
                 print(line)
         except:
             print("Could not retrieve execution logs.")
-    
+
     return None
 ```
 
@@ -2094,7 +2265,6 @@ for i, line in enumerate(logs):
             print(f"  {logs[j]}")
 ```
 
-
 ---
 
 ### Production Considerations
@@ -2121,12 +2291,14 @@ By default, DataSift runs Prefect in **ephemeral mode** with a temporary in-memo
 - Quick prototyping and learning
 
 **How it works:**
+
 - Prefect server runs temporarily in-memory
 - No external Prefect server setup required
 - Automatic cleanup after execution
 - Zero configuration needed
 
 **Usage:**
+
 ```bash
 # Simply run your flow - Prefect ephemeral mode is automatic
 datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
@@ -2137,12 +2309,14 @@ datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 For production workloads and large-scale processing, DataSift supports **Prefect's distributed execution** using work pools and workers.
 
 **When to use:**
+
 - Processing large document collections (1000+ documents)
 - Horizontal scaling across multiple machines
 - Production deployments with high availability
 - Resource-intensive operations requiring distributed processing
 
 **Deployment options:**
+
 1. **Local POC**: Test distributed patterns with Prefect server and workers on a single machine
 2. **Docker Compose**: Multi-worker setup with containerized Prefect infrastructure
 3. **Kubernetes**: Production-grade Prefect deployment with auto-scaling
@@ -2152,6 +2326,7 @@ For complete setup instructions, work pool configuration, and deployment guides,
 **[Prefect Distributed Execution Guide](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)**
 
 This guide covers:
+
 - Prefect server and work pool setup
 - Worker deployment for different environments
 - Batch storage strategies (inline and local filesystem)

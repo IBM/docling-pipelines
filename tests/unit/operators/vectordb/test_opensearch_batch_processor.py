@@ -116,7 +116,7 @@ class TestDocumentPreparation:
             "embeddings": [0.1, 0.2, 0.3],
         }
 
-        doc = processor.prepare_document(row_data)
+        doc = processor.prepare_document(row_data=row_data)
 
         assert doc["pk"] == "doc1"
         assert doc["text"] == "Test content"
@@ -137,7 +137,7 @@ class TestDocumentPreparation:
             "embeddings": [0.1, 0.2, 0.3],
         }
 
-        doc = processor.prepare_document(row_data)
+        doc = processor.prepare_document(row_data=row_data)
 
         assert doc["pk"] == "doc1"
         assert "text" not in doc  # None values should be excluded
@@ -160,7 +160,7 @@ class TestDocumentPreparation:
             "embeddings": np.array([0.1, 0.2, 0.3]),
         }
 
-        doc = processor.prepare_document(row_data)
+        doc = processor.prepare_document(row_data=row_data)
 
         assert isinstance(doc["vector_embeddings"], list)
         assert doc["vector_embeddings"] == [0.1, 0.2, 0.3]
@@ -182,7 +182,7 @@ class TestDocumentPreparation:
             "metadata": json.dumps(metadata_dict),
         }
 
-        doc = processor.prepare_document(row_data)
+        doc = processor.prepare_document(row_data=row_data)
 
         assert doc["meta"] == metadata_dict
 
@@ -202,7 +202,7 @@ class TestDocumentPreparation:
             "metadata": "invalid json {",
         }
 
-        doc = processor.prepare_document(row_data)
+        doc = processor.prepare_document(row_data=row_data)
 
         # Should keep as string if JSON parsing fails
         assert doc["meta"] == "invalid json {"
@@ -232,7 +232,7 @@ class TestDocumentPreparation:
             "excluded": "value2",
         }
 
-        doc = processor.prepare_document(row_data)
+        doc = processor.prepare_document(row_data=row_data)
 
         assert "included" in doc
         assert "excluded" not in doc

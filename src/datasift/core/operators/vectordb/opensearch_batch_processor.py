@@ -20,6 +20,27 @@ MAX_BATCH_SIZE_MB: int = 3  # Maximum batch size in MB
 BULK_INSERT_TIMEOUT: int = 180  # 3 minutes timeout
 BULK_DELETE_BATCH_SIZE: int = 500
 
+# Predefined metadata columns to auto-aggregate
+METADATA_COLUMNS: list[str] = [
+    "name",
+    "size",
+    "created_time",
+    "modified_time",
+    "source",
+    "mimetype",
+    "extension",
+    "page_count",
+]
+
+# Column name aliases for normalization
+# Maps target metadata field names to possible source column names
+METADATA_COLUMN_ALIASES: dict[str, list[str]] = {
+    "source": ["source", "path"],  # Accept either name
+    "page_count": ["page_count", "pages_processed"],  # Accept either name
+    "extension": ["extension"],  # Will derive from name/path if missing
+    "mimetype": ["mimetype", "mime_type", "content_type"],  # Accept variations
+}
+
 
 class OpenSearchBatchProcessor:
     """
@@ -35,6 +56,7 @@ class OpenSearchBatchProcessor:
 
     def __init__(
         self,
+        *,
         client: OpenSearch,
         index_name: str,
         batch_size: int = DEFAULT_BATCH_SIZE,
@@ -57,13 +79,12 @@ class OpenSearchBatchProcessor:
         self.available_features = available_features or {}
         self.feature_mappings = feature_mappings or {}
 
-    def prepare_document(self, row_data: dict[str, Any]) -> dict[str, Any]:
+    def prepare_document(self, *, row_data: dict[str, Any]) -> dict[str, Any]:
         """
         Prepare a document for indexing by mapping columns to index fields.
 
-        Only fields explicitly listed in feature_mappings will be included in the
-        indexed document. This ensures predictable behavior and matches the
-        documented configuration pattern.
+        Automatically aggregates predefined metadata columns into a 'metadata' object.
+        Metadata columns can also be individually mapped via feature_mappings.
 
         Args:
             row_data: Raw row data from PyArrow table
@@ -73,7 +94,7 @@ class OpenSearchBatchProcessor:
         """
         doc: dict[str, Any] = {}
 
-        # Process only fields defined in feature_mappings
+        # Process fields defined in feature_mappings
         for feature_name, mapped_name in self.feature_mappings.items():
             # Get value from row data
             value = row_data.get(feature_name)
@@ -107,7 +128,95 @@ class OpenSearchBatchProcessor:
 
             doc[mapped_name] = value
 
+        # Auto-aggregate metadata columns
+        metadata_obj = self._aggregate_metadata_columns(row_data=row_data)
+        if metadata_obj:
+            doc["metadata"] = metadata_obj
+
         return doc
+
+    def _normalize_metadata_column(self, *, row_data: dict[str, Any], target_name: str) -> Any:
+        """
+        Normalize metadata column names and derive missing values.
+
+        Args:
+            row_data: Row data dictionary
+            target_name: Target metadata field name
+
+        Returns:
+            Value for the metadata field, or None if not available
+        """
+        # Check aliases first
+        if target_name in METADATA_COLUMN_ALIASES:
+            for alias in METADATA_COLUMN_ALIASES[target_name]:
+                if alias in row_data and row_data[alias] is not None:
+                    return row_data[alias]
+
+        # Derive extension from name or path
+        if target_name == "extension":
+            for source_col in ["name", "path", "source"]:
+                if row_data.get(source_col):
+                    path_str = str(row_data[source_col])
+                    if "." in path_str:
+                        return path_str.rsplit(".", 1)[-1].lower()
+            return None
+
+        # Derive mimetype from extension (basic mapping)
+        if target_name == "mimetype":
+            extension = self._normalize_metadata_column(row_data=row_data, target_name="extension")
+            if extension:
+                # Basic MIME type mapping
+                mime_map = {
+                    "pdf": "application/pdf",
+                    "txt": "text/plain",
+                    "json": "application/json",
+                    "xml": "application/xml",
+                    "html": "text/html",
+                    "md": "text/markdown",
+                    "csv": "text/csv",
+                    "doc": "application/msword",
+                    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "xls": "application/vnd.ms-excel",
+                    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                }
+                return mime_map.get(extension)
+            return None
+
+        # For columns without aliases, check direct column name
+        if target_name in row_data:
+            return row_data[target_name]
+
+        return None
+
+    def _aggregate_metadata_columns(self, *, row_data: dict[str, Any]) -> dict[str, Any]:
+        """
+        Aggregate predefined metadata columns into a single metadata object.
+        Uses column name normalization and derivation for missing fields.
+
+        Args:
+            row_data: Row data dictionary
+
+        Returns:
+            Dictionary containing aggregated metadata
+        """
+        metadata: dict[str, Any] = {}
+
+        for col_name in METADATA_COLUMNS:
+            # Use normalization to get value
+            value = self._normalize_metadata_column(row_data=row_data, target_name=col_name)
+
+            if value is not None:
+                # Skip binary data
+                if isinstance(value, (bytes, bytearray)):
+                    continue
+
+                # Convert numpy arrays to lists
+                if hasattr(value, "tolist"):
+                    value = value.tolist()
+
+                metadata[col_name] = value
+
+        return metadata
 
     def calculate_batch_size_bytes(self, documents: list[dict[str, Any]]) -> int:
         """
@@ -197,7 +306,7 @@ class OpenSearchBatchProcessor:
         max_batch_size_bytes: int = MAX_BATCH_SIZE_MB * 1024 * 1024
 
         for doc_id, doc in documents:
-            prepared_doc = self.prepare_document(doc)
+            prepared_doc = self.prepare_document(row_data=doc)
 
             action: dict[str, Any] = {
                 "_index": self.index_name,

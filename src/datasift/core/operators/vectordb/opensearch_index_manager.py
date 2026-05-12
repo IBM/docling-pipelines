@@ -4,6 +4,10 @@ OpenSearch Index Manager
 Handles index creation, validation, and schema management for OpenSearch.
 """
 
+import json
+from copy import deepcopy
+from importlib.resources import as_file, files
+from pathlib import Path
 from typing import Any, ClassVar
 
 import pyarrow as pa
@@ -76,6 +80,7 @@ class OpenSearchIndexManager:
     def __init__(
         self,
         client: OpenSearch,
+        *,
         index_name: str,
         engine: str = "faiss",
         algorithm: str = "hnsw",
@@ -86,6 +91,7 @@ class OpenSearchIndexManager:
         available_features: dict[str, Any] | None = None,
         feature_mappings: dict[str, str] | None = None,
         embeddings_column: str = "embeddings",
+        schema_template_path: str | None = None,
     ) -> None:
         """
         Initialize the index manager.
@@ -102,6 +108,7 @@ class OpenSearchIndexManager:
             available_features: Feature configuration
             feature_mappings: Column to field mappings
             embeddings_column: Name of embeddings column
+            schema_template_path: Optional path to JSON schema template file
         """
         self.client = client
         self.index_name = index_name
@@ -114,6 +121,7 @@ class OpenSearchIndexManager:
         self.available_features = available_features or {}
         self.feature_mappings = feature_mappings or {}
         self.embeddings_column = embeddings_column
+        self.schema_template_path = schema_template_path
 
         self._validate_engine_algorithm()
 
@@ -215,6 +223,527 @@ class OpenSearchIndexManager:
             logger.warning(f"Error detecting vector dimension: {e!s}")
             return None
 
+    def _load_schema_template(self) -> dict[str, Any] | None:
+        """
+        Load JSON schema template from file path.
+
+        Uses a hybrid approach:
+        - Absolute paths: Load from filesystem
+        - Relative paths: Load from package resources (schemas/ directory)
+          Uses only the filename to prevent path traversal attacks
+
+        Returns:
+            Loaded schema dictionary, or None if file not found (triggers fallback)
+        """
+        if not self.schema_template_path:
+            return None
+
+        schema_path = Path(self.schema_template_path)
+
+        # Load schema content
+        try:
+            if schema_path.is_absolute():
+                # Absolute path: load from filesystem
+                if not schema_path.exists():
+                    logger.warning(
+                        f"Schema template file not found: {schema_path}. Falling back to dynamic schema generation."
+                    )
+                    return None
+
+                with open(schema_path) as f:
+                    schema = json.load(f)
+                logger.info(f"Loaded schema template from filesystem: {schema_path}")
+            else:
+                # Relative path: load from package resources
+                # Use only the filename to prevent path traversal
+                template_name = schema_path.name
+                try:
+                    resource = files("datasift.core.operators.vectordb").joinpath("schemas", template_name)
+
+                    # Use as_file() for better compatibility with zipped wheels and containers
+                    with as_file(resource) as resource_path:
+                        with open(resource_path) as f:
+                            schema = json.load(f)
+
+                    logger.info(f"Loaded schema template from package resources: schemas/{template_name}")
+                except (FileNotFoundError, AttributeError) as e:
+                    logger.warning(
+                        f"Schema template not found in package resources: schemas/{template_name}. "
+                        f"Falling back to dynamic schema generation. Error: {e}"
+                    )
+                    return None
+
+            # Validate schema only if it has schema_name and schema_version
+            # (i.e., it's a formal schema template, not a test schema)
+            schema_copy = deepcopy(schema)
+            if "schema_name" in schema_copy and "schema_version" in schema_copy:
+                self._validate_schema(schema=schema_copy)
+
+            return schema_copy
+        except json.JSONDecodeError as e:
+            logger.warning(
+                f"Invalid JSON in schema template {self.schema_template_path}: {e}. "
+                f"Falling back to dynamic schema generation."
+            )
+            return None
+        except Exception as e:
+            logger.warning(
+                f"Error loading schema template {self.schema_template_path}: {e}. "
+                f"Falling back to dynamic schema generation."
+            )
+            return None
+
+    def _replace_placeholders(self, *, obj: Any) -> Any:
+        """
+        Recursively replace placeholders in schema template.
+
+        Placeholders:
+            __VECTOR_DIMENSION__ -> self.vector_dimension
+            __ENGINE__ -> self.engine
+            __ALGORITHM__ -> self.algorithm
+            __SPACE_TYPE__ -> self.space_type
+            __ENGINE_PARAMETERS__ -> self._get_engine_parameters()
+
+        Args:
+            obj: Object to process (dict, list, or primitive)
+
+        Returns:
+            Object with placeholders replaced
+        """
+        if isinstance(obj, dict):
+            return {k: self._replace_placeholders(obj=v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [self._replace_placeholders(obj=item) for item in obj]
+        elif isinstance(obj, str):
+            # Check if entire string is a placeholder
+            if obj == "__VECTOR_DIMENSION__":
+                return self.vector_dimension
+            elif obj == "__ENGINE__":
+                return self.engine
+            elif obj == "__ALGORITHM__":
+                return self.algorithm
+            elif obj == "__SPACE_TYPE__":
+                return self.space_type
+            elif obj == "__ENGINE_PARAMETERS__":
+                return self._get_engine_parameters()
+
+            # Otherwise, replace placeholders within string
+            result = obj
+            replacements = {
+                "__VECTOR_DIMENSION__": str(self.vector_dimension),
+                "__ENGINE__": self.engine,
+                "__ALGORITHM__": self.algorithm,
+                "__SPACE_TYPE__": self.space_type,
+            }
+            for placeholder, value in replacements.items():
+                if placeholder in result:
+                    result = result.replace(placeholder, value)
+            return result
+        else:
+            return obj
+
+    def _validate_schema(self, *, schema: dict[str, Any]) -> None:
+        """
+        Validate schema structure and configuration.
+
+        Validates:
+        - Schema metadata (name, version)
+        - Required OpenSearch sections
+        - Vector field configuration
+        - Parameter ranges
+        - Nested field depth
+        - Analyzer references
+
+        Args:
+            schema: Schema dictionary to validate
+
+        Raises:
+            DatasiftException: If schema validation fails
+        """
+        # A. Schema metadata validation
+        if "schema_name" not in schema:
+            raise DatasiftException(
+                message="Schema missing required 'schema_name' field",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        if "schema_version" not in schema:
+            raise DatasiftException(
+                message="Schema missing required 'schema_version' field",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        # Validate version is positive integer
+        schema_version = schema["schema_version"]
+        if not isinstance(schema_version, int) or schema_version <= 0:
+            raise DatasiftException(
+                message=f"Schema version must be a positive integer, got: {schema_version}",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        # B. Required OpenSearch sections
+        if "settings" not in schema:
+            raise DatasiftException(
+                message="Schema missing required 'settings' section",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        if "mappings" not in schema:
+            raise DatasiftException(
+                message="Schema missing required 'mappings' section",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        mappings = schema.get("mappings", {})
+        if "properties" not in mappings:
+            raise DatasiftException(
+                message="Schema mappings missing required 'properties' section",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        # C. Vector field validation
+        self._validate_vector_fields(schema=schema)
+
+        # D. Parameter validation
+        self._validate_parameters(schema=schema)
+
+        # E. Nested field depth
+        self._validate_field_depth(schema=schema)
+
+        # F. Analyzer validation
+        self._validate_analyzers(schema=schema)
+
+    def _validate_vector_fields(self, *, schema: dict[str, Any]) -> None:
+        """
+        Validate vector field configuration in schema.
+
+        Args:
+            schema: Schema dictionary to validate
+
+        Raises:
+            DatasiftException: If vector field validation fails
+        """
+        properties = schema.get("mappings", {}).get("properties", {})
+
+        # Find all knn_vector fields
+        vector_fields = []
+        for field_name, field_config in properties.items():
+            if isinstance(field_config, dict) and field_config.get("type") == "knn_vector":
+                vector_fields.append((field_name, field_config))
+
+        # Validate at least one vector field exists
+        if not vector_fields:
+            raise DatasiftException(
+                message="Schema must contain at least one 'knn_vector' field",
+                status_code=400,
+                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+            )
+
+        # Validate each vector field
+        for field_name, field_config in vector_fields:
+            # Validate dimension
+            dimension = field_config.get("dimension")
+            if dimension is None:
+                raise DatasiftException(
+                    message=f"Vector field '{field_name}' missing required 'dimension' property",
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
+
+            if not isinstance(dimension, int) or dimension <= 0:
+                raise DatasiftException(
+                    message=f"Vector field '{field_name}' dimension must be positive integer, got: {dimension}",
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
+
+            # Validate method configuration
+            method = field_config.get("method", {})
+            if not isinstance(method, dict):
+                raise DatasiftException(
+                    message=f"Vector field '{field_name}' method must be a dictionary",
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
+
+            # Validate engine
+            engine = method.get("engine")
+            if engine and engine not in OpenSearchEngineTypes.ALL_ENGINES:
+                raise DatasiftException(
+                    message=f"Vector field '{field_name}' has invalid engine '{engine}'. "
+                    f"Supported: {OpenSearchEngineTypes.ALL_ENGINES}",
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
+
+            # Validate algorithm
+            algorithm = method.get("name")
+            if algorithm and algorithm not in OpenSearchAlgorithmTypes.ALL_ALGORITHMS:
+                raise DatasiftException(
+                    message=f"Vector field '{field_name}' has invalid algorithm '{algorithm}'. "
+                    f"Supported: {OpenSearchAlgorithmTypes.ALL_ALGORITHMS}",
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
+
+            # Validate engine/algorithm compatibility
+            if engine and algorithm:
+                supported_algorithms = ENGINE_ALGORITHM_SUPPORT.get(engine, [])
+                if algorithm not in supported_algorithms:
+                    raise DatasiftException(
+                        message=f"Vector field '{field_name}': algorithm '{algorithm}' not supported by engine '{engine}'. "
+                        f"Supported algorithms: {supported_algorithms}",
+                        status_code=400,
+                        error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                    )
+
+    def _validate_parameters(self, *, schema: dict[str, Any]) -> None:
+        """
+        Validate parameter ranges for HNSW and IVF algorithms.
+
+        Args:
+            schema: Schema dictionary to validate
+        """
+        properties = schema.get("mappings", {}).get("properties", {})
+
+        for field_name, field_config in properties.items():
+            if not isinstance(field_config, dict) or field_config.get("type") != "knn_vector":
+                continue
+
+            method = field_config.get("method", {})
+            algorithm = method.get("name")
+            parameters = method.get("parameters", {})
+
+            if not isinstance(parameters, dict):
+                continue
+
+            # HNSW parameter validation
+            if algorithm == "hnsw":
+                # m parameter
+                m = parameters.get("m")
+                if m is not None:
+                    if not isinstance(m, int) or m < 2:
+                        logger.warning(f"Vector field '{field_name}': HNSW parameter 'm' should be >= 2, got: {m}")
+                    elif m < 4 or m > 64:
+                        logger.warning(
+                            f"Vector field '{field_name}': HNSW parameter 'm' outside optimal range [4-64], got: {m}"
+                        )
+
+                # ef_construction parameter
+                ef_construction = parameters.get("ef_construction")
+                if ef_construction is not None:
+                    if not isinstance(ef_construction, int) or ef_construction < 1:
+                        logger.warning(
+                            f"Vector field '{field_name}': HNSW parameter 'ef_construction' should be >= 1, got: {ef_construction}"
+                        )
+                    elif ef_construction < 32 or ef_construction > 1024:
+                        logger.warning(
+                            f"Vector field '{field_name}': HNSW parameter 'ef_construction' outside optimal range [32-1024], got: {ef_construction}"
+                        )
+
+                # ef_search parameter
+                ef_search = parameters.get("ef_search")
+                if ef_search is not None:
+                    if not isinstance(ef_search, int) or ef_search < 1:
+                        logger.warning(
+                            f"Vector field '{field_name}': HNSW parameter 'ef_search' should be >= 1, got: {ef_search}"
+                        )
+                    elif ef_search < 10 or ef_search > 2000:
+                        logger.warning(
+                            f"Vector field '{field_name}': HNSW parameter 'ef_search' outside optimal range [10-2000], got: {ef_search}"
+                        )
+
+            # IVF parameter validation
+            elif algorithm == "ivf":
+                # nlist parameter
+                nlist = parameters.get("nlist")
+                if nlist is not None:
+                    if not isinstance(nlist, int) or nlist < 1:
+                        logger.warning(
+                            f"Vector field '{field_name}': IVF parameter 'nlist' should be >= 1, got: {nlist}"
+                        )
+                    elif nlist < 1 or nlist > 32768:
+                        logger.warning(
+                            f"Vector field '{field_name}': IVF parameter 'nlist' outside optimal range [1-32768], got: {nlist}"
+                        )
+
+                # nprobes parameter
+                nprobes = parameters.get("nprobes")
+                if nprobes is not None and nlist is not None:
+                    if not isinstance(nprobes, int) or nprobes < 1:
+                        logger.warning(
+                            f"Vector field '{field_name}': IVF parameter 'nprobes' should be >= 1, got: {nprobes}"
+                        )
+                    elif nprobes > nlist:
+                        logger.warning(
+                            f"Vector field '{field_name}': IVF parameter 'nprobes' ({nprobes}) should be <= nlist ({nlist})"
+                        )
+
+    def _validate_field_depth(self, *, schema: dict[str, Any]) -> None:
+        """
+        Validate nested field depth and total field count.
+
+        Args:
+            schema: Schema dictionary to validate
+        """
+        properties = schema.get("mappings", {}).get("properties", {})
+
+        def count_depth(obj: Any, current_depth: int = 0) -> int:
+            """Recursively count maximum nesting depth."""
+            if not isinstance(obj, dict):
+                return current_depth
+
+            max_depth = current_depth
+            if "properties" in obj:
+                for prop_value in obj["properties"].values():
+                    depth = count_depth(obj=prop_value, current_depth=current_depth + 1)
+                    max_depth = max(max_depth, depth)
+
+            return max_depth
+
+        def count_fields(obj: Any) -> int:
+            """Recursively count total number of fields."""
+            if not isinstance(obj, dict):
+                return 0
+
+            count = 0
+            if "properties" in obj:
+                count += len(obj["properties"])
+                for prop_value in obj["properties"].values():
+                    count += count_fields(obj=prop_value)
+
+            return count
+
+        # Check maximum nesting depth
+        max_depth = count_depth(obj={"properties": properties})
+        if max_depth > 3:
+            logger.warning(
+                f"Schema has deeply nested fields (depth: {max_depth}). "
+                f"Consider flattening structure for better performance."
+            )
+
+        # Check total field count
+        total_fields = count_fields(obj={"properties": properties})
+        if total_fields > 1000:
+            logger.warning(
+                f"Schema has many fields (count: {total_fields}). Consider reducing field count for better performance."
+            )
+
+    def _validate_analyzers(self, *, schema: dict[str, Any]) -> None:
+        """
+        Validate analyzer references in schema.
+
+        Args:
+            schema: Schema dictionary to validate
+        """
+        settings = schema.get("settings", {})
+        analysis = settings.get("analysis", {})
+
+        # Get defined analyzers
+        defined_analyzers = set()
+        if "analyzer" in analysis:
+            defined_analyzers.update(analysis["analyzer"].keys())
+
+        # Check for analyzer references in mappings
+        properties = schema.get("mappings", {}).get("properties", {})
+
+        def check_analyzer_refs(obj: Any, path: str = "") -> None:
+            """Recursively check analyzer references."""
+            if not isinstance(obj, dict):
+                return
+
+            # Check if this field has an analyzer
+            analyzer = obj.get("analyzer")
+            if analyzer and isinstance(analyzer, str):
+                # Check if it's a custom analyzer
+                if analyzer not in ["standard", "simple", "whitespace", "stop", "keyword", "pattern", "fingerprint"]:
+                    if analyzer not in defined_analyzers:
+                        logger.warning(
+                            f"Field '{path}' references undefined analyzer '{analyzer}'. "
+                            f"Defined analyzers: {list(defined_analyzers)}"
+                        )
+
+            # Recursively check nested properties
+            if "properties" in obj:
+                for prop_name, prop_value in obj["properties"].items():
+                    new_path = f"{path}.{prop_name}" if path else prop_name
+                    check_analyzer_refs(obj=prop_value, path=new_path)
+
+            # Check fields (for multi-field mappings)
+            if "fields" in obj:
+                for field_name, field_value in obj["fields"].items():
+                    new_path = f"{path}.{field_name}" if path else field_name
+                    check_analyzer_refs(obj=field_value, path=new_path)
+
+        check_analyzer_refs(obj={"properties": properties})
+
+    def build_index_body(self) -> dict[str, Any]:
+        """
+        Build index body for OpenSearch.
+
+        Tries to use schema template if schema_template_path is provided.
+        Falls back to dynamic generation if template not found or invalid.
+
+        Returns:
+            Complete index body with settings and mappings
+        """
+        # Try template-based approach if path provided
+        if self.schema_template_path:
+            loaded_schema = self._load_schema_template()
+
+            if loaded_schema is not None:
+                # Template loaded successfully
+                logger.info(f"Building index body from schema template: {self.schema_template_path}")
+                schema = self._replace_placeholders(obj=loaded_schema)
+
+                if isinstance(schema, dict) and "field_types" in schema and "mappings" not in schema:
+                    schema = self._build_index_body_from_field_type_template(schema=schema)
+
+                # Inject runtime metadata
+                if isinstance(schema, dict) and "mappings" in schema:
+                    if "_meta" not in schema["mappings"]:
+                        schema["mappings"]["_meta"] = {}
+                    schema["mappings"]["_meta"].update(
+                        {
+                            "engine": self.engine,
+                            "algorithm": self.algorithm,
+                            "space_type": self.space_type,
+                            "created_by": "datasift-opensource",
+                        }
+                    )
+
+                # Validate schema only if it has schema_name and schema_version
+                # (i.e., it's a formal schema template, not a test schema)
+                if "schema_name" in schema and "schema_version" in schema:
+                    self._validate_schema(schema=schema)
+
+                return schema
+
+        # Fall back to dynamic generation
+        logger.info("Building index body using dynamic feature mapping")
+        index_body = self.create_index_mapping()
+
+        # Add settings
+        if self.index_settings:
+            index_body["settings"] = self.index_settings
+        else:
+            index_body["settings"] = {
+                "index": {
+                    "knn": True,
+                    "knn.algo_param.ef_search": 100,
+                    "number_of_shards": 2,
+                    "number_of_replicas": 1,
+                }
+            }
+
+        return index_body
+
     def create_index_mapping(self) -> dict[str, Any]:
         """Create index mapping based on available features and feature mappings."""
         properties: dict[str, Any] = {}
@@ -261,6 +790,13 @@ class OpenSearchIndexManager:
             else:
                 properties[mapped_name] = {"type": "text"}
 
+        # Add metadata object mapping for auto-aggregated metadata columns
+        properties["metadata"] = {
+            "type": "object",
+            "dynamic": True,  # Allow dynamic fields in metadata
+        }
+        logger.debug("Added 'metadata' object mapping for auto-aggregated metadata columns")
+
         return {
             "mappings": {
                 "properties": properties,
@@ -271,6 +807,54 @@ class OpenSearchIndexManager:
                     "created_by": "datasift-opensource",
                 },
             }
+        }
+
+    def _build_index_body_from_field_type_template(self, *, schema: dict[str, Any]) -> dict[str, Any]:
+        """Convert a field-type schema template into a valid OpenSearch index body."""
+        field_types: dict[str, Any] = schema.get("field_types", {})
+        settings: dict[str, Any] = schema.get("settings", {})
+
+        properties: dict[str, Any] = {}
+        metadata_object_defined = False
+
+        for feature_name, feature_config in self.available_features.items():
+            if not feature_config.get("available_for_vector_db", False):
+                continue
+
+            mapped_name = self.feature_mappings.get(feature_name, feature_name)
+            if isinstance(mapped_name, list):
+                if feature_name == "metadata":
+                    mapped_name = "metadata"
+                else:
+                    logger.debug(f"Skipping list-based field mapping for feature '{feature_name}': {mapped_name}")
+                    continue
+
+            feature_type = feature_config.get("type", "string")
+            template_mapping = field_types.get(feature_type)
+
+            if template_mapping is None:
+                template_mapping = field_types.get("string", {"type": "text"})
+
+            properties[mapped_name] = deepcopy(template_mapping)
+
+            if feature_type == "object" and mapped_name == "metadata":
+                metadata_object_defined = True
+
+        if not metadata_object_defined and "object" in field_types:
+            properties["metadata"] = deepcopy(field_types["object"])
+            properties["metadata"]["dynamic"] = True
+        elif "metadata" in properties and properties["metadata"].get("type") == "object":
+            properties["metadata"]["dynamic"] = True
+
+        return {
+            "settings": settings,
+            "mappings": {
+                "properties": properties,
+                "_meta": {
+                    "schema_name": schema.get("schema_name"),
+                    "schema_version": schema.get("schema_version"),
+                },
+            },
         }
 
     def create_index(self) -> None:
@@ -287,29 +871,14 @@ class OpenSearchIndexManager:
 
         try:
             # Build index configuration
-            index_body: dict[str, Any] = self.create_index_mapping()
+            index_body = self.build_index_body()
 
-            # Add custom settings if provided
-            if self.index_settings:
-                index_body["settings"] = self.index_settings
-            else:
-                # Default settings for KNN
-                index_body["settings"] = {
-                    "index": {
-                        "knn": True,
-                        "knn.algo_param.ef_search": 100,
-                        "number_of_shards": 2,
-                        "number_of_replicas": 1,
-                    }
-                }
+            logger.info(f"OpenSearch index body for '{self.index_name}': {json.dumps(index_body, default=str)}")
 
             # Create index
             self.client.indices.create(index=self.index_name, body=index_body)
             logger.info(f"Created index {self.index_name} with engine {self.engine} and algorithm {self.algorithm}")
         except Exception as exc:
-            from datasift.exceptions.datasift_exceptions import DatasiftException
-            from datasift.exceptions.error_codes import ErrorCode
-
             raise DatasiftException(
                 message=f"Failed to create OpenSearch index '{self.index_name}': {exc}",
                 status_code=500,

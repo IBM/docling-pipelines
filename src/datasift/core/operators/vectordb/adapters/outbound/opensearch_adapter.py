@@ -94,6 +94,7 @@ class OpenSearchAdapter(VectorStorePort):
         space_type = adapter_config.get(OperatorConstants.VectorDB.SPACE_TYPE, DEFAULT_SPACE_TYPE)
         engine_parameters = adapter_config.get(OperatorConstants.VectorDB.ENGINE_PARAMETERS)
         index_settings = adapter_config.get(OperatorConstants.VectorDB.INDEX_SETTINGS)
+        schema_template_path = adapter_config.get("schema_template_path")
         aws_auth = adapter_config.get(OperatorConstants.VectorDB.AWS_AUTH, False)
         aws_region = adapter_config.get(OperatorConstants.VectorDB.AWS_REGION)
         jwt_token = adapter_config.get(OperatorConstants.VectorDB.JWT_TOKEN)
@@ -127,6 +128,7 @@ class OpenSearchAdapter(VectorStorePort):
             available_features=available_features,
             feature_mappings=feature_mappings,
             embeddings_column=self.embeddings_column,
+            schema_template_path=schema_template_path,
         )
 
         # Initialize batch processor

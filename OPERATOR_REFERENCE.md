@@ -203,15 +203,15 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Class:** `core.operators.ingest.ingest_local_folder.IngestLocalOperator`
 
-| Parameter              | Type   | Required | Default              | Description                                         |
-| ---------------------- | ------ | -------: | -------------------- | --------------------------------------------------- |
-| `input_folder`         | string |      Yes | `../test-data/input` | Root folder to crawl                                |
-| `include_filter`       | string |       No | -                    | Comma-separated extensions to include               |
-| `exclude_filter`       | string |       No | -                    | Comma-separated extensions to exclude               |
-| `max_files`            | int    |       No | `100`                | Maximum number of files to ingest                   |
-| `max_file_size`        | int    |       No | `100`                | Maximum file size in MB                             |
-| `force_ingest`         | bool   |       No | `false`              | Reprocess already-seen documents                    |
-| `retain_deleted_docs`  | bool   |       No | project constant     | Retain source-deleted docs in incremental scenarios |
+| Parameter             | Type   | Required | Default              | Description                                         |
+| --------------------- | ------ | -------: | -------------------- | --------------------------------------------------- |
+| `input_folder`        | string |      Yes | `../test-data/input` | Root folder to crawl                                |
+| `include_filter`      | string |       No | -                    | Comma-separated extensions to include               |
+| `exclude_filter`      | string |       No | -                    | Comma-separated extensions to exclude               |
+| `max_files`           | int    |       No | `100`                | Maximum number of files to ingest                   |
+| `max_file_size`       | int    |       No | `100`                | Maximum file size in MB                             |
+| `force_ingest`        | bool   |       No | `false`              | Reprocess already-seen documents                    |
+| `retain_deleted_docs` | bool   |       No | project constant     | Retain source-deleted docs in incremental scenarios |
 
 **Input Schema**
 
@@ -306,24 +306,25 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Class:** `core.operators.quality.classification.document_classifier.DocumentClassifierOperator`
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `provider` | string | No | `"ollama"` | LLM provider: `"ollama"`, `"litellm"`, or `"watsonx"` |
-| `model_id` | string | No | `"granite4:latest"` | Model identifier (e.g., `"granite4:latest"`, `"openai/gpt-4o-mini"`, `"claude-3-sonnet"`) |
-| `provider_config` | object | No | `{}` | Provider-specific configuration (api_key, api_base, etc.) |
-| `document_types` | list/dict | No | Auto-loaded | Document types to classify into (list or dict with descriptions) |
-| `confidence_threshold` | float | No | `7.0` | Minimum confidence for classification (1-10 scale) |
-| `doc_column` | string | No | `"content"` | Column containing document text |
-| `output_column` | string | No | `"document_type"` | Column name for classification result |
-| `include_confidence` | boolean | No | `true` | Include confidence score in output |
-| `include_reasoning` | boolean | No | `false` | Include reasoning explanation in output |
-| `max_content_length` | integer | No | `2000` | Maximum content length to send to LLM |
-| `max_workers` | integer | No | Auto | Number of parallel workers |
-| `use_processes` | boolean | No | `false` | Use processes instead of threads |
+| Parameter              | Type      | Required | Default             | Description                                                                               |
+| ---------------------- | --------- | -------- | ------------------- | ----------------------------------------------------------------------------------------- |
+| `provider`             | string    | No       | `"ollama"`          | LLM provider: `"ollama"`, `"litellm"`, or `"watsonx"`                                     |
+| `model_id`             | string    | No       | `"granite4:latest"` | Model identifier (e.g., `"granite4:latest"`, `"openai/gpt-4o-mini"`, `"claude-3-sonnet"`) |
+| `provider_config`      | object    | No       | `{}`                | Provider-specific configuration (api_key, api_base, etc.)                                 |
+| `document_types`       | list/dict | No       | Auto-loaded         | Document types to classify into (list or dict with descriptions)                          |
+| `confidence_threshold` | float     | No       | `7.0`               | Minimum confidence for classification (1-10 scale)                                        |
+| `doc_column`           | string    | No       | `"content"`         | Column containing document text                                                           |
+| `output_column`        | string    | No       | `"document_type"`   | Column name for classification result                                                     |
+| `include_confidence`   | boolean   | No       | `true`              | Include confidence score in output                                                        |
+| `include_reasoning`    | boolean   | No       | `false`             | Include reasoning explanation in output                                                   |
+| `max_content_length`   | integer   | No       | `2000`              | Maximum content length to send to LLM                                                     |
+| `max_workers`          | integer   | No       | Auto                | Number of parallel workers                                                                |
+| `use_processes`        | boolean   | No       | `false`             | Use processes instead of threads                                                          |
 
 **Provider-Specific Configuration**
 
 **Ollama:**
+
 ```json
 {
   "provider": "ollama",
@@ -332,6 +333,7 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 ```
 
 **LiteLLM (100+ providers):**
+
 ```json
 {
   "provider": "litellm",
@@ -344,6 +346,7 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 ```
 
 Supported LiteLLM providers:
+
 - OpenAI: `openai/gpt-4o-mini`, `openai/gpt-4`, `openai/gpt-3.5-turbo`
 - Anthropic: `anthropic/claude-3-opus`, `anthropic/claude-3-sonnet`, `anthropic/claude-3-haiku`
 - Azure OpenAI: `azure/gpt-4`
@@ -352,6 +355,7 @@ Supported LiteLLM providers:
 - Ollama via OpenAI-compatible endpoint: `openai/llama3` with `api_base: "http://localhost:11434/v1"`
 
 **Watsonx:**
+
 ```json
 {
   "provider": "watsonx",
@@ -374,6 +378,7 @@ Supported LiteLLM providers:
 **Output Schema**
 
 Adds the following columns:
+
 - `document_type` (string): Classified document type
 - `document_type_confidence` (float): Confidence score 1-10 (if `include_confidence=true`)
 - `document_type_reasoning` (string): Classification explanation (if `include_reasoning=true`)
@@ -382,6 +387,7 @@ Adds the following columns:
 **Document Types Configuration**
 
 Simple list format:
+
 ```json
 {
   "document_types": ["invoice", "receipt", "contract", "report", "letter"]
@@ -389,6 +395,7 @@ Simple list format:
 ```
 
 Detailed dictionary format (recommended):
+
 ```json
 {
   "document_types": {
@@ -482,6 +489,7 @@ Detailed dictionary format (recommended):
 **Architecture**
 
 Uses hexagonal architecture (ports and adapters pattern):
+
 - **Domain Layer**: Pure business logic with `ClassificationRequest`, `ClassificationResponse`, `ModelInfo` models
 - **Ports Layer**: `ClassificationServicePort` interface defining classification contract
 - **Adapters Layer**: Provider-specific implementations (OllamaClassificationAdapter, LiteLLMClassificationAdapter, WatsonxClassificationAdapter)
@@ -504,43 +512,43 @@ Uses hexagonal architecture (ports and adapters pattern):
 
 **Class:** `core.operators.extract.extract_operator.ExtractOperator`
 
-| Parameter                       | Type | Required | Default | Description |
-|---------------------------------|---|---:|---|---|
-| `text_extraction_mode`          | string | No | `docling_library` | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API) |
-| `entity_extraction_mode`        | string | No | `none` | Entity extraction mode: `ollama`, `docling`, `litellm`, or `none` |
-| `doc_column`                    | string | No | `doc_content` | Column name for storing extracted text content |
-| `output_column`                 | string | No | `entities` | Column name for storing extracted entities |
-| `extract_tables`                | bool | No | `true` | Extract tables from documents (text extraction) |
-| `extract_images`                | bool | No | `true` | Extract images from documents (text extraction) |
-| `max_workers`                   | int | No | auto | Maximum parallel workers (auto-detected based on CPU) |
-| `use_processes`                 | bool | No | `false` | Use ProcessPoolExecutor vs ThreadPoolExecutor |
-| `expand_extracted_data`         | bool | No | `false` | Expand entity JSON into individual columns (entity extraction only) |
-| `custom_schema`                 | object | No | `{}` | Schema dictionary for structured extraction |
-| **VLM Parameters (docling_library mode)** |
-| `use_vlm_pipeline`              | bool | No | `false` | Enable VLM (Vision-Language Model) pipeline |
-| `vlm_preset`                    | string | No | `granite_docling` | VLM preset name when VLM enabled |
-| `vlm_engine_type`               | string | No | `transformers` | VLM engine: `transformers`, `mlx`, `api_*` variants |
-| `vlm_provider_config`           | object | No | `null` | Provider-specific VLM configuration |
+| Parameter                                         | Type   | Required | Default                 | Description                                                                                       |
+| ------------------------------------------------- | ------ | -------: | ----------------------- | ------------------------------------------------------------------------------------------------- |
+| `text_extraction_mode`                            | string |       No | `docling_library`       | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API) |
+| `entity_extraction_mode`                          | string |       No | `none`                  | Entity extraction mode: `ollama`, `docling`, `litellm`, or `none`                                 |
+| `doc_column`                                      | string |       No | `doc_content`           | Column name for storing extracted text content                                                    |
+| `output_column`                                   | string |       No | `entities`              | Column name for storing extracted entities                                                        |
+| `extract_tables`                                  | bool   |       No | `true`                  | Extract tables from documents (text extraction)                                                   |
+| `extract_images`                                  | bool   |       No | `true`                  | Extract images from documents (text extraction)                                                   |
+| `max_workers`                                     | int    |       No | auto                    | Maximum parallel workers (auto-detected based on CPU)                                             |
+| `use_processes`                                   | bool   |       No | `false`                 | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                     |
+| `expand_extracted_data`                           | bool   |       No | `false`                 | Expand entity JSON into individual columns (entity extraction only)                               |
+| `custom_schema`                                   | object |       No | `{}`                    | Schema dictionary for structured extraction                                                       |
+| **VLM Parameters (docling_library mode)**         |
+| `use_vlm_pipeline`                                | bool   |       No | `false`                 | Enable VLM (Vision-Language Model) pipeline                                                       |
+| `vlm_preset`                                      | string |       No | `granite_docling`       | VLM preset name when VLM enabled                                                                  |
+| `vlm_engine_type`                                 | string |       No | `transformers`          | VLM engine: `transformers`, `mlx`, `api_*` variants                                               |
+| `vlm_provider_config`                             | object |       No | `null`                  | Provider-specific VLM configuration                                                               |
 | **ASR Parameters (docling_library mode for audio/video)** |
 | `use_asr_pipeline`              | bool | No | `false` | Enable ASR (Automatic Speech Recognition) for audio/video files |
 | `asr_model_name`                | string | No | `whisper_turbo` | ASR model name (e.g., `whisper_turbo`, `whisper_large`) |
 | **Docling Serve Parameters (docling_serve mode)** |
-| `docling_serve_base_url`        | string | No | `http://localhost:5001` | Docling Serve API endpoint |
-| `docling_serve_api_key`         | string | No | `null` | Optional API key for authentication |
-| `docling_serve_timeout`         | int | No | `300` | Request timeout in seconds |
-| `docling_serve_do_ocr`          | bool | No | `true` | Enable OCR processing |
-| `docling_serve_ocr_engine`      | string | No | `easyocr` | OCR engine: `easyocr` or `tesseract` |
-| `docling_serve_pdf_backend`     | string | No | `dlparse_v2` | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2` |
-| **Ollama Entity Parameters (ollama mode)** |
-| `entity_model_name`             | string | Yes* | `llama3.2` | Ollama model name (*required for ollama mode) |
-| `entity_temperature`            | float | No | `0.0` | Sampling temperature (0.0-1.0) |
-| `entity_max_tokens`             | int | No | `4096` | Maximum response tokens |
-| `entity_max_doc_chars`          | int | No | `8000` | Maximum document characters to send to LLM |
-| **LiteLLM Entity Parameters (litellm mode)** |
-| `entity_model_name`             | string | Yes* | `gpt-3.5-turbo` | LLM model identifier (*required for litellm mode) |
-| `entity_temperature`            | float | No | `0.0` | Sampling temperature |
-| `entity_max_tokens`             | int | No | `2000` | Maximum response tokens |
-| `entity_provider_config`        | object | No | `{}` | Provider config with `api_key`, `api_base` |
+| `docling_serve_base_url`                          | string |       No | `http://localhost:5001` | Docling Serve API endpoint                                                                        |
+| `docling_serve_api_key`                           | string |       No | `null`                  | Optional API key for authentication                                                               |
+| `docling_serve_timeout`                           | int    |       No | `300`                   | Request timeout in seconds                                                                        |
+| `docling_serve_do_ocr`                            | bool   |       No | `true`                  | Enable OCR processing                                                                             |
+| `docling_serve_ocr_engine`                        | string |       No | `easyocr`               | OCR engine: `easyocr` or `tesseract`                                                              |
+| `docling_serve_pdf_backend`                       | string |       No | `dlparse_v2`            | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                                              |
+| **Ollama Entity Parameters (ollama mode)**        |
+| `entity_model_name`                               | string |    Yes\* | `llama3.2`              | Ollama model name (\*required for ollama mode)                                                    |
+| `entity_temperature`                              | float  |       No | `0.0`                   | Sampling temperature (0.0-1.0)                                                                    |
+| `entity_max_tokens`                               | int    |       No | `4096`                  | Maximum response tokens                                                                           |
+| `entity_max_doc_chars`                            | int    |       No | `8000`                  | Maximum document characters to send to LLM                                                        |
+| **LiteLLM Entity Parameters (litellm mode)**      |
+| `entity_model_name`                               | string |    Yes\* | `gpt-3.5-turbo`         | LLM model identifier (\*required for litellm mode)                                                |
+| `entity_temperature`                              | float  |       No | `0.0`                   | Sampling temperature                                                                              |
+| `entity_max_tokens`                               | int    |       No | `2000`                  | Maximum response tokens                                                                           |
+| `entity_provider_config`                          | object |       No | `{}`                    | Provider config with `api_key`, `api_base`                                                        |
 
 **Input Schema**
 
@@ -679,8 +687,8 @@ The operator provides the following metadata after execution:
     "custom_schema": {
       "type": "object",
       "properties": {
-        "invoice_number": {"type": "string"},
-        "total_amount": {"type": "number"}
+        "invoice_number": { "type": "string" },
+        "total_amount": { "type": "number" }
       }
     }
   }
@@ -770,6 +778,7 @@ The operator provides the following metadata after execution:
   }
 }
 ```
+
 #### EntityCurationOperator
 
 **Purpose:** Transform extracted entities into structured, curated data using document class schemas with 4 core transformation functions for currency, date, number, and weight parsing.
@@ -778,10 +787,10 @@ The operator provides the following metadata after execution:
 
 **Class:** `datasift.core.operators.functional.entity_curation.entity_curation_operator.EntityCurationOperator`
 
-| Parameter | Type | Required | Default | Description |
-|---|---|---:|---|---|
-| `entities_column` | string | No | `entities` | Column containing extracted entities (dict) |
-| `document_type_column` | string | No | `document_type` | Column containing document type identifier |
+| Parameter              | Type   | Required | Default         | Description                                 |
+| ---------------------- | ------ | -------: | --------------- | ------------------------------------------- |
+| `entities_column`      | string |       No | `entities`      | Column containing extracted entities (dict) |
+| `document_type_column` | string |       No | `document_type` | Column containing document type identifier  |
 
 **Input Schema**
 
@@ -798,12 +807,12 @@ The operator provides the following metadata after execution:
 
 The operator includes 4 core transformations:
 
-| Function | Purpose | Example |
-|---|---|---|
-| `currency_to_numeric` | Locale-aware currency parsing (Babel) | `"1.234,56 €"` (de_DE) → `1234.56` |
-| `make_date_uniform` | Date normalization to YYYY-MM-DD | `"January 15, 2024"` → `"2024-01-15"` |
-| `to_number` | Multi-language number parsing | `"一千二百三十四"` (Chinese) → `1234` |
-| `weight_to_numeric` | Locale-aware weight conversion to kg | `"5斤"` (zh_CN) → `2.5` |
+| Function              | Purpose                               | Example                               |
+| --------------------- | ------------------------------------- | ------------------------------------- |
+| `currency_to_numeric` | Locale-aware currency parsing (Babel) | `"1.234,56 €"` (de_DE) → `1234.56`    |
+| `make_date_uniform`   | Date normalization to YYYY-MM-DD      | `"January 15, 2024"` → `"2024-01-15"` |
+| `to_number`           | Multi-language number parsing         | `"一千二百三十四"` (Chinese) → `1234` |
+| `weight_to_numeric`   | Locale-aware weight conversion to kg  | `"5斤"` (zh_CN) → `2.5`               |
 
 **Document Class Schemas**
 
@@ -836,7 +845,6 @@ Schemas are defined in `src/datasift/common/document_classes/*.json` with `targe
 - See [Entity Curation README](src/datasift/core/operators/functional/entity_curation/README.md) for detailed documentation
 
 ---
-
 
 ---
 
@@ -1036,21 +1044,22 @@ Schemas are defined in `src/datasift/common/document_classes/*.json` with `targe
 
 **Class:** `core.operators.quality.document_classifier.DocumentClassifierOperator`
 
-| Parameter              | Type           |    Required | Default           | Description                                                    |
-| ---------------------- | -------------- | ----------: | ----------------- | -------------------------------------------------------------- |
-| `provider`             | string         |          No | `ollama`          | `ollama` or `watsonx`                                          |
-| `provider_config`      | object         |          No | `{}`              | Provider-specific configuration (see below)                    |
+| Parameter              | Type           |    Required | Default           | Description                                                      |
+| ---------------------- | -------------- | ----------: | ----------------- | ---------------------------------------------------------------- |
+| `provider`             | string         |          No | `ollama`          | `ollama` or `watsonx`                                            |
+| `provider_config`      | object         |          No | `{}`              | Provider-specific configuration (see below)                      |
 | `model_id`             | string         | Conditional | `granite4:latest` | Classification model (required for watsonx, optional for ollama) |
-| `document_types`       | list or object |         Yes | catalog-derived   | Allowed target document types                                  |
-| `confidence_threshold` | float          |          No | `7.0`             | Minimum accepted confidence                                    |
-| `doc_column`           | string         |          No | `content`         | Input content column                                           |
-| `output_column`        | string         |          No | `document_type`   | Classification result column                                   |
-| `include_confidence`   | bool           |          No | `true`            | Emit confidence column                                         |
-| `include_reasoning`    | bool           |          No | `false`           | Emit reasoning column                                          |
+| `document_types`       | list or object |         Yes | catalog-derived   | Allowed target document types                                    |
+| `confidence_threshold` | float          |          No | `7.0`             | Minimum accepted confidence                                      |
+| `doc_column`           | string         |          No | `content`         | Input content column                                             |
+| `output_column`        | string         |          No | `document_type`   | Classification result column                                     |
+| `include_confidence`   | bool           |          No | `true`            | Emit confidence column                                           |
+| `include_reasoning`    | bool           |          No | `false`           | Emit reasoning column                                            |
 
 **Provider Configuration (`provider_config`)**
 
 For **watsonx** provider:
+
 - `api_base` (string, required): API endpoint URL
 - `api_key` (string, required): API key for authentication
 - `container_kind` (string, optional): Container type (`project` or `space`, default: `project`)
@@ -1058,6 +1067,7 @@ For **watsonx** provider:
 - `request_timeout` (integer, optional): Request timeout in seconds (default: `120`)
 
 For **ollama** provider:
+
 - Currently no provider-specific configuration required (uses defaults)
 
 **Output Schema**
@@ -1126,15 +1136,63 @@ For **ollama** provider:
 
 **Class:** `core.operators.vectordb.vectordb_operator.VectorDBOperator`
 
-| Parameter | Type | Required | Default | Description                 |
-|---|---|---:|---|-----------------------------|
-| `provider` | string | No | `opensearch` | VectorDB backend            |
-| `index_name` | string | Yes | - | Target index name           |
-| `doc_id_column` | string | No | `doc_id_hash` | Primary document id column  |
-| `embeddings_column` | string | No | `embeddings` | Vector column               |
-| `create_index` | bool | No | `true` | Auto-create index           |
-| `vector_dimension` | int | No | `384` | Configured vector dimension |
-| `provider_config` | object | Yes | - | Adapter-specific settings   |
+| Parameter           | Type   | Required | Default       | Description                 |
+| ------------------- | ------ | -------: | ------------- | --------------------------- |
+| `provider`          | string |       No | `opensearch`  | VectorDB backend            |
+| `index_name`        | string |      Yes | -             | Target index name           |
+| `doc_id_column`     | string |       No | `doc_id_hash` | Primary document id column  |
+| `embeddings_column` | string |       No | `embeddings`  | Vector column               |
+| `create_index`      | bool   |       No | `true`        | Auto-create index           |
+| `vector_dimension`  | int    |       No | `384`         | Configured vector dimension |
+| `provider_config`   | object |      Yes | -             | Adapter-specific settings   |
+
+**Provider Config (OpenSearch)**
+
+The `provider_config` object supports the following parameters for OpenSearch:
+
+| Parameter              | Type   | Required | Default         | Description                                                                        |
+| ---------------------- | ------ | -------: | --------------- | ---------------------------------------------------------------------------------- |
+| `host`                 | string |       No | `localhost`     | OpenSearch host                                                                    |
+| `port`                 | int    |       No | `9200`          | OpenSearch port                                                                    |
+| `engine`               | string |       No | `faiss`         | KNN engine (faiss, lucene, nmslib, jvector)                                        |
+| `algorithm`            | string |       No | `hnsw`          | KNN algorithm (hnsw, ivf)                                                          |
+| `space_type`           | string |       No | `l2`            | Similarity metric (l2, cosine, inner_product)                                      |
+| `schema_template_path` | string |       No | `null`          | Path to JSON schema template (relative to `src/datasift/core/operators/vectordb/`) |
+| `engine_parameters`    | object |       No | Auto-configured | Engine-specific parameters (ef_construction, m, nlist, nprobe)                     |
+| `index_settings`       | object |       No | `{}`            | Additional OpenSearch index settings                                               |
+
+**Schema Templates**
+
+Schema templates provide reusable index configurations with placeholder-based dynamic values:
+
+- **Built-in Templates**:
+  - `schemas/default_schema.v1.json`: Basic schema with standard field types
+  - `schemas/document_chunks_schema.v1.json`: Optimized for document chunking with custom analyzers
+
+- **Placeholders**: Templates support the following placeholders that are replaced at runtime:
+  - `__VECTOR_DIMENSION__`: Vector embedding dimension
+  - `__ENGINE__`: KNN engine name
+  - `__ALGORITHM__`: KNN algorithm name
+  - `__SPACE_TYPE__`: Similarity metric
+  - `__ENGINE_PARAMETERS__`: Engine-specific parameters object
+
+- **Fallback Behavior**: If template is not found or invalid, the system falls back to dynamic schema generation with a warning
+
+**Metadata Normalization**
+
+The VectorDBOperator automatically normalizes and aggregates metadata columns:
+
+- **Column Aliases**: Automatically maps common column name variations:
+  - `path` → `source`
+  - `pages_processed` → `page_count`
+  - `mime_type`, `content_type` → `mimetype`
+
+- **Field Derivation**: Automatically derives missing metadata fields:
+  - `extension`: Derived from `name` or `source` if missing
+  - `mimetype`: Derived from `extension` using standard MIME type mappings
+
+- **Predefined Metadata Fields**: The following fields are automatically collected into a `metadata` object:
+  - `name`, `size`, `created_time`, `modified_time`, `source`, `mimetype`, `extension`, `page_count`
 
 **Input Schema**
 
@@ -1149,6 +1207,47 @@ For **ollama** provider:
 **Exceptions**
 
 - [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py:8)
+
+**Example Configuration**
+
+Basic usage with default schema:
+
+```json
+{
+  "operator_type": "datasift.core.operators.vectordb.vectordb_operator.VectorDBOperator",
+  "operator_params": {
+    "provider": "opensearch",
+    "index_name": "my_documents",
+    "provider_config": {
+      "host": "localhost",
+      "port": 9200,
+      "engine": "faiss",
+      "algorithm": "hnsw",
+      "vector_dimension": 384
+    }
+  }
+}
+```
+
+Using a schema template:
+
+```json
+{
+  "operator_type": "datasift.core.operators.vectordb.vectordb_operator.VectorDBOperator",
+  "operator_params": {
+    "provider": "opensearch",
+    "index_name": "document_chunks",
+    "provider_config": {
+      "schema_template_path": "schemas/document_chunks_schema.v1.json",
+      "host": "localhost",
+      "port": 9200,
+      "engine": "faiss",
+      "algorithm": "hnsw",
+      "vector_dimension": 768
+    }
+  }
+}
+```
 
 ---
 

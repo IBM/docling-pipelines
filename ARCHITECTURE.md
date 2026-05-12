@@ -142,7 +142,7 @@ graph TB
     PE --> Functional
     PE --> Quality
     PE --> VectorDB
-    
+
     EXT --> DOC
     EXT --> OLL
     EXT --> LLM
@@ -202,6 +202,7 @@ graph TB
 - Vector database for embeddings
 
 ---
+
 ## Job Management and Execution Tracking
 
 datasift-opensource includes a dedicated job management subsystem under [`core/job_management`](src/datasift/core/job_management) that separates orchestration concerns, persistent job statistics, and read-side aggregation.
@@ -244,6 +245,7 @@ For micro-batch execution, datasift stores node statistics at batch granularity.
 - Non-batch operators still produce a single node stats record.
 
 This design allows:
+
 - accurate per-batch progress tracking
 - bulk creation of pending node stats before execution
 - failure/cancel/abort handling at node-batch granularity
@@ -254,6 +256,7 @@ This design allows:
 The Prefect orchestration layer must keep the outer flow alive until submitted batch futures are resolved. This avoids a failure mode where the outer flow exits early, the task runner begins shutdown, and in-flight batch tasks are canceled or marked as crashed before the job-management layer can record final state consistently.
 
 Relevant implementation points:
+
 - [`PrefectEngine`](src/datasift/core/orchestrator/prefect/prefect_engine.py) waits for submitted batch work before the outer flow completes.
 - [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) updates terminal job state separately from node-state persistence.
 - The job-management layer is responsible for persisting terminal states such as completed, failed, canceled, and aborted.
@@ -263,6 +266,7 @@ Relevant implementation points:
 Operators often emit custom metadata that is later aggregated across batches. Aggregation behavior is defined centrally in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py).
 
 Maintainer rule:
+
 - if a new operator adds metadata fields that need anything other than the default `LAST` behavior, update [`DEFAULT_STRATEGIES`](src/datasift/core/job_management/application/aggregation/strategies.py)
 - add or update tests covering the new aggregation behavior
 - document the field in [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md)
@@ -295,7 +299,7 @@ graph LR
     OP --> FUN[Functional]
     OP --> QUA[Quality]
     OP --> VDB[VectorDB]
-    
+
     ING --> I1[IngestLocalOperator]
     ING --> I2[IngestSourceOperator]
 
@@ -471,7 +475,7 @@ for short_name, operator_class in operator_factory.operators.items():
     # Call static methods on each operator class
     metadata_dict = operator_class.get_metadata()
     required_features = operator_class.get_required_features()
-    
+
     # Aggregate into unified structure
     all_metadata[short_name] = {
         **metadata_dict,
@@ -499,7 +503,7 @@ class ExtractOperator(AbstractOperator):
                 }
             }
         }
-    
+
     @staticmethod
     def get_required_features() -> list[str]:
         return ["doc_id", "file_path"]
@@ -511,26 +515,26 @@ class ExtractOperator(AbstractOperator):
 
 Each operator's metadata dictionary contains:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `label` | string | Human-readable operator name |
-| `category` | OperatorCategory | Operator category (Extract, Ingest, Functional, Quality, VectorDB) |
-| `description` | string | Operator purpose and functionality |
-| `features` | dict | Output features produced by the operator |
-| `required_features` | list | Input feature names required by the operator |
+| Field               | Type             | Description                                                        |
+| ------------------- | ---------------- | ------------------------------------------------------------------ |
+| `label`             | string           | Human-readable operator name                                       |
+| `category`          | OperatorCategory | Operator category (Extract, Ingest, Functional, Quality, VectorDB) |
+| `description`       | string           | Operator purpose and functionality                                 |
+| `features`          | dict             | Output features produced by the operator                           |
+| `required_features` | list             | Input feature names required by the operator                       |
 
 **Feature Metadata:**
 
 Each feature in the `features` dictionary contains:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `type` | string | Data type (string, int64, double, boolean, list) |
-| `description` | string | Feature description |
-| `required` | boolean | Whether feature is always produced |
-| `available_for_filter` | boolean | Can be used in SQL WHERE clauses |
-| `available_for_vector_db` | boolean | Can be stored in vector databases |
-| `tags` | list | Optional tags (e.g., "internal" for internal-only features) |
+| Field                     | Type    | Description                                                 |
+| ------------------------- | ------- | ----------------------------------------------------------- |
+| `type`                    | string  | Data type (string, int64, double, boolean, list)            |
+| `description`             | string  | Feature description                                         |
+| `required`                | boolean | Whether feature is always produced                          |
+| `available_for_filter`    | boolean | Can be used in SQL WHERE clauses                            |
+| `available_for_vector_db` | boolean | Can be stored in vector databases                           |
+| `tags`                    | list    | Optional tags (e.g., "internal" for internal-only features) |
 
 **Design Rationale:**
 
@@ -545,15 +549,15 @@ Each feature in the `features` dictionary contains:
 
 **Metadata vs Configuration:**
 
-| Aspect | Operator Metadata | Configuration |
-|--------|------------------|---------------|
-| **Access** | `OperatorMetadata().get_operator_metadata()` | `operator_instance.config` |
-| **Instantiation** | No operator instantiation required | Full operator instantiation required |
-| **Represents** | What operator *produces* and *needs* | What instance *will do* |
-| **Scope** | Class-level capabilities and requirements | Instance-specific parameters |
-| **Mutability** | Immutable (cached) | Mutable per instance |
-| **Examples** | Output features, required inputs, category | Batch size, model name, file paths |
-| **Use Cases** | Flow validation, UI generation, discovery | Runtime execution, data processing |
+| Aspect            | Operator Metadata                            | Configuration                        |
+| ----------------- | -------------------------------------------- | ------------------------------------ |
+| **Access**        | `OperatorMetadata().get_operator_metadata()` | `operator_instance.config`           |
+| **Instantiation** | No operator instantiation required           | Full operator instantiation required |
+| **Represents**    | What operator _produces_ and _needs_         | What instance _will do_              |
+| **Scope**         | Class-level capabilities and requirements    | Instance-specific parameters         |
+| **Mutability**    | Immutable (cached)                           | Mutable per instance                 |
+| **Examples**      | Output features, required inputs, category   | Batch size, model name, file paths   |
+| **Use Cases**     | Flow validation, UI generation, discovery    | Runtime execution, data processing   |
 
 ### 3. Flow/Pipeline Concept
 
@@ -921,6 +925,7 @@ Operators distinguish between class-level capabilities and instance-level config
 **Rationale for Static Methods:**
 
 Both [`get_metadata()`](src/datasift/core/operators/abstract_operator.py:61) and [`get_required_features()`](src/datasift/core/operators/abstract_operator.py:56) are static because:
+
 1. They represent operator-level information, not instance-specific configuration
 2. Enable metadata discovery without instantiation overhead
 3. Information is constant across all instances of an operator class
@@ -1238,6 +1243,7 @@ operator_instance = operator_class(config)
 - Runtime parameters
 
 **Metadata Access Pattern:**
+
 - Operator metadata is accessed at the class level via static method [`OperatorClass.get_metadata()`](src/datasift/core/operators/abstract_operator.py:59)
 - No instantiation required for metadata discovery
 - Enables efficient operator registry and capability queries
@@ -1323,10 +1329,10 @@ graph TD
 
 #### 5. Metadata Collection
 
-
 **Two Types of Metadata:**
 
 **1. Operator Metadata (Class-Level, Static):**
+
 ```python
 # Accessed without instantiation
 operator_metadata = ExtractOperator.get_metadata()
@@ -1343,6 +1349,7 @@ operator_metadata = ExtractOperator.get_metadata()
 ```
 
 **2. Execution Metadata (Instance-Level, Runtime):**
+
 ```python
 # Generated during operator execution
 execution_metadata = {
@@ -1361,8 +1368,9 @@ execution_metadata = {
 ```
 
 **Key Distinction:**
-- **Operator metadata**: Describes what the operator *can do* (capabilities, features, requirements)
-- **Execution metadata**: Describes what the operator *did* (processing results, statistics, errors)
+
+- **Operator metadata**: Describes what the operator _can do_ (capabilities, features, requirements)
+- **Execution metadata**: Describes what the operator _did_ (processing results, statistics, errors)
 
 ---
 
@@ -1516,7 +1524,233 @@ graph TB
 }
 ```
 
-### 3. Docling Integration Architecture
+### 3. OpenSearch Schema Templates and Metadata Normalization
+
+The OpenSearch adapter supports a flexible schema template system that enables reusable index configurations with placeholder-based dynamic values, along with automatic metadata column normalization.
+
+#### Schema Template System
+
+**Purpose**: Provide consistent, reusable OpenSearch index schemas across different pipelines while maintaining backward compatibility with dynamic schema generation.
+
+**Key Features**:
+
+1. **JSON-Based Templates**: Schema templates are stored as JSON files in `src/datasift/core/operators/vectordb/schemas/`
+2. **Placeholder Replacement**: Dynamic values are injected at runtime using placeholder strings
+3. **Graceful Fallback**: If template is not found or invalid, falls back to dynamic schema generation
+4. **Validation**: Comprehensive schema validation with detailed error messages
+
+**Built-in Templates**:
+
+- `default_schema.v1.json`: Basic schema with standard field types
+- `document_chunks_schema.v1.json`: Optimized for document chunking with custom analyzers
+
+**Supported Placeholders**:
+
+| Placeholder             | Description                | Example Value                          |
+| ----------------------- | -------------------------- | -------------------------------------- |
+| `__VECTOR_DIMENSION__`  | Vector embedding dimension | `384`, `768`, `1536`                   |
+| `__ENGINE__`            | KNN engine name            | `faiss`, `lucene`, `nmslib`, `jvector` |
+| `__ALGORITHM__`         | KNN algorithm              | `hnsw`, `ivf`                          |
+| `__SPACE_TYPE__`        | Similarity metric          | `l2`, `cosine`, `inner_product`        |
+| `__ENGINE_PARAMETERS__` | Engine-specific parameters | `{"ef_construction": 128, "m": 24}`    |
+
+**Template Structure**:
+
+```json
+{
+  "schema_name": "default",
+  "schema_version": 1,
+  "settings": {
+    "index": {
+      "knn": true,
+      "number_of_shards": 2,
+      "number_of_replicas": 1
+    }
+  },
+  "field_types": {
+    "vector": {
+      "type": "knn_vector",
+      "dimension": "__VECTOR_DIMENSION__",
+      "method": {
+        "name": "__ALGORITHM__",
+        "space_type": "__SPACE_TYPE__",
+        "engine": "__ENGINE__",
+        "parameters": "__ENGINE_PARAMETERS__"
+      }
+    },
+    "string": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    }
+  }
+}
+```
+
+**Usage Example**:
+
+```json
+{
+  "operator_type": "datasift.core.operators.vectordb.vectordb_operator.VectorDBOperator",
+  "operator_params": {
+    "provider": "opensearch",
+    "index_name": "document_chunks",
+    "provider_config": {
+      "schema_template_path": "schemas/document_chunks_schema.v1.json",
+      "host": "localhost",
+      "port": 9200,
+      "engine": "faiss",
+      "algorithm": "hnsw",
+      "vector_dimension": 768
+    }
+  }
+}
+```
+
+#### Metadata Column Normalization
+
+**Purpose**: Automatically normalize metadata column names and derive missing fields to ensure consistent document metadata across different data sources.
+
+**Column Name Aliases**:
+
+The system automatically maps common column name variations to standard names:
+
+| Target Field | Source Aliases                          | Description          |
+| ------------ | --------------------------------------- | -------------------- |
+| `source`     | `source`, `path`                        | Document source path |
+| `page_count` | `page_count`, `pages_processed`         | Number of pages      |
+| `mimetype`   | `mimetype`, `mime_type`, `content_type` | MIME type            |
+
+**Field Derivation**:
+
+Missing metadata fields are automatically derived when possible:
+
+- **extension**: Derived from `name` or `source` filename if missing
+- **mimetype**: Derived from `extension` using standard MIME type mappings
+
+**Predefined Metadata Fields**:
+
+The following fields are automatically collected into a `metadata` object:
+
+- `name`: Document filename
+- `size`: File size in bytes
+- `created_time`: Creation timestamp
+- `modified_time`: Modification timestamp
+- `source`: Document source path
+- `mimetype`: MIME type
+- `extension`: File extension
+- `page_count`: Number of pages
+
+**Example Transformation**:
+
+```python
+# Input row data
+{
+  "path": "/docs/report.pdf",
+  "name": "report.pdf",
+  "pages_processed": 10,
+  "content": "..."
+}
+
+# Automatically normalized to
+{
+  "content": "...",
+  "metadata": {
+    "source": "/docs/report.pdf",
+    "name": "report.pdf",
+    "page_count": 10,
+    "extension": "pdf",
+    "mimetype": "application/pdf"
+  }
+}
+```
+
+#### Schema Validation
+
+The system performs comprehensive validation of schema templates:
+
+1. **Structure Validation**: Ensures required schema components are present
+2. **Vector Field Validation**: Validates KNN vector configuration
+3. **Parameter Range Validation**: Checks engine parameters are within valid ranges
+4. **Analyzer Validation**: Validates custom analyzer configurations
+
+**Validation Example**:
+
+```python
+# Invalid schema - missing required fields
+{
+  "settings": {},
+  "field_types": {}
+}
+# Error: Schema missing required 'schema_name' field
+
+# Invalid vector configuration
+{
+  "field_types": {
+    "vector": {
+      "type": "knn_vector",
+      "dimension": -1  # Invalid dimension
+    }
+  }
+}
+# Error: Vector dimension must be positive
+```
+
+#### Implementation Architecture
+
+```mermaid
+graph TB
+    subgraph "VectorDBOperator"
+        VDB[VectorDBOperator]
+    end
+
+    subgraph "OpenSearch Adapter"
+        OSA[OpenSearchAdapter]
+        IM[IndexManager]
+        BP[BatchProcessor]
+    end
+
+    subgraph "Schema Management"
+        ST[Schema Templates]
+        PH[Placeholder Replacement]
+        VAL[Schema Validation]
+    end
+
+    subgraph "Metadata Processing"
+        NORM[Column Normalization]
+        DERIV[Field Derivation]
+        AGG[Metadata Aggregation]
+    end
+
+    VDB --> OSA
+    OSA --> IM
+    OSA --> BP
+    IM --> ST
+    ST --> PH
+    PH --> VAL
+    BP --> NORM
+    NORM --> DERIV
+    DERIV --> AGG
+
+    style VDB fill:#ffe1e1
+    style IM fill:#e1ffe1
+    style BP fill:#e1ffe1
+    style ST fill:#fff4e1
+    style NORM fill:#e1f5ff
+```
+
+**Key Components**:
+
+- **OpenSearchIndexManager**: Handles schema template loading, placeholder replacement, and validation
+- **OpenSearchBatchProcessor**: Handles metadata normalization, field derivation, and aggregation
+- **Schema Templates**: JSON files defining reusable index configurations
+- **Validation System**: Ensures schema correctness before index creation
+
+### 4. Docling Integration Architecture
 
 ```mermaid
 graph TB
@@ -1659,8 +1893,7 @@ graph LR
     "confidence_threshold": 7.0,
     "include_confidence": true,
     "include_reasoning": true
-}
-
+  }
 }
 ```
 
@@ -2111,16 +2344,14 @@ graph TB
 ```
 
 **Web Pages:**
+
 ```json
 {
   "operator_type": "IngestSourceOperator",
   "operator_params": {
     "provider": "web",
     "connection_params": {
-      "urls": [
-        "https://example.com",
-        "https://www.iana.org/domains/reserved"
-      ],
+      "urls": ["https://example.com", "https://www.iana.org/domains/reserved"],
       "max_depth": 2,
       "prevent_outside": true,
       "exclude_patterns": ["/admin", "/login", "/api"],
@@ -2878,7 +3109,7 @@ class MyCustomOperator(AbstractOperator):
         # Implementation
         metadata = self.create_base_metadata(total_docs_count=len(table))
         # Process table
-        return [output_table], metadata    
+        return [output_table], metadata
     @staticmethod
     def get_required_features() -> list[str]:
 
@@ -3154,6 +3385,7 @@ Hexagonal architecture implementation for document set management:
 Operators are organized by category (defined in `OperatorCategory` enum):
 
 #### Extract Operators (`extract/`)
+
 - **ExtractOperator**: Extraction operator using hexagonal architecture with multiple adapters; outputs extracted text plus estimated page-count metrics
   - **Text Extraction Modes**:
     - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines
@@ -3181,6 +3413,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 - **EmbeddingsOperator**: Vector embedding generation
 
 #### Quality Operators (`quality/`)
+
 - **DocumentClassifier**: LLM-based document classification (hexagonal architecture with Ollama, LiteLLM, and Watsonx adapters)
 - **Dedup**: Deduplication
 - **DocQuality**: Document quality assessment using dpk_doc_quality (word count, mean word length, symbol ratios, bad words, etc.)
@@ -3257,6 +3490,7 @@ Supporting Components:
 The FastAPI-based REST API provides programmatic access to flow and job management:
 
 #### Flow Management Endpoints (`/api/v1/flows`)
+
 - `POST /flows` - Create a new flow
 - `GET /flows/{flow_id}` - Retrieve flow by ID
 - `GET /flows` - List flows with pagination and filtering
@@ -3266,12 +3500,15 @@ The FastAPI-based REST API provides programmatic access to flow and job manageme
 - `DELETE /flows` - Bulk delete flows
 
 #### Job Run Management Endpoints (`/api/v1/job-runs`)
+
 - `GET /job-runs/{job_run_id}` - Get job run status and statistics
 - `POST /job-runs/{job_run_id}/cancel` - Request job cancellation
 - `DELETE /job-runs/{job_run_id}` - Delete job run data
 
 #### Job Management Architecture
+
 The job management subsystem uses hexagonal architecture (ports and adapters pattern):
+
 - **Domain Layer**: `JobStatsDto`, `NodeStatsDto` models and `JobStatsService` port
 - **Application Layer**: `JobManagementService` for orchestrating job operations
 - **Adapters Layer**: Multiple storage implementations with pluggable backends
@@ -3281,6 +3518,7 @@ The job management subsystem uses hexagonal architecture (ports and adapters pat
 - **Dependency Injection**: Factory pattern via `JobManagementFactory`
 
 This architecture enables:
+
 - Pluggable storage backends (in-memory, JSON, composite, PostgreSQL, Redis, etc.)
 - Framework-agnostic job tracking
 - Clean separation between business logic and infrastructure
