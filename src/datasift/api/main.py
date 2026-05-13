@@ -152,6 +152,11 @@ def custom_openapi():
         servers=app.servers,
     )
 
+    # IMPORTANT:
+    # Use relative root path
+    # This tells to use the SAME host from which Swagger UI was loaded
+    openapi_schema["servers"] = [{"url": "/"}]
+
     def remove_nullable_keywords(schema: dict) -> dict:
         """Recursively remove nullable and OpenAPI 3.1 null-union patterns for IBM validator compatibility."""
         if not isinstance(schema, dict):
