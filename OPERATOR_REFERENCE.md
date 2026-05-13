@@ -749,7 +749,7 @@ The operator provides the following metadata after execution:
 | `breakpoint_threshold_type`   | string |       No | `percentile`                             | Semantic split threshold method              |
 | `breakpoint_threshold_amount` | float  |       No | `null`                                   | Threshold amount                             |
 | `docling_tokenizer`           | string |       No | `sentence-transformers/all-MiniLM-L6-v2` | Hybrid chunking tokenizer                    |
-| `retain_original_content`     | bool   |       No | `true`                                   | Keep original content                        |
+| `retain_original_content`     | bool   |       No | `false`                                  | Keep original content                        |
 | `enable_summarization`        | bool   |       No | `false`                                  | Create chunk summaries                       |
 
 **Input Schema**

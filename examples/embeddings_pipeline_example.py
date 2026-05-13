@@ -307,7 +307,7 @@ def main() -> int:
         "chunk_size": args.chunk_size,
         "chunk_overlap": 128,
         "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
-        "retain_original_content": True,
+        "retain_original_content": False,
         "enable_summarization": True,
     }
 

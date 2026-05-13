@@ -987,7 +987,7 @@ Splits documents into chunks:
     "doc_column": "content",
     "chunk_size": 512,
     "chunk_overlap": 128,
-    "retain_original_content": "true"
+    "retain_original_content": false
   },
   "input_edges": [{ "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }],
   "output_edges": ["6de879bd-bbe0-4d60-998f-031f65472a02"]

@@ -68,7 +68,7 @@
           "doc_column": "content",
           "chunk_size": 512,
           "chunk_overlap": 128,
-          "retain_original_content": "true"
+          "retain_original_content": false
         },
         "input_edges": [
           {

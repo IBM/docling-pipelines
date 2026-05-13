@@ -98,7 +98,7 @@ class TestIngestExtractChunkTxtIntegration:
             "doc_column": "doc_content",
             "chunk_size": 256,  # Smaller chunks for testing
             "chunk_overlap": 50,
-            "retain_original_content": True,
+            "retain_original_content": False,
         }
 
         chunker_operator = ChunkerOperator(config=chunk_config)

@@ -137,7 +137,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
 ### 8. `retain_original_content` (Boolean)
 **Type:** Boolean
 **Required:** No
-**Default:** `true`
+**Default:** `false`
 **Description:** Whether to keep the original content column after chunking.
 
 **Valid Values:**
@@ -146,7 +146,6 @@ The Chunker Operator provides intelligent text chunking with support for three s
 
 **Examples:**
 ```json
-"retain_original_content": true
 "retain_original_content": false
 ```
 
@@ -271,7 +270,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
     "chunk_type": "simple",
     "chunk_size": 1000,
     "chunk_overlap": 200,
-    "retain_original_content": true
+    "retain_original_content": false
   }
 }
 ```
@@ -305,7 +304,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
     "summarization_model_id": "granite4",
     "summary_sentences": 2,
     "summary_max_words": 30,
-    "retain_original_content": true
+    "retain_original_content": false
   }
 }
 ```

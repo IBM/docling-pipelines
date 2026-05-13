@@ -37,6 +37,7 @@ class TestChunkerOperator(unittest.TestCase):
         self.assertEqual(operator.chunk_type, ChunkType.SIMPLE.value)
         self.assertEqual(operator.chunk_size, 1000)
         self.assertEqual(operator.chunk_overlap, 200)
+        self.assertFalse(operator.retain_original_content)
 
     def test_init_semantic_chunking(self):
         """Test operator initialization with semantic chunking config"""
@@ -76,17 +77,17 @@ class TestChunkerOperator(unittest.TestCase):
             "chunk_size": 1000,
             "chunk_overlap": 200,
             "doc_column": "content",
-            "retain_original_content": True,
         }
         operator = ChunkerOperator(config)
 
         # 3. Transform the table
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # 4. Perform assertions
         self.assertEqual(result_table.num_rows, 1)
         self.assertIn(OperatorConstants.Columns.CHUNKED_CONTENT, result_table.column_names)
+        self.assertNotIn("content", result_table.column_names)
 
         # Check that chunks were created
         chunked_content = result_table[OperatorConstants.Columns.CHUNKED_CONTENT][0].as_py()
@@ -113,7 +114,7 @@ class TestChunkerOperator(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Should create multiple chunks
@@ -170,7 +171,7 @@ class TestChunkerOperator(unittest.TestCase):
         operator = ChunkerOperator(config)
 
         # Transform
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Assertions
@@ -357,6 +358,27 @@ class TestChunkerEdgeCases(unittest.TestCase):
         self.assertEqual(result_table.num_rows, 3)
         self.assertEqual(metadata["total_docs_count"], 3)
 
+    def test_default_removes_original_content(self):
+        """Test that original content is removed by default"""
+        data = {
+            OperatorConstants.Columns.ID: ["doc1"],
+            OperatorConstants.Columns.NAME: ["Document 1"],
+            "content": ["Test content for chunking."],
+        }
+        input_table = pa.table(data)
+
+        config = {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        result_tables, _metadata = operator.transform(input_table)
+        result_table = result_tables[0]
+
+        self.assertNotIn("content", result_table.column_names)
+
     def test_retain_original_content(self):
         """Test that original content is retained when configured"""
         data = {
@@ -374,10 +396,9 @@ class TestChunkerEdgeCases(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
-        # Original content column should exist
         self.assertIn("content", result_table.column_names)
         original_content = result_table["content"][0].as_py()
         self.assertEqual(original_content, "Test content for chunking.")
@@ -429,7 +450,7 @@ class TestChunkerEdgeCases(unittest.TestCase):
             }
             operator = ChunkerOperator(config)
 
-            result_tables, metadata = operator.transform(input_table)
+            result_tables, _metadata = operator.transform(input_table)
             result_table = result_tables[0]
 
             # Should successfully process with any breakpoint type
@@ -501,7 +522,7 @@ class TestDoclingChunking(unittest.TestCase):
         operator = ChunkerOperator(config)
 
         # Transform
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Assertions
@@ -596,6 +617,36 @@ class TestDoclingChunking(unittest.TestCase):
         self.assertEqual(metadata["total_docs_count"], 3)
 
     @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
+    def test_docling_default_removes_original_content(self, mock_hybrid_chunker_class):
+        """Test that original content is removed by default for docling"""
+        mock_chunker = MagicMock()
+        mock_hybrid_chunker_class.return_value = mock_chunker
+
+        mock_chunk = MagicMock()
+        mock_chunk.text = "Chunk text."
+        mock_chunk.start_index = 0
+        mock_chunker.chunk.return_value = iter([mock_chunk])
+
+        data = {
+            OperatorConstants.Columns.ID: ["doc1"],
+            OperatorConstants.Columns.NAME: ["Document 1"],
+            "content": ["Test content for chunking."],
+        }
+        input_table = pa.table(data)
+
+        config = {
+            "chunk_type": ChunkType.HYBRID.value,
+            "chunk_size": 512,
+            "doc_column": "content",
+        }
+        operator = ChunkerOperator(config)
+
+        result_tables, _metadata = operator.transform(input_table)
+        result_table = result_tables[0]
+
+        self.assertNotIn("content", result_table.column_names)
+
+    @patch("docling_core.transforms.chunker.hybrid_chunker.HybridChunker")
     def test_docling_retain_original_content(self, mock_hybrid_chunker_class):
         """Test that original content is retained when configured for docling"""
         mock_chunker = MagicMock()
@@ -621,7 +672,7 @@ class TestDoclingChunking(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Original content column should exist
@@ -655,7 +706,7 @@ class TestDoclingChunking(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Original content column should be removed
@@ -682,7 +733,7 @@ class TestDoclingChunking(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        _result_tables, metadata = operator.transform(input_table)
 
         # Should record as failed document
         self.assertGreater(metadata.get("failed_docs_count", 0), 0)
@@ -718,7 +769,7 @@ class TestDoclingChunking(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # Check that multiple chunks were created
@@ -752,7 +803,7 @@ class TestDoclingChunking(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        result_tables, _metadata = operator.transform(input_table)
         result_table = result_tables[0]
 
         # All original columns should be preserved
@@ -784,7 +835,7 @@ class TestDoclingChunking(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        _result_tables, metadata = operator.transform(input_table)
 
         # Should process successfully
         self.assertEqual(metadata["total_docs_count"], 1)
@@ -814,7 +865,7 @@ class TestDoclingChunking(unittest.TestCase):
         }
         operator = ChunkerOperator(config)
 
-        result_tables, metadata = operator.transform(input_table)
+        _result_tables, metadata = operator.transform(input_table)
 
         # Should process successfully
         self.assertEqual(metadata["total_docs_count"], 1)

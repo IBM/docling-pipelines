@@ -98,7 +98,7 @@ VALID_BREAKPOINT_TYPES: list[str] = [t.value for t in BreakpointThresholdType]
 
 # General Constants
 RETAIN_ORIGINAL_CONTENT_KEY: str = "retain_original_content"
-RETAIN_ORIGINAL_CONTENT_DEFAULT: bool = True  # Keep original content alongside chunks
+RETAIN_ORIGINAL_CONTENT_DEFAULT: bool = False  # Drop original content unless explicitly retained
 
 logger = get_logger()
 
@@ -182,7 +182,7 @@ class ChunkerOperator(AbstractOperator):
                 - breakpoint_threshold_type (str): Boundary detection method (default: "percentile")
                 - breakpoint_threshold_amount (float): Threshold value (default: None)
                 - docling_tokenizer (str): Tokenizer for docling chunking (default: "sentence-transformers/all-MiniLM-L6-v2")
-                - retain_original_content (bool): Keep original content (default: True)
+                - retain_original_content (bool): Keep original content (default: False)
         """
         super().__init__(config)
         self.doc_column: str = config.get(

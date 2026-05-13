@@ -43,7 +43,7 @@
           "chunk_type": "semantic",
           "chunk_size": 512,
           "chunk_overlap": 50,
-          "retain_original_content": true
+          "retain_original_content": false
         },
         "input_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}],
         "output_edges": [{"node_id_ref": "c4d5e6f7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"}]

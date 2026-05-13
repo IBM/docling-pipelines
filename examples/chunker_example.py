@@ -82,7 +82,7 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
         "breakpoint_threshold_type": "percentile",  # Method for detecting boundaries
         "breakpoint_threshold_amount": 95.0,  # Split at 95th percentile of dissimilarity
         "doc_column": "content",
-        "retain_original_content": True,
+        "retain_original_content": False,
         "enable_summarization": False,  # Disable for faster execution
     }
     print("\n>>>>>>>>>>>>> Testing SEMANTIC chunking")
@@ -194,7 +194,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
         "chunk_size": 512,  # Token-based chunk size
         "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",  # Tokenizer for chunking
         "doc_column": "content",
-        "retain_original_content": True,
+        "retain_original_content": False,
         "enable_summarization": True,
     }
     print(f"\n>>>>>>>>>>>>> Testing HYBRID chunking with chunk_size: {config['chunk_size']} tokens")

@@ -54,7 +54,7 @@
                     "doc_column": "${OperatorConstants.Columns.DOC_COLUMN_DEFAULT}",
                     "chunk_size": 512,
                     "chunk_overlap": 128,
-                    "retain_original_content": "true"
+                    "retain_original_content": false
                 },
                 "input_edges": [{"node_id_ref": "22222222-2222-2222-2222-222222222222"}],
                 "output_edges": ["44444444-4444-4444-4444-444444444444"]
