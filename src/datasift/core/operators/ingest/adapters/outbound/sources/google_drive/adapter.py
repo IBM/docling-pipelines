@@ -19,6 +19,7 @@ from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_f
 from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
 from datasift.core.operators.ingest.domain.models import Document
 from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -68,11 +69,25 @@ class PyPDFFileLoader(BaseLoader):
                 logger.warning("Skipping file: Either the file is empty or binary content extraction failed")
                 return []
 
-            is_pdf = binary_content[:4] == b"%PDF"
-            file_type = "PDF" if is_pdf else "Unknown"
+            # Try to extract extension from filename first
+            import os
 
+            filename = self.metadata.get("name", "")
+            detected_extension = ""
+
+            if filename:
+                # Extract extension from filename (e.g., "document.pdf" -> ".pdf")
+                _, file_ext = os.path.splitext(filename)
+                if file_ext:
+                    detected_extension = file_ext.lower()
+
+            # Fall back to binary detection if no extension in filename
+            if not detected_extension:
+                detected_extension = OperatorUtils.detect_extension_from_bytes(binary_content=binary_content)
+
+            # For PDFs, validate and get page count using pypdf
             total_pages = None
-            if is_pdf:
+            if detected_extension == ".pdf":
                 try:
                     from pypdf import PdfReader
 
@@ -88,7 +103,7 @@ class PyPDFFileLoader(BaseLoader):
                 except Exception as e:
                     logger.warning(f"Failed to validate PDF structure: {e}, storing binary content anyway")
 
-            doc_metadata = {**self.metadata, "file_type": file_type}
+            doc_metadata = {**self.metadata, "extension": detected_extension}
             if total_pages is not None:
                 doc_metadata["total_pages"] = total_pages
 
@@ -295,12 +310,12 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             content=content,
             source_url=metadata.get("source", f"https://drive.google.com/file/d/{doc_id}"),
             modified_time=modified_time,
+            extension=metadata.get("extension"),  # First-class field
             metadata={
                 "mime_type": metadata.get("mime_type"),
                 "file_size": len(content),
                 "drive_id": doc_id,
                 "drive_name": doc_name,
-                "file_type": metadata.get("file_type"),
                 "total_pages": metadata.get("total_pages"),
             },
         )
@@ -422,16 +437,16 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         if original_count != len(documents):
             logger.info("  Note: Multi-part files (like Google Sheets) were consolidated into single documents")
 
-        # Count file types
-        file_type_counts: dict[str, int] = {}
+        # Count file extensions
+        extension_counts: dict[str, int] = {}
         for doc in documents:
-            file_type = doc.metadata.get("file_type", "Unknown")
-            file_type_counts[file_type] = file_type_counts.get(file_type, 0) + 1
+            extension = doc.metadata.get("extension", "unknown")
+            extension_counts[extension] = extension_counts.get(extension, 0) + 1
 
-        if file_type_counts:
-            logger.info("  File breakdown by type:")
-            for file_type, count in sorted(file_type_counts.items(), key=lambda x: x[1], reverse=True):
-                logger.info(f"    - {file_type}: {count} file(s)")
+        if extension_counts:
+            logger.info("  File breakdown by extension:")
+            for extension, count in sorted(extension_counts.items(), key=lambda x: x[1], reverse=True):
+                logger.info(f"    - {extension}: {count} file(s)")
 
         return documents
 
