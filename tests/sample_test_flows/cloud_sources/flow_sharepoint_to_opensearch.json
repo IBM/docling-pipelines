@@ -18,12 +18,13 @@
         "config": {
           "provider": "sharepoint",
           "connection_params": {
-            "document_library_id": "insert_document_library_id_here"
+            "document_library_id": "${SHAREPOINT_DOCUMENT_LIBRARY_ID}",
+            "recursive": true
           },
           "credentials": {
-            "client_id": "insert_client_id_here",
-            "client_secret": "insert_client_secret_here",
-            "tenant_id": "insert_tenant_id_here"
+            "client_id": "${SHAREPOINT_CLIENT_ID}",
+            "client_secret": "${SHAREPOINT_CLIENT_SECRET}",
+            "tenant_id": "${SHAREPOINT_TENANT_ID}"
           },
           "include_filter": "pdf,docx,txt,pptx",
           "max_files": 100,
@@ -115,7 +116,7 @@
             "host": "9.30.97.49",
             "port": 9200,
             "username": "admin",
-            "password": "${OPENSEARCH_PASSWORD}",
+            "password": "insert_opensearch_password_here",
             "use_ssl": true,
             "verify_certs": false,
             "batch_size": 100,

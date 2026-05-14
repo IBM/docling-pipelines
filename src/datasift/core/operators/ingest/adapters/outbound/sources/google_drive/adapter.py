@@ -1,6 +1,5 @@
 """Google Drive source adapter using LangChain loader."""
 
-import os
 import pickle
 from datetime import datetime
 from io import BytesIO
@@ -19,7 +18,7 @@ from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_f
 from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
 from datasift.core.operators.ingest.domain.models import Document
 from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
-from datasift.core.operators.operator_utils import OperatorUtils
+from datasift.core.operators.operator_utils import OperatorUtils, resolve_env_var
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -537,28 +536,6 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-
-        def resolve_env_var(value):
-            if not isinstance(value, str):
-                return value
-            if value.startswith("${") and value.endswith("}"):
-                env_var_name = value[2:-1]
-                resolved = os.getenv(env_var_name)
-                if resolved is None:
-                    raise ValueError(f"Environment variable {env_var_name} is not set")
-                return resolved
-            if value.startswith("$"):
-                env_var_name = value[1:]
-                resolved = os.getenv(env_var_name)
-                if resolved is None:
-                    raise ValueError(f"Environment variable {env_var_name} is not set")
-                return resolved
-            if value.isupper() and "_" in value:
-                resolved = os.getenv(value)
-                if resolved is not None:
-                    return resolved
-            return value
-
         # Build config dict with either OAuth or Service Account credentials
         config_dict = {
             "folder_id": resolve_env_var(connection_params.get("folder_id")),

@@ -58,6 +58,7 @@ def is_asr_available() -> bool:
         from docling.datamodel.asr_model_specs import AsrModelType  # noqa: F401
         from docling.document_converter import AudioFormatOption  # noqa: F401
         from docling.pipeline.asr_pipeline import AsrPipeline  # noqa: F401
+
         return True
     except ImportError:
         return False
@@ -80,6 +81,28 @@ def get_supported_file_extensions() -> str:
         base_extensions.extend(audio_video_extensions)
 
     return ",".join(base_extensions)
+
+
+def resolve_env_var(value):
+    if not isinstance(value, str):
+        return value
+    if value.startswith("${") and value.endswith("}"):
+        env_var_name = value[2:-1]
+        resolved = os.getenv(env_var_name)
+        if resolved is None:
+            raise ValueError(f"Environment variable {env_var_name} is not set")
+        return resolved
+    if value.startswith("$"):
+        env_var_name = value[1:]
+        resolved = os.getenv(env_var_name)
+        if resolved is None:
+            raise ValueError(f"Environment variable {env_var_name} is not set")
+        return resolved
+    if value.isupper() and "_" in value:
+        resolved = os.getenv(value)
+        if resolved is not None:
+            return resolved
+    return value
 
 
 class OperatorUtils:
@@ -966,9 +989,7 @@ class OperatorUtils:
                 converter = DocumentConverter()
 
             # Create DocumentStream from binary content (no temporary file needed)
-            audio_video_suffixes = {
-                f".{extension.lower()}" for extension in FormatToExtensions[InputFormat.AUDIO]
-            }
+            audio_video_suffixes = {f".{extension.lower()}" for extension in FormatToExtensions[InputFormat.AUDIO]}
             doc_name = Path(file_path).name if file_path else f"document{file_suffix}"
             if file_suffix in audio_video_suffixes:
                 current_path_file = Path.cwd() / doc_name

@@ -121,8 +121,8 @@ class TestOneDriveSourceAdapter:
     def test_build_config_from_operator_params(self):
         adapter = OneDriveSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            {"drive_id": "drive1", "folder_path": "Docs", "recursive": False},
-            {"client_id": "client", "client_secret": "secret", "tenant_id": "tenant"},
+            connection_params={"drive_id": "drive1", "folder_path": "Docs", "recursive": False},
+            credentials={"client_id": "client", "client_secret": "secret", "tenant_id": "tenant"},
             included_extensions=["txt"],
         )
 
@@ -237,8 +237,8 @@ class TestSharePointSourceAdapter:
     def test_build_config_from_operator_params(self):
         adapter = SharePointSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            {"document_library_id": "lib1", "folder_path": "Docs", "recursive": False},
-            {"client_id": "client", "client_secret": "secret", "tenant_id": "tenant"},
+            connection_params={"document_library_id": "lib1", "folder_path": "Docs", "recursive": False},
+            credentials={"client_id": "client", "client_secret": "secret", "tenant_id": "tenant"},
             included_extensions=["txt"],
         )
 

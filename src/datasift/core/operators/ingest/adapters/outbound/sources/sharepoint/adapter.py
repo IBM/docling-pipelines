@@ -15,6 +15,7 @@ from datasift.core.operators.ingest.domain.models import Document
 # Import the MicrosoftGraphLoader from ingest_source.py
 from datasift.core.operators.ingest.ingest_source import MicrosoftGraphLoader
 from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+from datasift.core.operators.operator_utils import resolve_env_var
 
 
 @register_source_adapter
@@ -51,12 +52,12 @@ class SharePointSourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from SharePoint using Microsoft Graph API"
     SOURCE_VERSION = "1.0.0"
 
-    async def fetch_documents(self, config: BaseModel) -> AsyncGenerator[Document, None]:
+    async def fetch_documents(self, config: BaseModel) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
         Fetch documents from SharePoint using Microsoft Graph API.
 
         Args:
-            config: Validated SharePoint configuration
+            config: Validated SharePoint configuration (SharePointSourceConfig)
 
         Yields:
             Document: Domain documents from SharePoint
@@ -65,17 +66,17 @@ class SharePointSourceAdapter(DocumentSourcePort):
             ImportError: If required dependencies (msal, requests) are not installed
             ValueError: If authentication fails or document library not found
         """
-        config = cast(SharePointSourceConfig, config)
+        sharepoint_config = cast(SharePointSourceConfig, config)
         try:
             # Create MicrosoftGraphLoader with configuration
             # Note: SharePoint uses document_library_id which is the drive_id in Graph API
             loader = MicrosoftGraphLoader(
-                drive_id=config.document_library_id,
-                client_id=config.client_id,
-                client_secret=config.client_secret,
-                tenant_id=config.tenant_id,
-                folder_path=config.folder_path,
-                recursive=config.recursive,
+                drive_id=sharepoint_config.document_library_id,
+                client_id=sharepoint_config.client_id,
+                client_secret=sharepoint_config.client_secret,
+                tenant_id=sharepoint_config.tenant_id,
+                folder_path=sharepoint_config.folder_path,
+                recursive=sharepoint_config.recursive,
             )
 
             # Load documents (synchronous operation)
@@ -97,15 +98,15 @@ class SharePointSourceAdapter(DocumentSourcePort):
                     content = lc_doc.page_content.encode("utf-8")
 
                 # Apply file extension filter if specified
-                if config.file_extensions:
+                if sharepoint_config.file_extensions:
                     file_ext = os.path.splitext(doc_name)[1].lower()
-                    if file_ext not in config.file_extensions:
+                    if file_ext not in sharepoint_config.file_extensions:
                         continue
 
                 # Apply file size filter if specified
-                if config.max_file_size_mb:
+                if sharepoint_config.max_file_size_mb:
                     file_size_mb = len(content) / (1024 * 1024)
-                    if file_size_mb > config.max_file_size_mb:
+                    if file_size_mb > sharepoint_config.max_file_size_mb:
                         continue
 
                 # Parse modified time if available
@@ -128,7 +129,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                     source_url=source_url,
                     modified_time=modified_time,
                     metadata={
-                        "document_library_id": config.document_library_id,
+                        "document_library_id": sharepoint_config.document_library_id,
                         "file_size": metadata.get("size", len(content)),
                         "mime_type": metadata.get("mime_type"),
                         "created_time": metadata.get("created_time"),
@@ -155,15 +156,15 @@ class SharePointSourceAdapter(DocumentSourcePort):
         Returns:
             Tuple[bool, str]: (success, message)
         """
-        config = cast(SharePointSourceConfig, config)
+        sharepoint_config = cast(SharePointSourceConfig, config)
         try:
             # Create loader to test authentication
             loader = MicrosoftGraphLoader(
-                drive_id=config.document_library_id,
-                client_id=config.client_id,
-                client_secret=config.client_secret,
-                tenant_id=config.tenant_id,
-                folder_path=config.folder_path,
+                drive_id=sharepoint_config.document_library_id,
+                client_id=sharepoint_config.client_id,
+                client_secret=sharepoint_config.client_secret,
+                tenant_id=sharepoint_config.tenant_id,
+                folder_path=sharepoint_config.folder_path,
                 recursive=False,  # Don't recurse for connection test
             )
 
@@ -196,9 +197,11 @@ class SharePointSourceAdapter(DocumentSourcePort):
 
     def build_config_from_operator_params(
         self,
+        *,
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
+        max_files: int | None = None,
     ) -> BaseModel:
         """
         Build SharePoint configuration from operator parameters.
@@ -207,6 +210,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
             connection_params: Connection parameters (document_library_id, folder_path, etc.)
             credentials: Credentials (client_id, client_secret, tenant_id)
             included_extensions: File extensions to include (optional)
+            max_files: Maximum number of files to fetch (optional, not used by SharePoint adapter)
 
         Returns:
             SharePointSourceConfig: Validated configuration object
@@ -215,10 +219,10 @@ class SharePointSourceAdapter(DocumentSourcePort):
             included_extensions = []
 
         config_params = {
-            "client_id": credentials.get("client_id", ""),
-            "client_secret": credentials.get("client_secret", ""),
-            "tenant_id": credentials.get("tenant_id", ""),
-            "document_library_id": connection_params.get("document_library_id", ""),
+            "client_id": resolve_env_var(credentials.get("client_id", "")),
+            "client_secret": resolve_env_var(credentials.get("client_secret", "")),
+            "tenant_id": resolve_env_var(credentials.get("tenant_id", "")),
+            "document_library_id": resolve_env_var(connection_params.get("document_library_id", "")),
             "folder_path": connection_params.get("folder_path"),
             "recursive": connection_params.get("recursive", True),
             "file_extensions": included_extensions,
