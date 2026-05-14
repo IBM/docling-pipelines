@@ -136,7 +136,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 | **Quality**   | ML Enrichment           | [Configuration Guide](docs/operators/ml_enrichment/ml_enrichment_config.md)             |
 | **Quality**   | Document Quality        | [Configuration Guide](docs/operators/doc_quality/doc_quality_config.md)                 |
 | **VectorDB**  | VectorDB                | [Configuration Guide](docs/operators/vectordb/vectordb_operator_config.md)              |
-| **Storage**   | Document Set            | [Configuration Guide](docs/operators/storage/document_set_config.md)                    |
+| **Storage**   | Document Set            | [Configuration Guide](docs/operators/document_set/document_set_config.md)               |
 
 ### Additional Resources
 
@@ -157,7 +157,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ### Ingest Operators
 
 - **Local Folder** - Ingest documents from local filesystem
-**Cloud/Object Storage** - Ingest documents from multiple cloud providers ([see full list](docs/operators/ingest_source.md#supported-providers)):
+- **Cloud/Object Storage** - Ingest documents from multiple cloud providers ([see full list](docs/operators/ingest_source/ingest_source.md#supported-providers)):
   - Amazon S3
   - IBM Cloud Object Storage (COS)
   - Microsoft SharePoint
@@ -168,7 +168,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 - **CSV** - Ingest structured data from CSV files
 - **Web Pages** - Ingest web content with the `WebPageSourceAdapter`, backed by LangChain `RecursiveUrlLoader` for recursive crawling
 
-For detailed configuration and usage of each provider, see the [Ingest Source Operator documentation](docs/operators/ingest_source.md).
+For detailed configuration and usage of each provider, see the [Ingest Source Operator documentation](docs/operators/ingest_source/ingest_source.md).
 
 ### Extract Operators
 
@@ -272,7 +272,7 @@ datasift-opensource includes a pluggable job-management subsystem for tracking j
 
 ### API Surface
 
-Job run APIs are exposed through [`job_runs.py`](src/datasift/app/routes/job_runs.py) for:
+Job run APIs are exposed through [`job_runs.py`](src/datasift/api/routes/job_runs.py) for:
 - creating job runs
 - listing job runs
 - reading current job run status
@@ -281,11 +281,11 @@ Job run APIs are exposed through [`job_runs.py`](src/datasift/app/routes/job_run
 
 ### User Configuration
 
-The primary user-facing runtime configuration lives in [`datasift.yaml`](src/datasift/config/datasift.yaml), including:
-- [`assets_management.flow_repository`](src/datasift/config/datasift.yaml:1) for the flow repository location
-- [`job_management.framework.type`](src/datasift/config/datasift.yaml:9) for the job framework type
-- [`job_management.store.type`](src/datasift/config/datasift.yaml:12) for the job stats store backend (inmemory, json, duckdb, postgresql)
-- [`job_management.store.config`](src/datasift/config/datasift.yaml:15) for backend-specific settings such as JSON `base_dir`, DuckDB `database_path`, or PostgreSQL connection details
+The primary user-facing runtime configuration lives in [`datasift-config.yaml`](datasift-config.yaml), including:
+- [`assets_management.flow_repository`](datasift-config.yaml#L1) for the flow repository location
+- [`job_management.framework.type`](datasift-config.yaml#L9) for the job framework type
+- [`job_management.store.type`](datasift-config.yaml#L12) for the job stats store backend (inmemory, json, duckdb, postgresql)
+- [`job_management.store.config`](datasift-config.yaml#L15) for backend-specific settings such as JSON `base_dir`, DuckDB `database_path`, or PostgreSQL connection details
 
 Environment overrides can replace config values at runtime, including:
 - `DATASIFT_CONFIG_PATH`
@@ -298,7 +298,7 @@ Environment overrides can replace config values at runtime, including:
 - `DATASIFT_POSTGRES_USER`
 - `DATASIFT_POSTGRES_PASSWORD`
 
-When using distributed Prefect workers, all workers must resolve job stats storage consistently. JSON storage requires a shared filesystem path. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective job-management configuration resolved from environment variables and [`datasift.yaml`](src/datasift/config/datasift.yaml).
+When using distributed Prefect workers, all workers must resolve job stats storage consistently. JSON storage requires a shared filesystem path. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective job-management configuration resolved from environment variables and [`datasift-config.yaml`](datasift-config.yaml).
 
 ## Setup
 
@@ -1329,53 +1329,6 @@ Key variables:
 | `OPENSEARCH_PASSWORD` | — | Password |
 | `OPENSEARCH_INDEX_NAME` | `datasift_test` | Index to write to |
 | `OPENSEARCH_USE_SSL` | `false` | Enable SSL |
-
-#### Step 4 — Stop OpenSearch
-
-```bash
-# Docker
-docker-compose -f docker/docker-compose.opensearch.yml down
-
-# Podman
-podman-compose -f docker/docker-compose.opensearch.yml down
-```
-
-**See also:**
-
-- [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#opensearch-setup) - Detailed OpenSearch configuration
-- [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
-- [OpenSearch Operator Reference](docs/operators/opensearch.md) - Technical API documentation
-- [VectorDBOperator Documentation](src/datasift/core/operators/vectordb/vectordb_operator.py) - Operator reference
-- [Operator Reference](OPERATOR_REFERENCE.md) - VectorDBOperator parameters
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - OpenSearch connection issues
-
----
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for detailed information on:
-
-- Code of conduct and contribution guidelines
-- Development setup and workflow
-- Testing requirements and best practices
-- Code style and quality standards
-- Pull request process
-
-**Quick start for contributors:**
-
-1. Create a new branch for your feature
-2. Make your changes
-3. Run tests and code quality checks
-4. Submit a pull request
-
-**See also:**
-
-- [Development](#development) - Development workflow
-- [Testing](#testing) - Running tests
-- [Code Quality](#code-quality) - Pre-commit hooks and linting
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
-  | `OPENSEARCH_INDEX_NAME` | `datasift_test` | Index to write to |
-  | `OPENSEARCH_USE_SSL` | `false` | Enable SSL |
 
 #### Step 4 — Stop OpenSearch
 

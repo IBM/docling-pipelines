@@ -74,16 +74,18 @@ python examples/ingest_source_example.py
 
 ### Extraction Operators
 
-#### [`ExtractOperator (see core/operators/extract/README.md)`](ExtractOperator "see core/operators/extract/README.md")
+#### ExtractOperator
 
 Demonstrates document content extraction using Docling (supports PDFs, DOCX, etc.).
 Supports both basic markdown extraction and template-based structured extraction.
 
+See [`extract_operator_example.py`](extract_operator_example.py) and [`../src/datasift/core/operators/extract/README.md`](../src/datasift/core/operators/extract/README.md) for details.
+
 ```bash
-python examples/ExtractOperator (see core/operators/extract/README.md)
+python examples/extract_operator_example.py
 ```
 
-#### [`ExtractOperator with Docling Serve mode`](ExtractOperator with Docling Serve mode)
+#### ExtractOperator with Docling Serve mode
 
 Demonstrates document extraction using the Docling-Serve REST API. Provides scalable document processing with support for OCR, table extraction, and multiple PDF backends.
 
@@ -97,7 +99,7 @@ docker run -p 5001:5001 ds4sd/docling-serve:latest
 **Usage:**
 
 ```bash
-python examples/ExtractOperator with Docling Serve mode
+python examples/extract_operator_example.py
 ```
 
 **Features:**
