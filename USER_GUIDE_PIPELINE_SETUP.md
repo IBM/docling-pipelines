@@ -2038,11 +2038,14 @@ operators_detailed = DatasiftFlowManager.list_operators(verbose=True)
 print(operators_detailed)
 
 # Cell 4: Create flow manager with explicit IDs
+# Note: job_id and job_run_id are auto-generated as UUIDs if not provided
+import uuid
+
 manager = DatasiftFlowManager(
     flow_file=str(flow_file),
     log_level='info',
-    job_id='notebook-job-doc-pipeline',
-    job_run_id='notebook-run-001',
+    job_id=str(uuid.uuid4()),
+    job_run_id=str(uuid.uuid4()),
     flow_id='notebook-flow-complete-pipeline',
 )
 print('Manager created.')
@@ -2146,14 +2149,18 @@ The programmatic API provides advanced features for production use cases.
 **Custom Job and Flow IDs**
 
 ```python
+import uuid
+
 manager = DatasiftFlowManager(
     flow_file="my_flow.json",
     log_level="debug",
-    job_id="production-job-2024-01",
-    job_run_id="run-20240113-001",
+    job_id=str(uuid.uuid4()),
+    job_run_id=str(uuid.uuid4()),
     flow_id="prod-document-pipeline-v2",
 )
 ```
+
+**Note:** `job_id` and `job_run_id` must be in UUID format (36 characters). If not provided, UUIDs are auto-generated
 
 **Accessing Execution Metadata**
 
