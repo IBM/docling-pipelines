@@ -29,9 +29,12 @@ COPY --from=builder /opt/app-root/src /opt/app-root/src
 
 WORKDIR /opt/app-root/src
 
-# Create datasift user and fix permissions
+# Create user first for --chown
+# Create datasift user and prepare writable directories
 RUN useradd -m -u 1000 datasift && \
-    chown -R datasift:datasift /opt/app-root 
+    mkdir -p /opt/app-root/models && \
+    chown -R datasift:datasift /opt/app-root && \
+    chmod -R 775 /opt/app-root/models
 
 USER datasift
 ENV PYTHONPATH=/opt/app-root/src
