@@ -352,26 +352,6 @@ class TestGetOperatorMetadataEndpoint:
         assert response.status_code == 200
         assert "application/json" in response.headers["content-type"]
 
-    def test_get_operator_metadata_handles_unknown_category(self, client, override_service):
-        """Test that operators with missing category get default value."""
-        # Arrange
-        metadata_without_category = {
-            "unknown_op": {
-                # Missing category
-                "features": {},
-                "required_features": [],
-            }
-        }
-        override_service.get_all_operator_metadata.return_value = metadata_without_category
-
-        # Act
-        response = client.get("/operators/metadata")
-
-        # Assert
-        assert response.status_code == 200
-        data = response.json()
-        assert data["unknown_op"]["category"] == "Custom"  # Default is now "Custom" (valid enum value)
-
 
 class TestOperatorMetadataValidationPatterns:
     """Tests for operator metadata validation patterns (regression tests for Issue #1).

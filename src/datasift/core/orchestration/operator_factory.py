@@ -1,7 +1,4 @@
-import importlib
-import inspect
 import os
-import pkgutil
 from typing import ClassVar
 
 from datasift.core.constants.constants import DatasiftConstants, EnvironmentVariables, OrchestratorType
@@ -16,10 +13,7 @@ class OperatorFactoryProvider:
 
     @staticmethod
     def get_operator_factory(
-        *,
-        orchestrator: str,
-        package_names: list | None = None,
-        enable_custom_operators: bool = True
+        *, orchestrator: str, package_names: list | None = None, enable_custom_operators: bool = True
     ) -> "OperatorFactory":
         """
         Get or create an operator factory with optional custom operator support.
@@ -46,27 +40,22 @@ class OperatorFactoryProvider:
                 package_names = (package_names or []) + env_package_list
 
         # Create cache key including enable flag
-        enable_flag = DatasiftConstants.FEATURE_ENABLED if enable_custom_operators else DatasiftConstants.FEATURE_DISABLED
+        enable_flag = (
+            DatasiftConstants.FEATURE_ENABLED if enable_custom_operators else DatasiftConstants.FEATURE_DISABLED
+        )
         key = f"{orchestrator}_{enable_flag}_{'_'.join(package_names or [])}"
         logger.debug(f"operator_factory_key:{key}")
 
         if key in OperatorFactoryProvider.operator_factories:
             return OperatorFactoryProvider.operator_factories[key]
 
-        operator_factory = OperatorFactory(
-            orchestrator,
-            package_names,
-            enable_custom_operators=enable_custom_operators
-        )
+        operator_factory = OperatorFactory(orchestrator, package_names, enable_custom_operators=enable_custom_operators)
         OperatorFactoryProvider.operator_factories[key] = operator_factory
         return operator_factory
 
     @staticmethod
     def refresh_operator_factory(
-        *,
-        orchestrator: str,
-        package_names: list | None = None,
-        enable_custom_operators: bool = True
+        *, orchestrator: str, package_names: list | None = None, enable_custom_operators: bool = True
     ) -> "OperatorFactory":
         """
         Refreshes the operator factory by reloading custom operator classes dynamically.
@@ -79,7 +68,9 @@ class OperatorFactoryProvider:
         Returns:
             OperatorFactory instance
         """
-        enable_flag = DatasiftConstants.FEATURE_ENABLED if enable_custom_operators else DatasiftConstants.FEATURE_DISABLED
+        enable_flag = (
+            DatasiftConstants.FEATURE_ENABLED if enable_custom_operators else DatasiftConstants.FEATURE_DISABLED
+        )
         key = f"{orchestrator}_{enable_flag}_{'_'.join(package_names or [])}"
         logger.info(f"Refreshing operator factory: {key}")
 
@@ -89,9 +80,7 @@ class OperatorFactoryProvider:
 
         # If the factory does not exist, create a new one
         return OperatorFactoryProvider.get_operator_factory(
-            orchestrator=orchestrator,
-            package_names=package_names,
-            enable_custom_operators=enable_custom_operators
+            orchestrator=orchestrator, package_names=package_names, enable_custom_operators=enable_custom_operators
         )
 
 
@@ -103,8 +92,8 @@ class OperatorFactory:
 
     # Priority map: lower number = higher priority
     PRIORITY_MAP: ClassVar[dict[str, int]] = {
-        DatasiftConstants.OWNER_CUSTOM: 1,      # Custom operators have highest priority
-        DatasiftConstants.OWNER_DATASIFT: 2,    # Base datasift operators have lower precedence
+        DatasiftConstants.OWNER_CUSTOM: 1,  # Custom operators have highest priority
+        DatasiftConstants.OWNER_DATASIFT: 2,  # Base datasift operators have lower precedence
     }
 
     def __init__(
@@ -160,58 +149,76 @@ class OperatorFactory:
 
         logger.info(f"Loaded {len(self.operators)} datasift operators from frozenset")
 
-    def _load_custom_operators_from_packages(self):
-        """Load custom operators from package paths with priority resolution."""
+    def _load_custom_operators_from_packages(self, *, clear_cache: bool = False) -> dict[str, type]:
+        """Load custom operators from all sources (packages, filesystem, S3) with priority resolution.
+
+        Args:
+            clear_cache: If True, clear adapter caches before loading (for refresh)
+
+        Returns:
+            Dictionary mapping operator short names to operator classes
+        """
         if not self.enable_custom_operators:
             logger.warning("Attempted to load custom operators but feature is disabled")
-            return
+            return {}
 
-        logger.info(f"Loading custom operators from packages: {self.package_names}")
-        temp_operator_dict = {}
+        logger.info(f"Loading custom operators from sources: {self.package_names}")
 
-        for package_name in self.package_names:
-            self._load_classes_from_package(
-                package_name=package_name,
-                temp_operator_dict=temp_operator_dict
-            )
+        try:
+            # Use CustomOperatorLoader for unified loading from all sources
+            from datasift.core.orchestration.operator_loader.loader_service import CustomOperatorLoader
 
-        # Apply priority resolution
-        self._apply_priority_resolution(temp_operator_dict=temp_operator_dict)
+            # Create loader with auto-detection of source types
+            loader = CustomOperatorLoader.from_paths(self.package_names)
 
-    def _apply_priority_resolution(self, *, temp_operator_dict: dict):
-        """Apply priority resolution to select the highest priority operator for each short_name."""
-        for short_name, classes in temp_operator_dict.items():
-            # Filter by orchestrator type
-            if self.orchestrator == OrchestratorType.SPARK:
-                candidates = [cls for cls in classes if cls.__name__.startswith("Spark")]
-            else:
-                candidates = [cls for cls in classes if not cls.__name__.startswith("Spark")]
+            # Load and validate operators
+            custom_operators = loader.validate_and_load(builtin_operators=self.operators, clear_cache=clear_cache)
 
-            if not candidates:
-                candidates = classes
+            # Apply priority resolution between datasift and custom operators
+            self._apply_priority_resolution_with_custom(custom_operators=custom_operators)
 
-            # Select highest priority operator
-            # None owner is treated as OWNER_CUSTOM for priority lookup
-            selected_class = min(
-                candidates,
-                key=lambda cls: self.PRIORITY_MAP.get(
-                    getattr(cls, DatasiftConstants.OWNER_ATTRIBUTE, None) or DatasiftConstants.OWNER_CUSTOM,
-                    float("inf")
+            logger.info(f"Successfully loaded {len(custom_operators)} custom operator(s)")
+            return custom_operators
+
+        except Exception as e:
+            logger.error(f"Failed to load custom operators: {e}", exc_info=True)
+            return {}
+
+    def _apply_priority_resolution_with_custom(self, *, custom_operators: dict[str, type]):
+        """Apply priority resolution between datasift and custom operators.
+
+        Custom operators (priority 1) can override datasift operators (priority 2).
+
+        Args:
+            custom_operators: Dictionary of custom operators (short_name -> class)
+        """
+        for short_name, operator_class in custom_operators.items():
+            # Get owner and priority
+            owner = getattr(operator_class, DatasiftConstants.OWNER_ATTRIBUTE, None) or DatasiftConstants.OWNER_CUSTOM
+            priority = self.PRIORITY_MAP.get(owner, float("inf"))
+
+            # Check if we should override existing datasift operator
+            if short_name in self.operators:
+                existing_owner = getattr(self.operators[short_name], DatasiftConstants.OWNER_ATTRIBUTE, None)
+                existing_priority = self.PRIORITY_MAP.get(
+                    existing_owner or DatasiftConstants.OWNER_CUSTOM, float("inf")
                 )
-            )
 
-            if selected_class.is_available():
-                owner = getattr(selected_class, DatasiftConstants.OWNER_ATTRIBUTE, None)
-                # Check if we're overriding an existing operator
-                if short_name in self.operators:
-                    existing_owner = getattr(self.operators[short_name], DatasiftConstants.OWNER_ATTRIBUTE, None)
+                if priority <= existing_priority:
                     logger.info(
-                        f"Priority resolution: {short_name} - {selected_class.__name__} "
-                        f"(owner={owner or 'custom'}, priority={self.PRIORITY_MAP.get(owner or DatasiftConstants.OWNER_CUSTOM, 'unknown')}) "
-                        f"overrides {self.operators[short_name].__name__} "
-                        f"(owner={existing_owner or 'custom'}, priority={self.PRIORITY_MAP.get(existing_owner or DatasiftConstants.OWNER_CUSTOM, 'unknown')})"
+                        f"Custom operator '{short_name}' (priority={priority}) "
+                        f"overrides existing operator (priority={existing_priority})"
                     )
-                self.operators[short_name] = selected_class
+                    self.operators[short_name] = operator_class
+                else:
+                    logger.warning(
+                        f"Custom operator '{short_name}' (priority={priority}) "
+                        f"cannot override existing operator (priority={existing_priority})"
+                    )
+            else:
+                # No conflict, add the custom operator
+                self.operators[short_name] = operator_class
+                logger.debug(f"Added custom operator: {short_name}")
 
     def refresh_operators(self):
         """Refreshes custom operators (non-core packages) with priority resolution."""
@@ -220,62 +227,15 @@ class OperatorFactory:
             return
 
         logger.info(f"Refreshing custom operators for: {self.orchestrator}")
-        temp_operator_dict = {}
 
-        for package_name in self.package_names:
-            self._load_classes_from_package(
-                package_name=package_name,
-                temp_operator_dict=temp_operator_dict
-            )
-
-        # Apply priority resolution for refreshed operators
-        self._apply_priority_resolution(temp_operator_dict=temp_operator_dict)
-
-    def _load_classes_from_package(self, *, package_name, temp_operator_dict):
-        """
-        This is to load custom packages
-        """
-        package = ""
+        # Use CustomOperatorLoader to reload operators from packages with cache clearing
         try:
-            package = importlib.import_module(package_name)
-            logger.info(f"Package {package_name} in {package} found.")
-        except ModuleNotFoundError:
-            logger.debug(f"Package {package_name} in {package} not found, skipping.")
-            return
-        logger.info(f">> loading packages from {package}")
-        for path, module_name, _is_pkg in pkgutil.walk_packages(package.__path__, package.__name__ + "."):
-            try:
-                module = importlib.import_module(module_name)
-                self._process_module(
-                    module=module,
-                    module_name=module_name,
-                    temp_operator_dict=temp_operator_dict,
-                )
-            except Exception as e:
-                logger.warning(f"Module {module_name} in {path} not loaded due to error {e}")
-
-    def _process_module(self, *, module, module_name, temp_operator_dict):
-        from datasift.core.operators.operator_registry import get_datasift_operators
-
-        datasift_operators = get_datasift_operators()
-
-        for _name, cls in inspect.getmembers(module):
-            if inspect.isclass(cls) and cls.__module__ == module_name:
-                short_name = getattr(cls, "short_name", None)
-                if short_name:
-                    # Get owner attribute (None means custom operator)
-                    owner = getattr(cls, DatasiftConstants.OWNER_ATTRIBUTE, None)
-
-                    # Check if this is a custom operator (not in datasift frozenset) with datasift owner
-                    if cls not in datasift_operators and owner == DatasiftConstants.OWNER_DATASIFT:
-                        logger.error(
-                            f"Custom operator '{cls.__name__}' (short_name='{short_name}') has incorrect owner='{owner}'. "
-                            f"Custom operators should set owner='{DatasiftConstants.OWNER_CUSTOM}' or leave it as None. "
-                            f"Skipping this operator."
-                        )
-                        continue  # Skip loading this operator
-
-                    temp_operator_dict.setdefault(short_name, []).append(cls)
+            custom_operators = self._load_custom_operators_from_packages(clear_cache=True)
+            self._apply_priority_resolution_with_custom(custom_operators=custom_operators)
+            logger.info(f"Successfully refreshed {len(custom_operators)} custom operators")
+        except Exception as e:
+            logger.error(f"Failed to refresh custom operators: {e}")
+            raise
 
     def get_operator(self, *, operator_name: str) -> type[AbstractOperator] | None:  # | Type[AbstractSparkOperator]:
         return self.operators.get(operator_name)

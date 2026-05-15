@@ -369,7 +369,7 @@ from datasift.core.operators.abstract_operator import AbstractOperator, Operator
 
 class MyCustomOperator(AbstractOperator):
     short_name: str = "my_operator"
-    category: OperatorCategory = OperatorCategory.Custom
+    category: OperatorCategory = OperatorCategory.Functional  # Use appropriate standard category
     owner: str = "custom"  # REQUIRED for custom operators
 
     def __init__(self, *, config: dict[str, Any]) -> None:

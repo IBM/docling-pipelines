@@ -39,7 +39,6 @@ CATEGORY_COLORS = {
     OperatorCategory.Functional: "#520408",
     OperatorCategory.VectorDB: "#009d9a",
     OperatorCategory.Storage: "#009d9a",  # Same as VectorDB
-    OperatorCategory.Custom: "#022d0d",
 }
 
 CATEGORY_DESCRIPTIONS = {
@@ -49,7 +48,6 @@ CATEGORY_DESCRIPTIONS = {
     OperatorCategory.Functional: "Transform data",
     OperatorCategory.VectorDB: "Generate output",
     OperatorCategory.Storage: "Generate output",  # Same as VectorDB
-    OperatorCategory.Custom: "Custom operator",
 }
 
 # Maximum nodes allowed in a flow

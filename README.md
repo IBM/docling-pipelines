@@ -215,6 +215,27 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
   - Pass-through design for downstream operator chaining
   - REST API for document set management
 
+
+### Custom Operators
+
+Datasift supports loading custom operators from external locations, enabling you to extend the framework with your own operators without modifying the core codebase.
+
+**Supported Sources:**
+- Python packages (installed via pip or in PYTHONPATH)
+- Local filesystem (single files or directories)
+- S3 buckets (with local caching)
+
+**Configuration:**
+```bash
+export DATASIFT_CUSTOM_OPERATORS="my_operators,/path/to/operators,s3://bucket/operators"
+```
+
+**Documentation:**
+- [Custom Operator Guide](examples/custom_operators/README.md) - Complete guide with examples
+- [Test Flow](tests/sample_test_flows/custom_operators/) - Working example flow
+
+Custom operators are automatically discovered, validated, and registered at runtime. Custom operators can override built-in datasift operators based on priority resolution.
+
 ## Project Structure
 
 ```

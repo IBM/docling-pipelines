@@ -643,7 +643,7 @@ def test_operator_category_enum_values():
     assert OperatorCategory.Functional == "Functional"
     assert OperatorCategory.Quality == "Quality"
     assert OperatorCategory.VectorDB == "VectorDB"
-    assert OperatorCategory.Custom == "Custom"
+    assert OperatorCategory.Storage == "Storage"
 
 
 def test_concrete_operator_can_set_short_name():

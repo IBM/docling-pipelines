@@ -23,7 +23,6 @@ class OperatorCategory(StrEnum):
     Quality = "Quality"
     VectorDB = "VectorDB"
     Storage = "Storage"
-    Custom = "Custom"
 
 
 class AbstractOperator(AbstractTableTransform):

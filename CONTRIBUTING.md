@@ -261,7 +261,7 @@ def extract_text(file_path: str, use_ocr: bool = False) -> str:
 Use the [`OperatorMetadata`](src/datasift/core/operators/operator_metadata.py) class to query metadata about available operators, their features, and requirements:
 
 ```python
-from core.operators.operator_metadata import OperatorMetadata
+from datasift.core.operators.operator_metadata import OperatorMetadata
 
 # Initialize metadata manager
 metadata = OperatorMetadata()
@@ -345,14 +345,14 @@ def get_required_features() -> list[str]:
 ```python
 from typing import Any
 import pyarrow as pa
-from common.constants.operator_constants import OperatorConstants
-from core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 
 class MyCustomOperator(AbstractOperator):
     """Custom operator that processes documents."""
     
     short_name: str = OperatorConstants.Operators.MY_CUSTOM
-    category: OperatorCategory = OperatorCategory.Custom
+    category: OperatorCategory = OperatorCategory.Functional
     owner: str = "custom"  # REQUIRED: Identifies this as a custom operator
     
     def __init__(self, *, config: dict[str, Any]) -> None:
@@ -369,7 +369,7 @@ class MyCustomOperator(AbstractOperator):
         to collect information about this operator without instantiation.
         """
         return {
-            OperatorConstants.Misc.CATEGORY: MyCustomOperator.category.value,
+            OperatorConstants.Misc.CATEGORY: OperatorCategory.Functional.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: MyCustomOperator.is_available(),
             OperatorConstants.Misc.LABEL: "My Custom Operator",
             OperatorConstants.Misc.DESCRIPTION: "Processes documents with custom logic",
