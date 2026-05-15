@@ -27,9 +27,11 @@ DEFAULT_BACKOFF_FACTOR = 2.0
 
 
 def retry_with_backoff(
+    *,
     max_retries: int = DEFAULT_MAX_RETRIES,
     initial_delay: float = DEFAULT_INITIAL_DELAY,
     backoff_factor: float = DEFAULT_BACKOFF_FACTOR,
+    max_delay: float = 60.0,
     exceptions: tuple = (Exception,),
 ) -> Callable:
     """
@@ -39,6 +41,7 @@ def retry_with_backoff(
         max_retries: Maximum number of retry attempts
         initial_delay: Initial delay in seconds before first retry
         backoff_factor: Multiplier for delay between retries
+        max_delay: Maximum delay in seconds (caps exponential backoff)
         exceptions: Tuple of exception types to catch and retry
 
     Returns:
@@ -60,7 +63,7 @@ def retry_with_backoff(
                             f"Retrying in {delay:.1f}s..."
                         )
                         time.sleep(delay)
-                        delay *= backoff_factor
+                        delay = min(delay * backoff_factor, max_delay)
                     else:
                         logger.error(f"All {max_retries} attempts failed for {func.__name__}: {e}")
                         raise

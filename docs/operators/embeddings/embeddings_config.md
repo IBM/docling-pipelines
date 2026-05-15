@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Embeddings Operator generates vector embeddings for text content using various embedding providers. It supports multiple providers (Ollama, HuggingFace, LiteLLM) and handles chunking of long text, batch processing, and error handling per document.
+The Embeddings Operator generates vector embeddings for text content using various embedding providers. It supports multiple providers (Ollama, HuggingFace, LiteLLM, and Watsonx) and handles chunking of long text, batch processing, and error handling per document.
 
 - **Operator Name:** `embeddings`
 - **Category**: Functional
@@ -20,12 +20,14 @@ The Embeddings Operator generates vector embeddings for text content using vario
 - `"ollama"` - Local Ollama models (nomic-embed-text, llama2, etc.)
 - `"huggingface"` - HuggingFace models (all-MiniLM-L6-v2, mpnet-base-v2, etc.)
 - `"litellm"` - 100+ providers via LiteLLM (OpenAI, Azure, Anthropic, Cohere, etc.)
+- `"watsonx"` - Native IBM watsonx.ai integration
 
 **Examples:**
 ```json
 "embeddings_type": "ollama"
 "embeddings_type": "huggingface"
 "embeddings_type": "litellm"
+"embeddings_type": "watsonx"
 ```
 
 ### 2. `embeddings_model_id` (String)
@@ -50,13 +52,18 @@ The Embeddings Operator generates vector embeddings for text content using vario
 - Any HuggingFace embedding model
 
 **LiteLLM Models:**
-- `"watsonx/ibm/slate-125m-english-rtrvr"` - IBM watsonx.ai
-- `"watsonx/ibm/slate-30m-english-rtrvr"` - IBM watsonx.ai
+- `"watsonx/ibm/slate-125m-english-rtrvr"` - IBM watsonx.ai (via LiteLLM)
+- `"watsonx/ibm/slate-30m-english-rtrvr"` - IBM watsonx.ai (via LiteLLM)
 - `"text-embedding-3-small"` - OpenAI (1536-dim)
 - `"text-embedding-ada-002"` - OpenAI (1536-dim)
 - `"embed-english-v3.0"` - Cohere
 - `"amazon.titan-embed-text-v1"` - AWS Bedrock
 - 100+ more providers
+
+**Watsonx Models:**
+- `"ibm/slate-125m-english-rtrvr"` - IBM watsonx.ai
+- `"ibm/slate-30m-english-rtrvr"` - IBM watsonx.ai
+- Any watsonx.ai embedding model
 
 **Examples:**
 ```json
@@ -112,6 +119,13 @@ The Embeddings Operator generates vector embeddings for text content using vario
 - `api_version` (String, Optional): API version (for Azure)
 - Additional provider-specific parameters
 
+**For Watsonx:**
+- `api_key` (String, Required): IBM Cloud API key
+- `api_base` (String, Required): watsonx.ai service URL
+- `container_id` (String, Required): Project or space ID
+- `container_kind` (String, Optional): "project" or "space" (default: "project")
+- `enable_rate_limiting` (Boolean, Optional): Enable rate limiting (7 req/s) for WatsonX API calls (default: false)
+
 **Examples:**
 
 LiteLLM (IBM watsonx.ai):
@@ -120,6 +134,17 @@ LiteLLM (IBM watsonx.ai):
   "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
   "api_base": "https://us-south.ml.cloud.ibm.com",
   "project_id": "${WATSONX_PROJECT_ID}"
+}
+```
+
+Watsonx:
+```json
+"provider_config": {
+  "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
+  "api_base": "${WATSONX_API_BASE}",
+  "container_id": "${WATSONX_CONTAINER_ID}",
+  "container_kind": "project",
+  "enable_rate_limiting": true
 }
 ```
 
@@ -190,7 +215,28 @@ LiteLLM (Azure):
 }
 ```
 
-### Example 2: Ollama Embeddings (Local)
+### Example 2: Watsonx.ai Embeddings
+```json
+{
+  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
+  "operator": "embeddings",
+  "config": {
+    "embeddings_type": "watsonx",
+    "embeddings_model_id": "ibm/slate-125m-english-rtrvr",
+    "embeddings_column": "embeddings",
+    "batch_size": 64,
+    "provider_config": {
+      "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
+      "api_base": "${WATSONX_API_BASE}",
+      "container_id": "${WATSONX_CONTAINER_ID}",
+      "container_kind": "project",
+      "enable_rate_limiting": true
+    }
+  }
+}
+```
+
+### Example 3: Ollama Embeddings (Local)
 ```json
 {
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
@@ -205,7 +251,7 @@ LiteLLM (Azure):
 }
 ```
 
-### Example 3: HuggingFace Embeddings (GPU)
+### Example 4: HuggingFace Embeddings (GPU)
 ```json
 {
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
@@ -223,7 +269,7 @@ LiteLLM (Azure):
 }
 ```
 
-### Example 4: OpenAI Embeddings via LiteLLM
+### Example 5: OpenAI Embeddings via LiteLLM
 ```json
 {
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
@@ -240,7 +286,7 @@ LiteLLM (Azure):
 }
 ```
 
-### Example 5: Cohere Embeddings via LiteLLM
+### Example 6: Cohere Embeddings via LiteLLM
 ```json
 {
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
@@ -262,12 +308,13 @@ LiteLLM (Azure):
 1. **Provider Selection**:
    - Use **Ollama** for development and privacy-sensitive applications
    - Use **HuggingFace** for local deployment with GPU acceleration
-   - Use **LiteLLM** for production with managed services
+   - Use **LiteLLM** for production with managed services (100+ providers)
+   - Use **Watsonx** for IBM Cloud enterprise deployments
 
 2. **Model Selection**:
    - Choose models with appropriate dimensions for your use case
-   - Smaller models (384-dim): Faster, less storage
-   - Larger models (768-1536-dim): Better quality, more storage
+   - Smaller models generally mean faster inference and less vector storage
+   - Larger models generally mean higher quality and more vector storage
 
 3. **Batch Size**:
    - Increase for better throughput (32-128)
@@ -291,12 +338,13 @@ LiteLLM (Azure):
 
 ## Validation Rules
 
-- `embeddings_type` must be one of: ollama, huggingface, litellm
+- `embeddings_type` must be one of: ollama, huggingface, litellm, watsonx
 - `embeddings_model_id` must be a non-empty string
 - `overlap_ratio` must be between 0.0 and 0.5
 - `batch_size` must be between 1 and 128
 - Input data must have `content` column or `chunked_content` column
 - For LiteLLM, `provider_config` with `api_key` is required
+- For Watsonx, `provider_config.api_key`, `provider_config.api_base`, and `provider_config.container_id` are required
 
 ## Complete Flow Example
 

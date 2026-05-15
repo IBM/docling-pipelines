@@ -30,10 +30,10 @@ repos:
     rev: v1.19.1
     hooks:
       - id: mypy
-        args: [--ignore-missing-imports, --config-file=pyproject.toml]
-        additional_dependencies: [types-requests, types-cachetools]
-        files: ^src/datasift/.*\.py$
         language_version: python3.12
+        args: [--ignore-missing-imports, --config-file=pyproject.toml, --python-version=3.12]
+        additional_dependencies: [types-requests, types-cachetools]
+        files: ^src/.*\.py$
 
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0

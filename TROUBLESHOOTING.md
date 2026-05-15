@@ -1007,7 +1007,9 @@ Message code: EMBEDDINGS_INVALID_TYPE
 **Valid embeddings types:**
 
 - `ollama`: Use Ollama for embeddings
-- `sentence_transformers`: Use Sentence Transformers
+- `huggingface`: Use HuggingFace embedding models
+- `litellm`: Use LiteLLM-managed embedding providers
+- `watsonx`: Use the native IBM watsonx adapter
 
 **Solution:**
 
@@ -1015,11 +1017,22 @@ Message code: EMBEDDINGS_INVALID_TYPE
 {
   "operator_type": "EmbeddingsOperator",
   "operator_params": {
-    "embeddings_type": "ollama", // Must be: ollama or sentence_transformers
-    "model_name": "nomic-embed-text"
+    "embeddings_type": "watsonx",
+    "model_name": "ibm/slate-125m-english-rtrvr",
+    "provider_config": {
+      "api_key": "${WATSONX_API_KEY}",
+      "api_base": "${WATSONX_API_BASE}",
+      "container_id": "${WATSONX_CONTAINER_ID}",
+      "container_kind": "project"
+    }
   }
 }
 ```
+
+**Important distinction:**
+
+- Native watsonx uses `api_base` and `container_id`
+- LiteLLM watsonx uses LiteLLM-specific parameter names such as `api_base` and provider-specific IDs
 
 ---
 
@@ -1676,6 +1689,69 @@ uv sync --extra dev
 ```
 
 ---
+### Watsonx Troubleshooting
+
+#### Authentication Issues
+
+**Symptoms:**
+- `401 Unauthorized` errors
+- "Failed to fetch IAM access token"
+- Token refresh failures
+
+**Solutions:**
+
+1. **Verify API key:**
+   ```bash
+   echo $WATSONX_API_KEY
+   ```
+
+2. **Check environment variables:**
+   ```bash
+   echo $WATSONX_API_BASE
+   echo $WATSONX_CONTAINER_ID
+   ```
+
+3. **Test connectivity:**
+   ```bash
+   curl -X GET "${WATSONX_API_BASE}/ml/v1/foundation_model_specs?version=2023-05-29"
+   ```
+
+4. **Enable debug logging:**
+   ```python
+   import logging
+   logging.basicConfig(level=logging.DEBUG)
+   ```
+
+#### Rate Limit Errors
+
+**Symptoms:**
+- `429 Too Many Requests` errors
+- "Exceeded limit of calls to endpoint"
+
+**Solutions:**
+- Reduce batch size in operator configuration
+- Add delays between requests
+- Request higher rate limits from IBM Cloud
+
+#### Configuration Issues
+
+**Common Mistakes:**
+- Using `api_base` instead of `url`
+- Using `project_id` instead of `container_id`
+- Missing required parameters
+
+**Correct Configuration:**
+```json
+{
+  "provider": "watsonx",
+  "model_name": "ibm/slate-125m-english-rtrvr",
+  "provider_config": {
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "${WATSONX_API_BASE}",
+    "container_id": "${WATSONX_CONTAINER_ID}"
+  }
+}
+```
 
 ## Environment Issues
 

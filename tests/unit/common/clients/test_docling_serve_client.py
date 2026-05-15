@@ -404,6 +404,8 @@ class TestDoclingServeClient:
 
         # Verify all methods called
         mock_submit.assert_called_once()
-        mock_poll_for_completion.assert_called_once_with(task_id="test-task-123", poll_interval=None, timeout=7200)
+        mock_poll_for_completion.assert_called_once_with(
+            task_id="test-task-123", poll_interval=None, timeout=7200, filename=None
+        )
         mock_get_result.assert_called_once_with(task_id="test-task-123")
         assert result["document"] == "processed"

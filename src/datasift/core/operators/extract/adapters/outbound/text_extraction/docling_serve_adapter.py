@@ -139,7 +139,9 @@ class DoclingServeAdapter(TextExtractionPort):
                 max_retries=self.max_retries,
             )
             result = client.process_document(
-                binary_content=binary_content, filename=filename, options=self.processing_options
+                binary_content=binary_content,
+                filename=filename,
+                options=self.processing_options,
             )
             # Debug: Log the full result structure
             logger.debug(

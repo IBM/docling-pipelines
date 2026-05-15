@@ -1,0 +1,223 @@
+{
+  "flow": {
+    "name": "Watsonx Embeddings Integration Flow",
+    "flow_id": "watsonx-embeddings-flow-001",
+    "description": "Complete pipeline demonstrating watsonx.ai embeddings: Ingest → Extract → Chunk → Embeddings (watsonx) → VectorDB",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "global_config": {
+      "doc_column": "content",
+      "disable_validation": "false",
+      "force_ingest": true,
+      "enable_micro_batching": true,
+      "micro_batch_size": 10
+    },
+    "dag": [
+      {
+        "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+        "name": "ingest_documents",
+        "operator": "ingest_local",
+        "config": {
+          "input_folder": "./tests/fixtures/invoices",
+          "include_filter": "txt, pdf"
+        },
+        "input_edges": [],
+        "output_edges": [
+          {
+            "node_id_ref": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"
+          }
+        ]
+      },
+      {
+        "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+        "name": "extract_documents",
+        "operator": "extract_operator",
+        "config": {
+          "doc_column": "content",
+          "use_template": false,
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"
+          }
+        ]
+      },
+      {
+        "id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+        "name": "generate_doc_id",
+        "operator": "doc_id_hash",
+        "config": {
+          "doc_column": "content",
+          "doc_id_column": "id"
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"
+          }
+        ]
+      },
+      {
+        "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+        "name": "chunk_documents",
+        "operator": "chunker",
+        "config": {
+          "doc_column": "content",
+          "chunk_size": 512,
+          "chunk_overlap": 50
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"
+          }
+        ]
+      },
+      {
+        "id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+        "name": "generate_embeddings_watsonx",
+        "operator": "embeddings",
+        "config": {
+          "embeddings_type": "watsonx",
+          "embeddings_model_id": "ibm/slate-125m-english-rtrvr-v2",
+          "doc_column": "content",
+          "embeddings_column": "embeddings",
+          "provider_config": {
+            "api_key": "${WATSONX_API_KEY}",
+            "api_base": "${WATSONX_API_BASE}",
+            "container_kind": "project",
+            "container_id": "${WATSONX_CONTAINER_ID}",
+            "batch_size": 800
+          }
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"
+          }
+        ],
+        "output_edges": [
+          {
+            "node_id_ref": "f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c"
+          }
+        ]
+      },
+      {
+        "id": "f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c",
+        "name": "store_in_opensearch",
+        "operator": "vectordb",
+        "config": {
+          "provider": "opensearch",
+          "index_name": "datasift_watsonx_embeddings",
+          "vector_dimension": 768,
+          "doc_id_column": "doc_id_hash",
+          "embeddings_column": "embeddings",
+          "create_index": "true",
+          "provider_config": {
+            "host": "localhost",
+            "port": 9200,
+            "username": "admin",
+            "password": "MyStrongPass123!",
+            "use_ssl": false,
+            "verify_certs": false,
+            "batch_size": 100,
+            "engine": "faiss",
+            "algorithm": "hnsw",
+            "space_type": "l2",
+            "engine_parameters": {
+              "ef_construction": 512,
+              "m": 16,
+              "ef_search": 512
+            },
+            "number_of_shards": 1,
+            "number_of_replicas": 0
+          },
+          "available_features": {
+            "id": {
+              "name": "ID",
+              "description": "The ID of the document",
+              "available_for_filter": true,
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "string"
+            },
+            "name": {
+              "name": "Document Name",
+              "description": "The name of the document",
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "content": {
+              "name": "Document Content",
+              "description": "The content of the document",
+              "available_for_filter": true,
+              "available_for_vector_db": true,
+              "type": "string"
+            },
+            "doc_id_hash": {
+              "name": "Hash ID",
+              "description": "Hash ID of the row",
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "string",
+              "is_primary": true
+            },
+            "chunk_sequence_number": {
+              "name": "Chunk Sequence number",
+              "description": "Sequential chunk number for each text chunk",
+              "available_for_vector_db": true,
+              "type": "int64"
+            },
+            "start_index": {
+              "name": "Start Index",
+              "description": "Chunk starting token position in the source document",
+              "available_for_vector_db": true,
+              "type": "int64"
+            },
+            "chunked_content": {
+              "name": "Chunked Content",
+              "description": "Content containing segmented portions of larger text data",
+              "is_internal_feature": true
+            },
+            "embeddings": {
+              "name": "Embeddings",
+              "description": "The text embeddings from watsonx.ai slate-125m model",
+              "available_for_vector_db": true,
+              "mandatory_for_vector_db": true,
+              "type": "vector"
+            }
+          },
+          "feature_mappings": {
+            "doc_id_hash": "pk",
+            "id": "document_id",
+            "name": "document_name",
+            "content": "text",
+            "embeddings": "vector_embeddings",
+            "chunk_sequence_number": "chunk_seq",
+            "start_index": "chunk_start"
+          }
+        },
+        "input_edges": [
+          {
+            "node_id_ref": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"
+          }
+        ],
+        "output_edges": []
+      }
+    ]
+  }
+}

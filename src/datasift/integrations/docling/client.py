@@ -218,9 +218,11 @@ class DoclingServeClient:
 
     def _poll_for_completion(
         self,
+        *,
         task_id: str,
         poll_interval: int | None = None,
         timeout: int = 7200,
+        filename: str | None = None,
     ) -> dict[str, Any]:
         """
         Poll task status until a terminal status is reached.
@@ -229,6 +231,7 @@ class DoclingServeClient:
             task_id: Task ID to poll
             poll_interval: Override default polling interval in seconds
             timeout: Maximum time to wait in seconds (default: 7200 = 2 hours)
+            filename: Optional filename associated with the task for logging
 
         Returns:
             Final status response dictionary
@@ -254,8 +257,9 @@ class DoclingServeClient:
                 endpoint = f"/v1/status/poll/{task_id}"
                 result = self._check_status(endpoint=endpoint)
                 task_status = result.get("task_status", "unknown").upper()
+                file_label = filename if filename is not None else "unknown"
 
-                logger.info(f"Polling task {task_id}: status={task_status}")
+                logger.info(f"Polling task {task_id} for file '{file_label}': status={task_status}")
 
                 if task_status == "SUCCESS":
                     logger.info(f"Task {task_id} completed successfully")
@@ -421,6 +425,7 @@ class DoclingServeClient:
             task_id=task_id,
             poll_interval=poll_interval,
             timeout=timeout,
+            filename=filename,
         )
         logger.info(f"Final Status before: {task_id}, {final_response}")
         final_status = str(final_response.get("task_status", "")).upper()

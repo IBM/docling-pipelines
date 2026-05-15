@@ -1751,7 +1751,109 @@ graph TB
 - **Schema Templates**: JSON files defining reusable index configurations
 - **Validation System**: Ensures schema correctness before index creation
 
-### 4. Docling Integration Architecture
+### 4. Embeddings Operator Integration Architecture
+
+The Embeddings Operator supports multiple embedding providers through a hexagonal architecture with pluggable adapters:
+
+**Supported Providers:**
+- **Ollama** - Local LLM server for privacy-focused deployments
+- **HuggingFace** - Open-source models with local or API options
+- **LiteLLM** - Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, etc.)
+- **Watsonx** - IBM watsonx.ai cloud service with IAM authentication
+
+**Architecture Pattern:**
+
+```mermaid
+graph TB
+    subgraph "Core Layer"
+        EMB[EmbeddingsOperator]
+    end
+
+    subgraph "Adapter Layer"
+        OLA[OllamaLLMAdapter]
+        HFA[HuggingFaceLLMAdapter]
+        LLA[LiteLLMLLMAdapter]
+        WXA[WatsonxLLMAdapter]
+    end
+
+    subgraph "Client Layer"
+        OLC[OllamaClient]
+        HFC[HuggingFaceClient]
+        LLC[LiteLLMClient]
+        WRC[WatsonxRestClient]
+    end
+
+    subgraph "External Services"
+        OLS[Ollama Server]
+        HFS[HuggingFace API]
+        LLS[LiteLLM Providers]
+        WXS[Watsonx.ai API]
+    end
+
+    EMB --> OLA
+    EMB --> HFA
+    EMB --> LLA
+    EMB --> WXA
+
+    OLA --> OLC --> OLS
+    HFA --> HFC --> HFS
+    LLA --> LLC --> LLS
+    WXA --> WRC --> WXS
+```
+
+**Configuration Examples:**
+
+Ollama (Local):
+```json
+{
+  "provider": "ollama",
+  "model_name": "nomic-embed-text"
+}
+```
+
+HuggingFace (Local):
+```json
+{
+  "provider": "huggingface",
+  "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "provider_config": {
+    "device": "cuda"
+  }
+}
+```
+
+LiteLLM (OpenAI):
+```json
+{
+  "provider": "litellm",
+  "model_name": "text-embedding-3-small",
+  "provider_config": {
+    "api_key": "${OPENAI_API_KEY}"
+  }
+}
+```
+
+Watsonx (IBM Cloud):
+```json
+{
+  "provider": "watsonx",
+  "model_name": "ibm/slate-125m-english-rtrvr",
+  "provider_config": {
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "${WATSONX_API_BASE}",
+    "container_id": "${WATSONX_CONTAINER_ID}"
+  }
+}
+```
+
+**Key Features:**
+- Hexagonal architecture with port/adapter pattern
+- Automatic retry logic and error handling
+- Dynamic dimension detection for supported providers
+- Batch processing support
+- Provider-specific optimizations
+
+### 5. Docling Integration Architecture
 
 ```mermaid
 graph TB
@@ -3528,6 +3630,69 @@ Hexagonal architecture implementation for document set management:
 
 - 40+ JSON schemas for common document types
 - Insurance forms, bank statements, legal documents, etc.
+
+- **Core Utilities**: String manipulation, validation, patterns
+- **Data Utilities**: PyArrow handling, schema management, transformations
+- **Infrastructure Utilities**: Logging, caching, retry logic, performance monitoring, IAM token management
+- **Job Tracker**: Job statistics and monitoring
+- **Orchestration Utilities**: Flow utilities, Prefect configuration, deleted rows tracking
+
+##### IAM Token Manager
+
+**Location**: `src/datasift/utils/infrastructure/iam_token_manager.py`
+
+The IAM Token Manager handles IBM Cloud and MCSP (Multi-Cloud Service Platform) authentication for WatsonX integrations. It provides automatic token management with caching, refresh, and multi-environment support.
+
+**Key Features**:
+- **Multi-Environment Support**: Automatically detects and handles IBM Cloud, MCSP Production, and MCSP Test environments
+- **Automatic Environment Detection**: Determines environment from WatsonX URL patterns
+- **Token Caching**: Uses LRUCache for efficient token storage with 1-hour TTL
+- **Auto-Refresh**: Refreshes tokens 10 minutes before expiration
+- **Thread-Safe**: Built on thread-safe LRUCache implementation
+- **Multi-Tenant Support**: API key-based cache keys enable multiple tenants
+
+**Environment Detection**:
+
+| Environment | URL Pattern | IAM Endpoint |
+|-------------|-------------|--------------|
+| MCSP Production | Contains `.aws.` or `platform.saas.ibm.com` | `https://account-iam.platform.saas.ibm.com/api/2.0/apikeys/token` |
+| MCSP Test | Contains `.test.` and `platform.saas.ibm.com` | `https://account-iam.platform.test.saas.ibm.com/api/2.0/apikeys/token` |
+| IBM Cloud | All other URLs (default) | `https://iam.cloud.ibm.com/identity/token` |
+
+**Architecture**:
+```
+WatsonX REST Client
+        ↓
+IAMTokenManager
+  - Environment detection
+  - Token caching (LRUCache)
+  - Auto-refresh (10 min buffer)
+        ↓
+IAM Endpoints (IBM Cloud/MCSP)
+```
+
+**Usage Example**:
+```python
+from datasift.utils.infrastructure.iam_token_manager import IAMTokenManager
+
+# Initialize with API key and WatsonX URL
+token_manager = IAMTokenManager(
+    api_key="your-api-key",  # pragma: allowlist secret
+    watsonx_url="https://us-south.ml.cloud.ibm.com"
+)
+
+# Get valid token (automatically cached and refreshed)
+token = token_manager.get_token()
+```
+
+**Integration with WatsonX**: The WatsonX REST client automatically uses IAM Token Manager for authentication. Users only need to provide their API key and URL - token management is handled transparently.
+
+**IBM Cloud vs MCSP Differences**:
+- **IBM Cloud**: Uses form-urlencoded requests, returns `access_token` field
+- **MCSP**: Uses JSON requests, returns `token` field
+- Both support automatic token refresh with 1-hour expiration
+
+**See Also**: [TROUBLESHOOTING.md](TROUBLESHOOTING.md#iam-authentication-issues) for authentication troubleshooting
 
 ### 2. Core Framework (`src/datasift/core/`)
 

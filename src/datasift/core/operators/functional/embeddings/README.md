@@ -11,6 +11,7 @@ The Embeddings Operator generates vector embeddings from text using various AI p
 | **Ollama**      | Local LLM server               | Privacy, offline usage, no API costs |
 | **HuggingFace** | Local or API models            | Open-source models, customization    |
 | **LiteLLM**     | Unified API for 100+ providers | OpenAI, Azure, Cohere, AWS, GCP      |
+| **Watsonx**     | IBM watsonx.ai cloud service   | Enterprise AI, IBM Cloud integration |
 
 ## Quick Start
 
@@ -218,6 +219,52 @@ export OPENAI_API_KEY=sk-proj-...
 - ❌ Network dependency
 - ❌ Rate limits
 
+### Watsonx.ai (IBM Cloud)
+
+**Requirements**: IBM watsonx.ai account with API key and project/space ID
+
+```bash
+export WATSONX_API_KEY=your-api-key
+export WATSONX_API_BASE=https://us-south.ml.cloud.ibm.com
+export WATSONX_CONTAINER_ID=your-project-or-space-id
+```
+
+**Configuration**:
+
+```json
+{
+  "operator_params": {
+    "provider": "watsonx",
+    "model_name": "ibm/slate-125m-english-rtrvr",
+    "provider_config": {
+      "api_key": "${WATSONX_API_KEY}",
+      "api_base": "${WATSONX_API_BASE}",
+      "container_id": "${WATSONX_CONTAINER_ID}"
+    }
+  }
+}
+```
+
+**Popular Models**:
+
+- `ibm/slate-125m-english-rtrvr` - Recommended for general use
+- `ibm/slate-30m-english-rtrvr` - Faster, smaller model
+
+**Pros**:
+
+- ✅ Enterprise-grade IBM Cloud service
+- ✅ High-quality foundation models
+- ✅ Automatic IAM authentication
+- ✅ Batch processing support
+
+**Cons**:
+
+- ❌ Requires IBM Cloud account
+- ❌ API costs
+- ❌ Network dependency
+
+**Note**: Embedding dimensions are retrieved dynamically. For troubleshooting, see [TROUBLESHOOTING.md](../../../../../TROUBLESHOOTING.md#watsonx-troubleshooting).
+
 ## Architecture
 
 ### Hexagonal Architecture
@@ -251,6 +298,7 @@ The embeddings operator follows hexagonal architecture (ports and adapters patte
 │  - OllamaLLMAdapter                     │
 │  - HuggingFaceLLMAdapter                │
 │  - LiteLLMLLMAdapter                    │
+│  - WatsonxLLMAdapter                    │
 └──────────────┬──────────────────────────┘
                │
                │ Uses
@@ -261,6 +309,7 @@ The embeddings operator follows hexagonal architecture (ports and adapters patte
 │  - OllamaClient                         │
 │  - HuggingFaceLLMClient                 │
 │  - LiteLLMLLMClient                     │
+│  - WatsonxRestEmbeddingClient           │
 └─────────────────────────────────────────┘
 ```
 
@@ -307,12 +356,12 @@ class MyProviderAdapter(LLMServicePort):
 
 ### Common Parameters
 
-| Parameter          | Type   | Required | Description                                       |
-| ------------------ | ------ | -------- | ------------------------------------------------- |
-| `provider`         | string | Yes      | Provider name: `ollama`, `huggingface`, `litellm` |
-| `model_name`       | string | Yes      | Model identifier                                  |
-| `text_column`      | string | No       | Column containing text (default: `text`)          |
-| `embedding_column` | string | No       | Output column name (default: `embeddings`)        |
+| Parameter          | Type   | Required | Description                                                  |
+| ------------------ | ------ | -------- | ------------------------------------------------------------ |
+| `provider`         | string | Yes      | Provider name: `ollama`, `huggingface`, `litellm`, `watsonx` |
+| `model_name`       | string | Yes      | Model identifier                                             |
+| `text_column`      | string | No       | Column containing text (default: `text`)                     |
+| `embedding_column` | string | No       | Output column name (default: `embeddings`)                   |
 
 ### Provider-Specific Parameters
 
@@ -336,6 +385,17 @@ class MyProviderAdapter(LLMServicePort):
 | ---------- | ------ | ------- | --------------------------------- |
 | `api_key`  | string | None    | Provider API key (or use env var) |
 | `api_base` | string | None    | Custom API endpoint               |
+
+#### Watsonx
+
+| Parameter              | Type    | Default   | Description                                                  |
+| ---------------------- | ------- | --------- | ------------------------------------------------------------ |
+| `api_key`              | string  | None      | Watsonx.ai API key (required)                                |
+| `api_base`             | string  | None      | Watsonx.ai API endpoint URL for the native adapter (required) |
+| `container_kind`       | string  | `project` | Container type: `project` or `space`                         |
+| `container_id`         | string  | None      | Project ID or Space ID for the native adapter (required)     |
+| `batch_size`           | int     | 800       | Number of texts to process per batch                         |
+| `enable_rate_limiting` | boolean | False     | Enable rate limiting (7 req/s) for WatsonX API calls         |
 
 ## Performance Optimization
 
@@ -479,6 +539,7 @@ curl https://api.openai.com/v1/embeddings \
 - [LiteLLM Detailed Documentation](adapters/outbound/README_LITELLM.md)
 - [Ollama Documentation](https://ollama.com/docs)
 - [HuggingFace Sentence Transformers](https://www.sbert.net/)
+- [IBM watsonx.ai Documentation](https://www.ibm.com/watsonx/developer/)
 - [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
 
 ## Support

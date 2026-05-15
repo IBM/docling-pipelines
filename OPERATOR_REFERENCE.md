@@ -369,7 +369,7 @@ Supported LiteLLM providers:
     "api_base": "https://us-south.ml.cloud.ibm.com",
     "api_key": "${WATSONX_API_KEY}",
     "container_kind": "project",
-    "container_id": "${WATSONX_PROJECT_ID}",
+    "container_id": "${WATSONX_CONTAINER_ID}",
     "request_timeout": 120
   }
 }
@@ -855,22 +855,29 @@ Schemas are defined in `src/datasift/common/document_classes/*.json` with `targe
 
 #### EmbeddingsOperator
 
-**Purpose:** Generate dense embeddings using pluggable providers such as Ollama, HuggingFace, and LiteLLM-backed vendors.
+**Purpose:** Generate dense embeddings using pluggable providers such as Ollama, HuggingFace, LiteLLM-backed vendors, and IBM watsonx.ai.
 
 **Category:** Functional
 
 **Class:** `core.operators.functional.embeddings.embeddings_operator.EmbeddingsOperator`
 
-| Parameter             | Type   | Required | Default       | Description                           |
-| --------------------- | ------ | -------: | ------------- | ------------------------------------- |
-| `embeddings_type`     | string |      Yes | `ollama`      | Provider type                         |
-| `embeddings_model_id` | string |      Yes | `granite4`    | Provider model                        |
-| `embeddings_column`   | string |       No | `embeddings`  | Output vector column                  |
-| `doc_column`          | string |       No | `content`     | Input content column                  |
-| `doc_id_hash`         | string |       No | `doc_id_hash` | Hash column name                      |
-| `overlap_ratio`       | float  |       No | `0.2`         | Long-text chunk overlap ratio         |
-| `batch_size`          | int    |       No | `32`          | Embedding batch size                  |
-| `provider_config`     | object |       No | `{}`          | Adapter-specific credentials/settings |
+| Parameter             | Type   | Required | Default       | Description                                                    |
+| --------------------- | ------ | -------: | ------------- | -------------------------------------------------------------- |
+| `provider`            | string |      Yes | `ollama`      | Provider type: `ollama`, `huggingface`, `litellm`, `watsonx`   |
+| `embeddings_model_id` | string |      Yes | `granite4`    | Provider model                                                 |
+| `embeddings_column`   | string |       No | `embeddings`  | Output vector column                                           |
+| `doc_column`          | string |       No | `content`     | Input content column                                           |
+| `doc_id_hash`         | string |       No | `doc_id_hash` | Hash column name                                               |
+| `overlap_ratio`       | float  |       No | `0.2`         | Long-text chunk overlap ratio                                  |
+| `batch_size`          | int    |       No | `32`          | Embedding batch size                                           |
+| `provider_config`     | object |       No | `{}`          | Adapter-specific credentials/settings                          |
+
+**Supported Providers:**
+
+- **Ollama**: Local LLM server (privacy, offline usage)
+- **HuggingFace**: Local or API models (open-source)
+- **LiteLLM**: Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, GCP)
+- **Watsonx**: IBM watsonx.ai cloud service (enterprise AI)
 
 **Input Schema**
 
@@ -886,7 +893,7 @@ Schemas are defined in `src/datasift/common/document_classes/*.json` with `targe
 - [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py:8)
 - provider authentication/network failures
 
-**Example**
+**Example (Ollama)**
 
 ```json
 {
@@ -894,10 +901,33 @@ Schemas are defined in `src/datasift/common/document_classes/*.json` with `targe
   "name": "embeddings",
   "operator": "embeddings",
   "config": {
-    "embeddings_type": "ollama",
+    "provider": "ollama",
     "embeddings_model_id": "nomic-embed-text",
     "embeddings_column": "embeddings",
     "doc_column": "content"
+  }
+}
+```
+
+**Example (Watsonx)**
+
+```json
+{
+  "id": "embedding-node",
+  "name": "embeddings",
+  "operator": "embeddings",
+  "config": {
+    "provider": "watsonx",
+    "embeddings_model_id": "ibm/slate-125m-english-rtrvr",
+    "embeddings_column": "embeddings",
+    "doc_column": "content",
+    "provider_config": {
+      "api_key": "${WATSONX_API_KEY}",
+      "api_base": "${WATSONX_API_BASE}",
+      "container_kind": "project",
+      "container_id": "${WATSONX_CONTAINER_ID}",
+      "batch_size": 800
+    }
   }
 }
 ```
