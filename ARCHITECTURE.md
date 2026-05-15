@@ -1790,6 +1790,16 @@ graph TB
 3. **Metadata Extraction**: Document properties, page count, etc.
 4. **Batch Processing**: Process multiple documents efficiently
 
+**Supported Providers:**
+
+- **Docling Library (Local)**: Local document processing and chunking using the Docling library
+  - Used by ExtractOperator for document parsing
+  - Used by Chunker operator with `provider: "docling_library"` for local Hybrid chunking
+- **Docling-serve (Remote)**: Remote Hybrid chunking via docling-serve API
+  - Used by Chunker operator with `provider: "docling_serve"` for distributed Hybrid chunking
+  - Enables offloading Hybrid chunking computation to dedicated service
+  - Only supports Hybrid chunking strategy
+
 **Example Configuration:**
 
 ```json
@@ -3584,7 +3594,11 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 #### Functional Operators (`functional/`)
 
 - **BranchingOperator**: Conditional workflow branching
-- **Chunker**: Document chunking (Simple, Semantic, Hybrid/Docling)
+- **Chunker**: Document chunking with multiple strategies:
+  - **Simple**: Basic text splitting with configurable chunk size and overlap
+  - **Semantic**: Sentence-based chunking using NLTK
+  - **Hybrid**: Advanced chunking using Docling library
+    - Supports both local execution (`docling_library` provider) and remote execution via docling-serve API (`docling_serve` provider) for offloading computation
 - **DocIdHash**: Document ID generation (internal operator)
 - **EntityCurationOperator**: Schema-based entity transformation with 9 built-in transformations (currency, date, number parsing)
 - **NoopOperator**: Pass-through for testing

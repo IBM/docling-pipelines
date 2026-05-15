@@ -203,7 +203,7 @@ class OperatorConstants:
         ASR_MODEL_NAME: Final[str] = "asr_model_name"
         ASR_MODEL_DEFAULT: Final[str] = "whisper_turbo"
 
-        # Docling-Serve Configuration
+        # Docling-Serve Configuration (used by ExtractOperator)
         USE_DOCLING_SERVE: Final[str] = "use_docling_serve"
         DOCLING_SERVE_BASE_URL: Final[str] = "docling_serve_base_url"
         DOCLING_SERVE_API_KEY: Final[str] = "docling_serve_api_key"
@@ -457,6 +457,18 @@ Rules:
         CHUNK_SIZE_DEFAULT: Final[int] = 2048
         CHUNKER: Final[str] = "chunker"
         START_INDEX: Final[str] = "start_index"
+
+        # Chunking Provider Values
+        PROVIDER_DOCLING_LIBRARY: Final[str] = "docling_library"
+        PROVIDER_DOCLING_SERVE: Final[str] = "docling_serve"
+        PROVIDER_SIMPLE: Final[str] = "simple"
+        PROVIDER_SEMANTIC: Final[str] = "semantic"
+
+        # Provider option keys (for remote chunking services)
+        TIMEOUT: Final[str] = "timeout"
+        POLL_INTERVAL: Final[str] = "poll_interval"
+        MAX_RETRIES: Final[str] = "max_retries"
+        VERIFY_SSL: Final[str] = "verify_ssl"
 
         # Embedding Configuration
         COMPUTE_EMBEDDINGS: Final[str] = "compute_embeddings"

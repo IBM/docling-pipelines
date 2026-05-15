@@ -100,6 +100,9 @@ VALID_BREAKPOINT_TYPES: list[str] = [t.value for t in BreakpointThresholdType]
 RETAIN_ORIGINAL_CONTENT_KEY: str = "retain_original_content"
 RETAIN_ORIGINAL_CONTENT_DEFAULT: bool = False  # Drop original content unless explicitly retained
 
+# Docling-serve Constants
+DEFAULT_DOCUMENT_NAME: str = "document.md"  # Default filename for docling-serve chunking
+
 logger = get_logger()
 
 
@@ -230,6 +233,13 @@ class ChunkerOperator(AbstractOperator):
 
         # Docling HybridChunker will be lazily initialized when needed
         self._docling_chunker = None
+
+        # Provider-based configuration for remote chunking
+        self.provider = config.get(OperatorConstants.Config.PROVIDER)
+        self.provider_config = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        # HTTP client for remote chunking (lazy initialization)
+        self._remote_chunking_client = None
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -370,6 +380,27 @@ class ChunkerOperator(AbstractOperator):
                     OperatorConstants.Filtering.MAX_VALUE: 32000,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
+                # New provider-based configuration (recommended)
+                OperatorConstants.Config.PROVIDER: {
+                    OperatorConstants.Misc.NAME: "Chunking Provider",
+                    OperatorConstants.Config.DESCRIPTION: "Chunking provider: 'docling_library' (local), 'docling_serve' (remote), 'simple', or 'semantic'",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: None,
+                    OperatorConstants.Config.VALID_VALUES: [
+                        OperatorConstants.Processing.PROVIDER_DOCLING_LIBRARY,
+                        OperatorConstants.Processing.PROVIDER_DOCLING_SERVE,
+                        OperatorConstants.Processing.PROVIDER_SIMPLE,
+                        OperatorConstants.Processing.PROVIDER_SEMANTIC,
+                    ],
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.PROVIDER_CONFIG: {
+                    OperatorConstants.Misc.NAME: "Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration options (nested object)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: {},
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                },
             },
         }
 
@@ -425,6 +456,217 @@ class ChunkerOperator(AbstractOperator):
             should_validate_field_fn=self.should_validate_field,
             errors=errors,
         )
+
+        # Validate remote chunking configuration (provider-based)
+        if self.provider == OperatorConstants.Processing.PROVIDER_DOCLING_SERVE:
+            # Validate base URL
+            api_base = self.provider_config.get(OperatorConstants.Config.API_BASE)
+            if not api_base:
+                errors.append(
+                    ValidationMessage.create(
+                        message="API base URL is required in provider_config when provider is 'docling_serve'",
+                        message_code="DOCLING_SERVE_BASE_URL_REQUIRED",
+                    )
+                )
+
+            # Validate timeout
+            timeout = self.provider_config.get(OperatorConstants.Processing.TIMEOUT, 300)
+            if timeout <= 0:
+                errors.append(
+                    ValidationMessage.create(
+                        message="Timeout must be positive in provider_config",
+                        message_code="DOCLING_SERVE_TIMEOUT_INVALID",
+                    )
+                )
+
+            # Validate poll interval
+            poll_interval = self.provider_config.get(OperatorConstants.Processing.POLL_INTERVAL, 2)
+            if poll_interval <= 0:
+                errors.append(
+                    ValidationMessage.create(
+                        message="Poll interval must be positive in provider_config",
+                        message_code="DOCLING_SERVE_POLL_INTERVAL_INVALID",
+                    )
+                )
+
+            # Validate max retries
+            max_retries = self.provider_config.get(OperatorConstants.Processing.MAX_RETRIES, 3)
+            if max_retries < 0:
+                errors.append(
+                    ValidationMessage.create(
+                        message="Max retries must be non-negative in provider_config",
+                        message_code="DOCLING_SERVE_MAX_RETRIES_INVALID",
+                    )
+                )
+
+            # Warn if using docling-serve with non-hybrid chunk type
+            if self.chunk_type != ChunkType.HYBRID.value:
+                warnings.append(
+                    ValidationMessage.create(
+                        message=f"Provider 'docling_serve' is enabled but chunk_type is '{self.chunk_type}'. "
+                        "Remote chunking works best with 'hybrid' chunk type.",
+                        message_code="DOCLING_SERVE_CHUNK_TYPE_MISMATCH",
+                    )
+                )
+
+    def _get_docling_serve_client(self):
+        """
+        Lazy initialization of HTTP client for docling-serve chunking API.
+
+        Creates and caches a RestClient instance configured for docling-serve requests.
+        The client is reused across multiple chunking operations for efficiency.
+
+        Returns:
+            RestClient: Configured HTTP client
+
+        Raises:
+            DatasiftException: If client initialization fails
+        """
+        if self._remote_chunking_client is None:
+            try:
+                from datasift.integrations.rest_client import RestClient, RestClientConfig
+
+                # Get configuration from provider_config
+                timeout = self.provider_config.get(OperatorConstants.Processing.TIMEOUT, 300)
+                max_retries = self.provider_config.get(OperatorConstants.Processing.MAX_RETRIES, 3)
+                verify_ssl = self.provider_config.get(OperatorConstants.Processing.VERIFY_SSL, True)
+                api_base = self.provider_config.get(
+                    OperatorConstants.Config.API_BASE, "http://localhost:5001"
+                )
+
+                # Initialize RestClient with configuration
+                rest_config = RestClientConfig(
+                    timeout=timeout,
+                    max_retries=max_retries,
+                    verify_ssl=verify_ssl,
+                )
+                self._remote_chunking_client = RestClient(
+                    config=rest_config,
+                    base_url=api_base,
+                )
+                logger.info(
+                    f"Initialized docling-serve chunking client for {api_base}",
+                    extra=self.common_log_arguments,
+                )
+            except Exception as e:
+                raise DatasiftException(f"Failed to initialize docling-serve HTTP client: {e!s}") from e
+        return self._remote_chunking_client
+
+    def _docling_serve_split_text(self, *, content: str, doc_name: str | None = None) -> list[Document]:
+        """
+        Perform remote chunking using docling-serve API.
+
+        Sends markdown content to docling-serve's /v1/chunk/hybrid/source endpoint for chunking.
+        The markdown content is base64-encoded and sent in a JSON request body with proper
+        convert_options and chunking_options.
+
+        Args:
+            content: Text content to split into chunks
+            doc_name: Optional document name for metadata
+
+        Returns:
+            List of Document objects containing chunks from docling-serve
+
+        Raises:
+            DatasiftException: If API request fails or response is invalid
+        """
+        import base64
+
+        from datasift.integrations.rest_client import RestMethod
+
+        client = self._get_docling_serve_client()
+
+        try:
+            # Base64 encode the markdown content
+            encoded_content = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+
+            # Prepare JSON payload for /v1/chunk/hybrid/source endpoint
+            payload = {
+                "sources": [
+                    {"kind": "file", "base64_string": encoded_content, "filename": doc_name or DEFAULT_DOCUMENT_NAME}
+                ],
+                "convert_options": {"from_formats": ["md"], "to_formats": ["md"]},
+                "include_converted_doc": False,
+                "target": {"kind": "inbody"},
+                "chunking_options": {
+                    "chunker": "hybrid",
+                    "tokenizer": self.docling_tokenizer,
+                    "max_tokens": self.chunk_size,
+                    "merge_peers": True,
+                    "use_markdown_tables": False,
+                    "include_raw_text": False,
+                },
+            }
+
+            # Prepare headers
+            headers = {"Content-Type": "application/json"}
+            api_key = self.provider_config.get(OperatorConstants.Config.API_KEY)
+            if api_key:
+                headers["X-Api-Key"] = api_key
+
+            # Make request to docling-serve
+            logger.info(
+                f"Sending chunking request to docling-serve for document: {doc_name or 'unnamed'}",
+                extra=self.common_log_arguments,
+            )
+            response = client.call_rest_json(
+                method=RestMethod.POST,
+                endpoint="/v1/chunk/hybrid/source",
+                json_data=payload,
+                headers=headers,
+            )
+
+            # Parse response
+            if not isinstance(response, dict):
+                raise DatasiftException(f"Invalid response from docling-serve: expected dict, got {type(response)}")
+
+            # Debug: Log the full response to understand structure
+            logger.info(
+                f"Docling-serve response keys: {list(response.keys())}, content length: {len(content)}",
+                extra=self.common_log_arguments,
+            )
+
+            chunks_data = response.get("chunks", [])
+
+            if not chunks_data:
+                logger.warning(
+                    f"Docling-serve returned no chunks for content of length {len(content)}",
+                    extra=self.common_log_arguments,
+                )
+                return []
+
+            # Convert to LangChain Documents
+            documents = []
+            for idx, chunk in enumerate(chunks_data):
+                if isinstance(chunk, dict):
+                    chunk_text = chunk.get("text", "")
+                else:
+                    chunk_text = str(chunk)
+
+                if chunk_text:
+                    doc = Document(
+                        page_content=chunk_text,
+                        metadata={
+                            "chunk_index": idx,
+                            "start_index": (
+                                chunk.get("start_index", idx * self.chunk_size)
+                                if isinstance(chunk, dict)
+                                else idx * self.chunk_size
+                            ),
+                            "source": OperatorConstants.Processing.PROVIDER_DOCLING_SERVE,
+                            "doc_name": doc_name,
+                        },
+                    )
+                    documents.append(doc)
+
+            logger.info(
+                f"Docling-serve chunking produced {len(documents)} chunks",
+                extra=self.common_log_arguments,
+            )
+            return documents
+
+        except Exception as e:
+            raise DatasiftException(f"Docling-serve chunking failed: {e!s}") from e
 
     def _simple_split_text(self, content: str) -> list[Document]:
         """
@@ -668,15 +910,16 @@ class ChunkerOperator(AbstractOperator):
             )
             raise DatasiftException(f"Docling chunking failed: {e!s}") from e
 
-    def _split_text(self, content: str) -> list[Document]:
+    def _split_text(self, *, content: str, doc_name: str | None = None) -> list[Document]:
         """
         Route text to the appropriate chunking method based on chunk_type.
 
         This is an internal dispatcher method that selects the chunking strategy
-        (simple, semantic, or hybrid) based on the configured chunk_type.
+        (simple, semantic, hybrid, or docling-serve) based on configuration.
 
         Args:
             content: Text content to split into chunks
+            doc_name: Optional document name for metadata
 
         Returns:
             List of Document objects containing chunks
@@ -687,6 +930,10 @@ class ChunkerOperator(AbstractOperator):
         Note:
             This method is called internally by transform() and should not be called directly.
         """
+        # Check if remote chunking provider is enabled (takes precedence)
+        if self.provider == OperatorConstants.Processing.PROVIDER_DOCLING_SERVE:
+            return self._docling_serve_split_text(content=content, doc_name=doc_name)
+
         chunk_type: str = self.chunk_type.lower()
 
         if chunk_type == ChunkType.SIMPLE.value:
@@ -784,7 +1031,7 @@ class ChunkerOperator(AbstractOperator):
                 raise DatasiftException(
                     f"The column '{self.doc_column}' exists but contains empty or whitespace-only content."
                 )
-            chunks: list[Document] = self._split_text(content)
+            chunks: list[Document] = self._split_text(content=content)
         except Exception as exc:
             logger.error(
                 f"An error occurred while creating chunking for the document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))} : \n {exc!s}",

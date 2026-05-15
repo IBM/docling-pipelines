@@ -230,6 +230,45 @@ The Chunker Operator provides intelligent text chunking with support for three s
 "max_input_tokens": 16000
 ```
 
+### 14. `provider` (String)
+**Type:** String
+**Required:** No
+**Default:** `None`
+**Description:** Chunking provider for remote/distributed chunking. When not specified, uses local chunking based on `chunk_type`.
+
+**Valid Values:**
+- `"docling_library"` - Local Docling library (same as not specifying provider)
+- `"docling_serve"` - Remote chunking via docling-serve API
+- `None` - Use local chunking based on `chunk_type` (default)
+
+**Examples:**
+```json
+"provider": "docling_serve"
+"provider": null
+```
+
+### 15. `provider_config` (Object)
+**Type:** Object (JSON)
+**Required:** No (Yes if provider is "docling_serve")
+**Default:** `{}`
+**Description:** Provider-specific configuration options for remote chunking.
+
+**For `docling_serve` provider:**
+- `api_base` (string, required): Base URL of docling-serve instance
+- `api_key` (string, optional): API key for authentication
+- `timeout` (integer, optional, default: 300): Request timeout in seconds
+- `poll_interval` (integer, optional, default: 2): Polling interval for async operations
+- `max_retries` (integer, optional, default: 3): Maximum retry attempts
+
+**Examples:**
+```json
+"provider_config": {
+  "api_base": "https://docling-serve.example.com",
+  "timeout": 120,
+  "max_retries": 3
+}
+```
+
 ## Output Features
 
 ### 1. `chunk_sequence_number` (Integer)
@@ -309,6 +348,27 @@ The Chunker Operator provides intelligent text chunking with support for three s
 }
 ```
 
+### Example 4: Remote Chunking with Docling-Serve
+```json
+{
+  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
+  "operator": "chunker",
+  "config": {
+    "chunk_type": "hybrid",
+    "chunk_size": 512,
+    "chunk_overlap": 128,
+    "provider": "docling_serve",
+    "provider_config": {
+      "api_base": "https://docling-serve.example.com",
+      "timeout": 120,
+      "poll_interval": 2,
+      "max_retries": 3
+    },
+    "retain_original_content": false
+  }
+}
+```
+
 ## Best Practices
 
 1. **Strategy Selection**:
@@ -335,6 +395,13 @@ The Chunker Operator provides intelligent text chunking with support for three s
    - Enable for long chunks (>1000 tokens)
    - Useful for improving retrieval relevance
    - Adds processing time and cost
+
+6. **Remote Chunking**:
+   - Use `provider: "docling_serve"` for distributed architectures
+   - Offloads computation to remote service
+   - Requires network access to docling-serve instance
+   - Configure appropriate timeout based on document size
+   - Local chunking preferred for small-scale operations
 
 ## Validation Rules
 
