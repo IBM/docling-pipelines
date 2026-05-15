@@ -25,6 +25,7 @@ title: Operator Reference
       - [EntityCurationOperator](#entitycurationoperator)
       - [EmbeddingsOperator](#embeddingsoperator)
       - [BranchingOperator](#branchingoperator)
+      - [MergeOperator](#mergeoperator)
       - [NOOPOperator](#noopoperator)
       - [DocIdHashOperator](#docidhashoperator)
     - [Quality Operators](#quality-operators-1)
@@ -963,6 +964,74 @@ Schemas are defined in `src/datasift/common/document_classes/*.json` with `targe
 
 - validation errors
 - propagated SQL filter errors
+
+---
+
+#### MergeOperator
+
+**Purpose:** Combine multiple PyArrow tables from different branches using row concatenation or column joins.
+
+**Category:** Functional
+
+**Class:** `core.operators.functional.merge.MergeOperator`
+
+| Parameter                  | Type         | Required | Default | Description                                                    |
+| -------------------------- | ------------ | -------: | ------- | -------------------------------------------------------------- |
+| `merge_type`               | string       |      Yes | `rows`  | Merge strategy: `rows` (concatenate) or `columns` (join)      |
+| `column_option`            | string       |  Conditional | -       | Join type when `merge_type=columns`: `inner_join` or `full_outer` |
+| `input_links`              | list[object] |      Yes | `[]`    | Input link configurations                                      |
+| `input_links[].link_name`  | string       |      Yes | -       | Unique identifier for each input branch                        |
+
+**Input Schema**
+
+- Multiple PyArrow tables from different branches, each identified by `link_name`
+- All tables must contain an `id` column for row merge duplicate detection and column merge joins
+
+**Output Schema**
+
+- **Row Merge (`merge_type=rows`)**: Single table with all rows concatenated vertically
+  - Preserves all columns from all input tables
+  - Validates no duplicate IDs across tables
+- **Column Merge (`merge_type=columns`)**: Single table with columns joined horizontally
+  - `inner_join`: Only rows with matching IDs across all tables
+  - `full_outer`: All rows from all tables, with nulls for missing values
+  - Non-ID columns from subsequent tables get `_<link_name>` suffix
+  - Complex types (lists, structs) are remapped without suffix
+
+**Exceptions**
+
+- `FlowExecutionFailedException`: Fewer than 2 input links provided
+- `DatasiftException`: Duplicate IDs detected in row merge
+- Validation errors for missing or invalid configuration
+
+**Usage Notes**
+
+- Typically used after [`BranchingOperator`](#branchingoperator) to recombine split data flows
+- The order of `input_links` determines column suffix application in column merge
+- Row merge requires unique IDs across all input tables
+- Column merge performs ID-based joins, similar to SQL JOIN operations
+
+**Example Flow Configuration**
+
+```json
+{
+  "id": "merge-node",
+  "name": "merge_branches",
+  "operator": "merge",
+  "config": {
+    "merge_type": "columns",
+    "column_option": "inner_join",
+    "input_links": [
+      {"link_name": "branch1"},
+      {"link_name": "branch2"}
+    ]
+  },
+  "input_edges": [
+    {"node_id_ref": "branch1-node", "link_name": "branch1"},
+    {"node_id_ref": "branch2-node", "link_name": "branch2"}
+  ]
+}
+```
 
 ---
 

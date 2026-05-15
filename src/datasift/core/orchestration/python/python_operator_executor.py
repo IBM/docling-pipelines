@@ -80,8 +80,8 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
             )
             self.set_default_node_stats(tables=tables)
             if isinstance(tables, dict):
-                logger.info(f"Invoking the transform_merge method of the {op.short_name} operator...")
-                result = op.transform_merge(tables)
+                logger.info(f"Invoking the transform method with multiple tables for the {op.short_name} operator...")
+                result = op.transform(table=pa.table({}), tables=tables)
             else:
                 result = op.transform(tables)
                 if len(op.output_features_to_drop) > 0:

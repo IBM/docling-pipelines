@@ -15,6 +15,7 @@ from datasift.core.operators.functional.branching_operator import BranchingOpera
 from datasift.core.operators.functional.chunker import ChunkerOperator
 from datasift.core.operators.functional.doc_id_hash import DocIdHashOperator
 from datasift.core.operators.functional.embeddings.embeddings_operator import EmbeddingsOperator
+from datasift.core.operators.functional.merge import MergeOperator
 from datasift.core.operators.functional.noop import NOOPOperator
 
 # Ingest Operators
@@ -47,6 +48,7 @@ DATASIFT_OPERATORS = frozenset(
         ChunkerOperator,
         DocIdHashOperator,
         EmbeddingsOperator,
+        MergeOperator,
         NOOPOperator,
         # Quality
         DocumentClassifierOperator,

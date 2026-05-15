@@ -98,6 +98,7 @@ graph TB
         end
         subgraph "Functional"
             BR[BranchingOperator]
+            MRG[MergeOperator]
             CH[Chunker]
             EC[EntityCurationOperator]
             EMB[EmbeddingsOperator]
@@ -307,9 +308,10 @@ graph LR
     EXT --> E1[ExtactOperator]
 
     FUN --> F1[BranchingOperator]
-    FUN --> F2[Chunker]
-    FUN --> F3[EmbeddingsOperator]
-    FUN --> F4[NoopOperator]
+    FUN --> F2[MergeOperator]
+    FUN --> F3[Chunker]
+    FUN --> F4[EmbeddingsOperator]
+    FUN --> F5[NoopOperator]
 
     QUA --> Q1[DocumentClassifier]
     QUA --> Q2[Dedup]
@@ -3759,6 +3761,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 #### Functional Operators (`functional/`)
 
 - **BranchingOperator**: Conditional workflow branching
+- **MergeOperator**: Combine multiple tables from branches using row concatenation or column joins
 - **Chunker**: Document chunking with multiple strategies:
   - **Simple**: Basic text splitting with configurable chunk size and overlap
   - **Semantic**: Sentence-based chunking using NLTK

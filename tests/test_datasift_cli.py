@@ -132,5 +132,60 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         }
 
         # Test that the exception is propagated
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception):  # noqa: B017
             run_command_line_executor(flow_def=flow_def)
+
+    def test_merge_operator_flow(self):
+        """
+        Test orchestrating a pipeline with merge operator (row merge)
+        """
+        flow_def = {
+            "dag": [
+                {
+                    "id": "e9c41958-2d27-4c02-ab03-789e031b9510",
+                    "name": "ingest",
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
+                    "config": {
+                        "input_folder": "tests/fixtures/customer_support_docs",
+                        "include_filter": "txt",
+                    },
+                    "input_edges": [],
+                    "output_edges": [
+                        {"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9511"},
+                        {"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9512"},
+                    ],
+                },
+                {
+                    "id": "e9c41958-2d27-4c02-ab03-789e031b9511",
+                    "name": "branch1_noop",
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.NOOP,
+                    "config": {"sleep_sec": 0},
+                    "input_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9510"}],
+                    "output_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9513"}],
+                },
+                {
+                    "id": "e9c41958-2d27-4c02-ab03-789e031b9512",
+                    "name": "branch2_noop",
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.NOOP,
+                    "config": {"sleep_sec": 0},
+                    "input_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9510"}],
+                    "output_edges": [{"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9513"}],
+                },
+                {
+                    "id": "e9c41958-2d27-4c02-ab03-789e031b9513",
+                    "name": "merge_branches",
+                    OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.MERGE,
+                    "config": {
+                        "merge_type": "rows",
+                        "input_links": [{"link_name": "branch1"}, {"link_name": "branch2"}],
+                    },
+                    "input_edges": [
+                        {"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9511", "link_name": "branch1"},
+                        {"node_id_ref": "e9c41958-2d27-4c02-ab03-789e031b9512", "link_name": "branch2"},
+                    ],
+                    "output_edges": [],
+                },
+            ]
+        }
+
+        run_command_line_executor(flow_def=flow_def)

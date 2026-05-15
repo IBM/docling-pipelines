@@ -132,6 +132,21 @@ class OperatorConstants:
         FEATURES: Final[str] = "columns"
         INNER_JOIN_DUPLICATE_COLUMN: Final[str] = "inner_join"
 
+    class Merge:
+        """Merge operator constants."""
+
+        # Merge Configuration Keys
+        MERGE_TYPE: Final[str] = "merge_type"
+        COLUMN_OPTION: Final[str] = "column_option"
+        INPUT_LINKS: Final[str] = "input_links"
+
+        # Merge Type Values
+        ROWS: Final[str] = "rows"
+        COLUMNS: Final[str] = "columns"
+
+        # Column Option Values (for COLUMNS merge type)
+        FULL_OUTER_JOIN: Final[str] = "full_outer"
+
     class Config:
         """Configuration key constants."""
 

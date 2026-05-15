@@ -98,4 +98,11 @@ class ValidationCodeMessages(StrEnum):
     DOCUMENT_SET_STORAGE_ERROR = "Storage error for document set: {details}"
     DOCUMENT_SET_INVALID_NAME = "Invalid document set name: {name}"
     DOCUMENT_SET_TABLE_ERROR = "Table operation failed: {details}"
+
+    # Merge Operator errors
+    MERGE_INPUT_LINKS_INSUFFICIENT = "At least two input links are required for merging. Please connect at least two operators to the Merge operator."
+    MERGE_TYPE_NOT_PROVIDED = "Merge type is required. Please specify 'merge_type' in the operator configuration as either 'rows' or 'columns'."
+    INVALID_MERGE_TYPE = "Invalid merge type '{merge_type}'. Please use either 'rows' or 'columns'."
+    MERGE_COLUMN_OPTION_NOT_PROVIDED = "Column option is required when merge_type is 'columns'. Please specify 'column_option' as either 'inner_join' or 'full_outer'."
+    MERGE_INVALID_COLUMN_OPTION = "Invalid column option '{column_option}'. When merge_type is 'columns', column_option must be either 'inner_join' or 'full_outer'."
     DATABASE_CONNECTION_ERROR = "Failed to connect to database: {details}"
