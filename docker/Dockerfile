@@ -25,6 +25,7 @@ RUN dnf install -y \
     dnf clean all
 
 COPY --from=builder /opt/app-root/lib/python3.12/site-packages /opt/app-root/lib/python3.12/site-packages
+COPY --from=builder /opt/app-root/bin /opt/app-root/bin
 COPY --from=builder /opt/app-root/src /opt/app-root/src
 
 WORKDIR /opt/app-root/src
@@ -38,6 +39,7 @@ RUN useradd -m -u 1000 datasift && \
 
 USER datasift
 ENV PYTHONPATH=/opt/app-root/src
+ENV PATH=/opt/app-root/bin:$PATH
 
 EXPOSE 8080
 CMD ["python", "-m", "uvicorn", "datasift.api.main:app", "--host", "0.0.0.0", "--port", "8080"]
