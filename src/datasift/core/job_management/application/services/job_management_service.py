@@ -8,7 +8,7 @@ coordinating between JobStatsService and JobRunManager.
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
-from datasift.core.assets.flows.factories.flow_repository_factory import FlowRepositoryFactory
+from datasift.core.assets.flows.adapters.config.repository_factory import RepositoryFactory
 from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus, OrchestratorType
 from datasift.core.job_management.domain.models import JobStats
 from datasift.core.job_management.domain.ports import JobRunManager, JobStatsService
@@ -53,7 +53,7 @@ class JobManagementService:
         self.job_stats_service = job_stats_service
         self.job_run_manager = job_run_manager
         self.executor = executor or ThreadPoolExecutor(max_workers=10)
-        self.flow_repository = FlowRepositoryFactory.create(storage_type="filesystem", base_dir="data/flows")
+        self.flow_repository = RepositoryFactory.create_default_flow_repository()
 
     def create_job_run_from_request(self, *, request_body: Any) -> str:
         """

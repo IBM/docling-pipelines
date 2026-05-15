@@ -39,9 +39,9 @@ from datasift.api.dto.flow_dto import (
     PaginatedFlowResponse,
 )
 from datasift.api.dto.mappers.flow_mapper import FlowMapper
+from datasift.core.assets.flows.adapters.config.repository_factory import RepositoryFactory
 from datasift.core.assets.flows.application.services.flow_service import FlowService
 from datasift.core.assets.flows.domain.ports.flow_repository import FlowRepository
-from datasift.core.assets.flows.factories.flow_repository_factory import FlowRepositoryFactory
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -211,12 +211,10 @@ def get_flow_repository() -> FlowRepository:
         FlowRepository: Configured repository instance (cached singleton)
 
     Note:
-        Uses FlowRepositoryFactory with default storage backend (filesystem).
-        Storage type can be configured via environment or passed explicitly.
+         Configuration is handled by RepositoryFactory via environment variables.
+         See RepositoryFactory.create_flow_repository() for configuration details.
     """
-    # Default to filesystem storage for backward compatibility
-    # TODO: Make storage_type configurable via environment variable
-    return FlowRepositoryFactory.create(storage_type="filesystem", base_dir="data/flows")
+    return RepositoryFactory.create_flow_repository()
 
 
 def get_flow_service(repository: FlowRepository = Depends(get_flow_repository)) -> FlowService:  # noqa: B008

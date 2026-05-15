@@ -4,8 +4,9 @@ This module provides utility functions for handling flow filenames and file oper
 in filesystem-based repository implementations. These utilities are separated from the
 abstract FlowRepository interface to maintain hexagonal architecture principles.
 
-These utilities are designed for filesystem-based storage adapters and should not be
-part of the abstract repository interface. Database-based adapters do not need these utilities.
+These utilities are designed for filesystem-based adapters (LocalFlowRepository,
+GitFlowRepository) and should not be part of the abstract repository interface.
+Database-based adapters (PostgresFlowRepository) do not need these utilities.
 """
 
 import re

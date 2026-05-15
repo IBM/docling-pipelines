@@ -10,8 +10,9 @@ from fastapi.testclient import TestClient
 
 from datasift.api.main import app
 from datasift.api.routes.flows import get_flow_repository
-from datasift.core.assets.flows.domain.ports.flow_repository import FlowRepository
-from datasift.core.assets.flows.factories.flow_repository_factory import FlowRepositoryFactory
+from datasift.core.assets.flows.adapters.repositories.local.local_flow_repository import (
+    LocalFlowRepository,
+)
 
 
 @pytest.fixture(scope="function")
@@ -36,21 +37,21 @@ def temp_flows_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture(scope="function")
-def test_repository(temp_flows_dir: Path) -> FlowRepository:
-    """Create a FlowRepository instance using temporary directory.
-
+def test_repository(temp_flows_dir: Path, monkeypatch) -> LocalFlowRepository:
+    """Create a LocalFlowRepository instance using temporary directory.
     Args:
         temp_flows_dir: Temporary directory fixture
-
+        monkeypatch: Pytest monkeypatch fixture
     Returns:
-        FlowRepository: Repository instance configured for testing
+        LocalFlowRepository: Repository instance configured for testing
     """
-    return FlowRepositoryFactory.create(storage_type="filesystem", base_dir=str(temp_flows_dir))
+    monkeypatch.setenv("LOCAL_FLOWS_DIR", str(temp_flows_dir))
+    return LocalFlowRepository()
 
 
 @pytest.fixture(scope="function")
 def test_client(
-    test_repository: FlowRepository,
+    test_repository: LocalFlowRepository,
 ) -> Generator[TestClient, None, None]:
     """Create FastAPI test client with dependency overrides.
 
@@ -139,17 +140,18 @@ def create_test_flow(test_client: TestClient, sample_flow_data: dict):
         Callable: Function that creates a flow and returns the response
     """
 
-    def _create_flow(flow_data: dict | None = None) -> dict:
+    def _create_flow(flow_data: dict | None = None, is_elyra: bool = True) -> dict:
         """Create a flow using the test client.
 
         Args:
             flow_data: Optional custom flow data, defaults to sample_flow_data
+            is_elyra: Whether the flow definition is in Elyra format (default: True)
 
         Returns:
             dict: Created flow response data
         """
         data = flow_data if flow_data is not None else sample_flow_data
-        response = test_client.post("/api/v1/flows", json=data)
+        response = test_client.post(f"/api/v1/flows?is_elyra={str(is_elyra).lower()}", json=data)
         assert response.status_code == 201, f"Failed to create flow: {response.json()}"
         return response.json()
 
