@@ -244,13 +244,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /health
-            port: 8000
+            port: 8080
           initialDelaySeconds: 30
           periodSeconds: 10
         readinessProbe:
           httpGet:
             path: /health
-            port: 8000
+            port: 8080
           initialDelaySeconds: 10
           periodSeconds: 5
 EOF
@@ -284,8 +284,8 @@ spec:
     component: backend
   ports:
   - name: http
-    port: 8000
-    targetPort: 8000
+    port: 8080
+    targetPort: 8080
     protocol: TCP
   type: ClusterIP
 EOF

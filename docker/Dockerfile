@@ -24,18 +24,16 @@ RUN dnf install -y \
     mesa-libGL openldap-devel cyrus-sasl-devel openssl-devel glib2 && \
     dnf clean all
 
-COPY --from=builder /opt/app-root/lib/python3.12/site-packages /opt/app-root/lib/python3.12/site-packages
-COPY --from=builder /opt/app-root/bin /opt/app-root/bin
-COPY --from=builder /opt/app-root/src /opt/app-root/src
-
-WORKDIR /opt/app-root/src
-
-# Create user first for --chown
 # Create datasift user and prepare writable directories
 RUN useradd -m -u 1000 datasift && \
     mkdir -p /opt/app-root/models && \
-    chown -R datasift:datasift /opt/app-root && \
     chmod -R 775 /opt/app-root/models
+
+COPY --from=builder --chown=datasift:datasift /opt/app-root/lib/python3.12/site-packages /opt/app-root/lib/python3.12/site-packages
+COPY --from=builder --chown=datasift:datasift /opt/app-root/bin /opt/app-root/bin
+COPY --from=builder --chown=datasift:datasift /opt/app-root/src /opt/app-root/src
+
+WORKDIR /opt/app-root/src
 
 USER datasift
 ENV PYTHONPATH=/opt/app-root/src
