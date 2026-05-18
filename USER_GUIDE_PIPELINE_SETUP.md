@@ -828,21 +828,18 @@ DataSift pipelines are defined using JSON configuration files. Let's understand 
 
 ```json
 {
-  "flow": {
-    "name": "invoice processing flow",
-    "flow_id": "55578a6c-96b0-4f51-af8f-3aa63c575141",
-    "description": "a flow to demonstrate invoice processing with datasift pipeline",
+  "flow_name": "complete-document-pipeline",
+  "description": "Complete document processing pipeline",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true,
     "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "disable_validation": "true",
-      "force_ingest": true
-    },
-    "dag": [
-      // Operator nodes go here
-    ]
-  }
+    "execute_type": "local"
+  },
+  "flow": [
+    // Operator definitions go here
+  ]
 }
 ```
 
@@ -850,13 +847,10 @@ DataSift pipelines are defined using JSON configuration files. Let's understand 
 
 | Field           | Type   | Description              | Example                                  |
 | --------------- | ------ | ------------------------ | ---------------------------------------- |
-| `name`          | string | Human-readable flow name | `"invoice processing flow"`              |
-| `flow_id`       | string | Unique identifier (UUID) | `"55578a6c-96b0-4f51-af8f-3aa63c575141"` |
-| `description`   | string | Flow purpose description | `"a flow to demonstrate..."`             |
-| `storage`       | string | Data storage type        | `"in-memory"` or `"disk"`                |
-| `execute_type`  | string | Execution environment    | `"local"` or `"distributed"`             |
+| `flow_name`     | string | Human-readable flow name | `"complete-document-pipeline"`           |
+| `description`   | string | Flow purpose description | `"Complete document processing pipeline"` |
 | `global_config` | object | Global configuration     | See below                                |
-| `dag`           | array  | Operator nodes           | See operator sections                    |
+| `flow`          | array  | Operator definitions     | See operator sections                    |
 
 ### Global Configuration Options
 
@@ -898,16 +892,13 @@ Reads files from a local directory:
 
 ```json
 {
-  "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "name": "ingest",
-  "operator": "ingest_local",
+  "type": "ingest_local",
   "config": {
     "input_folder": "./tests/fixtures/invoices",
     "include_filter": ".pdf",
     "max_workers": 2
-  },
-  "input_edges": [],
-  "output_edges": [{ "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }]
+  }
 }
 ```
 
@@ -933,16 +924,14 @@ The `extract_operator` handles both text extraction and entity extraction.
 
 ```json
 {
-  "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
   "name": "extract",
-  "operator": "extract_operator",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
   "config": {
     "text_extraction_mode": "docling_library",
     "entity_extraction_mode": "none",
     "doc_column": "content"
-  },
-  "input_edges": [{ "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }],
-  "output_edges": [{ "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129" }]
+  }
 }
 ```
 
@@ -951,9 +940,9 @@ For structured data extraction with predefined schemas, use `entity_extraction_m
 
 ```json
 {
-  "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
   "name": "extract",
-  "operator": "extract_operator",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
   "config": {
     "text_extraction_mode": "docling_library",
     "entity_extraction_mode": "docling",
@@ -965,9 +954,7 @@ For structured data extraction with predefined schemas, use `entity_extraction_m
       "vendor_name": "string",
       "total": "float"
     }
-  },
-  "input_edges": [{ "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }],
-  "output_edges": [{ "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129" }]
+  }
 }
 ```
 
@@ -979,18 +966,16 @@ Splits documents into chunks:
 
 ```json
 {
-  "id": "6101c752-523e-4a4a-84e2-81e0b2109129",
   "name": "chunk",
-  "operator": "chunker",
+  "type": "chunker",
+  "depends_on": ["extract"],
   "config": {
-    "chunk_type": "hybrid",
+    "chunking_type": "hybrid",
     "doc_column": "content",
     "chunk_size": 512,
     "chunk_overlap": 128,
     "retain_original_content": false
-  },
-  "input_edges": [{ "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }],
-  "output_edges": ["6de879bd-bbe0-4d60-998f-031f65472a02"]
+  }
 }
 ```
 
@@ -1000,18 +985,16 @@ Generates vector embeddings:
 
 ```json
 {
-  "id": "6de879bd-bbe0-4d60-998f-031f65472a02",
   "name": "embeddings",
-  "operator": "embeddings",
+  "type": "embeddings",
+  "depends_on": ["chunk"],
   "config": {
     "embeddings_type": "ollama",
     "embeddings_model_id": "granite4:latest",
     "embeddings_column": "embeddings",
     "overlap_ratio": 0.2,
     "doc_column": "content"
-  },
-  "input_edges": [{ "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129" }],
-  "output_edges": ["87249dbf-4a1a-433a-91da-ee5fb3244284"]
+  }
 }
 ```
 
@@ -1202,9 +1185,21 @@ The VectorDBOperator automatically collects common metadata fields into a `metad
 - Column name aliases are automatically applied (e.g., `path` → `source`, `pages_processed` → `page_count`)
 - Missing fields like `extension` and `mimetype` are derived when possible
 
-### How to Connect Operators Using Edges
+### How to Connect Operators
 
-Operators are connected using `input_edges` and `output_edges`. Each operator's `id` must match the `node_id_ref` in connected operators.
+Operators are connected using the `depends_on` field, which specifies which operators must complete before the current operator runs. Simply reference the `name` of the upstream operator(s).
+
+**Example:**
+```json
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {...}
+}
+```
+
+This creates a dependency where the `extract` operator will only run after the `ingest` operator completes successfully.
 
 ---
 
@@ -1247,49 +1242,7 @@ For more sample flows and details, see [`sample_flows/README.md`](sample_flows/R
 
 ### Creating a Custom Flow
 
-### Generating Operator IDs
-
-Each operator in your flow must have a unique UUID identifier. These IDs are used to connect operators via `input_edges` and `output_edges` in the flow configuration.
-
-**UUID Requirements:**
-
-- Each operator's `id` field must be a valid UUID (format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
-- IDs must be unique across all operators in the flow
-- IDs are used to reference operators in edge connections
-
-**Helper Function:**
-
-You can use this Python script to generate UUIDs for your operators:
-
-```python
-import uuid
-
-def generate_operator_ids(count=5):
-    """Generate unique UUIDs for operator node IDs"""
-    return [str(uuid.uuid4()) for _ in range(count)]
-
-# Generate 5 UUIDs for a 5-operator pipeline
-ids = generate_operator_ids(5)
-for i, operator_id in enumerate(ids, 1):
-    print(f"Operator {i} ID: {operator_id}")
-```
-
-**Example Output:**
-
-```
-Operator 1 ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
-Operator 2 ID: b2c3d4e5-f6a7-8901-bcde-f12345678901
-Operator 3 ID: c3d4e5f6-a7b8-9012-cdef-123456789012
-Operator 4 ID: d4e5f6a7-b8c9-0123-def1-234567890123
-Operator 5 ID: e5f6a7b8-c9d0-1234-ef12-345678901234
-```
-
-**Usage:**
-
-1. Run the helper script before creating your flow.json
-2. Copy the generated UUIDs
-3. Replace placeholder IDs (like `ingest-uuid`, `extract-uuid`) in your flow configuration with the generated UUIDs
-4. Ensure the same UUID is used consistently in both the operator's `id` field and any edge references
+With the authoring format, creating flows is straightforward - you don't need to manage UUIDs or edge connections manually. The system automatically generates these when compiling your flow.
 
 ### Step-by-Step Guide
 
@@ -1316,170 +1269,88 @@ cp /path/to/your/pdfs/*.pdf test-documents/
 
 > **Note:** The test-documents directory should be created in the project root (datasift-opensource). Ensure you have at least one PDF file in this directory before running the pipeline.
 
-**2. Generate operator UUIDs:**
-
-Before creating your flow configuration, generate unique UUIDs for your operators using the helper function from the "Generating Operator IDs" section above:
-
-```bash
-# Working directory: project root (datasift-opensource)
-
-python3 << 'EOF'
-import uuid
-
-def generate_operator_ids(count=5):
-    """Generate unique UUIDs for operator node IDs"""
-    return [str(uuid.uuid4()) for _ in range(count)]
-
-# Generate 5 UUIDs for our 5-operator pipeline
-ids = generate_operator_ids(5)
-print("\nGenerated UUIDs for your pipeline:")
-print(f"Ingest operator:     {ids[0]}")
-print(f"Extract operator:    {ids[1]}")
-print(f"Chunk operator:      {ids[2]}")
-print(f"Embeddings operator: {ids[3]}")
-print(f"OpenSearch operator: {ids[4]}")
-print("\nCopy these UUIDs and use them in your flow.json below.\n")
-EOF
-```
-
-**Note:** Replace the placeholder UUIDs (`ingest-uuid`, `extract-uuid`, etc.) in the flow configuration below with the actual UUIDs generated in step 2.
-
-````
-
-**3. Create flow.json:**
+**2. Create flow.json:**
 ```bash
 # Working directory: project root (datasift-opensource)
 
 cat > my-first-flow.json << 'EOF'
 {
-  "flow": {
-    "name": "My First Flow",
-    "flow_id": "12345678-1234-1234-1234-123456789012",
-    "description": "Process PDFs and store in OpenSearch",
+  "flow_name": "My First Flow",
+  "description": "Process PDFs and store in OpenSearch",
+  "global_config": {
+    "doc_column": "content",
+    "force_ingest": true,
     "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "force_ingest": true
-    },
-    "dag": [
-      {
-        "id": "ingest-uuid",
-        "name": "ingest",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./test-documents",
-          "include_filter": ".pdf"
-        },
-        "note": "Use full/absolute path for input_folder in production (e.g., /Users/username/datasift-opensource/test-documents)",
-        "input_edges": [],
-        "output_edges": [{"node_id_ref": "extract-uuid"}]
-      },
-      {
-        "id": "extract-uuid",
-        "name": "extract",
-        "operator": "extract_operator",
-        "config": {
-          "doc_column": "content"
-        },
-        "input_edges": [{"node_id_ref": "ingest-uuid"}],
-        "output_edges": [{"node_id_ref": "chunk-uuid"}]
-      },
-      {
-        "id": "chunk-uuid",
-        "name": "chunk",
-        "operator": "chunker",
-        "config": {
-          "chunk_type": "simple",
-          "chunk_size": 512,
-          "chunk_overlap": 128
-        },
-        "input_edges": [{"node_id_ref": "extract-uuid"}],
-        "output_edges": [{"node_id_ref": "embeddings-uuid"}]
-      },
-      {
-        "id": "embeddings-uuid",
-        "name": "embeddings",
-        "operator": "embeddings",
-        "config": {
-          "embeddings_type": "ollama",
-          "embeddings_model_id": "granite4:latest"
-        },
-        "input_edges": [{"node_id_ref": "chunk-uuid"}],
-        "output_edges": [{"node_id_ref": "opensearch-uuid"}]
-      },
-      {
-        "id": "opensearch-uuid",
-        "name": "vectordb",
-        "operator": "vectordb",
-        "config": {
-          "provider": "opensearch",
-          "index_name": "my_documents",
-          "doc_id_column": "doc_id_hash",
-          "embeddings_column": "embeddings",
-          "vector_dimension": 768,
-          "create_index": true,
-          "provider_config": {
-            "host": "localhost",
-            "port": 9200,
-            "username": "admin",
-            "password": "MyStrongPass123!", # pragma: allowlist secret
-            "use_ssl": false,
-            "verify_certs": false,
-            "engine": "faiss",
-            "algorithm": "hnsw",
-            "space_type": "l2",
-            "batch_size": 100
-          },
-          "feature_mappings": {
-            "content": "content",
-            "doc_name": "doc_name",
-            "file_path": "file_path",
-            "doc_id_hash": "doc_id_hash",
-            "chunk_id": "chunk_id",
-            "chunk_index": "chunk_index"
-          },
-          "available_features": {
-            "embeddings": {
-              "type": "vector",
-              "available_for_vector_db": true
-            },
-            "content": {
-              "type": "string",
-              "available_for_vector_db": true
-            },
-            "doc_name": {
-              "type": "string",
-              "available_for_vector_db": true
-            },
-            "file_path": {
-              "type": "string",
-              "available_for_vector_db": true
-            },
-            "doc_id_hash": {
-              "type": "string",
-              "available_for_vector_db": true
-            },
-            "chunk_id": {
-              "type": "string",
-              "available_for_vector_db": true
-            },
-            "chunk_index": {
-              "type": "integer",
-              "available_for_vector_db": true
-            }
-          }
-        },
-        "input_edges": [{"node_id_ref": "embeddings-uuid"}],
-        "output_edges": []
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./test-documents",
+        "include_filter": ".pdf"
       }
-    ]
-  }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": ["ingest"],
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      }
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "depends_on": ["extract"],
+      "config": {
+        "chunking_type": "simple",
+        "chunk_size": 512,
+        "chunk_overlap": 128
+      }
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+      "depends_on": ["chunk"],
+      "config": {
+        "embeddings_type": "ollama",
+        "embeddings_model_id": "granite4:latest"
+      }
+    },
+    {
+      "name": "vectordb",
+      "type": "vectordb",
+      "depends_on": ["embeddings"],
+      "config": {
+        "provider": "opensearch",
+        "index_name": "my_documents",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 768,
+        "create_index": true,
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "admin",
+          "password": "MyStrongPass123!",  # pragma: allowlist secret
+          "use_ssl": false,
+          "verify_certs": false,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2",
+          "batch_size": 100
+        }
+      }
+    }
+  ]
 }
 EOF
-````
+```
 
-**4. Validate JSON:**
+**3. Validate JSON:**
 
 ```bash
 # Working directory: project root (datasift-opensource)
@@ -1898,64 +1769,57 @@ from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 def build_flow_definition(input_folder: str, index_name: str) -> dict:
     """Build a complete flow definition as a Python dictionary."""
     return {
-        "name": "programmatic-inline-pipeline",
-        "flow_id": "inline-flow-001",
+        "flow_name": "programmatic-inline-pipeline",
         "description": "Inline flow for document processing",
-        "storage": "in-memory",
-        "execute_type": "local",
         "global_config": {
             "doc_column": "content",
             "disable_validation": "true",
             "force_ingest": True,
+            "storage": "in-memory",
+            "execute_type": "local"
         },
-        "dag": [
+        "flow": [
             {
-                "id": "11111111-1111-4111-8111-111111111111",
                 "name": "ingest_local_folder",
-                "operator": "ingest_local",
+                "type": "ingest_local",
                 "config": {
                     "input_folder": input_folder,
                     "include_filter": "pdf,txt,docx"
-                },
-                "input_edges": [],
-                "output_edges": [{"node_id_ref": "22222222-2222-4222-8222-222222222222"}],
+                }
             },
             {
-                "id": "22222222-2222-4222-8222-222222222222",
                 "name": "extract_operator",
-                "operator": "extract_operator",
-                "config": {"doc_column": "content"},
-                "input_edges": [{"node_id_ref": "11111111-1111-4111-8111-111111111111"}],
-                "output_edges": [{"node_id_ref": "33333333-3333-4333-8333-333333333333"}],
-            },
-            {
-                "id": "33333333-3333-4333-8333-333333333333",
-                "name": "chunk_documents",
-                "operator": "chunker",
+                "type": "extract_operator",
+                "depends_on": ["ingest_local_folder"],
                 "config": {
-                    "chunk_type": "semantic",
-                    "chunk_size": 512,
-                    "chunk_overlap": 50,
-                },
-                "input_edges": [{"node_id_ref": "22222222-2222-4222-8222-222222222222"}],
-                "output_edges": [{"node_id_ref": "44444444-4444-4444-8444-444444444444"}],
+                    "text_extraction_mode": "docling_library",
+                    "entity_extraction_mode": "none"
+                }
             },
             {
-                "id": "44444444-4444-4444-8444-444444444444",
+                "name": "chunk_documents",
+                "type": "chunker",
+                "depends_on": ["extract_operator"],
+                "config": {
+                    "chunking_type": "semantic",
+                    "chunk_size": 512,
+                    "chunk_overlap": 50
+                }
+            },
+            {
                 "name": "generate_embeddings",
-                "operator": "embeddings",
+                "type": "embeddings",
+                "depends_on": ["chunk_documents"],
                 "config": {
                     "embeddings_type": "ollama",
                     "embeddings_model_id": "nomic-embed-text",
-                    "embeddings_column": "content",
-                },
-                "input_edges": [{"node_id_ref": "33333333-3333-4333-8333-333333333333"}],
-                "output_edges": [{"node_id_ref": "55555555-5555-4555-8555-555555555555"}],
+                    "embeddings_column": "content"
+                }
             },
             {
-                "id": "55555555-5555-4555-8555-555555555555",
                 "name": "store_vectors",
-                "operator": "vectordb",
+                "type": "vectordb",
+                "depends_on": ["generate_embeddings"],
                 "config": {
                     "provider": "opensearch",
                     "index_name": index_name,
@@ -1967,19 +1831,17 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                         "host": "localhost",
                         "port": 9200,
                         "username": "admin",
-                        "password": "MyStrongPass123!", # pragma: allowlist secret
+                        "password": "MyStrongPass123!",
                         "use_ssl": False,
                         "verify_certs": False,
                         "engine": "faiss",
                         "algorithm": "hnsw",
                         "space_type": "l2",
                         "batch_size": 100
-                    },
-                },
-                "input_edges": [{"node_id_ref": "44444444-4444-4444-8444-444444444444"}],
-                "output_edges": [],
-            },
-        ],
+                    }
+                }
+            }
+        ]
     }
 
 def execute_inline_flow():

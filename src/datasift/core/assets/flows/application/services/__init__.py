@@ -1,5 +1,6 @@
-"""Application services for assets management."""
+"""Application services for asset management."""
 
-from .flow_service import FlowService
+from datasift.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
+from datasift.core.assets.flows.application.services.flow_service import FlowService
 
-__all__ = ["FlowService"]
+__all__ = ["AuthoringCompiler", "FlowService"]

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Test script for PII and HAP detection operator."""
 
-import json
 import os
 from pathlib import Path
 
 # Path setup is now automatic via conftest.py
-from datasift.cli.datasift_cli import run_command_line_executor
+from datasift.cli.datasift_cli import load_flow_definition, run_command_line_executor
 
 
 def test_pii_hap_with_ollama():
@@ -16,15 +15,13 @@ def test_pii_hap_with_ollama():
     os.environ["test_mode"] = "True"
     os.environ["DATA_FOLDER"] = "/tmp/datasift_test"
 
-    # Load the flow definition
+    # Load and compile the flow definition (authoring format -> runtime DAG)
     # Navigate: tests/unit/operators/pii_and_hap -> tests (up 3 levels using resolve().parents)
     tests_root = Path(__file__).resolve().parents[3]
     flow_file = tests_root / "sample_test_flows" / "quality_and_enrichment" / "flow_pii_hap_example.json"
 
-    with open(flow_file) as f:
-        flow_config = json.load(f)
-
-    flow_def = flow_config["flow"]
+    # load_flow_definition compiles authoring format to runtime DAG format
+    flow_def = load_flow_definition(file_path=str(flow_file))
 
     # Fix the input_folder path to be absolute
     project_root = Path(__file__).resolve().parents[4]
@@ -38,8 +35,8 @@ def test_pii_hap_with_ollama():
     print("=" * 80)
     print("Testing PII and HAP Detection Operator")
     print("=" * 80)
-    print(f"\nFlow: {flow_def['name']}")
-    print(f"Description: {flow_def['description']}")
+    print(f"\nFlow: {flow_def.get('name', 'Unknown')}")
+    print(f"Description: {flow_def.get('description', 'N/A')}")
     print("\nNodes in flow:")
     for node in flow_def["dag"]:
         print(f"  - {node['name']} ({node['operator']})")

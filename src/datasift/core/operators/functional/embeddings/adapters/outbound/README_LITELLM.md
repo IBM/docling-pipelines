@@ -233,38 +233,31 @@ print(f"Generated {len(result)} embeddings")
 
 ```json
 {
-  "dag": [
+  "flow": [
     {
-      "id": "ingest",
       "name": "ingest_documents",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "input_folder": "data/documents"
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "chunk"}]
+      }
     },
     {
-      "id": "chunk",
       "name": "chunk_documents",
-      "operator": "chunker",
+      "type": "chunker",
+      "depends_on": ["ingest_documents"],
       "config": {
-        "chunk_type": "hybrid",
+        "chunking_type": "hybrid",
         "chunk_size": 512
-      },
-      "input_edges": [{"node_id_ref": "ingest"}],
-      "output_edges": [{"node_id_ref": "embed"}]
+      }
     },
     {
-      "id": "embed",
       "name": "generate_embeddings",
-      "operator": "embeddings",
+      "type": "embeddings",
+      "depends_on": ["chunk_documents"],
       "config": {
         "embeddings_type": "litellm",
         "embeddings_model_id": "text-embedding-3-small"
-      },
-      "input_edges": [{"node_id_ref": "chunk"}],
-      "output_edges": []
+      }
     }
   ]
 }

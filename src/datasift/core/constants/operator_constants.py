@@ -587,6 +587,7 @@ Rules:
 
         # Feature and Transform Constants
         BRANCHING: Final[str] = "branching"
+        BRANCHES: Final[str] = "branches"
         CONTENT_TYPE: Final[str] = "content_type"
         ENTITIES: Final[str] = "entities"
         FEATURE_NAME: Final[str] = "feature_name"
@@ -661,6 +662,11 @@ Rules:
             "datasift.core.operators.vectordb",
             "datasift.core.operators.document_sets",
         ]
+
+        # Flow Authoring Constants
+        BRANCH_SEPARATOR: Final[str] = "."
+        BRANCH_CONDITION_KEY: Final[str] = "condition"
+        DEPENDS_ON: Final[str] = "depends_on"
 
     class ContainerKinds:
         CATALOG: Final[str] = "catalog"

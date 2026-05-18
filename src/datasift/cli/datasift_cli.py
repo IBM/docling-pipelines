@@ -48,55 +48,56 @@ def run_command_line_executor(flow_def: dict) -> None:
 
 def load_flow_definition(file_path: str) -> dict[str, Any]:
     """
-    Load a flow definition from a JSON file.
+    Load and compile an authoring format flow definition from a JSON file.
+
+    The authoring format is automatically compiled to runtime DAG format for execution.
 
     Args:
         file_path: Path to the JSON file containing the flow definition
 
     Returns:
-        Dictionary containing the flow definition
+        Dictionary containing the compiled runtime DAG format flow definition
 
-    Exits:
-        Terminates process on file/JSON errors
+    Raises:
+        FileNotFoundError: If the flow definition file is not found
+        json.JSONDecodeError: If the file contains invalid JSON
+        FlowInvalidDataException: If the flow definition is invalid
+        KeyError: If required fields are missing from the flow definition
+        Exception: For other compilation errors
     """
-    try:
-        with open(file_path, encoding="utf-8") as file:
-            flow_def: dict[str, Any] = json.load(file)
+    from datasift.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
+    from datasift.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
 
-        # Handle optional nesting under "flow"
-        return flow_def.get("flow", flow_def)
+    with open(file_path, encoding="utf-8") as file:
+        flow_data: dict[str, Any] = json.load(file)
 
-    except FileNotFoundError:
-        cwd = os.getcwd()
-        abs_path = os.path.abspath(file_path)
+    logger.info("Loading authoring format flow from %s", file_path)
 
-        logger.error("Flow definition file not found")
-        logger.error("  Searched for: %s", abs_path)
-        logger.error("  Current directory: %s", cwd)
-        logger.error("Suggestions:")
-        logger.error("  - Check if the file path is correct")
-        logger.error("  - Verify the file exists in the specified location")
-        logger.error("  - Use absolute path or path relative to: %s", cwd)
+    # Parse and validate authoring flow
+    authoring_flow = AuthoringFlow.from_dict(data=flow_data)
 
-        sys.exit(1)
+    # Compile to runtime DAG format
+    compiler = AuthoringCompiler()
+    runtime_dag = compiler.compile(authoring_flow=authoring_flow)
 
-    except json.JSONDecodeError as e:
-        logger.error("Invalid JSON in flow definition file")
-        logger.error("  File: %s", file_path)
-        logger.error("  Line %d, Column %d: %s", e.lineno, e.colno, e.msg)
-        logger.error("Suggestions:")
-        logger.error("  - Validate JSON syntax using: python -m json.tool %s", file_path)
-        logger.error("  - Check for missing commas, brackets, or quotes")
-        logger.error("  - Use a JSON validator: https://jsonlint.com/")
-
-        sys.exit(1)
+    logger.info("Successfully compiled authoring format to runtime DAG")
+    return runtime_dag
 
 
 def validate_flow_definition(flow_file: str) -> bool:
+    """
+    Validate a flow definition file.
+
+    Args:
+        flow_file: Path to the flow definition JSON file
+
+    Returns:
+        True if validation succeeds, False otherwise
+    """
     from datasift.core.models.session_info import create_session_info
     from datasift.core.orchestration.flow_validator import FlowValidator
     from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
-    from datasift.exceptions.datasift_exceptions import FlowValidationException
+    from datasift.exceptions.datasift_exceptions import FlowInvalidDataException, FlowValidationException
 
     try:
         flow_def: dict[str, Any] = load_flow_definition(file_path=flow_file)
@@ -125,6 +126,26 @@ def validate_flow_definition(flow_file: str) -> bool:
 
         logger.info("Validation successful: '%s' is valid", flow_name)
         return True
+
+    except FileNotFoundError:
+        cwd = os.getcwd()
+        abs_path = os.path.abspath(flow_file)
+        logger.error("Flow definition file not found")
+        logger.error("  Searched for: %s", abs_path)
+        logger.error("  Current directory: %s", cwd)
+        return False
+
+    except json.JSONDecodeError as e:
+        logger.error("Invalid JSON in flow definition file")
+        logger.error("  File: %s", flow_file)
+        logger.error("  Line %d, Column %d: %s", e.lineno, e.colno, e.msg)
+        return False
+
+    except (FlowInvalidDataException, KeyError) as e:
+        logger.error("Flow validation failed")
+        logger.error("  File: %s", flow_file)
+        logger.error("  Error: %s", str(e))
+        return False
 
     except FlowValidationException as e:
         errors: list[Any] = e.errors or []
@@ -257,9 +278,57 @@ Examples:
     # -------------------------
     # execution mode
     # -------------------------
+    from datasift.exceptions.datasift_exceptions import FlowInvalidDataException
+
     logger.info("Loading flow definition from %s", args.flow_file)
 
-    flow_def = load_flow_definition(file_path=args.flow_file)
+    try:
+        flow_def = load_flow_definition(file_path=args.flow_file)
+    except FileNotFoundError:
+        cwd = os.getcwd()
+        abs_path = os.path.abspath(args.flow_file)
+        logger.error("Flow definition file not found")
+        logger.error("  Searched for: %s", abs_path)
+        logger.error("  Current directory: %s", cwd)
+        logger.error("Suggestions:")
+        logger.error("  - Check if the file path is correct")
+        logger.error("  - Verify the file exists in the specified location")
+        logger.error("  - Use absolute path or path relative to: %s", cwd)
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        logger.error("Invalid JSON in flow definition file")
+        logger.error("  File: %s", args.flow_file)
+        logger.error("  Line %d, Column %d: %s", e.lineno, e.colno, e.msg)
+        logger.error("Suggestions:")
+        logger.error("  - Validate JSON syntax using: python -m json.tool %s", args.flow_file)
+        logger.error("  - Check for missing commas, brackets, or quotes")
+        logger.error("  - Use a JSON validator: https://jsonlint.com/")
+        sys.exit(1)
+    except FlowInvalidDataException as e:
+        logger.error("Flow validation failed")
+        logger.error("  File: %s", args.flow_file)
+        logger.error("%s", str(e))
+        logger.error("Suggestions:")
+        logger.error("  - Review the authoring format documentation")
+        logger.error("  - Check operator names and dependencies")
+        logger.error("  - Ensure all required fields are present")
+        logger.error("  - Verify operator types are valid")
+        sys.exit(1)
+    except KeyError as e:
+        logger.error("Missing required field in flow")
+        logger.error("  File: %s", args.flow_file)
+        logger.error("  Missing field: %s", str(e))
+        logger.error("Suggestions:")
+        logger.error("  - Ensure 'flow_name' field is present")
+        logger.error("  - Ensure 'flow' array is present with operators")
+        logger.error("  - Check that all operators have required fields (type, name)")
+        sys.exit(1)
+    except Exception as e:
+        logger.error("Failed to compile flow")
+        logger.error("  File: %s", args.flow_file)
+        logger.error("  Error: %s", str(e))
+        logger.exception("Compilation error details:")
+        sys.exit(1)
 
     logger.info("Loaded flow definition from %s", args.flow_file)
     logger.info("Flow name: %s", flow_def.get("name", "Unnamed flow"))

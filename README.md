@@ -98,6 +98,14 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
   - Step-by-step pipeline execution
   - Verification, testing, and troubleshooting
 
+### Flow Authoring
+
+- **[Flow Authoring Format Guide](docs/FLOW_AUTHORING_FORMAT.md)** - Create DataSift flows with a simplified format:
+  - Define operators and dependencies declaratively
+  - Automatic dependency resolution
+  - Usage with CLI, Python API, and HTTP API
+  - Complete pipeline examples and best practices
+
 ### Architecture & Design
 
 - **[Architecture Documentation](ARCHITECTURE.md)** - System design and architectural decisions

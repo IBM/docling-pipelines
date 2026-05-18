@@ -1,24 +1,21 @@
 {
-  "flow": {
-    "name": "OneDrive to OpenSearch Pipeline",
-    "flow_id": "onedrive-flow-001-0000-0000-000000000001",
-    "description": "Ingest documents from Microsoft OneDrive, chunk text, generate embeddings using Ollama, and store in OpenSearch. The ingest_source operator extracts text. Requires Ollama running locally with the specified model.",
+  "flow_name": "OneDrive to OpenSearch Pipeline",
+  "description": "Ingest documents from Microsoft OneDrive, chunk text, generate embeddings using Ollama, and store in OpenSearch. The ingest_source operator extracts text. Requires Ollama running locally with the specified model.",
+  "global_config": {
+    "doc_column": "text",
+    "disable_validation": "true",
+    "force_ingest": true,
     "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "text",
-      "disable_validation": "true",
-      "force_ingest": true
-    },
-    "dag": [
-      {
-        "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
-        "name": "ingest_onedrive",
-        "operator": "ingest_source",
-        "config": {
-          "provider": "onedrive",
-          "connection_params": {
-            "drive_id": "${ONEDRIVE_DRIVE_ID}",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest_onedrive",
+      "type": "ingest_source",
+      "config": {
+        "provider": "onedrive",
+        "connection_params": {
+          "drive_id": "${ONEDRIVE_DRIVE_ID}",
             "recursive": true
           },
           "credentials": {
@@ -29,140 +26,106 @@
           "include_filter": "pdf,docx,txt,pptx",
           "max_files": 100,
           "force_ingest": true
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz"
-          }
-        ]
-      },
-      {
-        "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz",
-        "name": "extract_text",
-        "operator": "extract_operator",
-        "config": {
-          "doc_column": "content",
-          "extract_tables": true,
-          "extract_images": true,
-          "max_workers": 4,
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "none"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"
-          }
-        ]
-      },
-      {
-        "id": "6101c752-523e-4a4a-84e2-81e0b2109129",
-        "name": "chunk",
-        "operator": "chunker",
-        "config": {
-          "doc_column": "content",
-          "chunk_size": 512,
-          "chunk_overlap": 128
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bz"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"
-          }
-        ]
-      },
-      {
-        "id": "6de879bd-bbe0-4d60-998f-031f65472a02",
-        "name": "embeddings",
-        "operator": "embeddings",
-        "config": {
-          "embeddings_type": "ollama",
-          "embeddings_model_id": "nomic-embed-text",
-          "doc_column": "content",
-          "embeddings_column": "embeddings"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "87249dbf-4a1a-433a-91da-ee5fb3244284"
-          }
-        ]
-      },
-      {
-        "id": "87249dbf-4a1a-433a-91da-ee5fb3244284",
-        "name": "store_opensearch",
-        "operator": "vectordb",
-        "config": {
-          "provider": "opensearch",
-          "index_name": "onedrive_documents",
-          "doc_id_column": "doc_id_hash",
-          "embeddings_column": "embeddings",
-          "vector_dimension": 768,
-          "create_index": "true",
-          "provider_config": {
-            "host": "9.30.97.49",
-            "port": 9200,
-            "username": "admin",
-            "password": "insert_opensearch_password_here",
-            "use_ssl": true,
-            "verify_certs": false,
-            "batch_size": 100,
-            "engine": "faiss",
-            "algorithm": "hnsw",
-            "space_type": "l2"
-          },
-          "available_features": {
-            "doc_id_hash": {
-              "name": "Document ID Hash",
-              "available_for_vector_db": true,
-              "mandatory_for_vector_db": true,
-              "type": "string",
-              "is_primary": true
-            },
-            "content": {
-              "name": "Content",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "source_id": {
-              "name": "Source Path",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "embeddings": {
-              "name": "Embeddings",
-              "available_for_vector_db": true,
-              "mandatory_for_vector_db": true,
-              "type": "vector"
-            }
-          },
-          "feature_mappings": {
-            "doc_id_hash": "pk",
-            "content": "text",
-            "source_id": "source_id",
-            "embeddings": "vector_embeddings"
-          }
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"
-          }
-        ],
-        "output_edges": []
+        }
       }
-    ]
-  }
+    },
+    {
+      "name": "extract_text",
+      "type": "extract_operator",
+      "config": {
+        "doc_column": "content",
+        "extract_tables": true,
+        "extract_images": true,
+        "max_workers": 4,
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      },
+      "depends_on": [
+        "ingest_onedrive"
+      ]
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "config": {
+        "doc_column": "content",
+        "chunk_size": 512,
+        "chunk_overlap": 128
+      },
+      "depends_on": [
+        "extract_text"
+      ]
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+      "config": {
+        "embeddings_type": "ollama",
+        "embeddings_model_id": "nomic-embed-text",
+        "doc_column": "content",
+        "embeddings_column": "embeddings"
+      },
+      "depends_on": [
+        "chunk"
+      ]
+    },
+    {
+      "name": "store_opensearch",
+      "type": "vectordb",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "onedrive_documents",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 768,
+        "create_index": "true",
+        "provider_config": {
+          "host": "9.30.97.49",
+          "port": 9200,
+          "username": "admin",
+          "password": "insert_opensearch_password_here",
+          "use_ssl": true,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID Hash",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "content": {
+            "name": "Content",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "source_id": {
+            "name": "Source Path",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "content": "text",
+          "source_id": "source_id",
+          "embeddings": "vector_embeddings"
+        }
+      },
+      "depends_on": [
+        "embeddings"
+      ]
+    }
+  ]
 }

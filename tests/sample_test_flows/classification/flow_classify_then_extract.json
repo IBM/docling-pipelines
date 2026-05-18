@@ -1,94 +1,80 @@
 {
-  "flow": {
-    "name": "classify then extract flow",
-    "flow_id": "c1a2s3s4-i5f6-y789-0abc-def123456789",
-    "description": "A flow to classify documents first, then extract content with Docling",
+  "flow_name": "classify then extract flow",
+  "description": "A flow to classify documents first, then extract content with Docling",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true,
+    "output_folder": "./output",
     "storage": "disk",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "disable_validation": "true",
-      "force_ingest": true,
-      "output_folder": "./output"
-    },
-    "dag": [
-      {
-        "id": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd",
-        "name": "ingest",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./tests/fixtures/invoices",
-          "include_filter": "txt,pdf,docx",
-          "store_binary_content": true,
-          "max_workers": 2
-        },
-        "input_edges": [],
-        "output_edges": [
-          { "node_id_ref": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
-        ]
-      },
-      {
-        "id": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
-        "name": "classify",
-        "operator": "document_classifier",
-        "config": {
-          "provider": "ollama",
-          "provider_config": {},
-          "model_id": "granite4:latest",
-          "document_types": {
-            "invoice": "Business invoice with line items, totals, and payment terms",
-            "receipt": "Payment receipt or transaction confirmation",
-            "contract": "Legal contract or agreement document",
-            "report": "Business or technical report",
-            "letter": "Formal or informal letter",
-            "email": "Email correspondence",
-            "form": "Form or application document",
-            "purchase_order": "Purchase order for goods or services",
-            "other": "Other document types"
-          },
-          "confidence_threshold": 7.0,
-          "doc_column": "content",
-          "output_column": "document_type",
-          "include_confidence": true,
-          "include_reasoning": true,
-          "max_content_length": 8000,
-          "extract_tables": true,
-          "extract_images": true
-        },
-        "input_edges": [
-          { "node_id_ref": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
-        ],
-        "output_edges": [
-          { "node_id_ref": "20fd7577-b061-4fc9-92d5-120ae0fbde89" }
-        ]
-      },
-      {
-        "id": "20fd7577-b061-4fc9-92d5-120ae0fbde89",
-        "name": "extract",
-        "operator": "extract_operator",
-        "config": {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "docling",
-            "doc_column": "content",
-            "expand_extracted_data": true,
-            "template": {
-                "invoice_number": "string",
-                "invoice_date": "string",
-                "payment_due": "string",
-                "bill_to": "string",
-                "vendor_name": "string",
-                "vendor_address": "string",
-                "subtotal": "float",
-                "tax": "float",
-                "total": "float",
-                "grand_total": "float"
-            }
-        },
-        "input_edges": [
-          { "node_id_ref": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
-        ],
-        "output_edges": []
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./tests/fixtures/invoices",
+        "include_filter": "txt,pdf,docx",
+        "store_binary_content": true,
+        "max_workers": 2
       }
-    ]
-  }
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "config": {
+        "provider": "ollama",
+        "provider_config": {},
+        "model_id": "granite4:latest",
+        "document_types": {
+          "invoice": "Business invoice with line items, totals, and payment terms",
+          "receipt": "Payment receipt or transaction confirmation",
+          "contract": "Legal contract or agreement document",
+          "report": "Business or technical report",
+          "letter": "Formal or informal letter",
+          "email": "Email correspondence",
+          "form": "Form or application document",
+          "purchase_order": "Purchase order for goods or services",
+          "other": "Other document types"
+        },
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": true,
+        "max_content_length": 8000,
+        "extract_tables": true,
+        "extract_images": true
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "docling",
+        "doc_column": "content",
+        "expand_extracted_data": true,
+        "template": {
+          "invoice_number": "string",
+          "invoice_date": "string",
+          "payment_due": "string",
+          "bill_to": "string",
+          "vendor_name": "string",
+          "vendor_address": "string",
+          "subtotal": "float",
+          "tax": "float",
+          "total": "float",
+          "grand_total": "float"
+        }
+      },
+      "depends_on": [
+        "classify"
+      ]
+    }
+  ]
 }

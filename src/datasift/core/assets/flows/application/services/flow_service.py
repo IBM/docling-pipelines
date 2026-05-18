@@ -14,6 +14,8 @@ from typing import Any, ClassVar
 
 from datasift.core.assets.flows.domain.models.flow import Flow
 from datasift.core.assets.flows.domain.ports.flow_repository import FlowRepository
+from datasift.core.constants.constants import DatasiftConstants
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.exceptions.datasift_exceptions import (
     FlowAlreadyExistsException,
     FlowInvalidDataException,
@@ -42,6 +44,9 @@ class FlowService:
         "container_id",
         "job_id",
         "href",
+        "flow_name",  # Authoring format: maps to "name"
+        "flow",  # Authoring format: maps to "definition"
+        "global_config",  # Authoring format: part of definition
     }
 
     # Fields that cannot be modified after creation
@@ -51,6 +56,66 @@ class FlowService:
         """Initialize the service with a flow repository."""
         self.repository = repository
         logger.debug("FlowService initialized with repository: %s", type(repository).__name__)
+
+    def _transform_authoring_updates(self, *, updates: dict[str, Any], existing_flow: Flow) -> dict[str, Any]:
+        """Transform authoring format fields to Flow model fields.
+
+        Maps authoring-specific fields to Flow attributes:
+        - flow_name -> name
+        - flow + global_config -> definition (complete authoring format)
+
+        Args:
+            updates: Dictionary with potential authoring format fields
+            existing_flow: Existing flow to merge with for partial updates
+
+        Returns:
+            Transformed updates dict with Flow model fields
+        """
+        has_authoring_fields = (
+            DatasiftConstants.FLOW_NAME in updates
+            or DatasiftConstants.FLOW in updates
+            or OperatorConstants.Config.GLOBAL_CONFIG in updates
+        )
+
+        # Map flow_name to name
+        if DatasiftConstants.FLOW_NAME in updates:
+            updates[DatasiftConstants.NAME] = updates.pop(DatasiftConstants.FLOW_NAME)
+            logger.debug("Mapped flow_name to name")
+
+        # If any authoring field is provided, rebuild complete authoring definition
+        if has_authoring_fields:
+            from datasift.api.dto.authoring_flow_dto import AuthoringFlowCreateRequest
+            from datasift.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
+
+            # Get existing authoring format data if available
+            existing_def = existing_flow.definition
+            existing_flow_name = (
+                existing_def.get(DatasiftConstants.FLOW_NAME, existing_flow.name)
+                if isinstance(existing_def, dict)
+                else existing_flow.name
+            )
+            existing_flow_list = existing_def.get(DatasiftConstants.FLOW, []) if isinstance(existing_def, dict) else []
+            existing_global_config = (
+                existing_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {}) if isinstance(existing_def, dict) else {}
+            )
+
+            authoring_dto = AuthoringFlowCreateRequest(
+                flow_name=updates.get(DatasiftConstants.NAME, existing_flow_name),
+                flow=updates.get(DatasiftConstants.FLOW, existing_flow_list),
+                global_config=updates.get(OperatorConstants.Config.GLOBAL_CONFIG, existing_global_config),
+                description=updates.get(DatasiftConstants.DESCRIPTION, existing_flow.description),
+                tags=updates.get(OperatorConstants.Misc.TAGS, existing_flow.tags),
+            )
+            authoring_flow = AuthoringFlow.from_dict(data=authoring_dto.model_dump())
+            authoring_flow.validate()
+
+            updates[DatasiftConstants.DEFINITION] = authoring_dto.model_dump()
+            # Remove authoring-specific fields after transformation
+            updates.pop(DatasiftConstants.FLOW, None)
+            updates.pop(OperatorConstants.Config.GLOBAL_CONFIG, None)
+            logger.debug("Transformed authoring format to definition")
+
+        return updates
 
     def _validate_flow_id(self, flow_id: str) -> str:
         """Validate that flow_id is not None, empty, or whitespace.
@@ -104,15 +169,17 @@ class FlowService:
         This method creates a new flow in the repository with proper validation
         and duplicate prevention. It ensures that flows with duplicate names cannot
         be created, protecting against accidental overwrites. Timestamps are set
-        automatically.
+        automatically. Flows are stored in their original format
+        (Elyra or Authoring) without conversion.
 
         Args:
             flow (Flow): Flow domain entity to create. Must have valid name and definition.
                         If flow_id is None, a UUID will be generated automatically by the
                         repository. The flow must pass validation before creation.
-            is_elyra (bool): If False, the flow definition is in internal DAG format and will be
-                           transformed to Elyra format before saving. If True, the definition
-                           is already in Elyra format. Default: False.
+            is_elyra (bool): Indicates the format of the flow definition.
+                           True = Elyra format, False = Authoring format.
+                           This parameter is kept for backward compatibility but flows
+                           are now stored in their original format. Default: False.
 
         Returns:
             Flow: The created flow with generated metadata (flow_id, created_on, modified_on).
@@ -128,7 +195,7 @@ class FlowService:
             >>> flow = Flow(name="My Pipeline", definition={"flow": {"dag": [], "global_config": {}}})
             >>> created_flow = service.create_flow(flow=flow, is_elyra=False)
             >>>
-            >>> # Create flow with Elyra format (no conversion needed)
+            >>> # Create flow with Elyra format (stored as-is)
             >>> flow = Flow(
             ...     name="Elyra Pipeline",
             ...     definition={"doc_type": "pipeline", "pipelines": [...]}
@@ -136,11 +203,12 @@ class FlowService:
             >>> created_flow = service.create_flow(flow=flow, is_elyra=True)
 
         Note:
+            - Flows are stored in their original format (no conversion)
+            - Conversion to runtime DAG happens at execution time if needed
             - created_at and modified_at are set automatically to current UTC time
             - Use update_flow() to modify existing flows
             - flow name must be unique across all flows in the repository
             - Validation occurs before any persistence operations
-            - If is_elyra=False, definition is transformed from internal DAG to Elyra format
         """
         try:
             flow.validate()
@@ -148,20 +216,7 @@ class FlowService:
             logger.error("Flow validation failed: %s", exc)
             raise FlowInvalidDataException(f"Invalid flow data: {exc!s}") from exc
 
-        logger.info(f"Creating flow with name: {flow.name}")
-
-        # Transform internal DAG format to Elyra format if needed
-        if not is_elyra:
-            logger.info(f"Transforming internal DAG format to Elyra format for flow: {flow.name}")
-            from datasift.utils.orchestration.elyra_converter import ElyraConverter
-
-            converter = ElyraConverter()
-            try:
-                flow.definition = converter.transform_internal_to_elyra(internal_json=flow.definition)
-                logger.info(f"Successfully transformed internal DAG to Elyra format for flow: {flow.name}")
-            except Exception as exc:
-                logger.error(f"Failed to transform internal DAG to Elyra format: {exc}")
-                raise FlowInvalidDataException(f"Failed to transform internal DAG to Elyra format: {exc!s}") from exc
+        logger.info(f"Creating flow with name: {flow.name} (format: {'Elyra' if is_elyra else 'Authoring'})")
 
         # Check for duplicate flow name using exact match
         all_flows = self.repository.find_all()
@@ -630,6 +685,9 @@ class FlowService:
         unknown_fields = [k for k in updates.keys() if k not in valid_fields and k not in protected_fields]
         if unknown_fields:
             logger.warning("Ignoring unknown fields: %s", unknown_fields)
+
+        # Transform authoring format fields if present
+        updates = self._transform_authoring_updates(updates=updates, existing_flow=existing_flow)
 
         updated_fields = []
         for field, value in updates.items():

@@ -7,8 +7,10 @@ keeping the router thin and focused on HTTP concerns.
 
 from uuid import uuid4
 
-from datasift.api.dto.flow_dto import FlowCreateRequest, FlowResponse
+from datasift.api.dto.authoring_flow_dto import AuthoringFlowResponse, AuthoringOperatorDTO
+from datasift.api.dto.flow_dto import ElyraFlowCreateRequest, FlowResponse
 from datasift.core.assets.flows.domain.models.flow import Flow
+from datasift.core.constants.constants import DatasiftConstants
 from datasift.exceptions.datasift_exceptions import FlowInvalidDataException
 
 
@@ -16,8 +18,8 @@ class FlowMapper:
     """Mapper for converting between Flow DTOs and domain models.
 
     This class provides static methods for bidirectional conversion between:
-    - FlowCreateRequest DTO (API request) ↔ Flow domain model
-    - FlowUpdateRequest DTO (API request) → Flow domain model updates
+    - ElyraFlowCreateRequest DTO (API request) ↔ Flow domain model
+    - ElyraFlowUpdateRequest DTO (API request) → Flow domain model updates
     - Flow domain model ↔ FlowResponse DTO (API response)
 
     Benefits:
@@ -28,11 +30,11 @@ class FlowMapper:
     """
 
     @staticmethod
-    def create_request_to_domain(dto: FlowCreateRequest) -> Flow:
-        """Convert FlowCreateRequest DTO to Flow domain model.
+    def create_request_to_domain(dto: ElyraFlowCreateRequest) -> Flow:
+        """Convert ElyraFlowCreateRequest DTO to Flow domain model.
 
         Args:
-            dto: FlowCreateRequest DTO from API request
+            dto: ElyraFlowCreateRequest DTO from API request
 
         Returns:
             Flow domain model with all fields mapped and defaults applied
@@ -44,7 +46,7 @@ class FlowMapper:
             structure and are distinct from the persisted domain ``Flow.flow_id``.
 
         Example:
-            >>> dto = FlowCreateRequest(
+            >>> dto = ElyraFlowCreateRequest(
             ...     name="My Flow",
             ...     definition={"doc_type": "pipeline", "pipelines": []}
             ... )
@@ -163,4 +165,64 @@ class FlowMapper:
             created_by=domain.created_by,
             modified_by=domain.modified_by,
             href=domain.href,
+        )
+
+    @staticmethod
+    def domain_to_authoring_dto(*, domain: Flow) -> AuthoringFlowResponse:
+        """Convert Flow domain model to AuthoringFlowResponse DTO.
+
+        Extracts the authoring format from the domain model's definition field
+        and combines it with metadata fields.
+
+        Args:
+            domain: Flow domain model with authoring format in definition
+
+        Returns:
+            AuthoringFlowResponse DTO with authoring structure + metadata
+
+        Raises:
+            FlowInvalidDataException: If definition is not in authoring format
+        """
+        definition = domain.definition
+
+        # Validate this is authoring format
+        if DatasiftConstants.FLOW_NAME not in definition:
+            raise FlowInvalidDataException(
+                message="Flow definition is not in authoring format (missing flow_name)",
+                field_name="definition",
+            )
+
+        # Validate required metadata fields
+        if domain.flow_id is None or domain.created_on is None or domain.modified_on is None:
+            raise FlowInvalidDataException(
+                message="Flow domain model has missing required fields (flow_id, created_on, or modified_on)",
+                field_name="flow_id"
+                if domain.flow_id is None
+                else ("created_on" if domain.created_on is None else "modified_on"),
+            )
+
+        # Convert flow operators to DTOs
+        flow_operators = [
+            AuthoringOperatorDTO(
+                type=op.get("type", ""),
+                name=op.get("name", ""),
+                config=op.get("config", {}),
+                depends_on=op.get("depends_on", []),
+            )
+            for op in definition.get(DatasiftConstants.FLOW, [])
+        ]
+
+        return AuthoringFlowResponse(
+            flow_id=domain.flow_id,
+            flow_name=definition[DatasiftConstants.FLOW_NAME],
+            description=definition.get(DatasiftConstants.DESCRIPTION),
+            flow=flow_operators,
+            global_config=definition.get("global_config", {}),
+            flow_source=definition.get("flow_source", "api"),
+            tags=domain.tags,
+            flow_version=domain.flow_version or "2.0",
+            created_on=domain.created_on,
+            modified_on=domain.modified_on,
+            created_by=domain.created_by,
+            modified_by=domain.modified_by,
         )

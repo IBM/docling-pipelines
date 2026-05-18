@@ -208,87 +208,57 @@ Result: `WHERE (language = 'en') AND (word_count > 100)`
 
 ```json
 {
-    "dag": [
-      {
-        "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
-        "name": "ingest_documents",
-        "operator": "ingest_local_folder",
-        "config": {
-          "input_folder": "sample_documents"
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e"
-          }
-        ]
-      },
-      {
-        "id": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e",
-        "name": "extract_documents",
-        "operator": "extract",
-        "config": {
-          "text_extraction_mode": "basic"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f"
-          }
-        ]
-      },
-      {
-        "id": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f",
-        "name": "detect_language",
-        "operator": "lang_detect",
-        "config": {
-          "language_provider": "fasttext"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "d4e5f6a7-b8c9-4d5e-1f2a-3b4c5d6e7f8a"
-          }
-        ]
-      },
-      {
-        "id": "d4e5f6a7-b8c9-4d5e-1f2a-3b4c5d6e7f8a",
-        "name": "filter_languages",
-        "operator": "sql_filter",
-        "config": {
-          "filter_criteria_json": {
-            "logical_operator": "AND",
-            "criteria_list": [
-              {
-                "variable": "language",
-                "operator": "in",
-                "value": ["en", "es", "fr"]
-              },
-              {
-                "variable": "confidence",
-                "operator": ">=",
-                "value": 0.8
-              }
-            ]
-          },
-          "features_to_drop": ["temp_metadata"]
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f"
-          }
-        ],
-        "output_edges": []
+  "flow_name": "Language Filter Pipeline",
+  "description": "Ingest, extract, detect language, and filter documents",
+  "flow": [
+    {
+      "name": "ingest_documents",
+      "type": "ingest_local_folder",
+      "config": {
+        "input_folder": "./sample_documents"
       }
-    ]
-  }
+    },
+    {
+      "name": "extract_documents",
+      "type": "extract_operator",
+      "depends_on": ["ingest_documents"],
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      }
+    },
+    {
+      "name": "detect_language",
+      "type": "language_detection",
+      "depends_on": ["extract_documents"],
+      "config": {
+        "language_provider": "fasttext"
+      }
+    },
+    {
+      "name": "filter_languages",
+      "type": "sql_filter",
+      "depends_on": ["detect_language"],
+      "config": {
+        "filter_criteria_json": {
+          "logical_operator": "AND",
+          "criteria_list": [
+            {
+              "variable": "language",
+              "operator": "in",
+              "value": ["en", "es", "fr"]
+            },
+            {
+              "variable": "confidence",
+              "operator": ">=",
+              "value": 0.8
+            }
+          ]
+        },
+        "features_to_drop": ["temp_metadata"]
+      }
+    }
+  ]
+}
 
 ```

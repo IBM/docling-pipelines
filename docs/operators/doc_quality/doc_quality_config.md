@@ -142,34 +142,25 @@ The operator adds 11 document quality metrics to the PyArrow table:
 ### Example 3: Pipeline with Quality Filtering
 ```json
 {
-  "nodes": [
+  "flow_name": "Document Quality Pipeline",
+  "description": "Analyze document quality and filter based on metrics",
+  "flow": [
     {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "operator": "doc_quality",
-      "config": {},
-      "input_edges": [],
-      "output_edges": [
-        {
-          "node_id_ref": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"
-        }
-      ]
+      "name": "quality_analysis",
+      "type": "doc_quality",
+      "config": {}
     },
     {
-      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
-      "operator": "sql_filter",
+      "name": "quality_filter",
+      "type": "sql_filter",
+      "depends_on": ["quality_analysis"],
       "config": {
         "criteria_list": [
           "docq_total_words >= 50",
           "docq_contain_bad_word = false",
           "docq_lorem_ipsum_ratio < 0.1"
         ]
-      },
-      "input_edges": [
-        {
-          "node_id_ref": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
-        }
-      ],
-      "output_edges": []
+      }
     }
   ]
 }

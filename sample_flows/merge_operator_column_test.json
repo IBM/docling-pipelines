@@ -1,50 +1,39 @@
 {
-  "name": "merge-operator-column-test",
-  "flow_id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+  "flow_name": "merge-operator-column-test",
   "description": "Test MergeOperator with column merge (join) using NOOP operators",
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
     "disable_validation": "true",
-    "force_ingest": true
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
   },
-  "dag": [
+  "flow": [
     {
-      "id": "f1e2d3c4-b5a6-4978-8c9d-0e1f2a3b4c5d",
       "name": "ingest_documents",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "input_folder": "./tests/fixtures/customer_support_docs",
         "include_filter": "txt",
         "store_binary_content": false,
         "max_workers": 2
-      },
-      "input_edges": [],
-      "output_edges": [
-        {"node_id_ref": "a2b3c4d5-e6f7-4a5b-8c9d-1e2f3a4b5c6d"},
-        {"node_id_ref": "b3c4d5e6-f7a8-4b5c-9d0e-2f3a4b5c6d7e"}
-      ]
+      }
     },
     {
-      "id": "a2b3c4d5-e6f7-4a5b-8c9d-1e2f3a4b5c6d",
       "name": "branch1_noop",
-      "operator": "noop",
-      "config": {},
-      "input_edges": [{"node_id_ref": "f1e2d3c4-b5a6-4978-8c9d-0e1f2a3b4c5d"}],
-      "output_edges": [{"node_id_ref": "c4d5e6f7-a8b9-4c5d-0e1f-3a4b5c6d7e8f"}]
+      "type": "noop",
+      "depends_on": ["ingest_documents"],
+      "config": {}
     },
     {
-      "id": "b3c4d5e6-f7a8-4b5c-9d0e-2f3a4b5c6d7e",
       "name": "branch2_noop",
-      "operator": "noop",
-      "config": {},
-      "input_edges": [{"node_id_ref": "f1e2d3c4-b5a6-4978-8c9d-0e1f2a3b4c5d"}],
-      "output_edges": [{"node_id_ref": "c4d5e6f7-a8b9-4c5d-0e1f-3a4b5c6d7e8f"}]
+      "type": "noop",
+      "depends_on": ["ingest_documents"],
+      "config": {}
     },
     {
-      "id": "c4d5e6f7-a8b9-4c5d-0e1f-3a4b5c6d7e8f",
       "name": "merge_branches",
-      "operator": "merge",
+      "type": "merge",
+      "depends_on": ["branch1_noop", "branch2_noop"],
       "config": {
         "merge_type": "columns",
         "column_option": "inner_join",
@@ -52,12 +41,7 @@
           {"link_name": "branch1"},
           {"link_name": "branch2"}
         ]
-      },
-      "input_edges": [
-        {"node_id_ref": "a2b3c4d5-e6f7-4a5b-8c9d-1e2f3a4b5c6d", "link_name": "branch1"},
-        {"node_id_ref": "b3c4d5e6-f7a8-4b5c-9d0e-2f3a4b5c6d7e", "link_name": "branch2"}
-      ],
-      "output_edges": []
+      }
     }
   ]
 }

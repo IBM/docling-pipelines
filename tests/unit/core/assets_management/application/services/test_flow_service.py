@@ -93,31 +93,29 @@ class TestFlowServiceCreate:
         with pytest.raises(OSError, match="Disk full"):
             service.create_flow(flow=sample_flow_domain, is_elyra=True)
 
-    def test_create_flow_with_is_elyra_false_transforms_to_elyra(self, mock_flow_repository):
-        """Test that is_elyra=False transforms internal DAG to Elyra format."""
+    def test_create_flow_with_is_elyra_false_stores_authoring_format(self, mock_flow_repository):
+        """Test that is_elyra=False stores flow in authoring format without transformation."""
         # Arrange
-        internal_dag_flow = Flow(
+        authoring_flow = Flow(
             flow_id="test-flow-id",
             name="Test Flow",
-            definition={"flow": {"dag": [{"id": "node1", "operator": "ingest_local"}]}},
+            definition={
+                "flow_name": "Test Flow",
+                "flow": [{"type": "ingest_local", "name": "node1", "config": {}, "depends_on": []}],
+                "global_config": {},
+                "tags": [],
+            },
         )
         mock_flow_repository.find_all.return_value = []
-        mock_flow_repository.save.return_value = internal_dag_flow
+        mock_flow_repository.save.return_value = authoring_flow
         service = FlowService(repository=mock_flow_repository)
 
         # Act
-        with patch("datasift.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class:
-            mock_converter = mock_converter_class.return_value
-            mock_converter.transform_internal_to_elyra.return_value = {
-                "doc_type": "pipeline",
-                "pipelines": [],
-            }
+        result = service.create_flow(flow=authoring_flow, is_elyra=False)
 
-            result = service.create_flow(flow=internal_dag_flow, is_elyra=False)
-
-            # Assert
-            mock_converter.transform_internal_to_elyra.assert_called_once()
-            assert result == internal_dag_flow
+        # Assert - No transformation should occur, flow stored as-is
+        assert result == authoring_flow
+        mock_flow_repository.save.assert_called_once_with(authoring_flow)
 
     def test_create_flow_with_is_elyra_true_no_transformation(self, mock_flow_repository):
         """Test that is_elyra=True does not transform (flow already in Elyra format)."""
@@ -138,25 +136,6 @@ class TestFlowServiceCreate:
             # Assert - converter should not be instantiated when is_elyra=True
             mock_converter_class.assert_not_called()
             assert result == elyra_flow
-
-    def test_create_flow_transformation_failure_raises_exception(self, mock_flow_repository):
-        """Test that transformation failure raises FlowInvalidDataException."""
-        # Arrange
-        internal_dag_flow = Flow(
-            flow_id="test-flow-id",
-            name="Test Flow",
-            definition={"flow": {"dag": []}},
-        )
-        mock_flow_repository.find_all.return_value = []
-        service = FlowService(repository=mock_flow_repository)
-
-        # Act & Assert
-        with patch("datasift.utils.orchestration.elyra_converter.ElyraConverter") as mock_converter_class:
-            mock_converter = mock_converter_class.return_value
-            mock_converter.transform_internal_to_elyra.side_effect = Exception("Transformation error")
-
-            with pytest.raises(FlowInvalidDataException, match="Failed to transform internal DAG to Elyra format"):
-                service.create_flow(flow=internal_dag_flow, is_elyra=False)
 
 
 class TestFlowServiceGet:

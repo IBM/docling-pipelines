@@ -11,12 +11,14 @@ from logging import Logger
 from pathlib import Path
 from typing import Any
 
+from datasift.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
+from datasift.core.assets.flows.domain.models.authoring_flow import AuthoringFlow, FlowSource
 from datasift.core.constants.constants import DatasiftConstants
 from datasift.core.models.session_info import SessionInfo, create_session_info
 from datasift.core.orchestration.flow_executor import FlowExecutor
 from datasift.core.orchestration.flow_validator import FlowValidator
 from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
-from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.exceptions.datasift_exceptions import DatasiftException, FlowInvalidDataException
 from datasift.utils.infrastructure.logging import get_logger
 from datasift.utils.operators.display import list_operators as _list_operators
 
@@ -81,6 +83,7 @@ class DatasiftFlowManager:
             DatasiftException: If both flow_file and flow_def are provided
             FileNotFoundError: If flow_file doesn't exist
             json.JSONDecodeError: If flow_file contains invalid JSON
+            FlowInvalidDataException: If flow validation fails
         """
         if flow_file is None and flow_def is None:
             raise DatasiftException("Either flow_file or flow_def must be provided", status_code=400)
@@ -92,13 +95,13 @@ class DatasiftFlowManager:
         self.log_level = log_level.upper()
         self.logger: Logger = get_logger(level=self.log_level)
 
-        # Load flow definition
+        # Load and compile flow definition from authoring format
         if flow_file is not None:
             self.flow_file = flow_file
-            self.flow_def = self._load_flow_definition(flow_file)
+            self.flow_def = self._load_and_compile_flow(file_path=flow_file)
         else:
             self.flow_file = None  # type: ignore[assignment]
-            self.flow_def = flow_def  # type: ignore
+            self.flow_def = self._compile_flow_dict(flow_dict=flow_def)  # type: ignore
 
         # Set up execution parameters with priority: parameter > flow_def > UUID
         flow_def_flow_id = self.flow_def.get(DatasiftConstants.FLOW_ID) if self.flow_def else None
@@ -121,19 +124,20 @@ class DatasiftFlowManager:
         self.session_info: SessionInfo | None = None
         self.executor: FlowExecutor | None = None
 
-    def _load_flow_definition(self, file_path: str) -> dict[str, Any]:
+    def _load_and_compile_flow(self, *, file_path: str) -> dict[str, Any]:
         """
-        Load flow definition from JSON file.
+        Load authoring format flow from JSON file and compile to runtime DAG format.
 
         Args:
-            file_path: Path to JSON file
+            file_path: Path to authoring format JSON file
 
         Returns:
-            Flow definition dictionary (accepts root-level flow definition)
+            Compiled runtime DAG format flow definition
 
         Raises:
             FileNotFoundError: If file doesn't exist
             json.JSONDecodeError: If file contains invalid JSON
+            FlowInvalidDataException: If authoring format validation fails
         """
         path_obj = Path(file_path)
         if not path_obj.exists():
@@ -142,11 +146,11 @@ class DatasiftFlowManager:
         try:
             with open(path_obj) as f:
                 flow_data = json.load(f)
-
-            # Accept flow definition at root level (no nested "flow" key required)
-            return flow_data
         except json.JSONDecodeError as e:
             raise json.JSONDecodeError(f"Invalid JSON in flow definition file: {e.msg}", e.doc, e.pos) from e
+
+        return self._compile_flow_dict(flow_dict=flow_data)
+
     def register_custom_operators(self, *, package_names: list[str]) -> None:
         """
         Register custom operator packages for use in flows.
@@ -179,12 +183,50 @@ class DatasiftFlowManager:
         self.custom_operator_packages.extend(package_names)
         self.logger.info(f"Registered custom operator packages: {package_names}")
 
+    def _compile_flow_dict(self, *, flow_dict: dict[str, Any]) -> dict[str, Any]:
+        """
+        Compile authoring format flow dictionary to runtime DAG format.
+
+        Args:
+            flow_dict: Authoring format flow definition dictionary
+
+        Returns:
+            Compiled runtime DAG format flow definition
+
+        Raises:
+            FlowInvalidDataException: If authoring format validation fails
+            KeyError: If required authoring format fields are missing
+        """
+        self.logger.info("Loading authoring format flow definition")
+
+        # Set flow_source to PROGRAMMATIC for Python API usage
+        flow_dict[DatasiftConstants.FLOW_SOURCE] = FlowSource.PROGRAMMATIC
+
+        try:
+            # Parse and validate authoring format
+            authoring_flow = AuthoringFlow.from_dict(data=flow_dict)
+        except FlowInvalidDataException as e:
+            self.logger.error(f"Authoring format validation failed: {e}")
+            raise
+        except KeyError as e:
+            self.logger.error(f"Missing required field in authoring format: {e}")
+            raise DatasiftException(f"Missing required field in authoring format: {e}", status_code=400) from e
+
+        # Compile to runtime DAG format
+        self.logger.info("Compiling authoring format to runtime DAG format")
+        compiler = AuthoringCompiler()
+        compiled_flow = compiler.compile(authoring_flow=authoring_flow)
+
+        self.logger.info("Successfully compiled authoring format to runtime DAG format")
+        return compiled_flow
 
     def _initialize_execution_environment(self) -> None:
         """Initialize orchestrator and session for execution."""
         # Create orchestrator with custom operator settings
+        # Default to True if enable_custom_operators is None
+        enable_custom = self.enable_custom_operators if self.enable_custom_operators is not None else True
         self.orchestrator = OrchestratorFactory.create_orchestrator(
-            enable_custom_operators=self.enable_custom_operators,
+            enable_custom_operators=enable_custom,
             custom_operator_packages=self.custom_operator_packages if self.custom_operator_packages else None,
         )
 

@@ -1,48 +1,34 @@
 {
-  "flow": {
-    "name": "Simple Ingest and Extract Flow",
-    "flow_id": "test-ingest-extract-001",
-    "description": "A simple flow demonstrating document ingestion and extraction using Docling",
+  "flow_name": "Simple Ingest and Extract Flow",
+  "description": "A simple flow demonstrating document ingestion and extraction using Docling",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true,
     "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "disable_validation": "true",
-      "force_ingest": true
-    },
-    "dag": [
-      {
-        "id": "ingest-node",
-        "name": "ingest",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./tests/fixtures/invoices",
-          "include_filter": "pdf",
-          "store_binary_content": false
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "extract-node"
-          }
-        ]
-      },
-      {
-        "id": "extract-node",
-        "name": "extract",
-        "operator": "extract_operator",
-        "config": {
-          "doc_column": "content",
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "none"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "ingest-node"
-          }
-        ],
-        "output_edges": []
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./tests/fixtures/invoices",
+        "include_filter": "pdf",
+        "store_binary_content": false
       }
-    ]
-  }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "doc_column": "content",
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      }
+    }
+  ]
 }

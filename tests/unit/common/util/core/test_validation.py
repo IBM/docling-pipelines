@@ -127,7 +127,7 @@ class TestValidateFlowDefinition:
         with pytest.raises(ValueError) as exc_info:
             validate_flow_definition({})
         assert "definition must contain either 'doc_type'" in str(exc_info.value)
-        assert "or 'flow'" in str(exc_info.value)
+        assert "or 'flow_name'" in str(exc_info.value)
 
     def test_missing_required_keys(self):
         """Test dict without required keys raises ValueError."""

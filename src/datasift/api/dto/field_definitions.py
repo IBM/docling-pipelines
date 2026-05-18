@@ -189,6 +189,14 @@ Allows: All Unicode characters except ASCII control characters
 Example: "Invoice Pipeline", "文档处理流程", "Traitement des factures"
 """
 
+TYPE_PATTERN = r"^[^\x00-\x1F]+$"
+"""Type pattern requiring at least one character and excluding control characters.
+
+Rationale: Type identifiers must be non-empty and without control characters.
+Allows: All Unicode characters except ASCII control characters, minimum 1 character
+Example: "ingest_local", "extract_operator", "embeddings"
+"""
+
 DESCRIPTION_PATTERN = r"^[\s\S]*$"
 """Description pattern allowing all characters including newlines.
 
@@ -320,6 +328,8 @@ Example: "content", "doc_id_hash", "num_words", "avg_word_length"
 # Content Field Lengths
 NAME_MIN_LENGTH = 1
 NAME_MAX_LENGTH = 256
+TYPE_MIN_LENGTH = 1
+TYPE_MAX_LENGTH = 256
 DESCRIPTION_MIN_LENGTH = 0  # Allow empty strings for optional descriptions
 DESCRIPTION_MAX_LENGTH = 10000
 TAG_MIN_LENGTH = 1
@@ -344,6 +354,8 @@ TAGS_ARRAY_MIN = 0  # Tags are optional
 TAGS_ARRAY_MAX = 36
 FLOWS_ARRAY_MIN = 0  # Empty result sets are valid
 FLOWS_ARRAY_MAX = 100  # Maximum items per page
+OPERATORS_ARRAY_MIN = 1  # At least one operator required
+OPERATORS_ARRAY_MAX = 10000  # Maximum operators per flow
 
 # Pagination Constraints
 OFFSET_MIN = 0  # 0-based offset

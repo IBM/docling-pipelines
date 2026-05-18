@@ -173,12 +173,12 @@ Add work pool configuration to your flow JSON:
 
 ```json
 {
-  "name": "distributed-local-pipeline",
-  "flow_id": "dist-local-001",
-  "storage": "in-memory",
-  "execute_type": "local",
+  "flow_name": "distributed-local-pipeline",
+  "description": "Distributed execution using Prefect work pools",
   "global_config": {
     "doc_column": "content",
+    "storage": "in-memory",
+    "execute_type": "local",
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-process",
@@ -190,7 +190,7 @@ Add work pool configuration to your flow JSON:
       }
     }
   },
-  "dag": [...]
+  "flow": [...]
 }
 ```
 
@@ -834,27 +834,24 @@ volumes:
       }
     }
   },
-  "dag": [
+  "flow": [
     {
-      "id": "ingest-1",
       "name": "ingest_documents",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "input_folder": "/data/input",
         "include_filter": "pdf,txt,docx"
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "extract-1"}]
+      }
     },
     {
-      "id": "extract-1",
       "name": "extract_content",
-      "operator": "extract_docling",
+      "type": "extract_operator",
+      "depends_on": ["ingest_documents"],
       "config": {
+        "text_extraction_mode": "docling_serve",
+        "entity_extraction_mode": "none",
         "docling_serve_url": "http://docling:5000"
-      },
-      "input_edges": [{"node_id_ref": "ingest-1"}],
-      "output_edges": []
+      }
     }
   ]
 }
@@ -908,56 +905,50 @@ volumes:
       }
     }
   },
-  "dag": [
+  "flow": [
     {
-      "id": "ingest-1",
       "name": "ingest_from_s3",
-      "operator": "ingest_s3",
+      "type": "ingest_source",
       "config": {
+        "provider": "s3",
         "bucket_name": "datasift-input-data",
         "prefix": "documents/"
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "extract-1"}]
+      }
     },
     {
-      "id": "extract-1",
       "name": "extract_content",
-      "operator": "extract_docling",
+      "type": "extract_operator",
+      "depends_on": ["ingest_from_s3"],
       "config": {
+        "text_extraction_mode": "docling_serve",
+        "entity_extraction_mode": "none",
         "docling_serve_url": "http://docling-service:5000"
-      },
-      "input_edges": [{"node_id_ref": "ingest-1"}],
-      "output_edges": [{"node_id_ref": "chunk-1"}]
+      }
     },
     {
-      "id": "chunk-1",
       "name": "semantic_chunker",
-      "operator": "chunker",
+      "type": "chunker",
+      "depends_on": ["extract_content"],
       "config": {
-        "chunk_type": "semantic",
+        "chunking_type": "semantic",
         "chunk_size": 512,
         "chunk_overlap": 50
-      },
-      "input_edges": [{"node_id_ref": "extract-1"}],
-      "output_edges": [{"node_id_ref": "embed-1"}]
+      }
     },
     {
-      "id": "embed-1",
       "name": "generate_embeddings",
-      "operator": "embeddings",
+      "type": "embeddings",
+      "depends_on": ["semantic_chunker"],
       "config": {
         "embeddings_type": "ollama",
         "embeddings_model_id": "nomic-embed-text",
         "embeddings_column": "content"
-      },
-      "input_edges": [{"node_id_ref": "chunk-1"}],
-      "output_edges": [{"node_id_ref": "vectordb-1"}]
+      }
     },
     {
-      "id": "vectordb-1",
       "name": "store_in_opensearch",
-      "operator": "vectordb",
+      "type": "vectordb",
+      "depends_on": ["generate_embeddings"],
       "config": {
         "provider": "opensearch",
         "index_name": "datasift-documents",
@@ -972,9 +963,7 @@ volumes:
           "verify_certs": false,
           "engine": "faiss"
         }
-      },
-      "input_edges": [{"node_id_ref": "embed-1"}],
-      "output_edges": []
+      }
     }
   ]
 }

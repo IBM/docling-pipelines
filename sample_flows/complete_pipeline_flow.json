@@ -1,141 +1,137 @@
 {
-  "name": "complete-document-pipeline",
-  "flow_id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+  "flow_name": "complete-document-pipeline",
   "description": "Complete document processing pipeline: Ingest -> Extract -> Chunk -> Embed -> Store in OpenSearch",
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
     "doc_column": "content",
     "disable_validation": "true",
-    "force_ingest": true
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
   },
-  "dag": [
-      {
-        "id": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
-        "name": "ingest_local_folder",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./sample_documents",
-          "include_filter": "pdf,txt,docx",
-          "store_binary_content": true,
-          "max_workers": 4
-        },
-        "input_edges": [],
-        "output_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}]
+  "flow": [
+    {
+      "type": "ingest_local",
+      "name": "ingest_local_folder",
+      "config": {
+        "input_folder": "./sample_documents",
+        "include_filter": "pdf,txt,docx",
+        "store_binary_content": true,
+        "max_workers": 4
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_with_docling",
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "doc_column": "content"
       },
-      {
-        "id": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
-        "name": "extract_with_docling",
-        "operator": "extract_operator",
-        "config": {
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "none",
-          "doc_column": "content"
-        },
-        "input_edges": [{"node_id_ref": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c"}],
-        "output_edges": [{"node_id_ref": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"}]
+      "depends_on": [
+        "ingest_local_folder"
+      ]
+    },
+    {
+      "type": "chunker",
+      "name": "semantic_chunker",
+      "config": {
+        "chunk_type": "semantic",
+        "chunk_size": 512,
+        "chunk_overlap": 50,
+        "retain_original_content": false
       },
-      {
-        "id": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
-        "name": "semantic_chunker",
-        "operator": "chunker",
-        "config": {
-          "chunk_type": "semantic",
-          "chunk_size": 512,
-          "chunk_overlap": 50,
-          "retain_original_content": false
-        },
-        "input_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}],
-        "output_edges": [{"node_id_ref": "c4d5e6f7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"}]
+      "depends_on": [
+        "extract_with_docling"
+      ]
+    },
+    {
+      "type": "embeddings",
+      "name": "ollama_embeddings",
+      "config": {
+        "embeddings_type": "ollama",
+        "embeddings_model_id": "nomic-embed-text",
+        "embeddings_column": "embeddings",
+        "overlap_ratio": 0.1
       },
-      {
-        "id": "c4d5e6f7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
-        "name": "ollama_embeddings",
-        "operator": "embeddings",
-        "config": {
-          "embeddings_type": "ollama",
-          "embeddings_model_id": "nomic-embed-text",
-          "embeddings_column": "embeddings",
-          "overlap_ratio": 0.1
+      "depends_on": [
+        "semantic_chunker"
+      ]
+    },
+    {
+      "type": "vectordb",
+      "name": "opensearch_vector_store",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "sample-documents-index",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 768,
+        "create_index": true,
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "admin",
+          "password": "MyStrongPass123!",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
         },
-        "input_edges": [{"node_id_ref": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"}],
-        "output_edges": [{"node_id_ref": "b5d6e7f8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"}]
-      },
-      {
-        "id": "b5d6e7f8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
-        "name": "opensearch_vector_store",
-        "operator": "vectordb",
-        "config": {
-          "provider": "opensearch",
-          "index_name": "sample-documents-index",
-          "doc_id_column": "doc_id_hash",
-          "embeddings_column": "embeddings",
-          "vector_dimension": 768,
-          "create_index": true,
-          "provider_config": {
-            "host": "localhost",
-            "port": 9200,
-            "username": "admin",
-            "password": "MyStrongPass123!",
-            "use_ssl": false,
-            "verify_certs": false,
-            "batch_size": 100,
-            "engine": "faiss",
-            "algorithm": "hnsw",
-            "space_type": "l2"
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
           },
-          "available_features": {
-            "doc_id_hash": {
-              "name": "Document ID",
-              "available_for_vector_db": true,
-              "mandatory_for_vector_db": true,
-              "type": "string",
-              "is_primary": true
-            },
-            "content": {
-              "name": "Content",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "doc_name": {
-              "name": "Document Name",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "file_path": {
-              "name": "File Path",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "embeddings": {
-              "name": "Embeddings",
-              "available_for_vector_db": true,
-              "mandatory_for_vector_db": true,
-              "type": "vector"
-            },
-            "chunk_id": {
-              "name": "Chunk ID",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "chunk_index": {
-              "name": "Chunk Index",
-              "available_for_vector_db": true,
-              "type": "integer"
-            }
+          "content": {
+            "name": "Content",
+            "available_for_vector_db": true,
+            "type": "string"
           },
-          "feature_mappings": {
-            "doc_id_hash": "pk",
-            "content": "text",
-            "name": "doc_name",
-            "path": "file_path",
-            "embeddings": "vector_embeddings",
-            "chunk_id": "chunk_id",
-            "chunk_index": "chunk_index"
+          "doc_name": {
+            "name": "Document Name",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "file_path": {
+            "name": "File Path",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          },
+          "chunk_id": {
+            "name": "Chunk ID",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "chunk_index": {
+            "name": "Chunk Index",
+            "available_for_vector_db": true,
+            "type": "integer"
           }
         },
-        "input_edges": [{"node_id_ref": "c4d5e6f7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"}],
-        "output_edges": []
-      }
-    ]
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "content": "text",
+          "name": "doc_name",
+          "path": "file_path",
+          "embeddings": "vector_embeddings",
+          "chunk_id": "chunk_id",
+          "chunk_index": "chunk_index"
+        }
+      },
+      "depends_on": [
+        "ollama_embeddings"
+      ]
+    }
+  ]
 }

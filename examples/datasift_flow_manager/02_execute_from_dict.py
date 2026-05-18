@@ -22,6 +22,7 @@ Run:
     source src/datasift_opensource/backend/.venv/bin/activate
     python examples/datasift_flow_manager/02_execute_from_dict.py
 """
+
 import uuid
 
 from datasift.lib.datasift_flow_manager import DatasiftFlowManager
@@ -38,46 +39,39 @@ def main():
     print("Example 2: Execute Flow from Dictionary")
     print("=" * 70)
 
-    # Define flow as a dictionary with proper DAG structure
+    # Define flow as a dictionary using the authoring format
     flow_def = {
-        "name": "Programmatic Flow Example",
+        "flow_name": "Programmatic Flow Example",
         "flow_id": "programmatic-001",
         "description": "A flow created programmatically from Python",
-        "storage": "in-memory",
-        "execute_type": "local",
         "global_config": {
+            "storage": "in-memory",
+            "execute_type": "local",
             "doc_column": "content",
             "disable_validation": "true",
             "force_ingest": True,
         },
-        "dag": [
+        "flow": [
             {
-                "id": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
                 "name": "ingest",
-                "operator": "ingest_local",
+                "type": "ingest_local",
                 "config": {
                     "input_folder": "./tests/fixtures/invoices",
                     "include_filter": "pdf",
                     "store_binary_content": False,
                 },
-                "input_edges": [],
-                "output_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}],
             },
             {
-                "id": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
                 "name": "extract",
-                "operator": "extract_operator",
+                "type": "extract_operator",
                 "config": {"doc_column": "content"},
-                "input_edges": [{"node_id_ref": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c"}],
-                "output_edges": [],
+                "depends_on": ["ingest"],
             },
         ],
     }
 
     # Create flow manager with flow definition
-    manager = DatasiftFlowManager(
-        flow_def=flow_def, log_level="info", job_id=str(uuid.uuid4())
-    )
+    manager = DatasiftFlowManager(flow_def=flow_def, log_level="info", job_id=str(uuid.uuid4()))
 
     # Execute
     print("\nExecuting programmatically defined flow...")

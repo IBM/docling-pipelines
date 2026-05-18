@@ -406,43 +406,47 @@ The operator adds the following columns to the output table:
 
 ```json
 {
-  "flow": {
-    "name": "Document Classification Pipeline",
-    "dag": [
-      {
-        "id": "ingest_node",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./documents",
-          "store_binary_content": true
-        }
-      },
-      {
-        "id": "extract_node",
-        "operator": "extract_operator",
-        "config": {
-          "doc_column": "content"
-        }
-      },
-      {
-        "id": "classify_node",
-        "operator": "document_classifier",
-        "config": {
-          "provider": "ollama",
-          "model_id": "granite4:latest",
-          "document_types": {
-            "invoice": "Business invoice with line items",
-            "receipt": "Payment receipt",
-            "contract": "Legal contract",
-            "other": "Other document types"
-          },
-          "confidence_threshold": 7.0,
-          "include_confidence": true,
-          "include_reasoning": true
-        }
+  "flow_name": "Document Classification Pipeline",
+  "description": "Classify documents using Ollama",
+  "global_config": {
+    "doc_column": "content"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./documents",
+        "store_binary_content": true
       }
-    ]
-  }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": ["ingest"],
+      "config": {
+        "doc_column": "content"
+      }
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "depends_on": ["extract"],
+      "config": {
+        "provider": "ollama",
+        "model_id": "granite4:latest",
+        "document_types": {
+          "invoice": "Business invoice with line items",
+          "receipt": "Payment receipt",
+          "contract": "Legal contract",
+          "other": "Other document types"
+        },
+        "confidence_threshold": 7.0,
+        "include_confidence": true,
+        "include_reasoning": true
+      }
+    }
+  ]
 }
 ```
 

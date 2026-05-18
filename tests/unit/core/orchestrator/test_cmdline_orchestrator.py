@@ -1,7 +1,6 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
 
 from datasift.cli.datasift_cli import (
     load_flow_definition,
@@ -56,7 +55,10 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         filepath = "./tests/sample_test_flows/basic/local_to_opensearch.json"
 
         flow_def = load_flow_definition(file_path=filepath)
+        # After compilation, should have runtime DAG format
         assert flow_def is not None
+        assert "dag" in flow_def
+        assert "global_config" in flow_def
 
     def test_invalid_flow_definition(self):
         """
@@ -73,38 +75,32 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         with self.assertRaises(FlowValidationException):
             run_command_line_executor(flow_def=invalid_flow_def)
 
-    @patch("builtins.open")
-    def test_file_not_found_exception(self, mock_open):
+    def test_file_not_found_exception(self):
         """
         Test handling of FileNotFoundError in load_flow_definition
         """
-        # Mock open to raise FileNotFoundError
-        mock_open.side_effect = FileNotFoundError("File not found")
-
         # Use a non-existent file path
         file_path = "non_existent_file.json"
 
-        # Test with sys.exit patched to avoid test termination
-        with patch("sys.exit") as mock_exit:
+        # load_flow_definition now raises FileNotFoundError instead of calling sys.exit
+        with self.assertRaises(FileNotFoundError):
             load_flow_definition(file_path=file_path)
-            # Verify that sys.exit was called with exit code 1
-            mock_exit.assert_called_once_with(1)
 
     def test_invalid_json_exception(self):
         """
         Test handling of invalid JSON in load_flow_definition
         """
+        import json
+
         # Create a temporary file with invalid JSON content
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as temp_file:
             temp_file.write("{ This is not valid JSON }")
             temp_file_path = temp_file.name
 
         try:
-            # Test with sys.exit patched to avoid test termination
-            with patch("sys.exit") as mock_exit:
+            # load_flow_definition now raises JSONDecodeError instead of calling sys.exit
+            with self.assertRaises(json.JSONDecodeError):
                 load_flow_definition(file_path=temp_file_path)
-                # Verify that sys.exit was called with exit code 1
-                mock_exit.assert_called_once_with(1)
         finally:
             # Clean up the temporary file
             os.unlink(temp_file_path)
@@ -127,5 +123,5 @@ class TestCommandLineOrchestrator(unittest.TestCase):
         }
 
         # Test that the exception is propagated
-        with self.assertRaises(Exception):
+        with self.assertRaises(FlowValidationException):
             run_command_line_executor(flow_def=flow_def)

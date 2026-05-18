@@ -329,22 +329,16 @@ Enable detailed logging:
 }
 ```
 
-### Node Structure
+### Operator Structure
 
 ```json
 {
-  "id": "unique-uuid-here",             // Unique node identifier
-  "name": "descriptive-name",           // Human-readable name
-  "operator": "operator_type",          // Operator class name
+  "name": "descriptive-name",           // Unique operator name
+  "type": "operator_type",              // Operator type
+  "depends_on": ["upstream-operator"],  // Dependencies (optional)
   "config": {                           // Operator-specific config
     "param1": "value1"
-  },
-  "input_edges": [                      // Input connections
-    {"node_id_ref": "previous-node-id"}
-  ],
-  "output_edges": [                     // Output connections
-    {"node_id_ref": "next-node-id"}
-  ]
+  }
 }
 ```
 

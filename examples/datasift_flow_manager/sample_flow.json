@@ -1,88 +1,58 @@
 {
-  "name": "Sample DatasiftFlowManager Flow",
-    "description": "Complete working example: Ingest -> Extract -> Chunk -> Embeddings",
-    "flow_id": "sample-pipeline-001",
-    "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "disable_validation": "true",
-      "force_ingest": true
-    },
-    "dag": [
-      {
-        "id": "10000000-0000-0000-0000-000000000001",
-        "name": "ingest",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./test_data",
-          "include_filter": "txt,md",
-          "store_binary_content": false
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "10000000-0000-0000-0000-000000000002"
-          }
-        ]
-      },
-      {
-        "id": "10000000-0000-0000-0000-000000000002",
-        "name": "extract",
-        "operator": "extract_operator",
-        "config": {
-          "doc_column": "content",
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "none"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "10000000-0000-0000-0000-000000000001"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "10000000-0000-0000-0000-000000000003"
-          }
-        ]
-      },
-      {
-        "id": "10000000-0000-0000-0000-000000000003",
-        "name": "chunk",
-        "operator": "chunker",
-        "config": {
-          "chunk_type": "hybrid",
-          "chunk_size": 512,
-          "chunk_overlap": 128,
-          "doc_column": "content"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "10000000-0000-0000-0000-000000000002"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "10000000-0000-0000-0000-000000000004"
-          }
-        ]
-      },
-      {
-        "id": "10000000-0000-0000-0000-000000000004",
-        "name": "embeddings",
-        "operator": "embeddings",
-        "config": {
-          "embeddings_type": "ollama",
-          "embeddings_model_id": "nomic-embed-text",
-          "embeddings_column": "embeddings",
-          "doc_column": "content"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "10000000-0000-0000-0000-000000000003"
-          }
-        ],
-        "output_edges": []
+  "flow_name": "Sample DatasiftFlowManager Flow",
+  "description": "Complete working example: Ingest -> Extract -> Chunk -> Embeddings",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./test_data",
+        "include_filter": "txt,md",
+        "store_binary_content": false
       }
-    ]
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "doc_column": "content",
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      }
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "depends_on": [
+        "extract"
+      ],
+      "config": {
+        "chunk_type": "hybrid",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "doc_column": "content"
+      }
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+      "depends_on": [
+        "chunk"
+      ],
+      "config": {
+        "embeddings_type": "ollama",
+        "embeddings_model_id": "nomic-embed-text",
+        "embeddings_column": "embeddings",
+        "doc_column": "content"
+      }
+    }
+  ]
 }

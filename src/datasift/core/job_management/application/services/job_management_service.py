@@ -13,7 +13,7 @@ from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus
 from datasift.core.job_management.domain.models import JobStats
 from datasift.core.job_management.domain.ports import JobRunManager, JobStatsService
 from datasift.core.models.session_info import create_session_info, set_session_info
-from datasift.exceptions.datasift_exceptions import FlowNotFoundException
+from datasift.exceptions.datasift_exceptions import FlowInvalidDataException, FlowNotFoundException
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -152,9 +152,26 @@ class JobManagementService:
             metadata=metadata or {},
         )
 
-        # Transform Elyra format to Internal DAG format for execution
-        converter = ElyraConverter()
-        flow_dag_definition = converter.transform_elyra_to_internal(elyra_json=flow.definition, flow_id=flow_id)
+        # Detect format and transform to Internal DAG format for execution
+
+        # Authoring format has 'flow_name' key, Elyra format has 'doc_type' key
+        if DatasiftConstants.FLOW_NAME in flow.definition:
+            # Authoring format - compile to runtime DAG
+            from datasift.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
+            from datasift.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
+
+            logger.info(f"Flow {flow_id} is in authoring format, compiling to runtime DAG")
+            authoring_flow = AuthoringFlow.from_dict(data=flow.definition)
+            compiler = AuthoringCompiler()
+            flow_dag_definition = compiler.compile(authoring_flow=authoring_flow)
+        elif "doc_type" in flow.definition:
+            # Elyra format - transform to internal DAG
+            logger.info(f"Flow {flow_id} is in Elyra format, transforming to internal DAG")
+            converter = ElyraConverter()
+            flow_dag_definition = converter.transform_elyra_to_internal(elyra_json=flow.definition, flow_id=flow_id)
+        else:
+            # Unknown format
+            raise FlowInvalidDataException(message=f"Flow {flow_id} has unknown format.", field_name="definition")
 
         self.executor.submit(
             self._execute_flow_async,

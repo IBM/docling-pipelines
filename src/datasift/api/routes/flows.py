@@ -16,10 +16,16 @@ All endpoints delegate to service layer which raises custom DatasiftException su
 
 import logging
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Path, Query, Request
 
+from datasift.api.dto.authoring_flow_dto import (
+    AuthoringFlowCreateRequest,
+    AuthoringFlowResponse,
+    AuthoringFlowUpdateRequest,
+    PaginatedAuthoringFlowResponse,
+)
 from datasift.api.dto.error_dto import ErrorResponse
 from datasift.api.dto.field_definitions import (
     LIMIT_MAX,
@@ -33,14 +39,15 @@ from datasift.api.dto.field_definitions import (
 )
 from datasift.api.dto.flow_dto import (
     BulkDeleteResponse,
-    FlowCreateRequest,
+    ElyraFlowCreateRequest,
+    ElyraFlowUpdateRequest,
     FlowResponse,
-    FlowUpdateRequest,
     PaginatedFlowResponse,
 )
 from datasift.api.dto.mappers.flow_mapper import FlowMapper
 from datasift.core.assets.flows.adapters.config.repository_factory import RepositoryFactory
 from datasift.core.assets.flows.application.services.flow_service import FlowService
+from datasift.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
 from datasift.core.assets.flows.domain.ports.flow_repository import FlowRepository
 
 # Configure logging
@@ -237,7 +244,7 @@ FlowServiceDep = Annotated[FlowService, Depends(get_flow_service)]
 
 @flows_router.post(
     "",
-    response_model=FlowResponse,
+    response_model=FlowResponse | AuthoringFlowResponse,
     status_code=201,
     operation_id="create_flow",
     summary="Create a new flow",
@@ -331,43 +338,72 @@ FlowServiceDep = Annotated[FlowService, Depends(get_flow_service)]
 )
 async def create_flow(
     request: Request,
-    flow: FlowCreateRequest,
+    body: dict,
     service: FlowServiceDep,
     is_elyra: IsElyraQuery = False,
 ):
     """Create and store a new flow.
 
+    Accepts either Elyra format (UI) or Authoring format (API) based on is_elyra parameter.
+
     Args:
         request: FastAPI request object
-        flow: FlowCreateRequest DTO containing flow definition
+        body: Raw dict containing flow definition (validated based on is_elyra)
         service: Injected flow service instance
         is_elyra: Query parameter indicating if flow is in Elyra format (default: False)
 
     Returns:
-        FlowResponse: The stored flow with generated metadata
+        AuthoringFlowResponse | FlowResponse: The stored flow with generated metadata
+            (format matches input format)
 
     Raises:
         HTTPException: If flow creation fails (400, 409, 500)
     """
-    logger.debug(f"Creating flow: {flow.name}, is_elyra: {is_elyra}")
+    logger.debug(f"Creating flow, is_elyra: {is_elyra}")
 
-    # Convert DTO to domain model
-    domain_flow = FlowMapper.create_request_to_domain(flow)
+    if is_elyra:
+        # Validate as Elyra format (UI)
+        flow_dto = ElyraFlowCreateRequest(**body)
+        domain_flow = FlowMapper.create_request_to_domain(flow_dto)
+    else:
+        # Validate as Authoring format (API)
+        authoring_dto = AuthoringFlowCreateRequest(**body)
+
+        # Parse and validate authoring format
+        authoring_flow = AuthoringFlow.from_dict(data=authoring_dto.model_dump())
+        authoring_flow.validate()
+
+        # Conversion to runtime DAG will happen at execution time
+        from datasift.core.assets.flows.domain.models.flow import Flow
+
+        domain_flow = Flow(
+            flow_id=None,  # Will be generated
+            name=authoring_flow.flow_name,
+            description=authoring_dto.description,
+            definition=authoring_dto.model_dump(),  # Store validated authoring format
+            tags=authoring_dto.tags or [],
+            is_hidden=False,
+            container_kind=None,
+            container_id=None,
+        )
 
     logger.debug(f"Converted to domain model: {domain_flow.name}")
 
-    # Create flow using service - service raises typed exceptions
+    # Create flow using service - store in original format
     created_flow = service.create_flow(flow=domain_flow, is_elyra=is_elyra)
 
     logger.info(f"Successfully created flow {created_flow.flow_id}")
 
-    # Convert domain model back to DTO
-    return FlowMapper.domain_to_dto(created_flow)
+    # Convert domain model back to appropriate DTO based on format
+    if is_elyra:
+        return FlowMapper.domain_to_dto(created_flow)
+    else:
+        return FlowMapper.domain_to_authoring_dto(domain=created_flow)
 
 
 @flows_router.get(
     "/{flow_id}",
-    response_model=FlowResponse,
+    response_model=FlowResponse | AuthoringFlowResponse,
     operation_id="get_flow",
     summary="Get flow by ID",
     responses={
@@ -458,16 +494,22 @@ async def get_flow(
 ):
     """Retrieve a flow by ID.
 
+    Returns the flow in its original format (authoring or Elyra) based on
+    how it was created. Authoring format flows return flat structure with metadata,
+    Elyra format flows return wrapped structure.
+
     Args:
         flow_id: UUID of the flow to retrieve (validated via dependency)
         service: Injected flow service instance
 
     Returns:
-        FlowResponse: The requested flow
+        AuthoringFlowResponse | FlowResponse: The requested flow in original format
 
     Raises:
         HTTPException: If flow not found or read fails (404, 400, 500)
     """
+    from datasift.core.constants.constants import DatasiftConstants
+
     logger.debug(f"Retrieving flow: {flow_id}")
 
     # Get flow using service - service raises typed exceptions
@@ -475,15 +517,20 @@ async def get_flow(
 
     logger.info(f"Successfully retrieved flow {flow_id}")
 
-    # Convert domain model to DTO
-    return FlowMapper.domain_to_dto(domain_flow)
+    # Detect format and return appropriate DTO
+    if DatasiftConstants.FLOW_NAME in domain_flow.definition:
+        # Authoring format - return flat structure with metadata
+        return FlowMapper.domain_to_authoring_dto(domain=domain_flow)
+    else:
+        # Elyra format - return wrapped structure
+        return FlowMapper.domain_to_dto(domain_flow)
 
 
 @flows_router.get(
     "",
-    response_model=PaginatedFlowResponse,
+    response_model=PaginatedFlowResponse | PaginatedAuthoringFlowResponse,
     operation_id="list_flows",
-    summary="List flows with pagination",
+    summary="List flows with pagination and format filtering",
     responses={
         200: {
             "description": "Flows retrieved successfully",
@@ -563,57 +610,97 @@ async def list_flows(
     service: FlowServiceDep,
     pagination: PaginationDep,
     filters: FiltersDep,
+    is_elyra: bool | None = Query(
+        default=None,
+        description="Filter by format: true=Elyra only, false=Authoring only, null=Authoring only (default)",
+    ),
 ):
-    """List flows with pagination and filtering.
+    """List flows with pagination, filtering, and format selection.
+
+    Format filtering behavior:
+    - No parameter or is_elyra=false: Returns only authoring format flows
+    - is_elyra=true: Returns only Elyra format flows
 
     Args:
         request: FastAPI request object
         service: Injected flow service instance
         pagination: Tuple of (limit, offset) from dependency
         filters: Dictionary of filter parameters from dependency
+        is_elyra: Format filter (None or False=authoring, True=Elyra)
 
     Returns:
-        PaginatedFlowResponse: Paginated list of flows
+        PaginatedAuthoringFlowResponse | PaginatedFlowResponse: Paginated list based on format
 
     Raises:
         HTTPException: If list operation fails (400, 500)
     """
+    from datasift.core.constants.constants import DatasiftConstants
+
     limit, offset = pagination
     name = filters["name"]
     tags = filters["tags"]
     is_hidden = filters["is_hidden"]
 
-    logger.debug(f"Listing flows: offset={offset}, limit={limit}, name={name}, tags={tags}, is_hidden={is_hidden}")
+    # Default to authoring format if not specified
+    if is_elyra is None:
+        is_elyra = False
 
-    # Get flows using service with pagination and filtering - service raises typed exceptions
+    logger.debug(
+        f"Listing flows: offset={offset}, limit={limit}, name={name}, tags={tags}, "
+        f"is_hidden={is_hidden}, is_elyra={is_elyra}"
+    )
+
+    # Get flows using service with pagination and filtering
     flows = service.list_flows(skip=offset, limit=limit, name_filter=name, tags_filter=tags, is_hidden=is_hidden)
 
-    # Get total count for pagination
+    # Filter by format
+    if is_elyra:
+        # Return only Elyra format flows
+        flows = [f for f in flows if DatasiftConstants.FLOW_NAME not in f.definition]
+    else:
+        # Return only authoring format flows
+        flows = [f for f in flows if DatasiftConstants.FLOW_NAME in f.definition]
+
+    # Get total count from service
     total = service.count_flows(name_filter=name, tags_filter=tags, is_hidden=is_hidden)
 
-    logger.info(f"Successfully retrieved {len(flows)} flows (total: {total})")
+    logger.info(f"Successfully retrieved {len(flows)} flows (format: {'Elyra' if is_elyra else 'Authoring'})")
 
-    # Generate pagination links following REST API standards
+    # Generate pagination links
     base_url = str(request.url).split("?")[0]
-    first_link = f"{base_url}?offset=0&limit={limit}"
-    next_link = f"{base_url}?offset={offset + limit}&limit={limit}" if (offset + len(flows)) < total else None
-    prev_link = f"{base_url}?offset={max(0, offset - limit)}&limit={limit}" if offset > 0 else None
-
-    # Convert domain models to DTOs
-    return PaginatedFlowResponse(
-        flows=[FlowMapper.domain_to_dto(flow) for flow in flows],
-        total_count=total,
-        offset=offset,
-        limit=limit,
-        first=first_link,
-        next=next_link,
-        prev=prev_link,
+    format_param = f"&is_elyra={is_elyra}" if is_elyra else ""
+    first_link = f"{base_url}?offset=0&limit={limit}{format_param}"
+    next_link = (
+        f"{base_url}?offset={offset + limit}&limit={limit}{format_param}" if (offset + len(flows)) < total else None
     )
+    prev_link = f"{base_url}?offset={max(0, offset - limit)}&limit={limit}{format_param}" if offset > 0 else None
+
+    # Convert domain models to appropriate DTOs based on format
+    if is_elyra:
+        return PaginatedFlowResponse(
+            flows=[FlowMapper.domain_to_dto(flow) for flow in flows],
+            total_count=total,
+            offset=offset,
+            limit=limit,
+            first=first_link,
+            next=next_link,
+            prev=prev_link,
+        )
+    else:
+        return PaginatedAuthoringFlowResponse(
+            flows=[FlowMapper.domain_to_authoring_dto(domain=flow) for flow in flows],
+            total_count=total,
+            offset=offset,
+            limit=limit,
+            first=first_link,
+            next=next_link,
+            prev=prev_link,
+        )
 
 
 @flows_router.put(
     "/{flow_id}",
-    response_model=FlowResponse,
+    response_model=FlowResponse | AuthoringFlowResponse,
     operation_id="replace_flow",
     summary="Update a flow",
     responses={
@@ -699,27 +786,54 @@ async def list_flows(
     },
 )
 async def update_flow(
-    flow: FlowCreateRequest,
+    body: dict[str, Any],
     service: FlowServiceDep,
     flow_id: str = Depends(get_flow_id),
+    is_elyra: IsElyraQuery = False,
 ):
     """Update an existing flow (full replacement).
 
+    Accepts either Elyra format (UI) or Authoring format (API) based on is_elyra parameter.
+
     Args:
-        flow_id: UUID of the flow to update (validated via dependency)
-        flow: FlowCreateRequest DTO containing updated flow definition
+        body: Raw request body dict (validated based on is_elyra parameter)
         service: Injected flow service instance
+        flow_id: UUID of the flow to update (validated via dependency)
+        is_elyra: Query parameter indicating if flow is in Elyra format (default: False)
 
     Returns:
-        FlowResponse: The updated flow
+        AuthoringFlowResponse | FlowResponse: The updated flow
+            (format matches input format)
 
     Raises:
         HTTPException: If flow not found or update fails (404, 400, 500)
     """
-    logger.debug(f"Updating flow: {flow_id}")
+    logger.debug(f"Updating flow: {flow_id}, is_elyra: {is_elyra}")
 
-    # Convert DTO to domain model
-    domain_flow = FlowMapper.create_request_to_domain(flow)
+    if is_elyra:
+        # Validate as Elyra format (UI)
+        flow = ElyraFlowCreateRequest(**body)
+        domain_flow = FlowMapper.create_request_to_domain(flow)
+    else:
+        # Validate as Authoring format (API)
+        flow = AuthoringFlowCreateRequest(**body)
+
+        # Parse and validate authoring format
+        authoring_flow = AuthoringFlow.from_dict(data=flow.model_dump())
+        authoring_flow.validate()
+
+        from datasift.core.assets.flows.domain.models.flow import Flow
+
+        domain_flow = Flow(
+            flow_id=None,  # Will be set below
+            name=authoring_flow.flow_name,
+            description=flow.description,
+            definition=flow.model_dump(),  # Store complete authoring format
+            tags=flow.tags or [],
+            is_hidden=False,
+            container_kind=None,
+            container_id=None,
+        )
 
     # Ensure flow_id matches
     domain_flow.flow_id = flow_id
@@ -729,13 +843,16 @@ async def update_flow(
 
     logger.info(f"Successfully updated flow {flow_id}")
 
-    # Convert domain model back to DTO
-    return FlowMapper.domain_to_dto(updated_flow)
+    # Convert domain model back to appropriate DTO based on format
+    if is_elyra:
+        return FlowMapper.domain_to_dto(updated_flow)
+    else:
+        return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
 
 
 @flows_router.patch(
     "/{flow_id}",
-    response_model=FlowResponse,
+    response_model=FlowResponse | AuthoringFlowResponse,
     operation_id="update_flow",
     summary="Partially update a flow",
     responses={
@@ -821,34 +938,48 @@ async def update_flow(
     },
 )
 async def partial_update_flow(
-    updates: FlowUpdateRequest,
     request: Request,
+    body: dict[str, Any],
     service: FlowServiceDep,
     flow_id: str = Depends(get_flow_id),
+    is_elyra: IsElyraQuery = False,
 ):
     """Partially update a flow (only provided fields).
 
+    Accepts either Elyra format (UI) or Authoring format (API) based on is_elyra parameter.
+
     Args:
         request: FastAPI request object
-        flow_id: UUID of the flow to update (validated via dependency)
-        updates: FlowUpdateRequest DTO containing fields to update
+        body: Raw request body dict (validated based on is_elyra parameter)
         service: Injected flow service instance
+        flow_id: UUID of the flow to update (validated via dependency)
+        is_elyra: Query parameter indicating if flow is in Elyra format (default: False)
 
     Returns:
-        FlowResponse: The updated flow
+        AuthoringFlowResponse | FlowResponse: The updated flow
+            (format matches input format)
 
     Raises:
         HTTPException: If flow not found or update fails (404, 400, 500)
     """
-    logger.debug(f"Partially updating flow: {flow_id}")
+    logger.debug(f"Partially updating flow: {flow_id}, is_elyra: {is_elyra}")
 
-    # Partial update using service - service raises typed exceptions
+    # Validate based on format
+    if is_elyra:
+        updates = ElyraFlowUpdateRequest(**body)
+    else:
+        updates = AuthoringFlowUpdateRequest(**body)
+
+    # Pass dict directly to service - service handles transformation
     updated_flow = service.partial_update_flow(flow_id, updates.dict(exclude_unset=True))
 
     logger.info(f"Successfully partially updated flow {flow_id}")
 
-    # Convert domain model back to DTO
-    return FlowMapper.domain_to_dto(updated_flow)
+    # Convert domain model back to appropriate DTO based on format
+    if is_elyra:
+        return FlowMapper.domain_to_dto(updated_flow)
+    else:
+        return FlowMapper.domain_to_authoring_dto(domain=updated_flow)
 
 
 @flows_router.delete(

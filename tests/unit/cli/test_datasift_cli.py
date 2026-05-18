@@ -34,31 +34,28 @@ def real_flow_invoice(project_root):
 
 @pytest.fixture
 def valid_flow_dict_with_output(fixtures_customer_support_dir):
-    """Return a valid flow definition dictionary with output operator."""
+    """Return a valid flow definition dictionary with output operator in authoring format."""
     return {
-        "name": "test_flow",
-        "flow_id": "test-123",
-        "dag": [
+        "flow_name": "test_flow",
+        "description": "Test flow for CLI validation",
+        "flow": [
             {
-                "id": "node1",
+                "type": OperatorConstants.Operators.INGEST_LOCAL,
                 "name": "ingest",
-                OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
+                "depends_on": [],
                 "config": {
                     "input_folder": str(fixtures_customer_support_dir),
                     "include_filter": "txt",
                 },
-                "input_edges": [],
-                "output_edges": [{"node_id_ref": "node2"}],
             },
             {
-                "id": "node2",
+                "type": OperatorConstants.Operators.NOOP,
                 "name": "noop",
-                OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.NOOP,
+                "depends_on": ["ingest"],
                 "config": {"sleep_sec": 1},
-                "input_edges": [{"node_id_ref": "node1"}],
-                "output_edges": [],
             },
         ],
+        "global_config": {},
     }
 
 
@@ -70,11 +67,11 @@ def valid_flow_dict(valid_flow_dict_with_output):
 
 @pytest.fixture
 def invalid_flow_dict():
-    """Return an invalid flow definition (missing dag/sequence)."""
+    """Return an invalid flow definition (missing flow array)."""
     return {
-        "name": "invalid_flow",
-        "flow_id": "invalid-123",
-        "description": "This flow is missing dag/sequence",
+        "flow_name": "invalid_flow",
+        "description": "This flow is missing flow array",
+        "global_config": {},
     }
 
 
@@ -103,65 +100,85 @@ def malformed_json_file(tmp_path):
 
 
 @pytest.fixture
-def nested_flow_file(tmp_path, valid_flow_dict):
-    """Create a temporary file with flow nested under 'flow' key."""
-    flow_file = tmp_path / "nested_flow.json"
-    nested = {"flow": valid_flow_dict}
-    flow_file.write_text(json.dumps(nested))
+def elyra_format_file(tmp_path):
+    """Create a temporary file with Elyra format (not supported by CLI load_flow_definition)."""
+    flow_file = tmp_path / "elyra_flow.json"
+    # Elyra format structure
+    elyra_flow = {
+        "definition": {
+            "doc_type": "pipeline",
+            "version": "3.0",
+            "pipelines": [
+                {
+                    "id": "pipeline1",
+                    "nodes": [
+                        {
+                            "id": "node1",
+                            "type": "execution_node",
+                            "op": "ingest_local",
+                            "parameters": {"input_folder": "./data", "include_filter": "txt"},
+                        }
+                    ],
+                }
+            ],
+            "parameters": {},
+        }
+    }
+    flow_file.write_text(json.dumps(elyra_flow))
     return str(flow_file)
 
 
 class TestLoadFlowDefinition:
     """Tests for load_flow_definition function using real file operations."""
 
-    def test_load_valid_flow(self, valid_flow_file, valid_flow_dict):
+    def test_load_valid_flow(self, valid_flow_file):
         """Test loading a valid flow definition from real file."""
         flow_def = load_flow_definition(file_path=valid_flow_file)
-        assert flow_def == valid_flow_dict
+        # After compilation, should have runtime DAG format
         assert "dag" in flow_def
         assert len(flow_def["dag"]) == 2
+        assert "global_config" in flow_def
 
-    def test_load_nested_flow(self, nested_flow_file, valid_flow_dict):
-        """Test loading a flow definition nested under 'flow' key."""
-        flow_def = load_flow_definition(file_path=nested_flow_file)
-        assert flow_def == valid_flow_dict
-        assert "dag" in flow_def
+    def test_load_elyra_format_fails(self, elyra_format_file):
+        """Test that Elyra format (with 'definition' wrapper) is not supported by CLI."""
+        # CLI's load_flow_definition only supports authoring format, not Elyra format
+        # It will raise KeyError for missing 'flow_name'
+        with pytest.raises(KeyError) as exc_info:
+            load_flow_definition(file_path=elyra_format_file)
+
+        assert "flow_name" in str(exc_info.value)
 
     def test_load_real_invoice_flow(self, real_flow_invoice):
         """Test loading the real invoice flow file."""
         flow_def = load_flow_definition(file_path=real_flow_invoice)
-        assert "name" in flow_def
-        assert flow_def["name"] == "invoice processing flow"
+        # After compilation, should have runtime DAG format
         assert "dag" in flow_def
         assert len(flow_def["dag"]) == 5
+        assert "global_config" in flow_def
 
     def test_file_not_found(self, tmp_path):
-        """Test FileNotFoundError handling with real error messages."""
+        """Test FileNotFoundError is raised for non-existent files."""
         non_existent = str(tmp_path / "does_not_exist.json")
 
-        with pytest.raises(SystemExit) as exc_info:
+        with pytest.raises(FileNotFoundError):
             load_flow_definition(file_path=non_existent)
 
-        assert exc_info.value.code == 1
-
     def test_invalid_json(self, malformed_json_file):
-        """Test JSONDecodeError handling with real JSON parsing."""
-        with pytest.raises(SystemExit) as exc_info:
+        """Test JSONDecodeError is raised for malformed JSON."""
+        with pytest.raises(json.JSONDecodeError):
             load_flow_definition(file_path=malformed_json_file)
-
-        assert exc_info.value.code == 1
 
 
 class TestValidateFlowDefinition:
     """Tests for validate_flow_definition function - only mock orchestrator execution."""
 
     @patch("datasift.core.orchestration.orchestrator_factory.OrchestratorFactory.create_orchestrator")
-    def test_validate_invalid_flow_missing_dag(
+    def test_validate_invalid_flow_missing_flow_array(
         self,
         mock_orchestrator_factory,
         invalid_flow_file,
     ):
-        """Test validation fails with invalid flow (missing dag)."""
+        """Test validation fails with invalid flow (missing flow array)."""
         result = validate_flow_definition(flow_file=invalid_flow_file)
 
         assert result is False
@@ -329,10 +346,10 @@ class TestIntegrationScenarios:
         """Test loading and parsing the real invoice flow file."""
         flow_def = load_flow_definition(file_path=real_flow_invoice)
 
-        # Verify structure
-        assert flow_def["name"] == "invoice processing flow"
+        # Verify structure (after compilation to runtime DAG)
         assert "dag" in flow_def
         assert len(flow_def["dag"]) == 5
+        assert "global_config" in flow_def
 
         # Verify operators
         operators = [node["operator"] for node in flow_def["dag"]]
@@ -345,21 +362,20 @@ class TestIntegrationScenarios:
     def test_create_and_validate_temporary_flow(self, tmp_path, fixtures_customer_support_dir):
         """Test creating a temporary flow file and validating it."""
         flow = {
-            "name": "temp_test_flow",
-            "flow_id": "temp-123",
-            "dag": [
+            "flow_name": "temp_test_flow",
+            "description": "Temporary test flow",
+            "flow": [
                 {
-                    "id": "ingest_node",
+                    "type": "ingest_local",
                     "name": "ingest",
-                    "operator": "ingest_local",
+                    "depends_on": [],
                     "config": {
                         "input_folder": str(fixtures_customer_support_dir),
                         "include_filter": "txt",
                     },
-                    "input_edges": [],
-                    "output_edges": [],
                 }
             ],
+            "global_config": {},
         }
 
         flow_file = tmp_path / "temp_flow.json"
@@ -367,23 +383,34 @@ class TestIntegrationScenarios:
 
         loaded_flow = load_flow_definition(file_path=str(flow_file))
 
-        assert loaded_flow["name"] == "temp_test_flow"
+        # After compilation, should have runtime DAG format
+        assert "dag" in loaded_flow
         assert len(loaded_flow["dag"]) == 1
         assert loaded_flow["dag"][0]["operator"] == "ingest_local"
 
-    def test_invalid_flow_structure_detection(self, tmp_path):
-        """Test that invalid flow structures are detected."""
+    def test_empty_flow_validation_fails(self, tmp_path):
+        """Test that empty flows (no operators) fail validation during load.
+
+        load_flow_definition validates authoring format and raises
+        FlowInvalidDataException for empty flows.
+        """
+        from datasift.exceptions.datasift_exceptions import FlowInvalidDataException
+
         flow = {
-            "name": "empty_dag_flow",
-            "flow_id": "empty-123",
-            "dag": [],
+            "flow_name": "empty_flow",
+            "description": "Flow with no operators",
+            "flow": [],
+            "global_config": {},
         }
 
-        flow_file = tmp_path / "empty_dag.json"
+        flow_file = tmp_path / "empty_flow.json"
         flow_file.write_text(json.dumps(flow))
 
-        loaded_flow = load_flow_definition(file_path=str(flow_file))
-        assert loaded_flow["dag"] == []
+        # Empty flows fail validation (must have at least one operator)
+        with pytest.raises(FlowInvalidDataException) as exc_info:
+            load_flow_definition(file_path=str(flow_file))
+
+        assert "at least one operator" in str(exc_info.value)
 
 
 class TestValidateFlowDefinitionRealValidator:
@@ -404,21 +431,20 @@ class TestValidateFlowDefinitionRealValidator:
     def test_validate_flow_with_invalid_operator(self, tmp_path):
         """Test validation fails with invalid operator configuration."""
         flow = {
-            "name": "invalid_operator_flow",
-            "flow_id": "invalid-op-123",
-            "dag": [
+            "flow_name": "invalid_operator_flow",
+            "description": "Flow with invalid operator config",
+            "flow": [
                 {
-                    "id": "node1",
+                    "type": "ingest_local",
                     "name": "bad_ingest",
-                    "operator": "ingest_local",
+                    "depends_on": [],
                     "config": {
                         # Missing required 'input_folder' parameter
                         "include_filter": "txt",
                     },
-                    "input_edges": [],
-                    "output_edges": [],
                 }
             ],
+            "global_config": {},
         }
 
         flow_file = tmp_path / "invalid_operator.json"
@@ -432,18 +458,17 @@ class TestValidateFlowDefinitionRealValidator:
     def test_validate_flow_with_nonexistent_operator(self, tmp_path):
         """Test validation fails with non-existent operator type."""
         flow = {
-            "name": "nonexistent_operator_flow",
-            "flow_id": "nonexist-123",
-            "dag": [
+            "flow_name": "nonexistent_operator_flow",
+            "description": "Flow with non-existent operator",
+            "flow": [
                 {
-                    "id": "node1",
+                    "type": "nonexistent_operator_type",
                     "name": "fake_op",
-                    "operator": "nonexistent_operator_type",
+                    "depends_on": [],
                     "config": {},
-                    "input_edges": [],
-                    "output_edges": [],
                 }
             ],
+            "global_config": {},
         }
 
         flow_file = tmp_path / "nonexistent_op.json"

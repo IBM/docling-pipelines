@@ -1662,71 +1662,66 @@ datasift-orchestrator --list-operators --verbose    # Detailed view
 
 ## Flow Configuration API
 
-The sample flow structure in [`tests/sample_test_flows/invoice_processing/flow_invoice.json`](tests/sample_test_flows/invoice_processing/flow_invoice.json) shows the current schema style.
+Datasift uses a simplified authoring format for creating flows. See [`sample_flows/complete_pipeline_flow.json`](sample_flows/complete_pipeline_flow.json) for a complete example.
 
 ### Root structure
 
 ```json
 {
-  "flow": {
-    "name": "invoice processing flow",
-    "flow_id": "uuid",
-    "description": "description",
+  "flow_name": "invoice processing flow",
+  "description": "description",
+  "flow": [],
+  "global_config": {
     "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {},
-    "dag": []
+    "execute_type": "local"
   }
 }
 ```
-
 [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py:140) also accepts root-level flow definitions without a wrapping `flow` key.
 
 ### Flow fields
 
 | Field           | Type   | Required | Description                       |
 | --------------- | ------ | -------: | --------------------------------- |
-| `name`          | string |      Yes | Human-readable flow name          |
-| `flow_id`       | string |       No | Stable identifier                 |
+| `flow_name`     | string |      Yes | Human-readable flow name          |
 | `description`   | string |       No | Flow description                  |
-| `storage`       | string |       No | Storage mode                      |
-| `execute_type`  | string |       No | Execution backend                 |
+| `flow`          | array  |      Yes | Ordered operator definitions      |
 | `global_config` | object |       No | Shared runtime config             |
-| `dag`           | array  |      Yes | Ordered operator node definitions |
 
-### Node structure
+### Operator structure
 
 ```json
 {
-  "id": "uuid",
-  "name": "operator name",
-  "operator": "short_name",
-  "config": {},
-  "input_edges": [],
-  "output_edges": []
+  "name": "operator_name",
+  "type": "operator_type",
+  "depends_on": ["upstream_operator"],
+  "config": {}
 }
 ```
 
-### Node fields
+### Operator fields
 
-| Field          | Type   | Required | Description                    |
-| -------------- | ------ | -------: | ------------------------------ |
-| `id`           | string |      Yes | Unique node ID                 |
-| `name`         | string |      Yes | Display name                   |
-| `operator`     | string |      Yes | Registered operator short name |
-| `config`       | object |       No | Operator-specific config       |
-| `input_edges`  | array  |       No | Upstream links                 |
-| `output_edges` | array  |       No | Downstream links               |
+| Field       | Type   | Required | Description                                |
+| ----------- | ------ | -------: | ------------------------------------------ |
+| `name`      | string |      Yes | Unique operator name within the flow       |
+| `type`      | string |      Yes | Registered operator type (e.g., `chunker`) |
+| `depends_on`| array  |       No | List of upstream operator names            |
+| `config`    | object |       No | Operator-specific configuration            |
 
-### Edge structure
+### Dependency declaration
 
-Observed forms in the sample flow:
+Operators declare dependencies using the `depends_on` field:
 
 ```json
-{ "node_id_ref": "target-node-id" }
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {}
+}
 ```
 
-and direct string references in some `output_edges` entries.
+The system automatically generates the execution DAG from these dependencies.
 
 ### Validation rules
 

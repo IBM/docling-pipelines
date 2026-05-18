@@ -1,83 +1,72 @@
 {
-  "flow": {
-    "name": "PII and HAP Detection Flow - WatsonX.ai Provider",
-    "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567891",
-    "description": "Flow to test PII and HAP detection using hexagonal architecture with WatsonX.ai provider",
+  "flow_name": "PII and HAP Detection Flow - WatsonX.ai Provider",
+  "description": "Flow to test PII and HAP detection using hexagonal architecture with WatsonX.ai provider",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true,
     "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "disable_validation": "true",
-      "force_ingest": true
-    },
-    "dag": [
-      {
-        "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
-        "name": "ingest",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "tests/fixtures/customer_support_docs/",
-          "include_filter": "txt",
-          "store_binary_content": false,
-          "max_workers": 2
-        },
-        "input_edges": [],
-        "output_edges": [
-          { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
-        ]
-      },
-      {
-        "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
-        "name": "extract",
-        "operator": "extract_docling",
-        "config": {
-          "doc_column": "content"
-        },
-        "input_edges": [
-          { "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
-        ],
-        "output_edges": [
-          { "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
-        ]
-      },
-      {
-        "id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
-        "name": "pii_and_hap_detection_watsonx",
-        "operator": "pii_and_hap",
-        "config": {
-          "provider": "watsonx",
-          "provider_config": {
-            "api_key": "<your api key>",
-            "url": "https://wxai-qa.ml.cloud.ibm.com",
-            "container_kind": "project",
-            "container_id": "<your project id>"
-          },
-          "pii_threshold": 0.5,
-          "hap_threshold": 0.75,
-          "expected_redactions": ["pii", "hap"],
-          "pii_list": [
-            "EmailAddress",
-            "PhoneNumber",
-            "SocialSecurityNumber",
-            "CreditCardNumber",
-            "BankAccountNumber",
-            "IPAddress"
-          ],
-          "redaction": true,
-          "redaction_character": "*",
-          "hap_redaction": true,
-          "hap_redaction_character": "#",
-          "display_pii": true,
-          "batch_size": 4,
-          "min_chunk_size_kb": 51200,
-          "max_chunk_size_kb": 102400,
-          "doc_column": "content"
-        },
-        "input_edges": [
-          { "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89" }
-        ],
-        "output_edges": []
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "tests/fixtures/customer_support_docs/",
+        "include_filter": "txt",
+        "store_binary_content": false,
+        "max_workers": 2
       }
-    ]
-  }
+    },
+    {
+      "name": "extract",
+      "type": "extract_docling",
+      "config": {
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    },
+    {
+      "name": "pii_and_hap_detection_watsonx",
+      "type": "pii_and_hap",
+      "config": {
+        "provider": "watsonx",
+        "provider_config": {
+          "api_key": "<your api key>",
+          "url": "https://wxai-qa.ml.cloud.ibm.com",
+          "container_kind": "project",
+          "container_id": "<your project id>"
+        },
+        "pii_threshold": 0.5,
+        "hap_threshold": 0.75,
+        "expected_redactions": [
+          "pii",
+          "hap"
+        ],
+        "pii_list": [
+          "EmailAddress",
+          "PhoneNumber",
+          "SocialSecurityNumber",
+          "CreditCardNumber",
+          "BankAccountNumber",
+          "IPAddress"
+        ],
+        "redaction": true,
+        "redaction_character": "*",
+        "hap_redaction": true,
+        "hap_redaction_character": "#",
+        "display_pii": true,
+        "batch_size": 4,
+        "min_chunk_size_kb": 51200,
+        "max_chunk_size_kb": 102400,
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "extract"
+      ]
+    }
+  ]
 }

@@ -97,20 +97,16 @@ Merge documents from two different directories:
 
 ```json
 {
-  "id": "merge-node-1",
   "name": "merge_documents",
-  "operator": "merge",
+  "type": "merge",
+  "depends_on": ["ingest_folder_1", "ingest_folder_2"],
   "config": {
     "merge_type": "rows",
     "input_links": [
       {"link_name": "source1"},
       {"link_name": "source2"}
     ]
-  },
-  "input_edges": [
-    {"node_id_ref": "ingest-node-1", "link_name": "source1"},
-    {"node_id_ref": "ingest-node-2", "link_name": "source2"}
-  ]
+  }
 }
 ```
 
@@ -119,9 +115,9 @@ Combine readability scores with language detection results:
 
 ```json
 {
-  "id": "merge-node-2",
   "name": "merge_analyses",
-  "operator": "merge",
+  "type": "merge",
+  "depends_on": ["compute_readability", "detect_language"],
   "config": {
     "merge_type": "columns",
     "column_option": "inner_join",
@@ -129,11 +125,7 @@ Combine readability scores with language detection results:
       {"link_name": "readability"},
       {"link_name": "language"}
     ]
-  },
-  "input_edges": [
-    {"node_id_ref": "readability-node", "link_name": "readability"},
-    {"node_id_ref": "language-node", "link_name": "language"}
-  ]
+  }
 }
 ```
 
@@ -142,9 +134,9 @@ Merge optional enrichments, keeping all documents:
 
 ```json
 {
-  "id": "merge-node-3",
   "name": "merge_enrichments",
-  "operator": "merge",
+  "type": "merge",
+  "depends_on": ["extract", "scoring"],
   "config": {
     "merge_type": "columns",
     "column_option": "full_outer",
@@ -152,11 +144,7 @@ Merge optional enrichments, keeping all documents:
       {"link_name": "base_docs"},
       {"link_name": "optional_scores"}
     ]
-  },
-  "input_edges": [
-    {"node_id_ref": "extract-node", "link_name": "base_docs"},
-    {"node_id_ref": "scoring-node", "link_name": "optional_scores"}
-  ]
+  }
 }
 ```
 
@@ -165,43 +153,37 @@ Merge optional enrichments, keeping all documents:
 ### Flow 1: Merging Multiple Data Sources
 ```json
 {
-  "dag": [
+  "flow_name": "Merge Multiple Data Sources",
+  "description": "Merge documents from two different directories",
+  "global_config": {
+    "doc_column": "content"
+  },
+  "flow": [
     {
-      "id": "ingest-1",
       "name": "ingest_folder_1",
-      "operator": "ingest_local_folder",
+      "type": "ingest_local",
       "config": {
         "input_folder": "./data/source1"
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "merge-1"}]
+      }
     },
     {
-      "id": "ingest-2",
       "name": "ingest_folder_2",
-      "operator": "ingest_local_folder",
+      "type": "ingest_local",
       "config": {
         "input_folder": "./data/source2"
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "merge-1"}]
+      }
     },
     {
-      "id": "merge-1",
       "name": "merge_sources",
-      "operator": "merge",
+      "type": "merge",
+      "depends_on": ["ingest_folder_1", "ingest_folder_2"],
       "config": {
         "merge_type": "rows",
         "input_links": [
           {"link_name": "source1"},
           {"link_name": "source2"}
         ]
-      },
-      "input_edges": [
-        {"node_id_ref": "ingest-1", "link_name": "source1"},
-        {"node_id_ref": "ingest-2", "link_name": "source2"}
-      ],
-      "output_edges": []
+      }
     }
   ]
 }
@@ -210,42 +192,37 @@ Merge optional enrichments, keeping all documents:
 ### Flow 2: Combining Analysis Results
 ```json
 {
-  "dag": [
+  "flow_name": "Combine Analysis Results",
+  "description": "Merge readability and language detection results",
+  "global_config": {
+    "doc_column": "content"
+  },
+  "flow": [
     {
-      "id": "ingest-1",
       "name": "ingest_documents",
-      "operator": "ingest_local_folder",
+      "type": "ingest_local",
       "config": {
         "input_folder": "./documents"
-      },
-      "input_edges": [],
-      "output_edges": [
-        {"node_id_ref": "branch-1"},
-        {"node_id_ref": "branch-2"}
-      ]
+      }
     },
     {
-      "id": "branch-1",
       "name": "compute_readability",
-      "operator": "readability",
+      "type": "readability",
+      "depends_on": ["ingest_documents"],
       "config": {
         "readability_score_list": ["flesch_ease", "flesch_kincaid"]
-      },
-      "input_edges": [{"node_id_ref": "ingest-1"}],
-      "output_edges": [{"node_id_ref": "merge-1"}]
+      }
     },
     {
-      "id": "branch-2",
       "name": "detect_language",
-      "operator": "language_detection",
-      "config": {},
-      "input_edges": [{"node_id_ref": "ingest-1"}],
-      "output_edges": [{"node_id_ref": "merge-1"}]
+      "type": "language_detection",
+      "depends_on": ["ingest_documents"],
+      "config": {}
     },
     {
-      "id": "merge-1",
       "name": "merge_analyses",
-      "operator": "merge",
+      "type": "merge",
+      "depends_on": ["compute_readability", "detect_language"],
       "config": {
         "merge_type": "columns",
         "column_option": "inner_join",
@@ -253,12 +230,7 @@ Merge optional enrichments, keeping all documents:
           {"link_name": "readability"},
           {"link_name": "language"}
         ]
-      },
-      "input_edges": [
-        {"node_id_ref": "branch-1", "link_name": "readability"},
-        {"node_id_ref": "branch-2", "link_name": "language"}
-      ],
-      "output_edges": []
+      }
     }
   ]
 }

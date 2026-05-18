@@ -47,8 +47,13 @@ def app():
 
 @pytest.fixture
 def client(app):
-    """Create FastAPI test client."""
-    return TestClient(app)
+    """Create FastAPI test client.
+
+    Uses raise_server_exceptions=False to ensure validation errors are handled
+    by the registered exception handlers and converted to proper HTTP responses,
+    rather than being raised directly to the test.
+    """
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture
@@ -80,7 +85,7 @@ class TestCreateFlowEndpoint:
         }
 
         # Act
-        response = client.post("/flows", json=request_data)
+        response = client.post("/flows?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 201
@@ -95,7 +100,7 @@ class TestCreateFlowEndpoint:
         request_data = {"name": "Minimal Flow"}
 
         # Act
-        response = client.post("/flows", json=request_data)
+        response = client.post("/flows?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 201
@@ -103,43 +108,69 @@ class TestCreateFlowEndpoint:
 
     def test_create_flow_with_invalid_name_returns_400(self, client, override_service):
         """Test creating a flow with invalid name returns 400."""
-        # Arrange
-        request_data = {"name": ""}
+        # Arrange - Elyra format with empty name
+        request_data = {
+            "name": "",
+            "definition": {
+                "doc_type": "pipeline",
+                "version": "3.0",
+                "pipelines": [{"id": "pipeline1", "nodes": []}],
+                "parameters": {},
+            },
+        }
 
         # Act
-        response = client.post("/flows", json=request_data)
+        response = client.post("/flows?is_elyra=true", json=request_data)
 
-        # Assert - FastAPI validation errors now return 400
+        # Assert - Pydantic validation errors return 400 with invalid_parameter code
         assert response.status_code == 400
         data = response.json()
-        assert data["errors"][0]["code"] == "validation_error"
+        assert data["errors"][0]["code"] == "invalid_parameter"
         assert "name" in data["errors"][0]["message"].lower()
 
     def test_create_flow_with_invalid_container_kind_returns_400(self, client):
         """Test creating a flow with invalid container_kind returns 400."""
-        # Arrange
-        request_data = {"name": "Test Flow", "container_kind": "invalid"}
+        # Arrange - Elyra format with invalid container_kind
+        request_data = {
+            "name": "Test Flow",
+            "container_kind": "invalid",
+            "definition": {
+                "doc_type": "pipeline",
+                "version": "3.0",
+                "pipelines": [{"id": "pipeline1", "nodes": []}],
+                "parameters": {},
+            },
+        }
 
         # Act
-        response = client.post("/flows", json=request_data)
+        response = client.post("/flows?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 400
         data = response.json()
-        assert data["errors"][0]["code"] == "validation_error"
+        assert data["errors"][0]["code"] == "invalid_parameter"
 
     def test_create_flow_with_invalid_uuid_returns_400(self, client):
         """Test creating a flow with invalid UUID format returns 400."""
-        # Arrange
-        request_data = {"name": "Test Flow", "container_id": "not-a-uuid"}
+        # Arrange - Elyra format with invalid container_id
+        request_data = {
+            "name": "Test Flow",
+            "container_id": "not-a-uuid",
+            "definition": {
+                "doc_type": "pipeline",
+                "version": "3.0",
+                "pipelines": [{"id": "pipeline1", "nodes": []}],
+                "parameters": {},
+            },
+        }
 
         # Act
-        response = client.post("/flows", json=request_data)
+        response = client.post("/flows?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 400
         data = response.json()
-        assert data["errors"][0]["code"] == "validation_error"
+        assert data["errors"][0]["code"] == "invalid_parameter"
 
     def test_create_flow_with_filesystem_error_returns_500(self, client, override_service):
         """Test creating a flow with filesystem error returns 500."""
@@ -151,7 +182,7 @@ class TestCreateFlowEndpoint:
         request_data = {"name": "Test Flow"}
 
         # Act
-        response = client.post("/flows", json=request_data)
+        response = client.post("/flows?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 500
@@ -168,7 +199,7 @@ class TestCreateFlowEndpoint:
         request_data = {"name": "Test Flow"}
 
         # Act
-        response = client.post("/flows", json=request_data)
+        response = client.post("/flows?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 409
@@ -176,13 +207,25 @@ class TestCreateFlowEndpoint:
         assert data["errors"][0]["code"] == "flow_already_exists"
         assert "Test Flow" in data["errors"][0]["message"]
 
-    def test_create_flow_with_is_elyra_false_returns_201(self, client, override_service, sample_flow_with_id):
+    def test_create_flow_with_is_elyra_false_returns_201(self, client, override_service, sample_authoring_flow_with_id):
         """Test creating a flow with is_elyra=false query parameter returns 201."""
         # Arrange
-        override_service.create_flow.return_value = sample_flow_with_id
+        override_service.create_flow.return_value = sample_authoring_flow_with_id
         request_data = {
-            "name": "Test Flow",
-            "definition": {"flow": {"dag": [{"id": "node1", "operator": "ingest_local"}]}},
+            "flow_name": "Test Flow",
+            "flow": [
+                {
+                    "type": "ingest_local",
+                    "name": "ingest_node",
+                    "config": {"input_folder": "./data"},
+                },
+                {
+                    "type": "extract_operator",
+                    "name": "extract_node",
+                    "config": {},
+                    "depends_on": ["ingest_node"],
+                },
+            ],
         }
 
         # Act
@@ -190,7 +233,7 @@ class TestCreateFlowEndpoint:
 
         # Assert
         assert response.status_code == 201
-        assert response.json()["name"] == "Test Flow"
+        assert response.json()["flow_name"] == "Test Flow"
         # Verify service was called with is_elyra=False
         call_args = override_service.create_flow.call_args
         assert not call_args.kwargs.get("is_elyra")
@@ -218,11 +261,28 @@ class TestCreateFlowEndpoint:
         call_args = override_service.create_flow.call_args
         assert call_args.kwargs.get("is_elyra")
 
-    def test_create_flow_without_is_elyra_defaults_to_false(self, client, override_service, sample_flow_with_id):
-        """Test creating a flow without is_elyra parameter defaults to false."""
+    def test_create_flow_without_is_elyra_defaults_to_false(
+        self, client, override_service, sample_authoring_flow_with_id
+    ):
+        """Test creating a flow without is_elyra parameter defaults to false (Authoring format)."""
         # Arrange
-        override_service.create_flow.return_value = sample_flow_with_id
-        request_data = {"name": "Test Flow"}
+        override_service.create_flow.return_value = sample_authoring_flow_with_id
+        request_data = {
+            "flow_name": "Test Flow",
+            "flow": [
+                {
+                    "type": "ingest_local",
+                    "name": "ingest_node",
+                    "config": {"input_folder": "./data"},
+                },
+                {
+                    "type": "extract_operator",
+                    "name": "extract_node",
+                    "config": {},
+                    "depends_on": ["ingest_node"],
+                },
+            ],
+        }
 
         # Act
         response = client.post("/flows", json=request_data)
@@ -232,6 +292,98 @@ class TestCreateFlowEndpoint:
         # Verify service was called with is_elyra=False (default)
         call_args = override_service.create_flow.call_args
         assert not call_args.kwargs.get("is_elyra")
+
+    def test_create_flow_with_authoring_format_complete_pipeline(
+        self, client, override_service, sample_authoring_flow_with_id
+    ):
+        """Test creating a complete pipeline flow using authoring format."""
+        # Arrange
+        override_service.create_flow.return_value = sample_authoring_flow_with_id
+        request_data = {
+            "flow_name": "complete-document-pipeline",
+            "description": "Complete RAG pipeline",
+            "flow": [
+                {"type": "ingest_local", "name": "ingest", "config": {"input_folder": "./docs"}},
+                {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
+                {"type": "chunker", "name": "chunk", "depends_on": ["extract"], "config": {"chunk_size": 512}},
+                {"type": "embeddings", "name": "embed", "depends_on": ["chunk"]},
+                {"type": "vectordb", "name": "store", "depends_on": ["embed"]},
+            ],
+            "global_config": {"doc_column": "content"},
+            "tags": ["rag", "production"],
+        }
+
+        # Act
+        response = client.post("/flows", json=request_data)
+
+        # Assert
+        assert response.status_code == 201
+        assert response.json()["flow_name"] == "Test Flow"
+        call_args = override_service.create_flow.call_args
+        assert not call_args.kwargs.get("is_elyra")
+
+    def test_create_flow_with_authoring_format_branching(self, client, override_service, sample_authoring_flow_with_id):
+        """Test creating a branching flow using authoring format."""
+        # Arrange
+        override_service.create_flow.return_value = sample_authoring_flow_with_id
+        request_data = {
+            "flow_name": "branching-pipeline",
+            "flow": [
+                {"type": "ingest_local", "name": "ingest"},
+                {
+                    "type": "branching",
+                    "name": "classify",
+                    "depends_on": ["ingest"],
+                    "config": {
+                        "branches": {
+                            "invoices": {"condition": "type == 'invoice'"},
+                            "receipts": {"condition": "type == 'receipt'"},
+                        }
+                    },
+                },
+                {"type": "extract_operator", "name": "proc_inv", "depends_on": ["classify.invoices"]},
+                {"type": "extract_operator", "name": "proc_rec", "depends_on": ["classify.receipts"]},
+            ],
+        }
+
+        # Act
+        response = client.post("/flows", json=request_data)
+
+        # Assert
+        assert response.status_code == 201
+
+    def test_create_flow_with_authoring_format_invalid_structure_returns_400(self, client, override_service):
+        """Test creating flow with invalid authoring format structure returns 400."""
+        # Arrange - Missing required 'name' field in operator
+        request_data = {
+            "flow_name": "invalid-flow",
+            "flow": [
+                {"type": "ingest_local", "config": {"input_folder": "./data"}},  # Missing 'name'
+            ],
+        }
+
+        # Act
+        response = client.post("/flows", json=request_data)
+
+        # Assert
+        assert response.status_code == 400
+        data = response.json()
+        assert data["errors"][0]["code"] == "invalid_parameter"
+        assert "name" in data["errors"][0]["message"].lower()
+
+    def test_create_flow_with_authoring_format_empty_flow_list_returns_400(self, client, override_service):
+        """Test creating flow with empty flow list returns 400."""
+        # Arrange
+        request_data = {"flow_name": "empty-flow", "flow": []}
+
+        # Act
+        response = client.post("/flows", json=request_data)
+
+        # Assert
+        assert response.status_code == 400
+        data = response.json()
+        assert data["errors"][0]["code"] == "invalid_parameter"
+        assert "flow" in data["errors"][0]["message"].lower()
 
 
 class TestGetFlowEndpoint:
@@ -318,8 +470,8 @@ class TestListFlowsEndpoint:
         override_service.list_flows.return_value = multiple_sample_flows
         override_service.count_flows.return_value = 5
 
-        # Act
-        response = client.get("/flows")
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.get("/flows?is_elyra=true")
 
         # Assert
         assert response.status_code == 200
@@ -335,8 +487,8 @@ class TestListFlowsEndpoint:
         override_service.list_flows.return_value = multiple_sample_flows[2:4]
         override_service.count_flows.return_value = 5
 
-        # Act
-        response = client.get("/flows?offset=2&limit=2")
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.get("/flows?offset=2&limit=2&is_elyra=true")
 
         # Assert
         assert response.status_code == 200
@@ -344,7 +496,7 @@ class TestListFlowsEndpoint:
         assert len(data["flows"]) == 2
         assert data["offset"] == 2
         assert data["limit"] == 2
-        assert data["next"] is not None  # Has more pages
+        assert data["next"] is not None  # Has more pages (offset=2, len=2, total=5)
 
     def test_list_flows_with_name_filter_returns_200(self, client, override_service, multiple_sample_flows):
         """Test listing flows with name filter returns 200."""
@@ -353,8 +505,8 @@ class TestListFlowsEndpoint:
         override_service.list_flows.return_value = filtered_flows
         override_service.count_flows.return_value = 1
 
-        # Act
-        response = client.get("/flows?name=Flow 2")
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.get("/flows?name=Flow 2&is_elyra=true")
 
         # Assert
         assert response.status_code == 200
@@ -371,8 +523,8 @@ class TestListFlowsEndpoint:
         override_service.list_flows.return_value = [multiple_sample_flows[1]]
         override_service.count_flows.return_value = 1
 
-        # Act
-        response = client.get("/flows?tags=tag-1")
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.get("/flows?tags=tag-1&is_elyra=true")
 
         # Assert
         assert response.status_code == 200
@@ -388,8 +540,8 @@ class TestListFlowsEndpoint:
         override_service.list_flows.return_value = hidden_flows
         override_service.count_flows.return_value = len(hidden_flows)
 
-        # Act
-        response = client.get("/flows?is_hidden=true")
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.get("/flows?is_hidden=true&is_elyra=true")
 
         # Assert
         assert response.status_code == 200
@@ -446,8 +598,8 @@ class TestUpdateFlowEndpoint:
         override_service.update_flow.return_value = updated_flow
         request_data = {"name": "Updated Flow", "description": "Updated description"}
 
-        # Act
-        response = client.put("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.put("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 200
@@ -463,8 +615,8 @@ class TestUpdateFlowEndpoint:
         )
         request_data = {"name": "Updated Flow"}
 
-        # Act
-        response = client.put(f"/flows/{nonexistent_id}", json=request_data)
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.put(f"/flows/{nonexistent_id}?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 404
@@ -483,7 +635,7 @@ class TestUpdateFlowEndpoint:
         # Assert - FastAPI validation errors now return 400
         assert response.status_code == 400
         data = response.json()
-        assert data["errors"][0]["code"] == "validation_error"
+        assert data["errors"][0]["code"] == "invalid_parameter"
 
     def test_update_flow_with_invalid_uuid_format_returns_422(self, client):
         """Test updating a flow with invalid UUID format returns 400."""
@@ -510,14 +662,70 @@ class TestUpdateFlowEndpoint:
         )
         request_data = {"name": "Updated Flow"}
 
-        # Act
-        response = client.put(f"/flows/{test_id}", json=request_data)
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.put(f"/flows/{test_id}?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 500
         data = response.json()
         assert data["errors"][0]["code"] == "flow_storage_error"
         assert "storage" in data["errors"][0]["message"].lower()
+
+    def test_update_flow_with_authoring_format_returns_200(self, client, override_service, sample_flow_with_id):
+        """Test updating a flow with authoring format returns 200."""
+        # Arrange
+        updated_flow = sample_flow_with_id
+        updated_flow.name = "updated-pipeline"
+        updated_flow.description = "Updated description"
+        # The definition stores the complete authoring format as a dict
+        updated_flow.definition = {
+            "flow_name": "updated-pipeline",
+            "description": "Updated description",
+            "flow": [{"type": "ingest_local", "name": "ingest", "config": {}}],
+            "global_config": {},
+            "tags": ["updated"],
+        }
+        override_service.update_flow.return_value = updated_flow
+
+        # Request data in authoring format
+        request_data = {
+            "flow_name": "updated-pipeline",
+            "description": "Updated description",
+            "flow": [{"type": "ingest_local", "name": "ingest", "config": {}}],
+            "global_config": {},
+            "tags": ["updated"],
+        }
+
+        # Act
+        response = client.put("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=false", json=request_data)
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json()["flow_name"] == "updated-pipeline"  # Authoring response has flow_name
+        override_service.update_flow.assert_called_once()
+
+    def test_update_flow_with_elyra_format_returns_200(self, client, override_service, sample_flow_with_id):
+        """Test updating a flow with Elyra format returns 200."""
+        # Arrange
+        updated_flow = sample_flow_with_id
+        updated_flow.name = "Updated Elyra Flow"
+        override_service.update_flow.return_value = updated_flow
+        request_data = {
+            "name": "Updated Elyra Flow",
+            "definition": {
+                "doc_type": "pipeline",
+                "version": "3.0",
+                "pipelines": [{"id": "pipeline1", "nodes": []}],
+            },
+        }
+
+        # Act
+        response = client.put("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json()["name"] == "Updated Elyra Flow"  # Elyra response has name
+        override_service.update_flow.assert_called_once()
 
 
 class TestPartialUpdateFlowEndpoint:
@@ -531,8 +739,8 @@ class TestPartialUpdateFlowEndpoint:
         override_service.partial_update_flow.return_value = updated_flow
         request_data = {"description": "Partially updated"}
 
-        # Act
-        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 200
@@ -547,12 +755,121 @@ class TestPartialUpdateFlowEndpoint:
         override_service.partial_update_flow.return_value = updated_flow
         request_data = {"name": "New Name"}
 
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json()["name"] == "New Name"
+
+    def test_partial_update_flow_name_authoring_format_returns_200(self, client, override_service, sample_flow_with_id):
+        """Test partially updating flow_name in authoring format returns 200."""
+        # Arrange
+        updated_flow = sample_flow_with_id
+        updated_flow.name = "new-flow-name"
+        # Definition should also have updated flow_name
+        updated_flow.definition = {
+            "flow_name": "new-flow-name",
+            "flow": [
+                {"type": "ingest_local", "name": "ingest", "config": {}},
+            ],
+            "global_config": {"doc_column": "content"},
+            "description": "Test flow",
+            "tags": ["test"],
+        }
+        override_service.partial_update_flow.return_value = updated_flow
+        request_data = {"flow_name": "new-flow-name"}
+
         # Act
         response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
 
         # Assert
         assert response.status_code == 200
-        assert response.json()["name"] == "New Name"
+        assert response.json()["flow_name"] == "new-flow-name"
+        override_service.partial_update_flow.assert_called_once()
+
+    def test_partial_update_flow_definition_authoring_format_returns_200(
+        self, client, override_service, sample_flow_with_id
+    ):
+        """Test partially updating flow definition in authoring format returns 200."""
+        # Arrange
+        updated_flow = sample_flow_with_id
+        # Definition should have complete authoring format with updated flow operators
+        updated_flow.definition = {
+            "flow_name": "test-flow",
+            "flow": [
+                {"type": "ingest_local", "name": "ingest", "config": {}},
+                {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
+            ],
+            "global_config": {"doc_column": "content"},
+            "description": "Test flow",
+            "tags": ["test"],
+        }
+        override_service.partial_update_flow.return_value = updated_flow
+        request_data = {
+            "flow": [
+                {"type": "ingest_local", "name": "ingest", "config": {}},
+                {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
+            ],
+            "global_config": {"doc_column": "content"},
+        }
+
+        # Act
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=false", json=request_data)
+
+        # Assert
+        assert response.status_code == 200
+        assert len(response.json()["flow"]) == 2
+        override_service.partial_update_flow.assert_called_once()
+
+    def test_partial_update_multiple_fields_authoring_format_returns_200(
+        self, client, override_service, sample_flow_with_id
+    ):
+        """Test partially updating multiple fields in authoring format returns 200."""
+        # Arrange
+        updated_flow = sample_flow_with_id
+        updated_flow.name = "updated-name"
+        updated_flow.description = "Updated description"
+        updated_flow.tags = ["updated", "test"]
+        updated_flow.definition = {
+            "flow_name": "updated-name",
+            "description": "Updated description",
+            "flow": [{"type": "noop", "name": "op1"}],
+            "global_config": {},
+            "tags": ["updated", "test"],
+        }
+        override_service.partial_update_flow.return_value = updated_flow
+        request_data = {
+            "flow_name": "updated-name",
+            "description": "Updated description",
+            "tags": ["updated", "test"],
+        }
+
+        # Act
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json()["flow_name"] == "updated-name"
+        assert response.json()["description"] == "Updated description"
+        assert response.json()["tags"] == ["updated", "test"]
+        override_service.partial_update_flow.assert_called_once()
+
+    def test_partial_update_elyra_format_returns_200(self, client, override_service, sample_flow_with_id):
+        """Test partially updating with Elyra format returns 200."""
+        # Arrange
+        updated_flow = sample_flow_with_id
+        updated_flow.description = "Updated via Elyra"
+        override_service.partial_update_flow.return_value = updated_flow
+        request_data = {"description": "Updated via Elyra"}
+
+        # Act
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json()["description"] == "Updated via Elyra"
+        override_service.partial_update_flow.assert_called_once()
 
     def test_partial_update_flow_with_nonexistent_id_returns_404(self, client, override_service):
         """Test partially updating a non-existent flow returns 404."""
@@ -586,18 +903,38 @@ class TestPartialUpdateFlowEndpoint:
         assert data["errors"][0]["code"] == "validation_error"
         assert "flow_id" in data["errors"][0]["message"].lower()
 
-    def test_partial_update_flow_with_invalid_data_returns_400(self, client, override_service):
+    def test_partial_update_flow_with_invalid_data_returns_400(self, client, override_service, sample_flow_with_id):
         """Test partially updating a flow with invalid data returns 400."""
-        # Arrange
-        request_data = {"name": ""}
+        # Use invalid data that fails validation for both Elyra and Authoring formats
+        request_data = {"tags": "not-a-list"}  # tags must be a list, not a string
 
-        # Act
-        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)
 
-        # Assert - FastAPI validation errors now return 400
+        # Assert - Pydantic validation errors return 400 with validation_error code
         assert response.status_code == 400
         data = response.json()
-        assert data["errors"][0]["code"] == "validation_error"
+        assert data["errors"][0]["code"] == "invalid_parameter"
+        assert "tags" in data["errors"][0]["message"].lower()
+
+    def test_partial_update_flow_with_empty_name_returns_400(self, client, override_service, sample_flow_with_id):
+        """Test that empty name field is properly validated and not silently ignored.
+
+        This test ensures the union type fix prevents silent data loss where
+        {"name": ""} with is_elyra=true would be accepted as AuthoringFlowUpdateRequest
+        (which ignores the unknown 'name' field) instead of being validated against
+        ElyraFlowUpdateRequest (which would reject empty string).
+        """
+        # Arrange
+        request_data = {"name": ""}  # Empty string violates min_length=1 for Elyra format
+
+        # Act - Use is_elyra=true to ensure validation against ElyraFlowUpdateRequest
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)
+
+        # Assert - Should return 400 with validation error, not silently ignore the field
+        assert response.status_code == 400
+        data = response.json()
+        assert data["errors"][0]["code"] == "invalid_parameter"
         assert "name" in data["errors"][0]["message"].lower()
 
     def test_partial_update_flow_with_empty_body_returns_200(self, client, override_service, sample_flow_with_id):
@@ -606,8 +943,8 @@ class TestPartialUpdateFlowEndpoint:
         override_service.partial_update_flow.return_value = sample_flow_with_id
         request_data = {}
 
-        # Act
-        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc", json=request_data)
+        # Act - Use is_elyra=true to match Elyra format fixtures
+        response = client.patch("/flows/12345678-1234-1234-1234-123456789abc?is_elyra=true", json=request_data)
 
         # Assert
         assert response.status_code == 200
@@ -676,7 +1013,7 @@ class TestFlowRoutesIntegration:
         override_service.get_flow.return_value = sample_flow_with_id
 
         # Act - Create
-        create_response = client.post("/flows", json={"name": "Test Flow"})
+        create_response = client.post("/flows?is_elyra=true", json={"name": "Test Flow"})
         flow_id = create_response.json()["flow_id"]
 
         # Act - Get
@@ -687,21 +1024,26 @@ class TestFlowRoutesIntegration:
         assert get_response.status_code == 200
         assert get_response.json()["flow_id"] == flow_id
 
-    def test_create_update_and_delete_flow_workflow(self, client, override_service, sample_flow_with_id):
+    def test_create_update_and_delete_flow_workflow(
+        self, client, override_service, sample_authoring_flow_with_id, sample_flow_with_id
+    ):
         """Test creating, updating, and deleting a flow."""
         # Arrange
-        override_service.create_flow.return_value = sample_flow_with_id
+        override_service.create_flow.return_value = sample_authoring_flow_with_id
         updated_flow = sample_flow_with_id
         updated_flow.name = "Updated Name"
         override_service.update_flow.return_value = updated_flow
         override_service.delete_flow.return_value = True
 
-        # Act - Create
-        create_response = client.post("/flows", json={"name": "Test Flow"})
+        # Act - Create (using authoring format, is_elyra defaults to false)
+        create_response = client.post(
+            "/flows", json={"flow_name": "Test Flow", "flow": [{"type": "noop", "name": "op1"}]}
+        )
+        assert create_response.status_code == 201, f"Create failed: {create_response.json()}"
         flow_id = create_response.json()["flow_id"]
 
-        # Act - Update
-        update_response = client.put(f"/flows/{flow_id}", json={"name": "Updated Name"})
+        # Act - Update (use is_elyra=true to match Elyra format)
+        update_response = client.put(f"/flows/{flow_id}?is_elyra=true", json={"name": "Updated Name"})
 
         # Act - Delete
         delete_response = client.delete(f"/flows/{flow_id}")

@@ -1,56 +1,44 @@
 {
-  "name": "merge-operator-row-different-dirs",
-  "flow_id": "d1e2f3a4-b5c6-4d7e-8f9a-0b1c2d3e4f5a",
+  "flow_name": "merge-operator-row-different-dirs",
   "description": "Test row merge with documents from two different directories",
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
     "disable_validation": "true",
-    "force_ingest": true
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
   },
-  "dag": [
+  "flow": [
     {
-      "id": "e2f3a4b5-c6d7-4e8f-9a0b-1c2d3e4f5a6b",
       "name": "ingest_invoices",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "input_folder": "./tests/fixtures/invoices",
         "include_filter": "txt,md",
         "store_binary_content": false,
         "max_workers": 2
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "a4b5c6d7-e8f9-4a0b-1c2d-3e4f5a6b7c8d"}]
+      }
     },
     {
-      "id": "f3a4b5c6-d7e8-4f9a-0b1c-2d3e4f5a6b7c",
       "name": "ingest_purchase_orders",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "input_folder": "./tests/fixtures/purchase_orders",
         "include_filter": "txt",
         "store_binary_content": false,
         "max_workers": 2
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "a4b5c6d7-e8f9-4a0b-1c2d-3e4f5a6b7c8d"}]
+      }
     },
     {
-      "id": "a4b5c6d7-e8f9-4a0b-1c2d-3e4f5a6b7c8d",
       "name": "merge_documents",
-      "operator": "merge",
+      "type": "merge",
+      "depends_on": ["ingest_invoices", "ingest_purchase_orders"],
       "config": {
         "merge_type": "rows",
         "input_links": [
           {"link_name": "invoices"},
           {"link_name": "purchase_orders"}
         ]
-      },
-      "input_edges": [
-        {"node_id_ref": "e2f3a4b5-c6d7-4e8f-9a0b-1c2d3e4f5a6b", "link_name": "invoices"},
-        {"node_id_ref": "f3a4b5c6-d7e8-4f9a-0b1c-2d3e4f5a6b7c", "link_name": "purchase_orders"}
-      ],
-      "output_edges": []
+      }
     }
   ]
 }

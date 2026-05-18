@@ -564,55 +564,46 @@ Each feature in the `features` dictionary contains:
 
 ### 3. Flow/Pipeline Concept
 
-A **Flow** is a JSON-defined configuration that specifies:
-
-- **DAG Structure**: Directed Acyclic Graph of operator nodes
-- **Nodes**: Operator instances with unique UUIDs and configurations
-- **Edges**: Data flow connections between operators via input/output edges
-- **Parameters**: Runtime configuration values
+A **Flow** is a JSON-defined configuration that specifies a pipeline of operators connected in a directed acyclic graph (DAG).
 
 **Example Flow Structure:**
 
 ```json
 {
-  "name": "Document Processing Pipeline",
-  "flow_id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+  "flow_name": "Document Processing Pipeline",
   "description": "Ingest, extract, chunk, and embed documents",
-  "dag": [
+  "flow": [
     {
-      "id": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
       "name": "ingest_local_folder",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "input_folder": "./sample_documents"
-      },
-      "input_edges": [],
-      "output_edges": [
-        { "node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e" }
-      ]
+      }
     },
     {
-      "id": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
       "name": "extract_with_docling",
-      "operator": "extract_docling",
+      "type": "extract_operator",
+      "depends_on": ["ingest_local_folder"],
       "config": {
-        "doc_column": "content"
-      },
-      "input_edges": [
-        { "node_id_ref": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c" }
-      ],
-      "output_edges": []
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      }
     }
-  ]
+  ],
+  "global_config": {
+    "doc_column": "content"
+  }
 }
 ```
 
 **Key Structure Elements:**
 
-- **Node IDs**: UUIDs for unique identification and traceability
-- **Operator Names**: Short names (e.g., `ingest_local`, `extract_docling`) mapped to full class paths
-- **Config**: Operator-specific parameters (not `operator_params`)
-- **Input/Output Edges**: Both are required to define the complete DAG structure and enable bidirectional traversal
+- **flow_name**: Human-readable flow identifier
+- **flow**: Ordered list of operators with their configurations
+- **depends_on**: Declares dependencies on other operators by name
+- **Operator Names**: User-defined names for operators in the flow
+- **Config**: Operator-specific parameters
+- **Automatic Compilation**: The system automatically generates the execution DAG from these dependencies
 
 ### 4. DAG-Based Execution Model
 

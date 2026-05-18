@@ -10,13 +10,14 @@ This directory contains ready-to-run sample flows for first-time users of datasi
 
 Each flow consists of:
 
-- **flow_id**: UUID identifying the flow (format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`)
-- **dag**: Array of operator nodes, each with:
-  - **id**: UUID for the node (must be unique within the flow)
-  - **name**: Descriptive name for the operator instance
-  - **operator**: Operator type (e.g., `ingest_local`, `extract_docling`)
+- **flow_name**: Human-readable flow identifier
+- **description**: Flow description
+- **flow**: Array of operators, each with:
+  - **name**: Unique operator name within the flow
+  - **type**: Operator type (e.g., `ingest_local`, `extract_operator`)
+  - **depends_on**: List of upstream operator names (optional for first operator)
   - **config**: Operator-specific parameters
-  - **input_edges/output_edges**: References to connected nodes using their UUIDs
+- **global_config**: Shared configuration for all operators
 
 ### What It Does
 

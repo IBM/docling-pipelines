@@ -198,45 +198,52 @@ def _validate_dag_nodes(nodes: list[dict[str, Any]]) -> None:
             raise ValueError(f"node '{node_id}' has invalid 'operator_params'/'config': must be a dictionary")
 
 
-def _validate_dag_format(value: dict[str, Any]) -> None:
-    """Validate Internal DAG format structure.
+def _validate_authoring_format(value: dict[str, Any]) -> None:
+    """Validate authoring format structure.
 
-    Validates the Internal DAG format with flow.dag structure. This format
-    will be transformed to Elyra format before execution.
+    Performs basic structural validation to ensure the dictionary has the required
+    shape for authoring format. Full domain validation happens later when converting
+    to AuthoringFlow domain model.
 
     Args:
         value: The flow definition dictionary to validate
 
     Raises:
-        ValueError: If Internal DAG format is invalid
+        ValueError: If authoring format structure is invalid
     """
-    # Validate required 'flow' key
+    # Validate required 'flow_name' key
+    if "flow_name" not in value:
+        raise ValueError(
+            "Authoring format definition must contain 'flow_name' key. Example: {'flow_name': 'My Flow', 'flow': [...]}"
+        )
+
+    flow_name = value["flow_name"]
+    if not isinstance(flow_name, str) or not flow_name.strip():
+        raise ValueError("flow_name must be a non-empty string")
+
+    # Validate required 'flow' key (array of operators)
     if "flow" not in value:
         raise ValueError(
-            "Internal DAG format definition must contain 'flow' key. "
-            "Example: {'flow': {'dag': [...], 'global_config': {...}}}"
+            "Authoring format definition must contain 'flow' key. Example: {'flow_name': 'My Flow', 'flow': [...]}"
         )
 
     flow = value["flow"]
-    if not isinstance(flow, dict):
-        raise ValueError(f"flow must be a dictionary, got {type(flow).__name__}")
+    if not isinstance(flow, list):
+        raise ValueError(f"flow must be a list, got {type(flow).__name__}")
 
-    # Validate 'dag' if present
-    if "dag" in flow:
-        dag = flow["dag"]
-        if not isinstance(dag, list):
-            raise ValueError(f"flow.dag must be a list, got {type(dag).__name__}")
+    if not flow:
+        raise ValueError("flow list cannot be empty - at least one operator is required")
 
-        # Validate each node in the dag has required fields
-        for idx, node in enumerate(dag):
-            if not isinstance(node, dict):
-                raise ValueError(f"dag node at index {idx} must be a dictionary, got {type(node).__name__}")
+    # Basic validation of operator structure
+    for idx, operator in enumerate(flow):
+        if not isinstance(operator, dict):
+            raise ValueError(f"flow operator at index {idx} must be a dictionary, got {type(operator).__name__}")
 
-            if "id" not in node:
-                raise ValueError(f"dag node at index {idx} is missing required field 'id'")
-
-            if "operator" not in node:
-                raise ValueError(f"dag node at index {idx} is missing required field 'operator'")
+        # Check for required keys (lightweight check)
+        required_keys = ["type", "name", "config"]
+        for key in required_keys:
+            if key not in operator:
+                raise ValueError(f"flow operator at index {idx} is missing required field '{key}'")
 
 
 def _validate_elyra_format(value: dict[str, Any]) -> None:
@@ -277,12 +284,12 @@ def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | N
     endpoints to ensure consistent validation across all layers.
 
     Validation includes:
-    - Required top-level keys (flow.dag for Internal DAG, doc_type/pipelines for Elyra)
-    - Minimal structure validation for Internal DAG format (will be transformed to Elyra)
-    - Full validation for Elyra format
+    - Required top-level keys for authoring format (flow_name, flow array)
+    - Required top-level keys for Elyra format (doc_type, pipelines)
+    - Full validation for both formats
 
     Supported Formats:
-    - Internal DAG format: {"flow": {"dag": [...], "global_config": {...}}}
+    - Authoring format: {"flow_name": "...", "flow": [...], "global_config": {...}}
     - Elyra format: {"doc_type": "pipeline", "pipelines": [...], "primary_pipeline": "..."}
 
     Args:
@@ -293,18 +300,18 @@ def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | N
 
     Raises:
         ValueError: If the definition structure is invalid, with specific error messages for:
-            - Missing required keys (flow, doc_type, pipelines)
-            - Invalid structure for Internal DAG or Elyra formats
+            - Missing required keys (flow_name/flow for authoring, doc_type/pipelines for Elyra)
+            - Invalid structure for authoring or Elyra formats
 
     Examples:
-        >>> validate_flow_definition({"flow": {"dag": [...]}})
-        {'flow': {'dag': [...]}}
+        >>> validate_flow_definition({"flow_name": "My Flow", "flow": [...]})
+        {'flow_name': 'My Flow', 'flow': [...]}
         >>> validate_flow_definition({"doc_type": "pipeline", "pipelines": [...]})
         {'doc_type': 'pipeline', 'pipelines': [...]}
         >>> validate_flow_definition(None)
         None
         >>> validate_flow_definition({})
-        ValueError: definition must contain either 'doc_type' (Elyra format) or 'flow' (Internal DAG format)
+        ValueError: definition must contain either 'doc_type' (Elyra format) or 'flow_name' (Authoring format)
     """
     if value is None:
         return None
@@ -313,20 +320,20 @@ def validate_flow_definition(value: dict[str, Any] | None) -> dict[str, Any] | N
         raise ValueError(f"definition must be a dictionary, got {type(value).__name__}")
 
     # Determine format and validate accordingly
-    has_flow = "flow" in value
+    has_flow_name = "flow_name" in value
     has_doc_type = "doc_type" in value
 
-    if not has_flow and not has_doc_type:
+    if not has_flow_name and not has_doc_type:
         raise ValueError(
-            "definition must contain either 'doc_type' (Elyra format) or 'flow' (Internal DAG format). "
+            "definition must contain either 'doc_type' (Elyra format) or 'flow_name' (Authoring format). "
             "Examples:\n"
-            "  Internal DAG: {'flow': {'dag': [...], 'global_config': {...}}}\n"
+            "  Authoring: {'flow_name': 'My Flow', 'flow': [...]}\n"
             "  Elyra: {'doc_type': 'pipeline', 'pipelines': [...]}"
         )
 
-    if has_flow:
-        # DAG format - validate structure before transformation to Elyra
-        _validate_dag_format(value)
+    if has_flow_name:
+        # Authoring format - validate structure
+        _validate_authoring_format(value)
     elif has_doc_type:
         _validate_elyra_format(value)
 

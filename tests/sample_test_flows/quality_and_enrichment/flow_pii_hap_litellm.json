@@ -1,42 +1,35 @@
 {
-  "name": "pii-detection-litellm-test",
-  "flow_id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+  "flow_name": "pii-detection-litellm-test",
   "description": "Test PII detection using LiteLLM adapter with OpenAI GPT-4",
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
     "doc_column": "content",
     "disable_validation": "true",
     "force_ingest": true
   },
-  "dag": [
+  "flow": [
     {
-      "id": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c",
       "name": "ingest_pii_test_document",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "input_folder": "tests/fixtures/customer_support_docs/",
         "include_filter": "txt",
         "store_binary_content": true,
         "max_workers": 1
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"}]
+      }
     },
     {
-      "id": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
       "name": "extract_with_docling",
-      "operator": "extract_docling",
+      "type": "extract_docling",
       "config": {
         "doc_column": "content"
       },
-      "input_edges": [{"node_id_ref": "f1a2b3c4-d5e6-4f7a-8b9c-0d1e2f3a4b5c"}],
-      "output_edges": [{"node_id_ref": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"}]
+      "depends_on": [
+        "ingest_pii_test_document"
+      ]
     },
     {
-      "id": "e2b3c4d5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
       "name": "detect_pii_with_litellm",
-      "operator": "pii_and_hap",
+      "type": "pii_and_hap",
       "config": {
         "provider": "litellm",
         "model_name": "<model name>",
@@ -45,7 +38,10 @@
         },
         "pii_threshold": 0.5,
         "hap_threshold": 0.8,
-        "expected_redactions": ["pii", "hap"],
+        "expected_redactions": [
+          "pii",
+          "hap"
+        ],
         "pii_list": [
           "EmailAddress",
           "PhoneNumber",
@@ -64,8 +60,9 @@
         "max_chunk_size_kb": 102400,
         "doc_column": "content"
       },
-      "input_edges": [{"node_id_ref": "d3c4d5e6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"}],
-      "output_edges": []
+      "depends_on": [
+        "extract_with_docling"
+      ]
     }
   ]
 }

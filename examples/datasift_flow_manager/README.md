@@ -175,24 +175,21 @@ Flow JSON files accept the flow definition at the root level (no nested "flow" k
 
 ```json
 {
-  "name": "Flow Name",
+  "flow_name": "Flow Name",
   "description": "Flow description",
-  "flow_id": "unique-flow-id",
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
     "doc_column": "content",
     "disable_validation": "true",
-    "force_ingest": true
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
   },
-  "dag": [
+  "flow": [
     {
-      "id": "node-id",
       "name": "operator-name",
-      "operator": "operator_type",
-      "config": { ... },
-      "input_edges": [...],
-      "output_edges": [...]
+      "type": "operator_type",
+      "depends_on": ["upstream-operator"],
+      "config": { ... }
     }
   ]
 }

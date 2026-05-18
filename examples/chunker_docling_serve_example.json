@@ -1,76 +1,53 @@
 {
-  "flow": {
-    "name": "Docling-Serve Remote Chunking Test",
-    "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-    "description": "Test flow for docling-serve remote chunking feature",
+  "flow_name": "Docling-Serve Remote Chunking Test",
+  "description": "Test flow for docling-serve remote chunking feature",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true,
     "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "disable_validation": "true",
-      "force_ingest": true
-    },
-    "dag": [
-      {
-        "id": "ingest-node",
-        "name": "ingest",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./tests/fixtures/invoices",
-          "store_binary_content": false
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "extract-node"
-          }
-        ]
-      },
-      {
-        "id": "extract-node",
-        "name": "extract",
-        "operator": "extract_operator",
-        "config": {
-          "doc_column": "content",
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "none"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "ingest-node"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "chunker-node"
-          }
-        ]
-      },
-      {
-        "id": "chunker-node",
-        "name": "chunker",
-        "operator": "chunker",
-        "config": {
-          "chunk_type": "hybrid",
-          "chunk_size": 512,
-          "chunk_overlap": 128,
-          "provider": "docling_serve",
-          "provider_config": {
-            "api_base": "http://localhost:5001",
-            "timeout": 120,
-            "poll_interval": 2,
-            "max_retries": 3,
-            "verify_ssl": true
-          },
-          "retain_original_content": false
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "extract-node"
-          }
-        ],
-        "output_edges": []
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./tests/fixtures/invoices"
       }
-    ]
-  }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "doc_column": "content",
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      }
+    },
+    {
+      "name": "chunker",
+      "type": "chunker",
+      "depends_on": [
+        "extract"
+      ],
+      "config": {
+        "chunk_type": "hybrid",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "provider": "docling_serve",
+        "provider_config": {
+          "api_base": "http://localhost:5001",
+          "timeout": 120,
+          "poll_interval": 2,
+          "max_retries": 3,
+          "verify_ssl": false
+        },
+        "retain_original_content": false
+      }
+    }
+  ]
 }

@@ -1,240 +1,199 @@
 {
-  "flow": {
-    "name": "Purchase Order Processing with External Schema",
-    "flow_id": "po-schema-flow-001",
-    "description": "Complete purchase order processing flow using document_schemas.json for entity extraction, then storing in OpenSearch with vector embeddings",
+  "flow_name": "Purchase Order Processing with External Schema",
+  "description": "Complete purchase order processing flow using document_schemas.json for entity extraction, then storing in OpenSearch with vector embeddings",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true,
     "storage": "in-memory",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "disable_validation": "true",
-      "force_ingest": true
-    },
-    "dag": [
-      {
-        "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
-        "name": "ingest_purchase_orders",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./purchase_orders/",
-          "include_filter": ".txt",
-          "store_binary_content": true,
-          "max_workers": 2
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
-          }
-        ]
-      },
-      {
-        "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
-        "name": "extract_document_content",
-        "operator": "extract_operator",
-        "config": {
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "ollama",
-          "doc_column": "content",
-          "extract_tables": false,
-          "extract_images": false,
-          "entity_model_name": "granite4",
-          "output_column": "entities",
-          "max_doc_chars": 8000,
-          "entity_temperature": 0.0,
-          "expand_extracted_data": true,
-          "schema_file": "tests/purchase_order_schema.json"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"
-          }
-        ]
-      },
-      {
-        "id": "6101c752-523e-4a4a-84e2-81e0b2109129",
-        "name": "chunk_po_documents",
-        "operator": "docling_chunker",
-        "config": {
-          "doc_column": "content",
-          "chunk_size": 512,
-          "chunk_overlap": 128,
-          "retain_original_content": false
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"
-          }
-        ]
-      },
-      {
-        "id": "6de879bd-bbe0-4d60-998f-031f65472a02",
-        "name": "generate_vector_embeddings",
-        "operator": "embeddings",
-        "config": {
-          "embeddings_type": "ollama",
-          "embeddings_model_id": "granite4",
-          "embeddings_column": "embeddings",
-          "overlap_ratio": 0.2,
-          "doc_column": "content"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "6101c752-523e-4a4a-84e2-81e0b2109129"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "87249dbf-4a1a-433a-91da-ee5fb3244284"
-          }
-        ]
-      },
-      {
-        "id": "87249dbf-4a1a-433a-91da-ee5fb3244284",
-        "name": "store_purchase_orders_opensearch",
-        "operator": "vectordb",
-        "config": {
-          "provider": "opensearch",
-          "index_name": "purchase_orders",
-          "doc_id_column": "doc_id_hash",
-          "embeddings_column": "embeddings",
-          "vector_dimension": 2560,
-          "create_index": "true",
-          "provider_config": {
-            "host": "localhost",
-            "port": 9200,
-            "username": "admin",
-            "password": "MyStrongPass123!",
-            "use_ssl": false,
-            "verify_certs": false,
-            "batch_size": 100,
-            "engine": "faiss",
-            "algorithm": "hnsw",
-            "space_type": "l2"
-          },
-          "available_features": {
-            "doc_id_hash": {
-              "name": "Document ID",
-              "description": "Unique document hash identifier",
-              "available_for_vector_db": true,
-              "mandatory_for_vector_db": true,
-              "type": "string",
-              "is_primary": true
-            },
-            "content": {
-              "name": "Content",
-              "description": "Full document text content",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "embeddings": {
-              "name": "Embeddings",
-              "description": "Vector embeddings for semantic search",
-              "available_for_vector_db": true,
-              "mandatory_for_vector_db": true,
-              "type": "vector"
-            },
-            "entities": {
-              "name": "Entities",
-              "description": "JSON string of all extracted purchase order entities",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_po_number": {
-              "name": "PO Number",
-              "description": "Purchase order number",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_order_date": {
-              "name": "Order Date",
-              "description": "Date when order was placed",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_supplier_name": {
-              "name": "Supplier Name",
-              "description": "Supplier company name",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_supplier_id": {
-              "name": "Supplier ID",
-              "description": "Supplier identification number",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_department": {
-              "name": "Department",
-              "description": "Department that placed the order",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_total_amount": {
-              "name": "Total Amount",
-              "description": "Total order amount",
-              "available_for_vector_db": true,
-              "type": "float"
-            },
-            "entity_currency": {
-              "name": "Currency",
-              "description": "Currency code (USD, EUR, INR, etc.)",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_status": {
-              "name": "Status",
-              "description": "Order status (pending, approved, delivered, cancelled)",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_delivery_date": {
-              "name": "Delivery Date",
-              "description": "Expected or actual delivery date",
-              "available_for_vector_db": true,
-              "type": "string"
-            },
-            "entity_approved_by": {
-              "name": "Approved By",
-              "description": "Email of approver",
-              "available_for_vector_db": true,
-              "type": "string"
-            }
-          },
-          "feature_mappings": {
-            "doc_id_hash": "pk",
-            "content": "text",
-            "embeddings": "vector_embeddings",
-            "entities": "po_entities",
-            "entity_po_number": "po_number",
-            "entity_order_date": "order_date",
-            "entity_supplier_name": "supplier_name",
-            "entity_supplier_id": "supplier_id",
-            "entity_department": "department",
-            "entity_total_amount": "total_amount",
-            "entity_currency": "currency",
-            "entity_status": "status",
-            "entity_delivery_date": "delivery_date",
-            "entity_approved_by": "approved_by"
-          }
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "6de879bd-bbe0-4d60-998f-031f65472a02"
-          }
-        ],
-        "output_edges": []
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest_purchase_orders",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./purchase_orders/",
+        "include_filter": ".txt",
+        "store_binary_content": true,
+        "max_workers": 2
       }
-    ]
-  }
+    },
+    {
+      "name": "extract_document_content",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "ollama",
+        "doc_column": "content",
+        "extract_tables": false,
+        "extract_images": false,
+        "entity_model_name": "granite4",
+        "output_column": "entities",
+        "max_doc_chars": 8000,
+        "entity_temperature": 0.0,
+        "expand_extracted_data": true,
+        "schema_file": "tests/purchase_order_schema.json"
+      },
+      "depends_on": [
+        "ingest_purchase_orders"
+      ]
+    },
+    {
+      "name": "chunk_po_documents",
+      "type": "docling_chunker",
+      "config": {
+        "doc_column": "content",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "retain_original_content": false
+      }
+    },
+    {
+      "name": "generate_vector_embeddings",
+      "type": "embeddings",
+      "config": {
+        "embeddings_type": "ollama",
+        "embeddings_model_id": "granite4",
+        "embeddings_column": "embeddings",
+        "overlap_ratio": 0.2,
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "chunk_po_documents"
+      ]
+    },
+    {
+      "name": "store_purchase_orders_opensearch",
+      "type": "vectordb",
+      "config": {
+        "provider": "opensearch",
+        "index_name": "purchase_orders",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 2560,
+        "create_index": "true",
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "admin",
+          "password": "MyStrongPass123!",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID",
+            "description": "Unique document hash identifier",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "content": {
+            "name": "Content",
+            "description": "Full document text content",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "description": "Vector embeddings for semantic search",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          },
+          "entities": {
+            "name": "Entities",
+            "description": "JSON string of all extracted purchase order entities",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_po_number": {
+            "name": "PO Number",
+            "description": "Purchase order number",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_order_date": {
+            "name": "Order Date",
+            "description": "Date when order was placed",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_supplier_name": {
+            "name": "Supplier Name",
+            "description": "Supplier company name",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_supplier_id": {
+            "name": "Supplier ID",
+            "description": "Supplier identification number",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_department": {
+            "name": "Department",
+            "description": "Department that placed the order",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_total_amount": {
+            "name": "Total Amount",
+            "description": "Total order amount",
+            "available_for_vector_db": true,
+            "type": "float"
+          },
+          "entity_currency": {
+            "name": "Currency",
+            "description": "Currency code (USD, EUR, INR, etc.)",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_status": {
+            "name": "Status",
+            "description": "Order status (pending, approved, delivered, cancelled)",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_delivery_date": {
+            "name": "Delivery Date",
+            "description": "Expected or actual delivery date",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "entity_approved_by": {
+            "name": "Approved By",
+            "description": "Email of approver",
+            "available_for_vector_db": true,
+            "type": "string"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "content": "text",
+          "embeddings": "vector_embeddings",
+          "entities": "po_entities",
+          "entity_po_number": "po_number",
+          "entity_order_date": "order_date",
+          "entity_supplier_name": "supplier_name",
+          "entity_supplier_id": "supplier_id",
+          "entity_department": "department",
+          "entity_total_amount": "total_amount",
+          "entity_currency": "currency",
+          "entity_status": "status",
+          "entity_delivery_date": "delivery_date",
+          "entity_approved_by": "approved_by"
+        }
+      },
+      "depends_on": [
+        "generate_vector_embeddings"
+      ]
+    }
+  ]
 }

@@ -1,29 +1,25 @@
 {
-  "name": "audio-video-extraction-pipeline",
+  "flow_name": "audio-video-extraction-pipeline",
   "description": "Audio/Video extraction pipeline using ASR (Automatic Speech Recognition)",
-  "storage": "in-memory",
-  "execute_type": "local",
   "global_config": {
     "doc_column": "content",
+    "storage": "in-memory",
+    "execute_type": "local",
     "disable_validation": false
   },
-  "dag": [
+  "flow": [
     {
-      "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
       "name": "ingest_audio_video",
-      "operator": "ingest_local",
+      "type": "ingest_local",
       "config": {
         "input_folder": "sample_flows",
         "include_filter": "wav",
         "store_binary_content": true
-      },
-      "input_edges": [],
-      "output_edges": [{"node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"}]
+      }
     },
     {
-      "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
       "name": "extract_transcription",
-      "operator": "extract_operator",
+      "type": "extract_operator",
       "config": {
         "text_extraction_mode": "docling_library",
         "entity_extraction_mode": "none",
@@ -33,8 +29,9 @@
         "extract_tables": false,
         "extract_images": false
       },
-      "input_edges": [{"node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"}],
-      "output_edges": []
+      "depends_on": [
+        "ingest_audio_video"
+      ]
     }
   ]
 }

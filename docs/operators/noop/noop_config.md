@@ -40,28 +40,23 @@ The NOOP Operator:
 
 ```json
 {
-  "dag": [
+  "flow_name": "NOOP Test Pipeline",
+  "description": "Simple pipeline demonstrating NOOP operator usage",
+  "flow": [
     {
-      "id": "133d6e65-9ef5-4a8b-9cb4-971e5bdbe03c",
-      "operator": "ingest_local",
-      "config": { "path": "/data" },
-      "input_edges": [],
-      "output_edges": [
-        {
-          "node_id_ref": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd"
-        }
-      ]
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "path": "./data"
+      }
     },
     {
-      "id": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd",
-      "operator": "noop",
-      "config": { "sleep_sec": 5 },
-      "input_edges": [
-        {
-          "node_id_ref": "133d6e65-9ef5-4a8b-9cb4-971e5bdbe03c"
-        }
-      ],
-      "output_edges": []
+      "name": "noop_test",
+      "type": "noop",
+      "depends_on": ["ingest"],
+      "config": {
+        "sleep_sec": 5
+      }
     }
   ]
 }

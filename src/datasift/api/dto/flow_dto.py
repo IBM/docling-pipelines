@@ -4,8 +4,9 @@ DTOs maintain separation from domain models (hexagonal architecture) and handle
 OpenAPI schema generation with IBM validator compliance.
 
 Request DTOs:
-  - FlowCreateRequest: POST /flows (name required)
-  - FlowUpdateRequest: PATCH /flows/{id} (all optional, None=no update, []=clear)
+  - ElyraFlowCreateRequest: POST /flows with is_elyra=true (Elyra/UI format)
+  - AuthoringFlowCreateRequest: POST /flows with is_elyra=false (Authoring/API format) - see authoring_flow_dto.py
+  - ElyraFlowUpdateRequest: PATCH /flows/{id} (all optional, None=no update, []=clear)
 
 Response DTOs:
   - FlowResponse: Single flow with server-generated metadata
@@ -104,12 +105,12 @@ from .field_definitions import (
 # ============================================================================
 
 
-class FlowCreateRequest(BaseModel):
-    """Request DTO for creating new flows via POST /flows.
+class ElyraFlowCreateRequest(BaseModel):
+    """Request DTO for creating flows in Elyra format via POST /flows (UI format).
 
-    Used for flow creation where only 'name' is required. All other fields are
-    optional with sensible defaults. This DTO enforces strict validation to ensure
-    data quality at the API boundary.
+    This DTO is used when is_elyra=True query parameter is set, indicating the flow
+    is coming from the Elyra-based UI. The definition field contains the Elyra pipeline
+    structure with doc_type, pipelines, and schemas.
 
     Required Fields:
         name: Human-readable flow identifier (1-255 chars, no control characters)
@@ -121,7 +122,7 @@ class FlowCreateRequest(BaseModel):
 
     Optional Fields (None if not provided):
         description: Detailed flow description (1-2000 chars)
-        definition: Flow DAG or Elyra pipeline structure
+        definition: Elyra pipeline structure with doc_type, pipelines, schemas
         container_kind: 'project' or 'space' (container type)
         container_id: UUID of parent container
         job_id: UUID of associated Prefect job
@@ -130,7 +131,7 @@ class FlowCreateRequest(BaseModel):
     Validation Rules:
         - name: No control characters (0x00-0x1F), supports Unicode
         - description: Any characters including newlines
-        - definition: Must have {nodes, edges} OR {doc_type, version, pipelines, schemas}
+        - definition: Must have {doc_type, version, pipelines, schemas} (Elyra format)
         - tags: Lowercase alphanumeric with hyphens/underscores, auto-deduplicated
         - container_kind: Exactly 'project' or 'space' (case-sensitive)
         - UUIDs: Standard v4 format (lowercase hex with hyphens)
@@ -139,13 +140,14 @@ class FlowCreateRequest(BaseModel):
     Auto-Processing:
         - Tags are deduplicated while preserving order (first occurrence kept)
         - None values for optional fields are preserved (not converted to defaults)
+        - flow_source automatically set to "UI"
 
     Example:
-        >>> request = FlowCreateRequest(
+        >>> request = ElyraFlowCreateRequest(
         ...     name="Invoice Processing",
         ...     description="Extracts invoice data",
         ...     definition={"doc_type": "pipeline", "pipelines": [...]},
-        ...     tags=["invoice", "production", "invoice"],  # Deduped to ["invoice", "production"]
+        ...     tags=["invoice", "production"],
         ...     container_kind="project",
         ...     container_id="550e8400-e29b-41d4-a716-446655440000"
         ... )
@@ -247,8 +249,8 @@ class FlowCreateRequest(BaseModel):
     def validate_definition_field(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         """Validate flow definition structure.
 
-        Ensures definition contains required fields for either format:
-        - Modern DAG: Must have 'nodes' and 'edges' keys
+        Ensures definition contains required fields for supported formats:
+        - Authoring format: Must have 'flow_name' and 'flow' keys
         - Legacy Elyra: Must have 'doc_type', 'version', 'pipelines', 'schemas' keys
 
         Args:
@@ -283,8 +285,8 @@ class FlowCreateRequest(BaseModel):
         return result if result is not None else []
 
 
-class FlowUpdateRequest(BaseModel):
-    """Request DTO for partial updates via PATCH /flows/{id}.
+class ElyraFlowUpdateRequest(BaseModel):
+    """Request DTO for partial updates via PATCH /flows/{id} (Elyra format).
 
     Implements REST PATCH semantics where all fields are optional and None means
     "don't update". This enables true partial updates where clients only send
@@ -303,25 +305,25 @@ class FlowUpdateRequest(BaseModel):
     Optional Fields (all default to None):
         name: Update flow name
         description: Update description
-        definition: Replace entire definition
+        definition: Replace entire definition (Elyra format)
         tags: Replace tags ([] clears, None keeps existing)
         is_hidden: Update visibility
         container_kind: Update container type
         container_id: Update container reference
 
     Validation Rules:
-        Same as FlowCreateRequest when field is provided (not None)
+        Same as ElyraFlowCreateRequest when field is provided (not None)
 
     Example:
         >>> # Update only name and clear tags
-        >>> request = FlowUpdateRequest(
+        >>> request = ElyraFlowUpdateRequest(
         ...     name="New Name",
         ...     tags=[]  # Clear all tags
         ...     # description not included = don't update
         ... )
 
         >>> # Update definition only
-        >>> request = FlowUpdateRequest(
+        >>> request = ElyraFlowUpdateRequest(
         ...     definition={"doc_type": "pipeline", "pipelines": [...]}
         ... )
     """
@@ -398,8 +400,8 @@ class FlowUpdateRequest(BaseModel):
     def validate_definition_field(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         """Validate flow definition structure.
 
-        Ensures definition contains required fields for either format:
-        - Modern DAG: Must have 'nodes' and 'edges' keys
+        Ensures definition contains required fields for supported formats:
+        - Authoring format: Must have 'flow_name' and 'flow' keys
         - Legacy Elyra: Must have 'doc_type', 'version', 'pipelines', 'schemas' keys
 
         Args:

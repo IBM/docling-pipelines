@@ -26,33 +26,53 @@ from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 def simple_flow():
     """Simple flow definition for testing."""
     return {
-        "name": "Test Flow",
+        "flow_name": "Test Flow",
         "description": "Test Description",
-        "flow_id": "test-flow-123",
-        "dag": [{"node_id": "node1", "operator_type": "noop"}],
+        "flow": [
+            {
+                "type": "noop",
+                "name": "noop_node",
+                "depends_on": [],
+                "config": {},
+            }
+        ],
+        "global_config": {},
     }
 
 
 @pytest.fixture
-def nested_flow():
-    """Flow definition nested under 'flow' key."""
+def elyra_format_flow():
+    """Flow definition in Elyra format."""
     return {
-        "flow": {
-            "name": "Nested Flow",
-            "description": "Nested Description",
-            "flow_id": "nested-flow-456",
-            "dag": [{"node_id": "node2", "operator_type": "noop"}],
+        "definition": {
+            "doc_type": "pipeline",
+            "version": "3.0",
+            "pipelines": [
+                {
+                    "id": "pipeline1",
+                    "nodes": [
+                        {
+                            "id": "node1",
+                            "type": "execution_node",
+                            "op": "noop",
+                            "parameters": {},
+                        }
+                    ],
+                }
+            ],
+            "parameters": {},
         }
     }
 
 
 @pytest.fixture
 def flow_without_flow_id():
-    """Flow definition without flow_id."""
+    """Flow definition without explicit flow_id (will be auto-generated)."""
     return {
-        "name": "No ID Flow",
-        "description": "Flow without flow_id",
-        "dag": [],
+        "flow_name": "No ID Flow",
+        "description": "Flow without explicit flow_id",
+        "flow": [{"type": "noop", "name": "noop1"}],
+        "global_config": {},
     }
 
 
@@ -67,10 +87,10 @@ def temp_flow_file(simple_flow):
 
 
 @pytest.fixture
-def temp_nested_flow_file(nested_flow):
-    """Create a temporary nested flow file."""
+def temp_elyra_format_file(elyra_format_flow):
+    """Create a temporary Elyra format flow file."""
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-        json.dump(nested_flow, f)
+        json.dump(elyra_format_flow, f)
         temp_path = f.name
     yield temp_path
     os.unlink(temp_path)
@@ -119,16 +139,19 @@ class TestInitialization:
 
         assert manager.flow_file == temp_flow_file
         assert manager.flow_def is not None
-        assert manager.flow_def["name"] == "Test Flow"
-        assert manager.flow_def["flow_id"] == "test-flow-123"
+        # After compilation, flow_def is in runtime DAG format
+        assert "dag" in manager.flow_def
+        assert "global_config" in manager.flow_def
+        assert "flow_id" in manager.flow_def
 
     def test_init_with_flow_def(self, simple_flow):
-        """Test successful initialization with flow_def."""
+        """Test successful initialization with flow_def (authoring format)."""
         manager = DatasiftFlowManager(flow_def=simple_flow)
 
         assert manager.flow_file is None
-        assert manager.flow_def == simple_flow
-        assert manager.flow_def["name"] == "Test Flow"
+        # After compilation, flow_def is in runtime DAG format
+        assert "dag" in manager.flow_def
+        assert "global_config" in manager.flow_def
 
     def test_init_missing_both_raises_error(self):
         """Test DatasiftException when neither flow_file nor flow_def provided."""
@@ -189,17 +212,11 @@ class TestInitialization:
         assert manager.flow_id == custom_flow_id
 
     @patch("datasift.lib.datasift_flow_manager.uuid.uuid4")
-    def test_init_auto_generates_ids(self, mock_uuid4, simple_flow):
+    def test_init_auto_generates_ids(self, mock_uuid4, flow_without_flow_id):
         """Test that job_id and job_run_id are auto-generated when not provided."""
         mock_uuid4.return_value = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
-        # Remove flow_id from simple_flow to force UUID generation
-        flow_without_id = {
-            "name": simple_flow["name"],
-            "description": simple_flow["description"],
-            "dag": simple_flow["dag"],
-        }
-        manager = DatasiftFlowManager(flow_def=flow_without_id)
+        manager = DatasiftFlowManager(flow_def=flow_without_flow_id)
 
         assert manager.job_id is not None
         assert manager.job_run_id is not None
@@ -219,20 +236,24 @@ class TestInitialization:
         # Verify it's a valid UUID
         uuid.UUID(manager.job_run_id)
 
-    def test_init_flow_id_priority(self, simple_flow):
+    def test_init_flow_id_priority(self, simple_flow, flow_without_flow_id):
         """Test flow_id priority: parameter > flow_def > job_id."""
         # Test parameter takes priority
         manager1 = DatasiftFlowManager(flow_def=simple_flow, flow_id="param-flow-id")
         assert manager1.flow_id == "param-flow-id"
 
         # Test flow_def value used when parameter not provided
+        # After compilation, flow_id is auto-generated if not in authoring format
         manager2 = DatasiftFlowManager(flow_def=simple_flow)
-        assert manager2.flow_id == "test-flow-123"  # from simple_flow fixture
+        assert manager2.flow_id is not None
+        # Verify it's a valid UUID
+        uuid.UUID(manager2.flow_id)
 
-        # Test job_id used when neither parameter nor flow_def has flow_id
-        flow_without_id = {"name": "Test", "dag": []}
-        manager3 = DatasiftFlowManager(flow_def=flow_without_id, job_id="job-123")
-        assert manager3.flow_id == "job-123"
+        # Test job_id used as fallback when no flow_id parameter provided
+        manager3 = DatasiftFlowManager(flow_def=flow_without_flow_id, job_id="job-123")
+        assert manager3.job_id == "job-123"
+        assert manager3.flow_id != "job-123"
+        uuid.UUID(manager3.flow_id)
 
 
 # ---------------------------------------------------------------------------
@@ -247,20 +268,18 @@ class TestFlowDefinitionLoading:
         """Test loading flow from file with top-level structure."""
         executor = DatasiftFlowManager(flow_file=temp_flow_file)
 
-        assert executor.flow_def["name"] == "Test Flow"
-        assert executor.flow_def["description"] == "Test Description"
-        assert executor.flow_def["flow_id"] == "test-flow-123"
+        # After compilation, should have runtime DAG format
+        assert "dag" in executor.flow_def
+        assert "global_config" in executor.flow_def
+        assert len(executor.flow_def["dag"]) == 1
 
-    def test_load_flow_from_file_nested(self, temp_nested_flow_file):
-        """Test loading flow from file nested under 'flow' key."""
-        executor = DatasiftFlowManager(flow_file=temp_nested_flow_file)
+    def test_load_flow_from_file_elyra_format_fails(self, temp_elyra_format_file):
+        """Test that Elyra format (UI format) is not supported by DatasiftFlowManager."""
+        # DatasiftFlowManager only supports authoring format, not Elyra format
+        with pytest.raises(DatasiftException) as exc_info:
+            DatasiftFlowManager(flow_file=temp_elyra_format_file)
 
-        # New implementation accepts root-level flow definition
-        # The nested structure is loaded as-is
-        assert "flow" in executor.flow_def
-        assert executor.flow_def["flow"]["name"] == "Nested Flow"
-        assert executor.flow_def["flow"]["description"] == "Nested Description"
-        assert executor.flow_def["flow"]["flow_id"] == "nested-flow-456"
+        assert "flow_name" in str(exc_info.value)
 
     def test_load_flow_missing_file(self):
         """Test handling of missing file."""
@@ -273,12 +292,13 @@ class TestFlowDefinitionLoading:
             DatasiftFlowManager(flow_file=temp_invalid_json_file)
 
     def test_load_flow_preserves_dag(self, temp_flow_file):
-        """Test that DAG structure is preserved during loading."""
+        """Test that DAG structure is preserved during loading and compilation."""
         executor = DatasiftFlowManager(flow_file=temp_flow_file)
 
         assert "dag" in executor.flow_def
         assert len(executor.flow_def["dag"]) == 1
-        assert executor.flow_def["dag"][0]["node_id"] == "node1"
+        # After compilation, DAG nodes have different structure
+        assert "operator" in executor.flow_def["dag"][0]
 
 
 # ---------------------------------------------------------------------------
@@ -367,44 +387,45 @@ class TestExecutionEnvironment:
         mock_factory,
         simple_flow,
     ):
-        """Test flow_id extraction from top-level flow_def."""
+        """Test that job_id is used when no flow_id in authoring format."""
         mock_orchestrator = Mock()
         mock_factory.return_value = mock_orchestrator
-        mock_session = Mock(job_id="test-flow-123")
+        mock_session = Mock(job_id="test-job-id")
         mock_create_session.return_value = mock_session
 
+        # Don't provide flow_id parameter, so it uses auto-generated UUID
         executor = DatasiftFlowManager(flow_def=simple_flow)
         executor._initialize_execution_environment()
 
-        # Should use flow_id from flow_def as job_id
+        # Should use executor's job_id (which is auto-generated UUID)
         call_args = mock_create_session.call_args
-        assert call_args[1]["job_id"] == "test-flow-123"
+        assert call_args[1]["job_id"] == executor.job_id
+        # Verify it's a valid UUID
+        uuid.UUID(call_args[1]["job_id"])
 
     @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
     @patch("datasift.lib.datasift_flow_manager.create_session_info")
     @patch("datasift.lib.datasift_flow_manager.FlowExecutor")
-    def test_flow_id_extraction_nested(self, mock_executor_class, mock_create_session, mock_factory):
-        """Test flow_id extraction from nested flow dict."""
+    def test_flow_id_extraction_with_explicit_flow_id(self, mock_executor_class, mock_create_session, mock_factory):
+        """Test that explicit flow_id parameter is used."""
         mock_orchestrator = Mock()
         mock_factory.return_value = mock_orchestrator
-        mock_session = Mock(job_id="nested-flow-456")
+        mock_session = Mock(job_id="explicit-flow-id")
         mock_create_session.return_value = mock_session
 
-        # New implementation doesn't extract nested flow_id automatically
-        # It uses top-level flow_id or generates UUID
-        nested_flow_def = {
-            "flow_id": "nested-flow-456",
-            "flow": {
-                "name": "Nested",
-                "dag": [],
-            },
+        # Provide explicit flow_id parameter
+        authoring_flow = {
+            "flow_name": "Test Flow",
+            "flow": [{"type": "noop", "name": "op1"}],
+            "global_config": {},
         }
 
-        executor = DatasiftFlowManager(flow_def=nested_flow_def)
+        executor = DatasiftFlowManager(flow_def=authoring_flow, job_id="explicit-flow-id", flow_id="explicit-flow-id")
         executor._initialize_execution_environment()
 
         call_args = mock_create_session.call_args
-        assert call_args[1]["job_id"] == "nested-flow-456"
+        # job_id parameter is used for session creation
+        assert call_args[1]["job_id"] == "explicit-flow-id"
 
     @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
     @patch("datasift.lib.datasift_flow_manager.create_session_info")
@@ -503,8 +524,15 @@ class TestExecuteMethod:
         # Verify orchestrator was initialized
         mock_orchestrator.initialize.assert_called_once()
 
-        # Verify flow executor was created
-        mock_executor_class.assert_called_once_with(flow_def=simple_flow, orchestrator=mock_orchestrator)
+        # Verify flow executor was created with compiled runtime DAG format
+        mock_executor_class.assert_called_once()
+        call_kwargs = mock_executor_class.call_args[1]
+        assert "flow_def" in call_kwargs
+        assert "orchestrator" in call_kwargs
+        assert call_kwargs["orchestrator"] == mock_orchestrator
+        # Verify it's compiled format (has 'dag' not 'flow')
+        assert "dag" in call_kwargs["flow_def"]
+        assert "flow" not in call_kwargs["flow_def"]
 
     @patch("datasift.lib.datasift_flow_manager.OrchestratorFactory.create_orchestrator")
     @patch("datasift.lib.datasift_flow_manager.create_session_info")
@@ -604,34 +632,41 @@ class TestMetadata:
 
         metadata = executor.get_execution_metadata()
 
-        assert metadata[DatasiftConstants.JOB_ID] == "test-flow-123"
+        # After compilation, flow_id is auto-generated UUID, not from authoring format
+        assert DatasiftConstants.JOB_ID in metadata
+        # Verify it's a valid UUID
+        uuid.UUID(metadata[DatasiftConstants.JOB_ID])
         assert metadata[DatasiftConstants.JOB_RUN_ID] == "run-123"
 
     def test_metadata_with_custom_flow_name(self):
-        """Test metadata with custom flow_name and description."""
+        """Test metadata with custom flow_name and description in authoring format."""
         flow_def = {
-            "name": "Custom Flow Name",
+            "flow_name": "Custom Flow Name",
             "description": "Custom Description",
-            "flow_id": "custom-123",
-            "dag": [{"node_id": "n1"}, {"node_id": "n2"}],
+            "flow": [{"type": "noop", "name": "op1"}, {"type": "noop", "name": "op2"}],
+            "global_config": {},
         }
 
         executor = DatasiftFlowManager(flow_def=flow_def)
         metadata = executor.get_execution_metadata()
 
+        # After compilation, 'name' field contains flow_name
         assert metadata[DatasiftConstants.FLOW_NAME] == "Custom Flow Name"
         assert metadata[DatasiftConstants.FLOW_DESCRIPTION] == "Custom Description"
         assert metadata["num_operators"] == 2
 
     def test_metadata_with_default_values(self):
-        """Test metadata with default values when name/description missing."""
+        """Test metadata with minimal authoring format."""
         flow_def = {
-            "dag": [],
+            "flow_name": "Minimal Flow",
+            "flow": [{"type": "noop", "name": "op1"}],
         }
         executor = DatasiftFlowManager(flow_def=flow_def)
         metadata = executor.get_execution_metadata()
 
-        assert metadata[DatasiftConstants.FLOW_NAME] == DatasiftConstants.UNNAMED_FLOW
+        # After compilation, should have name from flow_name
+        assert metadata[DatasiftConstants.FLOW_NAME] == "Minimal Flow"
+        # Description defaults to empty string
         assert metadata[DatasiftConstants.FLOW_DESCRIPTION] == ""
 
     def test_metadata_flow_file_path(self, temp_flow_file):
@@ -759,9 +794,7 @@ class TestLogs:
         assert logs[2] == "Log line 3"
 
         # Verify get_formatted_job_stats was called with correct parameters
-        mock_job_stats_service.get_formatted_job_stats.assert_called_once_with(
-            job_run_id="run-123", include_logs=True
-        )
+        mock_job_stats_service.get_formatted_job_stats.assert_called_once_with(job_run_id="run-123", include_logs=True)
 
 
 # ---------------------------------------------------------------------------

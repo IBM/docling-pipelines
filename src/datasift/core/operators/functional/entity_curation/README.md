@@ -35,102 +35,77 @@ Here's a complete working example:
 
 ```json
 {
-  "flow": {
-    "name": "classify, extract entities, and curate flow",
-    "flow_id": "c1a2s3s4-i5f6-y789-0abc-def123456790",
-    "description": "A flow to classify documents, extract entities with Ollama, and curate them using document schemas",
+  "flow_name": "classify, extract entities, and curate flow",
+  "description": "A flow to classify documents, extract entities with Ollama, and curate them using document schemas",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true,
+    "output_folder": "./tests/fixtures/invoices",
     "storage": "disk",
-    "execute_type": "local",
-    "global_config": {
-      "doc_column": "content",
-      "disable_validation": "true",
-      "force_ingest": true,
-      "output_folder": "./tests/fixtures/invoices"
-    },
-    "dag": [
-      {
-        "id": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd",
-        "name": "ingest",
-        "operator": "ingest_local",
-        "config": {
-          "input_folder": "./tests/fixtures/invoices",
-          "include_filter": "txt,pdf,docx",
-          "store_binary_content": "true",
-          "max_workers": 2
-        },
-        "input_edges": [],
-        "output_edges": [
-          { "node_id_ref": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
-        ]
-      },
-      {
-        "id": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80",
-        "name": "classify",
-        "operator": "document_classifier",
-        "config": {
-          "provider": "ollama",
-          "model_id": "granite4:latest",
-          "confidence_threshold": 7.0,
-          "doc_column": "content",
-          "output_column": "document_type",
-          "include_confidence": true,
-          "include_reasoning": true,
-          "max_content_length": 8000,
-          "extract_tables": true,
-          "extract_images": true
-        },
-        "input_edges": [
-          { "node_id_ref": "10953cfb-a3a2-4688-9aea-ff9fff10f7bd" }
-        ],
-        "output_edges": [
-          { "node_id_ref": "40a1b2c3-d4e5-4f67-8901-234567890abc" }
-        ]
-      },
-      {
-        "id": "40a1b2c3-d4e5-4f67-8901-234567890abc",
-        "name": "extract_entities",
-        "operator": "extract_operator",
-        "config": {
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "ollama",
-          "entity_model_name": "granite4:latest",
-          "doc_column": "content",
-          "output_column": "entities",
-          "max_doc_chars": 8000,
-          "entity_temperature": 0.0,
-          "max_workers": 4,
-          "expand_extracted_data": true
-        },
-        "input_edges": [
-          { "node_id_ref": "30e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f80" }
-        ],
-        "output_edges": [
-          { "node_id_ref": "50b2c3d4-e5f6-4789-0123-456789abcdef" }
-        ]
-      },
-      {
-        "id": "50b2c3d4-e5f6-4789-0123-456789abcdef",
-        "name": "curate_entities",
-        "operator": "entity_curation",
-        "config": {
-          "entities_column": "entities",
-          "document_type_column": "document_type"
-        },
-        "input_edges": [
-          { "node_id_ref": "40a1b2c3-d4e5-4f67-8901-234567890abc" }
-        ],
-        "output_edges": []
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./tests/fixtures/invoices",
+        "include_filter": "txt,pdf,docx",
+        "store_binary_content": "true",
+        "max_workers": 2
       }
-    ]
-  }
+    },
+    {
+      "name": "classify",
+      "type": "document_classifier",
+      "depends_on": ["ingest"],
+      "config": {
+        "provider": "ollama",
+        "model_id": "granite4:latest",
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+        "include_confidence": true,
+        "include_reasoning": true,
+        "max_content_length": 8000,
+        "extract_tables": true,
+        "extract_images": true
+      }
+    },
+    {
+      "name": "extract_entities",
+      "type": "extract_operator",
+      "depends_on": ["classify"],
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "ollama",
+        "entity_model_name": "granite4:latest",
+        "doc_column": "content",
+        "output_column": "entities",
+        "max_doc_chars": 8000,
+        "entity_temperature": 0.0,
+        "max_workers": 4,
+        "expand_extracted_data": true
+      }
+    },
+    {
+      "name": "curate_entities",
+      "type": "entity_curation",
+      "depends_on": ["extract_entities"],
+      "config": {
+        "entities_column": "entities",
+        "document_type_column": "document_type"
+      }
+    }
+  ]
 }
 ```
 
 **Important Notes**:
-- All node `id` values must be valid UUIDs (validation will fail otherwise)
-- Use short operator names (e.g., `"operator": "entity_curation"`) instead of full class paths
-- The `flow` object wraps the entire configuration
-- Each node specifies its dependencies via `input_edges` and `output_edges` with UUID references
+- Use the authoring format with `flow_name`, `flow` array, and `depends_on` for dependencies
+- Operator types use short names (e.g., `"type": "entity_curation"`)
+- The system automatically generates UUIDs and edges from the `depends_on` declarations
 
 ## Transformation Functions
 

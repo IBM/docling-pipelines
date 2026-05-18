@@ -111,63 +111,40 @@ The Language Detection operator automatically detects the language of document c
     "name": "Language Detection Pipeline",
     "flow_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
     "description": "Pipeline: ingest → extract → language detection",
-    "storage": "in-memory",
-    "execute_type": "local",
     "global_config": {
       "doc_column": "content",
       "disable_validation": "true",
+      "storage": "in-memory",
+      "execute_type": "local",
       "force_ingest": true
     },
-    "dag": [
+    "flow": [
       {
-        "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
         "name": "ingest",
-        "operator": "ingest_local",
+        "type": "ingest_local",
         "config": {
           "input_folder": "data/documents/",
           "include_filter": "txt,pdf",
           "max_workers": 2
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
-          }
-        ]
+        }
       },
       {
-        "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
         "name": "extract",
-        "operator": "extract_operator",
+        "type": "extract_operator",
+        "depends_on": ["ingest"],
         "config": {
           "text_extraction_mode": "docling_library",
           "entity_extraction_mode": "none"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "8def9abc-c1d2-4e3f-9a0b-1c2d3e4f5a6b"
-          }
-        ]
+        }
       },
       {
-        "id": "8def9abc-c1d2-4e3f-9a0b-1c2d3e4f5a6b",
         "name": "detect_language",
-        "operator": "lang_detect",
+        "type": "language_detection",
+        "depends_on": ["extract"],
         "config": {
           "language_provider": "fasttext",
           "filter_unknown_language": false
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
-          }
-        ],
-        "output_edges": []
+        }
       }
     ]
   }

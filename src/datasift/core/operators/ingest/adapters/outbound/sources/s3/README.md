@@ -169,37 +169,32 @@ if __name__ == "__main__":
 
 ```json
 {
-    "flow": {
-        "name": "S3 Document Ingestion",
-        "dag": [
-            {
-                "id": "ingest-s3",
-                "name": "ingest_s3_documents",
-                "operator": "ingest_source",
-                "config": {
-                    "provider": "s3",
-                    "credentials": {
-                        "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
-                        "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # pragma: allowlist secret
-                    },
-                    "connection_params": {
-                        "bucket": "my-documents-bucket",
-                        "prefix": "documents/",
-                        "region": "us-east-1",
-                        "recursive": true,
-                        "skip_hidden_files": true,
-                        "skip_empty_files": true,
-                        "max_file_size_mb": 100
-                    },
-                    "include_filter": "pdf,docx,txt",
-                    "max_files": 100,
-                    "force_ingest": true
+    "flow_name": "S3 Document Ingestion",
+    "flow": [
+        {
+            "name": "ingest_s3_documents",
+            "type": "ingest_source",
+            "config": {
+                "provider": "s3",
+                "credentials": {
+                    "access_key": "AKIAIOSFODNN7EXAMPLE", # pragma: allowlist secret
+                    "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" # pragma: allowlist secret
                 },
-                "input_edges": [],
-                "output_edges": ["next-operator-id"]
+                "connection_params": {
+                    "bucket": "my-documents-bucket",
+                    "prefix": "documents/",
+                    "region": "us-east-1",
+                    "recursive": true,
+                    "skip_hidden_files": true,
+                    "skip_empty_files": true,
+                    "max_file_size_mb": 100
+                },
+                "include_filter": "pdf,docx,txt",
+                "max_files": 100,
+                "force_ingest": true
             }
-        ]
-    }
+        }
+    ]
 }
 ```
 

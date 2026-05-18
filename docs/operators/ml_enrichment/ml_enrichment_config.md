@@ -146,94 +146,51 @@ The operator computes exactly 30 text quality metrics as defined in `DEFAULT_TEX
       "micro_batch_size": 10
     },
 
-    "dag": [
+    "flow": [
       {
-        "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
         "name": "ingest_documents",
-        "operator": "ingest_local_folder",
+        "type": "ingest_local_folder",
         "config": {
-          "input_folder": "sample_documents"
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e"
-          }
-        ]
+          "input_folder": "./sample_documents"
+        }
       },
       {
-        "id": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e",
         "name": "extract_documents",
-        "operator": "extract",
+        "type": "extract_operator",
+        "depends_on": ["ingest_documents"],
         "config": {
-          "text_extraction_mode": "basic"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f"
-          }
-        ]
+          "text_extraction_mode": "docling_library",
+          "entity_extraction_mode": "none"
+        }
       },
       {
-        "id": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f",
         "name": "detect_language",
-        "operator": "lang_detect",
+        "type": "language_detection",
+        "depends_on": ["extract_documents"],
         "config": {
           "language_provider": "fasttext"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "d4e5f6a7-b8c9-4d5e-1f2a-3b4c5d6e7f8a"
-          }
-        ]
+        }
       },
       {
-        "id": "d4e5f6a7-b8c9-4d5e-1f2a-3b4c5d6e7f8a",
         "name": "ml_enrichment",
-        "operator": "ml_enrichment",
+        "type": "ml_enrichment",
+        "depends_on": ["detect_language"],
         "config": {
           "lang_column": "language",
           "output_column_prefix": "quality_"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "e5f6a7b8-c9d0-4e5f-2a3b-4c5d6e7f8a9b"
-          }
-        ]
+        }
       },
       {
-        "id": "e5f6a7b8-c9d0-4e5f-2a3b-4c5d6e7f8a9b",
         "name": "filter_quality_documents",
-        "operator": "sql_filter",
+        "type": "sql_filter",
+        "depends_on": ["ml_enrichment"],
         "config": {
-          "filter_criteria": [
+          "criteria_list": [
             "quality_num_words >= 100",
             "quality_alphanumeric_ratio >= 0.8",
             "quality_paragraph_duplicate_ratio < 0.3"
-          ],
-          "logical_operator": "AND"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "d4e5f6a7-b8c9-4d5e-1f2a-3b4c5d6e7f8a"
-          }
-        ],
-        "output_edges": []
+          ]
+        }
       }
     ]
   }
@@ -246,11 +203,9 @@ The operator computes exactly 30 text quality metrics as defined in `DEFAULT_TEX
 Compute all 30 text quality metrics using default settings:
 ```json
 {
-  "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-  "operator": "ml_enrichment",
-  "config": {},
-  "input_edges": [],
-  "output_edges": []
+  "name": "ml_enrichment",
+  "type": "ml_enrichment",
+  "config": {}
 }
 ```
 
@@ -258,34 +213,23 @@ Compute all 30 text quality metrics using default settings:
 Use ML enrichment metrics for quality filtering:
 ```json
 {
-  "dag": [
+  "flow": [
     {
-      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
-      "operator": "ml_enrichment",
-      "config": {},
-      "input_edges": [],
-      "output_edges": [
-        {
-          "node_id_ref": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e"
-        }
-      ]
+      "name": "ml_enrichment",
+      "type": "ml_enrichment",
+      "config": {}
     },
     {
-      "id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
-      "operator": "sql_filter",
+      "name": "filter_quality",
+      "type": "sql_filter",
+      "depends_on": ["ml_enrichment"],
       "config": {
         "criteria_list": [
           "num_words >= 50",
           "alphanumeric_char_ratio >= 0.75",
           "control_char_ratio < 0.05"
         ]
-      },
-      "input_edges": [
-        {
-          "node_id_ref": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
-        }
-      ],
-      "output_edges": []
+      }
     }
   ]
 }

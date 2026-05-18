@@ -1,62 +1,32 @@
 {
-  "flow_id": "99fa9b78-09d3-4c9f-a179-dd688ef8e899",
-  "container_kind": null,
-  "container_id": null,
-  "name": "Simple Ingest and Extract Flow",
+  "flow_name": "Simple Ingest and Extract Flow",
   "description": "A simple flow to demonstrate ingesting and extracting documents",
-  "definition": {
-    "flow": {
-      "name": "Simple Ingest and Extract Flow",
-      "flow_id": "99fa9b78-09d3-4c9f-a179-dd688ef8e899",
-      "description": "A simple flow to demonstrate ingesting and extracting documents",
-      "global_config": {
-        "doc_column": "content",
-        "disable_validation": "true",
-        "force_ingest": true,
-        "enable_micro_batching": true,
-        "micro_batch_size": 5
-      },
-      "dag": [
-        {
-          "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
-          "name": "ingest",
-          "operator": "ingest_local",
-          "config": {
-            "input_folder": "../../../tests/fixtures/customer_support_docs",
-            "include_filter": "pdf, txt",
-            "store_binary_content": "false"
-          },
-          "input_edges": [],
-          "output_edges": [
-            {
-              "node_id_ref": "7cfd7577-b061-4fc9-92d5-120ae0fbde89"
-            }
-          ]
-        },
-        {
-          "id": "7cfd7577-b061-4fc9-92d5-120ae0fbde89",
-          "name": "extract",
-          "operator": "extract_operator",
-          "config": {
-            "doc_column": "content"
-          },
-          "input_edges": [
-            {
-              "node_id_ref": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd"
-            }
-          ],
-          "output_edges": []
-        }
-      ]
-    }
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": "true",
+    "force_ingest": true,
+    "enable_micro_batching": true,
+    "micro_batch_size": 5
   },
-  "tags": [],
-  "is_hidden": false,
-  "flow_version": "2.0",
-  "created_on": "2026-04-16T17:16:51+05:30",
-  "modified_on": "2026-04-16T17:16:51+05:30",
-  "job_id": null,
-  "created_by": null,
-  "modified_by": null,
-  "href": null
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "../../../tests/fixtures/customer_support_docs",
+        "include_filter": "pdf, txt",
+        "store_binary_content": "false"
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": [
+        "ingest"
+      ],
+      "config": {
+        "doc_column": "content"
+      }
+    }
+  ]
 }

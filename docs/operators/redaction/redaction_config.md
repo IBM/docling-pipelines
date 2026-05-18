@@ -109,77 +109,46 @@ Contact us at ##################### or ##################
 
 ```json
 {
-    "dag": [
-      {
-        "id": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
-        "name": "ingest_documents",
-        "operator": "ingest_local_folder",
-        "config": {
-          "input_folder": "sample_documents"
-        },
-        "input_edges": [],
-        "output_edges": [
-          {
-            "node_id_ref": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e"
-          }
-        ]
-      },
-      {
-        "id": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e",
-        "name": "extract_documents",
-        "operator": "extract",
-        "config": {
-          "text_extraction_mode": "basic"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f"
-          }
-        ]
-      },
-      {
-        "id": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f",
-        "name": "redact_emails",
-        "operator": "redaction",
-        "config": {
-          "redaction_regex": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
-          "redaction_masking_character": "*",
-          "stats_column": "email_redactions"
-        },
-        "input_edges": [
-          {
-            "node_id_ref": "b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e"
-          }
-        ],
-        "output_edges": [
-          {
-            "node_id_ref": "d4e5f6a7-b8c9-4d5e-1f2a-3b4c5d6e7f8a"
-          }
-        ]
-      },
-      {
-          "id": "d4e5f6a7-b8c9-4d5e-1f2a-3b4c5d6e7f8a",
-          "name": "redact_phone_numbers",
-          "operator": "redaction",
-          "config": {
-            "redaction_regex": "\\b\\d{3}-\\d{3}-\\d{4}\\b",
-            "redaction_masking_character": "#",
-            "stats_column": "phone_redactions"
-          },
-          "input_edges": [
-            {
-              "node_id_ref": "c3d4e5f6-a7b8-4c5d-0e1f-2a3b4c5d6e7f"
-            }
-          ],
-          "output_edges": []
-        }
-    ]
-  }
+  "flow_name": "PII Redaction Pipeline",
+  "description": "Ingest, extract, and redact sensitive information",
+  "flow": [
+    {
+      "name": "ingest_documents",
+      "type": "ingest_local_folder",
+      "config": {
+        "input_folder": "./sample_documents",
+      }
+    },
+    {
+      "name": "extract_documents",
+      "type": "extract_operator",
+      "depends_on": ["ingest_documents"],
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      }
+    },
+    {
+      "name": "redact_emails",
+      "type": "redaction",
+      "depends_on": ["extract_documents"],
+      "config": {
+        "redaction_regex": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+        "redaction_masking_character": "*",
+        "stats_column": "email_redactions"
+      }
+    },
+    {
+      "name": "redact_phone_numbers",
+      "type": "redaction",
+      "depends_on": ["redact_emails"],
+      "config": {
+        "redaction_regex": "\\b\\d{3}-\\d{3}-\\d{4}\\b",
+        "redaction_masking_character": "#",
+        "stats_column": "phone_redactions"
+      }
+    }
+  ]
 }
 ```
 

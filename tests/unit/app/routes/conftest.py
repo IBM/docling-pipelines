@@ -66,6 +66,47 @@ def sample_flow_with_id(sample_flow_data) -> Flow:
 
 
 @pytest.fixture
+def sample_authoring_flow_with_id() -> Flow:
+    """Sample Flow domain object with authoring format definition for testing."""
+    authoring_definition = {
+        "flow_name": "Test Flow",
+        "description": "A test flow for unit testing",
+        "flow": [
+            {
+                "type": "ingest_local",
+                "name": "ingest_node",
+                "config": {"input_folder": "./data"},
+                "depends_on": [],
+            },
+            {
+                "type": "extract_operator",
+                "name": "extract_node",
+                "config": {},
+                "depends_on": ["ingest_node"],
+            },
+        ],
+        "global_config": {},
+        "tags": ["test", "unit-test"],
+    }
+    flow = Flow(
+        flow_id="12345678-1234-1234-1234-123456789abc",
+        name="Test Flow",
+        description="A test flow for unit testing",
+        definition=authoring_definition,
+        tags=["test", "unit-test"],
+        container_kind=None,
+        container_id=None,
+        is_hidden=False,
+        flow_version="2.0",
+        job_id=None,
+        created_by="test_user",
+        created_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
+        modified_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
+    )
+    return flow
+
+
+@pytest.fixture
 def multiple_sample_flows() -> list[Flow]:
     """Multiple sample flows for testing list operations."""
     flows = []
