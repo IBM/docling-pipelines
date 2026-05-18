@@ -96,6 +96,11 @@ class VectorDBOperator(AbstractOperator):
                 OperatorConstants.Config.FEATURE_MAPPINGS, {}
             )
 
+            # Pass schema_template_path if provided (operator-level config)
+            schema_template_path = self.config.get("schema_template_path")
+            if schema_template_path:
+                adapter_config["schema_template_path"] = schema_template_path
+
             self.adapter: VectorStorePort = VectorStoreFactory.create(self.provider, **adapter_config)
         except Exception as e:
             raise DatasiftException(

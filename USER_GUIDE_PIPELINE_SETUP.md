@@ -1118,7 +1118,7 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 - **batch_size**: Documents per batch (default: 100)
 - **engine_parameters**: Optional engine-specific parameters (e.g., {"ef_construction": 512, "m": 16} for HNSW)
 - **schema_template_path**: Path to JSON schema template (relative to `src/datasift/core/operators/vectordb/`)
-  - Built-in templates: `schemas/default_schema.v1.json`, `schemas/document_chunks_schema.v1.json`
+  - Built-in templates: `schemas/default_schema.v1.json`, `schemas/template_with_content_analyzer.v1.json`
   - If not specified, schema is generated dynamically from `available_features`
 
 > **⚠️ Important**: The embeddings column is mandatory. The operator validates embeddings exist in the input table and will fail if missing. You must explicitly configure embeddings in `available_features` for them to be stored in OpenSearch.
@@ -1140,7 +1140,7 @@ Schema templates provide reusable index configurations with consistent settings 
    - Suitable for general document storage
    - Includes standard text, numeric, and vector fields
 
-2. **document_chunks_schema.v1.json**: Optimized for document chunking
+2. **template_with_content_analyzer.v1.json**: Template with custom content analyzer
    - Custom content analyzer with stemming and stop words
    - Optimized for semantic search on document chunks
 
@@ -1158,7 +1158,7 @@ Schema templates provide reusable index configurations with consistent settings 
     "create_index": true,
     "vector_dimension": 768,
     "provider_config": {
-      "schema_template_path": "schemas/document_chunks_schema.v1.json",
+      "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
       "port": 9200,
       "username": "admin",
@@ -2210,10 +2210,10 @@ print(operators_detailed)
 ```
 
 **Summary table format:**
+
 - **Owner**: Operator name
 - **Attributes**: Count of configurable parameters
 - **Features**: Count of special features/capabilities
-
 
 ### 11.8 Error Handling and Debugging
 

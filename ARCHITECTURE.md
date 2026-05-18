@@ -1541,11 +1541,13 @@ The OpenSearch adapter supports a flexible schema template system that enables r
 2. **Placeholder Replacement**: Dynamic values are injected at runtime using placeholder strings
 3. **Graceful Fallback**: If template is not found or invalid, falls back to dynamic schema generation
 4. **Validation**: Comprehensive schema validation with detailed error messages
+5. **Indexing Rules**: Field-level overrides for customizing field types and properties without full schema definitions
 
 **Built-in Templates**:
 
 - `default_schema.v1.json`: Basic schema with standard field types
-- `document_chunks_schema.v1.json`: Optimized for document chunking with custom analyzers
+- `template_with_content_analyzer.v1.json`: Template with custom content analyzer and indexing rules
+- `full_schema.v1.json`: Example of full schema format with complete mappings
 
 **Supported Placeholders**:
 
@@ -1557,7 +1559,14 @@ The OpenSearch adapter supports a flexible schema template system that enables r
 | `__SPACE_TYPE__`        | Similarity metric          | `l2`, `cosine`, `inner_product`        |
 | `__ENGINE_PARAMETERS__` | Engine-specific parameters | `{"ef_construction": 128, "m": 24}`    |
 
-**Template Structure**:
+**Schema Format Options**:
+
+Templates support two formats:
+
+1. **Template Schema** (with `field_types` + optional `indexing_rules`): Dynamic field mapping with type templates
+2. **Full Schema** (with `mappings`): Complete OpenSearch mapping definition
+
+**Template Schema Structure**:
 
 ```json
 {
@@ -1590,6 +1599,13 @@ The OpenSearch adapter supports a flexible schema template system that enables r
         }
       }
     }
+  },
+  "indexing_rules": {
+    "content": {
+      "field_type": "content_text",
+      "boost": 2.0,
+      "copy_to": ["all_text"]
+    }
   }
 }
 ```
@@ -1603,7 +1619,7 @@ The OpenSearch adapter supports a flexible schema template system that enables r
     "provider": "opensearch",
     "index_name": "document_chunks",
     "provider_config": {
-      "schema_template_path": "schemas/document_chunks_schema.v1.json",
+      "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
       "port": 9200,
       "engine": "faiss",
@@ -1613,6 +1629,168 @@ The OpenSearch adapter supports a flexible schema template system that enables r
   }
 }
 ```
+
+#### Indexing Rules System
+
+**Purpose**: Enable flexible field-level customization without requiring full schema definitions. Indexing rules allow overriding field types and properties for specific fields while using template-based field type definitions for the rest.
+
+**Key Features**:
+
+1. **Field Type Override**: Map specific fields to custom field types defined in `field_types`
+2. **Property Overrides**: Add or override specific OpenSearch mapping properties for individual fields without redefining the entire field type
+3. **Dual Lookup Resolution**: Supports both feature names and mapped names for field resolution
+4. **Allowlist Protection**: Only safe properties can be overridden to prevent schema corruption
+5. **Deep Merging**: Nested properties are recursively merged with field type definitions
+
+**Property Overrides Explained**:
+
+Property overrides let you customize specific OpenSearch mapping properties for individual fields. Instead of creating a new field type for every variation, you can reuse a base field type and override just the properties you need.
+
+**Common Use Cases**:
+
+- **`boost`**: Increase relevance score for important fields (e.g., title gets boost of 3.0, content gets 2.0)
+- **`copy_to`**: Copy field values to a combined search field (e.g., copy title and content to "all_text" for unified search)
+- **`analyzer`**: Use different text analysis for specific fields (e.g., use "keyword_analyzer" for product codes)
+- **`fields`**: Add sub-fields with different analysis (e.g., add "exact" keyword sub-field for case-sensitive matching)
+
+**Supported Properties**: `analyzer`, `search_analyzer`, `copy_to`, `boost`, `index`, `store`, `similarity`, `normalizer`, `fields`
+
+**Example - Boosting Important Fields**:
+
+```json
+{
+  "indexing_rules": {
+    "title": {
+      "field_type": "string",
+      "boost": 3.0,
+      "copy_to": ["all_text"]
+    },
+    "content": {
+      "field_type": "string",
+      "boost": 2.0,
+      "copy_to": ["all_text"]
+    },
+    "summary": {
+      "field_type": "string",
+      "boost": 1.5,
+      "copy_to": ["all_text"]
+    }
+  }
+}
+```
+
+In this example, all three fields use the same `string` field type, but each has different boost values to control search relevance. The `title` field is 3x more important than unboost fields, `content` is 2x, and `summary` is 1.5x.
+
+**Indexing Rules Structure**:
+
+```json
+{
+  "indexing_rules": {
+    "field_name": {
+      "field_type": "custom_type",
+      "boost": 2.0,
+      "copy_to": ["all_text"],
+      "analyzer": "custom_analyzer"
+    }
+  }
+}
+```
+
+**Example: Content Field with Custom Analyzer**:
+
+```json
+{
+  "schema_name": "document_chunks",
+  "schema_version": 1,
+  "settings": {
+    "analysis": {
+      "analyzer": {
+        "content_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop", "snowball"]
+        }
+      }
+    }
+  },
+  "field_types": {
+    "string": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "content_text": {
+      "type": "text",
+      "analyzer": "content_analyzer",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    }
+  },
+  "indexing_rules": {
+    "content": {
+      "field_type": "content_text"
+    }
+  }
+}
+```
+
+In this example:
+
+- The `content` field uses `content_text` field type instead of the default `string` type
+- The `content_text` type applies a custom analyzer with stemming and stop word removal
+- Other string fields continue using the default `string` field type
+
+**Lookup Priority**:
+
+When resolving field configurations, the system follows this priority:
+
+1. Check `indexing_rules` for the feature name (e.g., `content`)
+2. Check `indexing_rules` for the mapped name (e.g., `doc_content`)
+3. Fall back to `system_type` from `available_features` configuration
+4. Use default field type if no match found
+
+**Reserved Fields Protection**:
+
+System fields cannot be overridden via indexing rules:
+
+- `_id`
+- `_index`
+- `_source`
+- `_type`
+- `_meta`
+
+**Validation and Safety**:
+
+- Property overrides are validated against an allowlist to prevent invalid configurations
+- Invalid field types in indexing rules raise clear error messages
+- Empty analysis blocks are automatically removed to prevent OpenSearch errors
+- Mapping explosion protection limits total fields to 2000 by default
+
+**Implementation Details**:
+
+The indexing rules system is implemented in `OpenSearchIndexManager._build_index_body_from_field_type_template()`:
+
+1. **Field Type Resolution**: Looks up field type from `indexing_rules` or falls back to `system_type`
+2. **Base Mapping Creation**: Retrieves field type definition from `field_types` section
+3. **Property Override Application**: Deep merges allowlisted properties from indexing rules
+4. **Dual Lookup Support**: Checks both feature name and mapped name for maximum flexibility
+5. **Validation**: Ensures field types exist and properties are safe to override
+
+**Benefits**:
+
+- **Flexibility**: Customize specific fields without duplicating entire schema
+- **Maintainability**: Centralized field type definitions with per-field overrides
+- **Safety**: Allowlist protection prevents accidental schema corruption
+- **Backward Compatibility**: Existing schemas without indexing rules continue to work
+- **Clarity**: Clear separation between field type templates and field-specific customizations
 
 #### Metadata Column Normalization
 

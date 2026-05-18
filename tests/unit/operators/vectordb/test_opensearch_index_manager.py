@@ -515,7 +515,7 @@ class TestIndexMapping:
         assert properties["bool_field"]["type"] == "boolean"
         assert properties["object_field"]["type"] == "object"
         assert properties["json_field"]["type"] == "object"
-        assert properties["nested_field"]["type"] == "object"
+        assert properties["nested_field"]["type"] == "nested"
 
     def test_mapping_excludes_unavailable_features(self, mock_client):
         """Test mapping excludes features not available for vector db"""

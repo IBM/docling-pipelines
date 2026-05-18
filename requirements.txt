@@ -19,7 +19,7 @@ asyncpg==0.31.0
 attrs==26.1.0
 audioread==3.1.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 av==17.0.1
-azure-core==1.39.0
+azure-core==1.40.0
 azure-storage-blob==12.28.0
 babel==2.18.0
 backoff==2.2.1
@@ -209,7 +209,7 @@ ollama==0.6.1
 omegaconf==2.3.0
 onnx==1.21.0
 onnxruntime==1.25.1
-openai==2.33.0
+openai==2.34.0
 opencv-python==4.10.0.84 ; sys_platform == 'darwin'
 opencv-python==4.11.0.86 ; sys_platform != 'darwin'
 openpyxl==3.1.5
@@ -363,7 +363,7 @@ uv==0.11.8
 uvicorn==0.40.0
 uvloop==0.22.1 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
 watchfiles==1.1.1
-wcwidth==0.6.0
+wcwidth==0.7.0
 webencodings==0.5.1
 websockets==15.0.1
 win32-setctime==1.2.0 ; sys_platform == 'win32'

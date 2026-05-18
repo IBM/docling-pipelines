@@ -1,5 +1,5 @@
 {
-  "schema_name": "document_chunks",
+  "schema_name": "template_with_content_analyzer",
   "schema_version": 1,
   "settings": {
     "index": {
@@ -16,6 +16,11 @@
           "filter": ["lowercase", "stop", "snowball"]
         }
       }
+    }
+  },
+  "indexing_rules": {
+    "content": {
+      "field_type": "content_text"
     }
   },
   "field_types": {

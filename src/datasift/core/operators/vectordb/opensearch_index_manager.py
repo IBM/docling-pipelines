@@ -13,11 +13,56 @@ from typing import Any, ClassVar
 import pyarrow as pa
 from opensearchpy import OpenSearch
 
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
+
+# Allowlisted OpenSearch mapping properties (O(1) lookup)
+SUPPORTED_MAPPING_OVERRIDES: set[str] = {
+    "analyzer",
+    "search_analyzer",
+    "copy_to",
+    "boost",
+    "index",
+    "store",
+    "similarity",
+    "normalizer",
+    "fields",
+}
+
+
+def _deep_merge(*, base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """
+    Recursively merge override dict into base dict.
+
+    Args:
+        base: Base dictionary
+        override: Override dictionary
+
+    Returns:
+        Merged dictionary
+    """
+    result = base.copy()
+
+    for key, value in override.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(base=result[key], override=value)
+        else:
+            result[key] = deepcopy(value)
+
+    return result
+
+
+# Reserved field names that cannot be overridden by user schemas
+RESERVED_FIELDS: set[str] = {
+    "metadata",
+    "_id",
+    "_source",
+    "_meta",
+}
 
 
 # Engine-Algorithm compatibility
@@ -273,13 +318,9 @@ class OpenSearchIndexManager:
                     )
                     return None
 
-            # Validate schema only if it has schema_name and schema_version
-            # (i.e., it's a formal schema template, not a test schema)
-            schema_copy = deepcopy(schema)
-            if "schema_name" in schema_copy and "schema_version" in schema_copy:
-                self._validate_schema(schema=schema_copy)
-
-            return schema_copy
+            # Return schema without validation
+            # Validation will happen in build_index_body() after placeholder replacement
+            return deepcopy(schema)
         except json.JSONDecodeError as e:
             logger.warning(
                 f"Invalid JSON in schema template {self.schema_template_path}: {e}. "
@@ -361,22 +402,22 @@ class OpenSearchIndexManager:
             DatasiftException: If schema validation fails
         """
         # A. Schema metadata validation
-        if "schema_name" not in schema:
+        if OperatorConstants.VectorDB.SCHEMA_KEY_SCHEMA_NAME not in schema:
             raise DatasiftException(
-                message="Schema missing required 'schema_name' field",
+                message=f"Schema missing required '{OperatorConstants.VectorDB.SCHEMA_KEY_SCHEMA_NAME}' field",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
-        if "schema_version" not in schema:
+        if OperatorConstants.VectorDB.SCHEMA_KEY_SCHEMA_VERSION not in schema:
             raise DatasiftException(
-                message="Schema missing required 'schema_version' field",
+                message=f"Schema missing required '{OperatorConstants.VectorDB.SCHEMA_KEY_SCHEMA_VERSION}' field",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
         # Validate version is positive integer
-        schema_version = schema["schema_version"]
+        schema_version = schema[OperatorConstants.VectorDB.SCHEMA_KEY_SCHEMA_VERSION]
         if not isinstance(schema_version, int) or schema_version <= 0:
             raise DatasiftException(
                 message=f"Schema version must be a positive integer, got: {schema_version}",
@@ -385,43 +426,52 @@ class OpenSearchIndexManager:
             )
 
         # B. Required OpenSearch sections
-        if "settings" not in schema:
+        if OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS not in schema:
             raise DatasiftException(
-                message="Schema missing required 'settings' section",
+                message=f"Schema missing required '{OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS}' section",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
-        if "mappings" not in schema:
+        # Schema can be either:
+        # 1. Full schema with 'mappings' (complete field definitions)
+        # 2. Template schema with 'field_types' (type templates for dynamic generation)
+        has_mappings = OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS in schema
+        has_field_types = OperatorConstants.VectorDB.SCHEMA_KEY_FIELD_TYPES in schema
+
+        if not has_mappings and not has_field_types:
             raise DatasiftException(
-                message="Schema missing required 'mappings' section",
+                message=f"Schema must have either '{OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS}' (full schema) or '{OperatorConstants.VectorDB.SCHEMA_KEY_FIELD_TYPES}' (template schema)",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
 
-        mappings = schema.get("mappings", {})
-        if "properties" not in mappings:
-            raise DatasiftException(
-                message="Schema mappings missing required 'properties' section",
-                status_code=400,
-                error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
-            )
+        # Validate full schema structure if mappings present
+        if has_mappings:
+            mappings = schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {})
+            if OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES not in mappings:
+                raise DatasiftException(
+                    message=f"Schema mappings missing required '{OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES}' section",
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
 
-        # C. Vector field validation
-        self._validate_vector_fields(schema=schema)
+        # Validate full schema structure (only for schemas with mappings)
+        if has_mappings:
+            # C. Vector field validation
+            self._validate_vector_fields(schema=schema)
+            # D. Parameter validation
+            self._validate_parameters(schema=schema)
+            # E. Nested field depth
+            self._validate_field_depth(schema=schema)
 
-        # D. Parameter validation
-        self._validate_parameters(schema=schema)
-
-        # E. Nested field depth
-        self._validate_field_depth(schema=schema)
-
-        # F. Analyzer validation
+        # F. Analyzer validation (for both full and template schemas)
         self._validate_analyzers(schema=schema)
 
     def _validate_vector_fields(self, *, schema: dict[str, Any]) -> None:
         """
         Validate vector field configuration in schema.
+        Only called for full schemas with mappings.
 
         Args:
             schema: Schema dictionary to validate
@@ -429,18 +479,23 @@ class OpenSearchIndexManager:
         Raises:
             DatasiftException: If vector field validation fails
         """
-        properties = schema.get("mappings", {}).get("properties", {})
+        properties = schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {}).get(
+            OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES, {}
+        )
 
         # Find all knn_vector fields
         vector_fields = []
         for field_name, field_config in properties.items():
-            if isinstance(field_config, dict) and field_config.get("type") == "knn_vector":
+            if (
+                isinstance(field_config, dict)
+                and field_config.get("type") == OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR
+            ):
                 vector_fields.append((field_name, field_config))
 
         # Validate at least one vector field exists
         if not vector_fields:
             raise DatasiftException(
-                message="Schema must contain at least one 'knn_vector' field",
+                message=f"Schema must contain at least one '{OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR}' field",
                 status_code=400,
                 error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
             )
@@ -510,10 +565,15 @@ class OpenSearchIndexManager:
         Args:
             schema: Schema dictionary to validate
         """
-        properties = schema.get("mappings", {}).get("properties", {})
+        properties = schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {}).get(
+            OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES, {}
+        )
 
         for field_name, field_config in properties.items():
-            if not isinstance(field_config, dict) or field_config.get("type") != "knn_vector":
+            if (
+                not isinstance(field_config, dict)
+                or field_config.get("type") != OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR
+            ):
                 continue
 
             method = field_config.get("method", {})
@@ -592,7 +652,9 @@ class OpenSearchIndexManager:
         Args:
             schema: Schema dictionary to validate
         """
-        properties = schema.get("mappings", {}).get("properties", {})
+        properties = schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {}).get(
+            OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES, {}
+        )
 
         def count_depth(obj: Any, current_depth: int = 0) -> int:
             """Recursively count maximum nesting depth."""
@@ -600,8 +662,8 @@ class OpenSearchIndexManager:
                 return current_depth
 
             max_depth = current_depth
-            if "properties" in obj:
-                for prop_value in obj["properties"].values():
+            if OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES in obj:
+                for prop_value in obj[OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES].values():
                     depth = count_depth(obj=prop_value, current_depth=current_depth + 1)
                     max_depth = max(max_depth, depth)
 
@@ -613,15 +675,15 @@ class OpenSearchIndexManager:
                 return 0
 
             count = 0
-            if "properties" in obj:
-                count += len(obj["properties"])
-                for prop_value in obj["properties"].values():
+            if OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES in obj:
+                count += len(obj[OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES])
+                for prop_value in obj[OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES].values():
                     count += count_fields(obj=prop_value)
 
             return count
 
         # Check maximum nesting depth
-        max_depth = count_depth(obj={"properties": properties})
+        max_depth = count_depth(obj={OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES: properties})
         if max_depth > 3:
             logger.warning(
                 f"Schema has deeply nested fields (depth: {max_depth}). "
@@ -629,7 +691,7 @@ class OpenSearchIndexManager:
             )
 
         # Check total field count
-        total_fields = count_fields(obj={"properties": properties})
+        total_fields = count_fields(obj={OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES: properties})
         if total_fields > 1000:
             logger.warning(
                 f"Schema has many fields (count: {total_fields}). Consider reducing field count for better performance."
@@ -642,8 +704,8 @@ class OpenSearchIndexManager:
         Args:
             schema: Schema dictionary to validate
         """
-        settings = schema.get("settings", {})
-        analysis = settings.get("analysis", {})
+        settings = schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS, {})
+        analysis = settings.get(OperatorConstants.VectorDB.SCHEMA_KEY_ANALYSIS, {})
 
         # Get defined analyzers
         defined_analyzers = set()
@@ -651,7 +713,9 @@ class OpenSearchIndexManager:
             defined_analyzers.update(analysis["analyzer"].keys())
 
         # Check for analyzer references in mappings
-        properties = schema.get("mappings", {}).get("properties", {})
+        properties = schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {}).get(
+            OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES, {}
+        )
 
         def check_analyzer_refs(obj: Any, path: str = "") -> None:
             """Recursively check analyzer references."""
@@ -670,8 +734,8 @@ class OpenSearchIndexManager:
                         )
 
             # Recursively check nested properties
-            if "properties" in obj:
-                for prop_name, prop_value in obj["properties"].items():
+            if OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES in obj:
+                for prop_name, prop_value in obj[OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES].items():
                     new_path = f"{path}.{prop_name}" if path else prop_name
                     check_analyzer_refs(obj=prop_value, path=new_path)
 
@@ -681,7 +745,7 @@ class OpenSearchIndexManager:
                     new_path = f"{path}.{field_name}" if path else field_name
                     check_analyzer_refs(obj=field_value, path=new_path)
 
-        check_analyzer_refs(obj={"properties": properties})
+        check_analyzer_refs(obj={OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES: properties})
 
     def build_index_body(self) -> dict[str, Any]:
         """
@@ -702,14 +766,25 @@ class OpenSearchIndexManager:
                 logger.info(f"Building index body from schema template: {self.schema_template_path}")
                 schema = self._replace_placeholders(obj=loaded_schema)
 
-                if isinstance(schema, dict) and "field_types" in schema and "mappings" not in schema:
+                if (
+                    isinstance(schema, dict)
+                    and OperatorConstants.VectorDB.SCHEMA_KEY_FIELD_TYPES in schema
+                    and OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS not in schema
+                ):
                     schema = self._build_index_body_from_field_type_template(schema=schema)
 
-                # Inject runtime metadata
-                if isinstance(schema, dict) and "mappings" in schema:
-                    if "_meta" not in schema["mappings"]:
-                        schema["mappings"]["_meta"] = {}
-                    schema["mappings"]["_meta"].update(
+                # Inject runtime metadata (must happen before validation)
+                if isinstance(schema, dict) and OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS in schema:
+                    if (
+                        OperatorConstants.VectorDB.SCHEMA_KEY_META
+                        not in schema[OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS]
+                    ):
+                        schema[OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS][
+                            OperatorConstants.VectorDB.SCHEMA_KEY_META
+                        ] = {}
+                    schema[OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS][
+                        OperatorConstants.VectorDB.SCHEMA_KEY_META
+                    ].update(
                         {
                             "engine": self.engine,
                             "algorithm": self.algorithm,
@@ -720,10 +795,26 @@ class OpenSearchIndexManager:
 
                 # Validate schema only if it has schema_name and schema_version
                 # (i.e., it's a formal schema template, not a test schema)
-                if "schema_name" in schema and "schema_version" in schema:
+                # Validation happens AFTER placeholder replacement and _meta injection
+                if (
+                    OperatorConstants.VectorDB.SCHEMA_KEY_SCHEMA_NAME in schema
+                    and OperatorConstants.VectorDB.SCHEMA_KEY_SCHEMA_VERSION in schema
+                ):
                     self._validate_schema(schema=schema)
 
-                return schema
+                # Return only OpenSearch-compatible sections (settings and mappings)
+                # Remove metadata fields like schema_name, schema_version, field_types, indexing_rules
+                index_body = {}
+                if OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS in schema:
+                    index_body[OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS] = schema[
+                        OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS
+                    ]
+                if OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS in schema:
+                    index_body[OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS] = schema[
+                        OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS
+                    ]
+
+                return index_body
 
         # Fall back to dynamic generation
         logger.info("Building index body using dynamic feature mapping")
@@ -731,9 +822,9 @@ class OpenSearchIndexManager:
 
         # Add settings
         if self.index_settings:
-            index_body["settings"] = self.index_settings
+            index_body[OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS] = self.index_settings
         else:
-            index_body["settings"] = {
+            index_body[OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS] = {
                 "index": {
                     "knn": True,
                     "knn.algo_param.ef_search": 100,
@@ -760,7 +851,7 @@ class OpenSearchIndexManager:
             if feature_type == "vector":
                 # Dense vector field with engine-specific configuration
                 properties[mapped_name] = {
-                    "type": "knn_vector",
+                    "type": OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR,
                     "dimension": self.vector_dimension,
                     "method": {
                         "name": self.algorithm,
@@ -782,7 +873,11 @@ class OpenSearchIndexManager:
                 properties[mapped_name] = {"type": "float"}
             elif feature_type == "boolean":
                 properties[mapped_name] = {"type": "boolean"}
-            elif feature_type in ("object", "json", "nested"):
+            elif feature_type == "nested":
+                properties[mapped_name] = {
+                    "type": "nested",
+                }
+            elif feature_type in ("object", "json"):
                 properties[mapped_name] = {
                     "type": "object",
                     "enabled": True,
@@ -798,9 +893,9 @@ class OpenSearchIndexManager:
         logger.debug("Added 'metadata' object mapping for auto-aggregated metadata columns")
 
         return {
-            "mappings": {
-                "properties": properties,
-                "_meta": {
+            OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS: {
+                OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES: properties,
+                OperatorConstants.VectorDB.SCHEMA_KEY_META: {
                     "engine": self.engine,
                     "algorithm": self.algorithm,
                     "space_type": self.space_type,
@@ -810,52 +905,80 @@ class OpenSearchIndexManager:
         }
 
     def _build_index_body_from_field_type_template(self, *, schema: dict[str, Any]) -> dict[str, Any]:
-        """Convert a field-type schema template into a valid OpenSearch index body."""
-        field_types: dict[str, Any] = schema.get("field_types", {})
-        settings: dict[str, Any] = schema.get("settings", {})
+        """
+        Convert a field-type schema template into a valid OpenSearch index body.
 
-        properties: dict[str, Any] = {}
-        metadata_object_defined = False
+        Supports schemas with or without settings or custom analysis blocks.
+        Resolves configurations dynamically by matching features against indexing_rules.
+        """
+        logger.debug(f"Building index body using template schema: {schema.get('schema_name', 'unknown')}")
 
+        # 1. Safely handle settings and drop empty/null analysis dictionaries
+        schema_settings = deepcopy(schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS, {}))
+        analysis_settings = schema_settings.get(OperatorConstants.VectorDB.SCHEMA_KEY_ANALYSIS, {})
+        if not analysis_settings or not analysis_settings.get("analyzer"):
+            schema_settings.pop(OperatorConstants.VectorDB.SCHEMA_KEY_ANALYSIS, None)
+
+        # 2. Add mapping explosion protection for dynamic metadata fields
+        if "index" not in schema_settings:
+            schema_settings["index"] = {}
+        if "mapping.total_fields.limit" not in schema_settings["index"]:
+            schema_settings["index"]["mapping.total_fields.limit"] = 2000
+            logger.debug("Added mapping.total_fields.limit=2000 to prevent mapping explosion")
+
+        index_body = {
+            OperatorConstants.VectorDB.SCHEMA_KEY_SETTINGS: schema_settings,
+            OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS: {OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES: {}},
+        }
+
+        properties = index_body[OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS][
+            OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES
+        ]
+        field_types = schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_FIELD_TYPES, {})
+        indexing_rules = schema.get(OperatorConstants.VectorDB.SCHEMA_KEY_INDEXING_RULES, {})
+
+        # 2. Map logical feature columns onto physical target structures
         for feature_name, feature_config in self.available_features.items():
-            if not feature_config.get("available_for_vector_db", False):
+            if not feature_config.get("available_for_vector_db", True):
+                logger.debug(f"Skipping feature {feature_name}: Not available for VectorDB.")
                 continue
 
             mapped_name = self.feature_mappings.get(feature_name, feature_name)
-            if isinstance(mapped_name, list):
-                if feature_name == "metadata":
-                    mapped_name = "metadata"
-                else:
-                    logger.debug(f"Skipping list-based field mapping for feature '{feature_name}': {mapped_name}")
-                    continue
 
-            feature_type = feature_config.get("type", "string")
-            template_mapping = field_types.get(feature_type)
+            # Validate against reserved fields
+            if mapped_name in RESERVED_FIELDS:
+                logger.warning(
+                    f"Skipping reserved field '{mapped_name}' (feature='{feature_name}'). "
+                    f"Reserved fields: {RESERVED_FIELDS}"
+                )
+                continue
 
-            if template_mapping is None:
-                template_mapping = field_types.get("string", {"type": "text"})
+            system_type = feature_config.get("type", "string")
 
-            properties[mapped_name] = deepcopy(template_mapping)
+            # Dual lookup resolution pattern: Internal Logical Name -> Target Physical Name
+            rule = indexing_rules.get(feature_name) or indexing_rules.get(mapped_name, {})
+            target_field_type = rule.get("field_type", system_type)
 
-            if feature_type == "object" and mapped_name == "metadata":
-                metadata_object_defined = True
+            # Retrieve schema-defined property blueprint
+            template_mapping = deepcopy(field_types.get(target_field_type))
+            if not template_mapping:
+                raise DatasiftException(
+                    message=(
+                        f"Unknown field type '{target_field_type}' for feature '{feature_name}' "
+                        f"(mapped to '{mapped_name}'). Available field types in schema: "
+                        f"{list(field_types.keys())}"
+                    ),
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
 
-        if not metadata_object_defined and "object" in field_types:
-            properties["metadata"] = deepcopy(field_types["object"])
-            properties["metadata"]["dynamic"] = True
-        elif "metadata" in properties and properties["metadata"].get("type") == "object":
-            properties["metadata"]["dynamic"] = True
+            # Filter property modifications using the validation allowlist
+            overrides = {k: v for k, v in rule.items() if k in SUPPORTED_MAPPING_OVERRIDES}
 
-        return {
-            "settings": settings,
-            "mappings": {
-                "properties": properties,
-                "_meta": {
-                    "schema_name": schema.get("schema_name"),
-                    "schema_version": schema.get("schema_version"),
-                },
-            },
-        }
+            # Merge overrides into our mapping properties payload
+            properties[mapped_name] = _deep_merge(base=template_mapping, override=overrides)
+
+        return index_body
 
     def create_index(self) -> None:
         """
@@ -889,8 +1012,10 @@ class OpenSearchIndexManager:
         """Validate that existing index configuration matches requested settings."""
         try:
             mappings: dict[str, Any] = self.client.indices.get_mapping(index=self.index_name)
-            index_mappings: dict[str, Any] = mappings.get(self.index_name, {}).get("mappings", {})
-            meta: dict[str, Any] = index_mappings.get("_meta", {})
+            index_mappings: dict[str, Any] = mappings.get(self.index_name, {}).get(
+                OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS, {}
+            )
+            meta: dict[str, Any] = index_mappings.get(OperatorConstants.VectorDB.SCHEMA_KEY_META, {})
 
             existing_engine: str | None = meta.get("engine")
             existing_algorithm: str | None = meta.get("algorithm")

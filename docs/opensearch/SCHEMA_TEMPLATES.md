@@ -11,12 +11,13 @@ Schema templates provide a flexible, reusable way to define OpenSearch index con
 3. [Available Templates](#available-templates)
 4. [Using Schema Templates](#using-schema-templates)
 5. [Placeholder Reference](#placeholder-reference)
-6. [Creating Custom Templates](#creating-custom-templates)
-7. [Validation Rules](#validation-rules)
-8. [Metadata Normalization](#metadata-normalization)
-9. [Best Practices](#best-practices)
-10. [Examples](#examples)
-11. [Troubleshooting](#troubleshooting)
+6. [Indexing Rules System](#indexing-rules-system)
+7. [Creating Custom Templates](#creating-custom-templates)
+8. [Validation Rules](#validation-rules)
+9. [Metadata Normalization](#metadata-normalization)
+10. [Best Practices](#best-practices)
+11. [Examples](#examples)
+12. [Troubleshooting](#troubleshooting)
 
 ## What are Schema Templates?
 
@@ -77,9 +78,9 @@ Templates are stored in `src/datasift/core/operators/vectordb/schemas/` and refe
 
 **Location**: `src/datasift/core/operators/vectordb/schemas/default_schema.v1.json`
 
-### 2. document_chunks_schema.v1.json
+### 2. template_with_content_analyzer.v1.json
 
-**Purpose**: Optimized schema for document chunking workflows with custom text analysis.
+**Purpose**: Template schema with custom content analyzer for text processing workflows.
 
 **Use Cases**:
 
@@ -90,11 +91,13 @@ Templates are stored in `src/datasift/core/operators/vectordb/schemas/` and refe
 **Features**:
 
 - Custom content analyzer with stemming and stop words
+- Demonstrates `indexing_rules` for declarative field-specific type mapping
 - Optimized for text-heavy content
-- Additional field types (date, keyword)
 - Enhanced text analysis for better search relevance
 
-**Location**: `src/datasift/core/operators/vectordb/schemas/document_chunks_schema.v1.json`
+**Key Feature**: Shows how `indexing_rules` maps fields (e.g., `content`) to custom field types (`content_text`) with specialized analyzers, eliminating the need for manual `feature_mappings` configuration.
+
+**Location**: `src/datasift/core/operators/vectordb/schemas/template_with_content_analyzer.v1.json`
 
 ## Using Schema Templates
 
@@ -120,12 +123,12 @@ Add `schema_template_path` to your VectorDBOperator's `provider_config`:
 }
 ```
 
-### With Document Chunks Template
+### With Content Analyzer Template
 
 ```json
 {
   "provider_config": {
-    "schema_template_path": "schemas/document_chunks_schema.v1.json",
+    "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
     "host": "localhost",
     "port": 9200,
     "engine": "faiss",
@@ -193,6 +196,220 @@ When the template is loaded, placeholders are replaced with actual values from y
           "m": 24
         }
       }
+    }
+  }
+}
+```
+
+## Indexing Rules System
+
+### Overview
+
+The indexing rules system enables flexible field-level customization without requiring full schema definitions. It allows you to override field types and properties for specific fields while using template-based field type definitions for the rest.
+
+### Key Features
+
+1. **Field Type Override**: Map specific fields to custom field types defined in `field_types`
+2. **Property Overrides**: Add or override OpenSearch mapping properties (boost, copy_to, analyzer, etc.)
+3. **Dual Lookup Resolution**: Supports both feature names and mapped names for field resolution
+4. **Allowlist Protection**: Only safe properties can be overridden to prevent schema corruption
+5. **Deep Merging**: Nested properties are recursively merged with field type definitions
+
+### Supported Property Overrides
+
+Allowlisted OpenSearch mapping properties that can be overridden:
+
+- `analyzer`, `search_analyzer`, `normalizer`: Text analysis configuration
+- `boost`, `copy_to`: Relevance and field copying
+- `index`, `store`, `fields`: Indexing behavior and sub-fields
+- `similarity`: Scoring algorithm selection
+
+### Basic Usage
+
+Add an `indexing_rules` section to your schema template:
+
+```json
+{
+  "schema_name": "my_schema",
+  "schema_version": 1,
+  "settings": { ... },
+  "field_types": {
+    "string": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "content_text": {
+      "type": "text",
+      "analyzer": "content_analyzer",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    }
+  },
+  "indexing_rules": {
+    "content": {
+      "field_type": "content_text"
+    }
+  }
+}
+```
+
+In this example, the `content` field uses the `content_text` field type instead of the default `string` type.
+
+### Field Type Override
+
+Override the field type for specific fields:
+
+```json
+{
+  "indexing_rules": {
+    "title": {
+      "field_type": "string"
+    },
+    "content": {
+      "field_type": "content_text"
+    },
+    "summary": {
+      "field_type": "content_text"
+    }
+  }
+}
+```
+
+### Property Overrides
+
+Add or override specific properties:
+
+```json
+{
+  "indexing_rules": {
+    "title": {
+      "field_type": "string",
+      "boost": 3.0,
+      "copy_to": ["all_text"]
+    },
+    "content": {
+      "field_type": "content_text",
+      "boost": 2.0,
+      "copy_to": ["all_text"]
+    }
+  }
+}
+```
+
+### Multiple Overrides
+
+Combine field type and property overrides:
+
+```json
+{
+  "indexing_rules": {
+    "content": {
+      "field_type": "content_text",
+      "boost": 2.0,
+      "copy_to": ["all_text"],
+      "fields": {
+        "exact": {
+          "type": "keyword",
+          "normalizer": "lowercase"
+        }
+      }
+    }
+  }
+}
+```
+
+### Lookup Priority
+
+When resolving field configurations, the system follows this priority:
+
+1. Check `indexing_rules` for the feature name (e.g., `content`)
+2. Check `indexing_rules` for the mapped name (e.g., `doc_content`)
+3. Fall back to `system_type` from `available_features` configuration
+4. Use default field type if no match found
+
+### Reserved Fields Protection
+
+System fields cannot be overridden via indexing rules:
+
+- `_id`
+- `_index`
+- `_source`
+- `_type`
+- `_meta`
+
+### Validation and Safety
+
+- Property overrides are validated against an allowlist to prevent invalid configurations
+- Invalid field types in indexing rules raise clear error messages
+- Empty analysis blocks are automatically removed to prevent OpenSearch errors
+- Mapping explosion protection limits total fields to 2000 by default
+
+### Complete Example
+
+```json
+{
+  "schema_name": "document_chunks",
+  "schema_version": 1,
+  "settings": {
+    "index": {
+      "number_of_shards": 3,
+      "number_of_replicas": 1,
+      "knn": true
+    },
+    "analysis": {
+      "analyzer": {
+        "content_analyzer": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "stop", "snowball"]
+        }
+      }
+    }
+  },
+  "field_types": {
+    "vector": {
+      "type": "knn_vector",
+      "dimension": "__VECTOR_DIMENSION__",
+      "method": {
+        "name": "__ALGORITHM__",
+        "space_type": "__SPACE_TYPE__",
+        "engine": "__ENGINE__",
+        "parameters": "__ENGINE_PARAMETERS__"
+      }
+    },
+    "string": {
+      "type": "text",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    },
+    "content_text": {
+      "type": "text",
+      "analyzer": "content_analyzer",
+      "fields": {
+        "keyword": {
+          "type": "keyword",
+          "ignore_above": 256
+        }
+      }
+    }
+  },
+  "indexing_rules": {
+    "content": {
+      "field_type": "content_text",
+      "boost": 2.0
     }
   }
 }
@@ -477,7 +694,7 @@ These fields are automatically collected into a `metadata` object:
     "provider": "opensearch",
     "index_name": "document_chunks",
     "provider_config": {
-      "schema_template_path": "schemas/document_chunks_schema.v1.json",
+      "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
       "port": 9200,
       "engine": "faiss",

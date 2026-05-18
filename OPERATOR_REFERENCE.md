@@ -1271,7 +1271,7 @@ Schema templates provide reusable index configurations with placeholder-based dy
 
 - **Built-in Templates**:
   - `schemas/default_schema.v1.json`: Basic schema with standard field types
-  - `schemas/document_chunks_schema.v1.json`: Optimized for document chunking with custom analyzers
+  - `schemas/template_with_content_analyzer.v1.json`: Template with custom content analyzer for text processing
 
 - **Placeholders**: Templates support the following placeholders that are replaced at runtime:
   - `__VECTOR_DIMENSION__`: Vector embedding dimension
@@ -1342,7 +1342,7 @@ Using a schema template:
     "provider": "opensearch",
     "index_name": "document_chunks",
     "provider_config": {
-      "schema_template_path": "schemas/document_chunks_schema.v1.json",
+      "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
       "port": 9200,
       "engine": "faiss",
@@ -1611,6 +1611,7 @@ Defined at [`list_operators()`](src/datasift/lib/datasift_flow_manager.py:308).
 Returns a formatted operator listing via [`datasift.utils.operators.display.list_operators()`](src/datasift/utils/operators/display.py).
 
 **Display Modes:**
+
 - **Default (verbose=False)**: Summary table with Owner, Attributes (count), Features (count) columns
 - **Verbose (verbose=True)**: Detailed view with full operator parameters and descriptions
 
@@ -1910,9 +1911,11 @@ Defined in [`display.py`](src/datasift/common/util/operators/display.py:135)
 Generates the same operator catalog used by the CLI and [`DatasiftFlowManager.list_operators()`](src/datasift/lib/datasift_flow_manager.py:308).
 
 **Parameters:**
+
 - `verbose` (bool): If True, shows detailed operator information with all parameters. If False (default), shows summary table with Owner, Attributes, Features columns.
 
 **Output Format:**
+
 - **Summary mode**: Table with columns: Owner (operator name), Attributes (parameter count), Features (capability count)
 - **Verbose mode**: Detailed listing with full parameter descriptions, types, and default values
 - **Category order**: Ingest, Extract, Quality, Functional, VectorDB, Storage

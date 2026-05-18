@@ -311,6 +311,18 @@ class OperatorConstants:
         SPACE_TYPE: Final[str] = "space_type"
         ENGINE_PARAMETERS: Final[str] = "engine_parameters"
 
+        # OpenSearch Schema Keys
+        SCHEMA_KEY_FIELD_TYPES: Final[str] = "field_types"
+        SCHEMA_KEY_MAPPINGS: Final[str] = "mappings"
+        SCHEMA_KEY_SETTINGS: Final[str] = "settings"
+        SCHEMA_KEY_INDEXING_RULES: Final[str] = "indexing_rules"
+        SCHEMA_KEY_SCHEMA_NAME: Final[str] = "schema_name"
+        SCHEMA_KEY_SCHEMA_VERSION: Final[str] = "schema_version"
+        SCHEMA_KEY_PROPERTIES: Final[str] = "properties"
+        SCHEMA_KEY_ANALYSIS: Final[str] = "analysis"
+        SCHEMA_KEY_META: Final[str] = "_meta"
+        SCHEMA_KEY_KNN_VECTOR: Final[str] = "knn_vector"
+
     class Types:
         """Data type constants."""
 
