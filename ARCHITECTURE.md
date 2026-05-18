@@ -566,7 +566,22 @@ Each feature in the `features` dictionary contains:
 
 A **Flow** is a JSON-defined configuration that specifies a pipeline of operators connected in a directed acyclic graph (DAG).
 
-**Example Flow Structure:**
+**Flow Authoring Format vs Runtime DAG:**
+
+DataSift uses two distinct representations:
+
+1. **Authoring Format** (User-facing): Simplified JSON structure for defining flows
+   - Uses `flow` array with operator definitions
+   - Uses `depends_on` to declare dependencies by operator name
+   - Uses `type` with short operator names (e.g., `ingest_local`, `extract_operator`)
+   - Uses `config` for operator-specific parameters
+
+2. **Runtime DAG** (Internal): Compiled execution graph with nodes and edges
+   - Generated automatically from authoring format
+   - Contains UUIDs, edge connections, and execution metadata
+   - Used by the orchestration engine for execution
+
+**Example Flow Authoring Format:**
 
 ```json
 {
@@ -596,14 +611,14 @@ A **Flow** is a JSON-defined configuration that specifies a pipeline of operator
 }
 ```
 
-**Key Structure Elements:**
+**Key Authoring Format Elements:**
 
 - **flow_name**: Human-readable flow identifier
-- **flow**: Ordered list of operators with their configurations
-- **depends_on**: Declares dependencies on other operators by name
-- **Operator Names**: User-defined names for operators in the flow
-- **Config**: Operator-specific parameters
-- **Automatic Compilation**: The system automatically generates the execution DAG from these dependencies
+- **flow**: Array of operator definitions with unique names
+- **depends_on**: Array of operator names that must execute before this operator
+- **type**: Short operator name (e.g., `ingest_local`, `chunker`, `embeddings`, `vectordb`)
+- **config**: Operator-specific configuration parameters
+- **Automatic Compilation**: The system automatically generates the runtime DAG from the authoring format
 
 ### 4. DAG-Based Execution Model
 

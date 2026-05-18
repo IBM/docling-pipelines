@@ -416,7 +416,7 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "chunker",
       "depends_on": ["extract"],
       "config": {
-        "chunking_strategy": "semantic",
+        "chunk_type": "semantic",
         "chunk_size": 512,
         "chunk_overlap": 50
       }
@@ -426,8 +426,8 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "embeddings",
       "depends_on": ["chunk"],
       "config": {
-        "model_name": "nomic-embed-text",
-        "provider": "ollama"
+        "embeddings_type": "ollama",
+        "embeddings_model_id": "nomic-embed-text"
       }
     },
     {
@@ -437,7 +437,7 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "config": {
         "provider": "opensearch",
         "index_name": "documents",
-        "dimension": 768
+        "vector_dimension": 768
       }
     }
   ],

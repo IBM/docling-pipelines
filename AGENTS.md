@@ -290,10 +290,10 @@ uv run pytest tests/ --cov=src --cov-report=html
 
 ### Flow Configuration Structure
 Flow JSON files define:
-- **nodes**: Array of operator configurations with unique IDs
-- **edges**: Connections between operators defining data flow
-- **operator_type**: Fully qualified operator class name
-- **operator_params**: Operator-specific configuration parameters
+- **flow**: Array of operator configurations with unique names
+- **depends_on**: Array of operator names that must execute before this operator
+- **type**: Short operator name (e.g., `ingest_local`, `extract_operator`, `chunker`, `embeddings`, `vectordb`)
+- **config**: Operator-specific configuration parameters
 
 ## Limitations
 - Cannot directly edit files (must delegate to code/advanced modes)

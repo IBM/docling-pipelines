@@ -970,7 +970,7 @@ Splits documents into chunks:
   "type": "chunker",
   "depends_on": ["extract"],
   "config": {
-    "chunking_type": "hybrid",
+    "chunk_type": "hybrid",
     "doc_column": "content",
     "chunk_size": 512,
     "chunk_overlap": 128,
@@ -1008,15 +1008,16 @@ Stores documents and embeddings in OpenSearch for vector similarity search.
 
 ```json
 {
-  "id": "opensearch_node",
-  "operator": "vectordb",
+  "name": "vectordb",
+  "type": "vectordb",
+  "depends_on": ["embeddings"],
   "config": {
     "provider": "opensearch",
     "index_name": "documents",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "create_index": true,
-    "vector_dimension": 768,
+    "vector_dimension": 384,
     "provider_config": {
       "host": "localhost",
       "port": 9200,
@@ -1131,15 +1132,16 @@ Schema templates provide reusable index configurations with consistent settings 
 
 ```json
 {
-  "id": "opensearch_node",
-  "operator": "vectordb",
+  "name": "vectordb",
+  "type": "vectordb",
+  "depends_on": ["embeddings"],
   "config": {
     "provider": "opensearch",
     "index_name": "document_chunks",
     "doc_id_column": "doc_id_hash",
     "embeddings_column": "embeddings",
     "create_index": true,
-    "vector_dimension": 768,
+    "vector_dimension": 384,
     "provider_config": {
       "schema_template_path": "schemas/template_with_content_analyzer.v1.json",
       "host": "localhost",
@@ -1306,7 +1308,7 @@ cat > my-first-flow.json << 'EOF'
       "type": "chunker",
       "depends_on": ["extract"],
       "config": {
-        "chunking_type": "simple",
+        "chunk_type": "simple",
         "chunk_size": 512,
         "chunk_overlap": 128
       }
@@ -1801,7 +1803,7 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "type": "chunker",
                 "depends_on": ["extract_operator"],
                 "config": {
-                    "chunking_type": "semantic",
+                    "chunk_type": "semantic",
                     "chunk_size": 512,
                     "chunk_overlap": 50
                 }
@@ -1831,7 +1833,7 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                         "host": "localhost",
                         "port": 9200,
                         "username": "admin",
-                        "password": "MyStrongPass123!",
+                        "password": "MyStrongPass123!",  # pragma: allowlist secret
                         "use_ssl": False,
                         "verify_certs": False,
                         "engine": "faiss",
