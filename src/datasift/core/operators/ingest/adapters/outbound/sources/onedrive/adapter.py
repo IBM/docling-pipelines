@@ -66,7 +66,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             ImportError: If required dependencies (msal, requests) are not installed
             ValueError: If authentication fails or folder not found
         """
-        onedrive_config = cast(OneDriveSourceConfig, config)
+        onedrive_config: OneDriveSourceConfig = cast(OneDriveSourceConfig, config)
         try:
             # Create MicrosoftGraphLoader with configuration
             loader = MicrosoftGraphLoader(
@@ -155,7 +155,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         Returns:
             Tuple[bool, str]: (success, message)
         """
-        onedrive_config = cast(OneDriveSourceConfig, config)
+        onedrive_config: OneDriveSourceConfig = cast(OneDriveSourceConfig, config)
         try:
             # Create loader to test authentication
             loader = MicrosoftGraphLoader(

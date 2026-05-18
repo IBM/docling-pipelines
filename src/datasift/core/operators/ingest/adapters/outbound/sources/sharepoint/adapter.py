@@ -66,7 +66,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
             ImportError: If required dependencies (msal, requests) are not installed
             ValueError: If authentication fails or document library not found
         """
-        sharepoint_config = cast(SharePointSourceConfig, config)
+        sharepoint_config: SharePointSourceConfig = cast(SharePointSourceConfig, config)
         try:
             # Create MicrosoftGraphLoader with configuration
             # Note: SharePoint uses document_library_id which is the drive_id in Graph API

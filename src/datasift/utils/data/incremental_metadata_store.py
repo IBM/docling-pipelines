@@ -158,8 +158,9 @@ class FileSystemIncrementalMetadataStore(IncrementalMetadataStore):
     def __init__(self, *, backend_config: dict[str, Any] | None = None) -> None:
         backend_config = backend_config or {}
         base_dir = backend_config.get(DatasiftConfigKeys.BASE_DIR)
-        self._base_dir = Path(base_dir) if base_dir is not None else Path(
-            get_data_path(sub_dir="/incremental_metadata"))
+        self._base_dir = (
+            Path(base_dir) if base_dir is not None else Path(get_data_path(sub_dir="/incremental_metadata"))
+        )
         self._lock_timeout = backend_config.get("lock_timeout", 30.0)
 
     def _get_job_dir(self, *, job_id: str) -> Path:
@@ -320,12 +321,16 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
 
     def get_processed_docs(self, *, job_id: str) -> dict[str, Any]:
         with self._session_factory() as session:
-            rows = session.execute(
-                select(IncrementalMetadataPostgresModel).where(
-                    IncrementalMetadataPostgresModel.job_id == job_id,
-                    IncrementalMetadataPostgresModel.deleted == False,  # noqa: E712
+            rows = (
+                session.execute(
+                    select(IncrementalMetadataPostgresModel).where(
+                        IncrementalMetadataPostgresModel.job_id == job_id,
+                        IncrementalMetadataPostgresModel.deleted == False,  # noqa: E712
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             return {row.doc_id: row.modified_time for row in rows}
 
     def upsert_records(self, *, job_id: str, job_run_id: str, records: list[IncrementalMetadataRecord]) -> None:
@@ -343,23 +348,31 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
 
     def get_soft_deleted_doc_ids(self, *, job_id: str) -> set[str]:
         with self._session_factory() as session:
-            rows = session.execute(
-                select(IncrementalMetadataPostgresModel.doc_id).where(
-                    IncrementalMetadataPostgresModel.job_id == job_id,
-                    IncrementalMetadataPostgresModel.deleted == True,  # noqa: E712
+            rows = (
+                session.execute(
+                    select(IncrementalMetadataPostgresModel.doc_id).where(
+                        IncrementalMetadataPostgresModel.job_id == job_id,
+                        IncrementalMetadataPostgresModel.deleted == True,  # noqa: E712
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             return set(rows)
 
     def mark_missing_docs_as_deleted(self, *, job_id: str, doc_ids: list[str]) -> set[str]:
         current_doc_ids = set(doc_ids)
         with self._session_factory() as session:
-            rows = session.execute(
-                select(IncrementalMetadataPostgresModel).where(
-                    IncrementalMetadataPostgresModel.job_id == job_id,
-                    IncrementalMetadataPostgresModel.deleted == False,  # noqa: E712
+            rows = (
+                session.execute(
+                    select(IncrementalMetadataPostgresModel).where(
+                        IncrementalMetadataPostgresModel.job_id == job_id,
+                        IncrementalMetadataPostgresModel.deleted == False,  # noqa: E712
+                    )
                 )
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             deleted_ids = {row.doc_id for row in rows if row.doc_id not in current_doc_ids}
             for row in rows:
                 if row.doc_id in deleted_ids:
@@ -391,7 +404,7 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
 
 
 def create_incremental_metadata_store(
-        *, config: dict[str, Any] | None = None, flow_config: dict[str, Any] | None = None
+    *, config: dict[str, Any] | None = None, flow_config: dict[str, Any] | None = None
 ) -> IncrementalMetadataStore:
     """
     Create an incremental metadata store.
@@ -448,8 +461,8 @@ def create_incremental_metadata_store(
         elif configured_base_dir:
             configured_path = Path(configured_base_dir)
             resolved_base_dir = (
-                                    configured_path if configured_path.is_absolute() else configured_path.resolve()
-                                ) / DatasiftConstants.INCREMENTAL_METADATA
+                configured_path if configured_path.is_absolute() else configured_path.resolve()
+            ) / DatasiftConstants.INCREMENTAL_METADATA
 
         backend_config = {
             "base_dir": str(resolved_base_dir) if resolved_base_dir else None,

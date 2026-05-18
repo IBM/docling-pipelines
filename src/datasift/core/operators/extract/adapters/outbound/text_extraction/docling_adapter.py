@@ -218,6 +218,7 @@ class DoclingAdapter(TextExtractionPort):
                 # Import ASR classes only when needed
                 from docling.document_converter import AudioFormatOption
                 from docling.pipeline.asr_pipeline import AsrPipeline
+
                 # Configure ASR pipeline options
                 asr_options = self._configure_asr_engine()
 
@@ -251,7 +252,7 @@ class DoclingAdapter(TextExtractionPort):
             # Add ASR-specific metadata if extraction succeeded and ASR was used
             if self.use_asr_pipeline and result.get(OperatorConstants.Extraction.SUCCESS):
                 result[OperatorConstants.Metadata.METADATA]["asr_model_name"] = (
-                        self.asr_model_name or OperatorConstants.Config.ASR_MODEL_DEFAULT
+                    self.asr_model_name or OperatorConstants.Config.ASR_MODEL_DEFAULT
                 )
             return result
 

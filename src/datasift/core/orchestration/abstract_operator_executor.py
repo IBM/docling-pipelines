@@ -339,22 +339,28 @@ class AbstractOperatorExecutor:
                 job_id=self._params.get(DatasiftConstants.JOB_ID),
                 job_run_id=self._params.get(DatasiftConstants.JOB_RUN_ID),
                 tables=[empty_docs_table],
-                failed_doc_ids=None
+                failed_doc_ids=None,
             )
 
             logger.info(
                 f"Saved {len(empty_doc_indices)} empty documents to incremental metadata",
-                extra={DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
-                       DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID)}
+                extra={
+                    DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
+                    DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID),
+                },
             )
         except Exception as e:
             logger.warning(
                 f"Failed to save empty documents to incremental metadata: {e!s}",
-                extra={DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
-                       DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID)}
+                extra={
+                    DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
+                    DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID),
+                },
             )
 
-    def _add_empty_docs_to_skipped_metadata(self, *, table: pa.Table, empty_doc_indices: list, metadata: dict[str, Any]):
+    def _add_empty_docs_to_skipped_metadata(
+        self, *, table: pa.Table, empty_doc_indices: list, metadata: dict[str, Any]
+    ):
         """
         Add empty documents to the skipped documents list in metadata.
 
@@ -370,7 +376,9 @@ class AbstractOperatorExecutor:
 
         # Extract columns once for better performance
         id_col = table[OperatorConstants.Columns.ID] if OperatorConstants.Columns.ID in table.column_names else None
-        name_col = table[OperatorConstants.Columns.NAME] if OperatorConstants.Columns.NAME in table.column_names else None
+        name_col = (
+            table[OperatorConstants.Columns.NAME] if OperatorConstants.Columns.NAME in table.column_names else None
+        )
 
         for idx in empty_doc_indices:
             doc_id = id_col[idx].as_py() if id_col is not None else f"doc_{idx}"
@@ -378,30 +386,32 @@ class AbstractOperatorExecutor:
 
             logger.info(
                 f"Skipping document '{doc_name}' (ID: {doc_id}) due to empty content",
-                extra={DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
-                       DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID)}
+                extra={
+                    DatasiftConstants.JOB_ID: self._params.get(DatasiftConstants.JOB_ID),
+                    DatasiftConstants.JOB_RUN_ID: self._params.get(DatasiftConstants.JOB_RUN_ID),
+                },
             )
 
             operator.record_skipped_document(
-                metadata=metadata,
-                doc_id=str(doc_id),
-                doc_name=str(doc_name),
-                reason="Extracted content is empty"
+                metadata=metadata, doc_id=str(doc_id), doc_name=str(doc_name), reason="Extracted content is empty"
             )
 
         # Update processed_docs count to exclude empty documents
         if Metrics.External.PROCESSED_DOCS in metadata:
-            metadata[Metrics.External.PROCESSED_DOCS] = metadata[Metrics.External.PROCESSED_DOCS] - len(empty_doc_indices)
+            metadata[Metrics.External.PROCESSED_DOCS] = metadata[Metrics.External.PROCESSED_DOCS] - len(
+                empty_doc_indices
+            )
 
         # Update node status to indicate completion with warnings if there are skipped docs
         if empty_doc_indices:
             metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
                 metadata.get(Metrics.External.NODE_STATUS, ExecutionStatus.COMPLETED.value),
-                ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+                ExecutionStatus.COMPLETED_WITH_WARNINGS.value,
             )
 
-    def _handle_empty_documents(self, *, out_tables: list[pa.Table], metadata: dict[str, Any]) -> tuple[
-        list[pa.Table], dict[str, Any]]:
+    def _handle_empty_documents(
+        self, *, out_tables: list[pa.Table], metadata: dict[str, Any]
+    ) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Handle empty documents after operator execution.
         - Check if DOC_COLUMN is empty for any documents
@@ -421,18 +431,22 @@ class AbstractOperatorExecutor:
 
         processed_tables = []
         operator = self.get_operator()
-        doc_column = getattr(operator, 'doc_column', OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        doc_column = getattr(operator, "doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
 
         for item in out_tables:
             # Handle nested lists (e.g., from branching operator which returns multiple branches)
             if isinstance(item, list):
                 processed_branch = []
                 for table in item:
-                    processed_table = self._process_table_for_empty_docs(table=table, doc_column=doc_column, metadata=metadata)
+                    processed_table = self._process_table_for_empty_docs(
+                        table=table, doc_column=doc_column, metadata=metadata
+                    )
                     processed_branch.append(processed_table)
                 processed_tables.append(processed_branch)
             else:
-                processed_table = self._process_table_for_empty_docs(table=item, doc_column=doc_column, metadata=metadata)
+                processed_table = self._process_table_for_empty_docs(
+                    table=item, doc_column=doc_column, metadata=metadata
+                )
                 processed_tables.append(processed_table)
 
         return processed_tables, metadata

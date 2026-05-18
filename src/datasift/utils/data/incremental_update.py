@@ -60,7 +60,7 @@ class IncrementalUpdateUtil:
         return set(table[OperatorConstants.Misc.ID].to_pylist()) if table.num_rows != 0 else set()
 
     def save_metadata_for_incremental_update(
-            self, *, job_id, job_run_id, tables: list[pa.Table], failed_doc_ids: list[Any] | None = None
+        self, *, job_id, job_run_id, tables: list[pa.Table], failed_doc_ids: list[Any] | None = None
     ):
         """
         Save incremental metadata table to cloud storage.
@@ -281,11 +281,11 @@ class IncrementalUpdateUtil:
         return soft_deleted_ids
 
     def _prepare_records_for_save(
-            self,
-            *,
-            table: pa.Table,
-            job_id: str,
-            job_run_id: str,
+        self,
+        *,
+        table: pa.Table,
+        job_id: str,
+        job_run_id: str,
     ) -> list[IncrementalMetadataRecord]:
         rows = table.to_pylist()
 
