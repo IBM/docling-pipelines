@@ -55,7 +55,7 @@ fi
 ###################################################################################
 # Project-specific source directories for datasift-opensource
 ###################################################################################
-SONAR_SOURCES="src/datasift_opensource"
+SONAR_SOURCES="src"
 SONAR_TESTS="tests"
 SONAR_EXCLUSIONS="**/ui/**,**/__pycache__/**,**/*.pyc,tests/**"
 
@@ -112,7 +112,7 @@ echo "sonar.python.coverage.reportPaths=coverage.xml" >> sonar-project.propertie
 echo "sonar.language=py" >> sonar-project.properties
 
 # sonar credentials
-echo "sonar.login=${SONAR_TOKEN}" >> sonar-project.properties
+echo "sonar.token=${SONAR_TOKEN}" >> sonar-project.properties
 
 if [ $? -ne 0 ]; then
   clean-exit error "Problem writing the file, sonar-scanner.properties."
