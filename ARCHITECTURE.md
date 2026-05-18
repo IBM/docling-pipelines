@@ -223,7 +223,7 @@ The job stats implementation follows a ports-and-adapters design:
   - [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) is the production implementation of [`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py).
   - Storage adapters include JSON, in-memory, DuckDB, and PostgreSQL implementations created by [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py).
 
-This runtime path does **not** depend on the legacy [`JobTracker`](src/datasift/common/util/job_tracker/tracker/job_tracker.py). Legacy utilities remain in the repository for compatibility and reference, but the active job stats path uses the new `core/job_management` module.
+This runtime path does **not** depend on legacy job tracking utilities. The active job stats path uses the new `core/job_management` module.
 
 ### Persistence and Aggregation Split
 
@@ -239,7 +239,7 @@ This separation keeps write paths simple and makes aggregation behavior explicit
 
 For micro-batch execution, datasift stores node statistics at batch granularity.
 
-- Every batch execution can produce a separate [`NodeStatsDto`](src/datasift/core/job_management/domain/models/node_stats_dto.py) record.
+- Every batch execution can produce a separate [`NodeStatsDto`](src/datasift/api/dto/node_stats_dto.py) record.
 - Batch records are keyed by `job_run_id`, `node_id`, and `batch_id`.
 - Read APIs can return:
   - an aggregated per-node view
@@ -259,7 +259,7 @@ The Prefect orchestration layer must keep the outer flow alive until submitted b
 
 Relevant implementation points:
 
-- [`PrefectEngine`](src/datasift/core/orchestrator/prefect/prefect_engine.py) waits for submitted batch work before the outer flow completes.
+- [`PrefectEngine`](src/datasift/core/orchestration/prefect/prefect_engine.py) waits for submitted batch work before the outer flow completes.
 - [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) updates terminal job state separately from node-state persistence.
 - The job-management layer is responsible for persisting terminal states such as completed, failed, canceled, and aborted.
 
@@ -428,7 +428,7 @@ print(feature_map['content'])  # ['Extract Operator', 'Chunker', ...]
 
 **Key Capabilities:**
 
-1. **Operator Discovery**: Automatically discovers all registered operators via [`OperatorFactoryProvider`](src/datasift/core/orchestrator/operator_factory.py)
+1. **Operator Discovery**: Automatically discovers all registered operators via [`OperatorFactoryProvider`](src/datasift/core/orchestration/operator_factory.py)
 2. **Metadata Aggregation**: Collects metadata from all operators in a single call
 3. **Feature Filtering**: Filters internal features (like `doc_id_hash`) from public API
 4. **Caching**: Caches metadata after first retrieval for performance
@@ -438,8 +438,8 @@ print(feature_map['content'])  # ['Extract Operator', 'Chunker', ...]
 
 The `OperatorMetadata` class is used throughout the system:
 
-- **CLI**: [`list_operators`](common/util/operators/display.py) command uses it to display available operators
-- **Flow Validation**: [`FlowValidator`](src/datasift/core/orchestrator/flow_validator.py) uses it to validate operator connections
+- **CLI**: [`list_operators`](src/datasift/utils/operators/display.py) command uses it to display available operators
+- **Flow Validation**: [`FlowValidator`](src/datasift/core/orchestration/flow_validator.py) uses it to validate operator connections
 - **Flow Manager**: [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py) uses it for programmatic access
 - **UI/API**: Future UI components will use it to build flow editors
 
@@ -839,9 +839,9 @@ kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
 
 #### PythonOrchestrator
 
-- Concrete implementation of [`AbstractOrchestrator`](src/datasift/core/orchestrator/abstract_orchestrator.py)
+- Concrete implementation of [`AbstractOrchestrator`](src/datasift/core/orchestration/abstract_orchestrator.py)
 - Used by both CLI and Python API
-- Instantiated via [`OrchestratorFactory`](src/datasift/core/orchestrator/orchestrator_factory.py)
+- Instantiated via [`OrchestratorFactory`](src/datasift/core/orchestration/orchestrator_factory.py)
 - Manages operator execution through Prefect
 
 #### FlowExecutor
@@ -2424,7 +2424,7 @@ graph LR
 6. **EmbeddingsOperator**: Generate vector embeddings
 7. **VectorDBOperator**: Store embeddings in vector database
 
-See [PII and HAP Operator Documentation](../docs/operators/pii_and_hap.md) for detailed usage guide.
+See [PII and HAP Operator Documentation](docs/operators/pii_and_hap/pii_and_hap.md) for detailed usage guide.
 
 ---
 
@@ -3659,7 +3659,7 @@ datasift/
 
 ## Core Components
 
-### 1. Common Utilities (`src/datasift/common/`)
+### 1. Core Utilities (`src/datasift/utils/` and `src/datasift/core/`)
 
 #### Clients (`common/clients/`)
 

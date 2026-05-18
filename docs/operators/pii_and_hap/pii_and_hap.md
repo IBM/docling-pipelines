@@ -393,7 +393,7 @@ uv run pytest tests/unit/operators/pii_and_hap/ -v
 ## Related Documentation
 
 - [PII and HAP Configuration Guide](pii_and_hap_config.md) - Complete configuration reference with all parameters
-- [Operator README](../../src/datasift/core/operators/quality/pii_and_hap/README.md) - Detailed technical documentation
-- [Architecture Guide](../ARCHITECTURE.md) - Hexagonal architecture patterns
-- [Ollama Setup](../README.md#embeddings-operator--ollama-setup) - Ollama installation guide
-- [LiteLLM Documentation](../../src/datasift/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md) - LiteLLM provider guide
+- [Operator README](../../../README.md) - Detailed technical documentation
+- [Architecture Guide](../../../ARCHITECTURE.md) - Hexagonal architecture patterns
+- [Ollama Setup](../../../README.md#embeddings-operator--ollama-setup) - Ollama installation guide
+- [LiteLLM Documentation](../../../src/datasift/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md) - LiteLLM provider guide

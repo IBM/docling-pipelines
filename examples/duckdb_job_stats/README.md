@@ -200,6 +200,6 @@ FROM node_stats GROUP BY node_id, name;
 
 ## Related Documentation
 
-- [Job Management Architecture](../../src/datasift/core/job_management/README.md)
+- [Job Management Architecture](../../README.md)
 - [DatasiftFlowManager Examples](../datasift_flow_manager/)
 - [Operator Reference](../../OPERATOR_REFERENCE.md)

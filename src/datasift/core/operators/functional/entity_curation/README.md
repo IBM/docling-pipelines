@@ -167,7 +167,7 @@ The operator includes 4 core transformation functions:
 
 ## Document Class Schemas
 
-The operator uses JSON schema files located in `src/datasift/common/document_classes/` to define field mappings and transformations.
+The operator uses JSON schema files to define field mappings and transformations.
 
 ### Schema Structure
 

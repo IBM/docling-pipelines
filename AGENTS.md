@@ -24,6 +24,62 @@ For new user setup and complete pipeline execution instructions, refer to [`USER
 
 **Note:** Consult this guide when helping users set up their environment or execute their first pipeline.
 
+## User Entry Points
+
+Datasift provides multiple interfaces for interacting with the framework:
+
+### 1. CLI Entry Point
+Primary interface using the `datasift-orchestrator` command:
+
+```bash
+# Flow execution
+datasift-orchestrator --flow-file <path-to-flow.json>
+
+# Flow validation
+datasift-orchestrator --flow-file flow.json --validate
+
+# List operators
+datasift-orchestrator --list-operators [--verbose]
+
+# Log level control
+datasift-orchestrator --flow-file flow.json --log-level debug|info|warning|error|critical
+```
+
+### 2. Python Library
+Programmatic access via `DatasiftFlowManager`:
+
+```python
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+
+# Execute from file
+manager = DatasiftFlowManager(flow_file="path/to/flow.json")
+result = manager.execute()
+
+# Execute from dict
+manager = DatasiftFlowManager(flow_def=flow_dict)
+result = manager.execute()
+
+# Validate flow
+validation_result = manager.validate()
+
+# List operators
+DatasiftFlowManager.list_operators(verbose=True)
+```
+
+### 3. REST API Service
+FastAPI server for web service integration (development status):
+
+```bash
+# Start server
+uvicorn datasift.api.main:app --reload --host 0.0.0.0 --port 8000
+
+# Interactive docs at http://localhost:8000/docs
+```
+
+**Key endpoints:** `/api/v1/flows`, `/api/v1/operators`, `/api/v1/job_runs`
+
+**Authentication:** LDAP with JWT tokens, OAuth2/OIDC support
+
 ## Role
 Strategic workflow coordinator that breaks down complex tasks and delegates to specialized modes.
 
@@ -39,75 +95,26 @@ Strategic workflow coordinator that breaks down complex tasks and delegates to s
 
 ## Available Operators
 
-Operators are organized by category as defined in the `OperatorCategory` enum:
+Datasift provides 20+ operators across 5 categories:
+- **Extract**: Document text and entity extraction (ExtractOperator with multiple modes)
+- **Ingest**: Data source ingestion (IngestLocalOperator, IngestSourceOperator)
+- **Functional**: Data transformation (Chunker, EmbeddingsOperator, BranchingOperator, NoopOperator, etc.)
+- **Quality**: Data quality checks (Dedup, Redaction, LanguageDetection, SQLFilter, etc.)
+- **VectorDB**: Vector storage (VectorDBOperator with OpenSearch adapter)
 
-### Extract Operators
-- **ExtractOperator**: Extraction operator supporting multiple text extraction modes (docling_library, docling_serve) and entity extraction modes (ollama, docling, litellm, none)
-  - **Text Extraction Modes**:
-    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) pipeline support
-    - `docling_serve`: Remote extraction via Docling Serve API with OCR support
-  - **Entity Extraction Modes**:
-    - `ollama`: LLM-based entity extraction using locally running Ollama models
-    - `docling`: Template-based entity extraction using Docling templates
-    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
-    - `none`: No entity extraction (default)
-  - **Adapters**: DoclingAdapter, DoclingServeAdapter (text); OllamaEntityAdapter, DoclingEntityAdapter, LiteLLMEntityAdapter (entity)
-
-### Ingest Operators
-- **IngestLocalOperator**: Reads files from local filesystem directories
-- **IngestSourceOperator**: Multi-provider ingest supporting various data sources (S3, IBM COS, SharePoint, OneDrive, Google Drive, custom loaders)
-
-### Functional Operators
-- **BranchingOperator**: Enables conditional workflow branching based on data characteristics
-- **Chunker**: Document chunking with multiple strategies (Simple, Semantic, Hybrid/Docling)
-- **DocIdHash**: Generates unique document identifiers using hash functions (internal operator)
-- **NoopOperator**: Pass-through operator for testing and debugging
-- **EmbeddingsOperator**: Generates vector embeddings using Ollama or Sentence Transformers models
-
-### Quality Operators
-- **DocumentClassifier**: Classifies documents into predefined categories
-- **Dedup**: Deduplication of documents based on content similarity
-- **MLEnrichment**: ML-based document enrichment and feature extraction
-- **Readability**: Assesses document readability scores
-- **Redaction**: PII detection and redaction
-- **SQLFilter**: Filters PyArrow tables using SQL-like expressions
-- **LanguageDetection**: Detects document language using FastText models
-
-### VectorDB Operators
-- **VectorDBOperator**: Generic vector database operator supporting multiple providers through adapters
-  - **OpenSearch Adapter**: Stores and retrieves vectors in OpenSearch with support for multiple KNN engines (NMSLIB, Faiss, Lucene)
+For operator information:
+- **API Reference**: [OPERATOR_REFERENCE.md](OPERATOR_REFERENCE.md) - Complete parameter specifications for all operators
+- **Implementation Guides**: [`docs/operators/`](docs/operators/) - Detailed guides for complex operators (architecture, troubleshooting, best practices)
 
 ## Common Workflow Patterns
 
-### Document Processing Pipeline
-```
-Ingest → Extract → Chunk → Embed → Store
-```
-Example: `IngestLocalFolder → ExtractOperator → Chunker → EmbeddingsOperator → VectorDBOperator`
+Orchestrator should recognize these standard pipeline patterns:
+- **Document Processing**: Ingest → Extract → Chunk → Embed → Store
+- **Entity Extraction**: Ingest → Extract (with entity modes enabled)
+- **Quality-Enhanced**: Ingest → Extract → Quality Checks → Chunk → Embed
+- **Branching**: Conditional processing based on data characteristics
 
-### Entity Extraction Workflow
-```
-Ingest → Extract (with entity extraction)
-```
-Example: `IngestLocalFolder → ExtractOperator` (with both text and entity extraction modes enabled)
-
-### Quality-Enhanced Pipeline
-```
-Ingest → Extract → Quality Checks → Chunk → Embed
-```
-Example: `IngestLocalFolder → ExtractOperator → LanguageDetection → Readability → Chunker → EmbeddingsOperator`
-
-### Vector Search Pipeline
-```
-Ingest → Extract → Chunk → Embed → OpenSearch
-```
-Example: Complete RAG (Retrieval-Augmented Generation) preparation pipeline
-
-### Branching Workflows
-```
-Ingest → BranchingOperator → [Path A | Path B]
-```
-Example: Conditional processing based on document type, language, or custom criteria
+For detailed flow examples, see [`sample_flows/`](sample_flows/) and [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## When to Use
 - Complex, multi-step projects requiring coordination across different domains
@@ -125,6 +132,7 @@ Example: Conditional processing based on document type, language, or custom crit
     - Running test cases and executing datasift-orchestrator commands
     - File system operations and code refactoring
     - Working with operator categories: Extract, Ingest, Functional, Quality, VectorDB
+    - Ensure adherence to project coding standards (keyword-only arguments, file path requirements)
   - **Ask mode**: For explaining concepts and providing guidance
     - Explaining operator configurations and parameters
     - Describing flow patterns and best practices
@@ -139,161 +147,23 @@ Example: Conditional processing based on document type, language, or custom crit
 
 ## Integration Requirements
 
-### Ollama Integration
-- **Requirement**: Ollama server must be running on `http://localhost:11434`
-- **Used By**: `ExtractOperator` (when using Ollama entity extraction mode), `EmbeddingsOperator` (when using Ollama models)
-- **Configuration**: Operators accept `model_name` parameter (e.g., `llama3.2`, `nomic-embed-text`)
-- **Verification**: Test with `curl http://localhost:11434/api/tags` to list available models
+Orchestrator should be aware of external service dependencies:
+- **Ollama** (`localhost:11434`): Required for LLM-based extraction and embeddings
+- **OpenSearch** (`localhost:9200`): Required for vector storage operations
+- **PYTHONPATH**: Must include `src` directory
 
-### OpenSearch Integration
-- **Requirement**: OpenSearch must be running (default: `http://localhost:9200`)
-- **Used By**: `VectorDBOperator` with OpenSearch adapter for vector storage and retrieval
-- **Configuration**: Requires `provider: "opensearch"`, index name, dimension, KNN engine selection (NMSLIB, Faiss, Lucene)
-- **Setup**: Use `docker/docker-compose.opensearch.yml` for local development
-
-### Environment Variables
-- **PYTHONPATH**: Must include `src` for imports to work
-
-
-## Python Coding Standards
-
-### Keyword-Only Arguments (MANDATORY)
-
-**ALL function arguments MUST be keyword-only using `*` separator.**
-
-This is a critical coding standard for the datasift project to prevent accidental positional argument bugs and improve code maintainability.
-
-#### Rules
-
-1. **Function Signatures**: ALL function arguments MUST use `*` to enforce keyword-only arguments
-   ```python
-   # ✅ CORRECT
-   def process_data(*, data: dict, config: dict, validate: bool = True) -> dict:
-       pass
-   
-   # ❌ WRONG
-   def process_data(data: dict, config: dict, validate: bool = True) -> dict:
-       pass
-   ```
-
-2. **Function Calls**: ALL function calls MUST use keyword arguments
-   ```python
-   # ✅ CORRECT
-   result = process_data(data=my_data, config=my_config, validate=False)
-   
-   # ❌ WRONG
-   result = process_data(my_data, my_config, False)
-   ```
-
-3. **Exceptions**: Only `self` and `cls` parameters in class methods are allowed before `*`
-   ```python
-   # ✅ CORRECT
-   class MyClass:
-       def __init__(self, *, param1: str, param2: int):
-           pass
-       
-       @classmethod
-       def create(cls, *, name: str, value: int):
-           pass
-   ```
-
-4. **Benefits**:
-   - Prevents accidental argument order bugs
-   - Makes code self-documenting
-   - Easier refactoring (can reorder parameters safely)
-   - Better IDE support and autocomplete
-   - Clearer code reviews
-
-5. **Reference**: [Python Glossary - Argument](https://docs.python.org/3/glossary.html#term-argument)
-
-#### Examples
-
-**Before (Wrong)**:
-```python
-def execute_batches(
-    self,
-    batches: List[pa.Table],
-    op_flow: List[dict],
-    global_config: dict,
-    job_run_id: str
-) -> None:
-    pass
-
-# Call
-strategy.execute_batches(batches, op_flow, config, job_id)
-```
-
-**After (Correct)**:
-```python
-def execute_batches(
-    self,
-    *,
-    batches: List[pa.Table],
-    op_flow: List[dict],
-    global_config: dict,
-    job_run_id: str
-) -> None:
-    pass
-
-# Call
-strategy.execute_batches(
-    batches=batches,
-    op_flow=op_flow,
-    global_config=config,
-    job_run_id=job_id
-)
-```
-
-### File Path Requirements
-- All file paths in flow configurations must be relative to the workspace directory
-- Use forward slashes (`/`) for path separators, even on Windows
-- Avoid using `~` or `$HOME` in paths; use absolute paths relative to workspace
+When users report integration issues, delegate troubleshooting to Code mode or reference [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## Flow Execution
 
-### Command-Line Execution
-Flows are executed using the `datasift-orchestrator` CLI tool:
-This command needs to be executed from the workspace root after setting the .venv in the backend folder
+### Delegation Knowledge
+When coordinating flow-related tasks, delegate to Code mode for:
+- **Flow execution**: `datasift-orchestrator --flow-file <path>`
+- **Flow validation**: Validate flows before execution
+- **Test execution**: Run pytest with proper environment setup
+- **Flow structure**: JSON files with nodes (operators) and edges (data flow)
 
-```bash
-datasift-orchestrator --flow-file <path-to-flow.json>
-```
-
-### Execution Model
-- **Orchestration**: Uses Prefect for managing workflow execution
-- **Parallelization**: Supports batch processing and parallel operator execution
-- **Data Flow**: PyArrow tables passed between operators via in-memory or disk-based storage
-- **Error Handling**: Operators can fail gracefully with detailed error messages
-
-### Test Execution
-For running test cases:
-
-```bash
-# 1. Activate virtual environment (from project root)
-source .venv/bin/activate
-
-# 2. Set PYTHONPATH (from project root)
-export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
-
-# 3. Sync dependencies (first time or after changes, from project root)
-uv sync --extra dev
-
-# 4. Run all tests (from project root)
-uv run pytest tests/ -v
-
-# Or run specific test directory
-uv run pytest tests/unit/operators/ingest/ -v
-
-# With coverage
-uv run pytest tests/ --cov=src --cov-report=html
-```
-
-### Flow Configuration Structure
-Flow JSON files define:
-- **flow**: Array of operator configurations with unique names
-- **depends_on**: Array of operator names that must execute before this operator
-- **type**: Short operator name (e.g., `ingest_local`, `extract_operator`, `chunker`, `embeddings`, `vectordb`)
-- **config**: Operator-specific configuration parameters
+For detailed execution instructions, see [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md).
 
 ## Limitations
 - Cannot directly edit files (must delegate to code/advanced modes)

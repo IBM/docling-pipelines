@@ -555,5 +555,5 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 ## Complete Flow Example
 
-- [Sample Flow](tests/sample_test_flows/extract/flow_extract_complete.json)
-- [Sample Flow](tests/sample_test_flows/invoice_processing/flow_invoice_entities.json)
+- [Sample Flow](../../../tests/sample_test_flows/extract/flow_extract_complete.json)
+- [Sample Flow](../../../tests/sample_test_flows/invoice_processing/flow_invoice_entities.json)

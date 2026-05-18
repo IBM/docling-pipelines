@@ -119,7 +119,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 ### Operator Documentation
 
 - **[OpenSearch Documentation](docs/opensearch/)** - Complete setup and usage guide for vector search
-- **[OpenSearch Operator Reference](docs/operators/opensearch.md)** - Technical API documentation
+- **[OpenSearch Operator Reference](docs/operators/vectordb/opensearch.md)** - Technical API documentation
 - **[Integration Examples](examples/opensearch_example_README.md)** - Code examples and patterns
 
 #### Operator Configuration Guides
@@ -160,7 +160,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 
 - **OpenSearch** - Vector similarity search with multiple KNN engines (FAISS, Lucene, nmslib, jVector)
   - See [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
-  - See [Operator Reference](docs/operators/opensearch.md) - Technical API documentation
+  - See [Operator Reference](docs/operators/vectordb/opensearch.md) - Technical API documentation
   - See [Integration Example](examples/opensearch_example_README.md) - Code examples
 
 ### Ingest Operators
@@ -206,7 +206,7 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
 ### Quality Operators
 
 - **PII and HAP Detection** - Detect Personally Identifiable Information and Hate/Abuse/Profanity content
-  - See [PII and HAP Documentation](docs/operators/pii_and_hap.md) - Complete setup and usage guide
+  - See [PII and HAP Documentation](docs/operators/pii_and_hap/pii_and_hap.md) - Complete setup and usage guide
   - Multiple provider support: Ollama (local), WatsonX.ai (enterprise), LiteLLM (100+ providers)
   - Hexagonal architecture with pluggable adapters
 
@@ -1308,7 +1308,7 @@ The default model used by the operator is `granite4`. Other supported models inc
 pip install ollama
 ```
 
-> **Note**: If Ollama is not installed, the server is not running, or no model has been pulled, the operator will raise a [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py) at runtime.
+> **Note**: If Ollama is not installed, the server is not running, or no model has been pulled, the operator will raise a [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py) at runtime.
 
 **See also:**
 
@@ -1378,7 +1378,7 @@ podman-compose -f docker/docker-compose.opensearch.yml down
 
 - [Complete Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md#opensearch-setup) - Detailed OpenSearch configuration
 - [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
-- [OpenSearch Operator Reference](docs/operators/opensearch.md) - Technical API documentation
+- [OpenSearch Operator Reference](docs/operators/vectordb/opensearch.md) - Technical API documentation
 - [VectorDBOperator Documentation](src/datasift/core/operators/vectordb/vectordb_operator.py) - Operator reference
 - [Operator Reference](OPERATOR_REFERENCE.md) - VectorDBOperator parameters
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - OpenSearch connection issues

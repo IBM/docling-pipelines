@@ -316,8 +316,8 @@ Actual times depend on:
 
 ## Related Documentation
 
-- [ExtractOperator README](../../../src/datasift/core/operators/extract/README.md) - Complete operator documentation
-- [ExtractOperator Source](../../../src/datasift/core/operators/extract/extract_operator.py) - Operator implementation
+- [ExtractOperator README](../../../../README.md) - Complete operator documentation
+- [ExtractOperator Source](../../../../src/datasift/core/operators/extract/extract_operator.py) - Operator implementation
 - [Sample Flows](../../sample_test_flows/extract/) - Example flow configurations
 - [Docling Documentation](https://github.com/DS4SD/docling) - Docling library docs
 - [Ollama Documentation](https://ollama.com/docs) - Ollama setup and usage

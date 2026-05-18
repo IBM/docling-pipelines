@@ -4,7 +4,7 @@ This directory contains simplified Kubernetes manifests for deploying DataSift c
 
 ## Overview
 
-The manifests in this directory provide a basic deployment setup without production-specific features like HPA (Horizontal Pod Autoscaler) or complex scaling configurations. For production deployments with advanced features, see the `k8s/` directory.
+The manifests in this directory provide a basic deployment setup without production-specific features like HPA (Horizontal Pod Autoscaler) or complex scaling configurations.
 
 ## Directory Structure
 
@@ -439,8 +439,8 @@ For production deployments, consider:
    - Document disaster recovery procedures
 
 5. **Advanced Features**
-   - See `k8s/` directory for HPA configurations
-   - Implement pod disruption budgets
+   - Implement pod disruption budgets for production
+   - Configure HPA for auto-scaling
    - Configure resource quotas and limit ranges
 
 ## Next Steps

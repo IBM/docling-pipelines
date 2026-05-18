@@ -65,14 +65,14 @@ The operator follows hexagonal architecture principles to separate business logi
 
 ### Component Responsibilities
 
-#### 1. **Domain Layer** ([`domain/models.py`](src/datasift/core/operators/quality/classification/domain/models.py))
+#### 1. **Domain Layer** ([`domain/models.py`](../../src/datasift/core/operators/quality/classification/domain/models.py))
 - Pure business logic, no infrastructure dependencies
 - [`ClassificationRequest`](src/datasift/core/operators/quality/classification/domain/models.py:8): Input data structure
 - [`ClassificationResponse`](src/datasift/core/operators/quality/classification/domain/models.py:16): Output data structure
 - [`ModelInfo`](src/datasift/core/operators/quality/classification/domain/models.py:24): Model metadata
 - [`build_classification_prompt()`](src/datasift/core/operators/quality/classification/domain/models.py:31): Provider-agnostic prompt builder
 
-#### 2. **Ports Layer** ([`ports/outbound/classification_service.py`](src/datasift/core/operators/quality/classification/ports/outbound/classification_service.py))
+#### 2. **Ports Layer** ([`ports/outbound/classification_service.py`](../../src/datasift/core/operators/quality/classification/ports/outbound/classification_service.py))
 - [`ClassificationServicePort`](src/datasift/core/operators/quality/classification/ports/outbound/classification_service.py:9): Abstract interface defining classification contract
 - Ensures all adapters implement the same interface
 
@@ -681,7 +681,7 @@ class ModelInfo:
 
 - [Extract Operator](./extract_operator.md) - Document content extraction
 - [Embeddings Operator](./embeddings.md) - Vector embeddings generation
-- [Architecture Guide](../ARCHITECTURE.md) - System architecture overview
+- [Architecture Guide](../../ARCHITECTURE.md) - System architecture overview
 - [Hexagonal Architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software)) - Pattern explanation
 
 ---

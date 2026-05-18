@@ -206,7 +206,7 @@ Job run exists on the submitter but worker updates do not appear in job status A
 - worker environment does not receive the same job stats backend configuration
 
 **Solutions:**
-1. Check [`job_management.store`](src/datasift/config/datasift.yaml:12) in [`datasift.yaml`](src/datasift/config/datasift.yaml) and confirm the selected backend matches your deployment model.
+1. Check job management configuration via environment variables and confirm the selected backend matches your deployment model.
 2. For distributed execution, prefer PostgreSQL job stats storage.
 3. If using JSON storage, configure a shared filesystem path visible to both submitter and workers.
 4. Ensure worker environments inherit the same effective backend configuration and connection settings.
@@ -249,7 +249,7 @@ Batch work starts, but the final job state becomes CRASHED or CANCELED unexpecte
 
 **Solutions:**
 1. Confirm the execution path waits for submitted batch work before the outer flow exits.
-2. Check [`PrefectEngine`](src/datasift/core/orchestrator/prefect/prefect_engine.py) behavior when debugging batch failures.
+2. Check [`PrefectEngine`](src/datasift/core/orchestration/prefect/prefect_engine.py) behavior when debugging batch failures.
 3. Validate that job-management terminal-state updates are still reached on failure paths.
 4. Prefer PostgreSQL storage in concurrent/distributed environments to reduce ambiguity in final state updates.
 

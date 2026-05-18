@@ -293,6 +293,6 @@ config = {
 
 - [Environment Setup Guide](../docs/opensearch/ENVIRONMENT_SETUP.md) - Complete configuration guide
 - [OpenSearch Quick Start](../docs/opensearch/OPENSEARCH_QUICKSTART.md) - Quick start guide
-- [Operator Documentation](../docs/operators/opensearch.md) - Full operator reference
+- [Operator Documentation](../docs/operators/vectordb/opensearch.md) - Full operator reference
 - [OpenSearch Documentation](https://opensearch.org/docs/latest/) - Official OpenSearch docs
 - [OpenSearch k-NN Plugin](https://opensearch.org/docs/latest/search-plugins/knn/index/) - Vector search plugin

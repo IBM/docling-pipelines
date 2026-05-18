@@ -54,7 +54,7 @@ export GIT_USERNAME="your-git-username"
 export GIT_TOKEN="your-personal-access-token"
 
 # Optional: override the secret name created by the script
-export GIT_SECRET_NAME="datasift-git-auth"
+export GIT_SECRET_NAME="datasift-git-auth"  # pragma: allowlist secret
 ```
 
 Notes:
@@ -128,7 +128,7 @@ curl -k https://$DATASIFT_URL/health
 
 4. **Application BuildConfig Creation**
    - Creates a Docker build from the Git repository
-   - Uses [`docker/Dockerfile`](docker/Dockerfile) for the image build
+   - Uses [`docker/Dockerfile`](../../docker/Dockerfile) for the image build
    - Starts the build explicitly
 
 5. **ImageStream Creation**
@@ -658,4 +658,4 @@ For issues or questions:
 - Check pod logs: `oc logs <pod-name>`
 - Review events: `oc get events --sort-by='.lastTimestamp'`
 - Consult main documentation: [README.md](../README.md)
-- Review architecture: [ARCHITECTURE.md](../ARCHITECTURE.md)
+- Review architecture: [ARCHITECTURE.md](../../ARCHITECTURE.md)

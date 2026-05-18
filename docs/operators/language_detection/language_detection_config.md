@@ -153,6 +153,6 @@ The Language Detection operator automatically detects the language of document c
 
 ## Related Documentation
 
-- [Language Detection Overview](src/datasift_opensource/backend/core/operators/quality/language_detection/README.md) - Detailed operator documentation
-- [FastText Adapter](../../src/datasift_opensource/backend/core/operators/quality/language_detection/adapters/outbound/fasttext_adapter.py) - FastText implementation
-- [Langdetect Adapter](../../src/datasift_opensource/backend/core/operators/quality/language_detection/adapters/outbound/langdetect_adapter.py) - Langdetect implementation
+- [Language Detection Overview](../../../README.md) - Detailed operator documentation
+- [FastText Adapter](../../../src/datasift/core/operators/quality/language_detection/adapters/outbound/fasttext_adapter.py) - FastText implementation
+- [Langdetect Adapter](../../../src/datasift/core/operators/quality/language_detection/adapters/outbound/langdetect_adapter.py) - Langdetect implementation

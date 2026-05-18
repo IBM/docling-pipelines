@@ -168,4 +168,4 @@ The Ingest Local Folder Operator discovers and loads file metadata from a local 
 
 ## Complete Flow Example
 
-- [Sample Flow](sample_flows/complete_pipeline_flow.json)
+- [Sample Flow](../../../sample_flows/complete_pipeline_flow.json)

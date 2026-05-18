@@ -15,6 +15,6 @@ uv run pytest tests/unit/operators/vectordb/test_vectordb_operator.py -v
 
 ## 2. Additional OpenSearch References
 
-- Operator API and configuration reference: [`../operators/opensearch.md`](../operators/opensearch.md)
+- Operator API and configuration reference: [`../operators/opensearch.md`](../operators/vectordb/opensearch.md)
 - OpenSearch environment variables: [`ENVIRONMENT_SETUP.md`](ENVIRONMENT_SETUP.md)
 - Example flow config: [`../../tests/sample_test_flows/basic/flow_with_opensearch.json`](../../tests/sample_test_flows/basic/opensearch_integration.json)

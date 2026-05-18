@@ -295,8 +295,8 @@ print(feature_map['content'])  # ['Extract Docling', 'Extract Entities (Ollama)'
 
 **Key Methods:**
 
-- [`get_operator_metadata()`](src/datasift/core/operators/operator_metadata.py:59): Returns metadata for all registered operators
-- [`get_features()`](src/datasift/core/operators/operator_metadata.py:153): Gets features from a specific operator, optionally filtered by purpose
+- `get_operator_metadata()`: Returns metadata for all registered operators
+- `get_features()`: Gets features from a specific operator, optionally filtered by purpose
 - [`required_feature_names()`](src/datasift/core/operators/operator_metadata.py:255): Returns list of required input features for an operator
 - [`get_feature_operators_map()`](src/datasift/core/operators/operator_metadata.py:278): Builds reverse mapping from features to operators that produce them
 
@@ -338,7 +338,7 @@ def get_required_features() -> list[str]:
 - **Class-Level Attributes**: Reference class attributes (e.g., `MyOperator.category`, `MyOperator.is_available()`)
 - **No Instance Access**: Do not use `self` - information must be determinable without instantiation
 - **Type Hints**: Always include return type annotations
-- **Metadata Keys**: Use constants from [`OperatorConstants`](src/datasift/common/constants/operator_constants.py)
+- **Metadata Keys**: Use constants from `OperatorConstants`
 
 **Complete Example:**
 
@@ -460,7 +460,7 @@ When creating custom operators, you **must**:
    - Custom operators with `owner="custom"` receive **priority 1** (highest)
    - Datasift operators with `owner="datasift"` receive **priority 2**
    - When both have the same `short_name`, only the custom operator (priority 1) is loaded
-   - Without setting `owner="custom"`, your operator inherits `owner=None` from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:32), which will be treated as a custom operator
+   - Without setting `owner="custom"`, your operator inherits `owner=None` from `AbstractOperator`, which will be treated as a custom operator
    - The `owner` attribute appears in operator metadata returned by `get_operator_metadata()`
    - **All built-in datasift operators must explicitly set** `owner = DatasiftConstants.OWNER_DATASIFT`
 
@@ -476,7 +476,7 @@ When creating custom operators, you **must**:
    - `get_required_features()` - Returns required input features
 
 4. **Follow the operator contract:**
-   - Inherit from [`AbstractOperator`](src/datasift/core/operators/abstract_operator.py:28)
+   - Inherit from `AbstractOperator`
    - Implement `transform()` method
    - Return `tuple[list[pa.Table], dict[str, Any]]`
 
@@ -525,7 +525,7 @@ The static method pattern enables [`OperatorMetadata`](src/datasift/core/operato
 
 ### Code Quality Tools
 
-The project uses the following tools (configured in [`pyproject.toml`](src/datasift/pyproject.toml:159)):
+The project uses the following tools (configured in `pyproject.toml`):
 
 - **Ruff**: Linting and formatting (replaces black, isort, flake8)
 - **mypy**: Static type checking
@@ -545,7 +545,7 @@ Tests are organized by type:
 ### Writing Tests
 
 1. **Create test files** matching the pattern `test_*.py`
-2. **Use pytest fixtures** from [`tests/conftest.py`](tests/conftest.py)
+2. **Use pytest fixtures** from `tests/conftest.py`
 3. **Mark tests appropriately**:
 
 ```python

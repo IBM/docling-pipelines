@@ -581,7 +581,7 @@ The operator provides the following metadata after execution:
 
 **Exceptions**
 
-- [`FlowExecutionFailedException`](src/datasift/common/exceptions/datasift_exceptions.py:79)
+- [`FlowExecutionFailedException`](src/datasift/exceptions/datasift_exceptions.py)
 - `ValueError` for invalid configuration
 - Provider-specific exceptions (Ollama, LiteLLM, Docling)
 
@@ -765,7 +765,7 @@ The operator provides the following metadata after execution:
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py:8)
+- [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py)
 - validation messages
 - Ollama errors for semantic chunking
 
@@ -822,11 +822,11 @@ The operator includes 4 core transformations:
 
 **Document Class Schemas**
 
-Schemas are defined in `src/datasift/common/document_classes/*.json` with `target_tables` specifying field mappings and transformations. Supports 40+ document classes including invoice, purchase_order, receipt, insurance_claim, passport, and more.
+Schemas are defined with `target_tables` specifying field mappings and transformations. Supports 40+ document classes including invoice, purchase_order, receipt, insurance_claim, passport, and more.
 
 **Exceptions**
 
-- [`ValidationError`](src/datasift_opensource/backend/common/exceptions/datasift_exceptions.py) - Missing required columns
+- [`ValidationError`](src/datasift/exceptions/datasift_exceptions.py) - Missing required columns
 - Transformation errors are logged but don't stop processing (graceful degradation)
 
 **Example**
@@ -891,7 +891,7 @@ Schemas are defined in `src/datasift/common/document_classes/*.json` with `targe
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py:8)
+- [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py)
 - provider authentication/network failures
 
 **Example (Ollama)**
@@ -1310,7 +1310,7 @@ The VectorDBOperator automatically normalizes and aggregates metadata columns:
 
 **Exceptions**
 
-- [`DatasiftException`](src/datasift/common/exceptions/datasift_exceptions.py:8)
+- [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py)
 
 **Example Configuration**
 
@@ -1739,7 +1739,7 @@ Practical rules from the reviewed code:
 
 ## Exception Reference
 
-All custom exception types reviewed here come from [`datasift_exceptions.py`](src/datasift/common/exceptions/datasift_exceptions.py).
+All custom exception types reviewed here come from [`datasift_exceptions.py`](src/datasift/exceptions/datasift_exceptions.py).
 
 ### `DatasiftException`
 
@@ -1825,7 +1825,7 @@ JSON encoder for validation alerts.
 
 ### PyArrow handler utilities
 
-Defined in [`pyarrow_handler.py`](src/datasift/common/util/data/pyarrow_handler.py:1)
+Defined in [`pyarrow_handler.py`](src/datasift/utils/data/pyarrow_handler.py)
 
 #### `BaseParquetTableHandler`
 
@@ -1833,10 +1833,10 @@ Abstract contract for parquet read/write/delete operations.
 
 Key methods:
 
-- [`read_table()`](src/datasift/common/util/data/pyarrow_handler.py:46)
-- [`save_table()`](src/datasift/common/util/data/pyarrow_handler.py:63)
-- [`delete_rows()`](src/datasift/common/util/data/pyarrow_handler.py:73)
-- [`delete_file()`](src/datasift/common/util/data/pyarrow_handler.py:96)
+- `read_table()` - Read PyArrow table from file
+- `save_table()` - Save PyArrow table to file
+- `delete_rows()` - Delete rows from table
+- `delete_file()` - Delete file from storage
 
 #### `CpdParquetTableHandler`
 
@@ -1844,51 +1844,51 @@ Concrete local-file implementation.
 
 #### `get_parquet_table_handler()`
 
-Defined at [`get_parquet_table_handler()`](src/datasift/common/util/data/pyarrow_handler.py:151)
+Defined at [`get_parquet_table_handler()`](src/datasift/utils/data/pyarrow_handler.py) in datasift utilities
 
 Returns the default parquet handler implementation.
 
 ### Schema utilities
 
-Defined in [`schema_utils.py`](src/datasift/common/util/data/schema_utils.py:1)
+Defined in [`schema_utils.py`](src/datasift/utils/data/schema_utils.py)
 
 #### `align_table_schema(table, all_cols)`
 
-Defined at [`align_table_schema()`](src/datasift/common/util/data/schema_utils.py:10)
+Defined at [`align_table_schema()`](src/datasift/utils/data/schema_utils.py) in schema utilities
 
 Adds missing columns with null values and aligns ordering.
 
 #### `_combine_tables(tables, table_type)`
 
-Defined at [`_combine_tables()`](src/datasift/common/util/data/schema_utils.py:34)
+Defined at [`_combine_tables()`](src/datasift/utils/data/schema_utils.py) in schema utilities
 
 Safely concatenates tables and warns on duplicate IDs.
 
 #### `_total_rows(tables)`
 
-Defined at [`_total_rows()`](src/datasift/common/util/data/schema_utils.py:68)
+Defined at [`_total_rows()`](src/datasift/utils/data/schema_utils.py) in schema utilities
 
 Computes total row counts across a table, list, dict, or `None`.
 
 ### Document class utilities
 
-Defined in [`document_class_utils.py`](src/datasift/common/util/document_class_utils.py:18)
+Defined in [`document_class_utils.py`](src/datasift/utils/document_class_utils.py)
 
 #### `DocumentClassUtils.normalize_filename(name)`
 
-Defined at [`normalize_filename()`](src/datasift/common/util/document_class_utils.py:36)
+Defined at [`normalize_filename()`](src/datasift/utils/document_class_utils.py) in document class utilities
 
 Normalizes human labels into stable filenames.
 
 #### `DocumentClassUtils.load_document_class(doc_class_path)`
 
-Defined at [`load_document_class()`](src/datasift/common/util/document_class_utils.py:46)
+Defined at [`load_document_class()`](src/datasift/utils/document_class_utils.py) in document class utilities
 
 Loads a document class JSON definition.
 
 #### `DocumentClassUtils.generate_docling_template(doc_class_path, include_nested=True, max_fields=None)`
 
-Defined at [`generate_docling_template()`](src/datasift/common/util/document_class_utils.py:167)
+Defined at [`generate_docling_template()`](src/datasift/utils/document_class_utils.py) in document class utilities
 
 Builds a Docling extraction template from a document class schema.
 
@@ -1899,11 +1899,13 @@ Builds a Docling extraction template from a document class schema.
 
 ### Operator display utility
 
-Defined in [`display.py`](src/datasift/common/util/operators/display.py:135)
+Defined in [`display.py`](src/datasift/utils/operators/display.py)
 
 #### `list_operators(verbose=False)`
 
-Generates the same operator catalog used by the CLI and [`DatasiftFlowManager.list_operators()`](src/datasift/lib/datasift_flow_manager.py:308).
+Defined at [`list_operators()`](src/datasift/utils/operators/display.py)
+
+Generates the same operator catalog used by the CLI and [`DatasiftFlowManager.list_operators()`](src/datasift/lib/datasift_flow_manager.py).
 
 **Parameters:**
 

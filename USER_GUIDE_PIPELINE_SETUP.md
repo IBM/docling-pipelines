@@ -143,7 +143,7 @@ The script creates two files:
 - `.datasift_setup_config` - Configuration settings
 - `datasift_setup.log` - Detailed setup log
 
-Flow repository storage location is configured in `src/datasift/config/datasift.yaml`:
+Flow repository storage location is configured via environment variables and defaults:
 
 ```yaml
 assets_management:
@@ -284,9 +284,9 @@ datasift-opensource supports pluggable job stats storage for job runs, node exec
 
 ### Backend Selection
 
-Job-management components are wired through [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py). Backend selection is controlled by [`datasift.yaml`](src/datasift/config/datasift.yaml) and environment overrides.
+Job-management components are wired through [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py). Backend selection is controlled by environment variables and defaults.
 
-The main user-facing configuration lives under [`job_management`](src/datasift/config/datasift.yaml:8) in [`datasift.yaml`](src/datasift/config/datasift.yaml):
+The main user-facing configuration is controlled via environment variables:
 
 ```yaml
 job_management:
@@ -301,10 +301,10 @@ job_management:
 
 This allows users to configure:
 
-- the job framework type under [`job_management.framework.type`](src/datasift/config/datasift.yaml:9)
-- the job stats store backend under [`job_management.store.type`](src/datasift/config/datasift.yaml:12)
-- the job stats store runtime config under [`job_management.store.config`](src/datasift/config/datasift.yaml:15)
-- the flow repository separately under [`assets_management.flow_repository`](src/datasift/config/datasift.yaml:1)
+- the job framework type via `DATASIFT_FRAMEWORK_TYPE` environment variable
+- the job stats store backend via `DATASIFT_STORAGE_BACKEND` environment variable
+- the job stats store runtime config via backend-specific environment variables
+- the flow repository via `LOCAL_FLOWS_DIR` environment variable
 
 Common overrides include:
 
@@ -320,9 +320,8 @@ Common overrides include:
 
 Effective precedence for job-management runtime selection is:
 
-1. explicit environment overrides
-2. values from [`datasift.yaml`](src/datasift/config/datasift.yaml)
-3. built-in defaults in [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py)
+1. explicit environment variables
+2. built-in defaults in [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py)
 
 ### JSON Storage Guidance
 
@@ -382,7 +381,7 @@ See [`docs/job_stats_management/NODE_METADATA_AGGREGATION_STRATEGY.md`](docs/job
 
 ### Distributed Execution and Work Pool Environment Inheritance
 
-For distributed Prefect execution, work pool runtime configuration is modeled in [`work_pool_config.py`](src/datasift/core/orchestrator/prefect/config/work_pool_config.py) and applied by [`WorkPoolAdapter`](src/datasift/core/orchestrator/prefect/adapters/work_pool_adapter.py).
+For distributed Prefect execution, work pool runtime configuration is modeled in [`work_pool_config.py`](src/datasift/core/orchestration/prefect/config/work_pool_config.py) and applied by [`WorkPoolAdapter`](src/datasift/core/orchestration/prefect/adapters/work_pool_adapter.py).
 
 Important behavior:
 
@@ -390,10 +389,9 @@ Important behavior:
 - if job-management env values are omitted from the work pool config, workers inherit the submitter's effective job-management configuration
 - the inherited effective configuration is resolved from:
   - submitter environment variables
-  - [`datasift.yaml`](src/datasift/config/datasift.yaml)
   - code defaults
 
-This makes it possible to keep a single source of truth in [`datasift.yaml`](src/datasift/config/datasift.yaml) while still overriding specific values per environment or per deployment.
+This makes it possible to configure job management via environment variables per environment or per deployment.
 
 For full distributed execution examples and work-pool-specific configuration, see [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md).
 
@@ -1669,7 +1667,7 @@ datasift-orchestrator --list-operators --verbose
 
 ### 11.1 Introduction
 
-The [`DatasiftFlowManager`](src/datasift/datasift_flow_manager.py) class provides a Python API for programmatic flow execution, offering greater flexibility than the CLI for integration scenarios.
+The [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py) class provides a Python API for programmatic flow execution, offering greater flexibility than the CLI for integration scenarios.
 
 **When to Use the Programmatic API:**
 
@@ -2249,8 +2247,8 @@ This guide covers:
 
 ## Additional Resources
 
-- [DataSift README](../README.md) - Project overview
-- [OpenSearch Documentation](../examples/opensearch_example_README.md) - Detailed OpenSearch guide
+- [DataSift README](README.md) - Project overview
+- [OpenSearch Documentation](examples/opensearch_example_README.md) - Detailed OpenSearch guide
 - [Operator Documentation](../src/datasift/core/operators/) - Operator source code
 - [Example Flows](../tests/) - More flow examples
 

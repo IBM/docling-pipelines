@@ -159,13 +159,13 @@ export PREFECT_API_URL=http://localhost:4200/api
 **Critical**: Without `PREFECT_MODE=server`, DataSift uses ephemeral mode and ignores work pool configuration.
 
 **Job stats store guidance for this setup:**
-- [`DATASIFT_STORAGE_BACKEND`](src/datasift/common/constants/constants.py:112), [`DATASIFT_FRAMEWORK_TYPE`](src/datasift/common/constants/constants.py:113), and [`DATASIFT_JOB_STATS_BASE_DIR`](src/datasift/common/constants/constants.py:114) can be set explicitly in work-pool env, but if they are omitted the worker inherits the submitter's effective job-management configuration resolved from env and [`datasift.yaml`](src/datasift/config/datasift.yaml:7)
-- [`JsonJobStatsStore`](src/datasift/core/job_management/adapters/stores/json_job_stats_store.py) can work for `work-pool-process` only when the submitter and worker share the same filesystem semantics
+- `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, and `DATASIFT_JOB_STATS_BASE_DIR` can be set explicitly in work-pool env, but if they are omitted the worker inherits the submitter's effective job-management configuration resolved from env
+- [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py) can work for `work-pool-process` only when the submitter and worker share the same filesystem semantics
 - Requirement: the submitter and worker must share the same filesystem and the same absolute path namespace for the job stats directory
 - Relative JSON `base_dir` paths depend on where the submitter and worker processes are started
-- If JSON storage is effective for the submitter, [`DATASIFT_JOB_STATS_BASE_DIR`](src/datasift/common/constants/constants.py:114) is propagated to workers as a resolved absolute path so workers do not reinterpret relative `base_dir` values differently
-- For reliable distributed execution across different containers, pods, or machines, use [`PostgresJobStatsStore`](src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
-- If PostgreSQL storage is effective for the submitter, the worker inherits [`DATASIFT_POSTGRES_HOST`](src/datasift/common/constants/constants.py:115), [`DATASIFT_POSTGRES_PORT`](src/datasift/common/constants/constants.py:116), [`DATASIFT_POSTGRES_DB`](src/datasift/common/constants/constants.py:117), [`DATASIFT_POSTGRES_USER`](src/datasift/common/constants/constants.py:118), and [`DATASIFT_POSTGRES_PASSWORD`](src/datasift/common/constants/constants.py:119) unless explicitly overridden in work-pool env
+- If JSON storage is effective for the submitter, `DATASIFT_JOB_STATS_BASE_DIR` is propagated to workers as a resolved absolute path so workers do not reinterpret relative `base_dir` values differently
+- For reliable distributed execution across different containers, pods, or machines, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- If PostgreSQL storage is effective for the submitter, the worker inherits `DATASIFT_POSTGRES_HOST`, `DATASIFT_POSTGRES_PORT`, `DATASIFT_POSTGRES_DB`, `DATASIFT_POSTGRES_USER`, and `DATASIFT_POSTGRES_PASSWORD` unless explicitly overridden in work-pool env
 
 #### Step 5: Configure Flow
 
@@ -324,16 +324,16 @@ This matches:
 
 
 **Job stats store guidance:**
-- The worker job environment can explicitly define [`DATASIFT_STORAGE_BACKEND`](src/datasift/common/constants/constants.py:112), [`DATASIFT_FRAMEWORK_TYPE`](src/datasift/common/constants/constants.py:113), and backend-specific settings, but if omitted the worker inherits the submitter's effective job-management configuration
+- The worker job environment can explicitly define `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, and backend-specific settings, but if omitted the worker inherits the submitter's effective job-management configuration
 - JSON job stats storage is acceptable only when submitter and worker processes read/write the same filesystem path namespace
 - Requirement: submitter and workers must share the same filesystem and must see the same absolute job stats path
-- If using [`JsonJobStatsStore`](src/datasift/core/job_management/adapters/stores/json_job_stats_store.py), [`DATASIFT_JOB_STATS_BASE_DIR`](src/datasift/common/constants/constants.py:114) should resolve to the same absolute shared path for submitter and workers instead of relying on cwd-relative resolution
+- If using [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py), `DATASIFT_JOB_STATS_BASE_DIR` should resolve to the same absolute shared path for submitter and workers instead of relying on cwd-relative resolution
 - Example shared path choices:
   - local machine process pool: `DATASIFT_JOB_STATS_BASE_DIR=/absolute/path/to/data/job_stats`
   - Docker shared volume/process pool: `DATASIFT_JOB_STATS_BASE_DIR=/app/data/job_stats`
   - Kubernetes shared volume/process pool: `DATASIFT_JOB_STATS_BASE_DIR=/app/data/job_stats`
-- If workers run on different machines or in isolated runtimes, use [`PostgresJobStatsStore`](src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
-- For PostgreSQL-backed job stats, workers must resolve the same database connection, typically via inherited or explicit [`DATASIFT_POSTGRES_HOST`](src/datasift/common/constants/constants.py:115), [`DATASIFT_POSTGRES_PORT`](src/datasift/common/constants/constants.py:116), [`DATASIFT_POSTGRES_DB`](src/datasift/common/constants/constants.py:117), [`DATASIFT_POSTGRES_USER`](src/datasift/common/constants/constants.py:118), and [`DATASIFT_POSTGRES_PASSWORD`](src/datasift/common/constants/constants.py:119)
+- If workers run on different machines or in isolated runtimes, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- For PostgreSQL-backed job stats, workers must resolve the same database connection, typically via inherited or explicit `DATASIFT_POSTGRES_HOST`, `DATASIFT_POSTGRES_PORT`, `DATASIFT_POSTGRES_DB`, `DATASIFT_POSTGRES_USER`, and `DATASIFT_POSTGRES_PASSWORD` environment variables
 
 #### Docker Work Pool (`work-pool-docker`)
 
@@ -479,18 +479,18 @@ Private registries require authentication configured on the worker host machine.
 - Private registry authentication configured on worker host (if applicable)
 
 **Job stats store guidance:**
-- Do not rely on [`JsonJobStatsStore`](src/datasift/core/job_management/adapters/stores/json_job_stats_store.py) for Docker work pools unless submitter and all worker containers share the same mounted filesystem path for job stats
+- Do not rely on [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py) for Docker work pools unless submitter and all worker containers share the same mounted filesystem path for job stats
 - Requirement: submitter and worker containers must share the same filesystem mount and must use the same in-container absolute path for job stats
 - If you switch Docker worker infrastructure to Prefect `process` execution on a shared volume, set `DATASIFT_JOB_STATS_BASE_DIR` to the mounted absolute path seen inside that runtime, for example `/app/data/job_stats`
-- For actual distributed Docker execution, use [`PostgresJobStatsStore`](src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- For actual distributed Docker execution, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
 
 #### Kubernetes Work Pool (`work-pool-kubernetes`)
 
 **Description**: Executes batches as Kubernetes Jobs.
 
 **Job stats store guidance:**
-- Kubernetes workers should use [`PostgresJobStatsStore`](src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py) for job statistics persistence
-- Do not rely on [`JsonJobStatsStore`](src/datasift/core/job_management/adapters/stores/json_job_stats_store.py) unless you have explicitly provisioned and mounted the same shared filesystem path into all relevant pods, including any component that reads those stats
+- Kubernetes workers should use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py) for job statistics persistence
+- Do not rely on [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py) unless you have explicitly provisioned and mounted the same shared filesystem path into all relevant pods, including any component that reads those stats
 - Requirement: all relevant pods must share the same mounted filesystem and the same in-container absolute path for job stats
 - If Kubernetes worker infrastructure is changed to Prefect `process` execution and all participants share a mounted volume, set `DATASIFT_JOB_STATS_BASE_DIR` to that in-container absolute path, for example `/app/data/job_stats`
 - If that shared mounted path does not exist, JSON job stats storage is not a valid option
@@ -1745,7 +1745,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 **Notes**:
 - Batch storage for distributed execution is configured in the flow JSON `batch_storage` section.
-- Job-management env values are applied with precedence: explicit work-pool env, then submitter process env, then submitter config from [`datasift.yaml`](src/datasift/config/datasift.yaml:7), then code defaults.
+- Job-management env values are applied with precedence: explicit work-pool env, then submitter process env, then code defaults.
 
 ### 7.2 Configuration Schema
 
@@ -1833,7 +1833,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 - **Sample Flow**: [`sample_flows/complete_pipeline_flow.json`](../../sample_flows/complete_pipeline_flow.json)
 - **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
-- **Kubernetes Manifests**: [`k8s/`](../../k8s/)
+- **Kubernetes Manifests**: [`k8s-deployment-examples/`](../../k8s-deployment-examples/)
 
 ### 7.4 Related Documentation
 
@@ -2290,7 +2290,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 - **Sample Flow**: [`sample_flows/complete_pipeline_flow.json`](../../sample_flows/complete_pipeline_flow.json)
 - **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
-- **Kubernetes Manifests**: [`k8s/`](../../k8s/)
+- **Kubernetes Manifests**: [`k8s-deployment-examples/`](../../k8s-deployment-examples/)
 
 ### 7.4 Related Documentation
 

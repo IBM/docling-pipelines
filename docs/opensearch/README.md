@@ -16,5 +16,5 @@ The [`VectorDBOperator`](../../src/datasift/core/operators/vectordb/vectordb_ope
 ## Additional References
 
 - Main user guide for setup and execution: [`../../USER_GUIDE_PIPELINE_SETUP.md`](../../USER_GUIDE_PIPELINE_SETUP.md)
-- Operator API reference: [`../operators/opensearch.md`](../operators/opensearch.md)
+- Operator API reference: [`../operators/opensearch.md`](../operators/vectordb/opensearch.md)
 - Example flow configuration: [`../../tests/sample_test_flows/basic/opensearch_integration.json`](../../tests/sample_test_flows/basic/opensearch_integration.json)

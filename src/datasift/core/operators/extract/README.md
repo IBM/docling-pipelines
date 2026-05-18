@@ -140,7 +140,7 @@ Enable ASR pipeline for audio and video file transcription:
 **Sample Flows:**
 - Basic: [`tests/sample_test_flows/extract/flow_extract_basic.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic.json)
 - VLM: [`tests/sample_test_flows/extract/flow_extract_vlm.json`](../../../../tests/sample_test_flows/extract/flow_extract_vlm.json)
-- Audio/Video: [`tests/sample_test_flows/audio_video/flow_audio_video_extraction.json`](../../../../tests/sample_test_flows/audio_video/flow_audio_video_extraction.json)
+- Audio/Video: [`tests/sample_test_flows/audio_video/flow_audio_video_extraction.json`](../../../../../tests/sample_test_flows/audio_video/flow_audio_video_extraction.json)
 
 ### 2. Docling Serve Mode
 

@@ -221,7 +221,7 @@ metadata["images_extracted"] = 12
 
 ## Maintainer Contract
 
-When an operator adds, removes, renames, or changes the meaning of any emitted metadata field, maintainers must review aggregation behavior in [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py).
+When an operator adds, removes, renames, or changes the meaning of any emitted metadata field, maintainers must review aggregation behavior in [`strategies.py`](../../src/datasift/core/job_management/application/aggregation/strategies.py).
 
 ### Required Maintainer Checks
 
@@ -275,7 +275,7 @@ class MyNewOperator(AbstractOperator):
 
 This step is mandatory whenever the operator emits new metadata.
 
-1. Open [`strategies.py`](src/datasift/core/job_management/application/aggregation/strategies.py).
+1. Open [`strategies.py`](../../src/datasift/core/job_management/application/aggregation/strategies.py).
 2. Review whether each new field should keep the default `LAST` behavior.
 3. Add strategy mappings to `DEFAULT_STRATEGIES` for every field that requires explicit aggregation.
 
