@@ -2,14 +2,16 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
 from datasift.core.operators.ingest.domain.models import Document
 
+SourceConfig = TypeVar("SourceConfig", bound=BaseModel)
 
-class DocumentSourcePort[SourceConfig: BaseModel](ABC):
+
+class DocumentSourcePort(ABC, Generic[SourceConfig]):  # noqa: UP046
     """
     Outbound port for document sources.
 

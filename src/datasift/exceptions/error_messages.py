@@ -92,6 +92,15 @@ class ValidationCodeMessages(StrEnum):
         """Flow contains disconnected operators. Ensure every operator has valid input and output connections."""
     )
 
+
+    # Document Library error messages
+    DOCUMENT_LIBRARY_NOT_FOUND = "Document library not found: {details}"
+    DOCUMENT_LIBRARY_INVALID_DATA = "Invalid document library data: {details}"
+    DOCUMENT_LIBRARY_STORAGE_ERROR = "Document library storage error: {details}"
+    DOCUMENT_LIBRARY_ALREADY_EXISTS = "Document library with name '{name}' already exists"
+    DOCUMENT_LIBRARY_DOCUMENTSET_NOT_FOUND = "Document set not found: {details}"
+    DOCUMENT_LIBRARY_TABLE_ERROR = "Document library table error: {details}"
+
     # Document Set errors
     DOCUMENT_SET_NOT_FOUND = "Document set not found: {document_set_id}"
     DOCUMENT_SET_INVALID_DATA = "Invalid data for document set: {details}"

@@ -181,12 +181,14 @@ BATCH_NODE_STATS_DESC = "Batch-level node stats: {node_id: {batch_id: NodeStats}
 # Identity Patterns
 
 # Content Patterns
-NAME_PATTERN = r"^[^\x00-\x1F]*$"
-"""Name pattern allowing Unicode but excluding control characters (0x00-0x1F).
+NAME_PATTERN = r"^.*\S.*$"
+r"""Name pattern requiring at least one non-whitespace character.
 
-Rationale: Control characters can cause display issues and security problems.
-Allows: All Unicode characters except ASCII control characters
+Rationale: Names must contain meaningful content, not just whitespace.
+Allows: Any characters including Unicode, but must have at least one non-whitespace character
 Example: "Invoice Pipeline", "文档处理流程", "Traitement des factures"
+Note: Pattern is compatible with rust-based regex engines (pydantic-core).
+The pattern matches any string that contains at least one non-whitespace character (\S).
 """
 
 TYPE_PATTERN = r"^[^\x00-\x1F]+$"
@@ -589,3 +591,72 @@ def datetime_field(description: str, example: str, **kwargs):
         },
         **kwargs,
     )
+
+
+# ============================================================================
+# DOCUMENT LIBRARY SPECIFIC CONSTANTS
+# ============================================================================
+# Constants for Document Library DTOs following the same pattern as Flow DTOs.
+# Document Libraries are collections of Document Sets with aggregate metadata.
+
+# Document Library Field Descriptions
+DOCUMENT_LIBRARY_ID_DESC = "Unique identifier for the document library (UUID format)"
+DOCUMENT_LIBRARY_NAME_DESC = "Unique document library name"
+DOCUMENT_LIBRARY_DESCRIPTION_DESC = "Optional human-readable description of the document library"
+DOCUMENT_LIBRARY_PURPOSE_DESC = "Purpose or use case for the document library"
+DOCUMENT_LIBRARY_ORIGINAL_SIZE_DESC = "Aggregate original size from all associated document sets (bytes)"
+DOCUMENT_LIBRARY_FINAL_SIZE_DESC = "Aggregate processed size from all associated document sets (bytes)"
+DOCUMENT_LIBRARY_TAGS_DESC = "Tags for categorizing and filtering document libraries"
+DOCUMENT_LIBRARY_CREATED_BY_DESC = "User who created the document library"
+DOCUMENT_LIBRARY_CREATED_AT_DESC = "Timestamp when the document library was created (ISO 8601 format)"
+DOCUMENT_LIBRARY_UPDATED_AT_DESC = "Timestamp when the document library was last updated (ISO 8601 format)"
+DOCUMENT_LIBRARY_DOCUMENTSET_IDS_DESC = "List of document set IDs associated with this library"
+DOCUMENT_LIBRARY_DOCUMENTSET_COUNT_DESC = "Number of document sets in this library"
+DOCUMENT_LIBRARY_METADATA_DESC = "Additional metadata as key-value pairs"
+
+# Purpose Field Constraints
+PURPOSE_MIN_LENGTH = 0
+PURPOSE_MAX_LENGTH = 1024
+PURPOSE_PATTERN = DESCRIPTION_PATTERN  # Same as description - allows all characters
+
+# Size Field Constraints (int64 - JavaScript MAX_SAFE_INTEGER)
+SIZE_MIN = 0
+SIZE_MAX = 9007199254740991
+
+# Document Set ID Array Constraints
+DOCUMENTSET_IDS_ARRAY_MIN = 0
+DOCUMENTSET_IDS_ARRAY_MAX = 1000
+
+# Document Library List Response Constraints
+DOCUMENT_LIBRARIES_ARRAY_MIN = 0
+DOCUMENT_LIBRARIES_ARRAY_MAX = 100
+
+# Document Library Pagination Descriptions
+DOCUMENT_LIBRARIES_LIST_DESC = "List of document libraries in the current page"
+DOCUMENT_LIBRARIES_TOTAL_DESC = "Total number of document libraries across all pages"
+DOCUMENT_LIBRARIES_LIMIT_DESC = "Maximum number of document libraries per page"
+
+# Additional Document Library Field Aliases for DTO compatibility
+LIBRARY_ID_DESC = DOCUMENT_LIBRARY_ID_DESC
+LIBRARY_ID_EXAMPLE = UUID_EXAMPLE
+LIBRARY_NAME_DESC = DOCUMENT_LIBRARY_NAME_DESC
+LIBRARY_NAME_MIN_LENGTH = NAME_MIN_LENGTH
+LIBRARY_NAME_MAX_LENGTH = NAME_MAX_LENGTH
+LIBRARY_NAME_PATTERN = NAME_PATTERN
+LIBRARY_DESCRIPTION_DESC = DOCUMENT_LIBRARY_DESCRIPTION_DESC
+LIBRARY_DESCRIPTION_MIN_LENGTH = DESCRIPTION_MIN_LENGTH
+LIBRARY_DESCRIPTION_MAX_LENGTH = 1000  # Library description is shorter than flow description
+LIBRARY_CREATED_AT_DESC = DOCUMENT_LIBRARY_CREATED_AT_DESC
+LIBRARY_LAST_MODIFIED_DESC = DOCUMENT_LIBRARY_UPDATED_AT_DESC
+LIBRARY_DOCUMENT_SET_IDS_DESC = DOCUMENT_LIBRARY_DOCUMENTSET_IDS_DESC
+LIBRARY_TOTAL_DOCUMENT_SETS_DESC = DOCUMENT_LIBRARY_DOCUMENTSET_COUNT_DESC
+LIBRARY_TOTAL_DOCUMENTS_DESC = "Total number of documents across all document sets in the library"
+LIBRARY_TOTAL_SIZE_BYTES_DESC = "Total size in bytes across all document sets in the library"
+LIBRARY_LIMIT_DESC = DOCUMENT_LIBRARIES_LIMIT_DESC
+LIBRARY_LIMIT_MIN = LIMIT_MIN
+LIBRARY_LIMIT_MAX = LIMIT_MAX
+LIBRARY_OFFSET_DESC = "Number of document libraries skipped before this page"
+LIBRARY_OFFSET_MIN = OFFSET_MIN
+LIBRARY_OFFSET_MAX = OFFSET_MAX
+LIBRARY_TOTAL_COUNT_DESC = DOCUMENT_LIBRARIES_TOTAL_DESC
+DOCUMENT_LIBRARIES_OFFSET_DESC = "Number of document libraries skipped before this page"

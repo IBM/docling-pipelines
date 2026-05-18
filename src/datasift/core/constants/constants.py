@@ -170,6 +170,12 @@ class DatasiftConstants:
     NODE_STATS = "node_stats"
     BATCH_NODE_STATS = "batch_node_stats"
 
+    # Document Library constants
+    # Use same database as document sets for consistency
+    DOCUMENT_LIBRARY_DEFAULT_DB_PATH = "data/duckdb/document_sets.duckdb"
+    DOCUMENT_LIBRARY_TABLE_NAME = "document_libraries"
+    LIBRARY_DOCUMENTSET_JUNCTION_TABLE = "library_documentset_junction"
+
     # Find project root by searching for marker files (pyproject.toml, .git)
     _PROJECT_ROOT = _find_project_root()
     DOCUMENT_SET_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "document_sets.duckdb")

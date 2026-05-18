@@ -3918,6 +3918,54 @@ token = token_manager.get_token()
 
 - Data access utilities and abstractions
 - Storage management interfaces
+#### Assets Management (`core/assets_management/`)
+
+The Assets Management module provides metadata management for document collections using hexagonal architecture (ports & adapters pattern). It stores only metadata in DuckDB, not document content.
+
+**Document Libraries** (`document_libraries/`):
+- **Domain Layer** (`domain/`):
+  - **DocumentLibrary**: Domain model representing a collection of document sets
+    - Attributes: library_id, name, description, tags, document_set_ids, aggregate metrics
+    - Methods: create(), validate(), add_document_set(), remove_document_set(), update_aggregate_metrics()
+    - Validation: Name (3-100 chars), description (max 500 chars), tags (max 20, each 1-50 chars)
+  - **DocumentLibraryRepositoryPort**: Repository interface defining persistence contract
+  - **Exceptions**: DocumentLibraryNotFoundError, DocumentLibraryAlreadyExistsError, InvalidDocumentLibraryError
+
+- **Adapters Layer** (`adapters/`):
+  - **DuckDBDocumentLibraryStorage**: DuckDB storage implementation (metadata only)
+    - Tables: `document_libraries` (metadata), `library_documentset_junction` (many-to-many relationships)
+    - Schema: library_id (UUID), name, description, tags (JSON), created_at, updated_at, aggregate_metrics (JSON)
+  - **DuckDBDocumentLibraryMetadataRepository**: Repository implementation using DuckDB storage (metadata only)
+    - CRUD operations: create(), get_by_id(), get_by_name(), list_all(), update(), delete()
+    - Relationship management: add_document_set(), remove_document_set(), get_document_sets()
+    - Filtering: list_by_tags(), search_by_name()
+
+- **Application Layer** (`application/services/`):
+  - **DocumentLibraryService**: Business logic orchestration
+    - Library lifecycle: create_library(), get_library(), update_library(), delete_library()
+    - Document set management: add_document_set_to_library(), remove_document_set_from_library()
+    - Queries: list_libraries(), get_library_document_sets(), search_libraries()
+    - Validation: Ensures business rules and constraints
+
+- **API Layer** (`app/api/document_libraries/`):
+  - **DTOs**: Pydantic models for request/response (CreateLibraryRequest, LibraryResponse, etc.)
+  - **Mapper**: Converts between domain models and DTOs
+  - **Routes**: FastAPI endpoints for library operations
+    - POST /api/v1/document-libraries - Create library
+    - GET /api/v1/document-libraries/{library_id} - Get library
+    - PUT /api/v1/document-libraries/{library_id} - Update library
+    - DELETE /api/v1/document-libraries/{library_id} - Delete library
+    - POST /api/v1/document-libraries/{library_id}/document-sets/{set_id} - Add document set
+    - DELETE /api/v1/document-libraries/{library_id}/document-sets/{set_id} - Remove document set
+    - GET /api/v1/document-libraries - List all libraries
+    - GET /api/v1/document-libraries/search - Search libraries
+
+**Architecture Benefits**:
+- **Separation of Concerns**: Domain logic isolated from infrastructure
+- **Testability**: Easy to mock repositories and test business logic
+- **Flexibility**: Can swap DuckDB for PostgreSQL/MongoDB without changing domain
+- **Maintainability**: Clear boundaries between layers
+
 
 ### 3. Operators (`src/datasift/core/operators/`)
 

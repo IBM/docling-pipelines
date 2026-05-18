@@ -1,0 +1,578 @@
+"""DuckDB implementation of DocumentLibraryRepository.
+
+This adapter implements the repository port using DuckDB storage.
+"""
+
+import json
+from datetime import datetime
+
+from datasift.core.assets.document_libraries.adapters.storage.duckdb_storage import DuckDBStorage
+from datasift.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
+from datasift.core.assets.document_libraries.domain.ports.document_library_repository import (
+    DocumentLibraryRepository,
+)
+from datasift.core.constants.constants import DatasiftConstants
+from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.exceptions.error_codes import ErrorCode
+from datasift.utils.infrastructure.logging import get_logger
+
+logger = get_logger()
+
+
+class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
+    """DuckDB implementation of DocumentLibraryRepository for metadata persistence.
+
+    Implements the repository port using DuckDB for persistence.
+    Manages document library metadata and library-documentset relationships.
+    Stores only metadata, not document content.
+    """
+
+    def __init__(self, *, storage: DuckDBStorage):
+        """Initialize repository with DuckDB storage.
+
+        Args:
+            storage: DuckDB storage instance
+        """
+        self.storage = storage
+        self.storage.initialize_tables()
+
+    def create(self, *, library: DocumentLibrary) -> DocumentLibrary:
+        """Create a new document library.
+
+        Args:
+            library: DocumentLibrary entity to create
+
+        Returns:
+            The created library
+
+        Raises:
+            DatasiftException: If library with same name exists
+            DatasiftException: If storage operation fails
+        """
+        try:
+            # Check if library with same name already exists
+            if self.exists_by_name(name=library.name):
+                raise DatasiftException(
+                f"Library with name '{library.name}' already exists",
+                status_code=409,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_ALREADY_EXISTS,
+            )
+
+            # Insert library metadata
+            query = f"""
+                INSERT INTO {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+                (library_id, name, description, purpose, original_size, final_size, tags, created_by, href)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """
+
+            # Serialize tags to JSON string if present
+            tags_json = json.dumps(library.tags) if library.tags else None
+
+            self.storage.execute_query(
+                query=query,
+                params=(
+                    library.library_id,
+                    library.name,
+                    library.description,
+                    library.purpose,
+                    library.original_size,
+                    library.final_size,
+                    tags_json,
+                    library.created_by,
+                    library.href,
+                ),
+            )
+
+            logger.info(msg=f"Created library: {library.library_id}")
+            return library
+
+        except DatasiftException:
+            raise
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to create library: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def get_by_id(self, *, library_id: str) -> DocumentLibrary | None:
+        """Retrieve a document library by its ID.
+
+        Args:
+            library_id: Unique identifier of the library
+
+        Returns:
+            DocumentLibrary entity if found, None otherwise
+
+        Raises:
+            DatasiftException: If storage operation fails
+        """
+        try:
+            query = f"""
+                SELECT library_id, name, description, purpose, original_size, final_size, tags, created_by, href
+                FROM {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+                WHERE library_id = ?
+            """
+
+            row = self.storage.fetch_one(query=query, params=(library_id,))
+
+            if row is None:
+                return None
+
+            # Get associated document set IDs
+            doc_set_ids = self.get_document_sets_for_library(library_id=library_id)
+
+            return self._row_to_library(row=row, document_set_ids=doc_set_ids)
+
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to get library by ID: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def get_by_name(self, *, name: str) -> DocumentLibrary | None:
+        """Retrieve a document library by its name.
+
+        Args:
+            name: Name of the library
+
+        Returns:
+            DocumentLibrary entity if found, None otherwise
+
+        Raises:
+            DatasiftException: If storage operation fails
+        """
+        try:
+            query = f"""
+                SELECT library_id, name, description, purpose, original_size, final_size, tags, created_by, href
+                FROM {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+                WHERE name = ?
+            """
+
+            row = self.storage.fetch_one(query=query, params=(name,))
+
+            if row is None:
+                return None
+
+            # Get associated document set IDs
+            library_id = row[0]
+            doc_set_ids = self.get_document_sets_for_library(library_id=library_id)
+
+            return self._row_to_library(row=row, document_set_ids=doc_set_ids)
+
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to get library by name: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def update(self, *, library: DocumentLibrary) -> DocumentLibrary:
+        """Update an existing document library.
+
+        Args:
+            library: DocumentLibrary entity with updated data
+
+        Returns:
+            Updated library
+
+        Raises:
+            DatasiftException: If library doesn't exist
+            DatasiftException: If storage operation fails
+        """
+        try:
+            # Check if library exists
+            if not self.exists(library_id=library.library_id):
+                raise DatasiftException(
+                f"Library {library.library_id} not found",
+                status_code=404,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+            )
+
+            # Update library metadata
+            query = f"""
+                UPDATE {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+                SET name = ?,
+                    description = ?,
+                    purpose = ?,
+                    original_size = ?,
+                    final_size = ?,
+                    tags = ?,
+                    created_by = ?,
+                    href = ?
+                WHERE library_id = ?
+            """
+
+            # Serialize tags to JSON string if present
+            tags_json = json.dumps(library.tags) if library.tags else None
+
+            self.storage.execute_query(
+                query=query,
+                params=(
+                    library.name,
+                    library.description,
+                    library.purpose,
+                    library.original_size,
+                    library.final_size,
+                    tags_json,
+                    library.created_by,
+                    library.href,
+                    library.library_id,
+                ),
+            )
+
+            logger.info(msg=f"Updated library: {library.library_id}")
+            return library
+
+        except DatasiftException:
+            raise
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to update library: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def delete(self, *, library_id: str) -> bool:
+        """Delete a document library by its ID.
+
+        Args:
+            library_id: Unique identifier of the library to delete
+
+        Returns:
+            True if library was deleted, False if not found
+
+        Raises:
+            DatasiftException: If storage operation fails
+        """
+        try:
+            # Check if library exists
+            if not self.exists(library_id=library_id):
+                return False
+
+            # Delete library (CASCADE will delete junction table entries)
+            query = f"""
+                DELETE FROM {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+                WHERE library_id = ?
+            """
+
+            self.storage.execute_query(query=query, params=(library_id,))
+
+            logger.info(msg=f"Deleted library: {library_id}")
+            return True
+
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to delete library: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def list_all(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int | None = None,
+    ) -> list[DocumentLibrary]:
+        """Retrieve all document libraries with optional pagination.
+
+        Args:
+            limit: Maximum number of libraries to return (None for all)
+            offset: Number of libraries to skip (for pagination)
+
+        Returns:
+            List of document libraries
+
+        Raises:
+            DatasiftException: If storage operation fails
+        """
+        try:
+            query = f"""
+                SELECT library_id, name, description, purpose, original_size, final_size, tags, created_by, href
+                FROM {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+                ORDER BY name ASC
+            """
+
+            if limit is not None:
+                query += f" LIMIT {limit}"
+            if offset is not None:
+                query += f" OFFSET {offset}"
+
+            rows = self.storage.fetch_all(query=query)
+
+            libraries = []
+            for row in rows:
+                library_id = row[0]
+                doc_set_ids = self.get_document_sets_for_library(library_id=library_id)
+                library = self._row_to_library(row=row, document_set_ids=doc_set_ids)
+                libraries.append(library)
+
+            return libraries
+
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to list libraries: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def exists(self, *, library_id: str) -> bool:
+        """Check if a document library exists.
+
+        Args:
+            library_id: Unique identifier of the library
+
+        Returns:
+            True if library exists, False otherwise
+
+        Raises:
+            DatasiftException: If storage operation fails
+        """
+        try:
+            query = f"""
+                SELECT COUNT(*) FROM {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+                WHERE library_id = ?
+            """
+
+            row = self.storage.fetch_one(query=query, params=(library_id,))
+            return row[0] > 0 if row else False
+
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to check library existence: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def exists_by_name(self, *, name: str) -> bool:
+        """Check if a document library with given name exists.
+
+        Args:
+            name: Name of the library
+
+        Returns:
+            True if library with name exists, False otherwise
+
+        Raises:
+            DatasiftException: If storage operation fails
+        """
+        try:
+            query = f"""
+                SELECT COUNT(*) FROM {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+                WHERE name = ?
+            """
+
+            row = self.storage.fetch_one(query=query, params=(name,))
+            return row[0] > 0 if row else False
+
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to check library name existence: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def add_document_set_to_library(
+        self,
+        *,
+        library_id: str,
+        document_set_id: str,
+    ) -> None:
+        """Add a document set to a library (junction table operation).
+
+        Args:
+            library_id: ID of the library
+            document_set_id: ID of the document set to add
+
+        Raises:
+            DatasiftException: If library doesn't exist
+            DatasiftException: If storage operation fails
+        """
+        try:
+            # Check if library exists
+            if not self.exists(library_id=library_id):
+                raise DatasiftException(
+                    f"Library {library_id} not found",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+                )
+
+            # Insert into junction table
+            query = f"""
+                INSERT INTO {DatasiftConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
+                (library_id, document_set_id, added_at)
+                VALUES (?, ?, ?)
+            """
+
+            self.storage.execute_query(
+                query=query,
+                params=(library_id, document_set_id, datetime.utcnow()),
+            )
+
+            logger.info(msg=f"Added document set {document_set_id} to library {library_id}")
+
+        except DatasiftException:
+            raise
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to add document set to library: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def remove_document_set_from_library(
+        self,
+        *,
+        library_id: str,
+        document_set_id: str,
+    ) -> None:
+        """Remove a document set from a library (junction table operation).
+
+        Args:
+            library_id: ID of the library
+            document_set_id: ID of the document set to remove
+
+        Raises:
+            DatasiftException: If library doesn't exist
+            DatasiftException: If document set not in library
+            DatasiftException: If storage operation fails
+        """
+        try:
+            # Check if library exists
+            if not self.exists(library_id=library_id):
+                raise DatasiftException(
+                f"Library {library_id} not found",
+                status_code=404,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+            )
+
+            # Check if document set is in library
+            doc_sets = self.get_document_sets_for_library(library_id=library_id)
+            if document_set_id not in doc_sets:
+                raise DatasiftException(
+                f"Document set {document_set_id} not found in library {library_id}",
+                status_code=404,
+                error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
+            )
+
+            # Delete from junction table
+            query = f"""
+                DELETE FROM {DatasiftConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
+                WHERE library_id = ? AND document_set_id = ?
+            """
+
+            self.storage.execute_query(
+                query=query,
+                params=(library_id, document_set_id),
+            )
+
+            logger.info(msg=f"Removed document set {document_set_id} from library {library_id}")
+
+        except DatasiftException:
+            raise
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to remove document set from library: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def get_document_sets_for_library(
+        self,
+        *,
+        library_id: str,
+    ) -> list[str]:
+        """Get all document set IDs associated with a library.
+
+        Args:
+            library_id: ID of the library
+
+        Returns:
+            List of document set IDs
+
+        Raises:
+            DatasiftException: If library doesn't exist
+            DatasiftException: If storage operation fails
+        """
+        try:
+            # Check if library exists
+            if not self.exists(library_id=library_id):
+                raise DatasiftException(
+                f"Library {library_id} not found",
+                status_code=404,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+            )
+
+            query = f"""
+                SELECT document_set_id
+                FROM {DatasiftConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
+                WHERE library_id = ?
+                ORDER BY added_at
+            """
+
+            rows = self.storage.fetch_all(query=query, params=(library_id,))
+            return [row[0] for row in rows]
+
+        except DatasiftException:
+            raise
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to get document sets for library: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def count_all(self) -> int:
+        """Count total number of document libraries.
+
+        Returns:
+            Total count of libraries
+
+        Raises:
+            DatasiftException: If storage operation fails
+        """
+        try:
+            query = f"""
+                SELECT COUNT(*) FROM {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME}
+            """
+
+            row = self.storage.fetch_one(query=query)
+            return row[0] if row else 0
+
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to count libraries: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def _row_to_library(self, *, row: tuple, document_set_ids: list[str]) -> DocumentLibrary:
+        """Convert database row to DocumentLibrary entity.
+
+        Args:
+            row: Database row tuple
+            document_set_ids: List of associated document set IDs
+
+        Returns:
+            DocumentLibrary entity
+
+        Row format: (library_id, name, description, purpose, original_size, final_size, tags, created_by, href)
+        """
+        # Deserialize tags from JSON string if present, otherwise use empty list
+        tags_list: list[str] = json.loads(row[6]) if row[6] else []
+
+        return DocumentLibrary(
+            library_id=row[0],
+            name=row[1],
+            description=row[2],
+            purpose=row[3],
+            original_size=row[4],
+            final_size=row[5],
+            tags=tags_list,
+            created_by=row[7],
+            href=row[8],
+            document_set_ids=document_set_ids,
+        )
+
+

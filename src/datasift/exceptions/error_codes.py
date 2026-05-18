@@ -83,3 +83,10 @@ class ErrorCode(StrEnum):
     HTTP_ERROR = "http_error"
     CONNECTION_ERROR = "connection_error"
     INVALID_RESPONSE = "invalid_response"
+
+    # Document Library CRUD operations
+    DOCUMENT_LIBRARY_NOT_FOUND = "document_library_not_found"
+    DOCUMENT_LIBRARY_ALREADY_EXISTS = "document_library_already_exists"
+    DOCUMENT_LIBRARY_INVALID_DATA = "document_library_invalid_data"
+    DOCUMENT_LIBRARY_STORAGE_ERROR = "document_library_storage_error"
+    DOCUMENT_LIBRARY_DOCUMENTSET_NOT_FOUND = "document_library_documentset_not_found"

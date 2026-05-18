@@ -1,0 +1,593 @@
+# Document Libraries User Guide
+
+## Overview
+
+Document Libraries provide a way to organize and manage collections of Document Sets in datasift. A Document Library is a metadata container that groups related Document Sets together, enabling better organization, discovery, and management of your document collections.
+
+## Key Concepts
+
+### Document Library
+A Document Library is a named collection that contains references to multiple Document Sets. It stores:
+- **Metadata**: Name, description, tags, timestamps
+- **Relationships**: References to Document Set IDs (many-to-many)
+- **Aggregate Metrics**: Computed statistics from associated Document Sets
+
+**Important**: Document Libraries store only metadata and references, not the actual document content or data.
+
+### Relationship with Document Sets
+- **One-to-Many**: A Document Library can contain multiple Document Sets
+- **Many-to-Many**: A Document Set can belong to multiple Document Libraries
+- **Reference-Based**: Libraries store Document Set IDs, not copies of data
+
+### Storage Architecture
+Document Libraries use DuckDB for metadata storage with two tables:
+1. **document_libraries**: Stores library metadata
+2. **library_documentset_junction**: Manages many-to-many relationships
+
+## Prerequisites
+
+### Environment Setup
+```bash
+# 1. Navigate to backend directory
+cd src/datasift_opensource/backend
+
+# 2. Activate virtual environment
+source .venv/bin/activate
+
+# 3. Ensure dependencies are installed
+uv sync
+```
+
+### API Server
+Document Libraries are accessed via REST API endpoints. Start the API server:
+
+```bash
+# From backend directory
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+The API will be available at `http://localhost:8000` with interactive documentation at `http://localhost:8000/docs`.
+
+## API Endpoints
+
+### Base URL
+All Document Library endpoints are under: `/api/v1/document-libraries`
+
+### Available Operations
+
+#### 1. Create a Document Library
+**Endpoint**: `POST /api/v1/document-libraries`
+
+**Request Body**:
+```json
+{
+  "name": "Financial Documents Q1 2024",
+  "description": "Collection of financial documents for Q1 2024 analysis",
+  "tags": ["finance", "q1-2024", "reports"]
+}
+```
+
+**Validation Rules**:
+- `name`: Required, 3-100 characters, alphanumeric with spaces/hyphens/underscores
+- `description`: Optional, max 500 characters
+- `tags`: Optional, max 20 tags, each 1-50 characters
+
+**Response** (201 Created):
+```json
+{
+  "library_id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Financial Documents Q1 2024",
+  "description": "Collection of financial documents for Q1 2024 analysis",
+  "tags": ["finance", "q1-2024", "reports"],
+  "document_set_ids": [],
+  "aggregate_metrics": {
+    "total_document_sets": 0,
+    "total_documents": 0,
+    "total_size_bytes": 0
+  },
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z"
+}
+```
+
+**Example using curl**:
+```bash
+curl -X POST "http://localhost:8000/api/v1/document-libraries" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Financial Documents Q1 2024",
+    "description": "Collection of financial documents for Q1 2024 analysis",
+    "tags": ["finance", "q1-2024", "reports"]
+  }'
+```
+
+#### 2. Get a Document Library
+**Endpoint**: `GET /api/v1/document-libraries/{library_id}`
+
+**Response** (200 OK):
+```json
+{
+  "library_id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Financial Documents Q1 2024",
+  "description": "Collection of financial documents for Q1 2024 analysis",
+  "tags": ["finance", "q1-2024", "reports"],
+  "document_set_ids": ["abc123", "def456"],
+  "aggregate_metrics": {
+    "total_document_sets": 2,
+    "total_documents": 150,
+    "total_size_bytes": 52428800
+  },
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T11:45:00Z"
+}
+```
+
+**Example using curl**:
+```bash
+curl -X GET "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000"
+```
+
+#### 3. Update a Document Library
+**Endpoint**: `PUT /api/v1/document-libraries/{library_id}`
+
+**Request Body** (all fields optional):
+```json
+{
+  "name": "Financial Documents Q1 2024 - Updated",
+  "description": "Updated collection description",
+  "tags": ["finance", "q1-2024", "reports", "audited"]
+}
+```
+
+**Response** (200 OK): Returns updated library object
+
+**Example using curl**:
+```bash
+curl -X PUT "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Financial Documents Q1 2024 - Updated",
+    "tags": ["finance", "q1-2024", "reports", "audited"]
+  }'
+```
+
+#### 4. Delete a Document Library
+**Endpoint**: `DELETE /api/v1/document-libraries/{library_id}`
+
+**Response** (204 No Content)
+
+**Note**: Deleting a library does not delete the associated Document Sets, only the library metadata and relationships.
+
+**Example using curl**:
+```bash
+curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000"
+```
+
+#### 5. Add Document Set to Library
+**Endpoint**: `POST /api/v1/document-libraries/{library_id}/document-sets/{document_set_id}`
+
+**Response** (200 OK): Returns updated library object with new document set
+
+**Example using curl**:
+```bash
+curl -X POST "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets/abc123"
+```
+
+#### 6. Remove Document Set from Library
+**Endpoint**: `DELETE /api/v1/document-libraries/{library_id}/document-sets/{document_set_id}`
+
+**Response** (200 OK): Returns updated library object without the document set
+
+**Example using curl**:
+```bash
+curl -X DELETE "http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets/abc123"
+```
+
+#### 7. List All Document Libraries
+**Endpoint**: `GET /api/v1/document-libraries`
+
+**Query Parameters**:
+- `skip`: Number of records to skip (default: 0)
+- `limit`: Maximum number of records to return (default: 100)
+
+**Response** (200 OK):
+```json
+{
+  "libraries": [
+    {
+      "library_id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Financial Documents Q1 2024",
+      "description": "Collection of financial documents",
+      "tags": ["finance", "q1-2024"],
+      "document_set_ids": ["abc123", "def456"],
+      "aggregate_metrics": {...},
+      "created_at": "2024-01-15T10:30:00Z",
+      "updated_at": "2024-01-15T11:45:00Z"
+    }
+  ],
+  "total": 1,
+  "skip": 0,
+  "limit": 100
+}
+```
+
+**Example using curl**:
+```bash
+curl -X GET "http://localhost:8000/api/v1/document-libraries?skip=0&limit=10"
+```
+
+#### 8. Search Document Libraries
+**Endpoint**: `GET /api/v1/document-libraries/search`
+
+**Query Parameters**:
+- `name`: Search by name (partial match, case-insensitive)
+- `tags`: Filter by tags (comma-separated)
+- `skip`: Number of records to skip (default: 0)
+- `limit`: Maximum number of records to return (default: 100)
+
+**Response** (200 OK): Same format as list endpoint
+
+**Example using curl**:
+```bash
+# Search by name
+curl -X GET "http://localhost:8000/api/v1/document-libraries/search?name=financial"
+
+# Filter by tags
+curl -X GET "http://localhost:8000/api/v1/document-libraries/search?tags=finance,q1-2024"
+
+# Combined search
+curl -X GET "http://localhost:8000/api/v1/document-libraries/search?name=financial&tags=q1-2024&limit=20"
+```
+
+## Common Workflows
+
+### Workflow 1: Create and Populate a Library
+
+```bash
+# Step 1: Create a library
+LIBRARY_ID=$(curl -s -X POST "http://localhost:8000/api/v1/document-libraries" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Invoice Processing Library",
+    "description": "Collection of invoice document sets",
+    "tags": ["invoices", "accounting"]
+  }' | jq -r '.library_id')
+
+echo "Created library: $LIBRARY_ID"
+
+# Step 2: Add document sets (assuming you have document set IDs)
+curl -X POST "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/document-sets/docset-001"
+curl -X POST "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/document-sets/docset-002"
+curl -X POST "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID/document-sets/docset-003"
+
+# Step 3: Verify the library
+curl -X GET "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" | jq
+```
+
+### Workflow 2: Organize Documents by Tags
+
+```bash
+# Create libraries for different categories
+curl -X POST "http://localhost:8000/api/v1/document-libraries" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Legal Documents", "tags": ["legal", "contracts"]}'
+
+curl -X POST "http://localhost:8000/api/v1/document-libraries" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "HR Documents", "tags": ["hr", "personnel"]}'
+
+curl -X POST "http://localhost:8000/api/v1/document-libraries" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Financial Reports", "tags": ["finance", "reports"]}'
+
+# Search by tag
+curl -X GET "http://localhost:8000/api/v1/document-libraries/search?tags=finance" | jq
+```
+
+### Workflow 3: Update Library Metadata
+
+```bash
+# Get current library state
+LIBRARY_ID="550e8400-e29b-41d4-a716-446655440000"
+curl -X GET "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" | jq
+
+# Update description and add tags
+curl -X PUT "http://localhost:8000/api/v1/document-libraries/$LIBRARY_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Updated description with more details",
+    "tags": ["finance", "q1-2024", "reports", "audited", "approved"]
+  }' | jq
+```
+
+## Python Client Example
+
+```python
+import requests
+import json
+
+class DocumentLibraryClient:
+    def __init__(self, base_url: str = "http://localhost:8000"):
+        self.base_url = base_url
+        self.api_path = "/api/v1/document-libraries"
+    
+    def create_library(self, name: str, description: str = None, tags: list = None):
+        """Create a new document library"""
+        url = f"{self.base_url}{self.api_path}"
+        payload = {"name": name}
+        if description:
+            payload["description"] = description
+        if tags:
+            payload["tags"] = tags
+        
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()
+    
+    def get_library(self, library_id: str):
+        """Get a document library by ID"""
+        url = f"{self.base_url}{self.api_path}/{library_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+    
+    def update_library(self, library_id: str, name: str = None, 
+                      description: str = None, tags: list = None):
+        """Update a document library"""
+        url = f"{self.base_url}{self.api_path}/{library_id}"
+        payload = {}
+        if name:
+            payload["name"] = name
+        if description:
+            payload["description"] = description
+        if tags:
+            payload["tags"] = tags
+        
+        response = requests.put(url, json=payload)
+        response.raise_for_status()
+        return response.json()
+    
+    def delete_library(self, library_id: str):
+        """Delete a document library"""
+        url = f"{self.base_url}{self.api_path}/{library_id}"
+        response = requests.delete(url)
+        response.raise_for_status()
+    
+    def add_document_set(self, library_id: str, document_set_id: str):
+        """Add a document set to a library"""
+        url = f"{self.base_url}{self.api_path}/{library_id}/document-sets/{document_set_id}"
+        response = requests.post(url)
+        response.raise_for_status()
+        return response.json()
+    
+    def remove_document_set(self, library_id: str, document_set_id: str):
+        """Remove a document set from a library"""
+        url = f"{self.base_url}{self.api_path}/{library_id}/document-sets/{document_set_id}"
+        response = requests.delete(url)
+        response.raise_for_status()
+        return response.json()
+    
+    def list_libraries(self, skip: int = 0, limit: int = 100):
+        """List all document libraries"""
+        url = f"{self.base_url}{self.api_path}"
+        params = {"skip": skip, "limit": limit}
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    
+    def search_libraries(self, name: str = None, tags: list = None, 
+                        skip: int = 0, limit: int = 100):
+        """Search document libraries"""
+        url = f"{self.base_url}{self.api_path}/search"
+        params = {"skip": skip, "limit": limit}
+        if name:
+            params["name"] = name
+        if tags:
+            params["tags"] = ",".join(tags)
+        
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+
+# Usage example
+if __name__ == "__main__":
+    client = DocumentLibraryClient()
+    
+    # Create a library
+    library = client.create_library(
+        name="Invoice Processing Library",
+        description="Collection of invoice document sets",
+        tags=["invoices", "accounting", "q1-2024"]
+    )
+    print(f"Created library: {library['library_id']}")
+    
+    # Add document sets
+    client.add_document_set(library['library_id'], "docset-001")
+    client.add_document_set(library['library_id'], "docset-002")
+    
+    # Get updated library
+    updated_library = client.get_library(library['library_id'])
+    print(f"Library now has {len(updated_library['document_set_ids'])} document sets")
+    
+    # Search libraries
+    results = client.search_libraries(tags=["invoices"])
+    print(f"Found {results['total']} libraries with 'invoices' tag")
+```
+
+## Error Handling
+
+### Common Error Responses
+
+#### 404 Not Found
+```json
+{
+  "detail": "Document library not found: 550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### 409 Conflict
+```json
+{
+  "detail": "Document library with name 'Financial Documents Q1 2024' already exists"
+}
+```
+
+#### 422 Validation Error
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "name"],
+      "msg": "ensure this value has at least 3 characters",
+      "type": "value_error.any_str.min_length"
+    }
+  ]
+}
+```
+
+### Error Handling in Python
+
+```python
+import requests
+
+try:
+    response = requests.post(
+        "http://localhost:8000/api/v1/document-libraries",
+        json={"name": "My Library"}
+    )
+    response.raise_for_status()
+    library = response.json()
+except requests.exceptions.HTTPError as e:
+    if e.response.status_code == 404:
+        print("Library not found")
+    elif e.response.status_code == 409:
+        print("Library already exists")
+    elif e.response.status_code == 422:
+        print(f"Validation error: {e.response.json()}")
+    else:
+        print(f"HTTP error: {e}")
+except requests.exceptions.RequestException as e:
+    print(f"Request failed: {e}")
+```
+
+## Best Practices
+
+### 1. Naming Conventions
+- Use descriptive, meaningful names
+- Include time periods or versions when relevant
+- Example: "Financial Reports Q1 2024", "Legal Contracts 2024-v2"
+
+### 2. Tagging Strategy
+- Use consistent tag naming (lowercase, hyphenated)
+- Create a tag taxonomy for your organization
+- Examples: "finance", "q1-2024", "high-priority", "audited"
+
+### 3. Organization Patterns
+- **By Time Period**: "Q1 2024 Documents", "2024 Annual Reports"
+- **By Department**: "HR Documents", "Legal Contracts", "Finance Reports"
+- **By Project**: "Project Alpha Documents", "Customer Onboarding"
+- **By Status**: "Draft Documents", "Approved Documents", "Archived"
+
+### 4. Aggregate Metrics
+- Metrics are automatically computed when document sets are added/removed
+- Use metrics for monitoring and reporting
+- Metrics include: total_document_sets, total_documents, total_size_bytes
+
+### 5. Performance Considerations
+- Use pagination (skip/limit) for large result sets
+- Use search/filter endpoints instead of fetching all libraries
+- Cache frequently accessed library metadata
+
+## Troubleshooting
+
+### Issue: Library Not Found
+**Symptom**: 404 error when accessing a library
+
+**Solutions**:
+1. Verify the library_id is correct
+2. Check if the library was deleted
+3. Use the list endpoint to see all available libraries
+
+### Issue: Duplicate Library Name
+**Symptom**: 409 conflict error when creating a library
+
+**Solutions**:
+1. Choose a different name
+2. Update the existing library instead
+3. Delete the old library if no longer needed
+
+### Issue: Validation Errors
+**Symptom**: 422 validation error
+
+**Solutions**:
+1. Check name length (3-100 characters)
+2. Verify description length (max 500 characters)
+3. Ensure tags are valid (max 20 tags, each 1-50 characters)
+4. Use only alphanumeric characters, spaces, hyphens, and underscores in names
+
+### Issue: API Server Not Running
+**Symptom**: Connection refused errors
+
+**Solutions**:
+1. Start the API server: `uvicorn app.main:app --reload`
+2. Verify the server is running on the correct port (default: 8000)
+3. Check firewall settings
+
+## Advanced Topics
+
+### Database Schema
+
+The Document Library feature uses two DuckDB tables:
+
+**document_libraries table**:
+```sql
+CREATE TABLE document_libraries (
+    library_id VARCHAR PRIMARY KEY,
+    name VARCHAR NOT NULL UNIQUE,
+    description VARCHAR,
+    tags JSON,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    aggregate_metrics JSON
+);
+```
+
+**library_documentset_junction table**:
+```sql
+CREATE TABLE library_documentset_junction (
+    library_id VARCHAR NOT NULL,
+    document_set_id VARCHAR NOT NULL,
+    added_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (library_id, document_set_id),
+    FOREIGN KEY (library_id) REFERENCES document_libraries(library_id)
+);
+```
+
+### Hexagonal Architecture
+
+The Document Library implementation follows hexagonal architecture (ports & adapters):
+
+- **Domain Layer**: Pure Python business logic (DocumentLibrary model)
+- **Ports**: Repository interface (DocumentLibraryRepositoryPort)
+- **Adapters**: DuckDB implementation (DuckDBDocumentLibraryRepository)
+- **Application Layer**: Service orchestration (DocumentLibraryService)
+- **API Layer**: FastAPI routes and DTOs
+
+This architecture allows for:
+- Easy testing with mocked repositories
+- Swapping storage backends (e.g., PostgreSQL, MongoDB)
+- Clear separation of concerns
+
+## Related Documentation
+
+- [ARCHITECTURE.md](../ARCHITECTURE.md) - System architecture overview
+- [OPERATOR_REFERENCE.md](../OPERATOR_REFERENCE.md) - Operator documentation
+- [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md) - Pipeline setup guide
+
+## Support
+
+For issues or questions:
+1. Check the troubleshooting section above
+2. Review the API documentation at `http://localhost:8000/docs`
+3. Consult the ARCHITECTURE.md for technical details
+4. Open an issue on the project repository
