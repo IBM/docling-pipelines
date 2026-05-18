@@ -7,7 +7,7 @@ from pathlib import Path
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
-DEFAULT_DATA_ROOT_FOLDER = "./data"
+DEFAULT_DATA_ROOT_FOLDER = os.getenv("DATASIFT_DATA_PATH", "./data")
 
 
 def get_data_path(*, sub_dir: str = "") -> str:

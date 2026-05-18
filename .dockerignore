@@ -1,7 +1,14 @@
+# Git
+.git/
+.gitignore
+
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
+*.pyd
 *.so
 .Python
 
@@ -10,6 +17,8 @@ venv/
 .venv/
 env/
 ENV/
+env.bak/
+venv.bak/
 
 # uv
 .uv/
@@ -26,17 +35,35 @@ ENV/
 .coverage
 htmlcov/
 *.cover
-
-# Git
-.git/
-.gitignore
+.mypy_cache
+.ruff_cache
+pytest.ini
 
 # Documentation
 *.md
 docs/
 
+# Examples and scripts
+examples/
+scripts/
+scratch/
+
+# Data and artifacts
+data/
+artifacts/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
 # CI/CD
 .github/
+Jenkinsfile
+sonar/
+
+# Deployment examples
+k8s-deployment-examples/
 
 # Environment
 .env
@@ -46,7 +73,5 @@ docs/
 .DS_Store
 Thumbs.db
 
-# Build artifacts
-dist/
-build/
-*.egg-info/
+# Test directory
+tests/

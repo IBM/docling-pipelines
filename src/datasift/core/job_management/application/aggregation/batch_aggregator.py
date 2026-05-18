@@ -32,6 +32,29 @@ class BatchProgress:
     status_counts: dict[str, int]
 
 
+@dataclass
+class ExtractionInfo:
+    """Extraction operator information."""
+
+    total: int
+    completed: int
+    is_extraction_operator: bool
+
+
+@dataclass
+class ClassificationInfo:
+    """Classification operator information."""
+
+    total: int
+    completed: int
+    is_classification_operator: bool
+
+
+# Display field name constants
+FIELD_FILES_EXTRACTED = "Files Extracted"
+FIELD_DOCS_CLASSIFIED = "Documents Classified"
+
+
 def _get_empty_node_stats(*, node_id: str) -> NodeStats:
     """Returns empty aggregated stats for a node with no batches."""
     return NodeStats(
@@ -179,6 +202,138 @@ def _get_nested_metadata(*, record: NodeStats) -> dict[str, Any] | None:
     return metadata
 
 
+def _is_extraction_operator(*, batch_records: list[NodeStats]) -> bool:
+    """Checks if this is an extraction operator by looking for extraction-specific fields."""
+    for record in batch_records:
+        metadata = _get_nested_metadata(record=record)
+        if metadata and ("extraction_running" in metadata or "extraction_completed" in metadata):
+            return True
+    return False
+
+
+def _is_classification_operator(*, batch_records: list[NodeStats]) -> bool:
+    """Checks if this is a classification operator by looking for classification-specific fields."""
+    for record in batch_records:
+        metadata = _get_nested_metadata(record=record)
+        if metadata and ("classification_running" in metadata or "classification_completed" in metadata):
+            return True
+    return False
+
+
+def _extract_from_single_record(*, metadata: dict[str, Any]) -> tuple:
+    """Extracts extraction progress from a single record's metadata and removes transient fields."""
+    total_running = 0
+    total_completed = 0
+    has_transient = False
+
+    # Priority 1: Transient extraction fields (present during RUNNING state)
+    if "extraction_running" in metadata:
+        total_running = int(metadata.get("extraction_running", 0))
+        has_transient = True
+
+    if "extraction_completed" in metadata:
+        total_completed = int(metadata.get("extraction_completed", 0))
+        has_transient = True
+
+    # Remove transient fields after reading them
+    # These fields should not appear in the final aggregated metadata
+    if has_transient:
+        metadata.pop("extraction_running", None)
+        metadata.pop("extraction_completed", None)
+        metadata.pop("progress_percentage", None)
+
+    # Priority 2: Persistent metadata as fallback (for COMPLETED batches)
+    if not has_transient:
+        if Metrics.External.TOTAL_DOCS in metadata:
+            total_running = int(metadata.get(Metrics.External.TOTAL_DOCS, 0))
+        if Metrics.External.PROCESSED_DOCS in metadata:
+            total_completed = int(metadata.get(Metrics.External.PROCESSED_DOCS, 0))
+
+    return total_running, total_completed
+
+
+def _extract_classification_from_single_record(*, metadata: dict[str, Any]) -> tuple:
+    """Extracts classification progress from a single record's metadata and removes transient fields."""
+    total_running = 0
+    total_completed = 0
+    has_transient = False
+
+    # Priority 1: Transient classification fields (present during RUNNING state)
+    if "classification_running" in metadata:
+        total_running = int(metadata.get("classification_running", 0))
+        has_transient = True
+
+    if "classification_completed" in metadata:
+        total_completed = int(metadata.get("classification_completed", 0))
+        has_transient = True
+
+    # Remove transient fields after reading them
+    # These fields should not appear in the final aggregated metadata
+    if has_transient:
+        metadata.pop("classification_running", None)
+        metadata.pop("classification_completed", None)
+        metadata.pop("progress_percentage", None)
+
+    # Priority 2: Persistent metadata as fallback (for COMPLETED batches)
+    if not has_transient:
+        if Metrics.External.TOTAL_DOCS in metadata:
+            total_running = int(metadata.get(Metrics.External.TOTAL_DOCS, 0))
+        if Metrics.External.PROCESSED_DOCS in metadata:
+            total_completed = int(metadata.get(Metrics.External.PROCESSED_DOCS, 0))
+
+    return total_running, total_completed
+
+
+def _get_extraction_progress(*, batch_records: list[NodeStats]) -> ExtractionInfo:
+    """
+    Extracts extraction progress from batch records if this is an extraction operator.
+
+    ONLY extracts if extraction-specific fields are present (i.e., this is an extraction operator).
+    Returns ExtractionInfo with zeros for non-extraction operators.
+    """
+    # Check if this is an extraction operator FIRST
+    if not _is_extraction_operator(batch_records=batch_records):
+        return ExtractionInfo(total=0, completed=0, is_extraction_operator=False)
+
+    # Extract and sum values from all records
+    extraction_total = 0
+    extraction_completed = 0
+
+    for record in batch_records:
+        metadata = _get_nested_metadata(record=record)
+        if metadata:
+            running, completed = _extract_from_single_record(metadata=metadata)
+            extraction_total += running
+            extraction_completed += completed
+
+    return ExtractionInfo(total=extraction_total, completed=extraction_completed, is_extraction_operator=True)
+
+
+def _get_classification_progress(*, batch_records: list[NodeStats]) -> ClassificationInfo:
+    """
+    Extracts classification progress from batch records if this is a classification operator.
+
+    ONLY extracts if classification-specific fields are present (i.e., this is a classification operator).
+    Returns ClassificationInfo with zeros for non-classification operators.
+    """
+    # Check if this is a classification operator FIRST
+    if not _is_classification_operator(batch_records=batch_records):
+        return ClassificationInfo(total=0, completed=0, is_classification_operator=False)
+
+    # Extract and sum values from all records
+    classification_total = 0
+    classification_completed = 0
+
+    for record in batch_records:
+        metadata = _get_nested_metadata(record=record)
+        if metadata:
+            running, completed = _extract_classification_from_single_record(metadata=metadata)
+            classification_total += running
+            classification_completed += completed
+
+    return ClassificationInfo(total=classification_total, completed=classification_completed, is_classification_operator=True)
+
+
 def _calculate_finished_batches(*, status_counts: dict[str, int]) -> int:
     """
     Calculates the number of finished batches.
@@ -243,12 +398,46 @@ def _add_progress_field(
             metadata["Progress"] = base_progress
 
 
+def _add_extraction_field(*, metadata: dict[str, Any], extraction_info: ExtractionInfo, has_pending_batches: bool) -> None:
+    """Adds Files Extracted field for extraction operators."""
+    if extraction_info.total > 0:
+        if has_pending_batches:
+            # Batches still pending - show "(more in queue)" message
+            metadata[FIELD_FILES_EXTRACTED] = f"{extraction_info.completed} of {extraction_info.total} (more in queue)"
+        else:
+            # All batches started - show percentage
+            extraction_pct = round((extraction_info.completed / extraction_info.total * 100), 2)
+            metadata[FIELD_FILES_EXTRACTED] = (
+                f"{extraction_info.completed} of {extraction_info.total} ({extraction_pct}%)"
+            )
+
+
+def _add_classification_field(
+    *, metadata: dict[str, Any], classification_info: ClassificationInfo, has_pending_batches: bool
+) -> None:
+    """Adds Documents Classified field for classification operators."""
+    if classification_info.total > 0:
+        if has_pending_batches:
+            # Batches still pending - show "(more in queue)" message
+            metadata[FIELD_DOCS_CLASSIFIED] = (
+                f"{classification_info.completed} of {classification_info.total} (more in queue)"
+            )
+        else:
+            # All batches started - show percentage
+            classification_pct = round((classification_info.completed / classification_info.total * 100), 2)
+            metadata[FIELD_DOCS_CLASSIFIED] = (
+                f"{classification_info.completed} of {classification_info.total} ({classification_pct}%)"
+            )
+
+
 def _inject_metadata_fields(
     *,
     aggregated_metadata: dict[str, Any],
     aggregated_status: str,
     doc_stats: DocumentStats,
     batch_progress: BatchProgress,
+    extraction_info: ExtractionInfo,
+    classification_info: ClassificationInfo,
 ) -> None:
     """
     Injects progress and metadata fields into aggregated metadata.
@@ -274,6 +463,20 @@ def _inject_metadata_fields(
             total_batches=batch_progress.total,
             status_counts=batch_progress.status_counts,
         )
+
+        # Add Files Extracted field for extraction operators
+        if extraction_info.is_extraction_operator:
+            _add_extraction_field(
+                metadata=metadata, extraction_info=extraction_info, has_pending_batches=batch_progress.has_pending
+            )
+
+        # Add Documents Classified field for classification operators
+        if classification_info.is_classification_operator:
+            _add_classification_field(
+                metadata=metadata,
+                classification_info=classification_info,
+                has_pending_batches=batch_progress.has_pending,
+            )
 
 
 def aggregate_batch_node_stats(
@@ -301,6 +504,11 @@ def aggregate_batch_node_stats(
 
     if total_batches == 0:
         return _get_empty_node_stats(node_id=node_id)
+
+    # Extract extraction and classification progress FIRST (for extraction/classification operators)
+    # This must be done BEFORE metadata aggregation to remove transient fields
+    extraction_info = _get_extraction_progress(batch_records=batch_records)
+    classification_info = _get_classification_progress(batch_records=batch_records)
 
     # Aggregate status
     status_counts = _count_batches_by_status(batch_records=batch_records)
@@ -353,6 +561,8 @@ def aggregate_batch_node_stats(
         aggregated_status=aggregated_status,
         doc_stats=doc_stats,
         batch_progress=batch_progress,
+        extraction_info=extraction_info,
+        classification_info=classification_info,
     )
 
     node_name = batch_records[0].name if batch_records else "Unknown"

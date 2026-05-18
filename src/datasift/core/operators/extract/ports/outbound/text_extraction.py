@@ -7,14 +7,16 @@ orchestration logic, while adapters implement the specific extraction mechanics.
 
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from typing import Any
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import ExecutionStatus, Metrics
+from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.job_management.domain.models.node_stats import NodeMetadataItem
 from datasift.core.operators.abstract_operator import AbstractOperator
 from datasift.core.operators.functional.doc_id_hash import DocIdHashOperator
 from datasift.core.operators.operator_utils import OperatorUtils
@@ -69,6 +71,10 @@ class TextExtractionPort(ABC):
                 - doc_column: Column name for extracted content (default: "doc_content")
                 - extract_tables: Extract tables flag (default: True)
                 - extract_images: Extract images flag (default: True)
+                - job_run_id: Job run identifier for progress tracking (optional)
+                - node_id: Node identifier for progress tracking (optional)
+                - node_name: Node name for progress tracking (optional)
+                - batch_id: Batch identifier for progress tracking (optional)
                 - Additional adapter-specific configuration
         """
         self.max_workers = config.get("max_workers", 4)
@@ -77,6 +83,21 @@ class TextExtractionPort(ABC):
         self.extract_tables = config.get("extract_tables", False)
         self.extract_images = config.get("extract_images", False)
         self.common_log_arguments = config.get("common_log_arguments", {})
+
+        # Job tracking context for progress updates
+        self.job_run_id = config.get(DatasiftConstants.JOB_RUN_ID)
+        self.node_id = config.get(DatasiftConstants.NODE_ID)
+        self.node_name = config.get(DatasiftConstants.NODE_NAME)
+        self.batch_id = config.get(DatasiftConstants.BATCH_ID)
+
+        logger.info(
+            "Initialized %s with job_run_id=%s, node_id=%s, batch_id=%s",
+            self.__class__.__name__,
+            self.job_run_id,
+            self.node_id,
+            self.batch_id,
+            extra=self.common_log_arguments,
+        )
 
         # Subclasses should initialize their adapter-specific configuration
         self._init_adapter_config(config=config)
@@ -91,6 +112,67 @@ class TextExtractionPort(ABC):
             config: Full configuration dictionary
         """
         # Default implementation does nothing - subclasses override as needed
+
+    def _update_extraction_progress(
+        self, *, completed: int, total: int, progress_percentage: float, failed_count: int
+    ) -> None:
+        """Update node stats with extraction progress.
+
+        This method updates the node metadata with transient extraction progress fields
+        that are used by the batch aggregator to calculate and display extraction progress.
+
+        The transient fields (extraction_running, extraction_completed, progress_percentage)
+        are removed by the batch aggregator after reading them, ensuring they don't
+        persist in the final aggregated metadata.
+
+        Args:
+            completed: Number of documents successfully extracted
+            total: Total number of documents being extracted
+            progress_percentage: Percentage of extraction completion
+            failed_count: Number of failed extractions
+        """
+        try:
+            # Only update if we have job tracking context
+            if not self.job_run_id or not self.node_id:
+                return
+
+            from datasift.core.job_management.adapters.config.job_management_factory import get_default_factory
+
+            factory = get_default_factory()
+            job_tracker = factory.create_job_stats_service()
+
+            # Build transient progress metadata (only extraction fields)
+            progress_metadata: dict[str, Any] = {
+                "extraction_running": total,
+                "extraction_completed": completed,
+                "progress_percentage": f"{progress_percentage:.2f}%",
+            }
+
+            # Wrap in proper NodeMetadataItem structure
+            metadata_item: NodeMetadataItem = NodeMetadataItem(
+                id=self.node_id,
+                operator=self.node_name or "ExtractOperator",
+                node_metadata=progress_metadata,
+            )
+
+            # Create node_stats dict with proper structure
+            node_stats = {OperatorConstants.Metadata.NODE_METADATA: metadata_item.model_dump()}
+
+            # Update node stats through job tracker
+            job_tracker.update_node_stats(
+                job_run_id=self.job_run_id, node_id=self.node_id, node_stats=node_stats, batch_id=self.batch_id
+            )
+
+            logger.info(
+                "Updated extraction progress: %s/%s files (%.1f%%)",
+                completed,
+                total,
+                progress_percentage,
+                extra=self.common_log_arguments,
+            )
+        except Exception as e:
+            # Don't fail extraction if progress update fails
+            logger.warning("Failed to update extraction progress: %s", e, extra=self.common_log_arguments)
 
     def transform(self, *, table: pa.Table, metadata: dict[str, Any]) -> tuple[list[pa.Table], dict[str, Any]]:
         """Orchestrate parallel extraction across documents.
@@ -131,6 +213,14 @@ class TextExtractionPort(ABC):
         doc_tables_list: list[list[dict[str, Any]]] = [[]] * table.num_rows
         doc_images_list: list[list[dict[str, Any]]] = [[]] * table.num_rows
         remove_row_idx: list[int] = []
+
+        # Progress tracking variables
+        completed_count = 0
+        failed_count = 0
+        total_files = len(doc_tasks)
+        last_update_time = 0.0
+        update_interval = 5  # Update progress every 5 seconds
+
         # Select executor type
         executor_class = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
 
@@ -151,6 +241,7 @@ class TextExtractionPort(ABC):
                     AbstractOperator.record_failed_document(
                         metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=task["error"]
                     )
+                    failed_count += 1
                     continue
 
                 future = self._submit_extraction_task(executor=executor, task=task)
@@ -174,11 +265,55 @@ class TextExtractionPort(ABC):
                         remove_row_idx=remove_row_idx,
                         metadata=metadata,
                     )
+
+                    # Track successful completion
+                    if result.get(OperatorConstants.Extraction.SUCCESS):
+                        completed_count += 1
+                    else:
+                        failed_count += 1
+
                 except Exception as e:
                     logger.error("Error processing document at index %s: %s", idx, e)
                     AbstractOperator.record_failed_document(
                         metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
                     )
+                    failed_count += 1
+
+                # Update progress periodically (every update_interval seconds)
+                current_time = time.time()
+                if (current_time - last_update_time) >= update_interval and (completed_count + failed_count) < total_files:
+                    progress_percentage = ((completed_count + failed_count) / total_files) * 100
+                    self._update_extraction_progress(
+                        completed=completed_count,
+                        total=total_files,
+                        progress_percentage=progress_percentage,
+                        failed_count=failed_count,
+                    )
+                    last_update_time = current_time
+                    logger.info(
+                        "Extraction progress: %s/%s files (%.1f%%)",
+                        completed_count + failed_count,
+                        total_files,
+                        progress_percentage,
+                        extra=self.common_log_arguments,
+                    )
+
+            # Final progress update to reach terminal state
+            if total_files > 0:
+                progress_percentage = ((completed_count + failed_count) / total_files) * 100
+                self._update_extraction_progress(
+                    completed=completed_count,
+                    total=total_files,
+                    progress_percentage=progress_percentage,
+                    failed_count=failed_count,
+                )
+                logger.info(
+                    "Final extraction progress: %s/%s files (%.1f%%)",
+                    completed_count + failed_count,
+                    total_files,
+                    progress_percentage,
+                    extra=self.common_log_arguments,
+                )
         if remove_row_idx:
             table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
             doc_contents = [content for idx, content in enumerate(doc_contents) if idx not in remove_row_idx]

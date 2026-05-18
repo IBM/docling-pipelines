@@ -9,6 +9,7 @@ extraction mode and configuration. It supports multiple extraction strategies:
 import logging
 from typing import Any
 
+from datasift.core.constants.constants import DatasiftConstants
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter import DoclingAdapter
 from datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter import DoclingServeAdapter
@@ -99,6 +100,11 @@ class TextExtractionAdapterFactory:
                 OperatorConstants.Config.EXTRACT_IMAGES, False
             ),
             "common_log_arguments": operator_config.get("common_log_arguments", {}),
+            # Job tracking context for progress updates
+            DatasiftConstants.JOB_RUN_ID: operator_config.get(DatasiftConstants.JOB_RUN_ID),
+            DatasiftConstants.NODE_ID: operator_config.get(DatasiftConstants.NODE_ID),
+            DatasiftConstants.NODE_NAME: operator_config.get(DatasiftConstants.NODE_NAME),
+            DatasiftConstants.BATCH_ID: operator_config.get(DatasiftConstants.BATCH_ID),
         }
 
         # Add mode-specific configuration

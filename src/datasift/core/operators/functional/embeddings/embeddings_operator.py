@@ -647,7 +647,7 @@ class EmbeddingsOperator(AbstractOperator):
 
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
-        Transform the input table by adding embeddings.
+        Transform the input table by adding embeddings using memory-efficient internal slicing.
 
         Args:
             table: Input PyArrow table with document content
@@ -679,71 +679,102 @@ class EmbeddingsOperator(AbstractOperator):
             except Exception as e:
                 return self._handle_doc_hash_generation_failure(table, e, metadata)
 
-        # Initialize result containers
-        embeddings_list: list[list[float] | list[list[float]]] = []
-        doc_id_hashes: list[str] = []
-        remove_row_idx: list[int] = []
-
         # Check if we have chunked content
         has_chunked_content: bool = OperatorConstants.Columns.CHUNKED_CONTENT in table.column_names
 
-        # Cache column values before loop for performance (reduces PyArrow overhead)
-        doc_hash_values: list[str] = table[self.doc_id_hash_column].to_pylist()
+        # Internal slicing to prevent Python memory spikes for large tables
+        # We process in slices of 2,000 rows to keep object overhead low
+        internal_slice_size = 2000
+        processed_tables: list[pa.Table] = []
 
-        # Process each document
-        for idx in range(table.num_rows):
-            doc_id, doc_name = self._get_doc_identifiers(table, idx)
+        num_rows = table.num_rows
+        total_slices = (num_rows + internal_slice_size - 1) // internal_slice_size
 
-            try:
-                # Process document and generate embeddings
-                embeddings_result, doc_hash = self._process_single_document(
-                    table=table,
-                    idx=idx,
-                    has_chunked_content=has_chunked_content,
-                    doc_hash_values=doc_hash_values,
-                )
+        for start_idx in range(0, num_rows, internal_slice_size):
+            end_idx = min(start_idx + internal_slice_size, num_rows)
+            slice_num = (start_idx // internal_slice_size) + 1
+            slice_table = table.slice(start_idx, end_idx - start_idx)
 
-                # Store results
-                embeddings_list.append(embeddings_result)
-                doc_id_hashes.append(doc_hash)
-                metadata[Metrics.External.PROCESSED_DOCS] += 1
-
-            except Exception as exc:
-                logger.error(
-                    f"Failed to generate embeddings for document {doc_name}: {exc!s}",
-                    exc_info=True,
-                    stack_info=True,
-                    extra=self.common_log_arguments,
-                )
-
-                self.record_failed_document(
-                    metadata=metadata,
-                    doc_id=doc_id,
-                    doc_name=doc_name,
-                    reason=f"Failed to generate embeddings: {exc!s}",
-                )
-
-                current_status = metadata[Metrics.External.NODE_STATUS]
-                metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                    current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
-                    ExecutionStatus.COMPLETED_WITH_ERRORS,
-                ).value
-
-                remove_row_idx.append(idx)
-
-        # Remove failed documents
-        table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
-
-        # Add embeddings column
-        if embeddings_list:
-            table = TransformUtils.add_column(table=table, name=self.embeddings_column, content=embeddings_list)
             logger.info(
-                f"Added embeddings column '{self.embeddings_column}' to table",
+                f"Processing slice {slice_num}/{total_slices} (rows {start_idx}-{end_idx - 1})",
                 extra=self.common_log_arguments,
             )
 
-        # Add or update document hash column using helper method
-        table = self._update_doc_hash_column(table, doc_id_hashes)
+            # Temporary lists for this slice only
+            slice_embeddings: list[list[float] | list[list[float]]] = []
+            slice_doc_id_hashes: list[str] = []
+            slice_remove_idx: list[int] = []
+
+            # Cache hash values for this slice
+            slice_hash_values: list[str] = slice_table[self.doc_id_hash_column].to_pylist()
+
+            for i in range(slice_table.num_rows):
+                doc_id, doc_name = self._get_doc_identifiers(slice_table, i)
+                try:
+                    embeddings_result, doc_hash = self._process_single_document(
+                        table=slice_table,
+                        idx=i,
+                        has_chunked_content=has_chunked_content,
+                        doc_hash_values=slice_hash_values,
+                    )
+                    slice_embeddings.append(embeddings_result)
+                    slice_doc_id_hashes.append(doc_hash)
+                    metadata[Metrics.External.PROCESSED_DOCS] += 1
+                except Exception as exc:
+                    logger.error(
+                        f"Failed embeddings for {doc_name}: {exc!s}",
+                        extra=self.common_log_arguments,
+                    )
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=doc_id,
+                        doc_name=doc_name,
+                        reason=f"Embedding failure: {exc!s}",
+                    )
+                    slice_remove_idx.append(i)
+
+            # Cleanup failed rows from this slice
+            if slice_remove_idx:
+                slice_table = OperatorUtils.remove_rows(table=slice_table, remove_row_idx=slice_remove_idx)
+
+            # Add results to this slice
+            if slice_embeddings:
+                # Add embeddings
+                slice_table = TransformUtils.add_column(
+                    table=slice_table, name=self.embeddings_column, content=slice_embeddings
+                )
+                # Add/Update hashes
+                if self.doc_id_hash_column in slice_table.column_names:
+                    slice_table = slice_table.drop_columns([self.doc_id_hash_column])
+                slice_table = TransformUtils.add_column(
+                    table=slice_table, name=self.doc_id_hash_column, content=slice_doc_id_hashes
+                )
+
+                processed_tables.append(slice_table)
+
+                # Log memory-efficient completion
+                logger.info(
+                    f"Slice {slice_num}/{total_slices} complete: "
+                    f"processed {len(slice_embeddings)} docs, "
+                    f"failed {len(slice_remove_idx)} docs",
+                    extra=self.common_log_arguments,
+                )
+
+            # CRITICAL: These lists are now eligible for GC before the next slice starts
+            del slice_embeddings
+            del slice_doc_id_hashes
+            del slice_remove_idx
+
+        # Final assembly
+        final_table = pa.concat_tables(processed_tables) if processed_tables else table.slice(0, 0)
+
+        # Update node status based on failures
+        if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
+            current_status = metadata[Metrics.External.NODE_STATUS]
+            metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+                current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
+                ExecutionStatus.COMPLETED_WITH_ERRORS,
+            ).value
 
         logger.info(
             f"Embeddings generation completed. Processed: {metadata[Metrics.External.PROCESSED_DOCS]}, "
@@ -751,4 +782,4 @@ class EmbeddingsOperator(AbstractOperator):
             extra=self.common_log_arguments,
         )
 
-        return [table], metadata
+        return [final_table], metadata

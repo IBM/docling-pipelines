@@ -530,9 +530,7 @@ class ChunkerOperator(AbstractOperator):
                 timeout = self.provider_config.get(OperatorConstants.Processing.TIMEOUT, 300)
                 max_retries = self.provider_config.get(OperatorConstants.Processing.MAX_RETRIES, 3)
                 verify_ssl = self.provider_config.get(OperatorConstants.Processing.VERIFY_SSL, True)
-                api_base = self.provider_config.get(
-                    OperatorConstants.Config.API_BASE, "http://localhost:5001"
-                )
+                api_base = self.provider_config.get(OperatorConstants.Config.API_BASE, "http://localhost:5001")
 
                 # Initialize RestClient with configuration
                 rest_config = RestClientConfig(
@@ -686,11 +684,13 @@ class ChunkerOperator(AbstractOperator):
             Uses self.chunk_size and self.chunk_overlap configuration parameters.
             This method is called internally by _split_text() and should not be called directly.
         """
-        from langchain_text_splitters import CharacterTextSplitter
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
 
         doc: Document = Document(page_content=content, metadata={"source": "parameter"})
-        text_splitter: CharacterTextSplitter = CharacterTextSplitter(
-            chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap, separator="."
+        text_splitter: RecursiveCharacterTextSplitter = RecursiveCharacterTextSplitter(
+            chunk_size=self.chunk_size,
+            chunk_overlap=self.chunk_overlap,
+            separators=[".", "\n\n", "\n", " ", ""],  # plural, list
         )
         return text_splitter.split_documents([doc])
 

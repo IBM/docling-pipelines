@@ -1002,6 +1002,33 @@ class OpenSearchIndexManager:
             self.client.indices.create(index=self.index_name, body=index_body)
             logger.info(f"Created index {self.index_name} with engine {self.engine} and algorithm {self.algorithm}")
         except Exception as exc:
+            # Handle race condition where another worker created the index between our check and create call
+            error_msg = str(exc).lower()
+            error_repr = repr(exc).lower()
+            status_code = getattr(exc, "status_code", 0)
+
+            # 1. Broad catch for already exists
+            # (Matches: resource_already_exists, index_already_exists, "already exists", etc.)
+            is_already_exists = (
+                ("exists" in error_msg and ("already" in error_msg or status_code in [400, 409]))
+                or ("exists" in error_repr and ("already" in error_repr or status_code in [400, 409]))
+                or "resource_already_exists_exception" in error_msg
+                or "resource_already_exists_exception" in error_repr
+            )
+
+            if is_already_exists:
+                logger.info(f"Index '{self.index_name}' was created by another worker, validating and proceeding.")
+                self.validate_existing_index()
+                return
+
+            # 2. Diagnostic logging for genuine failures
+            logger.error(
+                f"Index creation failed with raw error: msg='{error_msg}', repr='{error_repr}', status={status_code}"
+            )
+
+            from datasift.exceptions.datasift_exceptions import DatasiftException
+            from datasift.exceptions.error_codes import ErrorCode
+
             raise DatasiftException(
                 message=f"Failed to create OpenSearch index '{self.index_name}': {exc}",
                 status_code=500,

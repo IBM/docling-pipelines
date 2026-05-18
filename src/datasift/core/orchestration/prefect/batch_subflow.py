@@ -13,6 +13,8 @@ Architecture:
 - No code duplication - single execution path for both local and distributed modes
 """
 
+import base64
+
 import pyarrow as pa
 import pyarrow.parquet as pq
 from prefect import flow
@@ -85,6 +87,7 @@ def batch_subflow(
         batch_config = global_config.copy()
         batch_config[DatasiftConstants.BATCH_ID] = batch_id
         batch_config[DatasiftConstants.BATCH_NUM] = batch_num
+        batch_config[DatasiftConstants.JOB_RUN_ID] = job_run_id
 
         # Extract job_id from config
         job_id = batch_config.get(DatasiftConstants.JOB_ID)
@@ -203,7 +206,7 @@ def _deserialize_batch_data(*, batch_data: dict) -> pa.Table:
 
     Args:
         batch_data: Dictionary containing serialized batch data
-            Format: {"columns": [...], "data": [...], "schema": {...}}
+            Format: {"columns": [...], "data": [...], "schema": {...}, "binary_columns": [...]}
 
     Returns:
         PyArrow table
@@ -212,6 +215,16 @@ def _deserialize_batch_data(*, batch_data: dict) -> pa.Table:
         # Reconstruct PyArrow table from dict
         columns = batch_data["columns"]
         data = batch_data["data"]
+        binary_columns = batch_data.get("binary_columns", [])
+
+        # Decode base64-encoded binary columns back to bytes
+        if binary_columns:
+            for row in data:
+                for col_name in binary_columns:
+                    value = row.get(col_name)
+                    if value is not None and isinstance(value, str):
+                        # Decode base64 string back to bytes
+                        row[col_name] = base64.b64decode(value)
 
         # Create arrays for each column
         arrays = []

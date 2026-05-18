@@ -385,7 +385,10 @@ class AbstractOrchestrator(ABC):
         config = (
             {OperatorConstants.Columns.NAME: operator_name}
             | {OperatorConstants.Columns.ID: operator_id}
+            | {DatasiftConstants.NODE_ID: operator_id}
+            | {DatasiftConstants.NODE_NAME: operator_name}
             | global_config
+            | {"common_log_arguments": self.common_log_arguments}
             | operator_config
             | operator_config_params
         )

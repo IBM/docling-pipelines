@@ -6,10 +6,11 @@ is properly handled by all batch execution strategies.
 """
 
 import uuid
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pyarrow as pa
 import pytest
+from prefect.client.schemas.objects import FlowRun, State
 
 from datasift.core.orchestration.batch_manager import BatchInfo, BatchManager
 from datasift.core.orchestration.prefect.adapters.thread_pool_adapter import ThreadPoolAdapter
@@ -138,12 +139,28 @@ class TestBatchInfoCompatibility:
 
         # Mock the transfer and submission methods
         with patch.object(adapter, "_transfer_batch") as mock_transfer:
-            with patch.object(adapter, "_wait_for_flow_runs"):
-                with patch("datasift.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment") as mock_run:
+            with patch(
+                "datasift.core.orchestration.prefect.adapters.work_pool_adapter.run_deployment", new_callable=AsyncMock
+            ) as mock_run:
+                with patch(
+                    "datasift.core.orchestration.prefect.adapters.work_pool_adapter.wait_for_flow_run",
+                    new_callable=AsyncMock,
+                ) as mock_wait:
                     mock_transfer.return_value = {"type": "inline", "data": {}}
-                    mock_flow_run = Mock()
-                    mock_flow_run.id = "flow-run-123"
+
+                    # Create proper FlowRun instance for submission
+                    mock_flow_run = Mock(spec=FlowRun)
+                    mock_flow_run.id = uuid.uuid4()
                     mock_run.return_value = mock_flow_run
+
+                    # Create proper FlowRun instance for wait result with completed state
+                    mock_completed_state = Mock(spec=State)
+                    mock_completed_state.is_final.return_value = True
+                    mock_completed_state.name = "Completed"
+
+                    mock_completed_run = Mock(spec=FlowRun)
+                    mock_completed_run.state = mock_completed_state
+                    mock_wait.return_value = mock_completed_run
 
                     # Execute batches
                     adapter.execute_batches(

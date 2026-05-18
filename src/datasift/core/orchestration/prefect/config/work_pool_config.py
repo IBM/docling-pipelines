@@ -87,19 +87,26 @@ class KubernetesWorkPoolConfig(BaseContainerWorkPoolConfig):
         memory_request: Memory request for the job container.
         memory_limit: Memory limit for the job container.
         image_pull_secrets: List of secret names for pulling private container images.
+        volumes: Optional list of Kubernetes volumes to mount.
+        init_containers: Optional list of Kubernetes init containers to run.
+        volume_mounts: Optional list of volume mounts for the primary container.
     """
 
     image_pull_policy: str = "IfNotPresent"
     namespace: str = "datasift"
     service_account_name: str = "prefect-worker"
-    finished_job_ttl: int = 60
+    finished_job_ttl: int = 3600
     pod_watch_timeout_seconds: int = 300
     stream_output: bool = True
-    cpu_request: str = "1000m"
-    cpu_limit: str = "2000m"
-    memory_request: str = "2Gi"
-    memory_limit: str = "4Gi"
+    cpu_request: str = "500m"    # LOW request → K8s can schedule many concurrent jobs
+    cpu_limit: str = "2000m"     # 2 CPU max burst per job (as requested)
+    memory_request: str = "1Gi"  # LOW request → K8s can schedule ~55 concurrent jobs
+    memory_limit: str = "2Gi"    # 2 GiB max per job (as requested)
     image_pull_secrets: list[str] | None = None
+    volumes: list[dict[str, Any]] | None = None
+    init_containers: list[dict[str, Any]] | None = None
+    volume_mounts: list[dict[str, Any]] | None = None
+    working_dir: str | None = None
 
 
 @dataclass

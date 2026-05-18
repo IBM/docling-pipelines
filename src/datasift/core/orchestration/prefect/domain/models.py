@@ -88,7 +88,7 @@ class BatchStrategyConstants:
 
     # Default deployment settings for batch subflows
     DEFAULT_DEPLOYMENT_NAME = "datasift-batch-subflow"
-    DEFAULT_DEPLOYMENT_PATH = "/app/src/datasift_opensource/backend"
+    DEFAULT_DEPLOYMENT_PATH = "/opt/app-root/src"
 
     # Configuration keys
     CONFIG_KEY_TYPE = "type"
