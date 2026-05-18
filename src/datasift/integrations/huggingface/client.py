@@ -277,8 +277,13 @@ class HuggingFaceLLMClient(BaseLLMClient):
             for text in batch:
                 response = self.client.feature_extraction(text, model=self.model_name)
 
-                # Handle different response formats
-                if isinstance(response, list):
+                # Handle numpy array response
+                if hasattr(response, "tolist"):
+                    embeddings = response.tolist()
+                    if isinstance(embeddings[0], list):
+                        embeddings = embeddings[0]
+                # Handle list response
+                elif isinstance(response, list):
                     if isinstance(response[0], list):
                         embeddings = response[0]
                     else:
@@ -308,8 +313,13 @@ class HuggingFaceLLMClient(BaseLLMClient):
 
         response = self.client.feature_extraction(text, model=self.model_name)
 
-        # Handle different response formats
-        if isinstance(response, list):
+        # Handle numpy array response
+        if hasattr(response, "tolist"):
+            embeddings = response.tolist()
+            if isinstance(embeddings[0], list):
+                embeddings = embeddings[0]
+        # Handle list response
+        elif isinstance(response, list):
             if isinstance(response[0], list):
                 # Nested list format
                 embeddings = response[0]

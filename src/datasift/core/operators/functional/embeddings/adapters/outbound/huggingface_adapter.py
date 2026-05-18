@@ -29,11 +29,17 @@ class HuggingFaceLLMAdapter(LLMServicePort):
                 - device: Device for local inference ('cpu', 'cuda', etc.)
         """
         self.model_name = model_name
+
+        # Extract parameters to avoid duplication when passing **adapter_config
+        use_local = adapter_config.pop("use_local", True)
+        api_token = adapter_config.pop("api_token", None)
+        device = adapter_config.pop("device", None)
+
         self.client = HuggingFaceLLMClient(
             model_name=model_name,
-            use_local=adapter_config.get("use_local", True),
-            api_token=adapter_config.get("api_token"),
-            device=adapter_config.get("device"),
+            use_local=use_local,
+            api_token=api_token,
+            device=device,
             **adapter_config,
         )
 
