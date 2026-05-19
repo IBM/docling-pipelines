@@ -1,0 +1,600 @@
+# Global Configuration Reference
+
+This document provides a comprehensive reference for all global configuration parameters that can be set in datasift flow definitions. Global configuration parameters control flow-level behavior and are specified in the `global_config` section of your flow JSON.
+
+## Overview
+
+Global configuration parameters are set at the flow level and apply to all operators in the pipeline unless overridden at the operator level. These parameters control:
+
+- **Execution behavior**: How the flow processes data
+- **Batching strategy**: Whether and how to split data into batches
+- **Incremental processing**: Tracking and processing only changed data
+- **Orchestration**: Prefect-based workflow execution settings
+- **Storage**: Where intermediate and final data is stored
+
+---
+
+## Configuration Structure
+
+Global configuration is specified in the `global_config` section of your flow definition:
+
+```json
+{
+  "flow_name": "My Pipeline",
+  "description": "Example pipeline with global configuration",
+  "global_config": {
+    "force_ingest": false,
+    "micro_batch_size": 50,
+    "prefect": {
+      "batch_execution": {
+        "strategy": "thread-pool"
+      }
+    }
+  },
+  "flow": [
+    {
+      "type": "ingest_local",
+      "name": "ingest",
+      "config": {
+        "input_folder": "./documents"
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "config": {
+        "text_extraction_mode": "docling_library"
+      },
+      "depends_on": ["ingest"]
+    }
+  ]
+}
+```
+
+---
+
+## Execution Control
+
+Parameters that control how the flow executes and processes data.
+
+### `disable_validation`
+
+**Type**: `boolean`  
+**Default**: `false`  
+**Description**: Disables flow validation before execution. Not recommended for production use.
+
+**Valid Values**:
+- `true`: Skip flow validation (faster startup, risky)
+- `false`: Validate flow before execution (recommended)
+
+**Example**:
+```json
+{
+  "global_config": {
+    "disable_validation": true
+  }
+}
+```
+
+**Warning**: Disabling validation can lead to runtime errors that would have been caught during validation.
+
+---
+
+### `skip_custom_op_validation`
+
+**Type**: `boolean`  
+**Default**: `false`  
+**Description**: Skips validation for custom operators while still validating built-in operators.
+
+**Valid Values**:
+- `true`: Skip custom operator validation
+- `false`: Validate all operators including custom ones
+
+**Example**:
+```json
+{
+  "global_config": {
+    "skip_custom_op_validation": true
+  }
+}
+```
+
+---
+
+### `output_folder`
+
+**Type**: `string`
+**Description**: Directory for storing final output files. Can be either a relative path (relative to workspace directory) or an absolute path. If not specified, the system generates a unique path based on job execution IDs.
+**Valid Values**: Valid directory path (relative or absolute)
+
+**Example**:
+```json
+{
+  "global_config": {
+    "data_local_config": {
+      "output_folder": "./data/output"
+    }
+  }
+}
+```
+
+---
+
+### `data_storage_type`
+
+**Type**: `string`
+**Description**: Storage backend type for intermediate data during flow execution.
+
+**Valid Values**:
+- `"memory"`: Store data in memory
+- `"local"`: Store data on local filesystem
+
+**Example**:
+```json
+{
+  "global_config": {
+    "data_storage_type": "local"
+  }
+}
+```
+
+**Note**: Memory storage is fastest but limited by available RAM. Use `"local"` for large datasets.
+
+---
+
+## Incremental Processing
+
+Configuration for tracking and processing only changed documents.
+
+### `force_ingest`
+
+**Type**: `boolean`
+**Default**: `false`
+**Description**: Forces re-ingestion of all documents, even if they were previously processed. Useful for reprocessing data after operator configuration changes.
+
+**Valid Values**:
+- `true`: Re-ingest all documents regardless of previous processing
+- `false`: Skip documents that were already processed (incremental mode)
+
+**Example**:
+```json
+{
+  "global_config": {
+    "force_ingest": true
+  }
+}
+```
+
+**Use Cases**:
+- Reprocessing entire dataset after fixing extraction logic
+- Reprocess entire dataset when the target DB (ex: collection, table, etc.) is changed.
+- Reprocess entire data set after modifying some changes to operator, examples: PII/HAP configuration is changed.
+- Testing flow changes on full dataset
+- Recovering from corrupted incremental metadata
+
+---
+
+### `retain_deleted_docs`
+
+**Type**: `boolean`
+**Default**: `true`
+**Description**: Controls whether documents deleted from the source should be retained in the output or removed.
+
+**Valid Values**:
+- `true`: Keep documents in output even if deleted from source
+- `false`: Remove documents from output when deleted from source
+
+**Example**:
+```json
+{
+  "global_config": {
+    "retain_deleted_docs": false
+  }
+}
+```
+
+**Use Cases**:
+- Maintaining historical records (set to `true`)
+- Keeping output synchronized with source (set to `false`)
+
+---
+
+### `incremental_metadata`
+
+**Type**: `object`  
+**Default**: `{}`  
+**Description**: Configuration for incremental processing metadata storage. Tracks which documents have been processed to enable incremental updates.
+
+**Example**:
+```json
+{
+  "global_config": {
+    "incremental_metadata": {
+      "storage_path": "./data/job-id-in-uuid/incremental_metadata",
+      "enabled": true
+    }
+  }
+}
+```
+
+**Use Cases**:
+- Processing only new or modified documents
+- Resuming interrupted pipeline runs
+- Efficient updates to large document collections
+
+**Related Documentation**: [incremental metadata](docs/INCREMENTAL_METADATA_STORAGE.md)
+
+---
+
+## Orchestration configuration
+
+### Prefect Configuration
+
+Configuration for Prefect-based workflow orchestration and batch execution strategies.
+
+#### `prefect`
+
+**Type**: `object`
+**Description**: Prefect orchestration settings including batch execution strategy and work pool configuration.
+
+**Structure**:
+```json
+{
+  "prefect": {
+    "batch_execution": {
+      "strategy": "thread-pool",
+      "work_pool_name": "my-pool",
+      "deployment_name": "my-deployment",
+      "batch_storage": {
+        "type": "local",
+        "path": "./batch_data"
+      }
+    }
+  }
+}
+```
+
+---
+
+#### Batch Execution Strategy
+
+The `batch_execution` section controls how batches are executed.
+
+##### `strategy`
+
+**Type**: `string`  
+**Default**: `"thread-pool"`  
+**Description**: Execution strategy for batch processing.
+
+**Valid Values**:
+- `"thread-pool"`: Local execution using ThreadPoolTaskRunner (default, simplest)
+- `"work-pool-process"`: Distributed execution using Prefect process work pools
+- `"work-pool-docker"`: Distributed execution using Docker containers
+- `"work-pool-kubernetes"`: Distributed execution on Kubernetes clusters
+- `"work-pool-ecs"`: Distributed execution on AWS ECS
+- `"work-pool-azure-container-instance"`: Distributed execution on Azure Container Instances
+- `"work-pool-cloud-run"`: Distributed execution on Google Cloud Run
+
+**Example - Thread Pool (Local)**:
+```json
+{
+  "prefect": {
+    "batch_execution": {
+      "strategy": "thread-pool"
+    }
+  }
+}
+```
+
+**Example - Docker Work Pool**:
+```json
+{
+  "prefect": {
+    "batch_execution": {
+      "strategy": "work-pool-docker",
+      "work_pool_name": "datasift-docker-pool",
+      "deployment_name": "batch-processor",
+      "deployment_path": "/opt/datasift",
+      "image": "datasift:latest",
+      "batch_storage": {
+        "type": "local",
+        "path": "/data/batches"
+      }
+    }
+  }
+}
+```
+
+---
+
+##### Work Pool Configuration
+
+Required when using work pool strategies (`work-pool-*`).
+
+###### `work_pool_name`
+
+**Type**: `string`  
+**Required**: Yes (for work pool strategies)  
+**Description**: Name of the Prefect work pool to use for batch execution.
+
+**Example**:
+```json
+{
+  "work_pool_name": "datasift-production-pool"
+}
+```
+
+---
+
+###### `deployment_name`
+
+**Type**: `string`  
+**Required**: Yes (for work pool strategies)  
+**Description**: Name for the Prefect deployment that will execute batches.
+
+**Example**:
+```json
+{
+  "deployment_name": "document-processing-v1"
+}
+```
+
+---
+
+###### `deployment_path`
+
+**Type**: `string`
+**Default**: Current working directory
+**Description**: Runtime path where flow code is available in the worker environment.
+
+**Example**:
+```json
+{
+  "deployment_path": "/opt/datasift"
+}
+```
+
+---
+
+###### `env`
+
+**Type**: `object` (dictionary of string key-value pairs)
+**Default**: `{}`
+**Description**: Environment variables injected into the worker job process or container. Used to pass configuration, credentials, or runtime settings to workers.
+
+**Example**:
+```json
+{
+  "env": {
+    "OLLAMA_HOST": "http://ollama-service:11434",
+    "LOG_LEVEL": "INFO",
+    "CUSTOM_CONFIG_PATH": "/etc/datasift/config.yaml"
+  }
+}
+```
+
+**Note**: System-required environment variables (PREFECT_API_URL, PYTHONPATH, etc.) are automatically set by the adapter. User-provided `env` values supplement or override these defaults.
+
+---
+
+###### `image`
+
+**Type**: `string`  
+**Required**: Yes (for containerized work pools)  
+**Description**: Container image for Docker/Kubernetes/ECS work pools.
+
+**Example**:
+```json
+{
+  "image": "myregistry/datasift:v1.2.3"
+}
+```
+
+---
+
+###### `image_pull_policy`
+
+**Type**: `string`  
+**Default**: `"Never"` (Docker), `"IfNotPresent"` (Kubernetes)  
+**Description**: Policy for pulling container images.
+
+**Valid Values**:
+- `"Always"`: Always pull the image
+- `"IfNotPresent"`: Pull only if not present locally
+- `"Never"`: Never pull, use local image only
+
+**Example**:
+```json
+{
+  "image_pull_policy": "IfNotPresent"
+}
+```
+
+---
+
+###### Docker-Specific Configuration
+
+####### `networks`
+
+**Type**: `array of strings`  
+**Default**: `[]`  
+**Description**: Docker networks for spawned containers.
+
+**Example**:
+```json
+{
+  "networks": ["datasift-network", "monitoring-network"]
+}
+```
+
+---
+
+##### Batch Storage Configuration
+
+The `batch_storage` section controls where batch data is stored during distributed execution.
+
+###### `type`
+
+**Type**: `string`  
+**Default**: `"inline"`  
+**Description**: Storage type for batch data.
+
+**Valid Values**:
+- `"inline"`: Serialize batch data directly in deployment parameters (small batches only)
+- `"local"`: Store batch data on local filesystem
+
+**Example - Local Storage**:
+```json
+{
+  "batch_storage": {
+    "type": "local",
+    "path": "/data/batches"
+  }
+}
+```
+
+---
+
+**Related Documentation**: [Prefect Documentation](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
+
+---
+
+### Micro-Batching Configuration
+
+Parameters for controlling micro-batching behavior. Micro-batching is **enabled by default** and splits large datasets into smaller batches for parallel processing.
+
+#### `micro_batch_size`
+
+**Type**: `integer`
+**Default**: `100`
+**Description**: Note that the batch_batch is not strictly enforced. The files are adjusted in the batches to make the batch size uniform across the batches, but limiting the number of documents in a batch to the given batch_size.
+
+**Valid Values**: Positive integer
+
+**Example**:
+```json
+{
+  "global_config": {
+    "micro_batch_size": 50
+  }
+}
+```
+
+**Tuning Guidelines**:
+- **Small batches (10-50)**: Better for large documents or memory-constrained environments
+- **Medium batches (50-200)**: Good balance for most use cases
+- **Large batches (200-1000)**: Suitable for small documents with high throughput requirements
+
+---
+
+#### `max_concurrent_batches`
+
+**Type**: `integer`
+**Default**: `10`
+**Description**: Maximum number of batches that can execute concurrently. Controls parallelism and resource usage.
+
+**Valid Values**: Positive integer
+
+**Example**:
+```json
+{
+  "global_config": {
+    "max_concurrent_batches": 5
+  }
+}
+```
+
+**Tuning Guidelines**:
+- **Low concurrency (1-5)**: Reduces memory usage, suitable for resource-constrained environments
+- **Medium concurrency (5-15)**: Good balance for most systems
+- **High concurrency (15-50)**: Maximizes throughput on high-resource systems
+
+**Note**: Higher concurrency requires more memory and CPU resources.
+
+---
+
+## Operator Overrides
+
+You can override configuration for specific operators using their name or ID.
+
+### `<operator_name>` or `<operator_id>`
+
+**Type**: `object`  
+**Description**: Override configuration for a specific operator by its name or ID.
+
+**Example**:
+```json
+{
+  "global_config": {
+    "doc_column": "content",
+    "extract_operator": {
+      "doc_column": "document",
+      "max_workers": 8
+    }
+  }
+}
+```
+
+In this example, all operators use `doc_column: "content"` except the `extract_operator` which uses `doc_column: "document"`.
+
+---
+
+## Complete Example
+
+Here's a comprehensive example showing multiple configuration options:
+
+```json
+{
+  "flow_name": "Production Document Processing Pipeline",
+  "description": "Process documents with micro-batching and Docker execution",
+  "global_config": {
+    "force_ingest": false,
+    "retain_deleted_docs": true,
+    "micro_batch_size": 100,
+    "max_concurrent_batches": 10,
+    "data_local_config": {
+        "output_folder": "./output"
+    },
+    "data_storage_type": "local",
+    "incremental_metadata": {
+      "storage_path": "./data/job-id-in-uuid/incremental_metadata",
+      "enabled": true
+    },
+    "prefect": {
+      "batch_execution": {
+        "strategy": "work-pool-docker",
+        "work_pool_name": "datasift-docker-pool",
+        "deployment_name": "doc-processor-v1",
+        "deployment_path": "/opt/datasift",
+        "image": "myregistry/datasift:1.0.0",
+        "env": {
+          "OLLAMA_HOST": "http://ollama-service:11434",
+          "LOG_LEVEL": "INFO"
+        },
+        "batch_storage": {
+          "type": "local",
+          "path": "/data/batches"
+        }
+      }
+    }
+  },
+  "flow": [
+    {
+      "type": "ingest_local",
+      "name": "ingest_local_folder",
+      "config": {
+        "input_folder": "./sample_documents",
+        "include_filter": "pdf,txt,docx"
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_with_docling",
+      "config": {
+        "doc_column": "content"
+      },
+      "depends_on": ["ingest_local_folder"]
+    }
+  ]
+}
+```
