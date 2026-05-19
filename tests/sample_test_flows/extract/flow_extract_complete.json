@@ -3,7 +3,7 @@
   "description": "Complete extraction pipeline with text, entities, chunking, and embeddings",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "false",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -13,9 +13,8 @@
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "../../../tests/fixtures/invoices",
-        "include_filter": "pdf,docx",
-        "store_binary_content": true
+        "input_folder": "./tests/fixtures/invoices",
+        "include_filter": "pdf,docx"
       }
     },
     {
@@ -73,9 +72,13 @@
       "name": "embed",
       "type": "embeddings",
       "config": {
-        "model_name": "nomic-embed-text",
-        "embedding_provider": "ollama",
-        "ollama_base_url": "http://localhost:11434"
+        "embeddings_type": "ollama",
+        "embeddings_model_id": "nomic-embed-text",
+        "embeddings_column": "embeddings",
+        "provider_config": {
+          "host": "http://localhost:11434",
+          "max_concurrent": 10
+        }
       },
       "depends_on": [
         "chunk"

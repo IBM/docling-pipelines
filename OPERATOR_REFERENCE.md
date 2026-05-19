@@ -903,8 +903,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | `doc_column`          | string |       No | `content`     | Input content column                                           |
 | `doc_id_hash`         | string |       No | `doc_id_hash` | Hash column name                                               |
 | `overlap_ratio`       | float  |       No | `0.2`         | Long-text chunk overlap ratio                                  |
-| `batch_size`          | int    |       No | `32`          | Embedding batch size                                           |
-| `provider_config`     | object |       No | `{}`          | Adapter-specific credentials/settings                          |
+| `provider_config`     | object |       No | `{}`          | Provider-specific configuration (see below)                    |
 
 **Supported Providers:**
 
@@ -912,6 +911,28 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 - **HuggingFace**: Local or API models (open-source)
 - **LiteLLM**: Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, GCP)
 - **Watsonx**: IBM watsonx.ai cloud service (enterprise AI)
+
+**Provider-Specific Configuration (`provider_config`):**
+
+| Provider     | Parameter          | Type    | Default | Description                                           |
+| ------------ | ------------------ | ------- | ------- | ----------------------------------------------------- |
+| **HuggingFace** | `api_token`     | string  | -       | HuggingFace API token (or use HF_TOKEN env var)       |
+|              | `batch_size`       | int     | `32`    | Number of texts to process in each batch              |
+|              | `device`           | string  | `null`  | Device for local inference ('cpu', 'cuda', 'mps')     |
+|              | `use_local`        | bool    | `true`  | Use local model (true) or API (false)                 |
+| **LiteLLM**  | `api_base`         | string  | -       | Custom API endpoint URL                               |
+|              | `api_key`          | string  | -       | Provider API key (or use provider-specific env var)   |
+|              | `batch_size`       | int     | `32`    | Number of texts to process in each batch              |
+| **Ollama**   | `host`             | string  | `http://localhost:11434` | Ollama server URL (or use OLLAMA_HOST env var) |
+| |              | `max_concurrent`   | int     | `8`     | Maximum concurrent requests for batch processing      |
+| |              | `timeout`          | float   | -       | Timeout in seconds for API calls                      |
+| |              | `validate_model`   | bool    | `true`  | Validate model availability on initialization         |
+| **Watsonx**  | `api_base`         | string  | Yes     | Watsonx API base URL                                  |
+|              | `api_key`          | string  | Yes     | Watsonx API key                                       |
+|              | `batch_size`       | int     | `800`   | Number of texts to process in each batch              |
+|              | `container_id`     | string  | Yes     | Project ID or Space ID                                |
+|              | `container_kind`   | string  | Yes     | Container type ('project' or 'space')                 |
+|              | `enable_rate_limiting` | bool | `false` | Enable rate limiting for API calls                    |
 
 **Input Schema**
 
@@ -927,7 +948,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 - [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py)
 - provider authentication/network failures
 
-**Example (Ollama)**
+**Example (Ollama with custom concurrency)**
 
 ```json
 {
@@ -938,12 +959,36 @@ Schemas are defined with `target_tables` specifying field mappings and transform
     "provider": "ollama",
     "embeddings_model_id": "nomic-embed-text",
     "embeddings_column": "embeddings",
-    "doc_column": "content"
+    "doc_column": "content",
+    "provider_config": {
+      "max_concurrent": 16
+    }
   }
 }
 ```
 
-**Example (Watsonx)**
+**Example (HuggingFace with custom batch size)**
+
+```json
+{
+  "id": "embedding-node",
+  "name": "embeddings",
+  "operator": "embeddings",
+  "config": {
+    "provider": "huggingface",
+    "embeddings_model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "embeddings_column": "embeddings",
+    "doc_column": "content",
+    "provider_config": {
+      "use_local": true,
+      "batch_size": 64,
+      "device": "cuda"
+    }
+  }
+}
+```
+
+**Example (Watsonx with rate limiting)**
 
 ```json
 {
@@ -960,7 +1005,28 @@ Schemas are defined with `target_tables` specifying field mappings and transform
       "api_base": "${WATSONX_API_BASE}",
       "container_kind": "project",
       "container_id": "${WATSONX_CONTAINER_ID}",
-      "batch_size": 800
+      "batch_size": 800,
+      "enable_rate_limiting": true
+    }
+  }
+}
+```
+
+**Example (LiteLLM with OpenAI)**
+
+```json
+{
+  "id": "embedding-node",
+  "name": "embeddings",
+  "operator": "embeddings",
+  "config": {
+    "provider": "litellm",
+    "embeddings_model_id": "text-embedding-3-small",
+    "embeddings_column": "embeddings",
+    "doc_column": "content",
+    "provider_config": {
+      "api_key": "${OPENAI_API_KEY}",
+      "batch_size": 100
     }
   }
 }

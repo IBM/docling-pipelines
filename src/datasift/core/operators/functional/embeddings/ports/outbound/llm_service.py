@@ -49,15 +49,17 @@ class LLMServicePort(ABC):
         pass
 
     @abstractmethod
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
-        """Generate embedding vectors for multiple texts in batches.
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
+        """Generate embedding vectors for multiple texts with provider-optimized processing.
 
-        This method enables efficient batch processing of embeddings, which can
-        significantly improve performance (30-50% faster depending on provider).
+        This method enables efficient processing of multiple texts using provider-specific
+        optimization strategies (30-50% faster depending on provider).
+
+        Batch size and concurrency settings are configured per-provider through
+        adapter initialization (via provider_config), not as method parameters.
 
         Args:
             texts: List of input texts to generate embeddings for
-            batch_size: Number of texts to process in each batch (default: 32)
 
         Returns:
             List of embedding vectors, one per input text

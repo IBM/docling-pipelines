@@ -154,19 +154,22 @@ class BaseLLMClient(ABC):
         pass
 
     @abstractmethod
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """
-        Generate embeddings for multiple texts in batches.
+        Generate embeddings for multiple texts with provider-optimized processing.
 
-        This method enables efficient batch processing of embeddings, which can
-        significantly improve performance:
-        - HuggingFace: 40-50% faster via GPU batch processing
-        - LiteLLM: 30-40% faster via reduced API calls
-        - Ollama: 20-30% faster via concurrent requests
+        This method processes multiple texts efficiently using provider-specific
+        optimization strategies configured during client initialization:
+        - HuggingFace: GPU batch processing (40-50% faster)
+        - LiteLLM: Reduced API calls (30-40% faster)
+        - Ollama: Concurrent requests (20-30% faster)
+        - WatsonX: Configurable batch sizes for API rate limiting
+
+        Batch size and concurrency settings are configured per-provider via
+        provider_config, not as method parameters.
 
         Args:
             texts: List of input texts to generate embeddings for
-            batch_size: Number of texts to process in each batch (default: 32)
 
         Returns:
             List of embedding vectors, one per input text

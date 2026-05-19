@@ -1,6 +1,7 @@
 """Ollama LLM adapter for embedding generation."""
 
 from datasift.core.constants.constants import ServiceConstants
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
     register_llm_adapter,
 )
@@ -33,10 +34,30 @@ class OllamaLLMAdapter(LLMServicePort):
 
         Args:
             model_name: Ollama model name (e.g., 'granite4', 'llama3.2', 'nomic-embed-text')
-            **adapter_config: Additional configuration (currently unused for Ollama)
+            **adapter_config: Additional configuration:
+                - host: Ollama server URL (optional, defaults to OLLAMA_HOST env var or http://localhost:11434)
+                - max_concurrent: Maximum concurrent requests for batch embeddings (default: 8)
+                - timeout: Timeout in seconds for API calls (optional)
+                - validate_model: Whether to validate model availability on initialization (default: true)
         """
         self.model_name = model_name
-        self.client = OllamaClient(model_name=model_name, mode=InteractionMode.EMBEDDINGS)
+
+        # Extract parameters from adapter_config
+        host = adapter_config.get("host")
+        max_concurrent = adapter_config.get(
+            OperatorConstants.Config.MAX_CONCURRENT, ServiceConstants.DEFAULT_OLLAMA_MAX_CONCURRENT
+        )
+        timeout = adapter_config.get("timeout")
+        validate_model = adapter_config.get("validate_model", True)
+
+        self.client = OllamaClient(
+            model_name=model_name,
+            host=host,
+            mode=InteractionMode.EMBEDDINGS,
+            max_concurrent=max_concurrent,
+            timeout=timeout,
+            validate_model=validate_model,
+        )
         self._cached_dimension: int | None = None
 
     def generate_embeddings(self, text: str) -> list[float]:
@@ -58,12 +79,11 @@ class OllamaLLMAdapter(LLMServicePort):
 
         return embeddings
 
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts using concurrent requests.
 
         Args:
             texts: List of input texts to embed
-            batch_size: Number of concurrent requests (default: 32)
 
         Returns:
             List of embedding vectors, one per input text
@@ -71,7 +91,7 @@ class OllamaLLMAdapter(LLMServicePort):
         Raises:
             ValueError: If embeddings are invalid or empty
         """
-        embeddings_list = self.client.generate_embeddings_batch(texts, batch_size)
+        embeddings_list = self.client.generate_embeddings_batch(texts)
 
         # Validate all embeddings
         for i, embeddings in enumerate(embeddings_list):

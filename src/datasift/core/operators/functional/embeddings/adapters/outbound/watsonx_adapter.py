@@ -139,12 +139,11 @@ class WatsonxLLMAdapter(LLMServicePort):
         """
         return self.client.generate_embeddings(text)
 
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts using watsonx.ai.
 
         Args:
             texts: List of input texts to embed
-            batch_size: Ignored (uses client's configured batch_size)
 
         Returns:
             List of embedding vectors, one per input text
@@ -152,7 +151,7 @@ class WatsonxLLMAdapter(LLMServicePort):
         Raises:
             Exception: If embedding generation fails
         """
-        return self.client.generate_embeddings_batch(texts, batch_size)
+        return self.client.generate_embeddings_batch(texts)
 
     def get_model_token_limit(self) -> int:
         """Get token limit for watsonx.ai model.

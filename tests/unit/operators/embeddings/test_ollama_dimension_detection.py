@@ -8,6 +8,7 @@ from datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adap
     OllamaLLMAdapter,
 )
 from datasift.exceptions.datasift_exceptions import ExternalServiceError
+from datasift.integrations.ollama.client import InteractionMode
 
 
 class TestOllamaDimensionDetection:
@@ -305,5 +306,31 @@ class TestOllamaAdapterBackwardCompatibility:
         assert adapter1._cached_dimension is None  # Not detected yet
         assert adapter2._cached_dimension is None  # Not detected yet
 
+    def test_adapter_passes_config_parameters_to_client(self, mock_ollama_client):
+        """Test that adapter correctly passes host, timeout, and validate_model to OllamaClient."""
+        # Setup mock
+        mock_client_instance = Mock()
+        mock_ollama_client.return_value = mock_client_instance
 
-# Made with Bob
+        # Create adapter with custom configuration
+        adapter = OllamaLLMAdapter(
+            model_name="nomic-embed-text",
+            host="http://custom-host:11434",
+            max_concurrent=16,
+            timeout=30.0,
+            validate_model=False,
+        )
+
+        # Verify OllamaClient was called with correct parameters
+        mock_ollama_client.assert_called_once()
+        call_kwargs = mock_ollama_client.call_args[1]
+
+        assert call_kwargs["model_name"] == "nomic-embed-text"
+        assert call_kwargs["host"] == "http://custom-host:11434"
+        assert call_kwargs["max_concurrent"] == 16
+        assert call_kwargs["timeout"] == 30.0
+        assert call_kwargs["validate_model"] is False
+        assert call_kwargs["mode"] == InteractionMode.EMBEDDINGS
+
+        # Verify adapter is created successfully
+        assert adapter.model_name == "nomic-embed-text"

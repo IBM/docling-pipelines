@@ -1,5 +1,7 @@
 """HuggingFace LLM adapter for embedding generation."""
 
+from datasift.core.constants.constants import ServiceConstants
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
     register_llm_adapter,
 )
@@ -27,6 +29,7 @@ class HuggingFaceLLMAdapter(LLMServicePort):
                 - use_local: Whether to use local inference (default: True)
                 - api_token: HuggingFace API token for API inference
                 - device: Device for local inference ('cpu', 'cuda', etc.)
+                - batch_size: Number of texts to process in each batch (default: 32)
         """
         self.model_name = model_name
 
@@ -34,12 +37,16 @@ class HuggingFaceLLMAdapter(LLMServicePort):
         use_local = adapter_config.pop("use_local", True)
         api_token = adapter_config.pop("api_token", None)
         device = adapter_config.pop("device", None)
+        batch_size = adapter_config.pop(
+            OperatorConstants.Config.BATCH_SIZE, ServiceConstants.DEFAULT_EMBEDDINGS_BATCH_SIZE
+        )
 
         self.client = HuggingFaceLLMClient(
             model_name=model_name,
             use_local=use_local,
             api_token=api_token,
             device=device,
+            batch_size=batch_size,
             **adapter_config,
         )
 
@@ -54,17 +61,16 @@ class HuggingFaceLLMAdapter(LLMServicePort):
         """
         return self.client.generate_embeddings(text)
 
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts in batches.
 
         Args:
             texts: List of input texts to embed
-            batch_size: Number of texts to process in each batch (default: 32)
 
         Returns:
             List of embedding vectors, one per input text
         """
-        return self.client.generate_embeddings_batch(texts, batch_size)
+        return self.client.generate_embeddings_batch(texts)
 
     def get_model_token_limit(self) -> int:
         """Get token limit for HuggingFace model.

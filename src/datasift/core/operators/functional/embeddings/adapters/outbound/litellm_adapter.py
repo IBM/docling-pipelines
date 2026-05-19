@@ -28,6 +28,8 @@ Example Usage:
     embeddings = adapter.generate_embeddings("Hello world")
 """
 
+from datasift.core.constants.constants import ServiceConstants
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
     register_llm_adapter,
 )
@@ -83,6 +85,7 @@ class LiteLLMLLMAdapter(LLMServicePort):
                   will use environment variable (e.g., OPENAI_API_KEY)
                 - api_base (str): Custom API endpoint URL. Optional.
                   Example: "https://custom-endpoint.com/v1"
+                - batch_size (int): Number of texts to process in each batch (default: 32)
 
         Raises:
             ConfigurationError: If model_name is invalid or required
@@ -109,11 +112,15 @@ class LiteLLMLLMAdapter(LLMServicePort):
         # Pop explicit arguments to avoid duplicate values in **adapter_config
         api_key = adapter_config.pop("api_key", None)
         api_base = adapter_config.pop("api_base", None)
+        batch_size = adapter_config.pop(
+            OperatorConstants.Config.BATCH_SIZE, ServiceConstants.DEFAULT_EMBEDDINGS_BATCH_SIZE
+        )
 
         self.client = LiteLLMLLMClient(
             model_name=model_name,
             api_key=api_key,
             api_base=api_base,
+            batch_size=batch_size,
             **adapter_config,
         )
 
@@ -128,17 +135,16 @@ class LiteLLMLLMAdapter(LLMServicePort):
         """
         return self.client.generate_embeddings(text)
 
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts in batches.
 
         Args:
             texts: List of input texts to embed
-            batch_size: Number of texts to process in each batch (default: 32)
 
         Returns:
             List of embedding vectors, one per input text
         """
-        return self.client.generate_embeddings_batch(texts, batch_size)
+        return self.client.generate_embeddings_batch(texts)
 
     def get_model_token_limit(self) -> int:
         """Get token limit for LiteLLM model.
@@ -158,6 +164,3 @@ class LiteLLMLLMAdapter(LLMServicePort):
             return LiteLLMLLMClient.get_embedding_dimension(self.model_name)
         except Exception:
             return None
-
-
-# Made with Bob

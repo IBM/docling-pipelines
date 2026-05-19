@@ -86,6 +86,7 @@ class OllamaClient(BaseLLMClient):
         system_prompt: str | None = None,
         validate_model: bool = True,
         timeout: float | None = None,
+        max_concurrent: int = ServiceConstants.DEFAULT_OLLAMA_MAX_CONCURRENT,
         **kwargs,
     ):
         """
@@ -98,6 +99,7 @@ class OllamaClient(BaseLLMClient):
             system_prompt: Optional system-level instructions for chat mode
             validate_model: Whether to validate model availability on initialization
             timeout: Timeout in seconds for API calls (default: None, no timeout)
+            max_concurrent: Maximum number of concurrent requests for batch embeddings (default: 8)
             **kwargs: Additional configuration parameters
 
         Raises:
@@ -110,6 +112,11 @@ class OllamaClient(BaseLLMClient):
         self.mode = mode if isinstance(mode, InteractionMode) else InteractionMode(mode)
         self.system_prompt = system_prompt
         self.timeout = timeout
+        self.max_concurrent = max_concurrent
+
+        logger.info(
+            f"Initialized OllamaClient: host={self.host}, model={model_name}, mode={self.mode.value}, max_concurrent={max_concurrent}"
+        )
 
         if validate_model:
             self._validate_model()
@@ -394,16 +401,18 @@ class OllamaClient(BaseLLMClient):
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
             ) from exc
 
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """
         Generate embeddings for multiple texts using concurrent requests.
 
         Since Ollama doesn't have native batch support, this method uses
         concurrent requests to improve throughput by 20-30%.
 
+        The number of concurrent requests is configured via max_concurrent
+        parameter during client initialization (default: 8).
+
         Args:
             texts: List of input texts to generate embeddings for
-            batch_size: Number of concurrent requests (default: 32, but limited by max_concurrent)
 
         Returns:
             List of embedding vectors, one per input text
@@ -432,7 +441,7 @@ class OllamaClient(BaseLLMClient):
         client = ollama.Client(host=self.host, trust_env=False)
 
         # Limit concurrency to avoid overwhelming Ollama server
-        max_workers = min(batch_size, 8)  # Cap at 8 concurrent requests
+        max_workers = self.max_concurrent
         all_embeddings: list[list[float] | None] = [None] * len(texts)  # Pre-allocate list
         lock = threading.Lock()
 

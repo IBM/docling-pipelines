@@ -60,7 +60,13 @@ class HuggingFaceLLMClient(BaseLLMClient):
     _loaded_models: ClassVar[dict[str, Any]] = {}
 
     def __init__(
-        self, model_name: str, use_local: bool = True, api_token: str | None = None, device: str | None = None, **kwargs
+        self,
+        model_name: str,
+        use_local: bool = True,
+        api_token: str | None = None,
+        device: str | None = None,
+        batch_size: int = 32,
+        **kwargs,
     ):
         """
         Initialize HuggingFace client.
@@ -70,6 +76,7 @@ class HuggingFaceLLMClient(BaseLLMClient):
             use_local: Use local sentence-transformers (True) or API (False)
             api_token: HuggingFace API token (falls back to HF_TOKEN env var)
             device: Device for local inference ('cpu', 'cuda', 'mps', or None for auto)
+            batch_size: Number of texts to process in each batch (default: 32)
             **kwargs: Additional configuration parameters
 
         Raises:
@@ -81,6 +88,7 @@ class HuggingFaceLLMClient(BaseLLMClient):
         self.use_local = use_local
         self.api_token = api_token or os.getenv("HF_TOKEN") or os.getenv("HUGGINGFACE_TOKEN")
         self.device = device
+        self.batch_size = batch_size
         self.model: Any = None
         self.client: Any = None
 
@@ -189,13 +197,12 @@ class HuggingFaceLLMClient(BaseLLMClient):
         return embeddings
 
     @retry_with_backoff(max_retries=3, initial_delay=1.0)
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """
         Generate embeddings for multiple texts in batches.
 
         Args:
             texts: List of input texts to generate embeddings for
-            batch_size: Number of texts to process in each batch (default: 32)
 
         Returns:
             List of embedding vectors, one per input text
@@ -212,9 +219,9 @@ class HuggingFaceLLMClient(BaseLLMClient):
 
         try:
             if self.use_local:
-                return self._generate_local_embeddings_batch(texts, batch_size)
+                return self._generate_local_embeddings_batch(texts, self.batch_size)
             else:
-                return self._generate_api_embeddings_batch(texts, batch_size)
+                return self._generate_api_embeddings_batch(texts, self.batch_size)
 
         except Exception as e:
             logger.error(f"Failed to generate batch embeddings with HuggingFace: {e}")

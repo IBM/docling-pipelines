@@ -10,6 +10,7 @@ supporting embeddings and chat completions across OpenAI, Anthropic, Cohere, etc
 
 import os
 
+from datasift.core.constants.constants import ServiceConstants
 from datasift.exceptions.datasift_exceptions import (
     ConfigurationError,
     ExternalServiceError,
@@ -57,7 +58,14 @@ class LiteLLMLLMClient(BaseLLMClient):
     - Provider-specific API key handling
     """
 
-    def __init__(self, model_name: str, api_key: str | None = None, api_base: str | None = None, **kwargs):
+    def __init__(
+        self,
+        model_name: str,
+        api_key: str | None = None,
+        api_base: str | None = None,
+        batch_size: int = ServiceConstants.DEFAULT_EMBEDDINGS_BATCH_SIZE,
+        **kwargs,
+    ):
         """
         Initialize LiteLLM client.
 
@@ -65,6 +73,7 @@ class LiteLLMLLMClient(BaseLLMClient):
             model_name: Model name with optional provider prefix (e.g., 'gpt-4', 'claude-3-opus')
             api_key: API key for the provider (falls back to provider-specific env vars)
             api_base: Optional custom API base URL
+            batch_size: Number of texts to process in each batch (default: 32)
             **kwargs: Additional configuration parameters
 
         Raises:
@@ -75,6 +84,7 @@ class LiteLLMLLMClient(BaseLLMClient):
 
         self.api_key = api_key
         self.api_base = api_base
+        self.batch_size = batch_size
 
         require_package("litellm", "pip install litellm")
         import litellm
@@ -215,7 +225,7 @@ class LiteLLMLLMClient(BaseLLMClient):
             ) from e
 
     @retry_with_backoff(max_retries=3, initial_delay=1.0)
-    def generate_embeddings_batch(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+    def generate_embeddings_batch(self, texts: list[str]) -> list[list[float]]:
         """
         Generate embeddings for multiple texts in batches.
 
@@ -224,7 +234,6 @@ class LiteLLMLLMClient(BaseLLMClient):
 
         Args:
             texts: List of input texts to generate embeddings for
-            batch_size: Number of texts to process in each batch (default: 32)
 
         Returns:
             List of embedding vectors, one per input text
@@ -243,8 +252,8 @@ class LiteLLMLLMClient(BaseLLMClient):
             all_embeddings = []
 
             # Process in batches to avoid rate limits and timeouts
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i : i + batch_size]
+            for i in range(0, len(texts), self.batch_size):
+                batch = texts[i : i + self.batch_size]
 
                 # LiteLLM supports batch input
                 response = self.litellm.embedding(

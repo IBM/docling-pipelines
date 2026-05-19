@@ -377,12 +377,12 @@ class TestWatsonxAdapterEmbeddings:
         adapter = WatsonxLLMAdapter(model_name="ibm/slate-125m-english-rtrvr", **valid_config)
 
         texts = ["text 1", "text 2"]
-        result = adapter.generate_embeddings_batch(texts=texts, batch_size=32)
+        result = adapter.generate_embeddings_batch(texts=texts)
 
         assert isinstance(result, list)
         assert len(result) == 2
         assert all(isinstance(emb, list) for emb in result)
-        adapter.client.generate_embeddings_batch.assert_called_once_with(texts, 32)
+        adapter.client.generate_embeddings_batch.assert_called_once_with(texts)
 
 
 @pytest.mark.unit

@@ -160,6 +160,7 @@ class OperatorConstants:
         DEFAULT: Final[str] = "default"
         DESCRIPTION: Final[str] = "description"
         GLOBAL_CONFIG: Final[str] = "global_config"
+        MAX_CONCURRENT: Final[str] = "max_concurrent"
         PARAMETERS: Final[str] = "parameters"
         PROPERTIES: Final[str] = "properties"
         PROVIDER: Final[str] = "provider"

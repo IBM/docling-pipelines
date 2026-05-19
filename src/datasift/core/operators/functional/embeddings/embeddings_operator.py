@@ -100,7 +100,6 @@ class EmbeddingsOperator(AbstractOperator):
                 - overlap_ratio: Overlap ratio for chunking long text (default: 0.2)
                 - doc_column: Input column containing document content (default: "content")
                 - doc_id_hash_column: Column for document hash (default: "doc_id_hash")
-                - batch_size: Number of texts to process in each batch (default: 32)
         """
         super().__init__(config)
 
@@ -124,9 +123,6 @@ class EmbeddingsOperator(AbstractOperator):
 
         # Chunking configuration
         self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, OVERLAP_RATIO_DEFAULT)
-
-        # Batch processing configuration
-        self.batch_size: int = config.get("batch_size", 32)
 
         # Logging
         self.common_log_arguments: dict[str, Any] = {
@@ -206,6 +202,27 @@ class EmbeddingsOperator(AbstractOperator):
             if not self.embeddings_model_id or not isinstance(self.embeddings_model_id, str):
                 errors.append("embeddings_model_id must be a non-empty string")
 
+        # Validate provider_config parameters
+        provider_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        if self.should_validate_field(field_value=provider_config) and isinstance(provider_config, dict):
+            # Validate max_concurrent if present
+            max_concurrent = provider_config.get(OperatorConstants.Config.MAX_CONCURRENT)
+            if max_concurrent is not None and self.should_validate_field(field_value=max_concurrent):
+                if not isinstance(max_concurrent, int):
+                    errors.append(
+                        f"provider_config.max_concurrent must be an integer, got {type(max_concurrent).__name__}"
+                    )
+                elif max_concurrent <= 0:
+                    errors.append(f"provider_config.max_concurrent must be positive, got {max_concurrent}")
+
+            # Validate batch_size if present
+            batch_size = provider_config.get(OperatorConstants.Config.BATCH_SIZE)
+            if batch_size is not None and self.should_validate_field(field_value=batch_size):
+                if not isinstance(batch_size, int):
+                    errors.append(f"provider_config.batch_size must be an integer, got {type(batch_size).__name__}")
+                elif batch_size <= 0:
+                    errors.append(f"provider_config.batch_size must be positive, got {batch_size}")
+
     @staticmethod
     def get_metadata() -> dict[str, Any]:
         """
@@ -272,7 +289,13 @@ class EmbeddingsOperator(AbstractOperator):
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Additional configuration parameters for the embedding provider (e.g., API keys, endpoints)",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Provider-specific configuration parameters. "
+                        "Ollama: max_concurrent (int, default: 8) - maximum concurrent requests. "
+                        "HuggingFace: batch_size (int, default: 32), use_local (bool), api_token (str), device (str). "
+                        "LiteLLM: batch_size (int, default: 32), api_key (str), api_base (str). "
+                        "Watsonx: batch_size (int, default: 800), api_key (str), api_base (str), container_kind (str), container_id (str), enable_rate_limiting (bool)."
+                    ),
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
@@ -320,7 +343,7 @@ class EmbeddingsOperator(AbstractOperator):
 
         logger.debug(
             f"Using token limit: {token_limit}, char limit: {char_limit}, "
-            f"overlap: {overlap_chars}, batch_size: {self.batch_size} for model: {model_name}",
+            f"overlap: {overlap_chars} for model: {model_name}",
             extra=self.common_log_arguments,
         )
 
@@ -366,9 +389,7 @@ class EmbeddingsOperator(AbstractOperator):
         if texts_to_embed:
             try:
                 # Use batch processing for better performance
-                batch_embeddings = self.embedding_adapter.generate_embeddings_batch(
-                    texts_to_embed, batch_size=self.batch_size
-                )
+                batch_embeddings = self.embedding_adapter.generate_embeddings_batch(texts_to_embed)
 
                 # Map embeddings back to original indices
                 for i, embedding in enumerate(batch_embeddings):
@@ -386,7 +407,7 @@ class EmbeddingsOperator(AbstractOperator):
         for idx, chunks in chunked_texts.items():
             try:
                 # Generate embeddings for chunks in batch
-                chunk_embeddings = self.embedding_adapter.generate_embeddings_batch(chunks, batch_size=self.batch_size)
+                chunk_embeddings = self.embedding_adapter.generate_embeddings_batch(chunks)
 
                 # Average the chunk embeddings
                 avg_embedding: list[float] = np.mean(chunk_embeddings, axis=0).tolist()

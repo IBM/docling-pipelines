@@ -104,24 +104,32 @@ The Embeddings Operator generates vector embeddings for text content using vario
 ### 5. `provider_config` (JSON)
 **Type:** JSON Object
 **Required:** No
-**Description:** Additional configuration parameters for the embedding provider.
+**Description:** Provider-specific configuration parameters for the embedding provider.
 
-**For Ollama:**
-- No additional configuration required (uses defaults)
+**Note:** Ollama uses `max_concurrent` for controlling concurrent API calls, while other providers (HuggingFace, LiteLLM, Watsonx) use `batch_size` for grouping texts in batch API calls.
 
 **For HuggingFace:**
-- `device` (String, Optional): Device to use ("cpu", "cuda", "mps")
-- `normalize_embeddings` (Boolean, Optional): Normalize embeddings (default: true)
+- `api_token` (String, Optional): HuggingFace API token (or use HF_TOKEN env var)
+- `batch_size` (Integer, Optional): Number of texts to process in each batch (default: 32)
+- `device` (String, Optional): Device to use ("cpu", "cuda", "mps") (default: null)
+- `use_local` (Boolean, Optional): Use local model (true) or API (false) (default: true)
 
 **For LiteLLM:**
-- `api_key` (String, Required): API key for the provider
 - `api_base` (String, Optional): Custom API endpoint
+- `api_key` (String, Required): API key for the provider
 - `api_version` (String, Optional): API version (for Azure)
-- Additional provider-specific parameters
+- `batch_size` (Integer, Optional): Number of texts to process in each batch (default: 32)
+
+**For Ollama:**
+- `host` (String, Optional): Ollama server URL (default: from OLLAMA_HOST env var or "http://localhost:11434")
+- `max_concurrent` (Integer, Optional): Maximum concurrent requests for batch processing (default: 8)
+- `timeout` (Float, Optional): Timeout in seconds for API calls (default: None)
+- `validate_model` (Boolean, Optional): Whether to validate model availability on initialization (default: true)
 
 **For Watsonx:**
-- `api_key` (String, Required): IBM Cloud API key
 - `api_base` (String, Required): watsonx.ai service URL
+- `api_key` (String, Required): IBM Cloud API key
+- `batch_size` (Integer, Optional): Number of texts to process in each batch (default: 800)
 - `container_id` (String, Required): Project or space ID
 - `container_kind` (String, Optional): "project" or "space" (default: "project")
 - `enable_rate_limiting` (Boolean, Optional): Enable rate limiting (7 req/s) for WatsonX API calls (default: false)
@@ -205,10 +213,10 @@ LiteLLM (Azure):
     "embeddings_type": "litellm",
     "embeddings_model_id": "watsonx/ibm/slate-125m-english-rtrvr",
     "embeddings_column": "embeddings",
-    "batch_size": 64,
     "provider_config": {
-      "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
       "api_base": "https://us-south.ml.cloud.ibm.com",
+      "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
+      "batch_size": 64,
       "project_id": "${WATSONX_PROJECT_ID}"
     }
   }
@@ -224,10 +232,10 @@ LiteLLM (Azure):
     "embeddings_type": "watsonx",
     "embeddings_model_id": "ibm/slate-125m-english-rtrvr",
     "embeddings_column": "embeddings",
-    "batch_size": 64,
     "provider_config": {
-      "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
       "api_base": "${WATSONX_API_BASE}",
+      "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
+      "batch_size": 64,
       "container_id": "${WATSONX_CONTAINER_ID}",
       "container_kind": "project",
       "enable_rate_limiting": true
@@ -278,9 +286,9 @@ LiteLLM (Azure):
     "embeddings_type": "litellm",
     "embeddings_model_id": "text-embedding-3-small",
     "embeddings_column": "embeddings",
-    "batch_size": 100,
     "provider_config": {
-      "api_key": "${OPENAI_API_KEY}" # pragma: allowlist secret
+      "api_key": "${OPENAI_API_KEY}", # pragma: allowlist secret
+      "batch_size": 100
     }
   }
 }
@@ -295,9 +303,9 @@ LiteLLM (Azure):
     "embeddings_type": "litellm",
     "embeddings_model_id": "embed-english-v3.0",
     "embeddings_column": "embeddings",
-    "batch_size": 96,
     "provider_config": {
-      "api_key": "${COHERE_API_KEY}" # pragma: allowlist secret
+      "api_key": "${COHERE_API_KEY}", # pragma: allowlist secret
+      "batch_size": 96
     }
   }
 }
@@ -316,7 +324,7 @@ LiteLLM (Azure):
    - Smaller models generally mean faster inference and less vector storage
    - Larger models generally mean higher quality and more vector storage
 
-3. **Batch Size**:
+3. **Batch Size** (in `provider_config`):
    - Increase for better throughput (32-128)
    - Decrease if running out of memory (8-16)
    - Test with your hardware configuration
@@ -341,9 +349,8 @@ LiteLLM (Azure):
 - `embeddings_type` must be one of: ollama, huggingface, litellm, watsonx
 - `embeddings_model_id` must be a non-empty string
 - `overlap_ratio` must be between 0.0 and 0.5
-- `batch_size` must be between 1 and 128
 - Input data must have `content` column or `chunked_content` column
-- For LiteLLM, `provider_config` with `api_key` is required
+- For LiteLLM, `provider_config.api_key` is required
 - For Watsonx, `provider_config.api_key`, `provider_config.api_base`, and `provider_config.container_id` are required
 
 ## Complete Flow Example
