@@ -242,11 +242,9 @@ class TestWatsonxAdapter:
                 container_kind=None,
             )
 
-    @patch(
-        "datasift.integrations.docling.vlm_pipeline_options_provider.WatsonxPipelineOptionsProvider._get_iam_access_token"
-    )
-    @patch("datasift.core.operators.quality.classification.adapters.outbound.watsonx_adapter.RestClient")
-    def test_classify_document_success(self, mock_rest_client_class, mock_get_token, monkeypatch):
+    @patch("datasift.utils.infrastructure.iam_token_manager.IAMTokenManager.get_token")
+    @patch("datasift.integrations.rest_client.RestClient.call_rest_json")
+    def test_classify_document_success(self, mock_call_rest_json, mock_get_token, monkeypatch):
         """Test successful document classification."""
         # Set required environment variables
         monkeypatch.setenv("WATSONX_API_KEY", "test-key")
@@ -255,12 +253,8 @@ class TestWatsonxAdapter:
         # Mock IAM token
         mock_get_token.return_value = "mock-token"
 
-        # Setup mock for REST client
-        mock_client = Mock()
-        mock_rest_client_class.return_value = mock_client
-
         # Mock classification response
-        mock_client.call_rest_json.return_value = {
+        mock_call_rest_json.return_value = {
             "choices": [
                 {
                     "message": {

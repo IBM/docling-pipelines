@@ -21,7 +21,7 @@ This architecture enables:
 
 - **Dual-Mode Operation**: Supports both text extraction and entity extraction in a single operator
 - **Multiple Text Extraction Strategies**: Docling Library (with optional VLM and ASR pipeline) and Docling Serve API
-- **Multiple Entity Extraction Strategies**: Ollama LLM, Docling template-based, and LiteLLM
+- **Multiple Entity Extraction Strategies**: Ollama LLM, Docling template-based, LiteLLM, and WatsonX
 - **Estimated Page Count Calculation**: Automatically calculates estimated page counts for extracted text
 - **Parallel Processing**: Automatic worker optimization based on CPU count
 - **Flexible Configuration**: Mode-specific parameters with sensible defaults
@@ -354,6 +354,45 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 
 **Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_basic_litellm.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic_litellm.json)
 
+### 5. WatsonX Mode
+
+IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
+
+**Configuration:**
+```json
+{
+  "text_extraction_mode": "docling_library",
+  "entity_extraction_mode": "watsonx",
+  "entity_model_name": "ibm/granite-13b-chat-v2",
+  "entity_temperature": 0.0,
+  "entity_max_tokens": 2000,
+  "entity_provider_config": {
+    "api_key": "${WATSONX_API_KEY}",
+    "container_id": "${WATSONX_CONTAINER_ID}",
+    "api_base": "https://us-south.ml.cloud.ibm.com",
+    "container_kind": "project"
+  },
+  "custom_schema": {
+    "invoice_number": "string",
+    "total_amount": "float"
+  }
+}
+```
+
+**Environment Variables:**
+- `WATSONX_API_KEY`: WatsonX API key (required)
+- `WATSONX_CONTAINER_ID`: WatsonX project or space ID (required)
+- `WATSONX_API_BASE_URL`: WatsonX API base URL (optional, defaults to us-south)
+- `WATSONX_CONTAINER_KIND`: Container type - "project" or "space" (optional, defaults to "project")
+
+**Use Cases:**
+- Enterprise LLM deployments with IBM WatsonX.ai
+- Regulated industries requiring on-premises or private cloud LLM
+- Schema-based entity extraction with IBM Granite models
+- Integration with existing IBM Cloud infrastructure
+
+**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_basic_watsonx.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic_watsonx.json)
+
 ## Configuration Parameters
 
 ### Common Parameters
@@ -361,7 +400,7 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `text_extraction_mode` | string | `"docling_library"` | Text extraction strategy: `"docling_library"` or `"docling_serve"` |
-| `entity_extraction_mode` | string | `"none"` | Entity extraction strategy: `"ollama"`, `"docling"`, `"litellm"`, or `"none"` |
+| `entity_extraction_mode` | string | `"none"` | Entity extraction strategy: `"ollama"`, `"docling"`, `"litellm"`, `"watsonx"`, or `"none"` |
 | `doc_column` | string | `"doc_content"` | Column name for storing extracted content |
 | `extract_tables` | boolean | `true` | Whether to extract tables from documents |
 | `extract_images` | boolean | `true` | Whether to extract images from documents |
@@ -372,45 +411,54 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 
 ### Docling Library Mode Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `use_vlm_pipeline` | boolean | `false` | Enable VLM (Vision-Language Model) pipeline for enhanced extraction |
-| `vlm_preset` | string | `"granite_docling"` | VLM preset configuration name (when VLM enabled) |
-| `vlm_engine_type` | string | `"transformers"` | VLM engine type (when VLM enabled) |
-| `vlm_provider_config` | object | `null` | Provider-specific configuration dictionary (when VLM enabled) |
+| Parameter             | Type    | Default             | Description                                                         |
+|-----------------------|---------|---------------------|---------------------------------------------------------------------|
+| `use_vlm_pipeline`    | boolean | `false`             | Enable VLM (Vision-Language Model) pipeline for enhanced extraction |
+| `vlm_preset`          | string  | `"granite_docling"` | VLM preset configuration name (when VLM enabled)                    |
+| `vlm_engine_type`     | string  | `"transformers"`    | VLM engine type (when VLM enabled)                                  |
+| `vlm_provider_config` | object  | `null`              | Provider-specific configuration dictionary (when VLM enabled)       |
 
 ### Docling Serve Mode Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `docling_serve_base_url` | string | `"http://localhost:5001"` | Docling Serve API endpoint URL |
-| `docling_serve_api_key` | string | `null` | Optional API key for authentication |
-| `docling_serve_timeout` | integer | `300` | Request timeout in seconds |
-| `docling_serve_poll_interval` | integer | `2` | Polling interval in seconds |
-| `docling_serve_max_retries` | integer | `3` | Maximum retry attempts |
-| `docling_serve_do_ocr` | boolean | `true` | Enable OCR processing |
-| `docling_serve_ocr_engine` | string | `"easyocr"` | OCR engine: `"easyocr"` or `"tesseract"` |
-| `docling_serve_ocr_languages` | array | `null` | List of OCR languages (e.g., `["en", "es"]`) |
-| `docling_serve_pdf_backend` | string | `"dlparse_v2"` | PDF backend: `"dlparse_v4"`, `"dlparse_v3"`, or `"pypdfium2"` |
-| `docling_serve_table_mode` | string | `"fast"` | Table extraction mode: `"accurate"` or `"fast"` |
-| `docling_serve_image_export_mode` | string | `"placeholder"` | Image export mode: `"embedded"`, `"referenced"`, or `"none"` |
+| Parameter                         | Type     | Default                   | Description                                                   |
+|-----------------------------------|----------|---------------------------|---------------------------------------------------------------|
+| `docling_serve_base_url`          | string   | `"http://localhost:5001"` | Docling Serve API endpoint URL                                |
+| `docling_serve_api_key`           | string   | `null`                    | Optional API key for authentication                           |
+| `docling_serve_timeout`           | integer  | `300`                     | Request timeout in seconds                                    |
+| `docling_serve_poll_interval`     | integer  | `2`                       | Polling interval in seconds                                   |
+| `docling_serve_max_retries`       | integer  | `3`                       | Maximum retry attempts                                        |
+| `docling_serve_do_ocr`            | boolean  | `true`                    | Enable OCR processing                                         |
+| `docling_serve_ocr_engine`        | string   | `"easyocr"`               | OCR engine: `"easyocr"` or `"tesseract"`                      |
+| `docling_serve_ocr_languages`     | array    | `null`                    | List of OCR languages (e.g., `["en", "es"]`)                  |
+| `docling_serve_pdf_backend`       | string   | `"dlparse_v2"`            | PDF backend: `"dlparse_v4"`, `"dlparse_v3"`, or `"pypdfium2"` |
+| `docling_serve_table_mode`        | string   | `"fast"`                  | Table extraction mode: `"accurate"` or `"fast"`               |
+| `docling_serve_image_export_mode` | string   | `"placeholder"`           | Image export mode: `"embedded"`, `"referenced"`, or `"none"`  |
 
 ### Ollama Entity Extraction Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `entity_model_name` | string | `"llama3.2"` | Ollama model name |
-| `entity_temperature` | float | `0.0` | Sampling temperature (0.0-1.0) |
-| `entity_max_tokens` | integer | `4096` | Maximum response tokens |
-| `entity_max_doc_chars` | integer | `8000` | Maximum document characters to send to LLM |
+| Parameter              | Type    | Default      | Description                                |
+|------------------------|---------|--------------|--------------------------------------------|
+| `entity_model_name`    | string  | `"llama3.2"` | Ollama model name                          |
+| `entity_temperature`   | float   | `0.0`        | Sampling temperature (0.0-1.0)             |
+| `entity_max_tokens`    | integer | `4096`       | Maximum response tokens                    |
+| `entity_max_doc_chars` | integer | `8000`       | Maximum document characters to send to LLM |
 
 ### LiteLLM Entity Extraction Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `entity_model_name` | string | `"gpt-3.5-turbo"` | LLM model identifier |
-| `entity_temperature` | float | `0.0` | Sampling temperature |
-| `entity_max_tokens` | integer | `2000` | Maximum response tokens |
+| Parameter            | Type    | Default           | Description             |
+|----------------------|---------|-------------------|-------------------------|
+| `entity_model_name`  | string  | `"gpt-3.5-turbo"` | LLM model identifier    |
+| `entity_temperature` | float   | `0.0`             | Sampling temperature    |
+| `entity_max_tokens`  | integer | `2000`            | Maximum response tokens |
+
+### WatsonX Entity Extraction Parameters
+
+| Parameter                | Type    | Default                     | Description                                                                                        |
+|--------------------------|---------|-----------------------------|----------------------------------------------------------------------------------------------------|
+| `entity_model_name`      | string  | `"ibm/granite-13b-chat-v2"` | WatsonX model identifier                                                                           |
+| `entity_temperature`     | float   | `0.0`                       | Sampling temperature                                                                               |
+| `entity_max_tokens`      | integer | `2000`                      | Maximum response tokens                                                                            |
+| `entity_provider_config` | object  | `{}`                        | Provider config with `api_key`, `container_id`, `api_base` (optional), `container_kind` (optional) |
 
 ## Input/Output Data Formats
 
@@ -418,26 +466,26 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 
 The operator expects a PyArrow table with the following columns:
 
-| Column | Type | Required | Description |
-|--------|------|----------|-------------|
-| `id` | string | Yes | Document identifier |
-| `name` | string | Yes | Document name/filename |
-| `path` | string | Yes | Document file path |
-| `document_type` | string | No | Document type for template selection |
+| Column          | Type   | Required   | Description                          |
+|-----------------|--------|------------|--------------------------------------|
+| `id`            | string | Yes        | Document identifier                  |
+| `name`          | string | Yes        | Document name/filename               |
+| `path`          | string | Yes        | Document file path                   |
+| `document_type` | string | No         | Document type for template selection |
 
 ### Output Table Schema
 
 The operator produces a PyArrow table with the following columns:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | string | Document identifier |
-| `name` | string | Document name |
-| `doc_content` | string | Extracted markdown content |
-| `doc_id_hash` | string | Hash ID of the document row |
-| `pages_processed` | int32 | Estimated number of pages for the extracted document text, calculated using 3000 characters = 1 page |
-| `entities` | string | Extracted entities as JSON (if entity extraction enabled) |
-| `extracted_data` | string | Structured data from template extraction (if applicable) |
+| Column            | Type   | Description                                                                                          |
+|-------------------|--------|------------------------------------------------------------------------------------------------------|
+| `id`              | string | Document identifier                                                                                  |
+| `name`            | string | Document name                                                                                        |
+| `doc_content`     | string | Extracted markdown content                                                                           |
+| `doc_id_hash`     | string | Hash ID of the document row                                                                          |
+| `pages_processed` | int32  | Estimated number of pages for the extracted document text, calculated using 3000 characters = 1 page |
+| `entities`        | string | Extracted entities as JSON (if entity extraction enabled)                                            |
+| `extracted_data`  | string | Structured data from template extraction (if applicable)                                             |
 
 When `expand_extracted_data=true` is set for entity extraction, entity fields are expanded into individual columns.
 
@@ -672,26 +720,26 @@ curl http://localhost:5001/health
 
 ## Mode Comparison
 
-| Feature | Docling Library (Basic) | Docling Library (VLM) | Docling Serve |
-|---------|-------------------------|----------------------|---------------|
-| **Processing Location** | Local | Local/API | Remote API |
-| **OCR Support** | No | Limited | Yes (EasyOCR, Tesseract) |
-| **Multi-language OCR** | No | No | Yes |
-| **Scalability** | Low | Medium | High |
-| **Setup Complexity** | Low | Medium | Medium |
-| **Processing Speed** | Fast | Slow | Medium |
-| **Accuracy** | Good | Excellent | Excellent |
-| **External Dependencies** | None | Model files | Docker container |
+| Feature                   | Docling Library (Basic)   | Docling Library (VLM)  | Docling Serve            |
+|---------------------------|---------------------------|------------------------|--------------------------|
+| **Processing Location**   | Local                     | Local/API              | Remote API               |
+| **OCR Support**           | No                        | Limited                | Yes (EasyOCR, Tesseract) |
+| **Multi-language OCR**    | No                        | No                     | Yes                      |
+| **Scalability**           | Low                       | Medium                 | High                     |
+| **Setup Complexity**      | Low                       | Medium                 | Medium                   |
+| **Processing Speed**      | Fast                      | Slow                   | Medium                   |
+| **Accuracy**              | Good                      | Excellent              | Excellent                |
+| **External Dependencies** | None                      | Model files            | Docker container         |
 
-| Feature | Ollama | Docling | LiteLLM |
-|---------|--------|---------|---------|
-| **Processing Location** | Local | Local | Remote API |
-| **Schema Support** | Yes | Yes | Yes |
-| **Schema-Free Mode** | Yes | No | Yes |
-| **Setup Complexity** | Medium | Low | Low |
-| **Processing Speed** | Medium | Fast | Fast |
-| **Accuracy** | High | Good | High |
-| **External Dependencies** | Ollama server | None | API keys |
+| Feature                   | Ollama        | Docling   | LiteLLM    | WatsonX             |
+|---------------------------|---------------|-----------|------------|---------------------|
+| **Processing Location**   | Local         | Local     | Remote API | Remote API          |
+| **Schema Support**        | Yes           | Yes       | Yes        | Yes                 |
+| **Schema-Free Mode**      | Yes           | No        | Yes        | Yes                 |
+| **Setup Complexity**      | Medium        | Low       | Low        | Medium              |
+| **Processing Speed**      | Medium        | Fast      | Fast       | Medium              |
+| **Accuracy**              | High          | Good      | High       | High                |
+| **External Dependencies** | Ollama server | None      | API keys   | WatsonX credentials |
 
 ## Best Practices
 
@@ -737,7 +785,13 @@ curl http://localhost:5001/health
 **Use LiteLLM Mode When:**
 - Multi-provider LLM support needed
 - Cloud-based LLM processing preferred
-- (Note: Currently a placeholder implementation)
+- Cost optimization by switching between providers
+
+**Use WatsonX Mode When:**
+- Enterprise LLM deployments with IBM WatsonX.ai
+- Regulated industries requiring private cloud LLM
+- Integration with existing IBM Cloud infrastructure
+- IBM Granite models preferred
 
 ### Performance Optimization
 
@@ -784,8 +838,9 @@ Complete sample flows are available in [`tests/sample_test_flows/extract/`](../.
 - For Docling Serve mode, verify the service is running and accessible
 
 **Issue: "Failed to initialize entity extraction adapter"**
-- Verify the `entity_extraction_mode` value is valid: `"ollama"`, `"docling"`, `"litellm"`, or `"none"`
+- Verify the `entity_extraction_mode` value is valid: `"ollama"`, `"docling"`, `"litellm"`, `"watsonx"`, or `"none"`
 - For Ollama mode, ensure Ollama server is running and the model is pulled
+- For WatsonX mode, ensure environment variables `WATSONX_API_KEY` and `WATSONX_CONTAINER_ID` are set
 - Check that required parameters (model_name, etc.) are provided
 
 **Issue: "Ollama connection refused"**
@@ -837,7 +892,8 @@ EntityExtractionPort (Interface)
     ↓
 ├── OllamaEntityAdapter (ollama mode)
 ├── DoclingEntityAdapter (docling mode)
-└── LiteLLMEntityAdapter (litellm mode)
+├── LiteLLMEntityAdapter (litellm mode)
+└── WatsonxEntityAdapter (watsonx mode)
 ```
 
 ### Execution Flow

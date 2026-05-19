@@ -261,8 +261,9 @@ class OperatorConstants:
         MAX_CONTENT_LENGTH: Final[str] = "max_content_length"
 
         # Watsonx Configuration
-        WATSONX_CONTAINER_KIND: Final[str] = "container_kind"
-        WATSONX_CONTAINER_ID: Final[str] = "container_id"
+        CONTAINER_KIND: Final[str] = "container_kind"
+        CONTAINER_ID: Final[str] = "container_id"
+        REQUEST_TIMEOUT: Final[str] = "request_timeout"
 
         # Node and Pipeline Configuration
         NODE_METADATA: Final[str] = "node_metadata"
@@ -382,6 +383,7 @@ class OperatorConstants:
         ENTITY_MODE_OLLAMA: Final[str] = "ollama"
         ENTITY_MODE_DOCLING: Final[str] = "docling"
         ENTITY_MODE_LITELLM: Final[str] = "litellm"
+        ENTITY_MODE_WATSONX: Final[str] = "watsonx"
         ENTITY_MODE_NONE: Final[str] = "none"
 
         # Entity Extraction Configuration

@@ -426,6 +426,170 @@ curl -o /dev/null http://speedtest.wdc01.softlayer.com/downloads/test10.zip
 ```
 
 ---
+### WatsonX Issues
+
+#### Issue: WatsonX Authentication Failed
+
+**Error Code:** `WATSONX_AUTH_FAILED`
+
+**Symptoms:**
+
+```
+AuthenticationError: Failed to authenticate with WatsonX
+Error: Invalid API key or credentials
+```
+
+**Diagnosis:**
+
+```bash
+# Check if environment variables are set
+echo $WATSONX_API_KEY
+echo $WATSONX_CONTAINER_ID
+```
+
+**Solutions:**
+
+1. **Set required environment variables:**
+
+```bash
+export WATSONX_API_KEY="your-api-key"   #pragma: allowlist secret
+export WATSONX_CONTAINER_ID="your-project-or-space-id"
+```
+
+2. **Verify API key is valid:**
+
+```bash
+# Test authentication with curl
+curl -X POST "https://us-south.ml.cloud.ibm.com/ml/v1/text/generation?version=2023-05-29" \
+  -H "Authorization: Bearer ${WATSONX_API_KEY}" \
+  -H "Content-Type: application/json"
+```
+
+3. **Check container ID format:**
+
+```bash
+# Project ID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# Space ID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+4. **Verify container kind:**
+
+```bash
+# Set container kind if using space instead of project
+export WATSONX_CONTAINER_KIND="space"  # or "project" (default)
+```
+
+---
+
+#### Issue: WatsonX Model Not Found
+
+**Error Code:** `WATSONX_MODEL_NOT_FOUND`
+
+**Symptoms:**
+
+```
+Error: Model 'ibm/granite-13b-chat-v2' not found or not accessible
+```
+
+**Solutions:**
+
+1. **Verify model is available in your WatsonX instance:**
+
+Check WatsonX.ai console for available models in your project/space.
+
+2. **Use correct model identifier:**
+
+```json
+{
+  "entity_model_name": "ibm/granite-13b-chat-v2",
+  "entity_provider_config": {
+    "api_key": "${WATSONX_API_KEY}",
+    "container_id": "${WATSONX_CONTAINER_ID}"
+  }
+}
+```
+
+3. **Check model access permissions:**
+
+Ensure your API key has access to the specified model in the project/space.
+
+---
+
+#### Issue: WatsonX Connection Timeout
+
+**Symptoms:**
+
+```
+TimeoutError: Request to WatsonX timed out after 120 seconds
+```
+
+**Solutions:**
+
+1. **Increase timeout in provider config:**
+
+```json
+{
+  "entity_provider_config": {
+    "api_key": "${WATSONX_API_KEY}",
+    "container_id": "${WATSONX_CONTAINER_ID}",
+    "request_timeout": 300
+  }
+}
+```
+
+2. **Check network connectivity:**
+
+```bash
+# Test connection to WatsonX endpoint
+curl -I https://us-south.ml.cloud.ibm.com
+```
+
+3. **Verify API base URL:**
+
+```bash
+# Set correct region endpoint
+export WATSONX_API_BASE_URL="https://us-south.ml.cloud.ibm.com"
+# Or use eu-de, eu-gb, jp-tok, etc.
+```
+
+---
+
+#### Issue: WatsonX Rate Limiting
+
+**Symptoms:**
+
+```
+Error: Rate limit exceeded (429 Too Many Requests)
+```
+
+**Solutions:**
+
+1. **Reduce parallel workers:**
+
+```json
+{
+  "max_workers": 1,
+  "entity_extraction_mode": "watsonx"
+}
+```
+
+2. **Add retry logic in provider config:**
+
+```json
+{
+  "entity_provider_config": {
+    "max_retries": 3,
+    "retry_delay": 2
+  }
+}
+```
+
+3. **Check WatsonX quota limits:**
+
+Review your WatsonX plan limits and usage in the IBM Cloud console.
+
+---
+
 
 ### OpenSearch Issues
 

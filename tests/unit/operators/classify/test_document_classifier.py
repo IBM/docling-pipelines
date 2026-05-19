@@ -679,7 +679,7 @@ class TestWatsonxClassificationAdapter:
                 },
             ),
             patch(
-                "datasift.integrations.docling.vlm_pipeline_options_provider.WatsonxPipelineOptionsProvider._get_iam_access_token",
+                "datasift.utils.infrastructure.iam_token_manager.IAMTokenManager.get_token",
                 return_value="test-token",
             ),
             patch(
@@ -774,7 +774,7 @@ class TestWatsonxClassificationAdapter:
                 },
             ),
             patch(
-                "datasift.integrations.docling.vlm_pipeline_options_provider.WatsonxPipelineOptionsProvider._get_iam_access_token",
+                "datasift.utils.infrastructure.iam_token_manager.IAMTokenManager.get_token",
                 return_value="test-token",
             ),
             patch(

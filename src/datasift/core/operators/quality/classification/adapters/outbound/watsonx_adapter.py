@@ -1,8 +1,6 @@
 """Watsonx adapter for document classification."""
 
 import json
-import os
-from threading import Lock
 from typing import Any
 
 from datasift.core.operators.quality.classification.adapters.outbound.factories.classification_adapter_factory import (
@@ -18,8 +16,7 @@ from datasift.core.operators.quality.classification.ports.outbound.classificatio
 )
 from datasift.exceptions.datasift_exceptions import DatasiftException, ExternalServiceError
 from datasift.exceptions.error_codes import ErrorCode
-from datasift.integrations.docling.vlm_pipeline_options_provider import WatsonxPipelineOptionsProvider
-from datasift.integrations.rest_client import RestClient, RestClientConfig, RestMethod
+from datasift.integrations.watsonx.client import WatsonXClient
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -42,105 +39,64 @@ class WatsonxClassificationAdapter(ClassificationServicePort):
         *,
         model_id: str | None = None,
         api_base: str | None = None,
-        api_key: str | None = None,
         container_kind: str | None = None,
-        container_id: str | None = None,
         request_timeout: int = 120,
         **kwargs: Any,
     ) -> None:
-        # Security: api_key and container_id MUST come from environment variables only
-        resolved_api_key = os.getenv("WATSONX_API_KEY")
-        resolved_container_id = os.getenv("WATSONX_CONTAINER_ID")
+        """
+        Initialize WatsonX classification adapter.
 
-        # Non-sensitive config: allow provider_config with env var fallback
-        resolved_api_base = api_base or os.getenv("WATSONX_API_BASE_URL")
-        resolved_container_kind = container_kind or os.getenv("WATSONX_CONTAINER_KIND")
+        Args:
+            model_id: WatsonX model ID (required)
+            api_base: API base URL (falls back to WATSONX_API_BASE_URL env var)
+            container_kind: Container type - "project" or "space" (falls back to WATSONX_CONTAINER_KIND env var)
+            request_timeout: Request timeout in seconds (default: 120)
+            **kwargs: Additional configuration parameters
 
-        # Validation
+        Security Note:
+            api_key and container_id MUST be set via environment variables:
+            - WATSONX_API_KEY: IBM Cloud API key
+            - WATSONX_CONTAINER_ID: Project or space ID
+        """
         if not model_id:
             raise DatasiftException(
                 error_code=ErrorCode.INVALID_CONFIGURATION,
                 message="model_id is required for watsonx provider",
             )
-        if not resolved_api_base:
+
+        if not container_kind:
             raise DatasiftException(
                 error_code=ErrorCode.INVALID_CONFIGURATION,
-                message="api_base is required for watsonx provider. Set via provider_config or WATSONX_API_BASE_URL environment variable",
-            )
-        if not resolved_api_key:
-            raise DatasiftException(
-                error_code=ErrorCode.INVALID_CONFIGURATION,
-                message="api_key is required for watsonx provider. Must be set via WATSONX_API_KEY environment variable (not in provider_config for security)",
-            )
-        if not resolved_container_id:
-            raise DatasiftException(
-                error_code=ErrorCode.INVALID_CONFIGURATION,
-                message="container_id is required for watsonx provider. Must be set via WATSONX_CONTAINER_ID environment variable (not in provider_config for security)",
-            )
-        if not resolved_container_kind:
-            raise DatasiftException(
-                error_code=ErrorCode.INVALID_CONFIGURATION,
-                message="container_kind is required for watsonx provider. Set via provider_config or WATSONX_CONTAINER_KIND environment variable",
+                message="container_kind is required for watsonx provider",
             )
 
         super().__init__(model_id=model_id, **kwargs)
 
-        self.api_base: str = resolved_api_base
-        self.api_key: str = resolved_api_key
-        self.container_kind: str = resolved_container_kind
-        self.container_id: str = resolved_container_id
-        self.request_timeout = request_timeout
-        self._access_token: str | None = None
-        self._token_lock = Lock()
+        # Store api_base as instance attribute for test compatibility
+        self.api_base = api_base
 
-        self._rest_config = RestClientConfig(
-            timeout=self.request_timeout,
-            retry_max_attempts=3,
-            retry_multiplier=2.0,
-            retry_min_wait=1.0,
-            retry_max_wait=10.0,
-        )
+        # Initialize WatsonX client (handles all authentication and API calls)
+        try:
+            self.client = WatsonXClient(
+                model_name=model_id,
+                api_base=api_base,
+                container_kind=container_kind,
+                timeout=request_timeout,
+            )
+        except Exception as exc:
+            # Check if it's an API key error and provide consistent error message
+            error_msg = str(exc)
+            if "WATSONX_API_KEY" in error_msg:
+                raise DatasiftException(
+                    error_code=ErrorCode.INVALID_CONFIGURATION,
+                    message="api_key is required for watsonx provider",
+                ) from exc
+            raise DatasiftException(
+                error_code=ErrorCode.INVALID_CONFIGURATION,
+                message=f"Failed to initialize WatsonX client: {exc}",
+            ) from exc
 
         logger.info("Initialized WatsonxClassificationAdapter with model: %s", model_id)
-
-    def _get_access_token(self) -> str:
-        """Get or refresh IAM access token (thread-safe)."""
-        with self._token_lock:
-            if not self._access_token:
-                self._access_token = WatsonxPipelineOptionsProvider._get_iam_access_token(api_key=self.api_key)
-
-            if self._access_token is None:
-                raise DatasiftException(
-                    error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                    message="Failed to obtain Watsonx IAM access token",
-                )
-
-            return self._access_token
-
-    def _get_rest_client(self) -> RestClient:
-        """Get RestClient with fresh IAM token."""
-        access_token = self._get_access_token()
-        return RestClient(config=self._rest_config, auth_token=access_token)
-
-    def _call_watsonx_api(self, *, payload: dict[str, Any]) -> dict[str, Any]:
-        """Call Watsonx chat API with the given payload."""
-        rest_client = self._get_rest_client()
-        headers = {"Content-Type": "application/json", "Accept": "application/json"}
-        chat_url = f"{self.api_base}/ml/v1/text/chat"
-        params = {"version": "2023-10-25"}
-
-        logger.debug("Calling Watsonx text chat API with model: %s", self.model_id)
-        result = rest_client.call_rest_json(
-            method=RestMethod.POST,
-            endpoint=chat_url,
-            json_data=payload,
-            headers=headers,
-            params=params,
-            expected_status_codes=[200],
-        )
-
-        logger.debug("Watsonx API call completed successfully")
-        return result
 
     def classify_document(self, *, request: ClassificationRequest) -> ClassificationResponse:
         """Classify a document using Watsonx."""
@@ -154,47 +110,14 @@ class WatsonxClassificationAdapter(ClassificationServicePort):
                 {"role": "user", "content": prompt},
             ]
 
-            watsonx_messages = []
-            for msg in messages:
-                role = msg.get("role", "")
-                content = msg.get("content", "")
+            # Use WatsonX client for chat completion
+            content = self.client.chat(
+                messages=messages,
+                max_tokens=500,
+                temperature=0.0,
+            )
 
-                if role == "user":
-                    watsonx_messages.append({"role": role, "content": [{"type": "text", "text": content}]})
-                else:
-                    watsonx_messages.append({"role": role, "content": content})
-
-            payload = {
-                "model_id": self.model_id,
-                "messages": watsonx_messages,
-                "max_tokens": 500,
-                "temperature": 0.0,
-                "time_limit": self.request_timeout * 1000,
-            }
-
-            if self.container_kind and self.container_id:
-                payload[f"{self.container_kind}_id"] = self.container_id
-            else:
-                raise DatasiftException(
-                    error_code=ErrorCode.INVALID_CONFIGURATION,
-                    message="container_kind and container_id are required for watsonx provider",
-                )
-
-            result = self._call_watsonx_api(payload=payload)
-
-            choices = result.get("choices", [])
-            if not choices:
-                logger.error("No choices in Watsonx chat API response")
-                raise ValueError("No choices in Watsonx chat API response")
-
-            message = choices[0].get("message", {})
-            content = message.get("content", "")
-
-            if not content:
-                logger.error("Empty content in Watsonx chat API response")
-                raise ValueError("Empty response from Watsonx chat API")
-
-            logger.debug("Watsonx LLM response received (length=%d)", len(content) if content else 0)
+            logger.debug("WatsonX LLM response received (length=%d)", len(content) if content else 0)
 
             json_str = content
             if isinstance(content, str):
@@ -243,7 +166,6 @@ class WatsonxClassificationAdapter(ClassificationServicePort):
                 error=f"Invalid JSON response: {exc!s}",
             )
         except ExternalServiceError as exc:
-            self._access_token = None
             logger.error(f"Watsonx classification failed: {exc!s}")
             return ClassificationResponse(
                 document_type="unknown",
@@ -265,10 +187,10 @@ class WatsonxClassificationAdapter(ClassificationServicePort):
             )
 
     def get_model_info(self) -> dict[str, Any]:
-        """Get model information (excludes sensitive container_id)."""
+        """Get model information."""
         return {
             "model_id": self.model_id,
             "adapter": self.ADAPTER_NAME,
-            "api_base": self.api_base,
-            "container_kind": self.container_kind,
+            "api_base": self.client.api_base,
+            "container_kind": self.client.container_kind,
         }

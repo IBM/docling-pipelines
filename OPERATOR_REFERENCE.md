@@ -512,49 +512,54 @@ Uses hexagonal architecture (ports and adapters pattern):
 
 #### ExtractOperator
 
-**Purpose:** Unified extraction operator using hexagonal architecture with multiple adapters for text extraction (docling_library, docling_serve) and entity extraction (ollama, docling, litellm, none).
+**Purpose:** Unified extraction operator using hexagonal architecture with multiple adapters for text extraction (docling_library, docling_serve) and entity extraction (ollama, docling, litellm, watsonx, none).
 
 **Category:** Extract
 
 **Class:** `core.operators.extract.extract_operator.ExtractOperator`
 
-| Parameter                                                 | Type   | Required | Default                 | Description                                                                                       |
-| --------------------------------------------------------- | ------ | -------: | ----------------------- | ------------------------------------------------------------------------------------------------- |
-| `text_extraction_mode`                                    | string |       No | `docling_library`       | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API) |
-| `entity_extraction_mode`                                  | string |       No | `none`                  | Entity extraction mode: `ollama`, `docling`, `litellm`, or `none`                                 |
-| `doc_column`                                              | string |       No | `doc_content`           | Column name for storing extracted text content                                                    |
-| `output_column`                                           | string |       No | `entities`              | Column name for storing extracted entities                                                        |
-| `extract_tables`                                          | bool   |       No | `true`                  | Extract tables from documents (text extraction)                                                   |
-| `extract_images`                                          | bool   |       No | `true`                  | Extract images from documents (text extraction)                                                   |
-| `max_workers`                                             | int    |       No | auto                    | Maximum parallel workers (auto-detected based on CPU)                                             |
-| `use_processes`                                           | bool   |       No | `false`                 | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                     |
-| `expand_extracted_data`                                   | bool   |       No | `false`                 | Expand entity JSON into individual columns (entity extraction only)                               |
-| `custom_schema`                                           | object |       No | `{}`                    | Schema dictionary for structured extraction                                                       |
+| Parameter                                                 | Type   | Required | Default                   | Description                                                                                        |
+|-----------------------------------------------------------|--------|---------:|---------------------------|----------------------------------------------------------------------------------------------------|
+| `text_extraction_mode`                                    | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
+| `entity_extraction_mode`                                  | string |       No | `none`                    | Entity extraction mode: `ollama`, `docling`, `litellm`, `watsonx`, or `none`                       |
+| `doc_column`                                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
+| `output_column`                                           | string |       No | `entities`                | Column name for storing extracted entities                                                         |
+| `extract_tables`                                          | bool   |       No | `true`                    | Extract tables from documents (text extraction)                                                    |
+| `extract_images`                                          | bool   |       No | `true`                    | Extract images from documents (text extraction)                                                    |
+| `max_workers`                                             | int    |       No | auto                      | Maximum parallel workers (auto-detected based on CPU)                                              |
+| `use_processes`                                           | bool   |       No | `false`                   | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                      |
+| `expand_extracted_data`                                   | bool   |       No | `false`                   | Expand entity JSON into individual columns (entity extraction only)                                |
+| `custom_schema`                                           | object |       No | `{}`                      | Schema dictionary for structured extraction                                                        |
 | **VLM Parameters (docling_library mode)**                 |
-| `use_vlm_pipeline`                                        | bool   |       No | `false`                 | Enable VLM (Vision-Language Model) pipeline                                                       |
-| `vlm_preset`                                              | string |       No | `granite_docling`       | VLM preset name when VLM enabled                                                                  |
-| `vlm_engine_type`                                         | string |       No | `transformers`          | VLM engine: `transformers`, `mlx`, `api_*` variants                                               |
-| `vlm_provider_config`                                     | object |       No | `null`                  | Provider-specific VLM configuration                                                               |
+| `use_vlm_pipeline`                                        | bool   |       No | `false`                   | Enable VLM (Vision-Language Model) pipeline                                                        |
+| `vlm_preset`                                              | string |       No | `granite_docling`         | VLM preset name when VLM enabled                                                                   |
+| `vlm_engine_type`                                         | string |       No | `transformers`            | VLM engine: `transformers`, `mlx`, `api_*` variants                                                |
+| `vlm_provider_config`                                     | object |       No | `null`                    | Provider-specific VLM configuration                                                                |
 | **ASR Parameters (docling_library mode for audio/video)** |
-| `use_asr_pipeline`                                        | bool   |       No | `false`                 | Enable ASR (Automatic Speech Recognition) for audio/video files                                   |
-| `asr_model_name`                                          | string |       No | `whisper_turbo`         | ASR model name (e.g., `whisper_turbo`, `whisper_large`)                                           |
+| `use_asr_pipeline`                                        | bool   |       No | `false`                   | Enable ASR (Automatic Speech Recognition) for audio/video files                                    |
+| `asr_model_name`                                          | string |       No | `whisper_turbo`           | ASR model name (e.g., `whisper_turbo`, `whisper_large`)                                            |
 | **Docling Serve Parameters (docling_serve mode)**         |
-| `docling_serve_base_url`                                  | string |       No | `http://localhost:5001` | Docling Serve API endpoint                                                                        |
-| `docling_serve_api_key`                                   | string |       No | `null`                  | Optional API key for authentication                                                               |
-| `docling_serve_timeout`                                   | int    |       No | `300`                   | Request timeout in seconds                                                                        |
-| `docling_serve_do_ocr`                                    | bool   |       No | `true`                  | Enable OCR processing                                                                             |
-| `docling_serve_ocr_engine`                                | string |       No | `easyocr`               | OCR engine: `easyocr` or `tesseract`                                                              |
-| `docling_serve_pdf_backend`                               | string |       No | `dlparse_v2`            | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                                              |
+| `docling_serve_base_url`                                  | string |       No | `http://localhost:5001`   | Docling Serve API endpoint                                                                         |
+| `docling_serve_api_key`                                   | string |       No | `null`                    | Optional API key for authentication                                                                |
+| `docling_serve_timeout`                                   | int    |       No | `300`                     | Request timeout in seconds                                                                         |
+| `docling_serve_do_ocr`                                    | bool   |       No | `true`                    | Enable OCR processing                                                                              |
+| `docling_serve_ocr_engine`                                | string |       No | `easyocr`                 | OCR engine: `easyocr` or `tesseract`                                                               |
+| `docling_serve_pdf_backend`                               | string |       No | `dlparse_v2`              | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                                               |
 | **Ollama Entity Parameters (ollama mode)**                |
-| `entity_model_name`                                       | string |    Yes\* | `llama3.2`              | Ollama model name (\*required for ollama mode)                                                    |
-| `entity_temperature`                                      | float  |       No | `0.0`                   | Sampling temperature (0.0-1.0)                                                                    |
-| `entity_max_tokens`                                       | int    |       No | `4096`                  | Maximum response tokens                                                                           |
-| `entity_max_doc_chars`                                    | int    |       No | `8000`                  | Maximum document characters to send to LLM                                                        |
+| `entity_model_name`                                       | string |    Yes\* | `llama3.2`                | Ollama model name (\*required for ollama mode)                                                     |
+| `entity_temperature`                                      | float  |       No | `0.0`                     | Sampling temperature (0.0-1.0)                                                                     |
+| `entity_max_tokens`                                       | int    |       No | `4096`                    | Maximum response tokens                                                                            |
+| `entity_max_doc_chars`                                    | int    |       No | `8000`                    | Maximum document characters to send to LLM                                                         |
 | **LiteLLM Entity Parameters (litellm mode)**              |
-| `entity_model_name`                                       | string |    Yes\* | `gpt-3.5-turbo`         | LLM model identifier (\*required for litellm mode)                                                |
-| `entity_temperature`                                      | float  |       No | `0.0`                   | Sampling temperature                                                                              |
-| `entity_max_tokens`                                       | int    |       No | `2000`                  | Maximum response tokens                                                                           |
-| `entity_provider_config`                                  | object |       No | `{}`                    | Provider config with `api_key`, `api_base`                                                        |
+| `entity_model_name`                                       | string |    Yes\* | `gpt-3.5-turbo`           | LLM model identifier (\*required for litellm mode)                                                 |
+| `entity_temperature`                                      | float  |       No | `0.0`                     | Sampling temperature                                                                               |
+| `entity_max_tokens`                                       | int    |       No | `2000`                    | Maximum response tokens                                                                            |
+| `entity_provider_config`                                  | object |       No | `{}`                      | Provider config with `api_key`, `api_base`                                                         |
+| **WatsonX Entity Parameters (watsonx mode)**              |
+| `entity_model_name`                                       | string |    Yes\* | `ibm/granite-13b-chat-v2` | WatsonX model identifier (\*required for watsonx mode)                                             |
+| `entity_temperature`                                      | float  |       No | `0.0`                     | Sampling temperature                                                                               |
+| `entity_max_tokens`                                       | int    |       No | `2000`                    | Maximum response tokens                                                                            |
+| `entity_provider_config`                                  | object |    Yes\* | `{}`                      | Provider config with `api_key`, `container_id`, `api_base` (optional), `container_kind` (optional) |
 
 **Input Schema**
 
@@ -680,6 +685,33 @@ The operator provides the following metadata after execution:
 }
 ```
 
+**Example: Text + WatsonX Entity Extraction**
+
+```json
+{
+  "id": "extract-node",
+  "name": "extract",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "watsonx",
+    "entity_model_name": "ibm/granite-13b-chat-v2",
+    "entity_temperature": 0.0,
+    "entity_max_tokens": 2000,
+    "entity_provider_config": {
+      "api_key": "${WATSONX_API_KEY}",
+      "container_id": "${WATSONX_CONTAINER_ID}",
+      "api_base": "https://us-south.ml.cloud.ibm.com",
+      "container_kind": "project"
+    },
+    "custom_schema": {
+      "invoice_number": "string",
+      "total_amount": "float"
+    }
+  }
+}
+```
+
 **Example: Docling Template-Based Entity Extraction**
 
 ```json
@@ -705,7 +737,7 @@ The operator provides the following metadata after execution:
 
 - Uses hexagonal architecture (ports and adapters pattern)
 - Text extraction adapters: DoclingAdapter (docling_library), DoclingServeAdapter (docling_serve)
-- Entity extraction adapters: OllamaEntityAdapter (ollama), DoclingEntityAdapter (docling), LiteLLMEntityAdapter (litellm)
+- Entity extraction adapters: OllamaEntityAdapter (ollama), DoclingEntityAdapter (docling), LiteLLMEntityAdapter (litellm), WatsonxEntityAdapter (watsonx)
 - Supports independent text and entity extraction mode selection
 - Parallel processing with auto-optimized worker counts
 
@@ -714,13 +746,14 @@ The operator provides the following metadata after execution:
 - **Ollama** (for ollama entity mode): Server at `http://localhost:11434`, model pulled (e.g., `ollama pull llama3.2`)
 - **Docling Serve** (for docling_serve text mode): Service at configured URL (default `http://localhost:5001`)
 - **LiteLLM** (for litellm entity mode): API keys for chosen provider (OpenAI, Anthropic, etc.)
+- **WatsonX** (for watsonx entity mode): Environment variables `WATSONX_API_KEY`, `WATSONX_CONTAINER_ID`, optional `WATSONX_API_BASE_URL`, `WATSONX_CONTAINER_KIND`
 - **ffmpeg** (for audio/video processing): Required for M4A, AAC, OGG, FLAC audio formats and all video formats (MP4, AVI, MOV). Not required for WAV/MP3. Install: `brew install ffmpeg` (macOS) or `sudo apt install ffmpeg` (Linux)
 
 **Usage Notes**
 
 - Dual-mode operation: text and entity extraction in single operator
 - Text modes: `docling_library` (local, optional VLM) or `docling_serve` (remote API with OCR)
-- Entity modes: `ollama` (local LLM), `litellm` (100+ providers), `docling` (template-based), `none` (default)
+- Entity modes: `ollama` (local LLM), `litellm` (100+ providers), `watsonx` (IBM WatsonX.ai), `docling` (template-based), `none` (default)
 - VLM pipeline (docling_library mode) enhances extraction for complex documents
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
 - **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured

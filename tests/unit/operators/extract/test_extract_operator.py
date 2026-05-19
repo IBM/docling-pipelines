@@ -16,6 +16,34 @@ from datasift.core.constants.operator_constants import OperatorConstants
 # Path setup is now automatic via conftest.py
 
 
+@pytest.fixture(autouse=True)
+def cleanup_after_test():
+    """Module-local autouse fixture for memory cleanup after each test."""
+    import gc
+
+    yield
+
+    # Explicit garbage collection after each test
+    gc.collect()
+
+    # Clear safe repository-owned caches/singletons if present
+    try:
+        from datasift.integrations.docling.client import DoclingClient
+
+        if hasattr(DoclingClient, "_instance"):
+            DoclingClient._instance = None
+    except (ImportError, AttributeError):
+        pass
+
+    try:
+        from datasift.integrations.ollama.client import OllamaClient
+
+        if hasattr(OllamaClient, "_instance"):
+            OllamaClient._instance = None
+    except (ImportError, AttributeError):
+        pass
+
+
 @pytest.mark.unit
 def test_extract_operator_docling_library_mode(sample_pdf_files):
     """Test the ExtractOperator with docling_library text extraction mode."""
@@ -546,6 +574,7 @@ def test_extract_operator_asr_with_entity_extraction():
         # Verify both ASR and entity extraction are configured
         assert operator.text_extraction_mode.value == "docling_library"
         assert operator.entity_extraction_mode.value == "ollama"
+
 
 @pytest.mark.unit
 def test_extract_operator_expand_extracted_data():
@@ -1501,6 +1530,7 @@ def test_extract_operator_prefers_path_only_input_without_binary_content(
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     test_file = sample_pdf_files[0]
+
     table = pa.table(
         {
             "path": [str(test_file)],
@@ -1515,6 +1545,7 @@ def test_extract_operator_prefers_path_only_input_without_binary_content(
             "doc_column": "doc_content",
             "extract_tables": False,
             "extract_images": False,
+            "max_workers": 1,  # Reduce worker count to minimize memory overhead
         }
     )
     result_tables, metadata = operator.transform(table=table)

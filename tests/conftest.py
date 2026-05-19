@@ -147,19 +147,30 @@ def empty_pyarrow_table():
 
 
 @pytest.fixture
-def sample_pdf_files(fixtures_invoices_dir):
+def sample_pdf_files(fixtures_invoices_dir, tmp_path):
     """
-    Return a list of sample PDF files from fixtures.
-    Skips test if no PDF files are found.
+    Return lightweight sample PDF files for tests.
+
+    Copies fixture PDFs into a per-test temporary directory and truncates the
+    returned list to a single file to avoid repeated large in-memory payloads
+    across extract tests. This preserves the existing single test module while
+    reducing memory pressure from Docling-based conversions.
     """
     if not fixtures_invoices_dir.exists():
         pytest.skip(f"Fixtures directory not found: {fixtures_invoices_dir}")
 
-    pdf_files = list(fixtures_invoices_dir.glob("*.pdf"))
+    pdf_files = sorted(fixtures_invoices_dir.glob("*.pdf"))
     if not pdf_files:
         pytest.skip(f"No PDF files found in {fixtures_invoices_dir}")
 
-    return pdf_files
+    selected_files = pdf_files[:1]
+    copied_files = []
+    for source_file in selected_files:
+        target_file = tmp_path / source_file.name
+        shutil.copy2(source_file, target_file)
+        copied_files.append(target_file)
+
+    return copied_files
 
 
 @pytest.fixture
@@ -265,6 +276,39 @@ def cleanup_test_document_sets():
             conn.close()
         except Exception:
             pass  # Ignore errors if database doesn't exist or is locked
+
+
+# ============================================================================
+# Cache Cleanup Fixtures
+# ============================================================================
+
+
+@pytest.fixture(autouse=True)
+def clear_singleton_caches():
+    """
+    Clear singleton caches before each test to prevent memory leaks.
+
+    The LRUCache class uses Singleton pattern, which means all instances
+    share the same cache. This can cause memory accumulation across tests,
+    leading to OOM kills in CI environments. This fixture ensures caches
+    are cleared between tests.
+    """
+    yield  # Run test first
+
+    # Clear LRUCache singleton after each test
+    try:
+        from datasift.utils.core.patterns import Singleton
+        from datasift.utils.infrastructure.caching import LRUCache
+
+        # Access the singleton instance if it exists
+        if LRUCache in Singleton._instances:
+            cache_instance = Singleton._instances[LRUCache]
+            # Type guard: verify it's actually an LRUCache instance
+            if isinstance(cache_instance, LRUCache) and hasattr(cache_instance, "clear"):
+                cache_instance.clear()
+    except (ImportError, AttributeError, KeyError):
+        # If cache doesn't exist or can't be cleared, that's fine
+        pass
 
 
 # ============================================================================

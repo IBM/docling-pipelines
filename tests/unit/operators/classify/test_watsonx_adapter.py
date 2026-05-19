@@ -73,7 +73,7 @@ class TestWatsonxClassificationAdapter:
 
         with (
             patch(
-                "datasift.integrations.docling.vlm_pipeline_options_provider.WatsonxPipelineOptionsProvider._get_iam_access_token",
+                "datasift.utils.infrastructure.iam_token_manager.IAMTokenManager.get_token",
                 return_value="test-token",
             ),
             patch(
@@ -100,8 +100,8 @@ class TestWatsonxClassificationAdapter:
             "document_types": ["invoice", "receipt"],
         }
 
-        # Missing WATSONX_API_KEY environment variable
-        with pytest.raises(DatasiftException, match="api_key is required for watsonx provider"):
+        # Missing container_kind in provider_config
+        with pytest.raises(DatasiftException, match="container_kind is required for watsonx provider"):
             DocumentClassifierOperator(config)
 
     def test_watsonx_adapter_with_space_container(self, monkeypatch):
@@ -157,7 +157,7 @@ class TestWatsonxClassificationAdapter:
 
         with (
             patch(
-                "datasift.integrations.docling.vlm_pipeline_options_provider.WatsonxPipelineOptionsProvider._get_iam_access_token",
+                "datasift.utils.infrastructure.iam_token_manager.IAMTokenManager.get_token",
                 return_value="test-token",
             ),
             patch(
@@ -300,7 +300,7 @@ class TestWatsonxClassificationAdapter:
 
         with (
             patch(
-                "datasift.integrations.docling.vlm_pipeline_options_provider.WatsonxPipelineOptionsProvider._get_iam_access_token",
+                "datasift.utils.infrastructure.iam_token_manager.IAMTokenManager.get_token",
                 return_value="test-token",
             ),
             patch(

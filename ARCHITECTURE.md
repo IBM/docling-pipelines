@@ -60,7 +60,7 @@ This architectural diversity is a deliberate design choice that supports the fra
 | **Data Processing**     | PyArrow                                                                                                                                   |
 | **Storage**             | DuckDB (metadata and tables), Filesystem (metadata only)                                                                                  |
 | **Document Processing** | Docling (with ASR support for audio/video via ffmpeg)                                                                                     |
-| **LLM Integration**     | Ollama, LiteLLM (unified interface supporting 100+ LLM providers including OpenAI, Anthropic, Google, AWS Bedrock, and more), HuggingFace |
+| **LLM Integration**     | Ollama, Watsonx.ai, LiteLLM (unified interface supporting 100+ LLM providers including OpenAI, Anthropic, Google, AWS Bedrock, and more), HuggingFace |
 | **Vector Storage**      | OpenSearch, NMSLIB, Faiss                                                                                                                 |
 | **Language Detection**  | FastText, langdetect                                                                                                                      |
 | **Web Framework**       | FastAPI (optional)                                                                                                                        |
@@ -1466,7 +1466,85 @@ graph TB
 }
 ```
 
-### 2. OpenSearch Integration Architecture
+### 2. Watsonx.ai Integration Architecture
+
+```mermaid
+graph TB
+    subgraph "Datasift Operators"
+        EXT[ExtractOperator]
+        DC[DocumentClassifier]
+    end
+
+    subgraph "Client Layer"
+        WC[WatsonxClient]
+        WEA[WatsonxEntityAdapter]
+        WCA[Watsonx Classification Adapter]
+    end
+
+    subgraph "IBM watsonx.ai"
+        IAM[IBM Cloud IAM]
+        API[watsonx.ai API]
+        M1[ibm/granite-13b-chat-v2]
+        M2[ibm/granite-3-8b-instruct]
+        M3[Other hosted models]
+    end
+
+    EXT --> WEA
+    DC --> WCA
+    WEA --> WC
+    WCA --> WC
+    WC --> IAM
+    WC --> API
+    API --> M1
+    API --> M2
+    API --> M3
+
+    style EXT fill:#ffe1e1
+    style DC fill:#e6ffe6
+    style WC fill:#fff4e1
+    style API fill:#e1f5ff
+    style IAM fill:#e1f5ff
+```
+
+**Integration Points:**
+
+1. **Entity Extraction**: Uses Watsonx.ai for LLM-based entity extraction in `ExtractOperator`
+2. **Document Classification**: Uses Watsonx.ai for category classification in `DocumentClassifier`
+3. **Authentication**: IBM Cloud IAM token flow using `WATSONX_API_KEY`
+4. **Configuration**: `provider_config` carries non-sensitive settings such as `api_base`, `container_kind`, and `request_timeout`
+5. **Container Targeting**: Requests are scoped to a project or deployment space via `WATSONX_CONTAINER_ID`
+6. **Error Handling**: Client-managed retries, timeout control, and provider error normalization
+
+**Required Environment Variables:**
+
+- `WATSONX_API_KEY`: IBM Cloud API key used to obtain IAM access tokens
+- `WATSONX_CONTAINER_ID`: Watsonx.ai project ID or space ID
+- `WATSONX_API_BASE_URL`: Optional API base URL such as `https://us-south.ml.cloud.ibm.com`
+- `WATSONX_CONTAINER_KIND`: Optional container type, defaults to `project`
+
+**Supported Models:**
+
+- **IBM Granite**: Hosted Granite chat and instruct models such as `ibm/granite-13b-chat-v2`
+- **Other watsonx.ai models**: Any compatible model exposed through the configured watsonx.ai deployment
+
+**Example Configuration:**
+
+```json
+{
+  "operator_type": "ExtractOperator",
+  "operator_params": {
+    "entity_extraction_mode": "watsonx",
+    "model_name": "ibm/granite-13b-chat-v2",
+    "provider_config": {
+      "api_base": "https://us-south.ml.cloud.ibm.com",
+      "container_kind": "project",
+      "request_timeout": 60
+    }
+  }
+}
+```
+
+### 3. OpenSearch Integration Architecture
 
 ```mermaid
 graph TB
@@ -2101,9 +2179,9 @@ graph TB
 }
 ```
 
-### 4. DocumentClassifier Pattern
+### 5. DocumentClassifier Pattern
 
-The DocumentClassifier operator uses **hexagonal architecture** (ports and adapters pattern) to classify documents into predefined categories using Large Language Models. It supports multiple LLM providers through a unified interface.
+The DocumentClassifier operator uses **hexagonal architecture** (ports and adapters pattern) to classify documents into predefined categories using Large Language Models. It supports multiple LLM providers through a unified interface, including IBM watsonx.ai.
 
 **Typical Workflow Position:**
 
@@ -2152,7 +2230,7 @@ graph LR
         ┌────────────────┼────────────────┐
         ▼                ▼                ▼
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│   Ollama     │  │   LiteLLM    │  │   Watsonx    │
+│   Ollama     │  │   LiteLLM    │  │  Watsonx.ai  │
 │   Adapter    │  │   Adapter    │  │   Adapter    │
 └──────────────┘  └──────────────┘  └──────────────┘
 ```
@@ -2160,7 +2238,7 @@ graph LR
 **Classification Features:**
 
 1. **LLM-Based Classification**: Uses Large Language Models for intelligent document classification
-2. **Multi-Provider Support**: Ollama, LiteLLM (100+ providers), and IBM Watsonx.ai
+2. **Multi-Provider Support**: Ollama, LiteLLM (100+ providers), and IBM watsonx.ai
 3. **Hexagonal Architecture**: Clean separation between business logic and infrastructure
 4. **Confidence Scoring**: 1-10 scale confidence scores for each classification
 5. **Reasoning Output**: Optional explanations for classification decisions
@@ -2170,7 +2248,7 @@ graph LR
 
 - **Ollama**: Local LLM deployment for privacy-focused classification
 - **LiteLLM**: Unified interface for 100+ providers (OpenAI, Anthropic, Azure, AWS Bedrock, Google, etc.)
-- **Watsonx**: IBM enterprise LLM platform
+- **Watsonx**: IBM watsonx.ai enterprise LLM platform
 
 **Example Configuration:**
 
@@ -2210,7 +2288,14 @@ graph LR
 - Enrich metadata with document type information
 - Enable type-specific chunking or embedding strategies
 
-### 5. External Service Pattern
+**Watsonx.ai Configuration Notes:**
+
+- **Authentication**: IAM token-based authentication using `WATSONX_API_KEY`
+- **Container Targeting**: Set `WATSONX_CONTAINER_ID` to a project ID or space ID
+- **Optional Overrides**: Use `WATSONX_API_BASE_URL` and `WATSONX_CONTAINER_KIND` when the default region or container type is not appropriate
+- **Non-Sensitive Settings**: Keep runtime options such as `api_base`, `container_kind`, and `request_timeout` in `provider_config`
+
+### 6. External Service Pattern
 
 **Common Pattern for All Integrations:**
 
@@ -3981,8 +4066,9 @@ Operators are organized by category (defined in `OperatorCategory` enum):
     - `ollama`: LLM-based entity extraction using Ollama models
     - `docling`: Template-based entity extraction using Docling templates
     - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
+    - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models
     - `none`: No entity extraction (default)
-  - **Adapters**: DoclingAdapter, DoclingServeAdapter (text); OllamaEntityAdapter, DoclingEntityAdapter, LiteLLMEntityAdapter (entity)
+  - **Adapters**: DoclingAdapter, DoclingServeAdapter (text); OllamaEntityAdapter, DoclingEntityAdapter, LiteLLMEntityAdapter, WatsonxEntityAdapter (entity)
   - **Configuration**: Supports both text and entity extraction in a single operator with independent mode selection
 
 #### Ingest Operators (`ingest/`)
@@ -4006,7 +4092,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 
 #### Quality Operators (`quality/`)
 
-- **DocumentClassifier**: LLM-based document classification (hexagonal architecture with Ollama, LiteLLM, and Watsonx adapters)
+- **DocumentClassifier**: LLM-based document classification (hexagonal architecture with Ollama, LiteLLM, and Watsonx.ai adapters)
 - **Dedup**: Deduplication
 - **DocQuality**: Document quality assessment using dpk_doc_quality (word count, mean word length, symbol ratios, bad words, etc.)
 - **MLEnrichment**: ML-based enrichment

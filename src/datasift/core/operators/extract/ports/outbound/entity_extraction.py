@@ -282,6 +282,7 @@ class EntityExtractionPort(ABC):
 
             if result[OperatorConstants.Extraction.SUCCESS]:
                 entities_list[idx] = result[OperatorConstants.Misc.ENTITIES]
+                logger.debug("Extracted entities for document %s:\n %s", task["doc_name"], entities_list[idx])
                 if content_list is not None and result.get(OperatorConstants.Columns.DOC_COLUMN, None):
                     content_list[idx] = result[OperatorConstants.Columns.DOC_COLUMN]
                 # Increment processed count

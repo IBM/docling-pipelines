@@ -189,8 +189,9 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
     - `ollama`: LLM-based entity extraction using Ollama models
     - `docling`: Template-based entity extraction using Docling templates
     - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
-  - Includes estimated page count output and aggregate page metadata
+    - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models
     - `none`: No entity extraction (default)
+  - Includes estimated page count output and aggregate page metadata
   - Supports dual-mode operation: text and entity extraction in a single operator
 
 ### Chunking Operators
@@ -265,6 +266,7 @@ datasift-opensource/
 │   │   └── job_management/   # Job tracking
 │   ├── integrations/          # External service integrations
 │   │   ├── ollama/           # Ollama LLM integration
+│   │   ├── watsonx/          # IBM watsonx.ai integration
 │   │   ├── docling/          # Docling document processing
 │   │   └── litellm/          # LiteLLM multi-provider
 │   ├── storage/               # Storage backends

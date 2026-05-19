@@ -25,6 +25,7 @@ class EntityExtractionMode(StrEnum):
     OLLAMA = OperatorConstants.ExtractionModes.ENTITY_MODE_OLLAMA
     DOCLING = OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING
     LITELLM = OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM
+    WATSONX = OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX
     NONE = OperatorConstants.ExtractionModes.ENTITY_MODE_NONE
 
 

@@ -19,6 +19,9 @@ from datasift.core.operators.extract.adapters.outbound.entity_extraction.litellm
 from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
     OllamaEntityAdapter,
 )
+from datasift.core.operators.extract.adapters.outbound.entity_extraction.watsonx_entity_adapter import (
+    WatsonXEntityAdapter,
+)
 from datasift.core.operators.extract.domain import EntityExtractionMode
 from datasift.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from datasift.utils.infrastructure.logging import get_logger
@@ -36,6 +39,7 @@ class EntityExtractionAdapterFactory:
         - "ollama": LLM-based extraction using Ollama models
         - "docling": Template-based extraction using Docling templates
         - "litellm": Multi-provider LLM extraction using LiteLLM
+        - "watsonx": IBM watsonx.ai LLM extraction
         - "none": No entity extraction
 
     Example Usage:
@@ -136,6 +140,33 @@ class EntityExtractionAdapterFactory:
                 }
             )
 
+        elif mode == EntityExtractionMode.WATSONX:
+            # Extract provider-specific configuration
+            entity_provider_config = operator_config.get("entity_provider_config", {})
+            adapter_config.update(
+                {
+                    OperatorConstants.Config.MODEL_NAME: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME
+                    ),
+                    OperatorConstants.LLM.TEMPERATURE: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0
+                    ),
+                    OperatorConstants.LLM.MAX_TOKENS: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 4096
+                    ),
+                    OperatorConstants.LLM.MAX_DOC_CHARS: operator_config.get(
+                        OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS, 8000
+                    ),
+                    OperatorConstants.Config.API_BASE: entity_provider_config.get(OperatorConstants.Config.API_BASE),
+                    OperatorConstants.Config.CONTAINER_KIND: entity_provider_config.get(
+                        OperatorConstants.Config.CONTAINER_KIND
+                    ),
+                    OperatorConstants.Config.REQUEST_TIMEOUT: entity_provider_config.get(
+                        OperatorConstants.Config.REQUEST_TIMEOUT, 120
+                    ),
+                }
+            )
+
         elif mode == EntityExtractionMode.DOCLING:
             # Docling mode uses default configuration
             pass
@@ -194,6 +225,14 @@ class EntityExtractionAdapterFactory:
             )
             return LiteLLMEntityAdapter(config=full_config)
 
+        elif mode == OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX:
+            logger.info(
+                "Creating WatsonXEntityAdapter with model: %s and %s workers",
+                adapter_config.get(OperatorConstants.Config.MODEL_NAME),
+                max_workers,
+            )
+            return WatsonXEntityAdapter(config=full_config)
+
         elif mode == OperatorConstants.ExtractionModes.ENTITY_MODE_NONE:
             logger.info("Entity extraction disabled (mode='none')")
             return None
@@ -214,5 +253,6 @@ class EntityExtractionAdapterFactory:
             OperatorConstants.ExtractionModes.ENTITY_MODE_OLLAMA,
             OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING,
             OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM,
+            OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX,
             OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
         ]
