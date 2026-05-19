@@ -3,7 +3,7 @@
   "description": "Crawl web pages, extract content using Docling, chunk text, generate embeddings using Ollama, and store in OpenSearch. The ingest_source operator with web adapter crawls specified URLs. Requires Ollama running locally with the specified model.",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

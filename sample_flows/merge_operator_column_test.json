@@ -2,7 +2,7 @@
   "flow_name": "merge-operator-column-test",
   "description": "Test MergeOperator with column merge (join) using NOOP operators",
   "global_config": {
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -14,7 +14,6 @@
       "config": {
         "input_folder": "./tests/fixtures/customer_support_docs",
         "include_filter": "txt",
-        "store_binary_content": false,
         "max_workers": 2
       }
     },

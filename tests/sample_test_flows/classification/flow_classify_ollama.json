@@ -3,7 +3,7 @@
   "description": "a flow to classify documents using IBM Watsonx.ai after extraction",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "storage": "in-memory",
     "force_ingest": true,
     "execute_type": "local"

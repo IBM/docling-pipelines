@@ -3,7 +3,7 @@
   "description": "a flow to classify documents using Ollama LLM after extraction",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

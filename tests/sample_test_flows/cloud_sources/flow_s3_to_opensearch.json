@@ -3,7 +3,7 @@
   "description": "Ingest documents from AWS S3 bucket, chunk text, generate embeddings using Ollama, and store in OpenSearch. Requires Ollama running locally with the specified model.",
   "global_config": {
     "doc_column": "text",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

@@ -3,7 +3,7 @@
   "description": "UI copy of flow_invoice_entities_expanded: extracts structured invoice entities using Ollama LLM with expand_extracted_data, then chunks and stores in OpenSearch. input_folder is fixed to the UI uploaded_files directory.",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

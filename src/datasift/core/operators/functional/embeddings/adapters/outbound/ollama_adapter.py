@@ -36,7 +36,7 @@ class OllamaLLMAdapter(LLMServicePort):
             model_name: Ollama model name (e.g., 'granite4', 'llama3.2', 'nomic-embed-text')
             **adapter_config: Additional configuration:
                 - host: Ollama server URL (optional, defaults to OLLAMA_HOST env var or http://localhost:11434)
-                - max_concurrent: Maximum concurrent requests for batch embeddings (default: 8)
+                - max_concurrent_requests: Maximum concurrent requests for batch embeddings (default: 8)
                 - timeout: Timeout in seconds for API calls (optional)
                 - validate_model: Whether to validate model availability on initialization (default: true)
         """
@@ -44,8 +44,8 @@ class OllamaLLMAdapter(LLMServicePort):
 
         # Extract parameters from adapter_config
         host = adapter_config.get("host")
-        max_concurrent = adapter_config.get(
-            OperatorConstants.Config.MAX_CONCURRENT, ServiceConstants.DEFAULT_OLLAMA_MAX_CONCURRENT
+        max_concurrent_requests = adapter_config.get(
+            OperatorConstants.Config.MAX_CONCURRENT_REQUESTS, ServiceConstants.DEFAULT_OLLAMA_MAX_CONCURRENT_REQUESTS
         )
         timeout = adapter_config.get("timeout")
         validate_model = adapter_config.get("validate_model", True)
@@ -54,7 +54,7 @@ class OllamaLLMAdapter(LLMServicePort):
             model_name=model_name,
             host=host,
             mode=InteractionMode.EMBEDDINGS,
-            max_concurrent=max_concurrent,
+            max_concurrent_requests=max_concurrent_requests,
             timeout=timeout,
             validate_model=validate_model,
         )

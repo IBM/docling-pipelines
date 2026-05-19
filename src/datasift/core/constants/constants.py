@@ -260,7 +260,7 @@ class ServiceConstants:
 
     # Ollama service configuration
     DEFAULT_OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    DEFAULT_OLLAMA_MAX_CONCURRENT = 8  # Maximum concurrent requests for batch processing
+    DEFAULT_OLLAMA_MAX_CONCURRENT_REQUESTS = 8  # Maximum concurrent requests for batch processing
 
     # Embeddings batch processing
     DEFAULT_EMBEDDINGS_BATCH_SIZE = 32  # Default batch size for embeddings generation

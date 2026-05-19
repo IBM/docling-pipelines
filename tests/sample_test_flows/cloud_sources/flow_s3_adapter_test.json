@@ -3,7 +3,7 @@
   "description": "Test S3 adapter with hexagonal architecture - ingest documents from AWS S3 bucket using the new adapter pattern",
   "global_config": {
     "doc_column": "text",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

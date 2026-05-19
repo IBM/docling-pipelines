@@ -113,7 +113,7 @@ The Language Detection operator automatically detects the language of document c
     "description": "Pipeline: ingest → extract → language detection",
     "global_config": {
       "doc_column": "content",
-      "disable_validation": "true",
+      "disable_validation": true,
       "storage": "in-memory",
       "execute_type": "local",
       "force_ingest": true

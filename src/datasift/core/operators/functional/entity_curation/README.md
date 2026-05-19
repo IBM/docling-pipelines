@@ -39,7 +39,7 @@ Here's a complete working example:
   "description": "A flow to classify documents, extract entities with Ollama, and curate them using document schemas",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "output_folder": "./tests/fixtures/invoices",
     "storage": "disk",

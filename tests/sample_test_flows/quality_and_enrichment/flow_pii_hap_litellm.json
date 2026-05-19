@@ -3,7 +3,7 @@
   "description": "Test PII detection using LiteLLM adapter with OpenAI GPT-4",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true
   },
   "flow": [

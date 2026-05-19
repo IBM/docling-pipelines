@@ -3,7 +3,7 @@
   "description": "A flow to classify documents using LiteLLM with Ollama's OpenAI-compatible API endpoint",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "disk",
     "output_folder": "./tests/fixtures/invoices/",

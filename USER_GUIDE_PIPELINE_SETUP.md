@@ -830,7 +830,7 @@ DataSift pipelines are defined using JSON configuration files. Let's understand 
   "description": "Complete document processing pipeline",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -1773,7 +1773,7 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
         "description": "Inline flow for document processing",
         "global_config": {
             "doc_column": "content",
-            "disable_validation": "true",
+            "disable_validation": true,
             "force_ingest": True,
             "storage": "in-memory",
             "execute_type": "local"

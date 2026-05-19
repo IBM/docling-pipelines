@@ -3,7 +3,7 @@
   "description": "A simple flow to demonstrate ingesting and extracting documents",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "enable_micro_batching": true,
     "micro_batch_size": 5

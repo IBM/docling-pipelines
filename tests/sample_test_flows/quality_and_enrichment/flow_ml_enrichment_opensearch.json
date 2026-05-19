@@ -3,7 +3,7 @@
   "description": "Complete pipeline: ingest → extract → language detection → ML enrichment → embeddings → OpenSearch indexing",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": false,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

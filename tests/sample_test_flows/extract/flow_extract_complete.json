@@ -3,7 +3,7 @@
   "description": "Complete extraction pipeline with text, entities, chunking, and embeddings",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": true,
+    "disable_validation": false,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -77,7 +77,7 @@
         "embeddings_column": "embeddings",
         "provider_config": {
           "host": "http://localhost:11434",
-          "max_concurrent": 10
+          "max_concurrent_requests": 10
         }
       },
       "depends_on": [

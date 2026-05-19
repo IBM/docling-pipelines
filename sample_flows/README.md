@@ -233,7 +233,7 @@ Add logging to see detailed execution:
 ```json
 "global_config": {
   "doc_column": "content",
-  "disable_validation": "false",  // Enable validation
+  "disable_validation": false,  // Enable validation
   "force_ingest": true,
   "log_level": "DEBUG"            // Add debug logging
 }

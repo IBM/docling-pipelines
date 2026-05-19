@@ -461,9 +461,13 @@ class FlowValidator:
             available_features.update(validate_results.available_features.get(parent_id, []))
 
         executor = self.orchestrator.create_executor(op_def=op_def, global_config=global_config)
-        new_features = set(
-            op_def.get(OperatorConstants.Config.CONFIG, {}).get(OperatorConstants.Config.INPUT_FEATURES, {}).keys()
-        )
+        operator = executor.get_operator()
+
+        # Get features that this operator produces from its metadata
+        # This is the authoritative source for what columns an operator will produce
+        operator_metadata = operator.get_metadata()
+        operator_features = operator_metadata.get(OperatorConstants.Config.FEATURES, {})
+        new_features = set(operator_features.keys())
 
         all_features = list(available_features.union(new_features))
         validate_results.available_features[node_id] = all_features

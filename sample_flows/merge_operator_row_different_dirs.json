@@ -2,7 +2,7 @@
   "flow_name": "merge-operator-row-different-dirs",
   "description": "Test row merge with documents from two different directories",
   "global_config": {
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -14,7 +14,6 @@
       "config": {
         "input_folder": "./tests/fixtures/invoices",
         "include_filter": "txt,md",
-        "store_binary_content": false,
         "max_workers": 2
       }
     },
@@ -24,7 +23,6 @@
       "config": {
         "input_folder": "./tests/fixtures/purchase_orders",
         "include_filter": "txt",
-        "store_binary_content": false,
         "max_workers": 2
       }
     },

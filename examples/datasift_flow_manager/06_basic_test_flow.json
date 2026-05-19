@@ -3,7 +3,7 @@
   "description": "Basic flow to test ingest, extract, chunk, and embeddings",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "storage": "in-memory",
     "execute_type": "local",
     "force_ingest": true

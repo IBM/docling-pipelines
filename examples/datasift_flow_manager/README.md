@@ -179,7 +179,7 @@ Flow JSON files accept the flow definition at the root level (no nested "flow" k
   "description": "Flow description",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

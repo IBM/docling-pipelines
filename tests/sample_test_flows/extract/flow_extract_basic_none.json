@@ -3,7 +3,7 @@
   "description": "Basic text extraction using Docling with table and image extraction",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "false",
+    "disable_validation": false,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

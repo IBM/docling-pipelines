@@ -3,7 +3,7 @@
   "description": "A complete test flow demonstrating OpenSearch operator integration with ingest, chunking, and embeddings",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "false",
+    "disable_validation": false,
     "force_ingest": true,
     "enable_micro_batching": true,
     "micro_batch_size": 10,

@@ -316,7 +316,7 @@ class TestOllamaAdapterBackwardCompatibility:
         adapter = OllamaLLMAdapter(
             model_name="nomic-embed-text",
             host="http://custom-host:11434",
-            max_concurrent=16,
+            max_concurrent_requests=16,
             timeout=30.0,
             validate_model=False,
         )
@@ -327,7 +327,7 @@ class TestOllamaAdapterBackwardCompatibility:
 
         assert call_kwargs["model_name"] == "nomic-embed-text"
         assert call_kwargs["host"] == "http://custom-host:11434"
-        assert call_kwargs["max_concurrent"] == 16
+        assert call_kwargs["max_concurrent_requests"] == 16
         assert call_kwargs["timeout"] == 30.0
         assert call_kwargs["validate_model"] is False
         assert call_kwargs["mode"] == InteractionMode.EMBEDDINGS

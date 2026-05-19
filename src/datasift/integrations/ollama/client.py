@@ -86,7 +86,7 @@ class OllamaClient(BaseLLMClient):
         system_prompt: str | None = None,
         validate_model: bool = True,
         timeout: float | None = None,
-        max_concurrent: int = ServiceConstants.DEFAULT_OLLAMA_MAX_CONCURRENT,
+        max_concurrent_requests: int = ServiceConstants.DEFAULT_OLLAMA_MAX_CONCURRENT_REQUESTS,
         **kwargs,
     ):
         """
@@ -99,7 +99,7 @@ class OllamaClient(BaseLLMClient):
             system_prompt: Optional system-level instructions for chat mode
             validate_model: Whether to validate model availability on initialization
             timeout: Timeout in seconds for API calls (default: None, no timeout)
-            max_concurrent: Maximum number of concurrent requests for batch embeddings (default: 8)
+            max_concurrent_requests: Maximum number of concurrent requests for batch embeddings (default: 8)
             **kwargs: Additional configuration parameters
 
         Raises:
@@ -112,10 +112,10 @@ class OllamaClient(BaseLLMClient):
         self.mode = mode if isinstance(mode, InteractionMode) else InteractionMode(mode)
         self.system_prompt = system_prompt
         self.timeout = timeout
-        self.max_concurrent = max_concurrent
+        self.max_concurrent_requests = max_concurrent_requests
 
         logger.info(
-            f"Initialized OllamaClient: host={self.host}, model={model_name}, mode={self.mode.value}, max_concurrent={max_concurrent}"
+            f"Initialized OllamaClient: host={self.host}, model={model_name}, mode={self.mode.value}, max_concurrent_requests={max_concurrent_requests}"
         )
 
         if validate_model:
@@ -408,7 +408,7 @@ class OllamaClient(BaseLLMClient):
         Since Ollama doesn't have native batch support, this method uses
         concurrent requests to improve throughput by 20-30%.
 
-        The number of concurrent requests is configured via max_concurrent
+        The number of concurrent requests is configured via max_concurrent_requests
         parameter during client initialization (default: 8).
 
         Args:
@@ -441,7 +441,7 @@ class OllamaClient(BaseLLMClient):
         client = ollama.Client(host=self.host, trust_env=False)
 
         # Limit concurrency to avoid overwhelming Ollama server
-        max_workers = self.max_concurrent
+        max_workers = self.max_concurrent_requests
         all_embeddings: list[list[float] | None] = [None] * len(texts)  # Pre-allocate list
         lock = threading.Lock()
 

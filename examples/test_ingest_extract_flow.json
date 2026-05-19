@@ -3,7 +3,7 @@
   "description": "A simple flow demonstrating document ingestion and extraction using Docling",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

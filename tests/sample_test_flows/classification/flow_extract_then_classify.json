@@ -3,7 +3,7 @@
   "description": "A flow to extract content with Docling first, then classify documents",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "output_folder": "./output",
     "storage": "disk",

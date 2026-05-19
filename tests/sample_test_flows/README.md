@@ -308,7 +308,7 @@ Enable detailed logging:
 
 ```json
 "global_config": {
-  "disable_validation": "false",
+  "disable_validation": false,
   "log_level": "DEBUG"
 }
 ```
@@ -322,7 +322,7 @@ Enable detailed logging:
 ```json
 "global_config": {
   "doc_column": "content",              // Default document column name
-  "disable_validation": "true",         // Skip validation for faster execution
+  "disable_validation": true,           // Skip validation for faster execution
   "force_ingest": true,                 // Force re-ingestion of documents
   "enable_micro_batching": true,        // Enable batch processing
   "micro_batch_size": 10                // Batch size for processing

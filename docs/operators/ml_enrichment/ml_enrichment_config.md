@@ -140,7 +140,7 @@ The operator computes exactly 30 text quality metrics as defined in `DEFAULT_TEX
 
     "global_config": {
       "doc_column": "content",
-      "disable_validation": "false",
+      "disable_validation": false,
       "force_ingest": true,
       "enable_micro_batching": true,
       "micro_batch_size": 10

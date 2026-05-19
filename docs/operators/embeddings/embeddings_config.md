@@ -106,7 +106,7 @@ The Embeddings Operator generates vector embeddings for text content using vario
 **Required:** No
 **Description:** Provider-specific configuration parameters for the embedding provider.
 
-**Note:** Ollama uses `max_concurrent` for controlling concurrent API calls, while other providers (HuggingFace, LiteLLM, Watsonx) use `batch_size` for grouping texts in batch API calls.
+**Note:** Ollama uses `max_concurrent_requests` for controlling concurrent API calls, while other providers (HuggingFace, LiteLLM, Watsonx) use `batch_size` for grouping texts in batch API calls.
 
 **For HuggingFace:**
 - `api_token` (String, Optional): HuggingFace API token (or use HF_TOKEN env var)
@@ -122,7 +122,7 @@ The Embeddings Operator generates vector embeddings for text content using vario
 
 **For Ollama:**
 - `host` (String, Optional): Ollama server URL (default: from OLLAMA_HOST env var or "http://localhost:11434")
-- `max_concurrent` (Integer, Optional): Maximum concurrent requests for batch processing (default: 8)
+- `max_concurrent_requests` (Integer, Optional): Maximum concurrent requests for batch processing (default: 8)
 - `timeout` (Float, Optional): Timeout in seconds for API calls (default: None)
 - `validate_model` (Boolean, Optional): Whether to validate model availability on initialization (default: true)
 

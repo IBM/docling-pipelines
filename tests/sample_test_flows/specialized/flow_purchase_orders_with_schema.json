@@ -3,7 +3,7 @@
   "description": "Complete purchase order processing flow using document_schemas.json for entity extraction, then storing in OpenSearch with vector embeddings",
   "global_config": {
     "doc_column": "content",
-    "disable_validation": "true",
+    "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"

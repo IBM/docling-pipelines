@@ -48,7 +48,7 @@ def main():
             "storage": "in-memory",
             "execute_type": "local",
             "doc_column": "content",
-            "disable_validation": "true",
+            "disable_validation": True,
             "force_ingest": True,
         },
         "flow": [

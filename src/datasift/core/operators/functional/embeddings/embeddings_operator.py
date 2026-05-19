@@ -205,15 +205,17 @@ class EmbeddingsOperator(AbstractOperator):
         # Validate provider_config parameters
         provider_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
         if self.should_validate_field(field_value=provider_config) and isinstance(provider_config, dict):
-            # Validate max_concurrent if present
-            max_concurrent = provider_config.get(OperatorConstants.Config.MAX_CONCURRENT)
-            if max_concurrent is not None and self.should_validate_field(field_value=max_concurrent):
-                if not isinstance(max_concurrent, int):
+            # Validate max_concurrent_requests if present
+            max_concurrent_requests = provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
+            if max_concurrent_requests is not None and self.should_validate_field(field_value=max_concurrent_requests):
+                if not isinstance(max_concurrent_requests, int):
                     errors.append(
-                        f"provider_config.max_concurrent must be an integer, got {type(max_concurrent).__name__}"
+                        f"provider_config.max_concurrent_requests must be an integer, got {type(max_concurrent_requests).__name__}"
                     )
-                elif max_concurrent <= 0:
-                    errors.append(f"provider_config.max_concurrent must be positive, got {max_concurrent}")
+                elif max_concurrent_requests <= 0:
+                    errors.append(
+                        f"provider_config.max_concurrent_requests must be positive, got {max_concurrent_requests}"
+                    )
 
             # Validate batch_size if present
             batch_size = provider_config.get(OperatorConstants.Config.BATCH_SIZE)
@@ -291,7 +293,7 @@ class EmbeddingsOperator(AbstractOperator):
                     OperatorConstants.Misc.NAME: "Provider Configuration",
                     OperatorConstants.Config.DESCRIPTION: (
                         "Provider-specific configuration parameters. "
-                        "Ollama: max_concurrent (int, default: 8) - maximum concurrent requests. "
+                        "Ollama: max_concurrent_requests (int, default: 8) - maximum concurrent requests. "
                         "HuggingFace: batch_size (int, default: 32), use_local (bool), api_token (str), device (str). "
                         "LiteLLM: batch_size (int, default: 32), api_key (str), api_base (str). "
                         "Watsonx: batch_size (int, default: 800), api_key (str), api_base (str), container_kind (str), container_id (str), enable_rate_limiting (bool)."
