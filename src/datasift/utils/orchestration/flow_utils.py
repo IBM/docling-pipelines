@@ -31,15 +31,13 @@ def create_node_id_to_index_map(*, flow_def: dict) -> dict:
 
 def create_log_folders(job_id, job_run_id, type):
     """
-    Created 3 folders, UDP_logs/jobId/JobrunID. The log for that job will be stored there
+    Created folders for logs: <job_id>/<job_run_id>/datasift_logs. The log for that job will be stored there
     """
-    # PLACEHOLDER log TILL LOG LOCATION IS DECIDED
     log_location_path = get_data_path()
 
-    log_app_location = DatasiftConstants.UDP_LOGS
+    log_app_location = DatasiftConstants.DATASIFT_LOGS
 
-    log_job_folder_name = job_id
-    log_job_location = os.path.join(log_location_path, log_app_location, log_job_folder_name, str(job_run_id))
+    log_job_location = os.path.join(log_location_path, job_id, str(job_run_id), log_app_location)
     os.makedirs(log_job_location, exist_ok=True)
     if type == "job":
         log_job_run_file_name = "job_stats.json"
@@ -73,9 +71,10 @@ def construct_deleted_rows_table_path(*, job_id: str, job_run_id):
     Returns:
         Path to the deleted rows parquet file
     """
-    metadata_path = "/unprocessed_docs"
     parquet_file_name = "unprocessed_docs.parquet"
-    return os.path.join(get_data_path(sub_dir=metadata_path), job_id, job_run_id, parquet_file_name)
+    return os.path.join(
+        get_data_path(), job_id, str(job_run_id), DatasiftConstants.UNPROCESSED_DOCS_PATH, parquet_file_name
+    )
 
 
 def add_validation_alert(message: str | ValidationMessage, op_def: dict, alerts: list, **kwargs):

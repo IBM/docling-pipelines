@@ -32,39 +32,23 @@ def _operator_log_split(*, value, operator_logs_combined):
 
 
 def get_log_and_job_file_path(*, job_id, jobrun_id):
-    # TEMPRORY PATH FOR TILL LOCATION DECIDED
-    log_app_location = DatasiftConstants.UDP_LOGS
-    log_job_folder_name = job_id
+    # Path structure: ./data/<job_id>/<job_run_id>/datasift_logs/
+    log_app_location = DatasiftConstants.DATASIFT_LOGS
     log_job_run_file_name = "flow_execute.log"
     job_log_file_name = "job_stats.json"
     log_location_path = get_data_path()
-    log_final_path = os.path.join(
-        log_location_path,
-        log_app_location,
-        log_job_folder_name,
-        str(jobrun_id),
-        log_job_run_file_name,
-    )
-    job_log_final_path = os.path.join(
-        log_location_path,
-        log_app_location,
-        log_job_folder_name,
-        str(jobrun_id),
-        job_log_file_name,
-    )
+
+    stats_dir = os.path.join(log_location_path, job_id, str(jobrun_id), log_app_location)
+
+    log_final_path = os.path.join(stats_dir, log_job_run_file_name)
+    job_log_final_path = os.path.join(stats_dir, job_log_file_name)
+    aggregated_job_log_path = os.path.join(stats_dir, "flow_execute_aggregated.json")
 
     nodes_metadata_final_path = os.path.join(
         log_location_path,
-        log_job_folder_name,
+        job_id,
         str(jobrun_id),
         OperatorConstants.Config.NODES_METADATA_FILE,
-    )
-    aggregated_job_log_path = os.path.join(
-        log_location_path,
-        log_app_location,
-        log_job_folder_name,
-        str(jobrun_id),
-        "flow_execute_aggregated.json",
     )
     return (
         log_final_path,

@@ -25,7 +25,6 @@ logger = get_logger(f"{DatasiftConstants.LOGGER_NAME} : INCREMENTAL UPDATE")
 class IncrementalUpdateUtil:
     NAMESPACE = "datasift"
     TABLE_NAME = "incremental_update_metadata"
-    INCREMENTAL_PROCESSING_METADATA_PATH = "/inc_process_metadata"
     PARQUET_FILE_NAME = "inc_update_metadata.parquet"
 
     def __init__(self, *, store: IncrementalMetadataStore | None = None, flow_config: dict[str, Any] | None = None):
@@ -250,8 +249,9 @@ class IncrementalUpdateUtil:
 
     def construct_table_path(self, *, job_id: str):
         return os.path.join(
-            get_data_path(sub_dir=self.INCREMENTAL_PROCESSING_METADATA_PATH),
+            get_data_path(),
             job_id,
+            DatasiftConstants.INCREMENTAL_PROCESSING_METADATA_PATH,
             self.PARQUET_FILE_NAME,
         )
 

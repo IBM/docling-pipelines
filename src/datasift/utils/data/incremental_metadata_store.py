@@ -158,13 +158,11 @@ class FileSystemIncrementalMetadataStore(IncrementalMetadataStore):
     def __init__(self, *, backend_config: dict[str, Any] | None = None) -> None:
         backend_config = backend_config or {}
         base_dir = backend_config.get(DatasiftConfigKeys.BASE_DIR)
-        self._base_dir = (
-            Path(base_dir) if base_dir is not None else Path(get_data_path(sub_dir="/incremental_metadata"))
-        )
+        self._base_dir = Path(base_dir) if base_dir is not None else Path(get_data_path())
         self._lock_timeout = backend_config.get("lock_timeout", 30.0)
 
     def _get_job_dir(self, *, job_id: str) -> Path:
-        return self._base_dir / job_id
+        return self._base_dir / job_id / DatasiftConstants.INCREMENTAL_PROCESSING_METADATA_PATH
 
     def _get_lock_path(self, *, job_id: str) -> Path:
         lock_dir = self._get_job_dir(job_id=job_id) / ".locks"

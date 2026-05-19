@@ -350,18 +350,16 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
     def _create_log_folders(self, *, job_id, type_):
         """
-        Created 3 folders, UDP_logs/jobId/JobrunID. The log for that job will be stored there
+        Created folders for logs: <job_id>/<job_run_id>/datasift_logs. The log for that job will be stored there
         """
-        # PLACEHOLDER log TILL LOG LOCATION IS DECIDED
         log_location_path = get_data_path()
-        log_app_location = DatasiftConstants.UDP_LOGS
+        log_app_location = DatasiftConstants.DATASIFT_LOGS
 
-        log_job_folder_name = job_id
         log_job_location = os.path.join(
             log_location_path,
-            log_app_location,
-            log_job_folder_name,
+            job_id,
             str(self.job_run_id),
+            log_app_location,
         )
         os.makedirs(log_job_location, exist_ok=True)
         if type_ == "flow":

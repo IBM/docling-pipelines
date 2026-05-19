@@ -96,9 +96,7 @@ class TestInMemoryIncrementalMetadataStore:
 
 class TestFileSystemIncrementalMetadataStore:
     def test_upsert_and_persist_records(self, *, tmp_path, sample_records):
-        store = FileSystemIncrementalMetadataStore(
-            backend_config={"base_dir": str(tmp_path / "incremental_metadata"), "lock_timeout": 5.0}
-        )
+        store = FileSystemIncrementalMetadataStore(backend_config={"base_dir": str(tmp_path), "lock_timeout": 5.0})
 
         store.upsert_records(job_id="job-1", job_run_id="run-1", records=sample_records)
 
@@ -107,7 +105,7 @@ class TestFileSystemIncrementalMetadataStore:
             "doc-2": 2000,
         }
 
-        records_file = tmp_path / "incremental_metadata" / "job-1" / "incremental_metadata.json"
+        records_file = tmp_path / "job-1" / "inc_process_metadata" / "incremental_metadata.json"
         assert records_file.exists()
 
         with open(records_file, encoding="utf-8") as file:
@@ -148,6 +146,7 @@ class TestFileSystemIncrementalMetadataStore:
 
         assert store.get_processed_docs(job_id="job-1") == {}
         assert not (tmp_path / "incremental_metadata" / "job-1" / "incremental_metadata.json").exists()
+
 
 class TestCreateIncrementalMetadataStoreWithFlowConfig:
     def test_create_file_system_store_with_flow_config(self, *, tmp_path):
