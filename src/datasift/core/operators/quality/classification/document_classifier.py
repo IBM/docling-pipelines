@@ -416,10 +416,26 @@ class DocumentClassifierOperator(AbstractOperator):
                     result = future.result()
 
                     if result[OperatorConstants.Extraction.SUCCESS]:
-                        classifications[idx] = result["document_type"]
-                        confidences[idx] = result["confidence"]
-                        reasonings[idx] = result.get("reasoning", "")
-                        metadata[Metrics.External.PROCESSED_DOCS] += 1
+                        # Enforce confidence threshold using pre-calculated is_confident flag
+                        if result["is_confident"]:
+                            classifications[idx] = result["document_type"]
+                            confidences[idx] = result["confidence"]
+                            reasonings[idx] = result.get("reasoning", "")
+                            metadata[Metrics.External.PROCESSED_DOCS] += 1
+                        else:
+                            # Below threshold - return None
+                            classifications[idx] = None
+                            confidences[idx] = result["confidence"]
+                            reasonings[idx] = (
+                                f"Confidence {result['confidence']} below threshold {self.confidence_threshold} "
+                                f"to classify as {result['document_type']}"
+                            )
+                            logger.info(
+                                f"Document {task['doc_name']} confidence {result['confidence']} below threshold {self.confidence_threshold}, "
+                                f"predicted type {result['document_type']}, returning None",
+                                extra=self.common_log_arguments,
+                            )
+                            metadata[Metrics.External.PROCESSED_DOCS] += 1
                     else:
                         self.record_failed_document(
                             metadata=metadata,
