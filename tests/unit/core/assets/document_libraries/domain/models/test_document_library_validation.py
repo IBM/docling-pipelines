@@ -60,7 +60,7 @@ class TestDocumentLibraryNameValidation:
         with pytest.raises(DatasiftException) as exc_info:
             DocumentLibrary.create(name="")
 
-        assert "Library name" in str(exc_info.value)
+        assert "Field 'name'" in str(exc_info.value)
 
     def test_create_library_with_name_too_long_raises_error(self):
         """Test that creating a library with name exceeding max length raises validation error."""

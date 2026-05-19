@@ -4,6 +4,7 @@ This adapter implements the repository port using DuckDB storage.
 """
 
 import json
+import time
 from datetime import datetime
 
 from datasift.core.assets.document_libraries.adapters.storage.duckdb_storage import DuckDBStorage
@@ -11,7 +12,7 @@ from datasift.core.assets.document_libraries.domain.models.document_library impo
 from datasift.core.assets.document_libraries.domain.ports.document_library_repository import (
     DocumentLibraryRepository,
 )
-from datasift.core.constants.constants import DatasiftConstants
+from datasift.core.constants.constants import DatasiftConstants, DocumentLibraryConstants
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
 from datasift.utils.infrastructure.logging import get_logger
@@ -519,6 +520,147 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
         except Exception as e:
             raise DatasiftException(
                 f"Failed to get document sets for library: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def add_document_sets_bulk(
+        self,
+        *,
+        library_id: str,
+        document_set_ids: list[str],
+    ) -> None:
+        """Add multiple document sets to a library in a single database operation.
+
+        Uses a single INSERT statement with multiple VALUES for efficiency.
+
+        Args:
+            library_id: ID of the library
+            document_set_ids: List of document set IDs to add
+
+        Raises:
+            DatasiftException: If library doesn't exist
+            DatasiftException: If storage operation fails
+        """
+        try:
+            # Check if library exists
+            if not self.exists(library_id=library_id):
+                raise DatasiftException(
+                    f"Library {library_id} not found",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+                )
+
+            if not document_set_ids:
+                return
+
+            # Validate bulk operation size
+            if len(document_set_ids) > DocumentLibraryConstants.MAX_BULK_OPERATION_SIZE:
+                raise DatasiftException(
+                    f"Bulk operation size ({len(document_set_ids)}) exceeds maximum allowed "
+                    f"({DocumentLibraryConstants.MAX_BULK_OPERATION_SIZE})",
+                    status_code=400,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
+                )
+
+            # Build single INSERT with multiple VALUES
+            # INSERT INTO table (col1, col2, col3) VALUES (?, ?, ?), (?, ?, ?), ...
+            placeholders = ", ".join(["(?, ?, ?)"] * len(document_set_ids))
+            query = f"""
+                INSERT INTO {DatasiftConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
+                (library_id, document_set_id, added_at)
+                VALUES {placeholders}
+            """
+
+            # Flatten params: (lib_id, doc_set_id, timestamp) for each document set
+            timestamp = datetime.utcnow()
+            params = []
+            for doc_set_id in document_set_ids:
+                params.extend([library_id, doc_set_id, timestamp])
+
+            # Execute query with performance tracking
+            start_time = time.time()
+            self.storage.execute_query(query=query, params=tuple(params))
+            duration = time.time() - start_time
+
+            logger.info(
+                msg=f"Bulk added {len(document_set_ids)} document sets to library {library_id} "
+                f"in {duration:.3f}s"
+            )
+
+        except DatasiftException:
+            raise
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to bulk add document sets to library: {e}",
+                status_code=500,
+                error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
+            ) from e
+
+    def remove_document_sets_bulk(
+        self,
+        *,
+        library_id: str,
+        document_set_ids: list[str],
+    ) -> None:
+        """Remove multiple document sets from a library in a single database operation.
+
+        Uses a single DELETE statement with IN clause for efficiency.
+
+        Args:
+            library_id: ID of the library
+            document_set_ids: List of document set IDs to remove
+
+        Raises:
+            DatasiftException: If library doesn't exist
+            DatasiftException: If storage operation fails
+        """
+        try:
+            # Check if library exists
+            if not self.exists(library_id=library_id):
+                raise DatasiftException(
+                    f"Library {library_id} not found",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_NOT_FOUND,
+                )
+
+            if not document_set_ids:
+                return
+
+            # Validate bulk operation size
+            if len(document_set_ids) > DocumentLibraryConstants.MAX_BULK_OPERATION_SIZE:
+                raise DatasiftException(
+                    f"Bulk operation size ({len(document_set_ids)}) exceeds maximum allowed "
+                    f"({DocumentLibraryConstants.MAX_BULK_OPERATION_SIZE})",
+                    status_code=400,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
+                )
+
+            # Build single DELETE with IN clause
+            # DELETE FROM table WHERE library_id = ? AND document_set_id IN (?, ?, ?)
+            placeholders = ", ".join(["?"] * len(document_set_ids))
+            query = f"""
+                DELETE FROM {DatasiftConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
+                WHERE library_id = ? AND document_set_id IN ({placeholders})
+            """
+
+            params = (library_id, *document_set_ids)
+
+            # Execute query with performance tracking
+            start_time = time.time()
+            self.storage.execute_query(query=query, params=params)
+            duration = time.time() - start_time
+
+            logger.info(
+                msg=f"Bulk removed {len(document_set_ids)} document sets from library {library_id} "
+                f"in {duration:.3f}s"
+            )
+
+        except DatasiftException:
+            raise
+        except Exception as e:
+            raise DatasiftException(
+                f"Failed to bulk remove document sets from library: {e}",
                 status_code=500,
                 error_code=ErrorCode.DOCUMENT_LIBRARY_STORAGE_ERROR,
             ) from e

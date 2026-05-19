@@ -10,7 +10,7 @@ from pathlib import Path
 
 import duckdb
 
-from datasift.core.constants.constants import DatasiftConstants
+from datasift.core.constants.constants import DatasiftConstants, DocumentLibraryConstants
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
 from datasift.utils.infrastructure.logging import get_logger
@@ -101,15 +101,15 @@ class DuckDBStorage:
             # Create document_libraries table (metadata only)
             conn.execute(f"""
                 CREATE TABLE IF NOT EXISTS {DatasiftConstants.DOCUMENT_LIBRARY_TABLE_NAME} (
-                    library_id VARCHAR PRIMARY KEY,
-                    name VARCHAR NOT NULL UNIQUE,
-                    description VARCHAR,
-                    purpose VARCHAR,
+                    library_id VARCHAR({DocumentLibraryConstants.MAX_NAME_LENGTH}) PRIMARY KEY,
+                    name VARCHAR({DocumentLibraryConstants.MAX_NAME_LENGTH}) NOT NULL UNIQUE,
+                    description VARCHAR({DocumentLibraryConstants.MAX_DESCRIPTION_LENGTH}),
+                    purpose VARCHAR({DocumentLibraryConstants.MAX_PURPOSE_LENGTH}),
                     original_size VARCHAR,
                     final_size VARCHAR,
                     tags VARCHAR,
-                    created_by VARCHAR,
-                    href VARCHAR
+                    created_by VARCHAR({DocumentLibraryConstants.MAX_CREATED_BY_LENGTH}),
+                    href VARCHAR({DocumentLibraryConstants.MAX_HREF_LENGTH})
                 )
             """)
 

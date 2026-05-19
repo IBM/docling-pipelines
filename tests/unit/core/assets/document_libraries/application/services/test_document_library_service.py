@@ -183,8 +183,11 @@ class TestDocumentLibraryServiceDocumentSets:
             document_set_ids=document_set_ids,
         )
 
-        # Assert
-        assert mock_repository.add_document_set_to_library.call_count == 3
+        # Assert - should use bulk method (1 call) instead of N individual calls
+        mock_repository.add_document_sets_bulk.assert_called_once_with(
+            library_id=sample_library_domain.library_id,
+            document_set_ids=document_set_ids,
+        )
 
     def test_remove_document_set_success(self, service, mock_repository, sample_library_with_id):
         """Test successfully removing document set from library."""
@@ -214,8 +217,11 @@ class TestDocumentLibraryServiceDocumentSets:
             document_set_ids=document_set_ids,
         )
 
-        # Assert
-        assert mock_repository.remove_document_set_from_library.call_count == 2
+        # Assert - should use bulk method (1 call) instead of N individual calls
+        mock_repository.remove_document_sets_bulk.assert_called_once_with(
+            library_id=sample_library_with_id.library_id,
+            document_set_ids=document_set_ids,
+        )
 
     def test_get_document_sets_success(self, service, mock_repository):
         """Test getting document sets for library."""

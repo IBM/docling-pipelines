@@ -183,6 +183,28 @@ class DatasiftConstants:
     JOB_STATS_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "job_stats.duckdb")
 
 
+class DocumentLibraryConstants:
+    """Constants for Document Library validation and constraints.
+
+    These constants define field length limits and value constraints
+    used throughout the Document Library domain model and storage layer.
+    """
+
+    # Field length limits
+    MAX_NAME_LENGTH = 256
+    MAX_DESCRIPTION_LENGTH = 1024
+    MAX_PURPOSE_LENGTH = 1024
+    MAX_CREATED_BY_LENGTH = 63
+    MIN_HREF_LENGTH = 5
+    MAX_HREF_LENGTH = 8000
+
+    # Size value limits (JavaScript MAX_SAFE_INTEGER for JSON compatibility)
+    MAX_SAFE_INTEGER = 9007199254740991
+
+    # Bulk operation limits
+    MAX_BULK_OPERATION_SIZE = 1000  # Maximum number of items in bulk operations
+
+
 class DatasiftConfigKeys:
     """YAML configuration keys for Datasift."""
 

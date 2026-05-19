@@ -205,6 +205,50 @@ class DocumentLibraryRepository(ABC):
         pass
 
     @abstractmethod
+    def add_document_sets_bulk(
+        self,
+        *,
+        library_id: str,
+        document_set_ids: list[str],
+    ) -> None:
+        """Add multiple document sets to a library in a single database operation.
+
+        This method should execute a single INSERT statement with multiple values,
+        rather than N separate INSERT statements.
+
+        Args:
+            library_id: ID of the library
+            document_set_ids: List of document set IDs to add
+
+        Raises:
+            DocumentLibraryNotFoundException: If library doesn't exist
+            DocumentLibraryStorageException: If storage operation fails
+        """
+        pass
+
+    @abstractmethod
+    def remove_document_sets_bulk(
+        self,
+        *,
+        library_id: str,
+        document_set_ids: list[str],
+    ) -> None:
+        """Remove multiple document sets from a library in a single database operation.
+
+        This method should execute a single DELETE statement with IN clause,
+        rather than N separate DELETE statements.
+
+        Args:
+            library_id: ID of the library
+            document_set_ids: List of document set IDs to remove
+
+        Raises:
+            DocumentLibraryNotFoundException: If library doesn't exist
+            DocumentLibraryStorageException: If storage operation fails
+        """
+        pass
+
+    @abstractmethod
     def count_all(self) -> int:
         """Count total number of document libraries.
 

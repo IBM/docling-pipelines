@@ -425,8 +425,8 @@ class DocumentLibraryService:
 
         logger.info(msg=f"Added document set {document_set_id} to library {library_id}")
 
-        # Return updated library (re-fetch to get current state)
-        return self.get_library(library_id=library_id)
+        # Return updated in-memory library (no DB call needed)
+        return library
 
     def remove_document_set(self, *, library_id: str, document_set_id: str) -> DocumentLibrary:
         """Remove a document set from a library.
@@ -466,8 +466,8 @@ class DocumentLibraryService:
 
         logger.info(msg=f"Removed document set {document_set_id} from library {library_id}")
 
-        # Return updated library (re-fetch to get current state)
-        return self.get_library(library_id=library_id)
+        # Return updated in-memory library (no DB call needed)
+        return library
 
     def add_document_sets_bulk(self, *, library_id: str, document_set_ids: list[str]) -> None:
         """Add multiple document sets to a library in bulk.
@@ -499,16 +499,41 @@ class DocumentLibraryService:
         # Get library to verify it exists
         library = self.get_library(library_id=library_id)
 
-        # Add each document set
+        # Validate all document sets can be added (domain logic)
+        succeeded = []
         for document_set_id in document_set_ids:
             try:
                 library.add_document_set(document_set_id=document_set_id)
-                self.repository.add_document_set_to_library(
-                    library_id=library_id,
-                    document_set_id=document_set_id,
+                succeeded.append(document_set_id)
+            except Exception as e:
+                logger.error(
+                    msg=f"Failed to add document set {document_set_id} to library {library_id}. "
+                    f"Succeeded: {len(succeeded)}/{len(document_set_ids)}",
+                    exc_info=True,
                 )
-            except Exception:
-                raise
+                # Re-raise DatasiftException directly, don't wrap it
+                if isinstance(e, DatasiftException):
+                    raise
+                raise DatasiftException(
+                    f"Bulk add failed at document_set_id={document_set_id}. "
+                    f"Successfully validated {len(succeeded)} before failure.",
+                    status_code=400,
+                    error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
+                ) from e
+
+        # Perform bulk insert in single DB operation
+        try:
+            self.repository.add_document_sets_bulk(
+                library_id=library_id,
+                document_set_ids=document_set_ids,
+            )
+        except Exception:
+            logger.error(
+                msg=f"Failed to bulk insert document sets to library {library_id}. "
+                f"Count: {len(document_set_ids)}",
+                exc_info=True,
+            )
+            raise
 
         logger.info(msg=f"Added {len(document_set_ids)} document sets to library {library_id}")
 
@@ -542,16 +567,41 @@ class DocumentLibraryService:
         # Get library to verify it exists
         library = self.get_library(library_id=library_id)
 
-        # Remove each document set
+        # Validate all document sets can be removed (domain logic)
+        succeeded = []
         for document_set_id in document_set_ids:
             try:
                 library.remove_document_set(document_set_id=document_set_id)
-                self.repository.remove_document_set_from_library(
-                    library_id=library_id,
-                    document_set_id=document_set_id,
+                succeeded.append(document_set_id)
+            except Exception as e:
+                logger.error(
+                    msg=f"Failed to remove document set {document_set_id} from library {library_id}. "
+                    f"Succeeded: {len(succeeded)}/{len(document_set_ids)}",
+                    exc_info=True,
                 )
-            except Exception:
-                raise
+                # Re-raise DatasiftException directly, don't wrap it
+                if isinstance(e, DatasiftException):
+                    raise
+                raise DatasiftException(
+                    f"Bulk remove failed at document_set_id={document_set_id}. "
+                    f"Successfully validated {len(succeeded)} before failure.",
+                    status_code=404,
+                    error_code=ErrorCode.DOCUMENT_SET_NOT_FOUND,
+                ) from e
+
+        # Perform bulk delete in single DB operation
+        try:
+            self.repository.remove_document_sets_bulk(
+                library_id=library_id,
+                document_set_ids=document_set_ids,
+            )
+        except Exception:
+            logger.error(
+                msg=f"Failed to bulk delete document sets from library {library_id}. "
+                f"Count: {len(document_set_ids)}",
+                exc_info=True,
+            )
+            raise
 
         logger.info(msg=f"Removed {len(document_set_ids)} document sets from library {library_id}")
 

@@ -7,6 +7,7 @@ representing a collection of Document Sets.
 from dataclasses import dataclass, field
 from uuid import uuid4
 
+from datasift.core.constants.constants import DocumentLibraryConstants
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
 
@@ -99,7 +100,7 @@ class DocumentLibrary:
         # Validate library_id
         if not self.library_id or not isinstance(self.library_id, str):
             raise DatasiftException(
-                "Library ID must be a non-empty string",
+                "Field 'library_id' must be a non-empty string",
                 status_code=400,
                 error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
             )
@@ -107,14 +108,14 @@ class DocumentLibrary:
         # Validate name
         if not self.name or not isinstance(self.name, str):
             raise DatasiftException(
-                "Library name must be a non-empty string",
+                "Field 'name' must be a non-empty string",
                 status_code=400,
                 error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
             )
 
-        if len(self.name) > 256:
+        if len(self.name) > DocumentLibraryConstants.MAX_NAME_LENGTH:
             raise DatasiftException(
-                "Library name must not exceed 256 characters",
+                f"Field 'name' must not exceed {DocumentLibraryConstants.MAX_NAME_LENGTH} characters",
                 status_code=400,
                 error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
             )
@@ -123,14 +124,14 @@ class DocumentLibrary:
         if self.description is not None:
             if not isinstance(self.description, str):
                 raise DatasiftException(
-                    "Library description must be a string",
+                    "Field 'description' must be a string",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
 
-            if len(self.description) > 1024:
+            if len(self.description) > DocumentLibraryConstants.MAX_DESCRIPTION_LENGTH:
                 raise DatasiftException(
-                    "Library description must not exceed 1024 characters",
+                    f"Field 'description' must not exceed {DocumentLibraryConstants.MAX_DESCRIPTION_LENGTH} characters",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
@@ -139,14 +140,14 @@ class DocumentLibrary:
         if self.purpose is not None:
             if not isinstance(self.purpose, str):
                 raise DatasiftException(
-                    "Library purpose must be a string",
+                    "Field 'purpose' must be a string",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
 
-            if len(self.purpose) > 1024:
+            if len(self.purpose) > DocumentLibraryConstants.MAX_PURPOSE_LENGTH:
                 raise DatasiftException(
-                    "Library purpose must not exceed 1024 characters",
+                    f"Field 'purpose' must not exceed {DocumentLibraryConstants.MAX_PURPOSE_LENGTH} characters",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
@@ -155,13 +156,13 @@ class DocumentLibrary:
         if self.original_size is not None:
             if not isinstance(self.original_size, int) or self.original_size < 0:
                 raise DatasiftException(
-                    "original_size must be a non-negative integer",
+                    "Field 'original_size' must be a non-negative integer",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
-            if self.original_size > 9007199254740991:
+            if self.original_size > DocumentLibraryConstants.MAX_SAFE_INTEGER:
                 raise DatasiftException(
-                    "original_size must not exceed 9007199254740991",
+                    f"Field 'original_size' must not exceed {DocumentLibraryConstants.MAX_SAFE_INTEGER} (MAX_SAFE_INTEGER)",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
@@ -170,13 +171,13 @@ class DocumentLibrary:
         if self.final_size is not None:
             if not isinstance(self.final_size, int) or self.final_size < 0:
                 raise DatasiftException(
-                    "final_size must be a non-negative integer",
+                    "Field 'final_size' must be a non-negative integer",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
-            if self.final_size > 9007199254740991:
+            if self.final_size > DocumentLibraryConstants.MAX_SAFE_INTEGER:
                 raise DatasiftException(
-                    "final_size must not exceed 9007199254740991",
+                    f"Field 'final_size' must not exceed {DocumentLibraryConstants.MAX_SAFE_INTEGER} (MAX_SAFE_INTEGER)",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
@@ -184,7 +185,7 @@ class DocumentLibrary:
         # Validate tags if provided
         if not isinstance(self.tags, list):
             raise DatasiftException(
-                "tags must be a list",
+                "Field 'tags' must be a list",
                 status_code=400,
                 error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
             )
@@ -192,7 +193,7 @@ class DocumentLibrary:
         for tag in self.tags:
             if not isinstance(tag, str):
                 raise DatasiftException(
-                    "All tags must be strings",
+                    "Field 'tags' - all tags must be strings",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
@@ -201,13 +202,13 @@ class DocumentLibrary:
         if self.created_by is not None:
             if not isinstance(self.created_by, str):
                 raise DatasiftException(
-                    "created_by must be a string",
+                    "Field 'created_by' must be a string",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
-            if len(self.created_by) > 63:
+            if len(self.created_by) > DocumentLibraryConstants.MAX_CREATED_BY_LENGTH:
                 raise DatasiftException(
-                    "created_by must not exceed 63 characters",
+                    f"Field 'created_by' must not exceed {DocumentLibraryConstants.MAX_CREATED_BY_LENGTH} characters",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
@@ -216,13 +217,16 @@ class DocumentLibrary:
         if self.href is not None:
             if not isinstance(self.href, str):
                 raise DatasiftException(
-                    "href must be a string",
+                    "Field 'href' must be a string",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
-            if len(self.href) < 5 or len(self.href) > 8000:
+            if (
+                len(self.href) < DocumentLibraryConstants.MIN_HREF_LENGTH
+                or len(self.href) > DocumentLibraryConstants.MAX_HREF_LENGTH
+            ):
                 raise DatasiftException(
-                    "href must be between 5 and 8000 characters",
+                    f"Field 'href' must be between {DocumentLibraryConstants.MIN_HREF_LENGTH} and {DocumentLibraryConstants.MAX_HREF_LENGTH} characters",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
@@ -230,7 +234,7 @@ class DocumentLibrary:
         # Validate document_set_ids
         if not isinstance(self.document_set_ids, list):
             raise DatasiftException(
-                "document_set_ids must be a list",
+                "Field 'document_set_ids' must be a list",
                 status_code=400,
                 error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
             )
@@ -238,7 +242,7 @@ class DocumentLibrary:
         for set_id in self.document_set_ids:
             if not isinstance(set_id, str) or not set_id:
                 raise DatasiftException(
-                    "All document set IDs must be non-empty strings",
+                    "Field 'document_set_ids' - all document set IDs must be non-empty strings",
                     status_code=400,
                     error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
                 )
@@ -254,7 +258,7 @@ class DocumentLibrary:
         """
         if not document_set_id or not isinstance(document_set_id, str):
             raise DatasiftException(
-                "Document set ID must be a non-empty string",
+                "Field 'document_set_id' must be a non-empty string",
                 status_code=400,
                 error_code=ErrorCode.DOCUMENT_LIBRARY_INVALID_DATA,
             )
