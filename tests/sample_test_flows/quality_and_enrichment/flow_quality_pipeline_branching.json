@@ -1,6 +1,6 @@
 {
   "flow_name": "Quality Pipeline with Branching",
-  "description": "Comprehensive quality operators showcase: Ingest → Extract → Language Detection → Dedup (removes 2 duplicate documents) → Readability → Branching (on flesch_ease) → [High Quality: ML Enrichment → Embeddings → OpenSearch] | [Low Quality: SQLFilter → Embeddings → OpenSearch]. Demonstrates Readability, Dedup, BranchingOperator, and SQLFilter operators with quality-based conditional routing.",
+  "description": "Comprehensive quality operators showcase: Ingest → Extract → Language Detection → Dedup (removes 2 duplicate documents) → Doc Quality → Readability → Branching (on flesch_ease) → [High Quality: ML Enrichment → Embeddings → OpenSearch] | [Low Quality: SQLFilter → Embeddings → OpenSearch]. Demonstrates DocQuality, Readability, Dedup, BranchingOperator, and SQLFilter operators with quality-based conditional routing.",
   "global_config": {
     "doc_column": "content",
     "disable_validation": "true",
@@ -54,6 +54,18 @@
       ]
     },
     {
+      "name": "doc_quality",
+      "type": "doc_quality",
+      "config": {
+        "doc_column": "content",
+        "doc_content_column": "content",
+        "text_lang": "en"
+      },
+      "depends_on": [
+        "dedup"
+      ]
+    },
+    {
       "name": "readability",
       "type": "readability",
       "config": {
@@ -67,16 +79,15 @@
         ]
       },
       "depends_on": [
-        "dedup"
+        "doc_quality"
       ]
     },
     {
       "name": "quality_branching",
       "type": "branching",
       "config": {
-        "branches": [
-          {
-            "link_id": "high_quality_branch",
+        "branches": {
+          "high_quality_branch": {
             "link_name": "High Quality Documents",
             "filter_criteria_json": {
               "criteria_list": [
@@ -85,8 +96,7 @@
               "logical_operator": "AND"
             }
           },
-          {
-            "link_id": "low_quality_branch",
+          "low_quality_branch": {
             "link_name": "Low Quality Documents",
             "filter_criteria_json": {
               "criteria_list": [
@@ -95,7 +105,7 @@
               "logical_operator": "AND"
             }
           }
-        ]
+        }
       },
       "depends_on": [
         "readability"

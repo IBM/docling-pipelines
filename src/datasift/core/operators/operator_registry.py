@@ -24,6 +24,7 @@ from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
 # Quality Operators
 from datasift.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
+from datasift.core.operators.quality.doc_quality import DocQuality
 from datasift.core.operators.quality.ededup import EdedupOperator
 from datasift.core.operators.quality.language_detection.lang_id import LanguageDetect
 from datasift.core.operators.quality.ml_enrichment import MLEnrichmentOperator
@@ -52,6 +53,7 @@ DATASIFT_OPERATORS = frozenset(
         NOOPOperator,
         # Quality
         DocumentClassifierOperator,
+        DocQuality,
         EdedupOperator,
         LanguageDetect,
         MLEnrichmentOperator,

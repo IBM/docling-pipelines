@@ -152,11 +152,14 @@ class AuthoringCompiler:
             operator_name=operator.name, dependency_graph=dependency_graph, operator_ids=operator_ids
         )
 
+        # Transform config for specific operators
+        config = self._transform_operator_config(operator=operator)
+
         return {
             OperatorConstants.Columns.ID: node_id,
             OperatorConstants.Columns.NAME: operator.name,
             OperatorConstants.Misc.OPERATOR: operator.type,
-            OperatorConstants.Config.CONFIG: operator.config or {},
+            OperatorConstants.Config.CONFIG: config,
             DatasiftConstants.INPUT_EDGES: input_edges,
             DatasiftConstants.OUTPUT_EDGES: output_edges,
         }
@@ -212,3 +215,35 @@ class AuthoringCompiler:
             output_edges.append(edge)
 
         return output_edges
+
+    def _transform_operator_config(self, *, operator: AuthoringOperator) -> dict[str, Any]:
+        """Transform operator config from authoring format to runtime format.
+
+        Handles format conversions between the user-friendly authoring format
+        and the runtime format expected by operators.
+
+        Args:
+            operator: Authoring operator
+
+        Returns:
+            Transformed config dict ready for runtime execution
+        """
+        config = operator.config.copy() if operator.config else {}
+
+        # Transform branching operator: dict of branches -> list of branches
+        # Authoring format uses dict for better readability and validation
+        # Runtime operator expects list format
+        if operator.type == OperatorConstants.Operators.BRANCHING:
+            branches = config.get(OperatorConstants.Misc.BRANCHES)
+            if isinstance(branches, dict):
+                # Convert dict format to list format expected by runtime operator
+                branch_list = []
+                for branch_name, branch_config in branches.items():
+                    branch_item = {
+                        OperatorConstants.Misc.LINK_ID: branch_name,
+                        **branch_config,
+                    }
+                    branch_list.append(branch_item)
+                config[OperatorConstants.Misc.BRANCHES] = branch_list
+
+        return config
