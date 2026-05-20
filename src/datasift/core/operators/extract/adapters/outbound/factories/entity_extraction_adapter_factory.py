@@ -9,6 +9,7 @@ extraction mode and configuration. It supports multiple extraction strategies:
 import logging
 from typing import Any
 
+from datasift.core.constants.constants import DoclingClientConfigConstants
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (
     DoclingEntityAdapter,
@@ -168,8 +169,10 @@ class EntityExtractionAdapterFactory:
             )
 
         elif mode == EntityExtractionMode.DOCLING:
-            # Docling mode uses default configuration
-            pass
+            # Pass through entity_config for custom model configuration
+            entity_config = operator_config.get(DoclingClientConfigConstants.ENTITY_CONFIG)
+            if entity_config:
+                adapter_config[DoclingClientConfigConstants.ENTITY_CONFIG] = entity_config
 
         elif mode == EntityExtractionMode.NONE:
             # No configuration needed for NONE mode

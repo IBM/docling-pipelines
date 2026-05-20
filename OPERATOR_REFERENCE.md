@@ -733,6 +733,70 @@ The operator provides the following metadata after execution:
 }
 ```
 
+**Example: Docling Entity Extraction with Custom Inline Model**
+
+```json
+{
+  "id": "extract-node",
+  "name": "extract",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "docling",
+    "entity_config": {
+      "model_type": "inline",
+      "inline_model": {
+        "repo_id": "numind/NuExtract-2.0-2B",
+        "inference_framework": "transformers",
+        "scale": 2.0,
+        "temperature": 0.0,
+        "max_new_tokens": 4096,
+        "load_in_8bit": true,
+        "torch_dtype": "bfloat16"
+      }
+    },
+    "custom_schema": {
+      "type": "object",
+      "properties": {
+        "invoice_number": { "type": "string" },
+        "total_amount": { "type": "number" }
+      }
+    }
+  }
+}
+```
+
+**Custom Model Configuration for Docling Entity Extraction**
+
+The `entity_config` parameter enables custom inline model configuration for the Docling entity extraction adapter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.
+
+**Note:** For API-based entity extraction, use `entity_extraction_mode: "ollama"` or `"litellm"` instead of Docling.
+
+**Configuration Structure:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `entity_config` | object | No | Custom inline model configuration for Docling entity extraction |
+| `entity_config.model_type` | string | Yes* | Model type: must be `inline` (*required if `entity_config` provided) |
+| `entity_config.inline_model` | object | Yes* | Inline model configuration (*required if `entity_config` provided) |
+| `entity_config.inline_model.repo_id` | string | Yes | HuggingFace model repository ID (e.g., `numind/NuExtract-2.0-2B`) |
+| `entity_config.inline_model.inference_framework` | string | No | Inference framework: `transformers`, `vllm`, or `mlx` (default: `transformers`) |
+| `entity_config.inline_model.scale` | float | No | Image scaling factor (default: `2.0`) |
+| `entity_config.inline_model.temperature` | float | No | Sampling temperature (default: `0.0`) |
+| `entity_config.inline_model.max_new_tokens` | int | No | Maximum generation length (default: `4096`) |
+| `entity_config.inline_model.load_in_8bit` | bool | No | Enable 8-bit quantization (default: `true`) |
+| `entity_config.inline_model.torch_dtype` | string | No | Precision type: `bfloat16`, `float16`, `float32` (default: `bfloat16`) |
+| `entity_config.inline_model.prompt` | string | No | Custom prompt template (default: `""`) |
+| `entity_config.inline_model.response_format` | string | No | Response format: `markdown`, `doctags`, `html`, etc. (default: `markdown`) |
+
+**Usage Notes:**
+
+- **Inline Models Only**: Only HuggingFace models loaded directly into memory are supported. DocumentExtractor does not support remote API endpoints.
+- **API-Based Extraction**: For API-based entity extraction (Ollama, vLLM, etc.), use `entity_extraction_mode: "ollama"` or `"litellm"` instead.
+- **Default Behavior**: If `entity_config` is not provided, Docling uses its default model configuration.
+- **Performance**: Inline models require sufficient GPU memory and are suitable for local deployment with GPU resources.
+- **Compatibility**: Ensure the chosen model supports the inference framework and hardware configuration.
+
 **Architecture**
 
 - Uses hexagonal architecture (ports and adapters pattern)

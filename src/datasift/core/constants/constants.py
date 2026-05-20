@@ -275,6 +275,42 @@ class DoclingClientConstants:
     STATUS_404_BACKOFF_BASE = 1.0  # seconds
 
 
+class DoclingClientConfigConstants:
+    """Constants for Docling entity extraction custom model configuration
+
+    Note: Only inline model is supported. API model is not supported by DocumentExtractor.
+    """
+
+    # Configuration keys
+    ENTITY_CONFIG = "entity_config"
+    MODEL_TYPE = "model_type"
+    INLINE_MODEL = "inline_model"
+
+    # Model types
+    MODEL_TYPE_INLINE = "inline"
+
+    # Inline model parameters
+    REPO_ID = "repo_id"
+    INFERENCE_FRAMEWORK = "inference_framework"
+    SCALE = "scale"
+    TEMPERATURE = "temperature"
+    MAX_NEW_TOKENS = "max_new_tokens"
+    LOAD_IN_8BIT = "load_in_8bit"
+    TORCH_DTYPE = "torch_dtype"
+    PROMPT = "prompt"
+    RESPONSE_FORMAT = "response_format"
+
+    # Default values
+    DEFAULT_INFERENCE_FRAMEWORK = "transformers"
+    DEFAULT_SCALE = 2.0
+    DEFAULT_TEMPERATURE = 0.0
+    DEFAULT_MAX_NEW_TOKENS = 4096
+    DEFAULT_LOAD_IN_8BIT = True
+    DEFAULT_TORCH_DTYPE = "bfloat16"
+    DEFAULT_RESPONSE_FORMAT = "markdown"
+    DEFAULT_PROMPT = ""
+
+
 class Metrics:
     class External:
         JOB_RUN_STATUS = "job_run_status"

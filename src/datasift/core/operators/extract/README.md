@@ -278,11 +278,11 @@ LLM-based entity extraction using locally running Ollama models.
 
 **Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_text_and_entities_ollama.json`](../../../../tests/sample_test_flows/extract/flow_extract_text_and_entities_ollama.json)
 
-### 3. Docling Mode (Template-Based)
+### 3. Docling Mode (VLM-Based)
 
-Template-based entity extraction using Docling's structured extraction capabilities.
+Vision-Language Model (VLM) based entity extraction using Docling's VLM pipeline for structured data extraction from documents.
 
-**Configuration:**
+**Basic Configuration:**
 ```json
 {
   "text_extraction_mode": "docling_library",
@@ -309,13 +309,55 @@ Template-based entity extraction using Docling's structured extraction capabilit
 }
 ```
 
+**Custom Model Configuration:**
+
+Users can configure custom inline VLM models for entity extraction using the `entity_config` parameter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.
+
+**Inline Model (HuggingFace with Transformers):**
+```json
+{
+  "text_extraction_mode": "docling_library",
+  "entity_extraction_mode": "docling",
+  "entity_config": {
+    "model_type": "inline",
+    "inline_model": {
+      "repo_id": "numind/NuExtract-2.0-2B",
+      "inference_framework": "transformers",
+      "scale": 2.0,
+      "temperature": 0.0,
+      "max_new_tokens": 4096,
+      "load_in_8bit": true,
+      "torch_dtype": "bfloat16"
+    }
+  },
+  "custom_schema": {
+    "invoice_number": "string",
+    "total_amount": "float"
+  }
+}
+```
+
+**Note:** API model configuration is not supported. For API-based entity extraction, use `entity_extraction_mode: "ollama"` or `"litellm"` instead.
+
+**Supported Model Types:**
+- **Inline Models**: HuggingFace models with Transformers, vLLM, or MLX backends
+- **API Models**: Ollama, vLLM server, OpenAI-compatible endpoints
+
+**Supported Backends (for inline models):**
+- `transformers`: HuggingFace Transformers library
+- `vllm`: vLLM inference engine
+- `mlx`: Apple MLX framework (macOS only)
+
 **Use Cases:**
 - Extracting structured data from standardized forms
 - Processing documents with known schema
-- Fast, deterministic extraction
-- Template-driven workflows
+- Vision-based entity extraction from complex layouts
+- Custom model integration for specialized domains
+- Template-driven workflows with VLM enhancement
 
-**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_template.json`](../../../../tests/sample_test_flows/extract/flow_extract_template.json)
+**Sample Flows:**
+- Basic: [`tests/sample_test_flows/extract/flow_extract_template.json`](../../../../tests/sample_test_flows/extract/flow_extract_template.json)
+- Custom Model: [`tests/sample_test_flows/extract/flow_extract_docling_custom_model.json`](../../../../tests/sample_test_flows/extract/flow_extract_docling_custom_model.json)
 
 ### 4. LiteLLM Mode
 
@@ -433,6 +475,39 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | `docling_serve_pdf_backend`       | string   | `"dlparse_v2"`            | PDF backend: `"dlparse_v4"`, `"dlparse_v3"`, or `"pypdfium2"` |
 | `docling_serve_table_mode`        | string   | `"fast"`                  | Table extraction mode: `"accurate"` or `"fast"`               |
 | `docling_serve_image_export_mode` | string   | `"placeholder"`           | Image export mode: `"embedded"`, `"referenced"`, or `"none"`  |
+
+### Docling Entity Extraction Parameters
+
+| Parameter               | Type   | Default | Description                                                                                     |
+|-------------------------|--------|---------|-------------------------------------------------------------------------------------------------|
+| `entity_config` | object | `null`  | Custom VLM model configuration (see Custom Model Configuration section above for full details) |
+
+**entity_config Structure:**
+
+For inline models (HuggingFace):
+```json
+{
+  "model_type": "inline",
+  "model_name": "ibm-granite/granite-3.0-8b-instruct",
+  "backend": "transformers|vllm|mlx",
+  "device": "cuda|cpu|mps",
+  "quantization": "4bit|8bit|none",
+  "temperature": 0.0,
+  "max_new_tokens": 2048
+}
+```
+
+For API models (Ollama, vLLM, OpenAI-compatible):
+```json
+{
+  "model_type": "api",
+  "model_name": "llama3.2-vision",
+  "api_url": "http://localhost:11434/v1/chat/completions",
+  "api_key": "optional-api-key",  # pragma: allowlist secret
+  "temperature": 0.0,
+  "max_new_tokens": 2048
+}
+```
 
 ### Ollama Entity Extraction Parameters
 

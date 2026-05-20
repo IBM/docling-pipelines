@@ -2,15 +2,18 @@
 
 This adapter implements entity extraction using Docling templates for structured
 document processing. It extracts entities based on predefined document type templates.
+Supports custom model configuration for both inline (HuggingFace) and API (Ollama, vLLM) models.
 """
 
 import io
+import json
 from typing import Any
 
 from docling.datamodel.base_models import InputFormat
 from docling_core.types.io import DocumentStream
 
 from datasift.core.constants import OperatorConstants
+from datasift.core.constants.constants import DoclingClientConfigConstants
 from datasift.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.utils.document_class_utils import DocumentClassUtils
@@ -48,36 +51,176 @@ class DoclingEntityAdapter(EntityExtractionPort):
     def validate(self, *, config: dict[str, Any]) -> None:
         """Validate adapter configuration.
 
-        Docling adapter has minimal configuration requirements
-        Most configuration is handled by the base EntityExtractionPort
+        Validates both base configuration and entity_config for custom models.
 
         Args:
             config: Configuration dictionary to validate
+
+        Raises:
+            ValueError: If configuration is invalid
         """
         # Validate string parameters if present
         for param in ["doc_column", "output_column"]:
             value = config.get(param)
             if value is not None and not isinstance(value, str):
                 raise ValueError(f"DoclingEntityAdapter '{param}' must be a string")
+
+        # Validate entity_config if present
+        entity_config = config.get(DoclingClientConfigConstants.ENTITY_CONFIG)
+        if entity_config is not None:
+            if not isinstance(entity_config, dict):
+                raise ValueError(f"'{DoclingClientConfigConstants.ENTITY_CONFIG}' must be a dictionary")
+
+            model_type = entity_config.get(DoclingClientConfigConstants.MODEL_TYPE)
+            if model_type is not None:
+                if not isinstance(model_type, str):
+                    raise ValueError(
+                        f"'{DoclingClientConfigConstants.ENTITY_CONFIG}.{DoclingClientConfigConstants.MODEL_TYPE}' must be a string"
+                    )
+                if model_type != DoclingClientConfigConstants.MODEL_TYPE_INLINE:
+                    raise ValueError(
+                        f"'{DoclingClientConfigConstants.ENTITY_CONFIG}.{DoclingClientConfigConstants.MODEL_TYPE}' must be '{DoclingClientConfigConstants.MODEL_TYPE_INLINE}'. Note: API model is not supported by DocumentExtractor."
+                    )
+
+                # Validate inline model config
+                inline_config = entity_config.get(DoclingClientConfigConstants.INLINE_MODEL)
+                if inline_config is None:
+                    raise ValueError(
+                        f"'{DoclingClientConfigConstants.ENTITY_CONFIG}.{DoclingClientConfigConstants.INLINE_MODEL}' is required when model_type is '{DoclingClientConfigConstants.MODEL_TYPE_INLINE}'"
+                    )
+                if not isinstance(inline_config, dict):
+                    raise ValueError(
+                        f"'{DoclingClientConfigConstants.ENTITY_CONFIG}.{DoclingClientConfigConstants.INLINE_MODEL}' must be a dictionary"
+                    )
+                if DoclingClientConfigConstants.REPO_ID not in inline_config:
+                    raise ValueError(
+                        f"'{DoclingClientConfigConstants.ENTITY_CONFIG}.{DoclingClientConfigConstants.INLINE_MODEL}.{DoclingClientConfigConstants.REPO_ID}' is required"
+                    )
+                if not isinstance(inline_config[DoclingClientConfigConstants.REPO_ID], str):
+                    raise ValueError(
+                        f"'{DoclingClientConfigConstants.ENTITY_CONFIG}.{DoclingClientConfigConstants.INLINE_MODEL}.{DoclingClientConfigConstants.REPO_ID}' must be a string"
+                    )
+
         super().validate(config=config)
 
     def _init_adapter_config(self, *, config: dict[str, Any]) -> None:
-        """Initialize docling-specific configuration.
+        """Initialize docling-specific configuration including custom model options.
+
+        Builds VLM extraction options once during initialization to avoid rebuilding
+        for every document. Errors during build are logged but don't prevent adapter creation.
 
         Args:
-            config: Configuration dictionary (currently unused)
+            config: Configuration dictionary containing optional entity_config
         """
-        logger.info("Initialized DoclingEntityAdapter")
+        self.entity_config = config.get(DoclingClientConfigConstants.ENTITY_CONFIG)
+
+        if self.entity_config:
+            model_type = self.entity_config.get(DoclingClientConfigConstants.MODEL_TYPE)
+            if model_type == DoclingClientConfigConstants.MODEL_TYPE_INLINE:
+                logger.info(
+                    "Configured DoclingEntityAdapter with inline model: %s",
+                    self.entity_config.get(DoclingClientConfigConstants.INLINE_MODEL, {}).get(
+                        DoclingClientConfigConstants.REPO_ID
+                    ),
+                )
+        else:
+            logger.info("Initialized DoclingEntityAdapter with default model configuration")
+
+        # Build VLM extraction options once during initialization
+        # Wrap in try-except to allow adapter creation even if VLM build fails
+        self.extraction_format_options = None
+        try:
+            self.extraction_format_options = self._build_vlm_extraction_options(entity_config=self.entity_config)
+        except (ImportError, ValueError) as e:
+            logger.warning("Failed to build VLM extraction options during initialization: %s", e)
+
+    @staticmethod
+    def _build_vlm_extraction_options(*, entity_config: Any) -> dict[Any, Any] | None:
+        """Build VLM extraction format options from stored configuration.
+
+        Returns:
+            Dictionary mapping InputFormat to ExtractionFormatOption, or None if no custom config
+        """
+        if not entity_config:
+            return None
+
+        try:
+            from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
+            from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
+            from docling.datamodel.base_models import InputFormat
+            from docling.datamodel.pipeline_options import VlmPipelineOptions
+            from docling.datamodel.pipeline_options_vlm_model import InlineVlmOptions
+            from docling.document_extractor import ExtractionFormatOption
+            from docling.pipeline.extraction_vlm_pipeline import ExtractionVlmPipeline
+
+            model_type = entity_config.get(DoclingClientConfigConstants.MODEL_TYPE)
+
+            if model_type == DoclingClientConfigConstants.MODEL_TYPE_INLINE:
+                inline_config = entity_config.get(DoclingClientConfigConstants.INLINE_MODEL, {})
+                vlm_options = InlineVlmOptions(
+                    repo_id=inline_config[DoclingClientConfigConstants.REPO_ID],
+                    inference_framework=inline_config.get(
+                        DoclingClientConfigConstants.INFERENCE_FRAMEWORK,
+                        DoclingClientConfigConstants.DEFAULT_INFERENCE_FRAMEWORK,
+                    ),
+                    scale=inline_config.get(
+                        DoclingClientConfigConstants.SCALE, DoclingClientConfigConstants.DEFAULT_SCALE
+                    ),
+                    temperature=inline_config.get(
+                        DoclingClientConfigConstants.TEMPERATURE, DoclingClientConfigConstants.DEFAULT_TEMPERATURE
+                    ),
+                    max_new_tokens=inline_config.get(
+                        DoclingClientConfigConstants.MAX_NEW_TOKENS, DoclingClientConfigConstants.DEFAULT_MAX_NEW_TOKENS
+                    ),
+                    load_in_8bit=inline_config.get(
+                        DoclingClientConfigConstants.LOAD_IN_8BIT, DoclingClientConfigConstants.DEFAULT_LOAD_IN_8BIT
+                    ),
+                    torch_dtype=inline_config.get(
+                        DoclingClientConfigConstants.TORCH_DTYPE, DoclingClientConfigConstants.DEFAULT_TORCH_DTYPE
+                    ),
+                    prompt=inline_config.get(
+                        DoclingClientConfigConstants.PROMPT, DoclingClientConfigConstants.DEFAULT_PROMPT
+                    ),
+                    response_format=inline_config.get(
+                        DoclingClientConfigConstants.RESPONSE_FORMAT,
+                        DoclingClientConfigConstants.DEFAULT_RESPONSE_FORMAT,
+                    ),
+                )
+            else:
+                return None
+
+            # Build pipeline options
+            pipeline_options = VlmPipelineOptions(vlm_options=vlm_options)
+
+            # Build extraction format options for both PDF and IMAGE formats
+            return {
+                InputFormat.PDF: ExtractionFormatOption(
+                    pipeline_cls=ExtractionVlmPipeline,
+                    pipeline_options=pipeline_options,
+                    backend=PyPdfiumDocumentBackend,
+                ),
+                InputFormat.IMAGE: ExtractionFormatOption(
+                    pipeline_cls=ExtractionVlmPipeline,
+                    pipeline_options=pipeline_options,
+                    backend=DoclingParseDocumentBackend,
+                ),
+            }
+
+        except ImportError as e:
+            logger.error("Failed to import Docling VLM classes. Install with: pip install docling[vlm]")
+            logger.error("Error: %s", e)
+            raise ValueError("Docling VLM dependencies not available") from e
+        except Exception as e:
+            logger.error("Failed to build VLM extraction options: %s", e)
+            raise ValueError(f"Invalid VLM configuration: {e}") from e
 
     def extract_entities_single(
         self, *, doc_id: str, doc_name: str, content: str | bytes, schema: dict[str, Any] | None = None
     ) -> dict[str, Any]:
-        """Extract entities from a single document using schema.
+        """Extract entities from a single document using schema and optional custom model.
 
-        This is a placeholder implementation. In a full implementation, this would:
-        1. Load the appropriate Docling template based on document type
-        2. Use Docling's template extraction to extract structured data
-        3. Map the extracted data to the entity schema
+        Uses Docling's DocumentExtractor with optional custom VLM configuration.
+        Supports both inline (HuggingFace) and API (Ollama, vLLM) models.
 
         Args:
             doc_id: Document identifier
@@ -90,6 +233,8 @@ class DoclingEntityAdapter(EntityExtractionPort):
             {
                 "success": bool,
                 "entities": dict,
+                "doc_content": str,
+                "metadata": dict,
                 "error": str | None
             }
         """
@@ -104,8 +249,17 @@ class DoclingEntityAdapter(EntityExtractionPort):
             # Create DocumentStream from binary content (no temporary file needed)
             doc_stream = DocumentStream(name=doc_name, stream=io.BytesIO(content_bytes))
 
-            # Initialize extractor (each worker gets its own instance)
-            extractor = DocumentExtractor(allowed_formats=[InputFormat.IMAGE, InputFormat.PDF])
+            # Use VLM extraction options built once during initialization
+            # Initialize extractor with custom model options if configured
+            if self.extraction_format_options:
+                extractor = DocumentExtractor(
+                    allowed_formats=[InputFormat.IMAGE, InputFormat.PDF],
+                    extraction_format_options=self.extraction_format_options,
+                )
+                logger.debug("Using custom VLM model for extraction: %s", doc_name)
+            else:
+                extractor = DocumentExtractor(allowed_formats=[InputFormat.IMAGE, InputFormat.PDF])
+                logger.debug("Using default model for extraction: %s", doc_name)
 
             # Extract directly from stream
             result = extractor.extract(source=doc_stream, template=schema or {})
@@ -114,9 +268,19 @@ class DoclingEntityAdapter(EntityExtractionPort):
             pages_data = []
             raw_text = ""
             for page in result.pages:
+                extracted_data = page.extracted_data
+
+                # If extracted_data is None but raw_text contains JSON, parse it
+                if extracted_data is None and page.raw_text:
+                    try:
+                        extracted_data = json.loads(page.raw_text)
+                    except json.JSONDecodeError:
+                        # If not valid JSON, keep as None
+                        pass
+
                 page_dict = {
                     OperatorConstants.Extraction.PAGE_NO: page.page_no,
-                    OperatorConstants.Columns.EXTRACTED_DATA: page.extracted_data,
+                    OperatorConstants.Columns.EXTRACTED_DATA: extracted_data,
                     OperatorConstants.Columns.RAW_TEXT: page.raw_text,
                     OperatorConstants.Extraction.ERRORS: page.errors,
                 }
@@ -124,7 +288,8 @@ class DoclingEntityAdapter(EntityExtractionPort):
                 if page.raw_text:
                     raw_text += page.raw_text + "\n"
             logger.info("Saved structured results for %s", doc_name)
-
+            logger.debug(f"Extraction Format Options used: {extractor.extraction_format_to_options}")
+            logger.debug(f"Extracted Pages: {pages_data}")
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
                 OperatorConstants.Misc.ENTITIES: pages_data,
