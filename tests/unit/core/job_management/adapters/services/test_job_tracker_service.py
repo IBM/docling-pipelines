@@ -1374,3 +1374,90 @@ class TestUpdateNodeStats:
 
         with pytest.raises(ValueError, match="Invalid node_stats type"):
             job_tracker_service.update_node_stats(job_run_id=JOB_RUN_ID, node_id=NODE_ID_1, node_stats="invalid_string")
+
+
+class TestRequestCancelJob:
+    """Test request_cancel_job method."""
+
+    @pytest.mark.parametrize(
+        "terminal_status",
+        [
+            ExecutionStatus.COMPLETED,
+            ExecutionStatus.COMPLETED_WITH_ERRORS,
+            ExecutionStatus.COMPLETED_WITH_WARNINGS,
+            ExecutionStatus.CANCELED,
+            ExecutionStatus.FAILED,
+            ExecutionStatus.ABORTED,
+        ],
+    )
+    def test_cancel_job_in_terminal_state_raises_exception(self, *, job_tracker_service, mock_store, terminal_status):
+        """Test that canceling a job in terminal state raises JobRunInvalidStateException."""
+        from datasift.exceptions.datasift_exceptions import JobRunInvalidStateException
+
+        # Arrange
+        job_run_id = "test-job-run-123"
+        job_stats = JobStats(
+            job_id="test-job-123",
+            job_run_id=job_run_id,
+            status=terminal_status,
+        )
+        mock_store.get_job_stats.return_value = job_stats
+
+        # Act & Assert
+        with pytest.raises(JobRunInvalidStateException) as exc_info:
+            job_tracker_service.request_cancel_job(job_run_id=job_run_id)
+
+        # Verify exception details
+        assert exc_info.value.job_run_id == job_run_id
+        assert exc_info.value.current_state == terminal_status.value
+        assert terminal_status.value in str(exc_info.value)
+        assert "Cannot cancel" in str(exc_info.value)
+
+    @pytest.mark.parametrize(
+        "active_status",
+        [
+            ExecutionStatus.QUEUED,
+            ExecutionStatus.PENDING,
+            ExecutionStatus.STARTING,
+            ExecutionStatus.RUNNING,
+            ExecutionStatus.PAUSED,
+            ExecutionStatus.RESUMING,
+        ],
+    )
+    def test_cancel_job_in_active_state_succeeds(self, *, job_tracker_service, mock_store, active_status):
+        """Test that canceling a job in active state succeeds."""
+        # Arrange
+        job_run_id = "test-job-run-456"
+        job_stats = JobStats(
+            job_id="test-job-456",
+            job_run_id=job_run_id,
+            status=active_status,
+        )
+        mock_store.get_job_stats.return_value = job_stats
+
+        # Act
+        job_tracker_service.request_cancel_job(job_run_id=job_run_id)
+
+        # Assert
+        mock_store.store_job_stats.assert_called_once()
+        stored_stats = mock_store.store_job_stats.call_args[0][0]
+        assert stored_stats.status == ExecutionStatus.CANCELING
+
+    def test_cancel_already_canceling_job_succeeds(self, *, job_tracker_service, mock_store):
+        """Test that canceling a job already in CANCELING state succeeds (idempotent)."""
+        # Arrange
+        job_run_id = "test-job-run-789"
+        job_stats = JobStats(
+            job_id="test-job-789",
+            job_run_id=job_run_id,
+            status=ExecutionStatus.CANCELING,
+        )
+        mock_store.get_job_stats.return_value = job_stats
+
+        # Act
+        job_tracker_service.request_cancel_job(job_run_id=job_run_id)
+
+        # Assert - should remain in CANCELING state
+        mock_store.store_job_stats.assert_called_once()
+        stored_stats = mock_store.store_job_stats.call_args[0][0]
+        assert stored_stats.status == ExecutionStatus.CANCELING

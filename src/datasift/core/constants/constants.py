@@ -445,7 +445,7 @@ class ExecutionStatus(StrEnum):
 
 
 # efficient membership checks (O(1) instead of O(n))
-COMPLETED_JOB_STATUSES = frozenset(
+TERMINAL_JOB_STATUSES = frozenset(
     [
         ExecutionStatus.COMPLETED,
         ExecutionStatus.COMPLETED_WITH_ERRORS,
@@ -456,7 +456,7 @@ COMPLETED_JOB_STATUSES = frozenset(
     ]
 )
 
-TERMINAL_NODE_STATES = frozenset(COMPLETED_JOB_STATUSES | {ExecutionStatus.SKIPPED})
+TERMINAL_NODE_STATES = frozenset(TERMINAL_JOB_STATUSES | {ExecutionStatus.SKIPPED})
 
 active_states = [
     ExecutionStatus.STARTING,

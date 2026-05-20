@@ -16,11 +16,12 @@ from datetime import datetime
 from logging import Logger
 from typing import Any
 
-from datasift.core.constants.constants import TERMINAL_NODE_STATES, ExecutionStatus, Metrics
+from datasift.core.constants.constants import TERMINAL_JOB_STATUSES, TERMINAL_NODE_STATES, ExecutionStatus, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.job_management.application.services import NodeStatsAggregator
 from datasift.core.job_management.domain.models import JobStats, NodeMetadataItem, NodeStats
 from datasift.core.job_management.domain.ports import JobStatsService, JobStatsStore
+from datasift.exceptions.datasift_exceptions import JobRunInvalidStateException
 from datasift.utils.infrastructure.logging import get_logger
 
 logger: Logger = get_logger()
@@ -777,13 +778,23 @@ class JobTrackerService(JobStatsService):
             job_run_id: Job run identifier
 
         Raises:
-            ValueError: If job_run_id not found
+            JobRunNotFoundException: If job_run_id not found
+            JobRunInvalidStateException: If job is already in terminal state
         """
         job_stats = self.job_stats_store.get_job_stats(job_run_id)
         if not job_stats:
             from datasift.exceptions.datasift_exceptions import JobRunNotFoundException
 
             raise JobRunNotFoundException(message=f"Job run not found: {job_run_id}", job_run_id=job_run_id)
+
+        # Check if job is already in a terminal state
+        if job_stats.status in TERMINAL_JOB_STATUSES:
+            logger.error(f"Cannot cancel job {job_run_id}: already in terminal state {job_stats.status.value}")
+            raise JobRunInvalidStateException(
+                message=f"Cannot cancel job run in {job_stats.status.value} state",
+                job_run_id=job_run_id,
+                current_state=job_stats.status.value,
+            )
 
         job_stats.status = ExecutionStatus.CANCELING
         self.job_stats_store.store_job_stats(job_stats)
