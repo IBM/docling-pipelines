@@ -1302,6 +1302,37 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 - redaction stats column
 
 ---
+#### PIIAndHAPAnnotator
+
+**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using Large Language Models.
+
+**Category:** Quality
+
+**Short Name:** `pii_and_hap`
+
+**Class:** `core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator`
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `provider` | string | No | `ollama` | LLM provider (`ollama`, `watsonx`, `litellm`) |
+| `provider_config` | object | No | `{}` | Provider-specific configuration |
+| `model_id` | string | Conditional | `granite3.1-dense:8b` | Model for detection (required for watsonx/litellm) |
+| `doc_column` | string | No | `content` | Input text column |
+| `pii_types` | list[string] | No | all types | PII types to detect |
+| `hap_types` | list[string] | No | all types | HAP types to detect |
+| `output_column_prefix` | string | No | `pii_hap_` | Prefix for output columns |
+
+**Output Schema:**
+- `{prefix}pii_detected` (bool)
+- `{prefix}hap_detected` (bool)
+- `{prefix}pii_types` (list)
+- `{prefix}hap_types` (list)
+- Optional confidence and reasoning columns
+
+**See Also:** [PII and HAP Documentation](docs/operators/pii_and_hap/pii_and_hap.md)
+
+---
+
 
 #### DocumentClassifierOperator
 

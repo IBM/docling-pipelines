@@ -420,6 +420,36 @@ When creating built-in datasift operators (operators that ship with the datasift
 
 3. **Follow all other operator requirements** (implement `get_metadata()`, `get_required_features()`, etc.)
 
+4. **Register the operator in the operator registry:**
+   
+   All built-in datasift operators must be registered in the operator registry frozenset to be discoverable by the operator factory.
+   
+   **Steps to register:**
+   
+   a. Add the import in [`src/datasift/core/operators/operator_registry.py`](src/datasift/core/operators/operator_registry.py):
+   ```python
+   from datasift.core.operators.quality.my_operator import MyOperator
+   ```
+   
+   b. Add the operator class to the `DATASIFT_OPERATORS` frozenset in the appropriate category section:
+   ```python
+   DATASIFT_OPERATORS = frozenset(
+       {
+           # ... other operators ...
+           # Quality
+           MyOperator,  # Add your operator here
+           # ... other operators ...
+       }
+   )
+   ```
+   
+   **Important:** Without registration in the frozenset, the operator will not be loaded by the operator factory and will fail with "Failed to get operator" errors when used in flows.
+   
+   **Verification:** After registration, verify the operator appears in the list:
+   ```bash
+   datasift-orchestrator --list-operators
+   ```
+
 ### Custom Operator Requirements
 
 When creating custom operators, you **must**:

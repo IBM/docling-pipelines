@@ -28,6 +28,7 @@ from datasift.core.operators.quality.doc_quality import DocQuality
 from datasift.core.operators.quality.ededup import EdedupOperator
 from datasift.core.operators.quality.language_detection.lang_id import LanguageDetect
 from datasift.core.operators.quality.ml_enrichment import MLEnrichmentOperator
+from datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator import PIIAndHAPAnnotator
 from datasift.core.operators.quality.readability import ReadabilityOperator
 from datasift.core.operators.quality.redaction import RedactionOperator
 from datasift.core.operators.quality.sql_filter import SQLFilterOperator
@@ -57,6 +58,7 @@ DATASIFT_OPERATORS = frozenset(
         EdedupOperator,
         LanguageDetect,
         MLEnrichmentOperator,
+        PIIAndHAPAnnotator,
         ReadabilityOperator,
         RedactionOperator,
         SQLFilterOperator,
