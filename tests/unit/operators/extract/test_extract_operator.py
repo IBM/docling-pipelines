@@ -1678,3 +1678,69 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
         # Verify doc-2 appears with only text reason
         assert "doc-2" in skipped_docs
         assert skipped_docs["doc-2"][OperatorConstants.Misc.REASON] == "text empty content"
+
+
+@patch("datasift.core.operators.extract.ports.outbound.text_extraction.TextExtractionPort.transform")
+def test_extract_operator_stage_progress_metadata(mock_text_transform):
+    """Test that extract operator reports stage-based progress in metadata."""
+    import pyarrow as pa
+
+    from datasift.core.constants.operator_constants import OperatorConstants
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+
+    # Create test table with content column (required by doc_id_hash)
+    table = pa.table(
+        {
+            "id": ["doc1", "doc2"],
+            "name": ["test1.pdf", "test2.pdf"],
+            "content": ["extracted text 1", "extracted text 2"],
+        }
+    )
+
+    # Mock the text extraction to return table with stage progress
+    mock_text_transform.return_value = (
+        [table],
+        {
+            OperatorConstants.Metadata.NODE_METADATA: {
+                OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS: {
+                    "text_extraction": {
+                        "status": "completed",
+                        "documents_total": 2,
+                        "documents_completed": 2,
+                        "documents_failed": 0,
+                        "progress_percentage": 100.0,
+                    }
+                }
+            }
+        },
+    )
+
+    # Configure operator with text extraction only
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "job_id": "test-job",
+        "job_run_id": "test-run",
+        "node_id": "test-node",
+        "batch_id": "test-batch",
+    }
+
+    operator = ExtractOperator(config=config)
+    _, metadata = operator.transform(table, "test_file")
+
+    # Check that metadata contains stage progress
+    assert OperatorConstants.Metadata.NODE_METADATA in metadata
+    node_metadata = metadata[OperatorConstants.Metadata.NODE_METADATA]
+
+    # Should have extraction_stage_progress
+    assert OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS in node_metadata
+    stage_progress = node_metadata[OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS]
+
+    # Should have text_extraction stage
+    assert "text_extraction" in stage_progress
+    text_stage = stage_progress["text_extraction"]
+    assert text_stage["status"] == "completed"
+    assert text_stage["documents_total"] == 2
+    assert text_stage["documents_completed"] == 2
+    assert text_stage["documents_failed"] == 0
+    assert text_stage["progress_percentage"] == 100.0

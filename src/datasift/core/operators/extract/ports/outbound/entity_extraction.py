@@ -61,6 +61,10 @@ class EntityExtractionPort(ABC):
                 - doc_column: Column name for document text (default: "doc_content")
                 - output_column: Column name for entities (default: "entities")
                 - expand_extracted_data: Expand entities into columns (default: False)
+                - job_run_id: Job run identifier for progress tracking (optional)
+                - node_id: Node identifier for progress tracking (optional)
+                - node_name: Node name for progress tracking (optional)
+                - batch_id: Batch identifier for progress tracking (optional)
                 - Additional adapter-specific configuration
         """
         self.max_workers = config.get(OperatorConstants.Config.MAX_WORKERS, 4)
@@ -72,6 +76,24 @@ class EntityExtractionPort(ABC):
         )
         self.custom_schema = config.get(OperatorConstants.Config.CUSTOM_SCHEMA, {})
         self.common_log_arguments = config.get("common_log_arguments", {})
+
+        # Job tracking context for progress updates
+        from datasift.core.constants.constants import DatasiftConstants
+
+        self.job_run_id = config.get(DatasiftConstants.JOB_RUN_ID)
+        self.node_id = config.get(DatasiftConstants.NODE_ID)
+        self.node_name = config.get(DatasiftConstants.NODE_NAME)
+        self.batch_id = config.get(DatasiftConstants.BATCH_ID)
+
+        logger.info(
+            "Initialized %s with job_run_id=%s, node_id=%s, batch_id=%s",
+            self.__class__.__name__,
+            self.job_run_id,
+            self.node_id,
+            self.batch_id,
+            extra=self.common_log_arguments,
+        )
+
         # Validate configuration before initializing adapter-specific config
         self.validate(config=config)
         # Subclasses should initialize their adapter-specific configuration
@@ -104,6 +126,115 @@ class EntityExtractionPort(ABC):
             config: Full configuration dictionary
         """
         pass
+
+    def _update_extraction_progress(
+        self, *, completed: int, total: int, progress_percentage: float, failed_count: int
+    ) -> None:
+        """Update node stats with entity extraction stage progress.
+
+        Reports stage-based progress metadata that the batch aggregator uses to
+        display per-stage extraction progress (Text Extracted, Entities Extracted).
+
+        Args:
+            completed: Number of documents successfully extracted
+            total: Total number of documents being extracted
+            progress_percentage: Percentage of extraction completion
+            failed_count: Number of failed extractions
+        """
+        try:
+            # Only update if we have job tracking context
+            if not self.job_run_id or not self.node_id:
+                return
+
+            from datasift.core.job_management.adapters.config.job_management_factory import get_default_factory
+            from datasift.core.job_management.domain.models.node_stats import NodeMetadataItem
+
+            factory = get_default_factory()
+            job_tracker = factory.create_job_stats_service()
+
+            # Determine stage status
+            stage_status = (
+                OperatorConstants.Extraction.STAGE_STATUS_COMPLETED
+                if completed >= total
+                else OperatorConstants.Extraction.STAGE_STATUS_RUNNING
+            )
+
+            # Get job stats store to read existing metadata
+            from datasift.core.job_management.adapters.config.job_management_factory import get_default_factory
+
+            factory_for_store = get_default_factory()
+            job_stats_store = factory_for_store.create_job_stats_store()
+
+            # Read existing node stats to preserve text extraction progress
+            existing_stage_progress = {}
+            try:
+                existing_node = job_stats_store.get_node_stats_by_batch_and_node(
+                    job_run_id=self.job_run_id, node_id=self.node_id, batch_id=self.batch_id
+                )
+
+                # Extract existing extraction_stage_progress
+                if existing_node and existing_node.node_metadata:
+                    node_metadata_dict = existing_node.node_metadata
+                    if isinstance(node_metadata_dict, dict):
+                        inner_metadata = node_metadata_dict.get(OperatorConstants.Metadata.NODE_METADATA, {})
+                        if isinstance(inner_metadata, dict):
+                            existing_stage_progress = inner_metadata.get(
+                                OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS, {}
+                            )
+                            if existing_stage_progress:
+                                logger.debug(
+                                    "Found existing stage progress with %d stages",
+                                    len(existing_stage_progress),
+                                    extra=self.common_log_arguments,
+                                )
+            except Exception as e:
+                logger.error(
+                    "Could not read existing node stats, starting fresh: %s",
+                    e,
+                    extra=self.common_log_arguments,
+                )
+
+            # Merge entity stage with existing text stage
+            merged_stage_progress = dict(existing_stage_progress) if isinstance(existing_stage_progress, dict) else {}
+            merged_stage_progress[OperatorConstants.Extraction.STAGE_ENTITY_EXTRACTION] = {
+                OperatorConstants.Extraction.STAGE_STATUS: stage_status,
+                OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: total,
+                OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: completed,
+                OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: failed_count,
+                OperatorConstants.Extraction.STAGE_PROGRESS_PERCENTAGE: round(progress_percentage, 2),
+            }
+
+            # Build complete progress metadata with both stages
+            progress_metadata: dict[str, Any] = {
+                OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS: merged_stage_progress
+            }
+
+            # Wrap in proper NodeMetadataItem structure
+            metadata_item: NodeMetadataItem = NodeMetadataItem(
+                id=self.node_id,
+                operator=self.node_name or "ExtractOperator",
+                node_metadata=progress_metadata,
+            )
+
+            # Create node_stats dict with proper structure
+            node_stats = {OperatorConstants.Metadata.NODE_METADATA: metadata_item.model_dump()}
+
+            # Update node stats through job tracker
+            job_tracker.update_node_stats(
+                job_run_id=self.job_run_id, node_id=self.node_id, node_stats=node_stats, batch_id=self.batch_id
+            )
+
+            logger.info(
+                "Updated entity extraction progress: %s/%s documents (%.1f%%), stages: %s",
+                completed,
+                total,
+                progress_percentage,
+                list(merged_stage_progress.keys()),
+                extra=self.common_log_arguments,
+            )
+        except Exception as e:
+            # Don't fail extraction if progress update fails
+            logger.warning("Failed to update extraction progress: %s", e, extra=self.common_log_arguments)
 
     def _prepare_document_tasks(
         self, table: pa.Table, document_types: list[str], metadata: dict[str, Any]
@@ -244,6 +375,14 @@ class EntityExtractionPort(ABC):
             metadata: Metadata dictionary for tracking results
             content_list: Dictionary to populate with extracted content
         """
+        import time
+
+        # Progress tracking variables
+        completed_count = 0
+        failed_count = 0
+        total_documents = len(doc_tasks)
+        last_update_time = 0.0
+        update_interval = 5  # Update progress every 5 seconds
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_task: dict[Future, dict[str, Any]] = {}
@@ -256,7 +395,57 @@ class EntityExtractionPort(ABC):
             # Collect results as they complete
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
+
+                # Track result before handling
+                try:
+                    result = future.result()
+                    if result.get(OperatorConstants.Extraction.SUCCESS):
+                        completed_count += 1
+                    else:
+                        failed_count += 1
+                except Exception:
+                    failed_count += 1
+
+                # Handle the extraction result
                 self._handle_extraction_result(future, task, entities_list, metadata, content_list)
+
+                # Update progress periodically (every update_interval seconds)
+                current_time = time.time()
+                if (current_time - last_update_time) >= update_interval and (
+                    completed_count + failed_count
+                ) < total_documents:
+                    progress_percentage = ((completed_count + failed_count) / total_documents) * 100
+                    self._update_extraction_progress(
+                        completed=completed_count,
+                        total=total_documents,
+                        progress_percentage=progress_percentage,
+                        failed_count=failed_count,
+                    )
+                    last_update_time = current_time
+                    logger.info(
+                        "Entity extraction progress: %s/%s documents (%.1f%%)",
+                        completed_count + failed_count,
+                        total_documents,
+                        progress_percentage,
+                        extra=self.common_log_arguments,
+                    )
+
+            # Final progress update to reach terminal state
+            if total_documents > 0:
+                progress_percentage = ((completed_count + failed_count) / total_documents) * 100
+                self._update_extraction_progress(
+                    completed=completed_count,
+                    total=total_documents,
+                    progress_percentage=progress_percentage,
+                    failed_count=failed_count,
+                )
+                logger.info(
+                    "Final entity extraction progress: %s/%s documents (%.1f%%)",
+                    completed_count + failed_count,
+                    total_documents,
+                    progress_percentage,
+                    extra=self.common_log_arguments,
+                )
 
     def _handle_extraction_result(
         self,

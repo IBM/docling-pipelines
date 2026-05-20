@@ -26,9 +26,9 @@ logger = get_logger()
 class WatsonxClassificationAdapter(ClassificationServicePort):
     """Watsonx adapter for document classification.
 
-    Security: api_key and container_id MUST be provided via environment variables only.
-    Required environment variables: WATSONX_API_KEY, WATSONX_CONTAINER_ID
-    Optional environment variables: WATSONX_API_BASE_URL, WATSONX_CONTAINER_KIND
+    Credentials can be provided via provider_config or environment variables.
+    Parameters: api_key, container_id, api_base, container_kind
+    Environment variables: WATSONX_API_KEY, WATSONX_CONTAINER_ID, WATSONX_API_BASE_URL, WATSONX_CONTAINER_KIND
     """
 
     ADAPTER_NAME = "watsonx"
@@ -38,6 +38,8 @@ class WatsonxClassificationAdapter(ClassificationServicePort):
         self,
         *,
         model_id: str | None = None,
+        api_key: str | None = None,
+        container_id: str | None = None,
         api_base: str | None = None,
         container_kind: str | None = None,
         request_timeout: int = 120,
@@ -48,15 +50,17 @@ class WatsonxClassificationAdapter(ClassificationServicePort):
 
         Args:
             model_id: WatsonX model ID (required)
+            api_key: IBM Cloud API key (falls back to WATSONX_API_KEY env var)
+            container_id: Project or space ID (falls back to WATSONX_CONTAINER_ID env var)
             api_base: API base URL (falls back to WATSONX_API_BASE_URL env var)
             container_kind: Container type - "project" or "space" (falls back to WATSONX_CONTAINER_KIND env var)
             request_timeout: Request timeout in seconds (default: 120)
             **kwargs: Additional configuration parameters
 
         Security Note:
-            api_key and container_id MUST be set via environment variables:
-            - WATSONX_API_KEY: IBM Cloud API key
-            - WATSONX_CONTAINER_ID: Project or space ID
+            Credentials can be provided via parameters or environment variables:
+            - api_key parameter or WATSONX_API_KEY env var
+            - container_id parameter or WATSONX_CONTAINER_ID env var
         """
         if not model_id:
             raise DatasiftException(
@@ -79,6 +83,8 @@ class WatsonxClassificationAdapter(ClassificationServicePort):
         try:
             self.client = WatsonXClient(
                 model_name=model_id,
+                api_key=api_key,
+                container_id=container_id,
                 api_base=api_base,
                 container_kind=container_kind,
                 timeout=request_timeout,

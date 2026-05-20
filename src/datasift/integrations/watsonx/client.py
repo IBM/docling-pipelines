@@ -37,6 +37,8 @@ class WatsonXClient(BaseLLMClient):
         self,
         *,
         model_name: str,
+        api_key: str | None = None,
+        container_id: str | None = None,
         api_base: str | None = None,
         container_kind: str | None = None,
         timeout: int = 120,
@@ -47,6 +49,8 @@ class WatsonXClient(BaseLLMClient):
 
         Args:
             model_name: WatsonX model ID (e.g., "ibm/granite-13b-chat-v2")
+            api_key: IBM Cloud API key (falls back to WATSONX_API_KEY env var)
+            container_id: Project or space ID (falls back to WATSONX_CONTAINER_ID env var)
             api_base: API base URL (falls back to WATSONX_API_BASE_URL env var)
             container_kind: Container type - "project" or "space" (falls back to WATSONX_CONTAINER_KIND env var)
             timeout: Request timeout in seconds (default: 120)
@@ -56,15 +60,15 @@ class WatsonXClient(BaseLLMClient):
             ConfigurationError: If required configuration is missing or invalid
 
         Security Note:
-            api_key and container_id MUST be set via environment variables:
-            - WATSONX_API_KEY: IBM Cloud API key
-            - WATSONX_CONTAINER_ID: Project or space ID
+            Credentials can be provided via parameters or environment variables:
+            - api_key parameter or WATSONX_API_KEY env var
+            - container_id parameter or WATSONX_CONTAINER_ID env var
         """
         super().__init__(model_name=model_name, **kwargs)
 
-        # Security: api_key and container_id MUST come from environment variables only
-        self.api_key = os.getenv("WATSONX_API_KEY")
-        self.container_id = os.getenv("WATSONX_CONTAINER_ID")
+        # Accept credentials from parameters or fall back to environment variables
+        self.api_key = api_key or os.getenv("WATSONX_API_KEY")
+        self.container_id = container_id or os.getenv("WATSONX_CONTAINER_ID")
 
         # Non-sensitive config: allow parameters with env var fallback
         self.api_base = api_base or os.getenv("WATSONX_API_BASE_URL")

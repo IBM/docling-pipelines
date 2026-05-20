@@ -39,6 +39,8 @@ class ExtractionInfo:
     total: int
     completed: int
     is_extraction_operator: bool
+    weighted_progress: float = 0.0
+    stage_progress: dict[str, Any] | None = None
 
 
 @dataclass
@@ -48,11 +50,6 @@ class ClassificationInfo:
     total: int
     completed: int
     is_classification_operator: bool
-
-
-# Display field name constants
-FIELD_FILES_EXTRACTED = "Files Extracted"
-FIELD_DOCS_CLASSIFIED = "Documents Classified"
 
 
 def _get_empty_node_stats(*, node_id: str) -> NodeStats:
@@ -206,7 +203,11 @@ def _is_extraction_operator(*, batch_records: list[NodeStats]) -> bool:
     """Checks if this is an extraction operator by looking for extraction-specific fields."""
     for record in batch_records:
         metadata = _get_nested_metadata(record=record)
-        if metadata and ("extraction_running" in metadata or "extraction_completed" in metadata):
+        if metadata and (
+            "extraction_running" in metadata
+            or "extraction_completed" in metadata
+            or OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS in metadata
+        ):
             return True
     return False
 
@@ -220,36 +221,61 @@ def _is_classification_operator(*, batch_records: list[NodeStats]) -> bool:
     return False
 
 
-def _extract_from_single_record(*, metadata: dict[str, Any]) -> tuple:
-    """Extracts extraction progress from a single record's metadata and removes transient fields."""
+def _extract_from_single_record(*, metadata: dict[str, Any]) -> tuple[int, int, float]:
+    """
+    Extracts extraction progress from a single record's metadata and removes transient fields.
+
+    Returns:
+        tuple: (total_documents, completed_documents, weighted_progress)
+    """
     total_running = 0
     total_completed = 0
+    weighted_progress = 0.0
     has_transient = False
 
-    # Priority 1: Transient extraction fields (present during RUNNING state)
-    if "extraction_running" in metadata:
+    # Priority 1: Stage-based progress (new format)
+    if OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS in metadata:
+        stage_progress = metadata.get(OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS, {})
+        if isinstance(stage_progress, dict):
+            # Use MAX of stage totals (not sum) since all stages process the same documents
+            # Sum completed across stages for weighted progress calculation
+            stage_totals = []
+            for stage_data in stage_progress.values():
+                if isinstance(stage_data, dict):
+                    stage_totals.append(stage_data.get(OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL, 0))
+                    total_completed += stage_data.get(OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED, 0)
+
+            # Use max of stage totals since stages process the same documents sequentially
+            total_running = max(stage_totals) if stage_totals else 0
+            weighted_progress = float(total_completed)
+            has_transient = True
+
+    # Priority 2: Legacy extraction fields (backward compatibility)
+    elif "extraction_running" in metadata or "extraction_completed" in metadata:
         total_running = int(metadata.get("extraction_running", 0))
-        has_transient = True
-
-    if "extraction_completed" in metadata:
         total_completed = int(metadata.get("extraction_completed", 0))
+        weighted_progress = float(total_completed)
         has_transient = True
 
-    # Remove transient fields after reading them
-    # These fields should not appear in the final aggregated metadata
+    # Remove transient fields after reading
     if has_transient:
+        # Remove stage-based transient field
+        metadata.pop(OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS, None)
+
+        # Remove legacy transient fields
         metadata.pop("extraction_running", None)
         metadata.pop("extraction_completed", None)
         metadata.pop("progress_percentage", None)
 
-    # Priority 2: Persistent metadata as fallback (for COMPLETED batches)
+    # Priority 3: Persistent metadata as fallback (for COMPLETED batches)
     if not has_transient:
         if Metrics.External.TOTAL_DOCS in metadata:
             total_running = int(metadata.get(Metrics.External.TOTAL_DOCS, 0))
         if Metrics.External.PROCESSED_DOCS in metadata:
             total_completed = int(metadata.get(Metrics.External.PROCESSED_DOCS, 0))
+            weighted_progress = float(total_completed)
 
-    return total_running, total_completed
+    return total_running, total_completed, weighted_progress
 
 
 def _extract_classification_from_single_record(*, metadata: dict[str, Any]) -> tuple:
@@ -289,24 +315,37 @@ def _get_extraction_progress(*, batch_records: list[NodeStats]) -> ExtractionInf
     Extracts extraction progress from batch records if this is an extraction operator.
 
     ONLY extracts if extraction-specific fields are present (i.e., this is an extraction operator).
-    Returns ExtractionInfo with zeros for non-extraction operators.
+    Returns ExtractionInfo with stage_progress included.
     """
     # Check if this is an extraction operator FIRST
     if not _is_extraction_operator(batch_records=batch_records):
-        return ExtractionInfo(total=0, completed=0, is_extraction_operator=False)
+        return ExtractionInfo(
+            total=0, completed=0, is_extraction_operator=False, weighted_progress=0.0, stage_progress=None
+        )
 
-    # Extract and sum values from all records
+    # Aggregate stage progress FIRST before transient fields are removed
+    stage_progress = _aggregate_extraction_stage_progress(batch_records=batch_records)
+
+    # Extract and sum values from all records (this removes transient fields)
     extraction_total = 0
     extraction_completed = 0
+    weighted_progress_sum = 0.0
 
     for record in batch_records:
         metadata = _get_nested_metadata(record=record)
         if metadata:
-            running, completed = _extract_from_single_record(metadata=metadata)
-            extraction_total += running
+            total, completed, weighted = _extract_from_single_record(metadata=metadata)
+            extraction_total += total
             extraction_completed += completed
+            weighted_progress_sum += weighted
 
-    return ExtractionInfo(total=extraction_total, completed=extraction_completed, is_extraction_operator=True)
+    return ExtractionInfo(
+        total=extraction_total,
+        completed=extraction_completed,
+        is_extraction_operator=True,
+        weighted_progress=weighted_progress_sum,
+        stage_progress=stage_progress if stage_progress else None,
+    )
 
 
 def _get_classification_progress(*, batch_records: list[NodeStats]) -> ClassificationInfo:
@@ -331,7 +370,142 @@ def _get_classification_progress(*, batch_records: list[NodeStats]) -> Classific
             classification_total += running
             classification_completed += completed
 
-    return ClassificationInfo(total=classification_total, completed=classification_completed, is_classification_operator=True)
+    return ClassificationInfo(
+        total=classification_total, completed=classification_completed, is_classification_operator=True
+    )
+
+
+def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> dict[str, Any]:
+    """
+    Aggregates per-stage extraction progress across all batches.
+
+    Handles both:
+    - Running batches: Have transient extraction_stage_progress metadata
+    - Completed batches: Have persistent total_docs_count/processed_docs metadata
+
+    Returns dict with structure:
+    {
+        "text_extraction": {
+            "status": "running",
+            "documents_total": 100,
+            "documents_completed": 86,
+            "documents_failed": 0,
+            "progress_percentage": 86.0
+        },
+        "entity_extraction": { ... }
+    }
+    """
+    stage_aggregates: dict[str, dict[str, Any]] = {}
+
+    for record in batch_records:
+        metadata = _get_nested_metadata(record=record)
+        if not metadata:
+            continue
+
+        stage_progress = metadata.get(OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS, {})
+
+        # Handle running batches with stage progress
+        if isinstance(stage_progress, dict) and stage_progress:
+            for stage_name, stage_data in stage_progress.items():
+                if stage_name not in stage_aggregates:
+                    stage_aggregates[stage_name] = {
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
+                        "statuses": [],
+                    }
+
+                stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += stage_data.get(
+                    OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL, 0
+                )
+                stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED] += stage_data.get(
+                    OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED, 0
+                )
+                stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED] += stage_data.get(
+                    OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED, 0
+                )
+                stage_aggregates[stage_name]["statuses"].append(
+                    stage_data.get(
+                        OperatorConstants.Extraction.STAGE_STATUS, OperatorConstants.Extraction.STAGE_STATUS_PENDING
+                    )
+                )
+        # Handle completed batches (no stage progress, use persistent metadata)
+        # Include COMPLETED, COMPLETED_WITH_ERRORS, and COMPLETED_WITH_WARNINGS
+        elif record.node_status in (
+            ExecutionStatus.COMPLETED.value,
+            ExecutionStatus.COMPLETED_WITH_ERRORS.value,
+            ExecutionStatus.COMPLETED_WITH_WARNINGS.value,
+        ):
+            # For completed batches, use total_docs_count and processed_docs from nested metadata
+            total_docs = metadata.get(Metrics.External.TOTAL_DOCS, 0)
+            processed_docs = metadata.get(Metrics.External.PROCESSED_DOCS, 0)
+
+            if total_docs > 0:
+                # Add to both text and entity extraction stages as completed
+                for stage_name in ["text_extraction", "entity_extraction"]:
+                    if stage_name not in stage_aggregates:
+                        stage_aggregates[stage_name] = {
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
+                            "statuses": [],
+                        }
+
+                    stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += total_docs
+                    stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED] += (
+                        processed_docs
+                    )
+                    stage_aggregates[stage_name]["statuses"].append(OperatorConstants.Extraction.STAGE_STATUS_COMPLETED)
+        # FALLBACK: Handle running batches WITHOUT stage_progress but WITH total_docs
+        elif record.node_status == ExecutionStatus.RUNNING.value:
+            # Check for total_docs field (not total_docs_count which is for completed)
+            total_docs = metadata.get("total_docs", 0)
+
+            if total_docs > 0:
+                # Add to both stages as running with 0 completed
+                for stage_name in ["text_extraction", "entity_extraction"]:
+                    if stage_name not in stage_aggregates:
+                        stage_aggregates[stage_name] = {
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
+                            "statuses": [],
+                        }
+
+                    stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += total_docs
+                    # Don't add to completed since we don't have progress info
+                    stage_aggregates[stage_name]["statuses"].append(OperatorConstants.Extraction.STAGE_STATUS_RUNNING)
+
+    # Calculate final stage progress
+    result: dict[str, Any] = {}
+    for stage_name, agg in stage_aggregates.items():
+        total = agg[OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL]
+        completed = agg[OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED]
+
+        # Determine aggregated status (priority: running > failed > completed > pending)
+        statuses = agg["statuses"]
+        if OperatorConstants.Extraction.STAGE_STATUS_RUNNING in statuses:
+            status = OperatorConstants.Extraction.STAGE_STATUS_RUNNING
+        elif OperatorConstants.Extraction.STAGE_STATUS_FAILED in statuses:
+            status = OperatorConstants.Extraction.STAGE_STATUS_FAILED
+        elif all(s == OperatorConstants.Extraction.STAGE_STATUS_COMPLETED for s in statuses):
+            status = OperatorConstants.Extraction.STAGE_STATUS_COMPLETED
+        else:
+            status = OperatorConstants.Extraction.STAGE_STATUS_PENDING
+
+        result[stage_name] = {
+            OperatorConstants.Extraction.STAGE_STATUS: status,
+            OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: total,
+            OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: completed,
+            OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: agg[
+                OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED
+            ],
+            OperatorConstants.Extraction.STAGE_PROGRESS_PERCENTAGE: round((completed / total * 100), 2)
+            if total > 0
+            else 0.0,
+        }
+
+    return result
 
 
 def _calculate_finished_batches(*, status_counts: dict[str, int]) -> int:
@@ -393,23 +567,39 @@ def _add_progress_field(
 
         # Combine base progress with status breakdown
         if status_parts:
-            metadata["Progress"] = f"{base_progress} | {', '.join(status_parts)}"
+            metadata[OperatorConstants.Metadata.FIELD_PROGRESS] = f"{base_progress} | {', '.join(status_parts)}"
         else:
-            metadata["Progress"] = base_progress
+            metadata[OperatorConstants.Metadata.FIELD_PROGRESS] = base_progress
 
 
-def _add_extraction_field(*, metadata: dict[str, Any], extraction_info: ExtractionInfo, has_pending_batches: bool) -> None:
-    """Adds Files Extracted field for extraction operators."""
-    if extraction_info.total > 0:
-        if has_pending_batches:
-            # Batches still pending - show "(more in queue)" message
-            metadata[FIELD_FILES_EXTRACTED] = f"{extraction_info.completed} of {extraction_info.total} (more in queue)"
-        else:
-            # All batches started - show percentage
-            extraction_pct = round((extraction_info.completed / extraction_info.total * 100), 2)
-            metadata[FIELD_FILES_EXTRACTED] = (
-                f"{extraction_info.completed} of {extraction_info.total} ({extraction_pct}%)"
-            )
+def _add_extraction_stage_fields(
+    *, metadata: dict[str, Any], extraction_info: ExtractionInfo, has_pending_batches: bool
+) -> None:
+    """Adds per-stage extraction fields for extraction operators."""
+    if not extraction_info.stage_progress:
+        return
+
+    for stage_name, stage_data in extraction_info.stage_progress.items():
+        total = stage_data.get("documents_total", 0)
+        completed = stage_data.get("documents_completed", 0)
+
+        if total > 0:
+            # Determine field name based on stage
+            if stage_name == "text_extraction":
+                field_name = OperatorConstants.Metadata.FIELD_TEXT_EXTRACTED
+            elif stage_name == "entity_extraction":
+                field_name = OperatorConstants.Metadata.FIELD_ENTITIES_EXTRACTED
+            else:
+                # For any other stages, use a generic format
+                field_name = stage_name.replace("_", " ").title()
+
+            if has_pending_batches:
+                # Batches still pending - show "(more in queue)" message
+                metadata[field_name] = f"{completed} of {total} (more in queue)"
+            else:
+                # All batches started - show percentage
+                pct = round((completed / total * 100), 2)
+                metadata[field_name] = f"{completed} of {total} ({pct}%)"
 
 
 def _add_classification_field(
@@ -419,13 +609,13 @@ def _add_classification_field(
     if classification_info.total > 0:
         if has_pending_batches:
             # Batches still pending - show "(more in queue)" message
-            metadata[FIELD_DOCS_CLASSIFIED] = (
+            metadata[OperatorConstants.Metadata.FIELD_DOCS_CLASSIFIED] = (
                 f"{classification_info.completed} of {classification_info.total} (more in queue)"
             )
         else:
             # All batches started - show percentage
             classification_pct = round((classification_info.completed / classification_info.total * 100), 2)
-            metadata[FIELD_DOCS_CLASSIFIED] = (
+            metadata[OperatorConstants.Metadata.FIELD_DOCS_CLASSIFIED] = (
                 f"{classification_info.completed} of {classification_info.total} ({classification_pct}%)"
             )
 
@@ -464,9 +654,9 @@ def _inject_metadata_fields(
             status_counts=batch_progress.status_counts,
         )
 
-        # Add Files Extracted field for extraction operators
+        # Add per-stage extraction fields for extraction operators
         if extraction_info.is_extraction_operator:
-            _add_extraction_field(
+            _add_extraction_stage_fields(
                 metadata=metadata, extraction_info=extraction_info, has_pending_batches=batch_progress.has_pending
             )
 

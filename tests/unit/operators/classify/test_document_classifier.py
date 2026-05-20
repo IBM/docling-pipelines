@@ -841,5 +841,101 @@ class TestWatsonxClassificationAdapter:
             assert len(metadata["failed_docs"]) == 1
 
 
+@pytest.mark.unit
+@patch("datasift.integrations.ollama.client.OllamaClient.is_server_running", return_value=True)
+@patch("datasift.integrations.ollama.client.OllamaClient.is_model_available", return_value=True)
+def test_document_classifier_progress_tracking(mock_model, mock_server):
+    """Test that document classifier reports progress in metadata."""
+    from datasift.core.constants import Metrics
+
+    # Create test table with content
+    table = pa.table(
+        {
+            "id": ["doc1", "doc2", "doc3"],
+            "name": ["test1.txt", "test2.txt", "test3.txt"],
+            "content": ["Invoice content", "Receipt content", "Contract content"],
+        }
+    )
+
+    # Configure operator
+    config = {
+        "provider": "ollama",
+        "model_id": "test-model",
+        "document_types": ["invoice", "receipt", "contract"],
+        "job_id": "test-job",
+        "job_run_id": "test-run",
+        "node_id": "test-node",
+        "batch_id": "test-batch",
+    }
+
+    # Mock the classification responses
+    mock_responses = [
+        json.dumps({"document_type": "invoice", "confidence": 9}),
+        json.dumps({"document_type": "receipt", "confidence": 8}),
+        json.dumps({"document_type": "contract", "confidence": 9}),
+    ]
+
+    with patch(
+        "datasift.core.operators.quality.classification.adapters.outbound.ollama_adapter.OllamaClient.run",
+        side_effect=mock_responses,
+    ):
+        operator = DocumentClassifierOperator(config)
+        _, metadata = operator.transform(table)
+
+        # Check that metadata contains progress fields
+        assert Metrics.External.TOTAL_DOCS in metadata
+        assert Metrics.External.PROCESSED_DOCS in metadata
+        assert metadata[Metrics.External.TOTAL_DOCS] == 3
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 3
+
+
+@pytest.mark.unit
+@patch("datasift.integrations.ollama.client.OllamaClient.is_server_running", return_value=True)
+@patch("datasift.integrations.ollama.client.OllamaClient.is_model_available", return_value=True)
+def test_document_classifier_batch_progress(mock_model, mock_server):
+    """Test that document classifier updates progress during batch processing."""
+    from datasift.core.constants import Metrics
+
+    # Create larger test table
+    num_docs = 10
+    table = pa.table(
+        {
+            "id": [f"doc{i}" for i in range(num_docs)],
+            "name": [f"test{i}.txt" for i in range(num_docs)],
+            "content": [f"Test content {i}" for i in range(num_docs)],
+        }
+    )
+
+    # Configure operator with parallel processing
+    config = {
+        "provider": "ollama",
+        "model_id": "test-model",
+        "document_types": ["invoice", "receipt"],
+        "max_workers": 2,
+        "job_id": "test-job",
+        "job_run_id": "test-run",
+        "node_id": "test-node",
+        "batch_id": "test-batch",
+    }
+
+    # Mock responses for all documents
+    mock_responses = [json.dumps({"document_type": "invoice", "confidence": 8})] * num_docs
+
+    with patch(
+        "datasift.core.operators.quality.classification.adapters.outbound.ollama_adapter.OllamaClient.run",
+        side_effect=mock_responses,
+    ):
+        operator = DocumentClassifierOperator(config)
+        _, metadata = operator.transform(table)
+
+        # Check progress tracking
+        assert metadata[Metrics.External.TOTAL_DOCS] == num_docs
+        assert metadata[Metrics.External.PROCESSED_DOCS] >= 0
+        assert metadata[Metrics.External.PROCESSED_DOCS] <= num_docs
+
+        # Check that failed docs are tracked
+        assert Metrics.External.FAILED_DOCS_COUNT in metadata
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

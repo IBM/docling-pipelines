@@ -324,3 +324,313 @@ class TestDocumentListAggregation:
         assert set(aggregated.total_docs) == {"doc1", "doc2", "doc3"}
         assert set(aggregated.docs_completed) == {"doc1", "doc2", "doc3"}
         assert set(aggregated.failed_docs) == {"doc2"}
+
+
+class TestStageBasedProgressAggregation:
+    """Test aggregation of stage-based progress for extraction and classification operators."""
+
+    def test_extraction_stage_progress_aggregation(self):
+        """Extraction operator with stage-based progress should aggregate correctly."""
+        store = MockJobStatsStore()
+        store.node_stats_data = [
+            NodeStats(
+                node_id=NODE_1_ID,
+                name="Extract",
+                node_status="Completed",
+                batch_id=BATCH_1_ID,
+                batch_num=0,
+                total_docs=["doc1", "doc2", "doc3"],
+                docs_completed=["doc1", "doc2", "doc3"],
+                failed_docs=[],
+                node_metadata={
+                    "node_metadata": {
+                        "extraction_stage_progress": {
+                            "text_extraction": {
+                                "stage_status": "completed",
+                                "documents_total": 3,
+                                "documents_completed": 3,
+                                "documents_failed": 0,
+                                "progress_percentage": 100.0,
+                            },
+                            "entity_extraction": {
+                                "stage_status": "completed",
+                                "documents_total": 3,
+                                "documents_completed": 3,
+                                "documents_failed": 0,
+                                "progress_percentage": 100.0,
+                            },
+                        }
+                    }
+                },
+            ),
+            NodeStats(
+                node_id=NODE_1_ID,
+                name="Extract",
+                node_status="Completed",
+                batch_id=BATCH_2_ID,
+                batch_num=1,
+                total_docs=["doc4", "doc5"],
+                docs_completed=["doc4", "doc5"],
+                failed_docs=[],
+                node_metadata={
+                    "node_metadata": {
+                        "extraction_stage_progress": {
+                            "text_extraction": {
+                                "stage_status": "completed",
+                                "documents_total": 2,
+                                "documents_completed": 2,
+                                "documents_failed": 0,
+                                "progress_percentage": 100.0,
+                            },
+                            "entity_extraction": {
+                                "stage_status": "completed",
+                                "documents_total": 2,
+                                "documents_completed": 2,
+                                "documents_failed": 0,
+                                "progress_percentage": 100.0,
+                            },
+                        }
+                    }
+                },
+            ),
+        ]
+
+        aggregator = NodeStatsAggregator(job_stats_store=store)
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        assert len(result) == 1
+        aggregated = result[NODE_1_ID]
+
+        # Check that stage progress is converted to user-friendly fields
+        metadata = aggregated.node_metadata["node_metadata"]
+
+        # Should have user-friendly extraction fields
+        assert "Text Extracted" in metadata
+        assert "Entities Extracted" in metadata
+
+        # Both stages completed (5 of 5)
+        assert "5 of 5" in metadata["Text Extracted"]
+        assert "5 of 5" in metadata["Entities Extracted"]
+
+        # Should also have core document fields
+        assert metadata["total_docs_count"] == 5
+        assert metadata["processed_docs"] == 5
+
+    def test_extraction_stage_progress_uses_started_batches_only_for_stage_totals(self):
+        """Stage totals should accumulate only started batches, while document totals still include queued work."""
+        store = MockJobStatsStore()
+        store.node_stats_data = [
+            NodeStats(
+                node_id=NODE_1_ID,
+                name="Extract",
+                node_status="Completed",
+                batch_id=BATCH_1_ID,
+                batch_num=0,
+                total_docs=["doc1", "doc2", "doc3"],
+                docs_completed=["doc1", "doc2", "doc3"],
+                failed_docs=[],
+                node_metadata={
+                    "node_metadata": {
+                        "extraction_stage_progress": {
+                            "text_extraction": {
+                                "stage_status": "completed",
+                                "documents_total": 3,
+                                "documents_completed": 3,
+                                "documents_failed": 0,
+                                "progress_percentage": 100.0,
+                            },
+                            "entity_extraction": {
+                                "stage_status": "completed",
+                                "documents_total": 3,
+                                "documents_completed": 3,
+                                "documents_failed": 0,
+                                "progress_percentage": 100.0,
+                            },
+                        }
+                    }
+                },
+            ),
+            NodeStats(
+                node_id=NODE_1_ID,
+                name="Extract",
+                node_status="Completed",
+                batch_id=BATCH_2_ID,
+                batch_num=1,
+                total_docs=["doc4", "doc5", "doc6"],
+                docs_completed=["doc4", "doc5", "doc6"],
+                failed_docs=[],
+                node_metadata={
+                    "node_metadata": {
+                        "extraction_stage_progress": {
+                            "text_extraction": {
+                                "stage_status": "completed",
+                                "documents_total": 3,
+                                "documents_completed": 3,
+                                "documents_failed": 0,
+                                "progress_percentage": 100.0,
+                            },
+                            "entity_extraction": {
+                                "stage_status": "running",
+                                "documents_total": 3,
+                                "documents_completed": 1,
+                                "documents_failed": 0,
+                                "progress_percentage": 33.33,
+                            },
+                        }
+                    }
+                },
+            ),
+            NodeStats(
+                node_id=NODE_1_ID,
+                name="Extract",
+                node_status="Pending",
+                batch_id="b3234567-1234-1234-1234-123456789abc",
+                batch_num=2,
+                total_docs=["doc7", "doc8", "doc9", "doc10"],
+                docs_completed=[],
+                failed_docs=[],
+                node_metadata={"node_metadata": {}},
+            ),
+        ]
+
+        aggregator = NodeStatsAggregator(job_stats_store=store)
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        aggregated = result[NODE_1_ID]
+        metadata = aggregated.node_metadata["node_metadata"]
+
+        # Overall document counts include all batches, including pending.
+        assert metadata["total_docs_count"] == 10
+        assert metadata["processed_docs"] == 6
+        assert aggregated.docs_completed_count == 6
+
+        # Stage progress counts only started batches with stage metadata.
+        assert metadata["Text Extracted"] == "6 of 6 (more in queue)"
+        assert metadata["Entities Extracted"] == "4 of 6 (more in queue)"
+        assert metadata["Progress"] == "2 of 3 batches (66.67%) | Completed: 2"
+
+    def test_classification_progress_aggregation(self):
+        """Classification operator with progress tracking should aggregate correctly."""
+        store = MockJobStatsStore()
+        store.node_stats_data = [
+            NodeStats(
+                node_id=NODE_1_ID,
+                name="Classifier",
+                node_status="Completed",
+                batch_id=BATCH_1_ID,
+                batch_num=0,
+                total_docs=["doc1", "doc2", "doc3"],
+                docs_completed=["doc1", "doc2", "doc3"],
+                failed_docs=[],
+                node_metadata={
+                    "node_metadata": {
+                        "classification_running": 3,
+                        "classification_completed": 3,
+                        "progress_percentage": "100.00%",
+                    }
+                },
+            ),
+            NodeStats(
+                node_id=NODE_1_ID,
+                name="Classifier",
+                node_status="Running",
+                batch_id=BATCH_2_ID,
+                batch_num=1,
+                total_docs=["doc4", "doc5"],
+                docs_completed=["doc4"],
+                failed_docs=[],
+                node_metadata={
+                    "node_metadata": {
+                        "classification_running": 2,
+                        "classification_completed": 1,
+                        "progress_percentage": "50.00%",
+                    }
+                },
+            ),
+        ]
+
+        aggregator = NodeStatsAggregator(job_stats_store=store)
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        assert len(result) == 1
+        aggregated = result[NODE_1_ID]
+
+        # Check that transient fields are removed and persistent fields are present
+        metadata = aggregated.node_metadata["node_metadata"]
+        assert "classification_running" not in metadata
+        assert "classification_completed" not in metadata
+        assert "progress_percentage" not in metadata
+
+        # Check aggregated persistent fields (4 completed out of 5 total)
+        assert metadata["total_docs_count"] == 5
+        assert metadata["processed_docs"] == 4
+
+        # Should have Documents Classified field showing progress
+        assert "Documents Classified" in metadata
+        assert "4 of 5" in metadata["Documents Classified"]
+
+    def test_mixed_extraction_and_classification_progress(self):
+        """Flow with both extraction and classification operators should aggregate correctly."""
+        store = MockJobStatsStore()
+        store.node_stats_data = [
+            # Extraction node with stage progress
+            NodeStats(
+                node_id=NODE_1_ID,
+                name="Extract",
+                node_status="Completed",
+                batch_id=BATCH_1_ID,
+                batch_num=0,
+                total_docs=["doc1", "doc2", "doc3"],
+                docs_completed=["doc1", "doc2", "doc3"],
+                failed_docs=[],
+                node_metadata={
+                    "node_metadata": {
+                        "extraction_stage_progress": {
+                            "text_extraction": {
+                                "stage_status": "completed",
+                                "documents_total": 3,
+                                "documents_completed": 3,
+                                "documents_failed": 0,
+                                "progress_percentage": 100.0,
+                            }
+                        }
+                    }
+                },
+            ),
+            # Classification node with progress
+            NodeStats(
+                node_id=NODE_2_ID,
+                name="Classifier",
+                node_status="Running",
+                batch_id=BATCH_1_ID,
+                batch_num=0,
+                total_docs=["doc1", "doc2", "doc3"],
+                docs_completed=["doc1", "doc2"],
+                failed_docs=[],
+                node_metadata={
+                    "node_metadata": {
+                        "classification_running": 3,
+                        "classification_completed": 2,
+                        "progress_percentage": "66.67%",
+                    }
+                },
+            ),
+        ]
+
+        aggregator = NodeStatsAggregator(job_stats_store=store)
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        assert len(result) == 2
+
+        # Extraction node should have user-friendly fields
+        extract_metadata = result[NODE_1_ID].node_metadata["node_metadata"]
+        assert "Text Extracted" in extract_metadata
+        assert "3 of 3" in extract_metadata["Text Extracted"]
+
+        # Classification node should have aggregated progress
+        classify_metadata = result[NODE_2_ID].node_metadata["node_metadata"]
+        assert "classification_running" not in classify_metadata
+        assert classify_metadata["total_docs_count"] == 3
+        assert classify_metadata["processed_docs"] == 2
+        assert "Documents Classified" in classify_metadata
+        assert "2 of 3" in classify_metadata["Documents Classified"]

@@ -116,14 +116,10 @@ class TextExtractionPort(ABC):
     def _update_extraction_progress(
         self, *, completed: int, total: int, progress_percentage: float, failed_count: int
     ) -> None:
-        """Update node stats with extraction progress.
+        """Update node stats with text extraction stage progress.
 
-        This method updates the node metadata with transient extraction progress fields
-        that are used by the batch aggregator to calculate and display extraction progress.
-
-        The transient fields (extraction_running, extraction_completed, progress_percentage)
-        are removed by the batch aggregator after reading them, ensuring they don't
-        persist in the final aggregated metadata.
+        Reports stage-based progress metadata that the batch aggregator uses to
+        display per-stage extraction progress (Text Extracted, Entities Extracted).
 
         Args:
             completed: Number of documents successfully extracted
@@ -141,11 +137,24 @@ class TextExtractionPort(ABC):
             factory = get_default_factory()
             job_tracker = factory.create_job_stats_service()
 
-            # Build transient progress metadata (only extraction fields)
+            # Determine stage status
+            stage_status = (
+                OperatorConstants.Extraction.STAGE_STATUS_COMPLETED
+                if completed >= total
+                else OperatorConstants.Extraction.STAGE_STATUS_RUNNING
+            )
+
+            # Build stage-based progress metadata
             progress_metadata: dict[str, Any] = {
-                "extraction_running": total,
-                "extraction_completed": completed,
-                "progress_percentage": f"{progress_percentage:.2f}%",
+                OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS: {
+                    OperatorConstants.Extraction.STAGE_TEXT_EXTRACTION: {
+                        OperatorConstants.Extraction.STAGE_STATUS: stage_status,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: total,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: completed,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: failed_count,
+                        OperatorConstants.Extraction.STAGE_PROGRESS_PERCENTAGE: round(progress_percentage, 2),
+                    }
+                }
             }
 
             # Wrap in proper NodeMetadataItem structure
@@ -164,7 +173,7 @@ class TextExtractionPort(ABC):
             )
 
             logger.info(
-                "Updated extraction progress: %s/%s files (%.1f%%)",
+                "Updated text extraction progress: %s/%s files (%.1f%%)",
                 completed,
                 total,
                 progress_percentage,
@@ -281,7 +290,9 @@ class TextExtractionPort(ABC):
 
                 # Update progress periodically (every update_interval seconds)
                 current_time = time.time()
-                if (current_time - last_update_time) >= update_interval and (completed_count + failed_count) < total_files:
+                if (current_time - last_update_time) >= update_interval and (
+                    completed_count + failed_count
+                ) < total_files:
                     progress_percentage = ((completed_count + failed_count) / total_files) * 100
                     self._update_extraction_progress(
                         completed=completed_count,

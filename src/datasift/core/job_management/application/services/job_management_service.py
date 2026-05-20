@@ -310,7 +310,14 @@ class JobManagementService:
             flow_executor.execute(orchestrator=orchestrator, params=params)
             logger.info(f"Completed async flow execution for job_run_id={job_run_id}")
         except Exception as exc:
-            logger.error(f"Async flow execution failed for job_run_id={job_run_id}: {exc}", exc_info=True)
+            # Log detailed error information
+            error_details = str(exc)
+            if hasattr(exc, "errors") and getattr(exc, "errors", None):
+                error_details = f"{exc}\nValidation Errors: {exc.errors}"
+            if hasattr(exc, "warnings") and getattr(exc, "warnings", None):
+                error_details = f"{error_details}\nWarnings: {exc.warnings}"
+
+            logger.error(f"Async flow execution failed for job_run_id={job_run_id}: {error_details}", exc_info=True)
             try:
                 # Update status to Failed
                 logger.info(f"Updating job run status to Failed: job_run_id={job_run_id}")

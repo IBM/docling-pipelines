@@ -153,6 +153,9 @@ class DocumentClassifierOperator(AbstractOperator):
             OperatorConstants.Config.MAX_CONTENT_LENGTH, DEFAULT_MAX_CONTENT_LENGTH
         )
 
+        # Job tracking context for progress updates
+        self.batch_id = config.get(DatasiftConstants.BATCH_ID)
+
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
@@ -226,6 +229,61 @@ class DocumentClassifierOperator(AbstractOperator):
         from datasift.utils.document_class_utils import DocumentClassUtils
 
         return DocumentClassUtils.get_document_types()
+
+    def _update_classification_progress(
+        self, *, completed: int, total: int, progress_percentage: float, failed_count: int
+    ) -> None:
+        """Update node stats with classification progress.
+
+        This method updates the node metadata with transient classification progress fields
+        that are used by the batch aggregator to calculate and display classification progress.
+
+        The transient fields (classification_running, classification_completed, progress_percentage)
+        are removed by the batch aggregator after reading them, ensuring they don't
+        persist in the final aggregated metadata.
+
+        Args:
+            completed: Number of documents successfully classified
+            total: Total number of documents being classified
+            progress_percentage: Percentage of classification completion
+            failed_count: Number of failed classifications
+        """
+        try:
+            # Only update if we have job tracking context
+            if not self.job_run_id or not self.id:
+                return
+
+            from datasift.core.job_management.adapters.config.job_management_factory import get_default_factory
+            from datasift.core.job_management.domain.models.node_stats import NodeMetadataItem
+
+            factory = get_default_factory()
+            job_tracker = factory.create_job_stats_service()
+
+            # Build transient progress metadata (only classification fields)
+            progress_metadata: dict[str, Any] = {
+                "classification_running": total,
+                "classification_completed": completed,
+                "progress_percentage": f"{progress_percentage:.2f}%",
+            }
+
+            # Wrap in proper NodeMetadataItem structure
+            metadata_item: NodeMetadataItem = NodeMetadataItem(
+                id=self.id,
+                operator=self.name or "DocumentClassifierOperator",
+                node_metadata=progress_metadata,
+            )
+
+            # Create node_stats dict with proper structure
+            node_stats = {OperatorConstants.Metadata.NODE_METADATA: metadata_item.model_dump()}
+
+            # Update node stats through job tracker
+            job_tracker.update_node_stats(
+                job_run_id=self.job_run_id, node_id=self.id, node_stats=node_stats, batch_id=self.batch_id
+            )
+
+        except Exception as e:
+            # Log but don't fail the operation if progress update fails
+            logger.warning(f"Failed to update classification progress: {e!s}")
 
     def _classify_document(self, *, content: str, doc_name: str | None = None) -> dict[str, Any]:
         """
@@ -436,6 +494,16 @@ class DocumentClassifierOperator(AbstractOperator):
                                 extra=self.common_log_arguments,
                             )
                             metadata[Metrics.External.PROCESSED_DOCS] += 1
+                        # Update progress tracking
+                        completed = metadata[Metrics.External.PROCESSED_DOCS]
+                        failed = metadata[Metrics.External.FAILED_DOCS_COUNT]
+                        progress_pct = (completed / total_docs) * 100 if total_docs > 0 else 0
+                        self._update_classification_progress(
+                            completed=completed,
+                            total=total_docs,
+                            progress_percentage=progress_pct,
+                            failed_count=failed,
+                        )
                     else:
                         self.record_failed_document(
                             metadata=metadata,

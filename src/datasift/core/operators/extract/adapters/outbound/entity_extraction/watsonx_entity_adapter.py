@@ -95,6 +95,8 @@ class WatsonXEntityAdapter(EntityExtractionPort):
         Args:
             config: Configuration dictionary containing:
                 - model_name: WatsonX model name (required)
+                - api_key: IBM Cloud API key (optional, falls back to env var)
+                - container_id: Project or space ID (optional, falls back to env var)
                 - api_base: API base URL (optional, falls back to env var)
                 - container_kind: Container type (optional, falls back to env var)
                 - temperature: Sampling temperature (default: 0.0)
@@ -103,6 +105,8 @@ class WatsonXEntityAdapter(EntityExtractionPort):
                 - request_timeout: Request timeout in seconds (default: 120)
         """
         self.model_name: str = str(config.get(OperatorConstants.Config.MODEL_NAME))
+        self.api_key: str | None = config.get(OperatorConstants.Config.API_KEY)
+        self.container_id: str | None = config.get(OperatorConstants.Config.CONTAINER_ID)
         self.api_base: str | None = config.get(OperatorConstants.Config.API_BASE)
         self.container_kind: str | None = config.get(OperatorConstants.Config.CONTAINER_KIND)
         self.temperature = float(config.get(OperatorConstants.LLM.TEMPERATURE, 0.0))
@@ -113,6 +117,8 @@ class WatsonXEntityAdapter(EntityExtractionPort):
         # Initialize WatsonX client
         self.watsonx_client = WatsonXClient(
             model_name=self.model_name,
+            api_key=self.api_key,
+            container_id=self.container_id,
             api_base=self.api_base,
             container_kind=self.container_kind,
             timeout=self.timeout,

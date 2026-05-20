@@ -96,4 +96,6 @@ DEFAULT_STRATEGIES = {
     # Extract operator - page statistics
     OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED: AggregationStrategy.SUM,
     OperatorConstants.Metadata.PAGES_BY_FORMAT: AggregationStrategy.DEEP_MERGE,
+    # Extract operator - nested stage progress tracking
+    OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS: AggregationStrategy.DEEP_MERGE,
 }

@@ -369,6 +369,23 @@ class OperatorConstants:
         # Default Filenames
         DEFAULT_FALLBACK_FILENAME: Final[str] = "document.pdf"
 
+        # Extraction stage names
+        STAGE_TEXT_EXTRACTION: Final[str] = "text_extraction"
+        STAGE_ENTITY_EXTRACTION: Final[str] = "entity_extraction"
+
+        # Extraction stage progress metadata field names
+        STAGE_STATUS: Final[str] = "status"
+        STAGE_DOCUMENTS_TOTAL: Final[str] = "documents_total"
+        STAGE_DOCUMENTS_COMPLETED: Final[str] = "documents_completed"
+        STAGE_DOCUMENTS_FAILED: Final[str] = "documents_failed"
+        STAGE_PROGRESS_PERCENTAGE: Final[str] = "progress_percentage"
+
+        # Extraction stage status values
+        STAGE_STATUS_PENDING: Final[str] = "pending"
+        STAGE_STATUS_RUNNING: Final[str] = "running"
+        STAGE_STATUS_COMPLETED: Final[str] = "completed"
+        STAGE_STATUS_FAILED: Final[str] = "failed"
+
     class ExtractionModes:
         """Extraction mode constants for ExtractOperator."""
 
@@ -539,6 +556,15 @@ Rules:
 
         # Page statistics
         PAGES_BY_FORMAT: Final[str] = "pages_by_format"
+
+        # Extraction stage progress fields (transient - removed after aggregation)
+        EXTRACTION_STAGE_PROGRESS: Final[str] = "extraction_stage_progress"
+
+        # Display field names for UI
+        FIELD_PROGRESS: Final[str] = "Progress"
+        FIELD_TEXT_EXTRACTED: Final[str] = "Text Extracted"
+        FIELD_ENTITIES_EXTRACTED: Final[str] = "Entities Extracted"
+        FIELD_DOCS_CLASSIFIED: Final[str] = "Documents Classified"
 
     class Storage:
         """Storage constants."""

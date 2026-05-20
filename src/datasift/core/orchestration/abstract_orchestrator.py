@@ -83,6 +83,10 @@ class AbstractOrchestrator(ABC):
             job_id: Job identifier
             job_run_id: Job run identifier
         """
+        # Skip if already initialized for this job_run_id
+        if self.flow_engine is not None and self.job_run_id == job_run_id:
+            return
+
         self.flow_id = get_session_info().flow_id
         self.job_id = job_id
         self.job_run_id = job_run_id

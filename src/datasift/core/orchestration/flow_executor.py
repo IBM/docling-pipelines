@@ -65,8 +65,9 @@ class FlowExecutor:
         # Check for cancellation before validation using the injected job stats service
         job_stats_service = self.__orchestrator.job_stats_service
 
-        # Get job_run_id from params or session_info
+        # Get job_run_id and job_id from params or session_info
         job_run_id = (params.get(DatasiftConstants.JOB_RUN_ID) if params else None) or self.session_info.job_run_id
+        job_id = (params.get(DatasiftConstants.JOB_ID) if params else None) or self.session_info.job_id
 
         if (
             job_stats_service
@@ -81,6 +82,10 @@ class FlowExecutor:
                 job_run_id,
             )
             return
+
+        # Initialize orchestrator before validation (creates flow_engine required by validator)
+        if job_id and job_run_id:
+            self.__orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 
         # Validate flow definition
         try:

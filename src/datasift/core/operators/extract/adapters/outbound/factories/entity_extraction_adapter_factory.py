@@ -90,6 +90,8 @@ class EntityExtractionAdapterFactory:
             ValueError: If mode is unsupported or configuration is invalid
         """
         # Common configuration for all entity modes
+        from datasift.core.constants.constants import DatasiftConstants
+
         adapter_config = {
             "doc_column": operator_config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT),
             OperatorConstants.Columns.OUTPUT_COLUMN: operator_config.get(
@@ -98,6 +100,11 @@ class EntityExtractionAdapterFactory:
             "expand_extracted_data": operator_config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False),
             "custom_schema": operator_config.get(OperatorConstants.Config.CUSTOM_SCHEMA, {}),
             "common_log_arguments": operator_config.get("common_log_arguments", {}),
+            # Job tracking context for progress updates
+            DatasiftConstants.JOB_RUN_ID: operator_config.get(DatasiftConstants.JOB_RUN_ID),
+            DatasiftConstants.NODE_ID: operator_config.get(DatasiftConstants.NODE_ID),
+            DatasiftConstants.NODE_NAME: operator_config.get(DatasiftConstants.NODE_NAME),
+            DatasiftConstants.BATCH_ID: operator_config.get(DatasiftConstants.BATCH_ID),
         }
 
         # Add mode-specific configuration
@@ -157,6 +164,10 @@ class EntityExtractionAdapterFactory:
                     ),
                     OperatorConstants.LLM.MAX_DOC_CHARS: operator_config.get(
                         OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS, 8000
+                    ),
+                    OperatorConstants.Config.API_KEY: entity_provider_config.get(OperatorConstants.Config.API_KEY),
+                    OperatorConstants.Config.CONTAINER_ID: entity_provider_config.get(
+                        OperatorConstants.Config.CONTAINER_ID
                     ),
                     OperatorConstants.Config.API_BASE: entity_provider_config.get(OperatorConstants.Config.API_BASE),
                     OperatorConstants.Config.CONTAINER_KIND: entity_provider_config.get(
