@@ -21,19 +21,19 @@ from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
-FLESCH_EASE: str = "flesch_ease"
-FLESCH_KINCAID: str = "flesch_kincaid"
-GUNNING_FOG: str = "gunning_fog"
-SMOG_INDEX: str = "smog_index"
-COLEMAN_LIAU_INDEX: str = "coleman_liau_index"
-AUTOMATED_READABILITY_INDEX: str = "automated_readability_index"
-DALE_CHALL_READABILITY_SCORE: str = "dale_chall_readability_score"
-DIFFICULT_WORDS: str = "difficult_words"
-LINSEAR_WRITE_FORMULA: str = "linsear_write_formula"
-TEXT_STANDARD: str = "text_standard"
-SPACHE_READABILITY: str = "spache_readability"
-MCALPINE_EFLAW: str = "mcalpine_eflaw"
-READING_TIME: str = "reading_time"
+FLESCH_EASE: str = "flesch_ease_textstat"
+FLESCH_KINCAID: str = "flesch_kincaid_textstat"
+GUNNING_FOG: str = "gunning_fog_textstat"
+SMOG_INDEX: str = "smog_index_textstat"
+COLEMAN_LIAU_INDEX: str = "coleman_liau_index_textstat"
+AUTOMATED_READABILITY_INDEX: str = "automated_readability_index_textstat"
+DALE_CHALL_READABILITY_SCORE: str = "dale_chall_readability_score_textstat"
+DIFFICULT_WORDS: str = "difficult_words_textstat"
+LINSEAR_WRITE_FORMULA: str = "linsear_write_formula_textstat"
+TEXT_STANDARD: str = "text_standard_textstat"
+SPACHE_READABILITY: str = "spache_readability_textstat"
+MCALPINE_EFLAW: str = "mcalpine_eflaw_textstat"
+READING_TIME: str = "reading_time_textstat"
 
 DEFAULT_READABILITY_SCORES: list[str] = [
     FLESCH_EASE,

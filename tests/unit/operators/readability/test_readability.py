@@ -14,15 +14,15 @@ class TestReadabilityOperator(unittest.TestCase):
     def test_init(self):
         config = {
             "readability_contents_column_name": "content",
-            "readability_score_list": ["flesch_ease", "flesch_kincaid"],
+            "readability_score_list": ["flesch_ease_textstat", "flesch_kincaid_textstat"],
         }
         operator = ReadabilityOperator(config=config)
         self.assertIsNotNone(operator, "Readability Operator is not None")
         self.assertEqual(operator.contents_column_name, "content")
-        self.assertIn("flesch_ease", operator.score_list)
+        self.assertIn("flesch_ease_textstat", operator.score_list)
 
     def test_readability_metadata(self):
-        operator = ReadabilityOperator(config={"readability_score_list": ["flesch_ease"]})
+        operator = ReadabilityOperator(config={"readability_score_list": ["flesch_ease_textstat"]})
         metadata = operator.get_metadata()
 
         self.assertIn(OperatorConstants.Misc.SDK, metadata)
@@ -31,12 +31,12 @@ class TestReadabilityOperator(unittest.TestCase):
         self.assertIn(OperatorConstants.Misc.LABEL, metadata)
         self.assertEqual(metadata[OperatorConstants.Misc.LABEL], "Readability Operator")
         self.assertIn(OperatorConstants.Config.FEATURES, metadata)
-        self.assertIn("flesch_ease", metadata[OperatorConstants.Config.FEATURES])
+        self.assertIn("flesch_ease_textstat", metadata[OperatorConstants.Config.FEATURES])
 
     def test_readability_transform(self):
         config = {
             "readability_contents_column_name": "content",
-            "readability_score_list": ["flesch_ease", "flesch_kincaid"],
+            "readability_score_list": ["flesch_ease_textstat", "flesch_kincaid_textstat"],
         }
         operator = ReadabilityOperator(config=config)
 
@@ -63,7 +63,7 @@ class TestReadabilityOperator(unittest.TestCase):
     def test_readability_required_features(self):
         config = {
             "readability_contents_column_name": "content",
-            "readability_score_list": ["flesch_ease", "flesch_kincaid"],
+            "readability_score_list": ["flesch_ease_textstat", "flesch_kincaid_textstat"],
         }
         operator = ReadabilityOperator(config=config)
         required_features = operator.get_required_features()
@@ -92,14 +92,14 @@ class TestReadabilityOperator(unittest.TestCase):
         content = pa.array(["This is a simple test sentence."])
         test_table = pa.Table.from_arrays([content], names=["content"])
 
-        table_list, metadata = operator.transform(table=test_table)
+        table_list, _ = operator.transform(table=test_table)
         transformed_table = table_list[0]
         for score in DEFAULT_READABILITY_SCORES:
-            self.assertIn(f"{score}_textstat", transformed_table.column_names)
+            self.assertIn(score, transformed_table.column_names)
 
 
 def test_operator_metadata():
-    operator = ReadabilityOperator(config={"readability_score_list": ["flesch_ease"]})
+    operator = ReadabilityOperator(config={"readability_score_list": ["flesch_ease_textstat"]})
 
     operator_metadata = operator.get_metadata()
 
@@ -128,7 +128,7 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
         operator = ReadabilityOperator(
             config={
                 "readability_contents_column_name": "content",
-                "readability_score_list": ["flesch_ease"],
+                "readability_score_list": ["flesch_ease_textstat"],
             }
         )
 
@@ -143,7 +143,7 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
         operator = ReadabilityOperator(
             config={
                 "readability_contents_column_name": "content",
-                "readability_score_list": ["flesch_ease", "flesch_kincaid"],
+                "readability_score_list": ["flesch_ease_textstat", "flesch_kincaid_textstat"],
             }
         )
 
@@ -161,11 +161,11 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
         operator = ReadabilityOperator(
             config={
                 "readability_contents_column_name": custom_col,
-                "readability_score_list": ["flesch_ease"],
+                "readability_score_list": ["flesch_ease_textstat"],
             }
         )
 
-        result_tables, metadata = operator.transform(test_table)
+        result_tables, _ = operator.transform(test_table)
 
         self.assertEqual(result_tables[0].num_rows, 1)
         self.assertIn("flesch_ease_textstat", result_tables[0].column_names)
@@ -177,11 +177,11 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
         operator = ReadabilityOperator(
             config={
                 "readability_contents_column_name": "content",
-                "readability_score_list": ["flesch_ease", "flesch_kincaid"],
+                "readability_score_list": ["flesch_ease_textstat", "flesch_kincaid_textstat"],
             }
         )
 
-        result_tables, metadata = operator.transform(test_table)
+        result_tables, _ = operator.transform(test_table)
         result_table = result_tables[0]
 
         self.assertIn("content", result_table.column_names)
@@ -196,7 +196,7 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
         operator = ReadabilityOperator(
             config={
                 "readability_contents_column_name": "content",
-                "readability_score_list": ["flesch_ease"],
+                "readability_score_list": ["flesch_ease_textstat"],
             }
         )
 
@@ -239,9 +239,9 @@ class TestReadabilityOperatorEdgeCases(unittest.TestCase):
             config={
                 "readability_contents_column_name": "content",
                 "readability_score_list": [
-                    "flesch_ease",
-                    "flesch_kincaid",
-                    "gunning_fog",
+                    "flesch_ease_textstat",
+                    "flesch_kincaid_textstat",
+                    "gunning_fog_textstat",
                 ],
             }
         )
