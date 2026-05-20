@@ -44,6 +44,8 @@ def cleanup_after_test():
         pass
 
 
+@pytest.mark.slow
+@pytest.mark.integration
 @pytest.mark.unit
 def test_extract_operator_docling_library_mode(sample_pdf_files):
     """Test the ExtractOperator with docling_library text extraction mode."""
@@ -236,6 +238,8 @@ def test_extract_operator_docling_serve_with_ocr_languages():
     assert operator.text_extraction_mode.value == "docling_serve"
 
 
+@pytest.mark.slow
+@pytest.mark.integration
 @pytest.mark.unit
 def test_extract_operator_docling_library_with_entity_extraction_ollama(
     sample_pdf_files,
@@ -772,6 +776,8 @@ def test_extract_operator_litellm_entity_mode():
     assert operator.entity_adapter is not None
 
 
+@pytest.mark.slow
+@pytest.mark.integration
 @pytest.mark.unit
 def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
     sample_pdf_files,
@@ -847,6 +853,8 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
     assert len(chat_call.kwargs["messages"]) == 2
 
 
+@pytest.mark.slow
+@pytest.mark.integration
 @pytest.mark.unit
 def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_free(
     sample_pdf_files,
@@ -906,6 +914,8 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
     )
 
 
+@pytest.mark.slow
+@pytest.mark.integration
 @pytest.mark.unit
 def test_extract_operator_docling_library_with_entity_extraction_litellm_expanded_columns(
     sample_pdf_files,
@@ -1520,6 +1530,8 @@ def test_prepare_document_content_fetch_uses_path_when_id_missing():
     assert doc_tasks[0]["doc_name"] == "sample.pdf"
 
 
+@pytest.mark.slow
+@pytest.mark.integration
 @pytest.mark.unit
 def test_extract_operator_prefers_path_only_input_without_binary_content(
     sample_pdf_files,

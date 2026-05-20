@@ -594,21 +594,109 @@ def test_opensearch_integration():
 
 ### Running Tests
 
+#### Default Behavior (All Tests)
+
+By default, **all tests run locally** without any filtering:
+
 ```bash
-# Run all tests
+# Run all tests (including slow tests)
 pytest -v
 
+# Run all tests with coverage
+pytest -v --cov=src --cov-report=html
+```
+
+#### Filtering Tests by Speed
+
+The project uses pytest markers to categorize tests by execution speed. This allows you to run fast tests during development and slow tests before committing changes.
+
+**Run only fast tests (exclude slow tests):**
+
+```bash
+# Exclude slow tests - useful for rapid development iteration
+pytest -v -m "not slow"
+```
+
+**Run only slow tests:**
+
+```bash
+# Run only slow tests - useful before committing changes
+pytest -v -m slow
+```
+
+**Why filter by speed?**
+- **Fast tests** (< 1 second): Run frequently during development for quick feedback
+- **Slow tests**: Run before committing to ensure comprehensive validation
+- **CI/CD**: Jenkins CI excludes slow tests to keep build times reasonable
+
+#### The @pytest.mark.slow Marker
+
+Mark slow-running tests (> 1 second) with the `@pytest.mark.slow` decorator:
+
+```python
+import pytest
+
+@pytest.mark.slow
+def test_extract_operator_with_large_document():
+    """Test extraction on large documents (slow test)."""
+    # This test takes several seconds to complete
+    pass
+
+def test_extract_operator_basic():
+    """Test basic extraction (fast test)."""
+    # This test completes in < 1 second
+    pass
+```
+
+**When to use @pytest.mark.slow:**
+- Tests that process large documents or datasets
+- Tests with external service calls (even with mocking if slow)
+- Tests that perform complex computations
+- Tests that take > 1 second to complete
+
+**Important for ExtractOperator developers:**
+- Always run slow tests before committing changes to ExtractOperator
+- Slow tests validate complex extraction scenarios and edge cases
+- Use `pytest -v -m slow tests/unit/operators/extract/` to run ExtractOperator slow tests
+
+#### Filtering by Test Type
+
+```bash
 # Run only unit tests
 pytest -m unit -v
 
 # Run only integration tests
 pytest -m integration -v
 
+# Run fast unit tests only
+pytest -m "unit and not slow" -v
+
 # Run specific test file
 pytest tests/unit/operators/test_chunker.py -v
+```
 
-# Run with coverage
-pytest -v --cov=src --cov-report=html
+#### Local vs CI Testing
+
+**Local Development:**
+- All tests run by default (no filtering unless you specify markers)
+- Use `-m "not slow"` during rapid development for faster feedback
+- Run slow tests before committing with `-m slow`
+
+**Jenkins CI:**
+- Automatically excludes slow tests to maintain reasonable build times
+- Configured in Jenkinsfile with `-m "not slow"`
+- Ensures fast feedback on pull requests
+
+**Best Practice:**
+```bash
+# During development (fast feedback)
+pytest -v -m "not slow"
+
+# Before committing (comprehensive validation)
+pytest -v
+
+# Before committing ExtractOperator changes (critical validation)
+pytest -v -m slow tests/unit/operators/extract/
 ```
 
 ### Test Coverage Expectations

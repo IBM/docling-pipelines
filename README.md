@@ -1096,6 +1096,25 @@ Tests are organized by type and automatically marked:
 - **Unit tests**: `tests/unit/` - Fast, isolated tests
 - **Integration tests**: `tests/integration/` - Tests with external dependencies
 
+#### Filtering Tests by Speed
+
+Tests can be filtered by execution speed using the `@pytest.mark.slow` marker:
+
+```bash
+# Run only fast tests (excludes @pytest.mark.slow)
+uv run pytest -m "not slow" -v
+
+# Run only slow tests
+uv run pytest -m slow -v
+
+# Run fast unit tests only
+uv run pytest -m "unit and not slow" -v
+```
+
+**Note**: Jenkins CI automatically excludes slow tests to keep builds fast. Slow tests are available for local development and can be run manually when needed.
+
+For detailed information on test markers, filtering strategies, and CI configuration, see the [Testing section in CONTRIBUTING.md](CONTRIBUTING.md#testing).
+
 #### Coverage Reports
 
 After running tests with coverage, open the HTML report:

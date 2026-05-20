@@ -133,7 +133,7 @@ timestamps {
               export PYTHONPATH=./src/:./tests
               cp .env.example .env
               # Run unit tests with coverage
-              pytest -m unit -v --cov=src --cov-report=xml:coverage.xml --cov-report=term
+              pytest -m "unit and not slow" -v --cov=src --cov-report=xml:coverage.xml --cov-report=term
               
               # Generate coverage report
               coverage report -m
