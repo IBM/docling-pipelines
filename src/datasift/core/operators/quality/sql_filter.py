@@ -111,15 +111,20 @@ class SQLFilterOperator(AbstractOperator):
 
         # Validate features to drop
         if self.should_validate_field(field_value=self.features_to_drop):
-            protected_features = {
-                OperatorConstants.Misc.ID: ValidationCodeMessages.SQL_FILTER_ID_DROP_ATTEMPTED,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: ValidationCodeMessages.SQL_FILTER_CONTENT_DROP_ATTEMPTED,
-                OperatorConstants.Columns.PAGES_PROCESSED_COLUMN: ValidationCodeMessages.SQL_FILTER_PAGES_DROP,
-            }
-
-            for feature, error_msg in protected_features.items():
-                if feature in self.features_to_drop:
-                    errors.append(ValidationMessage(message=error_msg.value, message_code=error_msg.name))
+            has_protected, protected_cols = self._has_protected_columns()
+            if has_protected:
+                protected_features = {
+                    OperatorConstants.Misc.ID: ValidationCodeMessages.SQL_FILTER_ID_DROP_ATTEMPTED,
+                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: ValidationCodeMessages.SQL_FILTER_CONTENT_DROP_ATTEMPTED,
+                    OperatorConstants.Columns.PAGES_PROCESSED_COLUMN: ValidationCodeMessages.SQL_FILTER_PAGES_DROP,
+                }
+                for feature in protected_cols:
+                    if feature in protected_features:
+                        errors.append(
+                            ValidationMessage(
+                                message=protected_features[feature].value, message_code=protected_features[feature].name
+                            )
+                        )
 
         # Validate filter criteria columns - only if at least one is not parameterized
         criteria_to_validate: list[str] | dict[str, Any] | None = None
@@ -308,19 +313,64 @@ class SQLFilterOperator(AbstractOperator):
                 input_table_columns_set=input_table_columns_set,
                 mode=Mode.COLUMNS_TO_DROP,
             ):
-                return [table]
+                # Update metadata to reflect unchanged table on validation failure
+                self._set_filter_metadata(metadata=metadata, table=filtered_table)
+                return [filtered_table]
+
+            # Runtime check for protected columns - always enforce regardless of validation settings
+            has_protected, protected_cols = self._has_protected_columns()
+            if has_protected:
+                error_msg = f"Cannot drop protected columns: {', '.join(protected_cols)}. These columns are required for downstream operators."
+                logger.error(error_msg, extra=self.common_log_arguments)
+                raise DatasiftException(
+                    message=error_msg,
+                    status_code=400,
+                    error_code=ErrorCode.SQL_FILTER_ERROR,
+                )
 
             filtered_table_cols_dropped: pa.Table = filtered_table.drop_columns(self.columns_to_drop)
         else:
             filtered_table_cols_dropped = filtered_table
 
         # add global filter stats to metadata
-        metadata["docs_after_filter"] = filtered_table.num_rows
-        metadata["columns_after_filter"] = filtered_table_cols_dropped.num_columns
-        metadata["bytes_after_filter"] = filtered_table.nbytes
-        metadata[Metrics.External.PROCESSED_DOCS] = OperatorUtils.find_doc_count(table=filtered_table_cols_dropped)
+        self._set_filter_metadata(metadata=metadata, table=filtered_table_cols_dropped)
 
         return [filtered_table_cols_dropped]
+
+    def _set_filter_metadata(
+        self,
+        *,
+        metadata: dict[str, Any],
+        table: pa.Table,
+    ) -> None:
+        """
+        Set common filter metadata for the given table.
+
+        Parameters:
+            metadata: Metadata dictionary to update
+            table: PyArrow table to extract metrics from
+        """
+        metadata["docs_after_filter"] = table.num_rows
+        metadata["columns_after_filter"] = table.num_columns
+        metadata["bytes_after_filter"] = table.nbytes
+        metadata[Metrics.External.PROCESSED_DOCS] = OperatorUtils.find_doc_count(table=table)
+
+    def _has_protected_columns(self) -> tuple[bool, list[str]]:
+        """
+        Check if any protected columns are in the features_to_drop list.
+        Protected columns (id, content, pages_processed) cannot be dropped as they are
+        required by downstream operators.
+
+        Returns:
+            tuple: (has_protected, list_of_protected_columns)
+        """
+        protected_columns = {
+            OperatorConstants.Misc.ID,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+            OperatorConstants.Columns.PAGES_PROCESSED_COLUMN,
+        }
+        protected_columns_to_drop = [col for col in self.features_to_drop if col in protected_columns]
+        return (len(protected_columns_to_drop) > 0, protected_columns_to_drop)
 
     def has_invalid_columns(
         self,

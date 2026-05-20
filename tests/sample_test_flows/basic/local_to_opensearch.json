@@ -32,9 +32,26 @@
       }
     },
     {
+      "name": "sql_filter",
+      "type": "sql_filter",
+      "depends_on": ["extract"],
+      "config": {
+        "criteria_json": {
+          "criteria_list": [
+            {
+              "variable": "path",
+              "operator": "is not null"
+            }
+          ],
+          "logical_operator": "AND"
+        },
+        "features_to_drop": ["path"]
+      }
+    },
+    {
       "name": "chunk",
       "type": "chunker",
-      "depends_on": ["extract"],
+      "depends_on": ["sql_filter"],
       "config": {
         "chunk_type": "hybrid",
         "doc_column": "content",
