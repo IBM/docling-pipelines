@@ -66,7 +66,7 @@ watsonx :
 **Ollama Models:**
 - `"granite4:latest"` - IBM Granite 4 (default)
 - `"llama3.2"` - Meta Llama 3.2
-- `"llama3.2:70b"` - Meta Llama 3.2 70B
+- `"llama3.1:70b"` - Meta Llama 3.1 70B
 - `"mistral"` - Mistral AI
 - `"mixtral"` - Mixtral 8x7B
 - Any other Ollama-compatible model
