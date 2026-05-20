@@ -182,6 +182,17 @@ class DatasiftConstants:
     DOCUMENT_SET_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "document_sets.duckdb")
     JOB_STATS_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "job_stats.duckdb")
 
+    # Memmap related constants
+    EMBEDDINGS_CACHE_FILE = "embeddings.bin"
+    EMBEDDINGS_MEMMAP_FILE = "embeddings_memmap_file"
+    CHUNKS_MEMMAP_FILE = "chunks_memmap_file"
+    METADATA_SUFFIX = ".meta"
+
+    # Feature flags
+    # threshhold in MB after which persistent storage would be used for chunks and embeddings
+    MEMMAP_THRESHOLD = "memmap_threshold"
+    MEMMAP_THRESHOLD_DEFAULT = 100
+
 
 class DocumentLibraryConstants:
     """Constants for Document Library validation and constraints.

@@ -9,6 +9,7 @@ import pyarrow.parquet as pq
 from filelock import FileLock
 
 from datasift.core.constants.constants import DatasiftConstants
+from datasift.utils.core.memmap_file_utils import replace_memmap_paths_combined
 from datasift.utils.data.transform import TransformUtils
 from datasift.utils.infrastructure.logging import get_logger
 
@@ -127,9 +128,14 @@ class CpdParquetTableHandler(BaseParquetTableHandler):
     def save_table(self, *, path, table: pa.Table):
         """
         Save a PyArrow Table to File storage as a Parquet file.
+        Replaces memmap file paths with actual data before saving.
         """
         try:
             self.logger.info(f"Saving table to: {path}")
+
+            # Replace memmap paths with actual data before saving to parquet
+            table = replace_memmap_paths_combined(table=table)
+
             with FileLock(_lock_path(path=path), timeout=LOCK_TIMEOUT):
                 pq.write_table(table, path)
         except Exception as exc:

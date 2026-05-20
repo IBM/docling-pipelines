@@ -47,6 +47,7 @@ from datasift.core.orchestration.prefect.domain.models import (
 )
 from datasift.core.orchestration.prefect.ports.batch_execution_port import BatchExecutionPort
 from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
+from datasift.utils.core.memmap_file_utils import replace_memmap_paths_combined
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -437,6 +438,9 @@ class WorkPoolAdapter(BatchExecutionPort):
         try:
             s3_fs = self._create_s3_filesystem()
 
+            # Replace memmap paths with actual data before writing to S3
+            batch_table = replace_memmap_paths_combined(table=batch_table)
+
             # Write using the authenticated filesystem
             pq.write_table(batch_table, f"{self.batch_storage_bucket}/{s3_key}", filesystem=s3_fs)
 
@@ -467,6 +471,9 @@ class WorkPoolAdapter(BatchExecutionPort):
         local_path = os.path.join(batch_dir, f"batch-{batch_num}.parquet")
 
         try:
+            # Replace memmap paths with actual data before writing to local storage
+            batch_table = replace_memmap_paths_combined(table=batch_table)
+
             pq.write_table(batch_table, local_path)
 
             self.prefect_engine.logger.info(

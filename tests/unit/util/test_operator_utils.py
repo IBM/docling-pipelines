@@ -1105,3 +1105,40 @@ class TestOperatorUtilsExtractTextFile:
         assert result[OperatorConstants.Columns.IMAGES] == []
         assert result[OperatorConstants.Metadata.METADATA]["table_count"] == 0
         assert result[OperatorConstants.Metadata.METADATA]["image_count"] == 0
+
+
+# ---------------------------------------------------------------------------
+# sanitize_doc_id_for_filename tests
+# ---------------------------------------------------------------------------
+
+
+def test_sanitize_doc_id_for_filename_with_slashes():
+    """Test sanitizing document IDs containing forward slashes."""
+    from datasift.core.operators.operator_utils import sanitize_doc_id_for_filename
+
+    doc_id = "folder/subfolder/document.pdf"
+    result = sanitize_doc_id_for_filename(doc_id=doc_id)
+
+    assert result == "folder_subfolder_document.pdf"
+    assert "/" not in result
+
+
+def test_sanitize_doc_id_for_filename_no_slashes():
+    """Test sanitizing document IDs without slashes."""
+    from datasift.core.operators.operator_utils import sanitize_doc_id_for_filename
+
+    doc_id = "simple_document_id"
+    result = sanitize_doc_id_for_filename(doc_id=doc_id)
+
+    assert result == "simple_document_id"
+
+
+def test_sanitize_doc_id_for_filename_multiple_slashes():
+    """Test sanitizing document IDs with multiple consecutive slashes."""
+    from datasift.core.operators.operator_utils import sanitize_doc_id_for_filename
+
+    doc_id = "path//to///file.txt"
+    result = sanitize_doc_id_for_filename(doc_id=doc_id)
+
+    assert result == "path__to___file.txt"
+    assert "/" not in result

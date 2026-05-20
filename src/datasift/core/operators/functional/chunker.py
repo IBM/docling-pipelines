@@ -1,3 +1,5 @@
+import os
+import uuid
 from enum import StrEnum
 from typing import Any, Literal, cast
 
@@ -19,6 +21,9 @@ from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
 from datasift.integrations.ollama.client import OllamaClient
 from datasift.integrations.ollama.embeddings import OllamaClientEmbeddings
+from datasift.utils.core.memmap_file_utils import write_chunks_to_file
+from datasift.utils.infrastructure import get_pyarrow_table_size_mb
+from datasift.utils.infrastructure.filesystem import get_data_path
 from datasift.utils.infrastructure.logging import get_logger
 
 
@@ -1086,6 +1091,7 @@ class ChunkerOperator(AbstractOperator):
     ) -> pa.Table:
         """
         Finalize the output table by adding chunked content and optionally removing original content.
+        Writes chunks to binary files and stores file path references in the table.
 
         Args:
             table: Input PyArrow table
@@ -1093,17 +1099,68 @@ class ChunkerOperator(AbstractOperator):
             total_chunks: Total number of chunks created
 
         Returns:
-            Finalized PyArrow table with chunked content
+            Finalized PyArrow table with chunked content (as binary file path references)
 
         Note:
             Removes original content column if retain_original_content is False
         """
         if chunked_content_column:
-            table = TransformUtils.add_column(
-                table=table,
-                name=OperatorConstants.Columns.CHUNKED_CONTENT,
-                content=chunked_content_column,
+            # Check if memmap storage is enabled
+            memmap_threshold = self.config.get(
+                DatasiftConstants.MEMMAP_THRESHOLD, DatasiftConstants.MEMMAP_THRESHOLD_DEFAULT
             )
+            table_size = get_pyarrow_table_size_mb(table)
+
+            if memmap_threshold > 0 and table_size > memmap_threshold:
+                # Write chunks to binary files and create path references
+                chunks_column_data = []
+
+                # Create base directory for chunks binary files with job_id/job_run_id structure
+                chunks_dir = get_data_path(sub_dir=f"/{self.job_id}/{self.job_run_id}/temp_data/chunked_content")
+
+                # Get document IDs from table for filename generation
+                doc_ids = (
+                    table[OperatorConstants.Columns.ID].to_pylist()
+                    if OperatorConstants.Columns.ID in table.column_names
+                    else None
+                )
+
+                for idx, chunks_list in enumerate(chunked_content_column):
+                    # Generate filename using sanitized document ID
+                    if doc_ids and idx < len(doc_ids):
+                        from datasift.core.operators.operator_utils import sanitize_doc_id_for_filename
+
+                        sanitized_doc_id = sanitize_doc_id_for_filename(doc_ids[idx])
+                        chunks_filename = f"{sanitized_doc_id}_chunks.bin"
+                    else:
+                        # Fallback to UUID if doc_id not available
+                        chunks_filename = f"chunks_{uuid.uuid4().hex}.bin"
+                    chunks_filepath = os.path.join(chunks_dir, chunks_filename)
+
+                    # Write chunks to binary file
+                    write_chunks_to_file(chunks_list=chunks_list, filepath=chunks_filepath)
+
+                    # Store file path reference in table
+                    chunks_column_data.append({DatasiftConstants.CHUNKS_MEMMAP_FILE: chunks_filepath})
+
+                    logger.debug(
+                        f"Wrote {len(chunks_list)} chunks to binary file: {chunks_filepath}",
+                        extra=self.common_log_arguments,
+                    )
+
+                # Add column with binary file path references
+                table = TransformUtils.add_column(
+                    table=table,
+                    name=OperatorConstants.Columns.CHUNKED_CONTENT,
+                    content=chunks_column_data,
+                )
+            else:
+                # Store chunks directly in table (original behavior)
+                table = TransformUtils.add_column(
+                    table=table,
+                    name=OperatorConstants.Columns.CHUNKED_CONTENT,
+                    content=chunked_content_column,
+                )
             logger.info(
                 f"Added chunked_content column with {total_chunks} total chunks",
                 extra=self.common_log_arguments,

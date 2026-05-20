@@ -15,6 +15,11 @@ from datasift.core.operators.vectordb.adapters.outbound.factories.vector_store_f
 from datasift.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
+from datasift.utils.core.memmap_file_utils import (
+    read_embedding_metadata,
+    yield_chunks_from_file,
+    yield_embeddings_from_memmap_file,
+)
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -224,40 +229,92 @@ class VectorDBOperator(AbstractOperator):
 
                 doc_id: str = str(row_doc_id)
 
-                # Get embeddings and check if it's a nested list (chunked embeddings)
+                # Check if we have file references (both chunks and embeddings will be file refs together)
+                chunked_content_value: Any = row_data.get(OperatorConstants.Columns.CHUNKED_CONTENT)
                 embeddings_value: Any = row_data.get(self.embeddings_column)
 
-                # Detect if embeddings is a list of embeddings (chunked content)
+                # Determine if chunked based on chunked_content structure
                 is_chunked: bool = False
-                if embeddings_value and isinstance(embeddings_value, list) and len(embeddings_value) > 0:
-                    if isinstance(embeddings_value[0], list):
-                        if len(embeddings_value[0]) > 0 and isinstance(embeddings_value[0][0], (int, float)):
-                            is_chunked = True
-                            logger.debug(
-                                f"Detected chunked embeddings with {len(embeddings_value)} chunks for doc {doc_id}",
-                                extra=self.common_log_arguments,
-                            )
+                chunks_filepath: str | None = None
+                embeddings_filepath: str | None = None
+
+                if (
+                    isinstance(chunked_content_value, dict)
+                    and DatasiftConstants.CHUNKS_MEMMAP_FILE in chunked_content_value
+                ):
+                    # File references - both chunks and embeddings are file paths
+                    chunks_filepath = chunked_content_value[DatasiftConstants.CHUNKS_MEMMAP_FILE]
+                    embeddings_filepath = (
+                        embeddings_value.get(DatasiftConstants.EMBEDDINGS_MEMMAP_FILE)
+                        if isinstance(embeddings_value, dict)
+                        else None
+                    )
+                    is_chunked = True
+                    logger.debug(
+                        f"Detected file references for chunked data - chunks: {chunks_filepath}, embeddings: {embeddings_filepath}",
+                        extra=self.common_log_arguments,
+                    )
+                elif isinstance(chunked_content_value, list) and len(chunked_content_value) > 0:
+                    # In-memory chunks
+                    is_chunked = True
+                    # Embeddings should also be in memory and chunked
+                    if embeddings_value and isinstance(embeddings_value, list) and len(embeddings_value) > 0:
+                        if isinstance(embeddings_value[0], list):
+                            if len(embeddings_value[0]) > 0 and isinstance(embeddings_value[0][0], (int, float)):
+                                logger.debug(
+                                    f"Detected in-memory chunked embeddings with {len(embeddings_value)} chunks for doc {doc_id}",
+                                    extra=self.common_log_arguments,
+                                )
 
                 if is_chunked:
-                    # Get chunked_content if available
-                    chunked_content_list: list[dict[str, Any]] = row_data.get(
-                        OperatorConstants.Columns.CHUNKED_CONTENT, []
-                    )
+                    # Simplified: Either both are file refs or both are in memory
+                    if chunks_filepath and embeddings_filepath:
+                        # Both from files - use yield for memory-efficient streaming
+                        logger.debug(
+                            "Using yield for both embeddings and chunks for memory-efficient streaming",
+                            extra=self.common_log_arguments,
+                        )
+                        # Get dimension from metadata
+                        dim = read_embedding_metadata(embeddings_filepath)
+                        # Stream both embeddings and chunks one at a time
+                        embeddings_gen = yield_embeddings_from_memmap_file(embeddings_filepath, dim)
+                        chunks_gen = yield_chunks_from_file(chunks_filepath)
 
-                    # Create separate documents for each chunk
-                    for chunk_idx, chunk_embedding in enumerate(embeddings_value):
-                        chunk_row_data: dict[str, Any] = row_data.copy()
-                        chunk_row_data[self.embeddings_column] = chunk_embedding
+                        for chunk_idx, (chunk_embedding, chunk_data) in enumerate(
+                            zip(embeddings_gen, chunks_gen, strict=True)
+                        ):
+                            chunk_row_data: dict[str, Any] = row_data.copy()
+                            chunk_row_data[self.embeddings_column] = chunk_embedding.tolist()
 
-                        # Replace content field with chunk-specific text
-                        if chunk_idx < len(chunked_content_list):
-                            chunk_text: str = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
+                            # Parse chunk data (it's a JSON string)
+                            import json
+
+                            chunk_dict = json.loads(chunk_data) if isinstance(chunk_data, str) else chunk_data
+                            chunk_text: str = chunk_dict.get(OperatorConstants.Columns.CHUNK, "")
                             if chunk_text:
                                 # Update the content column with chunk text instead of full document
                                 chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
-                        chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
-                        documents.append((chunk_doc_id, chunk_row_data))
+                            chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
+                            documents.append((chunk_doc_id, chunk_row_data))
+                    else:
+                        # Both in memory - iterate normally
+                        chunked_content_list: list[dict[str, Any]] = row_data.get(
+                            OperatorConstants.Columns.CHUNKED_CONTENT, []
+                        )
+                        for chunk_idx, chunk_embedding in enumerate(embeddings_value):
+                            chunk_row_data = row_data.copy()
+                            chunk_row_data[self.embeddings_column] = chunk_embedding
+
+                            # Replace content field with chunk-specific text
+                            if chunk_idx < len(chunked_content_list):
+                                chunk_text = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
+                                if chunk_text:
+                                    # Update the content column with chunk text instead of full document
+                                    chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
+
+                            chunk_doc_id = f"{doc_id}_chunk_{chunk_idx}"
+                            documents.append((chunk_doc_id, chunk_row_data))
                 else:
                     # Single embedding - process as before
                     documents.append((doc_id, row_data))

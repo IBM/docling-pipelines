@@ -13,6 +13,7 @@ from typing import Any, ClassVar
 import pyarrow as pa
 from opensearchpy import OpenSearch
 
+from datasift.core.constants.constants import DatasiftConstants
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
@@ -235,6 +236,30 @@ class OpenSearchIndexManager:
 
                 if embedding_value is None:
                     continue
+
+                # Handle memmap file path references
+                if isinstance(embedding_value, dict) and DatasiftConstants.EMBEDDINGS_MEMMAP_FILE in embedding_value:
+                    from datasift.utils.core.memmap_file_utils import (
+                        read_embedding_metadata,
+                        yield_embeddings_from_memmap_file,
+                    )
+
+                    embeddings_filepath = embedding_value[DatasiftConstants.EMBEDDINGS_MEMMAP_FILE]
+                    logger.debug(
+                        f"Using yield to get first embedding from memmap file for dimension detection: {embeddings_filepath}"
+                    )
+
+                    # Get dimension from metadata and yield just the first embedding
+                    dim = read_embedding_metadata(embeddings_filepath)
+                    embedding_generator = yield_embeddings_from_memmap_file(embeddings_filepath, dim)
+                    first_embedding = next(embedding_generator, None)
+
+                    if first_embedding is None:
+                        logger.warning(f"No embeddings found in memmap file: {embeddings_filepath}")
+                        continue
+
+                    # Convert to list for dimension detection
+                    embedding_value = [first_embedding.tolist()]
 
                 if not isinstance(embedding_value, list):
                     logger.warning(f"Embedding at row {idx} is not a list: {type(embedding_value)}")

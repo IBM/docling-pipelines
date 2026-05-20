@@ -49,6 +49,33 @@ hash_functions = hashlib.sha3_512
 logger = get_logger()
 
 
+def sanitize_doc_id_for_filename(doc_id: str) -> str:
+    """
+    Sanitize a document ID to create a valid filename.
+
+    This function replaces forward slashes with underscores to handle cases where
+    doc_id contains full paths (e.g., from COS ingestion like "folder/subfolder/file.txt").
+
+    Parameters
+    ----------
+    doc_id : str
+        The document identifier to sanitize
+
+    Returns
+    -------
+    str
+        Sanitized document ID safe for use in filenames
+
+    Examples
+    --------
+    >>> sanitize_doc_id_for_filename("folder/subfolder/file.txt")
+    'folder_subfolder_file.txt'
+    >>> sanitize_doc_id_for_filename("simple_doc_id")
+    'simple_doc_id'
+    """
+    return doc_id.replace("/", "_")
+
+
 def is_asr_available() -> bool:
     """Check if ASR (Automatic Speech Recognition) dependencies are available.
     Returns:

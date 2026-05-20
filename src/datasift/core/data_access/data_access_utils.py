@@ -47,7 +47,7 @@ class DataAccessUtils:
             else:
                 config[DatasiftConstants.OUTPUT_FOLDER] = f"{output_folder}/{node_name}"
 
-            config["cache"] = "True"
+            config["cache"] = True
 
     @staticmethod
     def add_intermediate_storage_config(config: dict, job_id: str, job_run_id: str):
@@ -71,6 +71,9 @@ class DataAccessUtils:
             config["data_local_config"] = {
                 "input_folder": "UNUSED",
                 "output_folder": output_folder,
+                "da_class": "datasift.core.data_access.DataSiftDataAccessLocal",
             }
         else:
             local_config["input_folder"] = "UNUSED"
+            # Ensure custom class is used
+            local_config["da_class"] = "datasift.core.data_access.DataSiftDataAccessLocal"

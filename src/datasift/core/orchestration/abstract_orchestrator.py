@@ -147,6 +147,7 @@ class AbstractOrchestrator(ABC):
             self.execute_flow(op_flow=op_flow, global_config=global_config)
         finally:
             self._check_and_upload_deleted_rows()
+            self._cleanup_memmap_files()
 
     def _get_ingest_summary_message(self, *, output_table, deleted_docs_count: int, operator: dict) -> str | None:
         """Process and log ingest step results."""
@@ -345,6 +346,20 @@ class AbstractOrchestrator(ABC):
                 self.logger.info(f"Successfully captured {cumulative_deleted_rows.num_rows} deleted documents.")
             except Exception as e:
                 self.logger.warning(f"Failed to save unprocessed docs table — skipping it. Error: {e}")
+
+    def _cleanup_memmap_files(self):
+        """Clean up temporary memmap files after flow execution if memmap storage was used."""
+        if not self.job_id or not self.job_run_id:
+            return
+
+        # Only cleanup if memmap storage was enabled
+        # Check if any operator in the flow used memmap storage
+        try:
+            from datasift.utils.core.memmap_file_utils import cleanup_memmap_files
+
+            cleanup_memmap_files(job_id=self.job_id, job_run_id=self.job_run_id)
+        except Exception as e:
+            self.logger.warning(f"Failed to cleanup memmap files: {e}")
 
     def cancel(self):
         """

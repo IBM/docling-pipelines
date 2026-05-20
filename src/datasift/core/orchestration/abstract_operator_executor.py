@@ -91,6 +91,10 @@ class AbstractOperatorExecutor:
             data_access_factory.apply_input_params(params_copy)
             output_data_access = data_access_factory.create_data_access()
             output_file_path = self.get_output_file_path(data_access=output_data_access)
+
+            # Note: memmap path replacement is now handled by CustomDataAccessLocal.save_table()
+            # The custom class caches tables with memmap paths (memory efficient)
+            # but writes expanded data to parquet files (persistent and portable)
             output_data_access.save_table(output_file_path, table)
             data_accesses.append(output_data_access)
         return data_accesses

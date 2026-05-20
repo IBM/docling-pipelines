@@ -6,6 +6,8 @@ It supports multiple providers (Ollama, OpenAI, etc.) and handles chunking of lo
 """
 
 import json
+import os
+import uuid
 from typing import Any
 
 import numpy as np
@@ -28,9 +30,11 @@ from datasift.core.operators.functional.embeddings.adapters.outbound.factories.l
 from datasift.core.operators.functional.embeddings.ports.outbound.llm_service import LLMServicePort
 from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.exceptions.datasift_exceptions import DatasiftException
+from datasift.utils.core.memmap_file_utils import write_content_to_file
 
 # Import TransformUtils from centralized location
 from datasift.utils.data.transform import TransformUtils
+from datasift.utils.infrastructure.filesystem import get_data_path
 from datasift.utils.infrastructure.logging import get_logger
 from datasift.utils.summarization_util import SummarizationUtil
 
@@ -476,13 +480,25 @@ class EmbeddingsOperator(AbstractOperator):
         Raises:
             DatasiftException: If chunked content is invalid or empty
         """
-        chunked_content_raw: str | list[Any] = table[OperatorConstants.Columns.CHUNKED_CONTENT][idx].as_py()
+        chunked_content_raw: str | list[Any] | dict[str, Any] = table[OperatorConstants.Columns.CHUNKED_CONTENT][
+            idx
+        ].as_py()
         if not chunked_content_raw:
             raise DatasiftException("Chunked content is empty")
 
-        # Parse chunked_content - it can be a JSON string or a list
+        # Parse chunked_content - it can be a JSON string, a list, or a dict with file path reference
         chunked_content: list[Any] = []
-        if isinstance(chunked_content_raw, str):
+        if isinstance(chunked_content_raw, dict) and DatasiftConstants.CHUNKS_MEMMAP_FILE in chunked_content_raw:
+            # Load chunks from binary file
+            chunks_filepath = chunked_content_raw[DatasiftConstants.CHUNKS_MEMMAP_FILE]
+            logger.debug(
+                f"Loading chunks from binary file: {chunks_filepath} for document: {doc_name}",
+                extra=self.common_log_arguments,
+            )
+            from datasift.utils.core.memmap_file_utils import load_chunks_from_file
+
+            chunked_content = load_chunks_from_file(filepath=chunks_filepath)
+        elif isinstance(chunked_content_raw, str):
             # Parse JSON string from chunker operator
             try:
                 chunked_content = json.loads(chunked_content_raw)
@@ -762,16 +778,76 @@ class EmbeddingsOperator(AbstractOperator):
 
             # Add results to this slice
             if slice_embeddings:
-                # Add embeddings
+                # Check each row to determine storage format based on chunk storage
+                # If chunks are stored as files for a row, embeddings must also be stored as files
+                embeddings_column_data: list[dict[str, str] | list[float] | list[list[float]]] = []
+                embeddings_dir = None
+                doc_ids = None
+                chunks_column_data = None
+
+                # Get chunks column data if it exists
+                if has_chunked_content:
+                    chunks_column_data = slice_table[OperatorConstants.Columns.CHUNKED_CONTENT].to_pylist()
+
+                # Get document IDs for filename generation
+                if OperatorConstants.Columns.ID in slice_table.column_names:
+                    doc_ids = slice_table[OperatorConstants.Columns.ID].to_pylist()
+
+                for idx, embeddings in enumerate(slice_embeddings):
+                    # Determine if this row's chunks are stored as files
+                    row_chunks_as_files = False
+                    if chunks_column_data and idx < len(chunks_column_data):
+                        chunk_data = chunks_column_data[idx]
+                        if isinstance(chunk_data, dict) and DatasiftConstants.CHUNKS_MEMMAP_FILE in chunk_data:
+                            row_chunks_as_files = True
+
+                    # Store embeddings as files if chunks are stored as files
+                    if row_chunks_as_files:
+                        # Lazy initialization of embeddings directory
+                        if embeddings_dir is None:
+                            embeddings_dir = get_data_path(
+                                sub_dir=f"/{self.job_id}/{self.job_run_id}/temp_data/embeddings"
+                            )
+
+                        # Generate filename using sanitized document ID
+                        if doc_ids and idx < len(doc_ids):
+                            from datasift.core.operators.operator_utils import sanitize_doc_id_for_filename
+
+                            sanitized_doc_id = sanitize_doc_id_for_filename(doc_ids[idx])
+                            embeddings_filename = f"{sanitized_doc_id}_embeddings.bin"
+                        else:
+                            # Fallback to UUID if doc_id not available
+                            embeddings_filename = f"embeddings_{uuid.uuid4().hex}.bin"
+                        embeddings_filepath = os.path.join(embeddings_dir, embeddings_filename)
+
+                        # Write embeddings to memmap file
+                        write_content_to_file(content_list=embeddings, filepath=embeddings_filepath)
+
+                        # Store file path reference
+                        embeddings_column_data.append({DatasiftConstants.EMBEDDINGS_MEMMAP_FILE: embeddings_filepath})
+
+                        logger.debug(
+                            f"Wrote embeddings to memmap file: {embeddings_filepath}",
+                            extra=self.common_log_arguments,
+                        )
+                    else:
+                        # Store embeddings in-memory
+                        embeddings_column_data.append(embeddings)
+
+                # Add embeddings column with mixed storage format
                 slice_table = TransformUtils.add_column(
-                    table=slice_table, name=self.embeddings_column, content=slice_embeddings
+                    table=slice_table, name=self.embeddings_column, content=embeddings_column_data
+                )
+                logger.info(
+                    f"Added embeddings column '{self.embeddings_column}' to table",
+                    extra=self.common_log_arguments,
                 )
                 # Add/Update hashes
                 if self.doc_id_hash_column in slice_table.column_names:
                     slice_table = slice_table.drop_columns([self.doc_id_hash_column])
-                slice_table = TransformUtils.add_column(
-                    table=slice_table, name=self.doc_id_hash_column, content=slice_doc_id_hashes
-                )
+                    slice_table = TransformUtils.add_column(
+                        table=slice_table, name=self.doc_id_hash_column, content=slice_doc_id_hashes
+                    )
 
                 processed_tables.append(slice_table)
 
