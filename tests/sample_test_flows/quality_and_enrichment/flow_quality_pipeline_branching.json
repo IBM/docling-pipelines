@@ -15,7 +15,6 @@
       "config": {
         "input_folder": "tests/fixtures/customer_support_docs/",
         "include_filter": "txt,pdf",
-        "store_binary_content": true,
         "max_workers": 2
       }
     },
@@ -89,18 +88,26 @@
         "branches": {
           "high_quality_branch": {
             "link_name": "High Quality Documents",
-            "filter_criteria_json": {
+            "criteria_json": {
               "criteria_list": [
-                "flesch_ease_textstat > 60"
+                {
+                  "variable": "flesch_ease_textstat",
+                  "operator": ">",
+                  "value": 60
+                }
               ],
               "logical_operator": "AND"
             }
           },
           "low_quality_branch": {
             "link_name": "Low Quality Documents",
-            "filter_criteria_json": {
+            "criteria_json": {
               "criteria_list": [
-                "flesch_ease_textstat <= 60"
+                {
+                  "variable": "flesch_ease_textstat",
+                  "operator": "<=",
+                  "value": 60
+                }
               ],
               "logical_operator": "AND"
             }
@@ -218,9 +225,13 @@
       "name": "sql_filter_low_quality",
       "type": "sql_filter",
       "config": {
-        "filter_criteria_json": {
+        "criteria_json": {
           "criteria_list": [
-            "difficult_words_textstat < 100"
+            {
+              "variable": "docq_total_words",
+              "operator": ">",
+              "value": 0
+            }
           ],
           "logical_operator": "AND"
         }

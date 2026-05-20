@@ -468,9 +468,9 @@ class AbstractOrchestrator(ABC):
             if link_id and isinstance(prev_results, ExecuteStepResults):
                 if isinstance(prev_results.internal_metadata, dict):
                     branches = prev_results.internal_metadata.get(Metrics.Internal.BRANCHES)
-                    if branches is None or not isinstance(branches, list):
+                    if branches is None or not isinstance(branches, dict):
                         raise FlowExecutionFailedException(
-                            "Expected branches metadata as a list but found None or wrong type"
+                            "Expected branches metadata as a dict but found None or wrong type"
                         )
 
                     if len(prev_results.tables) != len(branches):

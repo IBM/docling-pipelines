@@ -279,3 +279,59 @@ class TestAuthoringCompiler:
         runtime_dag = compiler.compile(authoring_flow=flow)
 
         assert runtime_dag["description"] is None or runtime_dag["description"] == ""
+
+    def test_compile_branch_dependency_adds_link_id(self):
+        """Test that operators with single branch dependency get link_id in their definition."""
+        flow = AuthoringFlow(
+            flow_name="branch-test",
+            description="Test branch dependency compilation",
+            global_config={},
+            flow=[
+                AuthoringOperator(type="ingest_local", name="ingest", config={}, depends_on=[]),
+                AuthoringOperator(
+                    type="branching",
+                    name="branch",
+                    config={
+                        "branches": {
+                            "low_quality": {
+                                "link_name": "Low Quality",
+                                "criteria_json": {
+                                    "criteria_list": [{"variable": "score", "operator": "<", "value": 50}],
+                                    "logical_operator": "AND",
+                                },
+                            },
+                            "high_quality": {
+                                "link_name": "High Quality",
+                                "criteria_json": {
+                                    "criteria_list": [{"variable": "score", "operator": ">=", "value": 50}],
+                                    "logical_operator": "AND",
+                                },
+                            },
+                        }
+                    },
+                    depends_on=["ingest"],
+                ),
+                AuthoringOperator(
+                    type="sql_filter",
+                    name="filter_low",
+                    config={"criteria_json": {}},
+                    depends_on=["branch.low_quality"],
+                ),
+            ],
+            flow_source=FlowSource.CLI,
+        )
+
+        compiler = AuthoringCompiler()
+        runtime_dag = compiler.compile(authoring_flow=flow)
+
+        dag_nodes = {node["name"]: node for node in runtime_dag["dag"]}
+        filter_node = dag_nodes["filter_low"]
+
+        # Verify operator has link_id
+        assert "link_id" in filter_node, "Operator with branch dependency should have link_id"
+        assert filter_node["link_id"] == "low_quality"
+
+        # Verify input edge has link_name and correct node_id_ref
+        assert len(filter_node["input_edges"]) == 1
+        assert filter_node["input_edges"][0]["link_name"] == "low_quality"
+        assert filter_node["input_edges"][0]["node_id_ref"] == dag_nodes["branch"]["id"]

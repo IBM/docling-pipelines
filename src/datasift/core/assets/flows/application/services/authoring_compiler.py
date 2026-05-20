@@ -144,8 +144,8 @@ class AuthoringCompiler:
 
         node_id = operator_ids[operator.name]
 
-        # Build input edges from dependencies
-        input_edges = self._build_input_edges(operator=operator, operator_ids=operator_ids)
+        # Build input edges from dependencies and extract link_id if present
+        input_edges, link_id = self._build_input_edges(operator=operator, operator_ids=operator_ids)
 
         # Build output edges from dependency graph
         output_edges = self._build_output_edges(
@@ -155,7 +155,7 @@ class AuthoringCompiler:
         # Transform config for specific operators
         config = self._transform_operator_config(operator=operator)
 
-        return {
+        node_dict = {
             OperatorConstants.Columns.ID: node_id,
             OperatorConstants.Columns.NAME: operator.name,
             OperatorConstants.Misc.OPERATOR: operator.type,
@@ -164,7 +164,15 @@ class AuthoringCompiler:
             DatasiftConstants.OUTPUT_EDGES: output_edges,
         }
 
-    def _build_input_edges(self, *, operator: AuthoringOperator, operator_ids: dict[str, str]) -> list[dict[str, str]]:
+        # Add link_id to operator definition if it depends on a specific branch
+        if link_id:
+            node_dict[OperatorConstants.Misc.LINK_ID] = link_id
+
+        return node_dict
+
+    def _build_input_edges(
+        self, *, operator: AuthoringOperator, operator_ids: dict[str, str]
+    ) -> tuple[list[dict[str, str]], str | None]:
         """Build input edges for an operator.
 
         Args:
@@ -172,21 +180,26 @@ class AuthoringCompiler:
             operator_ids: Mapping of operator names to UUIDs
 
         Returns:
-            List of input edge dicts with node_id_ref and optional link_name
+            Tuple of (input edges list, link_id if operator depends on a single branch)
         """
         if not operator.depends_on:
-            return []
+            return [], None
 
         input_edges: list[dict[str, str]] = []
+        link_id: str | None = None
+
         for dependency in operator.depends_on:
             # Parse dependency: could be "operator_name" or "operator_name.branch"
             if OperatorConstants.Misc.BRANCH_SEPARATOR in dependency:
                 source_name, branch_name = dependency.split(OperatorConstants.Misc.BRANCH_SEPARATOR, 1)
                 input_edges.append({"node_id_ref": operator_ids[source_name], DatasiftConstants.LINK_NAME: branch_name})
+                # If operator has single branch dependency, store link_id for runtime
+                if len(operator.depends_on) == 1:
+                    link_id = branch_name
             else:
                 input_edges.append({"node_id_ref": operator_ids[dependency]})
 
-        return input_edges
+        return input_edges, link_id
 
     def _build_output_edges(
         self,
