@@ -16,8 +16,6 @@ apprise==1.10.0
 asgi-lifespan==2.1.0
 asyncpg==0.31.0
 attrs==26.1.0
-audioread==3.1.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
-av==17.0.1
 azure-core==1.39.0
 azure-storage-blob==12.28.0
 babel==2.18.0
@@ -26,10 +24,9 @@ beautifulsoup4==4.14.3
 boto3==1.42.55
 botocore==1.42.55
 box-sdk-gen==1.17.0
-brotli==1.2.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 cachetools==5.5.2
 certifi==2026.4.22
-cffi==2.0.0 ; (platform_machine != 'arm64' and platform_python_implementation != 'PyPy') or (platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_python_implementation != 'PyPy' and sys_platform != 'darwin')
+cffi==2.0.0 ; platform_python_implementation != 'PyPy'
 charset-normalizer==3.4.7
 click==8.3.3
 cloudpickle==3.1.2
@@ -43,11 +40,9 @@ cuda-toolkit==13.0.2 ; sys_platform == 'linux'
 data-prep-toolkit==1.1.7
 data-prep-toolkit-transforms==1.1.7
 dataclasses-json==0.6.7
-datasets==4.0.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 datatrove==0.3.0
 datefinder==1.0.0
 dateparser==1.4.0
-decorator==5.2.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 defusedxml==0.7.1
 dill==0.3.8 ; sys_platform == 'darwin'
 dill==0.4.1 ; sys_platform != 'darwin'
@@ -83,25 +78,22 @@ google-cloud-storage==3.9.0
 google-crc32c==1.8.0
 google-resumable-media==2.8.2
 googleapis-common-protos==1.74.0
-gradio==6.13.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
-gradio-client==2.5.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 graphviz==0.21
 greenlet==3.5.0
 griffe==1.15.0
-groovy==0.1.2 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 grpcio==1.80.0
 grpcio-status==1.62.3
 h11==0.16.0
 h2==4.3.0
-hf-gradio==0.4.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'
-hf-xet==1.4.3 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
+hf-xet==1.4.3 ; platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (platform_machine == 'AMD64' and sys_platform == 'darwin')
 hpack==4.1.0
 httpcore==1.0.9
 httplib2==0.31.2
 httptools==0.7.1
 httpx==0.28.1
 httpx-sse==0.4.3
-huggingface-hub==1.12.2
+huggingface-hub==0.36.2 ; platform_machine == 's390x' or sys_platform != 'darwin'
+huggingface-hub==1.12.2 ; platform_machine != 's390x' and sys_platform == 'darwin'
 humanize==4.15.0
 hyperframe==6.1.0
 ibm-cos-sdk==2.14.3
@@ -137,10 +129,7 @@ langgraph-prebuilt==1.0.10
 langgraph-sdk==0.3.13
 langsmith==0.8.4
 latex2mathml==3.81.0
-lazy-loader==0.5 ; platform_machine == 'arm64' and sys_platform == 'darwin'
-librosa==0.11.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 litellm==1.84.0
-llvmlite==0.47.0
 loguru==0.7.3
 lomond==0.3.3
 lxml==6.1.0
@@ -151,19 +140,12 @@ marko==2.2.2
 markupsafe==3.0.3
 marshmallow==3.26.2
 mdurl==0.1.2
-miniaudio==1.71 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 mlx==0.30.6 ; sys_platform == 'darwin'
-mlx-audio==0.4.2 ; platform_machine == 'arm64' and sys_platform == 'darwin'
-mlx-lm==0.31.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 mlx-metal==0.30.6 ; sys_platform == 'darwin'
-mlx-vlm==0.3.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'
-mlx-whisper==0.4.3 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 mmh3==5.2.1
-more-itertools==11.0.2
 mpire==2.10.2
 mpmath==1.3.0
 msal==1.35.1
-msgpack==1.1.2 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 multidict==6.7.1
 multiprocess==0.70.16 ; sys_platform == 'darwin'
 multiprocess==0.70.19 ; sys_platform != 'darwin'
@@ -171,7 +153,6 @@ mypy-boto3-glue==1.43.0
 mypy-extensions==1.1.0
 networkx==3.6.1
 nltk==3.9.3
-numba==0.65.1
 numpy==1.26.4
 nvidia-cublas==13.1.0.3 ; sys_platform == 'linux'
 nvidia-cuda-cupti==13.0.85 ; sys_platform == 'linux'
@@ -194,9 +175,9 @@ ocrmac==1.0.1 ; sys_platform == 'darwin'
 ollama==0.6.1
 omegaconf==2.3.0
 openai==2.33.0
-openai-whisper==20250625
-opencv-python==4.10.0.84 ; sys_platform == 'darwin'
+opencv-python==4.10.0.84 ; platform_machine == 's390x' and sys_platform == 'darwin'
 opencv-python==4.11.0.86 ; sys_platform != 'darwin'
+opencv-python==4.13.0.92 ; platform_machine != 's390x' and sys_platform == 'darwin'
 openpyxl==3.1.5
 opensearch-py==2.7.1
 opentelemetry-api==1.41.1
@@ -206,14 +187,11 @@ packaging==25.0
 pandas==2.3.3
 passlib==1.7.4
 pathspec==1.1.1
-peft==0.19.1
 pendulum==3.2.0
 pillow==12.2.0
-platformdirs==4.9.6 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 pluggy==1.6.0
 polars==1.32.3
 polyfactory==3.3.0
-pooch==1.9.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 prefect==3.4.23
 prometheus-client==0.25.0
 propcache==0.4.1
@@ -226,18 +204,16 @@ pyasn1==0.6.3
 pyasn1-modules==0.4.2
 pybind11==3.0.4
 pyclipper==1.4.0
-pycparser==3.0 ; (implementation_name != 'PyPy' and platform_machine != 'arm64' and platform_python_implementation != 'PyPy') or (implementation_name != 'PyPy' and platform_machine == 'arm64' and sys_platform == 'darwin') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy' and sys_platform != 'darwin')
+pycparser==3.0 ; implementation_name != 'PyPy' and platform_python_implementation != 'PyPy'
 pydantic==2.12.5
 pydantic-core==2.41.5
 pydantic-extra-types==2.11.1
 pydantic-settings==2.12.0
-pydub==0.25.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 pygments==2.20.0
 pyiceberg==0.9.1
 pyiceberg-core==0.7.0
 pyjwt==2.12.1
 pylatexenc==2.10
-pyloudnorm==0.2.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 pyobjc-core==12.1 ; sys_platform == 'darwin'
 pyobjc-framework-cocoa==12.1 ; sys_platform == 'darwin'
 pyobjc-framework-coreml==12.1 ; sys_platform == 'darwin'
@@ -253,14 +229,12 @@ python-dotenv==1.2.1
 python-jose==3.5.0
 python-json-logger==4.1.0
 python-ldap==3.4.5
-python-multipart==0.0.27 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 python-pptx==1.0.2
 python-slugify==8.0.4
 python-socks==2.8.1
 pytz==2025.2
 pywin32==311 ; sys_platform == 'win32'
 pyyaml==6.0.3
-qwen-vl-utils==0.0.14
 rapidocr==3.8.1
 readchar==4.2.2
 referencing==0.37.0
@@ -275,25 +249,19 @@ rsa==4.9.1
 rtree==1.4.1
 ruamel-yaml==0.19.1
 s3transfer==0.16.1
-safehttpx==0.1.7 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 safetensors==0.7.0
 scikit-learn==1.8.0
 scipy==1.17.1
-semantic-version==2.10.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 semchunk==3.2.5
 semver==3.0.4
 sentence-transformers==5.4.1
-sentencepiece==0.2.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 setuptools==78.1.1
 shapely==2.1.2
 shellingham==1.5.4
 six==1.17.0
 sniffio==1.3.1
 sortedcontainers==2.4.0
-sounddevice==0.5.3 ; platform_machine == 'arm64' and sys_platform == 'darwin'
-soundfile==0.13.1 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 soupsieve==2.8.3
-soxr==1.0.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 sqlalchemy==2.0.49
 sqlglot==27.13.2
 sqlmodel==0.0.38
@@ -308,17 +276,17 @@ threadpoolctl==3.6.0
 tiktoken==0.12.0
 tokenizers==0.22.2
 toml==0.10.2
-tomlkit==0.14.0 ; platform_machine == 'arm64' and sys_platform == 'darwin'
 torch==2.11.0
 torchvision==0.26.0
 tqdm==4.67.3
-transformers==5.7.0
+transformers==4.57.6 ; platform_machine == 's390x' or sys_platform != 'darwin'
+transformers==5.7.0 ; platform_machine != 's390x' and sys_platform == 'darwin'
 tree-sitter==0.25.2
 tree-sitter-c==0.24.2
 tree-sitter-javascript==0.25.0
 tree-sitter-python==0.25.0
 tree-sitter-typescript==0.23.2
-triton==3.6.0 ; sys_platform == 'linux' or sys_platform == 'linux2'
+triton==3.6.0 ; sys_platform == 'linux'
 typer==0.19.2
 typing-extensions==4.15.0
 typing-inspect==0.9.0
