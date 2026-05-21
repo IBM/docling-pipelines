@@ -40,6 +40,9 @@ def set_prefect_env_variables() -> None:
     os.environ[PREFECT_SERVER_ANALYTICS_ENABLED] = "false"
     os.environ[PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS] = "120"
 
+    # Route custom DATASIFT application logs into Prefect Task/Flow Runs natively
+    os.environ["PREFECT_LOGGING_EXTRA_LOGGERS"] = "DATASIFT"
+
     prefect_mode = os.getenv(PREFECT_MODE, "ephemeral").lower()
 
     if prefect_mode == "server":

@@ -59,6 +59,7 @@ class TestBatchInfoCompatibility:
         # Mock the flow execution
         mock_flow = Mock()
         mock_flow.return_value = []
+        mock_flow.with_options.return_value = mock_flow
         mock_prefect_engine._build_flow.return_value = mock_flow
 
         op_flow = [{"id": "op1", "name": "test_op"}]
@@ -96,6 +97,7 @@ class TestBatchInfoCompatibility:
 
         mock_prefect_engine.batch_outer_flow_impl = mock_flow_impl
         mock_flow = Mock(side_effect=mock_flow_impl)
+        mock_flow.with_options.return_value = mock_flow
         mock_prefect_engine._build_flow.return_value = mock_flow
 
         adapter.execute_batches(
@@ -225,6 +227,74 @@ class TestBatchInfoCompatibility:
         # batch_num should be sequential (0, 1, 2, ...) even if some were filtered
         batch_nums = [b.batch_num for b in batches]
         assert batch_nums == list(range(len(batches)))
+
+    @pytest.mark.asyncio
+    async def test_work_pool_adapter_cancellation_uses_cancelling_state(self, mock_prefect_engine, mock_batch_manager):
+        """Test that WorkPoolAdapter cancellation triggers the 'Cancelling' state instead of 'Cancelled'."""
+        work_pool_config = {
+            "type": "process",
+            "work_pool_name": "test-pool",
+            "deployment_name": "test-deployment",
+            "batch_storage": {"type": "inline"},
+        }
+
+        with patch.object(WorkPoolAdapter, "_validate_prefect_connection"):
+            with patch.object(WorkPoolAdapter, "_ensure_deployment_exists"):
+                adapter = WorkPoolAdapter(
+                    work_pool_config=work_pool_config,
+                    prefect_engine=mock_prefect_engine,
+                    batch_manager=mock_batch_manager,
+                )
+
+        # 1. Test Async Cancellation
+        mock_client = AsyncMock()
+        mock_client.read_flow_run = AsyncMock()
+
+        # Create non-final state flow run
+        mock_running_state = Mock(spec=State)
+        mock_running_state.is_final.return_value = False
+        mock_flow_run = Mock(spec=FlowRun)
+        mock_flow_run.id = uuid.uuid4()
+        mock_flow_run.state = mock_running_state
+
+        mock_client.read_flow_run.return_value = mock_flow_run
+
+        with patch("datasift.core.orchestration.prefect.adapters.work_pool_adapter.get_client") as mock_get_client:
+            # mock_get_client returns an async context manager
+            mock_ctx = AsyncMock()
+            mock_ctx.__aenter__.return_value = mock_client
+            mock_get_client.return_value = mock_ctx
+
+            await adapter._cancel_remaining_runs_async(flow_runs=[mock_flow_run], job_run_id="test-job-123")
+
+            # Check that set_flow_run_state was called with Cancelling state
+            mock_client.set_flow_run_state.assert_called_once()
+            call_kwargs = mock_client.set_flow_run_state.call_args.kwargs
+            assert call_kwargs["flow_run_id"] == mock_flow_run.id
+            assert call_kwargs["state"].name == "Cancelling"
+            assert "Cancelled due to batch failure (fail-fast)" in call_kwargs["state"].message
+
+        # 2. Test Sync Cancellation
+        from unittest.mock import MagicMock
+
+        mock_sync_client = MagicMock()
+        with patch("datasift.core.orchestration.prefect.adapters.work_pool_adapter.get_client") as mock_get_client_sync:
+            # mock_get_client with sync_client=True returns a sync context manager
+            mock_ctx_sync = MagicMock()
+            mock_ctx_sync.__enter__.return_value = mock_sync_client
+            mock_get_client_sync.return_value = mock_ctx_sync
+
+            adapter._cancel_remaining_runs(
+                flow_runs=[mock_flow_run], failed_run_id="failed-run-id", job_run_id="test-job-123"
+            )
+
+            # Check that set_flow_run_state was called with Cancelling state
+            mock_sync_client.set_flow_run_state.assert_called_once()
+            call_kwargs_sync = mock_sync_client.set_flow_run_state.call_args.kwargs
+            assert call_kwargs_sync["flow_run_id"] == mock_flow_run.id
+            assert call_kwargs_sync["state"].name == "Cancelling"
+            assert "Cancelled due to failure in flow run failed-run-id" in call_kwargs_sync["state"].message
+            assert call_kwargs_sync["force"] is True
 
 
 if __name__ == "__main__":

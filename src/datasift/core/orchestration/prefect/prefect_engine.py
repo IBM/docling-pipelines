@@ -261,7 +261,12 @@ class PrefectEngine(AbstractFlowEngine):
                     batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
                     batch_global_config[DatasiftConstants.BATCH_ID] = batch_id
 
-                result = inner_flow(
+                flow_def = global_config.get(DatasiftConstants.FLOW_DEFINITION, {})
+                flow_name = flow_def.get(DatasiftConstants.FLOW_NAME) or flow_def.get(
+                    DatasiftConstants.NAME, "datasift_flow"
+                )
+                run_name = f"{flow_name}_batch_{batch_num}"
+                result = inner_flow.with_options(flow_run_name=run_name)(
                     op_flow=op_flow,
                     data_access=batch_data_access,
                     global_config=batch_global_config,
@@ -285,8 +290,13 @@ class PrefectEngine(AbstractFlowEngine):
         for batch_info in batches:
             batch_data_access = self.batch_manager.create_batch_data_access(batch_table=batch_info.table)
 
+            flow_def = global_config.get(DatasiftConstants.FLOW_DEFINITION, {})
+            flow_name = flow_def.get(DatasiftConstants.FLOW_NAME) or flow_def.get(
+                DatasiftConstants.NAME, "datasift_flow"
+            )
+            run_name = f"{flow_name}_batch_{batch_info.batch_num}"
             # 3. Submit task that executes sub flow for each batch
-            future = batch_subflow_task.submit(
+            future = batch_subflow_task.with_options(task_run_name=run_name).submit(
                 batch_id=batch_info.batch_id,
                 batch_num=batch_info.batch_num,
                 op_flow=op_flow,

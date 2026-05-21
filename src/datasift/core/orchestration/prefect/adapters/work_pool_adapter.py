@@ -28,7 +28,7 @@ from prefect import get_client
 from prefect.client.schemas.objects import FlowRun
 from prefect.deployments import run_deployment
 from prefect.flow_runs import wait_for_flow_run
-from prefect.states import Cancelled
+from prefect.states import Cancelling
 
 from datasift.core.constants import EnvironmentVariables
 from datasift.core.job_management.adapters.config.job_management_factory import JobManagementFactory
@@ -243,8 +243,14 @@ class WorkPoolAdapter(BatchExecutionPort):
                     # 2. Submit flow run
                     deployment_full_name = f"{BatchStrategyConstants.BATCH_SUBFLOW_NAME}/{self.deployment_name}"
 
+                    flow_def = global_config.get(DatasiftConstants.FLOW_DEFINITION, {})
+                    flow_name = flow_def.get(DatasiftConstants.FLOW_NAME) or flow_def.get(
+                        DatasiftConstants.NAME, "datasift_flow"
+                    )
+                    run_name = f"{flow_name}_batch_{batch_info.batch_num}"
+
                     # run_deployment is non-blocking with timeout=0
-                    flow_run_result = await run_deployment(
+                    flow_run_result = await run_deployment(  # type: ignore[misc]
                         name=deployment_full_name,
                         parameters={
                             "batch_id": batch_info.batch_id,
@@ -254,6 +260,7 @@ class WorkPoolAdapter(BatchExecutionPort):
                             "global_config": global_config,
                             "job_run_id": job_run_id,
                         },
+                        flow_run_name=run_name,
                         timeout=0,
                         as_subflow=False,
                     )
@@ -675,7 +682,7 @@ class WorkPoolAdapter(BatchExecutionPort):
 
                     await client.set_flow_run_state(
                         flow_run_id=flow_run.id,
-                        state=Cancelled(message="Cancelled due to batch failure (fail-fast)"),
+                        state=Cancelling(message="Cancelled due to batch failure (fail-fast)"),
                     )
                     self.prefect_engine.logger.info(
                         f"Cancelled flow_run={flow_run.id}", extra={"job_run_id": job_run_id}
@@ -709,7 +716,7 @@ class WorkPoolAdapter(BatchExecutionPort):
                 try:
                     client.set_flow_run_state(
                         flow_run_id=fr.id,
-                        state=Cancelled(message=f"Cancelled due to failure in flow run {failed_run_id}"),
+                        state=Cancelling(message=f"Cancelled due to failure in flow run {failed_run_id}"),
                         force=True,
                     )
                     self.prefect_engine.logger.info(f"Cancelled flow run {fr.id}", extra={"job_run_id": job_run_id})
@@ -806,6 +813,11 @@ class WorkPoolAdapter(BatchExecutionPort):
         if EnvironmentVariables.OLLAMA_HOST not in env:
             env[EnvironmentVariables.OLLAMA_HOST] = os.getenv(
                 EnvironmentVariables.OLLAMA_HOST, "http://localhost:11434"
+            )
+        # Enable DATASIFT logger integration in worker subprocesses
+        if EnvironmentVariables.PREFECT_LOGGING_EXTRA_LOGGERS not in env:
+            env[EnvironmentVariables.PREFECT_LOGGING_EXTRA_LOGGERS] = os.getenv(
+                EnvironmentVariables.PREFECT_LOGGING_EXTRA_LOGGERS, "DATASIFT"
             )
         effective_job_management_env = self._get_effective_job_management_env()
         for env_key, env_value in effective_job_management_env.items():

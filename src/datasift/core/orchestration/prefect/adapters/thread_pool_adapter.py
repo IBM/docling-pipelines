@@ -58,13 +58,20 @@ class ThreadPoolAdapter(BatchExecutionPort):
             f"Executing {len(batches)} batches using ThreadPool strategy", extra={"job_run_id": job_run_id}
         )
 
+        from datasift.core.constants.constants import DatasiftConstants
+
+        flow_def = global_config.get(DatasiftConstants.FLOW_DEFINITION, {})
+        flow_name = flow_def.get(DatasiftConstants.FLOW_NAME) or flow_def.get(DatasiftConstants.NAME, "datasift_flow")
+
         # Build the batch outer flow (wraps batch_outer_flow_impl with @flow decorator)
         batch_outer_flow = self.prefect_engine._build_flow(
-            name="batch_outer_flow", flow_impl=self.prefect_engine.batch_outer_flow_impl
+            name=flow_name, flow_impl=self.prefect_engine.batch_outer_flow_impl
         )
 
         # Execute the flow (which now waits for all batches internally to keep the task runner alive)
-        batch_outer_flow(op_flow=op_flow, batches=batches, global_config=global_config)
+        batch_outer_flow.with_options(flow_run_name=flow_name)(
+            op_flow=op_flow, batches=batches, global_config=global_config
+        )
 
         self.prefect_engine.logger.info("All batches completed successfully", extra={"job_run_id": job_run_id})
 
