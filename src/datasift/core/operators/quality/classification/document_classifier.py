@@ -529,10 +529,13 @@ class DocumentClassifierOperator(AbstractOperator):
         # Start with the original table
         output_table = table
 
-        # Add DOC_COLUMN_KEY if it was fetched
+        # Handle content column storage based on whether it was fetched
         if content_was_fetched:
-            output_table = TransformUtils.add_column(output_table, self.doc_column, doc_contents)
-            logger.info(f"Added '{self.doc_column}' column to table")
+            output_table = TransformUtils.add_column(output_table, DatasiftConstants.TEMP_CONTENT_COLUMN, doc_contents)
+
+            logger.info(
+                f"Stored fetched content in '{DatasiftConstants.TEMP_CONTENT_COLUMN}' column for potential reuse by extract operator"
+            )
 
         # Add classification columns to table
         output_table = TransformUtils.add_column(output_table, self.output_column, classifications)

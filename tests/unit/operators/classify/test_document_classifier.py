@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pyarrow as pa
 import pytest
 
+from datasift.core.constants import DatasiftConstants
 from datasift.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
 from datasift.exceptions.datasift_exceptions import DatasiftException, ExternalServiceError
 
@@ -127,7 +128,11 @@ def test_document_classifier_basic(mock_model, mock_server):
 
 @pytest.mark.unit
 def test_document_classifier_without_content_column():
-    """Test the DocumentClassifierOperator when content column doesn't exist (should fetch from binary)."""
+    """Test the DocumentClassifierOperator when content column doesn't exist (should fetch from binary).
+
+    With the hybrid approach, fetched content is stored in the temporary content column
+    for potential reuse by the extract operator, not in the final 'content' column.
+    """
 
     # Get test files
     fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "customer_support_docs"
@@ -202,19 +207,21 @@ def test_document_classifier_without_content_column():
         result_tables, metadata = operator.transform(table)
         result_table = result_tables[0]
 
-        # Assertions
-        assert "content" in result_table.column_names, "content column should be added"
+        # Assertions - hybrid approach stores content in temporary column
+        assert DatasiftConstants.TEMP_CONTENT_COLUMN in result_table.column_names, (
+            "temporary content column should be added"
+        )
+        assert "content" not in result_table.column_names, "content column should NOT be in output (stored as temp)"
         assert "document_type" in result_table.column_names, "document_type column should exist"
         assert "document_type_confidence" in result_table.column_names, "confidence column should exist"
         assert "document_type_reasoning" not in result_table.column_names, "reasoning column should not exist"
 
-        # Check that content was extracted
+        # Check that content was extracted and stored in temp column
         for idx in range(result_table.num_rows):
-            content = result_table["content"][idx].as_py()
+            content = result_table[DatasiftConstants.TEMP_CONTENT_COLUMN][idx].as_py()
             assert content is not None, f"Content should not be None for row {idx}"
             assert len(content) > 0, f"Content should not be empty for row {idx}"
 
-        # Check metadata
         assert metadata["processed_docs"] > 0, "Should have processed at least one document"
 
 

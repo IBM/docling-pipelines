@@ -104,6 +104,7 @@ class DatasiftConstants:
     SKIP_CUSTOM_OP_VALIDATION = "skip_custom_op_validation"
     SUCCESS = "success"
     TMP = "tmp"
+    TEMP_CONTENT_COLUMN = "_temp_content_for_extract"
 
     # Storage configuration
     STORAGE_TYPE = "storage_type"

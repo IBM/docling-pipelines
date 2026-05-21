@@ -524,8 +524,8 @@ Uses hexagonal architecture (ports and adapters pattern):
 | `entity_extraction_mode`                                  | string |       No | `none`                    | Entity extraction mode: `ollama`, `docling`, `litellm`, `watsonx`, or `none`                       |
 | `doc_column`                                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
 | `output_column`                                           | string |       No | `entities`                | Column name for storing extracted entities                                                         |
-| `extract_tables`                                          | bool   |       No | `true`                    | Extract tables from documents (text extraction)                                                    |
-| `extract_images`                                          | bool   |       No | `true`                    | Extract images from documents (text extraction)                                                    |
+| `extract_tables`                                          | bool   |       No | `false`                   | Extract tables from documents (text extraction)                                                    |
+| `extract_images`                                          | bool   |       No | `false`                   | Extract images from documents (text extraction)                                                    |
 | `max_workers`                                             | int    |       No | auto                      | Maximum parallel workers (auto-detected based on CPU)                                              |
 | `use_processes`                                           | bool   |       No | `false`                   | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                      |
 | `expand_extracted_data`                                   | bool   |       No | `false`                   | Expand entity JSON into individual columns (entity extraction only)                                |

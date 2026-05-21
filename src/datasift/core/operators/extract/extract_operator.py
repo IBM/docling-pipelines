@@ -214,9 +214,11 @@ class ExtractOperator(AbstractOperator):
             ) from e
 
         # Common parameters
-        self.doc_column = config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
+        self.doc_column = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
         self.output_column = config.get(OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Misc.ENTITIES)
         self.expand_extracted_data = config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False)
+        self.extract_tables = config.get(OperatorConstants.Config.EXTRACT_TABLES, False)
+        self.extract_images = config.get(OperatorConstants.Config.EXTRACT_IMAGES, False)
         # Auto-detect optimal workers based on CPU count
         default_text_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
         default_entity_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=True)
@@ -599,6 +601,10 @@ class ExtractOperator(AbstractOperator):
         The extraction utilities resolve bytes from either the 'path' column (primary)
         or 'binary_content' column (backward compatibility fallback).
 
+        Content Reuse:
+        If document_classifier pre-fetched content and stored it in '_temp_content_for_extract',
+        this operator will reuse it for docling_library text extraction mode, skipping re-extraction.
+
         Args:
             table: PyArrow table with document information containing columns:
                 - id: Document ID
@@ -606,6 +612,7 @@ class ExtractOperator(AbstractOperator):
                 - path: File path to document (primary input from local ingest)
                 - binary_content: Pre-loaded binary content (optional, for backward compatibility)
                 - document_type: Document type for template selection (optional)
+                - _temp_content_for_extract: Pre-fetched content from document_classifier (optional)
             file_name: Optional file name for logging
             metadata: Optional metadata dictionary to update
 
@@ -630,6 +637,50 @@ class ExtractOperator(AbstractOperator):
             metadata[OperatorConstants.Metadata.PAGES_BY_FORMAT] = {}
             metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = 0
             return [table], metadata
+
+        # Check for pre-fetched content from document_classifier (hybrid approach)
+        content_reused = False
+
+        if DatasiftConstants.TEMP_CONTENT_COLUMN in table.column_names:
+            can_reuse_prefetched_content = (
+                self.text_extraction_mode == TextExtractionMode.DOCLING_LIBRARY
+                and not self.extract_tables
+                and not self.extract_images
+            )
+
+            if can_reuse_prefetched_content:
+                logger.info(
+                    f"Reusing pre-fetched content from '{DatasiftConstants.TEMP_CONTENT_COLUMN}' for "
+                    f"{self.text_extraction_mode.value} with extract_tables={self.extract_tables} "
+                    f"and extract_images={self.extract_images}"
+                )
+
+                column_names = list(table.column_names)
+                temp_idx = column_names.index(DatasiftConstants.TEMP_CONTENT_COLUMN)
+                column_names[temp_idx] = self.doc_column
+
+                table = pa.table(
+                    {
+                        name: table.column(old_name)
+                        for old_name, name in zip(table.column_names, column_names, strict=True)
+                    },
+                    schema=pa.schema(
+                        [
+                            (name, table.schema.field(old_name).type)
+                            for old_name, name in zip(table.column_names, column_names, strict=True)
+                        ]
+                    ),
+                )
+
+                content_reused = True
+                logger.info(f"Content reuse successful: skipping text extraction for {table.num_rows} documents")
+            else:
+                logger.info(
+                    f"Pre-fetched content found but not reusable for text_mode={self.text_extraction_mode.value}, "
+                    f"extract_tables={self.extract_tables}, extract_images={self.extract_images}. "
+                    f"Dropping '{DatasiftConstants.TEMP_CONTENT_COLUMN}' and performing fresh extraction."
+                )
+                table = table.drop([DatasiftConstants.TEMP_CONTENT_COLUMN])
 
         result_tables: list[pa.Table] = []
         text_metadata: dict[str, Any] = {}
@@ -664,14 +715,25 @@ class ExtractOperator(AbstractOperator):
                 )
                 return result_tables, result_metadata
 
-            # Step 1: Text extraction
-            result_tables, text_metadata = self.text_adapter.transform(table=table, metadata=metadata)
+            # Step 1: Text extraction (skip if content was reused)
+            if content_reused:
+                # Content already present in doc_column, skip text extraction
+                result_tables = [table]
+                text_metadata = metadata.copy()
+                text_metadata[Metrics.External.PROCESSED_DOCS] = table.num_rows
+                logger.info(
+                    "Skipped text extraction: reused pre-fetched content for %s documents",
+                    table.num_rows,
+                )
+            else:
+                # Perform normal text extraction
+                result_tables, text_metadata = self.text_adapter.transform(table=table, metadata=metadata)
 
-            logger.info(
-                "Text extraction completed: %s/%s documents processed",
-                text_metadata.get(Metrics.External.PROCESSED_DOCS, 0),
-                text_metadata.get(Metrics.External.TOTAL_DOCS, table.num_rows),
-            )
+                logger.info(
+                    "Text extraction completed: %s/%s documents processed",
+                    text_metadata.get(Metrics.External.PROCESSED_DOCS, 0),
+                    text_metadata.get(Metrics.External.TOTAL_DOCS, table.num_rows),
+                )
 
             # Step 2: Entity extraction (if enabled)
             if self.entity_adapter is not None:
