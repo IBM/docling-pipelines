@@ -177,6 +177,10 @@ Examples:
   datasift-orchestrator --flow-file flow.json --validate
   datasift-orchestrator validate-flow flow.json
   datasift-orchestrator --list-operators
+  datasift-orchestrator --list-operators --verbose
+  datasift-orchestrator --list-global-config
+  datasift-orchestrator --list-global-config --verbose
+  datasift-orchestrator --list-global-config --category "Micro-Batching"
         """,
     )
 
@@ -195,6 +199,26 @@ Examples:
     )
 
     # -------------------------
+    # list-global-config subcommand
+    # -------------------------
+    list_global_config_parser = subparsers.add_parser(
+        "list-global-config",
+        help="List all global configuration parameters",
+    )
+    list_global_config_parser.add_argument(
+        "--category",
+        "-c",
+        type=str,
+        help="Filter by category (e.g., 'Execution Control', 'Incremental Processing', 'Orchestration configuration')",
+    )
+    list_global_config_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed parameter information",
+    )
+
+    # -------------------------
     # global args
     # -------------------------
     parser.add_argument(
@@ -210,10 +234,22 @@ Examples:
         help="List all available operators and exit",
     )
     parser.add_argument(
+        "--list-global-config",
+        "-lgc",
+        action="store_true",
+        help="List all global configuration parameters and exit",
+    )
+    parser.add_argument(
+        "--category",
+        "-c",
+        type=str,
+        help="Filter by category (use with --list-global-config)",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
-        help="Enable verbose output (use with --list-operators)",
+        help="Enable verbose output (use with --list-operators or --list-global-config)",
     )
     parser.add_argument(
         "--validate",
@@ -238,6 +274,15 @@ Examples:
         sys.exit(0 if success else 1)
 
     # -------------------------
+    # subcommand: list-global-config
+    # -------------------------
+    if args.command == "list-global-config":
+        from datasift.utils.global_config.display import list_global_config
+
+        print(list_global_config(category=args.category, verbose=args.verbose))
+        return
+
+    # -------------------------
     # list operators (fast exit path)
     # -------------------------
     if args.list_operators:
@@ -252,10 +297,24 @@ Examples:
         return
 
     # -------------------------
+    # list global config (fast exit path)
+    # -------------------------
+    if args.list_global_config:
+        from datasift.utils.global_config.display import list_global_config
+
+        print(
+            list_global_config(
+                verbose=args.verbose,
+                category=args.category,
+            )
+        )
+        return
+
+    # -------------------------
     # validation or execution requires flow file
     # -------------------------
     if not args.flow_file:
-        parser.error("--flow-file is required unless using a subcommand or --list-operators")
+        parser.error("--flow-file is required unless using a subcommand or --list-operators or --list-global-config")
 
     # -------------------------
     # validation mode

@@ -555,7 +555,7 @@ class AbstractOrchestrator(ABC):
             output_table=ingest_results.tables[0], deleted_docs_count=deleted_docs_count, operator=ingest_operator
         )
 
-        flow_incremental_config = global_config.get(DatasiftConstants.INCREMENTAL_METADATA)
+        flow_incremental_config = global_config.get(DatasiftConstants.INCREMENTAL_METADATA_REPOSITORY_CONFIG)
         incremental_update_util = IncrementalUpdateUtil(flow_config=flow_incremental_config)
         doc_ids = ingest_results.internal_metadata.get(Metrics.Internal.ALL_DOC_IDS, [])
         incremental_update_util.process_ingested_docs(config=global_config, job_id=self.job_id, doc_ids=doc_ids)

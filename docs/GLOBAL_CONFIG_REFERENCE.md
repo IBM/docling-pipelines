@@ -142,6 +142,24 @@ Parameters that control how the flow executes and processes data.
 
 ---
 
+### `memmap_threshold`
+
+**Type**: `integer`
+**Default**: `100`
+**Description**: Threshold in MB after which persistent storage is used for chunks and embeddings.
+**Valid Values**: Must be greater than 1.
+
+**Example**:
+```json
+{
+  "global_config": {
+    "memmap_threshold": 100
+  }
+}
+```
+
+---
+
 ## Incremental Processing
 
 Configuration for tracking and processing only changed documents.
@@ -201,17 +219,25 @@ Configuration for tracking and processing only changed documents.
 
 ### `incremental_metadata`
 
-**Type**: `object`  
-**Default**: `{}`  
+**Type**: `object`
+**Default**: `{}`
 **Description**: Configuration for incremental processing metadata storage. Tracks which documents have been processed to enable incremental updates.
+
+**Parameters**:
+- `storage_type`: Storage backend type (values: `in_memory`, `file_system`, `postgresql`)
+- `config`: Nested dict with backend-specific settings
+  - For `file_system`: `base_dir` - directory path for metadata storage
+  - For `postgresql`: postgres connection parameters
 
 **Example**:
 ```json
 {
   "global_config": {
     "incremental_metadata": {
-      "storage_path": "./data/job-id-in-uuid/incremental_metadata",
-      "enabled": true
+      "storage_type": "file_system",
+      "config": {
+        "base_dir": "./data/incremental_metadata"
+      }
     }
   }
 }
@@ -256,11 +282,11 @@ Configuration for Prefect-based workflow orchestration and batch execution strat
 
 ---
 
-#### Batch Execution Strategy
+### Batch Execution Strategy
 
 The `batch_execution` section controls how batches are executed.
 
-##### `strategy`
+#### `strategy`
 
 **Type**: `string`  
 **Default**: `"thread-pool"`  
@@ -270,10 +296,6 @@ The `batch_execution` section controls how batches are executed.
 - `"thread-pool"`: Local execution using ThreadPoolTaskRunner (default, simplest)
 - `"work-pool-process"`: Distributed execution using Prefect process work pools
 - `"work-pool-docker"`: Distributed execution using Docker containers
-- `"work-pool-kubernetes"`: Distributed execution on Kubernetes clusters
-- `"work-pool-ecs"`: Distributed execution on AWS ECS
-- `"work-pool-azure-container-instance"`: Distributed execution on Azure Container Instances
-- `"work-pool-cloud-run"`: Distributed execution on Google Cloud Run
 
 **Example - Thread Pool (Local)**:
 ```json
@@ -307,11 +329,11 @@ The `batch_execution` section controls how batches are executed.
 
 ---
 
-##### Work Pool Configuration
+### Work Pool Configuration
 
 Required when using work pool strategies (`work-pool-*`).
 
-###### `work_pool_name`
+#### `work_pool_name`
 
 **Type**: `string`  
 **Required**: Yes (for work pool strategies)  
@@ -326,7 +348,7 @@ Required when using work pool strategies (`work-pool-*`).
 
 ---
 
-###### `deployment_name`
+#### `deployment_name`
 
 **Type**: `string`  
 **Required**: Yes (for work pool strategies)  
@@ -341,7 +363,7 @@ Required when using work pool strategies (`work-pool-*`).
 
 ---
 
-###### `deployment_path`
+#### `deployment_path`
 
 **Type**: `string`
 **Default**: Current working directory
@@ -356,7 +378,7 @@ Required when using work pool strategies (`work-pool-*`).
 
 ---
 
-###### `env`
+#### `env`
 
 **Type**: `object` (dictionary of string key-value pairs)
 **Default**: `{}`
@@ -368,7 +390,12 @@ Required when using work pool strategies (`work-pool-*`).
   "env": {
     "OLLAMA_HOST": "http://ollama-service:11434",
     "LOG_LEVEL": "INFO",
-    "CUSTOM_CONFIG_PATH": "/etc/datasift/config.yaml"
+    "PREFECT_MODE": "cloud",
+    "PREFECT_URL": "https://api.prefect.cloud",
+    "DATASIFT_STORAGE_BACKEND": "postgresql",
+    "PYTHONPATH": "/app/src",
+    "LOCAL_FLOWS_DIR": "/app/flows",
+    "DATASIFT_DATA_PATH": "/data/datasift"
   }
 }
 ```
@@ -377,11 +404,11 @@ Required when using work pool strategies (`work-pool-*`).
 
 ---
 
-###### `image`
+#### `image`
 
 **Type**: `string`  
 **Required**: Yes (for containerized work pools)  
-**Description**: Container image for Docker/Kubernetes/ECS work pools.
+**Description**: Container image for Docker work pools.
 
 **Example**:
 ```json
@@ -392,10 +419,10 @@ Required when using work pool strategies (`work-pool-*`).
 
 ---
 
-###### `image_pull_policy`
+#### `image_pull_policy`
 
 **Type**: `string`  
-**Default**: `"Never"` (Docker), `"IfNotPresent"` (Kubernetes)  
+**Default**: `"Never"` (Docker)
 **Description**: Policy for pulling container images.
 
 **Valid Values**:
@@ -406,15 +433,15 @@ Required when using work pool strategies (`work-pool-*`).
 **Example**:
 ```json
 {
-  "image_pull_policy": "IfNotPresent"
+  "image_pull_policy": "Never"
 }
 ```
 
 ---
 
-###### Docker-Specific Configuration
+### Docker-Specific Configuration
 
-####### `networks`
+#### `networks`
 
 **Type**: `array of strings`  
 **Default**: `[]`  
@@ -429,11 +456,11 @@ Required when using work pool strategies (`work-pool-*`).
 
 ---
 
-##### Batch Storage Configuration
+### Batch Storage Configuration
 
 The `batch_storage` section controls where batch data is stored during distributed execution.
 
-###### `type`
+#### `type`
 
 **Type**: `string`  
 **Default**: `"inline"`  
@@ -442,6 +469,12 @@ The `batch_storage` section controls where batch data is stored during distribut
 **Valid Values**:
 - `"inline"`: Serialize batch data directly in deployment parameters (small batches only)
 - `"local"`: Store batch data on local filesystem
+
+#### `path`
+
+**Type**: `string`
+**Required**: Yes (when `type` is `"local"`)
+**Description**: Filesystem path for storing batch data when using local storage type.
 
 **Example - Local Storage**:
 ```json

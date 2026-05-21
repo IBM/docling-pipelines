@@ -67,7 +67,7 @@ class DatasiftConstants:
     DEFAULT_TRANSACTION_ID = "TRANSACTION999"
     DATASIFT_LOGS = "datasift_logs"
     INCREMENTAL_PROCESSING_METADATA_PATH = "inc_process_metadata"
-    INCREMENTAL_METADATA = "incremental_metadata"
+    INCREMENTAL_METADATA_REPOSITORY_CONFIG = "incremental_metadata"
     UNPROCESSED_DOCS_PATH = "unprocessed_docs"
     JOBS_STATS_PATH = "job-stats"
     NODE_STATS_PATH = "node-stats"
@@ -104,6 +104,8 @@ class DatasiftConstants:
     SKIP_CUSTOM_OP_VALIDATION = "skip_custom_op_validation"
     SUCCESS = "success"
     TMP = "tmp"
+    DATA_STORAGE_TYPE = "data_storage_type"
+    DISABLE_VALIDATION = "disable_validation"
     TEMP_CONTENT_COLUMN = "_temp_content_for_extract"
 
     # Storage configuration
@@ -182,6 +184,18 @@ class DatasiftConstants:
     _PROJECT_ROOT = _find_project_root()
     DOCUMENT_SET_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "document_sets.duckdb")
     JOB_STATS_DEFAULT_DB_PATH = str(_PROJECT_ROOT / "data" / "duckdb" / "job_stats.duckdb")
+
+    # Prefect Constants
+    PREFECT_CONFIG = "prefect"
+    STRATEGY = "strategy"
+    WORK_POOL_NAME = "work_pool_name"
+    DEPLOYMENT_NAME = "deployment_name"
+    DEPLOYMENT_PATH = "deployment_path"
+    IMAGE = "image"
+    ENV = "env"
+    IMAGE_PULL_POLICY = "image_pull_policy"
+    NETWORKS = "networks"
+    TYPE = "type"
 
     # Memmap related constants
     EMBEDDINGS_CACHE_FILE = "embeddings.bin"

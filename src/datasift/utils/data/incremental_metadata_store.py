@@ -291,7 +291,9 @@ class FileSystemIncrementalMetadataStore(IncrementalMetadataStore):
 
 class IncrementalMetadataPostgresModel(SQLModel, table=True):  # type: ignore[call-arg]
     __tablename__ = "inc_update_metadata"
-    __table_args__ = {"schema": os.getenv("DATASIFT_POSTGRES_SCHEMA", DatasiftConstants.INCREMENTAL_METADATA)}
+    __table_args__ = {
+        "schema": os.getenv("DATASIFT_POSTGRES_SCHEMA", DatasiftConstants.INCREMENTAL_METADATA_REPOSITORY_CONFIG)
+    }
 
     job_id: str = Field(sa_column=Column(String, primary_key=True))
     doc_id: str = Field(sa_column=Column(String, primary_key=True))
@@ -455,12 +457,12 @@ def create_incremental_metadata_store(
         resolved_base_dir = None
 
         if base_dir_override:
-            resolved_base_dir = Path(base_dir_override) / DatasiftConstants.INCREMENTAL_METADATA
+            resolved_base_dir = Path(base_dir_override) / DatasiftConstants.INCREMENTAL_METADATA_REPOSITORY_CONFIG
         elif configured_base_dir:
             configured_path = Path(configured_base_dir)
             resolved_base_dir = (
                 configured_path if configured_path.is_absolute() else configured_path.resolve()
-            ) / DatasiftConstants.INCREMENTAL_METADATA
+            ) / DatasiftConstants.INCREMENTAL_METADATA_REPOSITORY_CONFIG
 
         backend_config = {
             "base_dir": str(resolved_base_dir) if resolved_base_dir else None,
