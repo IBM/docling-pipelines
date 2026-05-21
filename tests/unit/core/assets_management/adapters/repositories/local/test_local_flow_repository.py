@@ -243,6 +243,49 @@ class TestLocalFlowRepository:
         all_flows = repository.find_all()
         assert len(all_flows) == 1
 
+    def test_find_all_skips_corrupted_files(self, repository, sample_flow, temp_flows_dir, caplog):
+        """Test that find_all() gracefully skips corrupted files missing required fields."""
+        import logging
+
+        # Save a valid flow
+        repository.save(sample_flow)
+
+        # Create a corrupted flow file missing the 'name' field
+        corrupted_flow_id = str(uuid4())
+        corrupted_filename = f"corrupted-flow_{corrupted_flow_id}.json"
+        corrupted_file_path = temp_flows_dir / corrupted_filename
+
+        corrupted_data = {
+            "flow_id": corrupted_flow_id,
+            "container_kind": None,
+            "container_id": None,
+            # Missing "name" field - this is the corruption
+            "description": "This file is missing the required 'name' field",
+            "definition": {"doc_type": "pipeline", "pipelines": []},
+            "tags": [],
+            "is_hidden": False,
+            "flow_version": "2.0",
+        }
+
+        with open(corrupted_file_path, "w") as f:
+            json.dump(corrupted_data, f)
+
+        # Call find_all() - should skip corrupted file and return only valid flow
+        with caplog.at_level(logging.WARNING):
+            flows = repository.find_all()
+
+        # Verify only the valid flow is returned
+        assert len(flows) == 1
+        assert flows[0].flow_id == sample_flow.flow_id
+        assert flows[0].name == sample_flow.name
+
+        # Verify warning was logged for corrupted file
+        assert any(
+            "Skipping corrupted flow file" in record.message and corrupted_filename in record.message
+            for record in caplog.records
+        )
+        assert any("missing required field" in record.message for record in caplog.records)
+
     def test_save_with_name_change(self, repository, sample_flow, temp_flows_dir):
         """Test saving flow with changed name creates new file."""
         # Save initial flow

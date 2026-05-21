@@ -643,6 +643,9 @@ class LocalFlowRepository(FlowRepository):
                         flow = Flow.from_dict(flow_data)
                         flows.append(flow)
 
+                except KeyError as e:
+                    logger.warning("Skipping corrupted flow file %s: missing required field %s", flow_file.name, e)
+                    continue
                 except (ValueError, OSError, FileNotFoundError) as e:
                     logger.warning("Failed to read flow file %s: %s", flow_file.name, e)
                     continue
