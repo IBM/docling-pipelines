@@ -427,54 +427,6 @@ class ExtractOperator(AbstractOperator):
         }
 
     @staticmethod
-    def _add_page_counts(*, tables: list[pa.Table], doc_column: str) -> list[pa.Table]:
-        """Add page count column to tables using vectorized operations.
-
-        Uses character-based estimation (3000 chars per page) with PyArrow vectorized operations.
-
-        Args:
-            tables: List of PyArrow tables to process
-            doc_column: Name of the column containing document content
-
-        Returns:
-            List of tables with added 'pages_processed' column
-        """
-        import pyarrow.compute as pc
-
-        result_tables = []
-
-        for table in tables:
-            if doc_column not in table.column_names:
-                logger.warning("Document column '%s' not found in table, skipping page calculation", doc_column)
-                result_tables.append(table)
-                continue
-
-            # Use vectorized character-based calculation
-            doc_content_column = table.column(doc_column)
-
-            # Use PyArrow compute to get string lengths
-            char_counts = pc.utf8_length(doc_content_column)
-
-            # Calculate pages: max(1, (char_count + CHARS_PER_PAGE - 1) // CHARS_PER_PAGE)
-            chars_per_page = OperatorConstants.Processing.CHARS_PER_PAGE
-            page_counts_computed = pc.divide(
-                pc.add(char_counts, pa.scalar(chars_per_page - 1)), pa.scalar(chars_per_page)
-            )
-            # Ensure minimum of 1 page per document
-            page_counts = pc.max_element_wise(page_counts_computed, pa.scalar(1))
-            # Cast to int32 before creating array to avoid type mismatch
-            page_counts_int32 = pc.cast(page_counts, pa.int32())
-            pages_array = pa.array(page_counts_int32, type=pa.int32())
-
-            # Add pages_processed column to table
-            table_with_pages = table.append_column(OperatorConstants.Columns.PAGES_PROCESSED, pages_array)
-            result_tables.append(table_with_pages)
-
-            logger.debug("Added page counts to %d documents", table.num_rows)
-
-        return result_tables
-
-    @staticmethod
     def _add_page_statistics(*, metadata: dict[str, Any], table: pa.Table) -> dict[str, Any]:
         """Add page statistics by format to metadata using PyArrow vectorized operations.
 
@@ -699,9 +651,6 @@ class ExtractOperator(AbstractOperator):
                 else:
                     raise FlowExecutionFailedException("Entity adapter not initialized for combined extraction")
 
-                # Add page counts to extracted content
-                result_tables = self._add_page_counts(tables=result_tables, doc_column=self.doc_column)
-
                 # Add page statistics to metadata
                 result_metadata = self._add_page_statistics(metadata=result_metadata, table=result_tables[0])
 
@@ -755,13 +704,10 @@ class ExtractOperator(AbstractOperator):
                 text_metadata=text_metadata, entity_metadata=entity_metadata
             )
 
-            # Step 4: Calculate pages for extracted content
-            result_tables = self._add_page_counts(tables=result_tables, doc_column=self.doc_column)
-
-            # Step 5: Add page statistics to metadata
+            # Step 4: Add page statistics to metadata
             consolidated_metadata = self._add_page_statistics(metadata=consolidated_metadata, table=result_tables[0])
 
-            # Step 6: Drop binary_content column after extraction is complete
+            # Step 5: Drop binary_content column after extraction is complete
             result_tables = self._drop_binary_content_column(tables=result_tables)
 
             logger.info(

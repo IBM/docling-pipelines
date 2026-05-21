@@ -859,7 +859,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
 def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_free(
     sample_pdf_files,
 ):
-    """Execute ExtractOperator with LiteLLM schema-free entity extraction."""
+    """Execute ExtractOperator with LiteLLM entity extraction with custom schema."""
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
@@ -878,7 +878,15 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
             "api_key": "test-api-key",  # pragma: allowlist secret
             "api_base": "https://api.test.local/v1",
         },
-        "custom_schema": {},
+        "custom_schema": {
+            "document_type": "general",
+            "fields": [
+                {"name": "person", "type": "string"},
+                {"name": "date", "type": "string"},
+                {"name": "amount", "type": "string"},
+                {"name": "organization", "type": "string"},
+            ],
+        },
     }
 
     mocked_entities = {
@@ -909,8 +917,7 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
 
     chat_call = mock_instance.chat.call_args
     assert (
-        chat_call.kwargs["messages"][0]["content"]
-        == OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_SCHEMA_FREE_SYSTEM_PROMPT
+        chat_call.kwargs["messages"][0]["content"] == OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_SYSTEM_PROMPT
     )
 
 
@@ -1756,3 +1763,238 @@ def test_extract_operator_stage_progress_metadata(mock_text_transform):
     assert text_stage["documents_completed"] == 2
     assert text_stage["documents_failed"] == 0
     assert text_stage["progress_percentage"] == 100.0
+
+
+# ============================================================================
+# Entity Extraction Validation Tests
+# ============================================================================
+
+
+@pytest.mark.unit
+def test_entity_extraction_validation_passes_with_custom_schema():
+    """Test that entity extraction validation passes when custom_schema is provided."""
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
+        OllamaEntityAdapter,
+    )
+
+    config = {
+        OperatorConstants.Config.MODEL_NAME: "llama3.2",
+        OperatorConstants.Config.CUSTOM_SCHEMA: {
+            "document_type": "invoice",
+            "fields": [{"name": "invoice_number", "type": "string"}],
+        },
+    }
+
+    # Mock Ollama client to avoid connection errors
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+        mock_instance = MagicMock()
+        mock_ollama_class.return_value = mock_instance
+
+        adapter = OllamaEntityAdapter(config=config)
+
+        # Create table without document_type column
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "name": ["file1.pdf", "file2.pdf"],
+                "doc_content": ["content1", "content2"],
+            }
+        )
+
+        # Should not raise an error
+        document_types, schema_templates = adapter._prepare_schemas(table=table)
+        assert document_types == []
+        assert schema_templates == {}
+
+
+@pytest.mark.unit
+def test_entity_extraction_validation_passes_with_document_type_column():
+    """Test that entity extraction validation passes when document_type column is present."""
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
+        OllamaEntityAdapter,
+    )
+
+    config = {
+        OperatorConstants.Config.MODEL_NAME: "llama3.2",
+        OperatorConstants.Config.CUSTOM_SCHEMA: {},  # Empty custom schema
+    }
+
+    # Mock Ollama client to avoid connection errors
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+        mock_instance = MagicMock()
+        mock_ollama_class.return_value = mock_instance
+
+        adapter = OllamaEntityAdapter(config=config)
+
+        # Create table with document_type column
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "name": ["file1.pdf", "file2.pdf"],
+                "doc_content": ["content1", "content2"],
+                OperatorConstants.Columns.DOCUMENT_TYPE: ["invoice", "receipt"],
+            }
+        )
+
+        # Should not raise an error
+        document_types, _ = adapter._prepare_schemas(table=table)
+        assert document_types == ["invoice", "receipt"]
+
+
+@pytest.mark.unit
+def test_entity_extraction_validation_fails_without_custom_schema_or_document_type():
+    """Test that entity extraction validation fails when neither custom_schema nor document_type column is present."""
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
+        OllamaEntityAdapter,
+    )
+    from datasift.exceptions.datasift_exceptions import ConfigurationError
+
+    config = {
+        OperatorConstants.Config.MODEL_NAME: "llama3.2",
+        OperatorConstants.Config.CUSTOM_SCHEMA: {},  # Empty custom schema
+    }
+
+    # Mock Ollama client to avoid connection errors
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+        mock_instance = MagicMock()
+        mock_ollama_class.return_value = mock_instance
+
+        adapter = OllamaEntityAdapter(config=config)
+
+        # Create table without document_type column
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "name": ["file1.pdf", "file2.pdf"],
+                "doc_content": ["content1", "content2"],
+            }
+        )
+
+        # Should raise ConfigurationError
+        with pytest.raises(ConfigurationError) as exc_info:
+            adapter._prepare_schemas(table=table)
+
+        assert "Entity extraction requires either a custom_schema in operator config OR a document_type column" in str(
+            exc_info.value
+        )
+
+
+@pytest.mark.unit
+def test_entity_extraction_validation_passes_with_both_custom_schema_and_document_type():
+    """Test that validation passes when both custom_schema and document_type column are present."""
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
+        OllamaEntityAdapter,
+    )
+
+    config = {
+        OperatorConstants.Config.MODEL_NAME: "llama3.2",
+        OperatorConstants.Config.CUSTOM_SCHEMA: {
+            "document_type": "invoice",
+            "fields": [{"name": "invoice_number", "type": "string"}],
+        },
+    }
+
+    # Mock Ollama client to avoid connection errors
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+        mock_instance = MagicMock()
+        mock_ollama_class.return_value = mock_instance
+
+        adapter = OllamaEntityAdapter(config=config)
+
+        # Create table with document_type column
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "name": ["file1.pdf", "file2.pdf"],
+                "doc_content": ["content1", "content2"],
+                OperatorConstants.Columns.DOCUMENT_TYPE: ["invoice", "receipt"],
+            }
+        )
+
+        # Should not raise an error
+        document_types, _ = adapter._prepare_schemas(table=table)
+        assert document_types == ["invoice", "receipt"]
+
+
+@pytest.mark.unit
+def test_entity_extraction_validation_fails_with_none_custom_schema_and_no_document_type():
+    """Test that validation fails when custom_schema is None and document_type column is missing."""
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
+        OllamaEntityAdapter,
+    )
+    from datasift.exceptions.datasift_exceptions import ConfigurationError
+
+    config = {
+        OperatorConstants.Config.MODEL_NAME: "llama3.2",
+        # custom_schema not provided (defaults to {})
+    }
+
+    # Mock Ollama client to avoid connection errors
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+        mock_instance = MagicMock()
+        mock_ollama_class.return_value = mock_instance
+
+        adapter = OllamaEntityAdapter(config=config)
+
+        # Create table without document_type column
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "name": ["file1.pdf", "file2.pdf"],
+                "doc_content": ["content1", "content2"],
+            }
+        )
+
+        # Should raise ConfigurationError
+        with pytest.raises(ConfigurationError) as exc_info:
+            adapter._prepare_schemas(table=table)
+
+        assert "Entity extraction requires either a custom_schema in operator config OR a document_type column" in str(
+            exc_info.value
+        )
+
+
+@pytest.mark.unit
+def test_entity_extraction_validation_passes_with_non_empty_custom_schema_dict():
+    """Test that validation passes when custom_schema has at least one key."""
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
+        OllamaEntityAdapter,
+    )
+
+    config = {
+        OperatorConstants.Config.MODEL_NAME: "llama3.2",
+        OperatorConstants.Config.CUSTOM_SCHEMA: {"columns": {"field1": "string"}},
+    }
+
+    # Mock Ollama client to avoid connection errors
+    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+        mock_instance = MagicMock()
+        mock_ollama_class.return_value = mock_instance
+
+        adapter = OllamaEntityAdapter(config=config)
+
+        # Create table without document_type column
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "name": ["file1.pdf", "file2.pdf"],
+                "doc_content": ["content1", "content2"],
+            }
+        )
+
+        # Should not raise an error
+        document_types, schema_templates = adapter._prepare_schemas(table=table)
+        assert document_types == []
+        assert schema_templates == {}

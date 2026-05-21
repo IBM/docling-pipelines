@@ -936,6 +936,12 @@ The `extract_operator` handles both text extraction and entity extraction.
 **Optional: Advanced Template-Based Extraction**
 For structured data extraction with predefined schemas, use `entity_extraction_mode: "docling"`
 
+**Important:** When using any entity extraction mode (not `none`), you must provide either:
+- A `custom_schema` in the operator configuration (as shown below), OR
+- A `document_type` column from an upstream classification operator (e.g., DocumentClassifierOperator)
+
+If neither is provided, the operator will throw a `ConfigurationError`.
+
 ```json
 {
   "name": "extract",

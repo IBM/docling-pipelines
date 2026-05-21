@@ -346,11 +346,26 @@ class EntityExtractionPort(ABC):
 
         Returns:
             Tuple of (document_types list, schema_templates dict)
+
+        Raises:
+            ConfigurationError: If entity extraction is enabled without custom_schema or document_type column
         """
+        from datasift.exceptions.datasift_exceptions import ConfigurationError
+
         document_types: list[str] = []
         schema_templates: dict[str, dict] = {}
 
-        if OperatorConstants.Columns.DOCUMENT_TYPE in table.column_names:
+        # Check if document_type column exists
+        has_document_type_column = OperatorConstants.Columns.DOCUMENT_TYPE in table.column_names
+
+        # Validate that entity extraction has either custom_schema or document_type column
+        has_custom_schema = self.custom_schema and len(self.custom_schema) > 0
+        if not has_custom_schema and not has_document_type_column:
+            raise ConfigurationError(
+                "Entity extraction requires either a custom_schema in operator config OR a document_type column from upstream classification operator"
+            )
+
+        if has_document_type_column:
             document_types = table.column(OperatorConstants.Columns.DOCUMENT_TYPE).to_pylist()
             self._load_schema_templates(document_types=document_types, schema_templates=schema_templates)
             if not schema_templates:

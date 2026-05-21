@@ -1539,10 +1539,20 @@ graph TB
       "api_base": "https://us-south.ml.cloud.ibm.com",
       "container_kind": "project",
       "request_timeout": 60
+    },
+    "custom_schema": {
+      "invoice_number": "string",
+      "total_amount": "float"
     }
   }
 }
 ```
+
+**Note:** When using entity extraction (any mode except `none`), you must provide either:
+- A `custom_schema` in the operator configuration (as shown above), OR
+- A `document_type` column from an upstream classification operator (e.g., DocumentClassifierOperator)
+
+If neither is provided, a `ConfigurationError` will be thrown.
 
 ### 3. OpenSearch Integration Architecture
 

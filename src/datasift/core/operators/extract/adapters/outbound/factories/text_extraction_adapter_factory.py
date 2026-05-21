@@ -136,6 +136,7 @@ class TextExtractionAdapterFactory:
                 "timeout": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_TIMEOUT, 300),
                 "poll_interval": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_POLL_INTERVAL, 2),
                 "max_retries": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_MAX_RETRIES, 3),
+                "verify_ssl": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_VERIFY_SSL, True),
                 "do_ocr": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_DO_OCR, True),
                 "ocr_engine": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE, "easyocr"),
                 "pdf_backend": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND, "dlparse_v2"),

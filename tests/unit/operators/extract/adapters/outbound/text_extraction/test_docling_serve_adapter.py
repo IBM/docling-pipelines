@@ -113,6 +113,7 @@ class TestDoclingServeAdapter:
             timeout=adapter.timeout,
             poll_interval=adapter.poll_interval,
             max_retries=adapter.max_retries,
+            verify_ssl=adapter.verify_ssl,
         )
         mock_client_instance.process_document.assert_called_once()
         call_kwargs = mock_client_instance.process_document.call_args.kwargs
@@ -187,16 +188,31 @@ class TestDoclingServeAdapter:
 
     @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_success_with_metadata(self, mock_client_class, adapter):
-        """Test successful extraction with metadata."""
+        """Test successful extraction with metadata including page_count from json_content."""
         # Setup
         file_path = "/path/to/document.pdf"
         binary_content = b"PDF content"
 
         mock_client_instance = MagicMock()
         mock_client_instance.process_document.return_value = {
-            "document": {"md_content": "Extracted markdown text"},
+            "document": {
+                "md_content": "Extracted markdown text",
+                "json_content": {
+                    "pages": [
+                        {"page_no": 1},
+                        {"page_no": 2},
+                        {"page_no": 3},
+                        {"page_no": 4},
+                        {"page_no": 5},
+                        {"page_no": 6},
+                        {"page_no": 7},
+                        {"page_no": 8},
+                        {"page_no": 9},
+                        {"page_no": 10},
+                    ]
+                },
+            },
             "processing_time": 2.5,
-            "page_count": 10,
         }
         mock_client_class.return_value = mock_client_instance
 
@@ -208,7 +224,7 @@ class TestDoclingServeAdapter:
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "Extracted markdown text"
         assert OperatorConstants.Metadata.METADATA in result
         assert result[OperatorConstants.Metadata.METADATA]["processing_time"] == 2.5
-        assert result[OperatorConstants.Metadata.METADATA]["page_count"] == 10
+        assert result[OperatorConstants.Metadata.METADATA][OperatorConstants.Metadata.PAGE_COUNT] == 10
 
     @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_error_handling(self, mock_client_class, adapter):
@@ -363,3 +379,212 @@ class TestDoclingServeAdapter:
         assert adapter.processing_options["ocr_languages"] == ["eng", "fra"]
         assert adapter.processing_options["table_mode"] == "accurate"
         assert adapter.processing_options["image_export_mode"] == "embedded"
+
+    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_page_count_from_json_content(self, mock_client_class, adapter):
+        """Test page_count extraction from json_content.pages."""
+        # Setup
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "Extracted text",
+                "json_content": {
+                    "pages": [
+                        {"page_no": 1, "content": "Page 1"},
+                        {"page_no": 2, "content": "Page 2"},
+                        {"page_no": 3, "content": "Page 3"},
+                    ]
+                },
+            },
+            "processing_time": 2.0,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        # Execute
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        # Verify
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert OperatorConstants.Metadata.METADATA in result
+        assert result[OperatorConstants.Metadata.METADATA][OperatorConstants.Metadata.PAGE_COUNT] == 3
+
+    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_page_count_empty_pages(self, mock_client_class, adapter):
+        """Test page_count when json_content.pages is empty."""
+        # Setup
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "Extracted text",
+                "json_content": {"pages": []},
+            },
+            "processing_time": 1.5,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        # Execute
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        # Verify - page_count should not be set when pages is empty
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert OperatorConstants.Metadata.METADATA in result
+        assert OperatorConstants.Metadata.PAGE_COUNT not in result[OperatorConstants.Metadata.METADATA]
+
+    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_page_count_missing_json_content(self, mock_client_class, adapter):
+        """Test page_count when json_content is missing."""
+        # Setup
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {"md_content": "Extracted text"},
+            "processing_time": 1.5,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        # Execute
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        # Verify - page_count should not be set when json_content is missing
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert OperatorConstants.Metadata.METADATA in result
+        assert OperatorConstants.Metadata.PAGE_COUNT not in result[OperatorConstants.Metadata.METADATA]
+
+    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_page_count_missing_pages_key(self, mock_client_class, adapter):
+        """Test page_count when pages key is missing from json_content."""
+        # Setup
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "Extracted text",
+                "json_content": {"other_data": "value"},
+            },
+            "processing_time": 1.5,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        # Execute
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        # Verify - page_count should not be set when pages key is missing
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert OperatorConstants.Metadata.METADATA in result
+        assert OperatorConstants.Metadata.PAGE_COUNT not in result[OperatorConstants.Metadata.METADATA]
+
+    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_page_count_single_page(self, mock_client_class, adapter):
+        """Test page_count extraction for single page document."""
+        # Setup
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "Single page content",
+                "json_content": {"pages": [{"page_no": 1, "content": "Page 1"}]},
+            },
+            "processing_time": 1.0,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        # Execute
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        # Verify
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Metadata.METADATA][OperatorConstants.Metadata.PAGE_COUNT] == 1
+
+    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_page_count_large_document(self, mock_client_class, adapter):
+        """Test page_count extraction for large multi-page document."""
+        # Setup
+        file_path = "/path/to/large_document.pdf"
+        binary_content = b"PDF content"
+
+        # Create 50 pages
+        pages = [{"page_no": i, "content": f"Page {i}"} for i in range(1, 51)]
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {
+                "md_content": "Large document content",
+                "json_content": {"pages": pages},
+            },
+            "processing_time": 5.0,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        # Execute
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        # Verify
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Metadata.METADATA][OperatorConstants.Metadata.PAGE_COUNT] == 50
+
+    @patch("datasift.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_extract_single_document_verify_ssl_parameter(self, mock_client_class, adapter):
+        """Test that verify_ssl parameter is passed to DoclingServeClient."""
+        # Setup
+        file_path = "/path/to/document.pdf"
+        binary_content = b"PDF content"
+
+        mock_client_instance = MagicMock()
+        mock_client_instance.process_document.return_value = {
+            "document": {"md_content": "Text"},
+            "processing_time": 1.5,
+        }
+        mock_client_class.return_value = mock_client_instance
+
+        # Execute
+        adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        # Verify verify_ssl is passed (default is True)
+        mock_client_class.assert_called_once_with(
+            base_url=adapter.base_url,
+            api_key=adapter.api_key,
+            timeout=adapter.timeout,
+            poll_interval=adapter.poll_interval,
+            max_retries=adapter.max_retries,
+            verify_ssl=True,
+        )
+
+    def test_init_with_verify_ssl_false(self):
+        """Test adapter initialization with verify_ssl set to False."""
+        config = {
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+                "verify_ssl": False,
+            }
+        }
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.verify_ssl is False
+
+    def test_init_with_verify_ssl_true(self):
+        """Test adapter initialization with verify_ssl set to True."""
+        config = {
+            "docling_serve_config": {
+                "base_url": "http://localhost:5001",
+                "verify_ssl": True,
+            }
+        }
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.verify_ssl is True
+
+    def test_init_verify_ssl_default_value(self):
+        """Test that verify_ssl defaults to True when not specified."""
+        config = {"docling_serve_config": {"base_url": "http://localhost:5001"}}
+        adapter = DoclingServeAdapter(config=config)
+        assert adapter.verify_ssl is True

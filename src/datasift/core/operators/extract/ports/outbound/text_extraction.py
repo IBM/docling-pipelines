@@ -221,6 +221,7 @@ class TextExtractionPort(ABC):
         doc_metadata_list: list[dict[str, Any]] = [{}] * table.num_rows
         doc_tables_list: list[list[dict[str, Any]]] = [[]] * table.num_rows
         doc_images_list: list[list[dict[str, Any]]] = [[]] * table.num_rows
+        doc_pages_processed: list[int] = [0] * table.num_rows
         remove_row_idx: list[int] = []
 
         # Progress tracking variables
@@ -271,6 +272,7 @@ class TextExtractionPort(ABC):
                         doc_metadata_list=doc_metadata_list,
                         doc_tables_list=doc_tables_list,
                         doc_images_list=doc_images_list,
+                        doc_pages_processed=doc_pages_processed,
                         remove_row_idx=remove_row_idx,
                         metadata=metadata,
                     )
@@ -330,6 +332,7 @@ class TextExtractionPort(ABC):
             doc_contents = [content for idx, content in enumerate(doc_contents) if idx not in remove_row_idx]
             doc_tables_list = [data for idx, data in enumerate(doc_tables_list) if idx not in remove_row_idx]
             doc_images_list = [data for idx, data in enumerate(doc_images_list) if idx not in remove_row_idx]
+            doc_pages_processed = [pages for idx, pages in enumerate(doc_pages_processed) if idx not in remove_row_idx]
 
         # Add extracted content to table
         if doc_contents:
@@ -345,6 +348,12 @@ class TextExtractionPort(ABC):
             doc_images_serialized = [json.dumps(data) if data else None for data in doc_images_list]
             table = TransformUtils.add_column(
                 table=table, name=OperatorConstants.Columns.IMAGES, content=doc_images_serialized
+            )
+
+        # Add pages_processed column
+        if doc_pages_processed:
+            table = TransformUtils.add_column(
+                table=table, name=OperatorConstants.Columns.PAGES_PROCESSED, content=doc_pages_processed
             )
         # Generate document hash IDs
         logger.info("Generating hash id and adding it to table")
@@ -418,6 +427,7 @@ class TextExtractionPort(ABC):
         doc_metadata_list: list[dict[str, Any]],
         doc_tables_list: list[list[dict[str, Any]]],
         doc_images_list: list[list[dict[str, Any]]],
+        doc_pages_processed: list[int],
         remove_row_idx: list[int],
         metadata: dict[str, Any],
     ) -> None:
@@ -434,6 +444,8 @@ class TextExtractionPort(ABC):
             doc_metadata_list: List to store document metadata
             doc_tables_list: List to store extracted tables
             doc_images_list: List to store extracted images
+            doc_pages_processed: List to store page counts
+            remove_row_idx: List to track rows to remove
             metadata: Metadata dictionary to update with processing stats
         """
         if result[OperatorConstants.Extraction.SUCCESS]:
@@ -448,6 +460,21 @@ class TextExtractionPort(ABC):
             # Extract images if present
             if OperatorConstants.Columns.IMAGES in result:
                 doc_images_list[idx] = result[OperatorConstants.Columns.IMAGES]
+
+            # Calculate page count: use native page_count from metadata if available, else fallback to character-based
+            extraction_metadata = result.get(OperatorConstants.Metadata.METADATA, {})
+            native_page_count = extraction_metadata.get("page_count")
+
+            if native_page_count and isinstance(native_page_count, (int, float)) and native_page_count > 0:
+                # Use native page count from Docling metadata
+                page_count = int(native_page_count)
+            else:
+                # Fallback to character-based calculation
+                char_count = len(extracted_content) if extracted_content else 0
+                chars_per_page = OperatorConstants.Processing.CHARS_PER_PAGE
+                page_count = max(1, (char_count + chars_per_page - 1) // chars_per_page)
+
+            doc_pages_processed[idx] = page_count
 
             # Increment processed count
             metadata[Metrics.External.PROCESSED_DOCS] += 1

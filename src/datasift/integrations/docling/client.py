@@ -39,6 +39,7 @@ class DoclingServeClient:
         timeout: int = 300,
         poll_interval: int = 2,
         max_retries: int = 3,
+        verify_ssl: bool = True,
     ):
         """
         Initialize the Docling Serve client.
@@ -49,6 +50,8 @@ class DoclingServeClient:
             timeout: Request timeout in seconds (default: 300)
             poll_interval: Polling interval in seconds (default: 2)
             max_retries: Maximum retry attempts for API call failures (default: 3)
+            verify_ssl: Enable SSL certificate verification (default: True).
+                       Set to False only for internal testing with self-signed certificates.
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
@@ -56,7 +59,7 @@ class DoclingServeClient:
         self.poll_interval = poll_interval
 
         # Initialize RestClient with max_retries for actual API call failures
-        rest_config = RestClientConfig(timeout=self.timeout, max_retries=max_retries)
+        rest_config = RestClientConfig(timeout=self.timeout, max_retries=max_retries, verify_ssl=verify_ssl)
         self.rest_client = RestClient(config=rest_config, base_url=self.base_url)
 
         # Setup custom headers for API key
@@ -87,7 +90,7 @@ class DoclingServeClient:
             "include_images": True,
             "images_scale": 2.0,
             "image_export_mode": "embedded",
-            "to_formats": ["md", "text"],
+            "to_formats": ["json", "md", "text"],
         }
 
         if options:

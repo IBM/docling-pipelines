@@ -226,6 +226,7 @@ class OperatorConstants:
         DOCLING_SERVE_TIMEOUT: Final[str] = "docling_serve_timeout"
         DOCLING_SERVE_POLL_INTERVAL: Final[str] = "docling_serve_poll_interval"
         DOCLING_SERVE_MAX_RETRIES: Final[str] = "docling_serve_max_retries"
+        DOCLING_SERVE_VERIFY_SSL: Final[str] = "docling_serve_verify_ssl"
         DOCLING_SERVE_DO_OCR: Final[str] = "docling_serve_do_ocr"  # Deprecated: use DOCLING_SERVE_OCR_PRESET
         DOCLING_SERVE_OCR_ENGINE: Final[str] = "docling_serve_ocr_engine"  # Deprecated: use DOCLING_SERVE_OCR_PRESET
         DOCLING_SERVE_OCR_LANGUAGES: Final[str] = (
@@ -542,6 +543,7 @@ Rules:
         LANGUAGE_SCORE: Final[str] = "language_score"
         LAST_MODIFIED_TIME: Final[str] = "last_modified_time"
         MODIFIED_TIME: Final[str] = "modified_time"
+        PAGE_COUNT: Final[str] = "page_count"
         PROCESSING_STATE: Final[str] = "processing_state"
 
         # Pipeline Metadata

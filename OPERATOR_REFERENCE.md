@@ -521,7 +521,7 @@ Uses hexagonal architecture (ports and adapters pattern):
 | Parameter                                                 | Type   | Required | Default                   | Description                                                                                        |
 |-----------------------------------------------------------|--------|---------:|---------------------------|----------------------------------------------------------------------------------------------------|
 | `text_extraction_mode`                                    | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
-| `entity_extraction_mode`                                  | string |       No | `none`                    | Entity extraction mode: `ollama`, `docling`, `litellm`, `watsonx`, or `none`                       |
+| `entity_extraction_mode`                                  | string |       No | `none`                    | Entity extraction mode: `ollama`, `docling`, `litellm`, `watsonx`, or `none`. **Note:** When using any entity extraction mode (not `none`), either `custom_schema` must be provided in the operator configuration OR a `document_type` column must be present from an upstream classification operator (e.g., DocumentClassifierOperator). If neither is provided, a `ConfigurationError` will be thrown. |
 | `doc_column`                                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
 | `output_column`                                           | string |       No | `entities`                | Column name for storing extracted entities                                                         |
 | `extract_tables`                                          | bool   |       No | `false`                   | Extract tables from documents (text extraction)                                                    |
@@ -529,7 +529,7 @@ Uses hexagonal architecture (ports and adapters pattern):
 | `max_workers`                                             | int    |       No | auto                      | Maximum parallel workers (auto-detected based on CPU)                                              |
 | `use_processes`                                           | bool   |       No | `false`                   | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                      |
 | `expand_extracted_data`                                   | bool   |       No | `false`                   | Expand entity JSON into individual columns (entity extraction only)                                |
-| `custom_schema`                                           | object |       No | `{}`                      | Schema dictionary for structured extraction                                                        |
+| `custom_schema`                                           | object |       No | `{}`                      | Schema dictionary for structured extraction. **Required** when using entity extraction modes (`ollama`, `docling`, `litellm`, `watsonx`) unless a `document_type` column is present from an upstream classification operator. |
 | **VLM Parameters (docling_library mode)**                 |
 | `use_vlm_pipeline`                                        | bool   |       No | `false`                   | Enable VLM (Vision-Language Model) pipeline                                                        |
 | `vlm_preset`                                              | string |       No | `granite_docling`         | VLM preset name when VLM enabled                                                                   |
@@ -818,6 +818,10 @@ The `entity_config` parameter enables custom inline model configuration for the 
 - Dual-mode operation: text and entity extraction in single operator
 - Text modes: `docling_library` (local, optional VLM) or `docling_serve` (remote API with OCR)
 - Entity modes: `ollama` (local LLM), `litellm` (100+ providers), `watsonx` (IBM WatsonX.ai), `docling` (template-based), `none` (default)
+- **Entity Extraction Validation**: When using any entity extraction mode (not `none`), you must provide either:
+  - A `custom_schema` in the operator configuration, OR
+  - A `document_type` column from an upstream classification operator (e.g., DocumentClassifierOperator)
+  - If neither is provided, a `ConfigurationError` will be thrown with message: "Entity extraction requires either a custom_schema in operator config OR a document_type column from upstream classification operator"
 - VLM pipeline (docling_library mode) enhances extraction for complex documents
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
 - **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured

@@ -37,6 +37,8 @@ class DoclingServeAdapter(TextExtractionPort):
             - timeout: Request timeout in seconds (default: 300)
             - poll_interval: Polling interval in seconds (default: 2)
             - max_retries: Maximum retry attempts (default: 3)
+            - verify_ssl: Enable SSL certificate verification (default: True)
+                         Set to False only for internal testing with self-signed certificates
             - do_ocr: Enable OCR processing (default: True)
             - ocr_engine: OCR engine to use (optional)
             - ocr_languages: List of OCR languages (optional)
@@ -79,6 +81,7 @@ class DoclingServeAdapter(TextExtractionPort):
         self.timeout = docling_serve_config.get("timeout", 300)
         self.poll_interval = docling_serve_config.get("poll_interval", 2)
         self.max_retries = docling_serve_config.get("max_retries", 3)
+        self.verify_ssl = docling_serve_config.get("verify_ssl", True)
 
         # Build processing options
         self.processing_options = {
@@ -137,6 +140,7 @@ class DoclingServeAdapter(TextExtractionPort):
                 timeout=self.timeout,
                 poll_interval=self.poll_interval,
                 max_retries=self.max_retries,
+                verify_ssl=self.verify_ssl,
             )
             result = client.process_document(
                 binary_content=binary_content,
@@ -156,8 +160,9 @@ class DoclingServeAdapter(TextExtractionPort):
             markdown_text = document.get("md_content", "")
             logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0} for file {file_path}")
             metadata = {"processing_time": result.get("processing_time", 0)}
-            if "page_count" in result:
-                metadata["page_count"] = result["page_count"]
+            pages = document.get("json_content", {}).get("pages", {})
+            if pages:
+                metadata[OperatorConstants.Metadata.PAGE_COUNT] = len(pages)
 
             logger.info("Completed docling-serve extraction for %s", file_path)
             return {
