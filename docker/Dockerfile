@@ -31,7 +31,9 @@ RUN dnf install -y \
 # Create datasift user and prepare writable directories
 RUN useradd -m -u 1000 datasift && \
     mkdir -p /opt/app-root/models && \
-    chmod -R 775 /opt/app-root/models
+    chmod -R 775 /opt/app-root/models && \
+    mkdir -p /opt/app-root/nltk_data && \
+    chown -R datasift:datasift /opt/app-root/nltk_data
 
 # Copy EVERYTHING from builder with correct permissions
 # Using trailing slashes to ensure we copy the CONTENTS of the folder correctly
