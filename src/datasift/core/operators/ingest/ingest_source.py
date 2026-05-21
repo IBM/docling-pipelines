@@ -525,7 +525,18 @@ class IngestSourceOperator(AbstractOperator):
                 langchain_docs.append(langchain_doc)
             return langchain_docs
 
-        documents = asyncio.run(fetch_all())
+        # Handle both async contexts (Jupyter, Prefect) and sync contexts (CLI)
+        try:
+            asyncio.get_running_loop()
+            # Event loop already running - run in separate thread to avoid nested loop error
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, fetch_all())
+                documents = future.result()
+        except RuntimeError:
+            # No event loop - safe to create new one
+            documents = asyncio.run(fetch_all())
         return documents
 
     def _build_adapter_config(self, provider: str):

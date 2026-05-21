@@ -530,6 +530,17 @@ class PrefectEngine(AbstractFlowEngine):
         )
         session_info = get_session_info()
 
+        # Handle ingest-only flows (no downstream operators)
+        if not op_flow:
+            self.logger.info(
+                "Ingest-only flow detected - no downstream operators to process. "
+                "Returning ingested data without further processing.",
+                extra=self.common_log_arguments,
+            )
+            # Create initial batch result with ingested data
+            batch_table = data_access.get_table("")[0]
+            return ExecuteStepResults([data_access], [batch_table], {})
+
         results: FuturedList = FuturedList.from_size(len(op_flow))
         destinations: list[tuple[PrefectFuture, Any]] = []
         node_id_to_index_map = create_node_id_to_index_map(flow_def=op_flow)
@@ -603,7 +614,7 @@ class PrefectEngine(AbstractFlowEngine):
     def __non_execute_inner_flow(
         self,
         task_type: TaskType,
-        inner_task: Callable[P, R],
+        inner_task: Any,
         op_flow,
         local_result,
         **kwargs,

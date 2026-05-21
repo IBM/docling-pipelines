@@ -19,8 +19,8 @@
           "secret_key": "enter_secret_key"
         },
         "connection_params": {
-          "bucket": "test-documents-bucket",
-          "prefix": "documents/",
+          "bucket": "tm-wkc-storage-1",
+          "prefix": "2_small_files/",
           "region": "us-east-1",
           "recursive": true,
           "skip_hidden_files": true,
@@ -31,6 +31,18 @@
         "max_files": 10,
         "force_ingest": true
       }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "doc_column": "content",
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      },
+      "depends_on": [
+        "ingest_s3_adapter"
+      ]
     }
   ]
 }
