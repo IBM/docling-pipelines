@@ -70,7 +70,6 @@ def main():
         # Create flow manager with custom configuration
         manager = DatasiftFlowManager(
             flow_file=flow_file,
-            log_level="debug",  # More verbose logging
             job_id="notebook-job-001",
             job_run_id="custom-run-12345",
             flow_id="custom-flow-id",

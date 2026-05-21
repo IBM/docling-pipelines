@@ -23,6 +23,7 @@ from datasift.cli.datasift_cli import (
     main,
     validate_flow_definition,
 )
+from datasift.core.constants.constants import EnvironmentVariables
 from datasift.core.constants.operator_constants import OperatorConstants
 
 
@@ -269,13 +270,11 @@ class TestMainCLI:
         assert exc_info.value.code == 0
 
     @patch("datasift.cli.datasift_cli.validate_flow_definition")
-    @patch(
-        "sys.argv",
-        ["datasift-orchestrator", "validate-flow", "test.json", "--log-level", "debug"],
-    )
-    def test_validate_flow_with_log_level(self, mock_validate):
-        """Test validate-flow command with custom log level."""
+    @patch("sys.argv", ["datasift-orchestrator", "validate-flow", "test.json"])
+    def test_validate_flow_with_log_level(self, mock_validate, monkeypatch):
+        """Test validate-flow command with custom log level via DS_LOG_LEVEL env var."""
         mock_validate.return_value = True
+        monkeypatch.setenv(EnvironmentVariables.DS_LOG_LEVEL, "DEBUG")
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -296,20 +295,11 @@ class TestMainCLI:
         mock_validate.assert_called_once_with(flow_file="test.json")
 
     @patch("datasift.cli.datasift_cli.validate_flow_definition")
-    @patch(
-        "sys.argv",
-        [
-            "datasift-orchestrator",
-            "--flow-file",
-            "test.json",
-            "--validate",
-            "--log-level",
-            "error",
-        ],
-    )
-    def test_validate_flag_with_custom_log_level(self, mock_validate):
-        """Test --validate flag with custom log level."""
+    @patch("sys.argv", ["datasift-orchestrator", "--flow-file", "test.json", "--validate"])
+    def test_validate_flag_with_custom_log_level(self, mock_validate, monkeypatch):
+        """Test --validate flag with custom log level via DS_LOG_LEVEL env var."""
         mock_validate.return_value = False
+        monkeypatch.setenv(EnvironmentVariables.DS_LOG_LEVEL, "ERROR")
 
         with pytest.raises(SystemExit) as exc_info:
             main()
@@ -318,22 +308,12 @@ class TestMainCLI:
         mock_validate.assert_called_once_with(flow_file="test.json")
 
     @patch("datasift.cli.datasift_cli.run_command_line_executor")
-    @patch(
-        "sys.argv",
-        ["datasift-orchestrator", "--flow-file", "test.json", "--log-level", "debug"],
-    )
-    def test_execution_with_custom_log_level(self, mock_execute, valid_flow_file):
-        """Test flow execution with custom log level."""
-        with patch(
-            "sys.argv",
-            [
-                "datasift-orchestrator",
-                "--flow-file",
-                valid_flow_file,
-                "--log-level",
-                "debug",
-            ],
-        ):
+    @patch("sys.argv", ["datasift-orchestrator", "--flow-file", "test.json"])
+    def test_execution_with_custom_log_level(self, mock_execute, valid_flow_file, monkeypatch):
+        """Test flow execution with custom log level via DS_LOG_LEVEL env var."""
+        monkeypatch.setenv(EnvironmentVariables.DS_LOG_LEVEL, "DEBUG")
+
+        with patch("sys.argv", ["datasift-orchestrator", "--flow-file", valid_flow_file]):
             main()
 
         mock_execute.assert_called_once()
@@ -485,3 +465,7 @@ class TestValidateFlowDefinitionRealValidator:
 
         # Real invoice flow should validate successfully
         assert result is True
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

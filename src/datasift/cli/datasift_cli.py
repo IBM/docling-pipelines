@@ -5,7 +5,7 @@ import sys
 import uuid
 from typing import Any
 
-from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
 
 logger = get_logger()
 
@@ -194,14 +194,6 @@ Examples:
         help="Path to the flow definition JSON file to validate",
     )
 
-    validate_parser.add_argument(
-        "--log-level",
-        "-l",
-        choices=["debug", "info", "warning", "error", "critical"],
-        default="info",
-        help="Set logging level (default: info)",
-    )
-
     # -------------------------
     # global args
     # -------------------------
@@ -210,13 +202,7 @@ Examples:
         "-f",
         help="Path to the flow definition JSON file",
     )
-    parser.add_argument(
-        "--log-level",
-        "-l",
-        choices=["debug", "info", "warning", "error", "critical"],
-        default="info",
-        help="Set logging level (default: info)",
-    )
+
     parser.add_argument(
         "--list-operators",
         "-lo",
@@ -237,9 +223,12 @@ Examples:
 
     args = parser.parse_args()
 
+    # Configure DPK log level to match DS_LOG_LEVEL
+    set_dpk_log_level_from_ds_log_level()
+
     # Setup logger early
     global logger
-    logger = get_logger(level=args.log_level.upper())
+    logger = get_logger()
 
     # -------------------------
     # subcommand: validate-flow

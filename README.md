@@ -469,7 +469,7 @@ datasift-orchestrator --flow-file path/to/flow.json
 With custom log level:
 
 ```bash
-datasift-orchestrator --flow-file flow.json --log-level debug
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file flow.json
 ```
 
 #### Validating Flows
@@ -512,8 +512,7 @@ from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 # Execute flow from file
 manager = DatasiftFlowManager(
-    flow_file="path/to/flow.json",
-    log_level="info",
+    flow_file="path/to/flow.json"
 )
 result = manager.execute()
 

@@ -119,7 +119,7 @@ def main():
             )
 
         print(f"Loading flow from: {flow_file}")
-        manager = DatasiftFlowManager(flow_file=str(flow_file), log_level="info")
+        manager = DatasiftFlowManager(flow_file=str(flow_file))
 
         # Step 3: Display metadata
         print("\n[Step 3/5] Flow Metadata:")

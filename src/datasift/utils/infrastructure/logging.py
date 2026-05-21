@@ -24,7 +24,7 @@ import os
 import sys
 from typing import ClassVar
 
-from datasift.core.constants.constants import DatasiftConstants  # , Environments
+from datasift.core.constants.constants import DatasiftConstants, EnvironmentVariables
 
 
 # ANSI color codes
@@ -199,10 +199,71 @@ def get_log_level(name: str | None = None):
         Log level name string (uppercase)
     """
     if name is None:
-        level_name = os.environ.get("DS_LOG_LEVEL", logging.INFO)
+        level_name = os.environ.get(EnvironmentVariables.DS_LOG_LEVEL, logging.INFO)
     else:
         level_name = name.upper()
     return level_name
+
+
+def configure_third_party_loggers(*, log_level: int | str, handler: logging.Handler) -> None:
+    """Configure third-party library loggers to respect application log level from env variable.
+
+    Many third-party libraries (uvicorn, prefect, httpx, etc.) set their own log levels
+    explicitly, ignoring the root logger configuration. This function ensures they all
+    respect the application's DS_LOG_LEVEL setting.
+
+    Args:
+        log_level: The log level to apply (int like logging.INFO or str like "INFO")
+        handler: The logging handler to use for output
+    """
+    third_party_loggers = [
+        # Uvicorn web server loggers
+        "uvicorn",
+        "uvicorn.access",
+        "uvicorn.error",
+        # Prefect workflow orchestration loggers
+        "prefect",
+        "prefect.flow_runs",
+        "prefect.task_runs",
+        "prefect.engine",
+        "prefect.client",
+        "prefect.server",
+        # HTTP client loggers
+        "httpx",
+        "httpcore",
+        "urllib3",
+        "requests",
+        # Other third-party loggers
+        "filelock",
+        "websockets",
+        "graphviz",
+        "huggingface_hub",
+    ]
+
+    for logger_name in third_party_loggers:
+        lib_logger = logging.getLogger(logger_name)
+        lib_logger.setLevel(log_level)
+        lib_logger.handlers = []
+        lib_logger.addHandler(handler)
+        lib_logger.propagate = False
+
+
+def set_dpk_log_level_from_ds_log_level() -> None:
+    """Configure DPK (data_processing library) log level to match DS_LOG_LEVEL.
+
+    The data_processing library uses its own logging system that reads from the
+    DPK_LOG_LEVEL environment variable instead of respecting Python's logging
+    configuration. This function synchronizes DPK's log level with the application's
+    DS_LOG_LEVEL setting.
+
+    This function should be called early in the application startup, before any
+    data_processing library code is imported, in all entry points:
+    - FastAPI server (main.py)
+    - CLI (datasift_cli.py)
+    - Programmatic API (DatasiftFlowManager)
+    """
+    log_level_name = os.getenv(EnvironmentVariables.DS_LOG_LEVEL, "INFO").upper()
+    os.environ[EnvironmentVariables.DPK_LOG_LEVEL] = log_level_name
 
 
 def get_logger(

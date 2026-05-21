@@ -1430,7 +1430,7 @@ datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 
 ```bash
 # From project root (datasift-opensource/)
-datasift-orchestrator --flow-file my-first-flow.json --log-level debug
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file my-first-flow.json
 ```
 
 ### Understanding the Output
@@ -1637,7 +1637,7 @@ podman-compose --version
 ### Debug Logging
 
 ```bash
-datasift-orchestrator --flow-file my-first-flow.json --log-level debug
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file my-first-flow.json
 ```
 
 ---
@@ -1737,8 +1737,7 @@ def execute_flow():
     try:
         # Initialize the manager with a flow file
         manager = DatasiftFlowManager(
-            flow_file=str(flow_file),
-            log_level="info",
+            flow_file=str(flow_file)
         )
 
         print(f"Loaded flow file: {flow_file}")
@@ -1859,8 +1858,7 @@ def execute_inline_flow():
 
     try:
         manager = DatasiftFlowManager(
-            flow_def=flow_def,
-            log_level="info",
+            flow_def=flow_def
         )
 
         result = manager.execute()
@@ -1911,7 +1909,6 @@ import uuid
 
 manager = DatasiftFlowManager(
     flow_file=str(flow_file),
-    log_level='info',
     job_id=str(uuid.uuid4()),
     job_run_id=str(uuid.uuid4()),
     flow_id='notebook-flow-complete-pipeline',
@@ -1970,8 +1967,7 @@ from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 def validate_and_execute(flow_file: str):
     """Validate flow before execution."""
     manager = DatasiftFlowManager(
-        flow_file=flow_file,
-        log_level="info",
+        flow_file=flow_file
     )
 
     # Validate the flow
@@ -2021,7 +2017,6 @@ import uuid
 
 manager = DatasiftFlowManager(
     flow_file="my_flow.json",
-    log_level="debug",
     job_id=str(uuid.uuid4()),
     job_run_id=str(uuid.uuid4()),
     flow_id="prod-document-pipeline-v2",
@@ -2096,10 +2091,8 @@ from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 def execute_with_error_handling(flow_file: str):
     """Execute flow with comprehensive error handling."""
     try:
-        # Initialize with debug logging for troubleshooting
         manager = DatasiftFlowManager(
-            flow_file=flow_file,
-            log_level="debug",  # Use "debug" for detailed logs
+            flow_file=flow_file
         )
 
         # Validate first
@@ -2151,18 +2144,27 @@ def execute_with_error_handling(flow_file: str):
 **Log Level Configuration**
 
 ```python
+# Control logging via DS_LOG_LEVEL environment variable
+import os
+
 # Development: Detailed debugging information
-manager = DatasiftFlowManager(flow_file="flow.json", log_level="debug")
+os.environ["DS_LOG_LEVEL"] = "DEBUG"
+manager = DatasiftFlowManager(flow_file="flow.json")
 
 # Production: Standard information logging
-manager = DatasiftFlowManager(flow_file="flow.json", log_level="info")
+os.environ["DS_LOG_LEVEL"] = "INFO"
+manager = DatasiftFlowManager(flow_file="flow.json")
 
 # Quiet: Only warnings and errors
-manager = DatasiftFlowManager(flow_file="flow.json", log_level="warning")
+os.environ["DS_LOG_LEVEL"] = "WARNING"
+manager = DatasiftFlowManager(flow_file="flow.json")
 
 # Critical only: Only critical errors
-manager = DatasiftFlowManager(flow_file="flow.json", log_level="error")
+os.environ["DS_LOG_LEVEL"] = "ERROR"
+manager = DatasiftFlowManager(flow_file="flow.json")
 ```
+
+**Note:** The `log_level` parameter has been removed from `DatasiftFlowManager`. Use the `DS_LOG_LEVEL` environment variable instead for consistent logging across all components.
 
 **Debugging Failed Executions**
 

@@ -68,7 +68,7 @@ def main():
         flow_file = "examples/datasift_flow_manager/sample_flow.json"
 
         # Create flow manager
-        manager = DatasiftFlowManager(flow_file=flow_file, log_level="info")
+        manager = DatasiftFlowManager(flow_file=flow_file)
 
         # Get metadata before execution
         metadata = manager.get_execution_metadata()

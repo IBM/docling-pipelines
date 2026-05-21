@@ -866,7 +866,7 @@ Error code: flow_execution_failed
 
 ```bash
 # Enable debug logging
-export LOG_LEVEL=DEBUG
+export DS_LOG_LEVEL=DEBUG
 datasift-orchestrator --flow-file my_flow.json
 ```
 
@@ -921,7 +921,7 @@ Error code: prefect_flow_failed
 2. **Run with verbose logging:**
 
 ```bash
-export LOG_LEVEL=DEBUG
+export DS_LOG_LEVEL=DEBUG
 datasift-orchestrator --flow-file my_flow.json
 ```
 
@@ -1349,10 +1349,8 @@ AssertionError: Row count mismatch: expected 100, got 95
 2. Verify no filtering is happening before storage
 3. Enable debug logging to see detailed row counts:
 
-   ```json
-   "global_config": {
-     "log_level": "DEBUG"
-   }
+   ```bash
+   DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your_flow.json
    ```
 
 4. Inspect the PyArrow table before storage:
@@ -1531,9 +1529,14 @@ HTTP 500: Internal server error when creating document set
 
 **Set log level to DEBUG:**
 ```bash
-export LOG_LEVEL=DEBUG
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file my_flow.json
+```
+
+Or set as environment variable:
+```bash
+export DS_LOG_LEVEL=DEBUG
 datasift-orchestrator --flow-file my_flow.json
-````
+```
 
 **Log levels:**
 
@@ -1664,16 +1667,14 @@ python -m pdb -m datasift.cli.datasift_cli --flow-file my_flow.json
 
 ### Verbose Operator Output
 
-**Enable verbose output for specific operators:**
+**Enable verbose output using environment variable:**
 
-```json
-{
-  "operator_params": {
-    "verbose": true, // If supported by operator
-    "log_level": "DEBUG"
-  }
-}
+```bash
+# Set debug level for detailed operator output
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file my_flow.json
 ```
+
+**Note:** Individual operator verbosity settings (if supported) are separate from the global log level.
 
 ---
 
@@ -2184,7 +2185,7 @@ datasift-orchestrator --flow-file my_flow.json 2>&1 | tee debug.log
 4. **Try with debug logging:**
 
 ```bash
-export LOG_LEVEL=DEBUG
+export DS_LOG_LEVEL=DEBUG
 datasift-orchestrator --flow-file my_flow.json
 ```
 
@@ -2294,7 +2295,7 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
 datasift-orchestrator --flow-file my_flow.json
 
 # Debugging
-export LOG_LEVEL=DEBUG
+export DS_LOG_LEVEL=DEBUG
 datasift-orchestrator --flow-file my_flow.json 2>&1 | tee debug.log
 
 # Service health checks

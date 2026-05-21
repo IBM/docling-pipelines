@@ -19,7 +19,7 @@ from datasift.core.orchestration.flow_executor import FlowExecutor
 from datasift.core.orchestration.flow_validator import FlowValidator
 from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
 from datasift.exceptions.datasift_exceptions import DatasiftException, FlowInvalidDataException
-from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
 from datasift.utils.operators.display import list_operators as _list_operators
 
 
@@ -34,7 +34,6 @@ class DatasiftFlowManager:
     Attributes:
         flow_file (Optional[str]): Path to flow definition JSON file
         flow_def (dict): Flow definition as dictionary
-        log_level (str): Logging level (debug, info, warning, error, critical)
         job_id (str): Unique job identifier
         job_run_id (str): Unique job run identifier
         flow_id (str): Flow identifier
@@ -60,7 +59,6 @@ class DatasiftFlowManager:
         self,
         flow_file: str | None = None,
         flow_def: dict | None = None,
-        log_level: str = "info",
         job_id: str | None = None,
         job_run_id: str | None = None,
         flow_id: str | None = None,
@@ -72,7 +70,6 @@ class DatasiftFlowManager:
         Args:
             flow_file: Path to JSON file containing flow definition
             flow_def: Flow definition as dictionary (used if flow_file not provided)
-            log_level: Logging level (debug, info, warning, error, critical)
             job_id: Unique job identifier (priority: parameter > flow_def > UUID)
             job_run_id: Unique job run identifier (defaults to job_id if not provided)
             flow_id: Flow identifier (priority: parameter > flow_def > job_id)
@@ -84,6 +81,11 @@ class DatasiftFlowManager:
             FileNotFoundError: If flow_file doesn't exist
             json.JSONDecodeError: If flow_file contains invalid JSON
             FlowInvalidDataException: If flow validation fails
+
+        Note:
+            Logging level is controlled via the DS_LOG_LEVEL environment variable.
+            Set DS_LOG_LEVEL to DEBUG, INFO, WARNING, ERROR, or CRITICAL before
+            creating the DatasiftFlowManager instance.
         """
         if flow_file is None and flow_def is None:
             raise DatasiftException("Either flow_file or flow_def must be provided", status_code=400)
@@ -91,9 +93,11 @@ class DatasiftFlowManager:
         if flow_file is not None and flow_def is not None:
             raise DatasiftException("Only one of flow_file or flow_def should be provided", status_code=400)
 
+        # Configure DPK log level to match DS_LOG_LEVEL
+        set_dpk_log_level_from_ds_log_level()
+
         # Set up logging
-        self.log_level = log_level.upper()
-        self.logger: Logger = get_logger(level=self.log_level)
+        self.logger: Logger = get_logger()
 
         # Load and compile flow definition from authoring format
         if flow_file is not None:

@@ -41,8 +41,8 @@ datasift-orchestrator --flow-file flow.json --validate
 # List operators
 datasift-orchestrator --list-operators [--verbose]
 
-# Log level control
-datasift-orchestrator --flow-file flow.json --log-level debug|info|warning|error|critical
+# Log level control (via environment variable)
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file flow.json
 ```
 
 ### 2. Python Library

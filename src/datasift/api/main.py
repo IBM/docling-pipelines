@@ -37,9 +37,14 @@ from datasift.api.middleware.error_handler import (
     validation_exception_handler,
 )
 from datasift.api.middleware.transaction_middleware import TransactionMiddleware
+from datasift.core.constants.constants import EnvironmentVariables
 from datasift.core.job_management.adapters.config.job_management_factory import get_default_factory
 from datasift.exceptions.datasift_exceptions import DatasiftException
-from datasift.utils.infrastructure.logging import ConditionalFormatter
+from datasift.utils.infrastructure.logging import (
+    ConditionalFormatter,
+    configure_third_party_loggers,
+    set_dpk_log_level_from_ds_log_level,
+)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -66,6 +71,13 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Configure DPK log level to match DS_LOG_LEVEL
+set_dpk_log_level_from_ds_log_level()
+
+# Get log level from environment variable, default to INFO
+log_level_name = os.getenv(EnvironmentVariables.DS_LOG_LEVEL, "INFO").upper()
+log_level = logging.getLevelName(log_level_name)
+
 # Configure logging with ConditionalFormatter for structured JSON logging
 # ConditionalFormatter retrieves transaction IDs from session_info context
 # and includes them in all log entries for request tracing
@@ -74,18 +86,15 @@ formatter = ConditionalFormatter(datefmt="%H:%M:%S")
 handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
 
-# Configure root logger
-logging.basicConfig(level=logging.INFO, handlers=[handler])
+# Configure root logger with environment-specified level
+logging.basicConfig(level=log_level, handlers=[handler])
 
 # Ensure all loggers use the formatter
 root_logger = logging.getLogger()
 root_logger.handlers = [handler]
 
-# Configure uvicorn.access logger to use ConditionalFormatter
-uvicorn_access_logger = logging.getLogger("uvicorn.access")
-uvicorn_access_logger.handlers = []  # Clear existing handlers
-uvicorn_access_logger.addHandler(handler)
-uvicorn_access_logger.propagate = False  # Prevent duplicate logs
+# Configure third-party loggers (uvicorn, prefect, etc.) to respect DS_LOG_LEVEL
+configure_third_party_loggers(log_level=log_level, handler=handler)
 
 logger = logging.getLogger(__name__)
 

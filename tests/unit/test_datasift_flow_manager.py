@@ -184,7 +184,6 @@ class TestInitialization:
         """Test default parameter values."""
         manager = DatasiftFlowManager(flow_def=simple_flow)
 
-        assert manager.log_level == "INFO"
         assert manager.job_id is not None
         assert manager.job_run_id is not None
         assert manager.flow_id is not None
@@ -200,13 +199,11 @@ class TestInitialization:
 
         manager = DatasiftFlowManager(
             flow_def=simple_flow,
-            log_level="debug",
             job_id=custom_job_id,
             job_run_id=custom_run_id,
             flow_id=custom_flow_id,
         )
 
-        assert manager.log_level == "DEBUG"
         assert manager.job_id == custom_job_id
         assert manager.job_run_id == custom_run_id
         assert manager.flow_id == custom_flow_id

@@ -228,15 +228,17 @@ The `feature_mappings` in the OpenSearch operator maps PyArrow table columns to 
 
 **Debug Mode:**
 
-Add logging to see detailed execution:
+Enable detailed logging using environment variable:
 
-```json
-"global_config": {
-  "doc_column": "content",
-  "disable_validation": false,  // Enable validation
-  "force_ingest": true,
-  "log_level": "DEBUG"            // Add debug logging
-}
+```bash
+# Set log level before running
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+```
+
+Or in your shell profile:
+```bash
+export DS_LOG_LEVEL=DEBUG
+datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 ```
 
 ### Next Steps

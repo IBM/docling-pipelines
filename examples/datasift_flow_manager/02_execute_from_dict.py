@@ -71,7 +71,7 @@ def main():
     }
 
     # Create flow manager with flow definition
-    manager = DatasiftFlowManager(flow_def=flow_def, log_level="info", job_id=str(uuid.uuid4()))
+    manager = DatasiftFlowManager(flow_def=flow_def, job_id=str(uuid.uuid4()))
 
     # Execute
     print("\nExecuting programmatically defined flow...")

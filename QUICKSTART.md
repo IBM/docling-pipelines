@@ -309,7 +309,7 @@ ls -la sample_flows/complete_pipeline_flow.json
 1. **Check the setup log**: `cat datasift_setup.log`
 2. **View detailed error messages**: Run with debug logging:
    ```bash
-   export LOG_LEVEL=DEBUG
+   export DS_LOG_LEVEL=DEBUG
    datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
    ```
 3. **Start fresh**: Clean up and re-run setup:

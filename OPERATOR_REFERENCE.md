@@ -1765,8 +1765,8 @@ For new backends, implement the document set ports, register adapters with the f
 **Class:** [`DatasiftFlowManager`](src/datasift/lib/datasift_flow_manager.py:24)
 
 ### Constructor
+- `DatasiftFlowManager(flow_file=None, flow_def=None, job_id=None, job_run_id=None, flow_id=None, enable_custom_operators=None)`
 
-- `DatasiftFlowManager(flow_file=None, flow_def=None, log_level="info", job_id=None, job_run_id=None, flow_id=None)`
 
 Exactly one of `flow_file` or `flow_def` must be provided.
 
@@ -1844,7 +1844,6 @@ datasift-orchestrator --list-operators --verbose    # Detailed view
 | Argument           | Short |    Required | Description                                     |
 | ------------------ | ----- | ----------: | ----------------------------------------------- |
 | `--flow-file`      | `-f`  | Conditional | Flow JSON path                                  |
-| `--log-level`      | `-l`  |          No | `debug`, `info`, `warning`, `error`, `critical` |
 | `--list-operators` | `-lo` |          No | List operators and exit (summary table format)  |
 | `--verbose`        | `-v`  |          No | Show detailed operator info (use with `-lo`)    |
 | `--validate`       | -     |          No | Validate instead of executing                   |

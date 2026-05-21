@@ -155,7 +155,6 @@ Advanced usage with custom job IDs, error handling, and metadata extraction.
 ```python
 executor = DatasiftFlowManager(
     flow_file=flow_file,
-    log_level="debug",
     job_id="custom-job-001",
     job_run_id="custom-run-12345"
 )

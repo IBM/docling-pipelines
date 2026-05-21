@@ -68,8 +68,7 @@ flow_def = {
 
 # Cell 4: Create flow manager
 manager = DatasiftFlowManager(
-    flow_file=flow_file,  # or flow_def=flow_def
-    log_level="info"
+    flow_file=flow_file  # or flow_def=flow_def
 )
 
 # Cell 5: Check metadata

@@ -1541,7 +1541,7 @@ prefect work-pool inspect datasift-pool
 Enable debug logging for detailed troubleshooting:
 
 ```bash
-datasift-orchestrator --flow-file your-flow.json --log-level debug
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your-flow.json
 ```
 
 ---
@@ -2030,7 +2030,7 @@ prefect work-pool inspect datasift-pool
 Enable debug logging for detailed troubleshooting:
 
 ```bash
-datasift-orchestrator --flow-file your-flow.json --log-level debug
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your-flow.json
 ```
 
 ---

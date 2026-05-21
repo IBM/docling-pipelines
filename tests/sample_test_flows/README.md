@@ -304,13 +304,16 @@ Ingest → Extract → Quality Checks → Enrich → Chunk → Embed → Store
 
 ### Debug Mode
 
-Enable detailed logging:
+Enable detailed logging using environment variable:
 
-```json
-"global_config": {
-  "disable_validation": false,
-  "log_level": "DEBUG"
-}
+```bash
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
+```
+
+Or set as environment variable:
+```bash
+export DS_LOG_LEVEL=DEBUG
+datasift-orchestrator --flow-file tests/sample_test_flows/basic/local_to_opensearch.json
 ```
 
 ---
