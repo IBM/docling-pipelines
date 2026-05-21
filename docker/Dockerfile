@@ -28,17 +28,18 @@ RUN dnf install -y \
     mesa-libGL openldap-devel cyrus-sasl-devel openssl-devel glib2 && \
     dnf clean all
 
-# Create datasift user and prepare writable directories
+# Create datasift user and add to root group (GID 0) for OpenShift compatibility
 RUN useradd -m -u 1000 datasift && \
-    mkdir -p /opt/app-root/models && \
-    chmod -R 775 /opt/app-root/models && \
-    mkdir -p /opt/app-root/nltk_data && \
-    chown -R datasift:datasift /opt/app-root/nltk_data
+    usermod -a -G 0 datasift
 
-# Copy EVERYTHING from builder with correct permissions
-# Using trailing slashes to ensure we copy the CONTENTS of the folder correctly
-COPY --from=builder --chown=datasift:datasift /opt/app-root/ /opt/app-root/
-    
+# Copy EVERYTHING from builder with OpenShift-compatible ownership (UID 1000, GID 0)
+COPY --from=builder --chown=1000:0 /opt/app-root/ /opt/app-root/
+
+# Create models, data, and nltk_data directories with OpenShift-compatible permissions
+RUN mkdir -p /opt/app-root/models /data /opt/app-root/nltk_data && \
+    chown -R datasift:root /opt/app-root/models /data /opt/app-root/nltk_data && \
+    chmod -R g=u /opt/app-root /data
+
 WORKDIR /opt/app-root/src
 USER datasift
 ENV PYTHONPATH=/opt/app-root/src
