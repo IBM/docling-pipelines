@@ -322,6 +322,40 @@ class EmbeddingsOperator(AbstractOperator):
 
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
+    def _handle_embedding_error(self, error: Exception, model_name: str, context: str = "") -> None:
+        """
+        Handle embedding generation errors with context-aware messaging.
+
+        Args:
+            error: The exception that occurred
+            model_name: Name of the model being used
+            context: Additional context for logging (e.g., "for chunked text at index 0")
+
+        Raises:
+            DatasiftException: Always raises with appropriate error message
+        """
+        error_msg = str(error)
+
+        # Check if this is a context length error (from any provider)
+        if "input length exceeds the context length" in error_msg.lower() or "context length" in error_msg.lower():
+            logger.error(
+                f"Context length exceeded{' ' + context if context else ''}: Text is too long for model '{model_name}'",
+                exc_info=True,
+                extra=self.common_log_arguments,
+            )
+            raise DatasiftException(
+                f"Chunked text exceeds the configured embeddings model's (Provider: {self.embeddings_type}, "
+                f"Model: {model_name}) context length.Add Chunking operator and/or adjust the chunk_type/chunk_size"
+                " in Chunking operator and the Embeddings model ID in Embeddings operator to avoid this error."
+            ) from error
+        else:
+            logger.error(
+                f"Failed to generate embeddings{' ' + context if context else ''}: {error!s}",
+                exc_info=True,
+                extra=self.common_log_arguments,
+            )
+            raise DatasiftException(f"Batch embedding generation failed: {error!s}") from error
+
     def _create_embeddings(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
         """
         Generate embeddings for text using the configured provider with batch processing.
@@ -402,12 +436,7 @@ class EmbeddingsOperator(AbstractOperator):
                     embeddings_map[text_indices[i]] = embedding
 
             except Exception as e:
-                logger.error(
-                    f"Failed to generate batch embeddings: {e!s}",
-                    exc_info=True,
-                    extra=self.common_log_arguments,
-                )
-                raise DatasiftException(f"Batch embedding generation failed: {e!s}") from e
+                self._handle_embedding_error(error=e, model_name=model_name)
 
         # Process chunked texts
         for idx, chunks in chunked_texts.items():
@@ -420,12 +449,7 @@ class EmbeddingsOperator(AbstractOperator):
                 embeddings_map[idx] = avg_embedding
 
             except Exception as e:
-                logger.error(
-                    f"Failed to generate embeddings for chunked text at index {idx}: {e!s}",
-                    exc_info=True,
-                    extra=self.common_log_arguments,
-                )
-                raise DatasiftException(f"Embedding generation failed for chunked text: {e!s}") from e
+                self._handle_embedding_error(error=e, model_name=model_name, context=f"for chunked text at index {idx}")
 
         # Build final embeddings list in original order
         embeddings: list[list[float]] = []

@@ -292,7 +292,8 @@ class ChunkerOperator(AbstractOperator):
                 },
                 OperatorConstants.Processing.CHUNK_SIZE: {
                     OperatorConstants.Misc.NAME: "Chunk Size",
-                    OperatorConstants.Config.DESCRIPTION: "Chunk size in characters (simple: 500-5000) or tokens (docling: 100-2048). Validation enforced based on chunk_type.",
+                    OperatorConstants.Config.DESCRIPTION: "Chunk size in characters (simple: 500-5000) or tokens (docling: 100-2048)."
+                    " Validation enforced based on chunk_type. Chunk Size is not used for semantic Chunk Type",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: OperatorConstants.Processing.CHUNK_SIZE_DEFAULT,
                     OperatorConstants.Filtering.MIN_VALUE: DOCLING_CHUNK_SIZE_MIN,  # Use minimum across all types (100)
