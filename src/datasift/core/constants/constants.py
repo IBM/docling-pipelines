@@ -348,6 +348,9 @@ class Metrics:
         CHUNKS_PROCESSED = "chunks_processed"
         CHUNKS_FAILED = "chunks_failed"
         CHUNKS_SKIPPED_EXISTING = "chunks_skipped_existing"
+        TOTAL_CHUNKS_TO_INDEX = "total_chunks_to_index"
+        CHUNKS_INDEXED_SUCCESSFULLY = "chunks_indexed_successfully"
+        CHUNKS_FAILED_TO_INDEX = "chunks_failed_to_index"
         ERROR = "error"
 
     class Internal:

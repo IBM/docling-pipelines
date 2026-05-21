@@ -31,6 +31,7 @@ SPACE_TYPE_KEY: str = "space_type"
 PROVIDER_DEFAULT: str = "opensearch"
 ENGINE_PARAMETERS_KEY: str = "engine_parameters"
 SPARSE_EMBEDDINGS_COLUMN_KEY: str = "sparse_embeddings_column"
+SCHEMA_TEMPLATE_PATH_KEY: str = "schema_template_path"
 DEFAULT_BATCH_SIZE: int = 100
 DEFAULT_VECTOR_DIMENSION: int = 384
 NUMBER_OF_BATCHES_KEY: str = "number_of_batches"
@@ -102,9 +103,9 @@ class VectorDBOperator(AbstractOperator):
             )
 
             # Pass schema_template_path if provided (operator-level config)
-            schema_template_path = self.config.get("schema_template_path")
+            schema_template_path = self.config.get(SCHEMA_TEMPLATE_PATH_KEY)
             if schema_template_path:
-                adapter_config["schema_template_path"] = schema_template_path
+                adapter_config[SCHEMA_TEMPLATE_PATH_KEY] = schema_template_path
 
             self.adapter: VectorStorePort = VectorStoreFactory.create(self.provider, **adapter_config)
         except Exception as e:
@@ -140,10 +141,22 @@ class VectorDBOperator(AbstractOperator):
         Supports batch processing with size limits and detailed error tracking.
         Handles both single embeddings and chunked embeddings (list of embeddings).
         Auto-detects vector dimension from embeddings data.
+
+        Metrics:
+        Document-level metrics:
+        - processed_docs: Count of documents successfully processed (all chunks indexed)
+        - failed_docs_count: Count of documents that failed (preparation or any chunk failure)
+
+        Chunk-level metrics:
+        - chunks_indexed_successfully: Count of chunks successfully indexed
+        - chunks_failed_to_index: Count of chunks that failed to index
+        - total_chunks_to_index: Total count of chunks prepared for indexing
+
+        Important: If ANY chunk of a document fails to index, the entire document is marked as failed.
         """
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=table.num_rows)
-        metadata["number_of_batches"] = 0
+        metadata[NUMBER_OF_BATCHES_KEY] = 0
 
         if table.num_rows == 0:
             logger.warning("Empty table provided", extra=self.common_log_arguments)
@@ -203,6 +216,8 @@ class VectorDBOperator(AbstractOperator):
 
         # Prepare documents for bulk indexing
         documents: list[tuple[str, dict[str, Any]]] = []
+        # Map chunk IDs back to original document IDs for failure tracking
+        chunk_id_to_doc_id: dict[str, str] = {}
 
         for idx in range(table.num_rows):
             try:
@@ -297,6 +312,8 @@ class VectorDBOperator(AbstractOperator):
 
                             chunk_doc_id: str = f"{doc_id}_chunk_{chunk_idx}"
                             documents.append((chunk_doc_id, chunk_row_data))
+                            # Track mapping from chunk ID to original document ID
+                            chunk_id_to_doc_id[chunk_doc_id] = doc_id
                     else:
                         # Both in memory - iterate normally
                         chunked_content_list: list[dict[str, Any]] = row_data.get(
@@ -315,6 +332,8 @@ class VectorDBOperator(AbstractOperator):
 
                             chunk_doc_id = f"{doc_id}_chunk_{chunk_idx}"
                             documents.append((chunk_doc_id, chunk_row_data))
+                            # Track mapping from chunk ID to original document ID
+                            chunk_id_to_doc_id[chunk_doc_id] = doc_id
                 else:
                     # Single embedding - process as before
                     documents.append((doc_id, row_data))
@@ -333,24 +352,59 @@ class VectorDBOperator(AbstractOperator):
 
         # Index documents using adapter
         try:
-            success_count, failed_items = self.adapter.index_documents(documents)
-            metadata["number_of_batches"] = len(documents) // 100 + (1 if len(documents) % 100 else 0)
+            success_count, failed_chunks = self.adapter.index_documents(documents)
+            metadata[NUMBER_OF_BATCHES_KEY] = len(documents) // 100 + (1 if len(documents) % 100 else 0)
 
-            # Record failed documents
-            for item in failed_items:
-                error_info: dict[str, Any] = item.get("index", {})
-                failed_doc_id: str = error_info.get("_id", "unknown")
+            # Track chunk-level metrics
+            total_chunks_to_index = len(documents)
+            chunks_failed_to_index = len(failed_chunks)
+            chunks_indexed = success_count
+
+            metadata[Metrics.External.TOTAL_CHUNKS_TO_INDEX] = total_chunks_to_index
+            metadata[Metrics.External.CHUNKS_INDEXED_SUCCESSFULLY] = chunks_indexed
+            metadata[Metrics.External.CHUNKS_FAILED_TO_INDEX] = chunks_failed_to_index
+
+            # Track which original documents had chunk failures
+            failed_doc_ids: set[str] = set()
+
+            for failed_chunk in failed_chunks:
+                error_info: dict[str, Any] = failed_chunk.get("index", {})
+                failed_chunk_id: str = error_info.get("_id", "unknown")
                 failure_reason: str = error_info.get("error", {}).get("reason", "Unknown error")
+
+                # Determine original document ID
+                original_doc_id = chunk_id_to_doc_id.get(failed_chunk_id, failed_chunk_id)
+
+                # Only track document-level failure if we can determine the original document
+                if original_doc_id:
+                    failed_doc_ids.add(original_doc_id)
+                    logger.warning(
+                        f"Chunk indexing failed: {failed_chunk_id} (document: {original_doc_id}) - {failure_reason[:100]}",
+                        extra=self.common_log_arguments,
+                    )
+                else:
+                    logger.warning(
+                        f"Chunk indexing failed: {failed_chunk_id} - {failure_reason[:100]}",
+                        extra=self.common_log_arguments,
+                    )
+
+            # Record document-level failures for documents with any chunk failures
+            for doc_id in failed_doc_ids:
                 self.record_failed_document(
                     metadata=metadata,
-                    doc_id=failed_doc_id,
-                    doc_name=failed_doc_id,
-                    reason=failure_reason[:100],
+                    doc_id=doc_id,
+                    doc_name=doc_id,  # We don't have doc_name at this point
+                    reason="One or more chunks failed to index",
                 )
 
-            metadata[Metrics.External.PROCESSED_DOCS] = success_count
+            # Calculate document-level metrics
+            # processed_docs = total documents - (preparation failures + indexing failures)
+            total_docs_processed = table.num_rows - metadata.get(Metrics.External.FAILED_DOCS_COUNT, 0)
+            metadata[Metrics.External.PROCESSED_DOCS] = total_docs_processed
+
             logger.info(
-                f"Successfully indexed {success_count} documents",
+                f"VectorDB indexing complete: {total_docs_processed}/{table.num_rows} documents processed, "
+                f"{chunks_indexed}/{total_chunks_to_index} chunks indexed successfully",
                 extra=self.common_log_arguments,
             )
 
