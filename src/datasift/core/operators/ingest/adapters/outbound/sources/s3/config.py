@@ -143,6 +143,3 @@ class S3SourceConfig(BaseModel):
                 "download_timeout_seconds": 300,
             }
         }
-
-
-# Made with Bob

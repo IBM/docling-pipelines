@@ -14,6 +14,7 @@ from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_f
 from datasift.core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
 from datasift.core.operators.ingest.domain.models import Document
 from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+from datasift.core.operators.operator_utils import resolve_env_var
 from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -72,16 +73,13 @@ class S3SourceAdapter(DocumentSourcePort):
             # List and filter objects
             s3_objects = self._list_s3_objects(s3_client, config)
 
-            logger.info(f"Found {len(s3_objects)} objects in S3 bucket '{config.bucket}' with prefix '{config.prefix}'")
+            logger.info(
+                f"Found {len(s3_objects)} matching objects in S3 bucket '{config.bucket}' with prefix '{config.prefix}'"
+            )
 
-            # Download and yield documents, respecting max_files limit
+            # Download and yield documents
             fetched_count = 0
             for s3_obj in s3_objects:
-                # Check max_files limit
-                if config.max_files is not None and fetched_count >= config.max_files:
-                    logger.info(f"Reached max_files limit ({config.max_files}), stopping fetch")
-                    break
-
                 try:
                     document = await self._download_s3_object(s3_client, config, s3_obj)
                     if document:
@@ -163,7 +161,7 @@ class S3SourceAdapter(DocumentSourcePort):
             connection_params: Connection parameters from operator config
             credentials: Credentials from operator config
             included_extensions: File extensions to include (optional)
-            max_files: Maximum number of files to fetch (optional, not used by S3 adapter)
+            max_files: Maximum number of files to fetch while listing/downloading (optional)
 
         Returns:
             S3SourceConfig: Validated configuration object
@@ -172,9 +170,9 @@ class S3SourceAdapter(DocumentSourcePort):
             ValueError: If required parameters are missing or invalid
         """
         # Extract required parameters
-        access_key = credentials.get("access_key")
-        secret_key = credentials.get("secret_key")
-        bucket = connection_params.get("bucket")
+        access_key = resolve_env_var(credentials.get("access_key"))
+        secret_key = resolve_env_var(value=credentials.get("secret_key"))
+        bucket = resolve_env_var(value=connection_params.get("bucket"))
 
         if not access_key:
             raise ValueError("Missing required credential: 'access_key'")
@@ -233,6 +231,8 @@ class S3SourceAdapter(DocumentSourcePort):
         """
         List and filter S3 objects based on configuration.
 
+        Stops early once max_files matching objects have been collected.
+
         Args:
             s3_client: boto3 S3 client
             config: S3 configuration
@@ -240,22 +240,33 @@ class S3SourceAdapter(DocumentSourcePort):
         Returns:
             List of S3 object metadata dictionaries
         """
-        objects = []
+        objects: list[dict[str, Any]] = []
 
-        # Use paginator for large buckets
+        logger.info(f"Listing S3 objects from bucket '{config.bucket}' with prefix '{config.prefix}'")
+
         paginator = s3_client.get_paginator("list_objects_v2")
         pages = paginator.paginate(Bucket=config.bucket, Prefix=config.prefix)
 
-        for page in pages:
-            if "Contents" not in page:
+        for page_number, page in enumerate(pages, start=1):
+            page_contents = page.get("Contents", [])
+            logger.info(
+                f"Received S3 page {page_number} with {len(page_contents)} object(s) for bucket '{config.bucket}'"
+            )
+
+            if not page_contents:
                 continue
 
-            for obj in page["Contents"]:
-                # Apply filters
+            for obj in page_contents:
                 if self._should_skip_object(obj, config):
                     continue
 
                 objects.append(obj)
+
+                if config.max_files is not None and len(objects) >= config.max_files:
+                    logger.info(
+                        f"Reached max_files limit ({config.max_files}) while listing S3 bucket '{config.bucket}'"
+                    )
+                    return objects
 
         return objects
 
@@ -388,6 +399,3 @@ class S3SourceAdapter(DocumentSourcePort):
         except Exception as e:
             logger.error(f"Failed to download {key}: {e}", exc_info=True)
             return None
-
-
-# Made with Bob

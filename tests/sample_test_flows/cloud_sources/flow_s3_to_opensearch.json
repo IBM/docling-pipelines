@@ -1,9 +1,9 @@
 {
   "flow_name": "S3 to OpenSearch Pipeline",
-  "description": "Ingest documents from AWS S3 bucket, chunk text, generate embeddings using Ollama, and store in OpenSearch. Requires Ollama running locally with the specified model.",
+  "description": "Ingest documents from AWS S3 bucket, extract text, chunk text, generate embeddings using Ollama, and store in OpenSearch.",
   "global_config": {
-    "doc_column": "text",
-    "disable_validation": true,
+    "doc_column": "content",
+    "disable_validation": "true",
     "force_ingest": true,
     "storage": "in-memory",
     "execute_type": "local"
@@ -15,11 +15,11 @@
       "config": {
         "provider": "s3",
         "credentials": {
-          "access_key": "enter_access_key",
-          "secret_key": "enter_secret_key"
+          "access_key": "${S3_ACCESS_KEY}",
+          "secret_key": "${S3_SECRET_ACCESS_KEY}"
         },
         "connection_params": {
-          "bucket": "enter_bucket_name",
+          "bucket": "${S3_BUCKET_NAME}",
           "prefix": ""
         },
         "include_filter": "pdf,docx,txt,pptx",
@@ -28,15 +28,27 @@
       }
     },
     {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "doc_column": "content",
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none"
+      },
+      "depends_on": [
+        "ingest_s3"
+      ]
+    },
+    {
       "name": "chunk",
       "type": "chunker",
       "config": {
-        "doc_column": "text",
+        "doc_column": "content",
         "chunk_size": 512,
         "chunk_overlap": 128
       },
       "depends_on": [
-        "ingest_s3"
+        "extract"
       ]
     },
     {
@@ -45,7 +57,7 @@
       "config": {
         "embeddings_type": "ollama",
         "embeddings_model_id": "nomic-embed-text",
-        "doc_column": "text",
+        "doc_column": "content",
         "embeddings_column": "embeddings"
       },
       "depends_on": [
@@ -66,7 +78,7 @@
           "host": "9.30.97.49",
           "port": 9200,
           "username": "admin",
-          "password": "${OPENSEARCH_PASSWORD}",
+          "password": "insert_opensearch_password",
           "use_ssl": true,
           "verify_certs": false,
           "batch_size": 100,
