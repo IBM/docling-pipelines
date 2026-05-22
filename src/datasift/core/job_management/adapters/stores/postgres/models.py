@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Column, String
+from sqlalchemy import Column, ForeignKey, String
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlmodel import Field, SQLModel
 
@@ -230,13 +230,15 @@ class NodeStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
         description="Sequence number for the batch execution (0-indexed)",
     )
 
-    # Foreign Key to job_run_stats
+    # Foreign Key to job_run_stats with CASCADE delete
     job_run_id: str = Field(
-        foreign_key=f"{POSTGRES_SCHEMA}.job_run_stats.job_run_id",
+        sa_column=Column(
+            String(36),
+            ForeignKey(f"{POSTGRES_SCHEMA}.job_run_stats.job_run_id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         title="Job Run ID",
         description="Reference to the job run",
-        min_length=36,
-        max_length=255,
     )
 
     # Status & Error

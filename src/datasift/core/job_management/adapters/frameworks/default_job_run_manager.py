@@ -126,7 +126,10 @@ class DefaultJobRunManager(JobRunManager):
 
     def cancel_job_run(self, *, job_run_id: str) -> None:
         """
-        Cancel job run via JobStatsService.
+        Cancel job run framework resources.
+
+        Note: Job cancellation is handled by JobManagementService layer.
+        This method is for framework-specific cleanup only.
 
         Args:
             job_run_id: Job run identifier
@@ -135,23 +138,16 @@ class DefaultJobRunManager(JobRunManager):
             JobRunNotFoundException: If job run does not exist
             JobRunOperationFailedException: If cancellation fails for other reasons
         """
-        try:
-            # Use JobStatsService to request cancellation
-            self.job_stats_service.request_cancel_job(job_run_id=job_run_id)
-            logger.info(f"Canceled job run: job_run_id={job_run_id}")
-        except Exception as e:
-            from datasift.exceptions.datasift_exceptions import DatasiftException, JobRunOperationFailedException
-
-            if isinstance(e, DatasiftException):
-                raise
-            logger.error(f"Failed to cancel job run {job_run_id}: {e}")
-            raise JobRunOperationFailedException(
-                message=f"Failed to cancel job run {job_run_id}: {e!s}", job_run_id=job_run_id, operation="cancel"
-            ) from e
+        # Framework-specific cancellation would go here
+        # Job cancellation is handled by the service layer already for default job run manager
+        logger.info(f"Canceled job run framework resources: job_run_id={job_run_id}")
 
     def delete_job_run(self, *, job_run_id: str) -> None:
         """
-        Delete job run via JobStatsService.
+        Delete job run framework resources.
+
+        Note: Job stats deletion is handled by JobManagementService layer.
+        This method is for framework-specific cleanup only.
 
         Args:
             job_run_id: Job run identifier
@@ -160,16 +156,6 @@ class DefaultJobRunManager(JobRunManager):
             JobRunNotFoundException: If job run does not exist
             JobRunOperationFailedException: If deletion fails for other reasons
         """
-        try:
-            # Use JobStatsService to delete job run
-            self.job_stats_service.request_delete_job_run(job_run_id=job_run_id)
-            logger.info(f"Deleted job run: job_run_id={job_run_id}")
-        except Exception as e:
-            from datasift.exceptions.datasift_exceptions import DatasiftException, JobRunOperationFailedException
-
-            if isinstance(e, DatasiftException):
-                raise
-            logger.error(f"Failed to delete job run {job_run_id}: {e}")
-            raise JobRunOperationFailedException(
-                message=f"Failed to delete job run {job_run_id}: {e!s}", job_run_id=job_run_id, operation="delete"
-            ) from e
+        # Framework-specific cleanup would go here
+        # Job stats deletion is handled by the service layer already for default job run manager
+        logger.info(f"Deleted job run framework resources: job_run_id={job_run_id}")

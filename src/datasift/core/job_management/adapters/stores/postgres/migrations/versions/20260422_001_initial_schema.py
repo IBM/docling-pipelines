@@ -111,6 +111,7 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(
                 ["job_run_id"],
                 [f"{schema_name}.job_run_stats.job_run_id"],
+                ondelete="CASCADE",
             ),
             sa.PrimaryKeyConstraint("id"),
             schema=schema_name,
