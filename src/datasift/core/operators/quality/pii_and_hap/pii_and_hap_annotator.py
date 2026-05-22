@@ -547,7 +547,10 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
         remove_row_idx: list[int] = []
         remove_row_id: list[str] = []
-        new_doc_content = table[self.doc_column_name].to_pandas().to_list()
+        new_doc_content = table[self.doc_column_name].to_pylist()
+        name_column = table[OperatorConstants.Misc.NAME].to_pylist()
+        id_column = table[OperatorConstants.Columns.ID].to_pylist()
+
         doc_info_list = []
 
         for idx, doc_contents in enumerate(table[self.doc_column_name]):
@@ -580,8 +583,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     f"PII and HAP detection failed with error: {e}",
                     extra=self.common_log_arguments,
                 )
-                file_name = table[OperatorConstants.Misc.NAME].to_pandas().to_list()[doc_info["idx"]]
-                _id = table[OperatorConstants.Columns.ID].to_pandas().to_list()[doc_info["idx"]]
+                idx = doc_info["idx"]
+                file_name = name_column[idx]
+                _id = id_column[idx]
                 logger.error(
                     f"PII and HAP extraction failed. {file_name} is removed",
                     extra=self.common_log_arguments,
@@ -592,7 +596,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     remove_row_id=remove_row_id,
                     _id=_id,
                     remove_row_idx=remove_row_idx,
-                    idx=doc_info["idx"],
+                    idx=idx,
                     e=Exception(e),
                 )
                 continue
@@ -640,8 +644,9 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     f"PII and HAP detection failed with error: {exc}",
                     extra=self.common_log_arguments,
                 )
-                file_name = table[OperatorConstants.Misc.NAME].to_pandas().to_list()[doc_info["idx"]]
-                _id = table[OperatorConstants.Columns.ID].to_pandas().to_list()[doc_info["idx"]]
+                idx = doc_info["idx"]
+                file_name = name_column[idx]
+                _id = id_column[idx]
                 logger.error(
                     f"PII and HAP extraction failed. {file_name} is removed",
                     extra=self.common_log_arguments,
@@ -652,7 +657,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     remove_row_id=remove_row_id,
                     _id=_id,
                     remove_row_idx=remove_row_idx,
-                    idx=doc_info["idx"],
+                    idx=idx,
                     e=exc,
                 )
                 continue

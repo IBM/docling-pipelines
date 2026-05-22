@@ -220,7 +220,7 @@ class GuardRailsPIIAndHAPExtractor:
 
         Args:
             content: Document content (string or PyArrow scalar)
-            item: Detection item with 'text' field and optional 'start'/'end' positions
+            item: Detection item with 'start'/'end' positions and optional 'text' field
             detected_type: Type of detection (PII or HAP)
 
         Returns:
@@ -239,20 +239,26 @@ class GuardRailsPIIAndHAPExtractor:
             redaction_character = "*"
 
         redaction_symbol = redaction_character
-        redaction_length = len(item["text"])
-        redacted_word = redaction_symbol * redaction_length
 
         # If position information is available, use it for precise redaction
         if "start" in item and "end" in item:
             start = item["start"]
             end = item["end"]
+            redaction_length = end - start
+            redacted_word = redaction_symbol * redaction_length
             content = content[:start] + redacted_word + content[end:]
-        else:
-            # Use regex with re.escape() for case-insensitive replacement
-            # re.escape() prevents regex injection vulnerabilities
+        elif item.get("text"):
+            # Fallback to text-based redaction
+            redaction_length = len(item["text"])
+            redacted_word = redaction_symbol * redaction_length
             text_to_redact = item["text"]
             pattern = re.compile(re.escape(text_to_redact), re.IGNORECASE)
             content = pattern.sub(redacted_word, content)
+        else:
+            # No position or text - cannot redact
+            logger.warning(
+                f"Detection missing both position and text, cannot redact: {item.get('detection', 'unknown')}"
+            )
 
         return content
 

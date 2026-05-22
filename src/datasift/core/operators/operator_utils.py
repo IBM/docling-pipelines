@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pyarrow as pa
+import pyarrow.compute as pc
 from charset_normalizer import from_bytes
 from docling.datamodel.base_models import FormatToExtensions, InputFormat
 from docling.document_converter import DocumentConverter
@@ -378,16 +379,21 @@ class OperatorUtils:
     @staticmethod
     def remove_all_rows(*, table: pa.Table, remove_row_id: list):
         """
-        Removes all the rows for the given list of ID from the table
+        Removes all the rows for the given list of ID from the table.
+
+        Uses PyArrow compute for efficient vectorized filtering.
         """
-        input_dict = table.to_pydict()
+        if not remove_row_id:
+            return table
 
-        remove_idx = []
-        for idx, doc_id in enumerate(input_dict[OperatorConstants.Columns.ID]):
-            if doc_id in remove_row_id:
-                remove_idx.append(idx)
+        # Use PyArrow compute for direct vectorized filtering (much faster than
+        # converting to dict, looping, and calling remove_rows)
+        id_col = table[OperatorConstants.Columns.ID]
+        failed_ids_array = pa.array(remove_row_id, type=id_col.type)
 
-        table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_idx)
+        # Create mask: True for rows to keep (not in failed_ids)
+        keep_mask = pc.invert(pc.is_in(id_col, failed_ids_array))
+        table = table.filter(keep_mask)
 
         return table
 

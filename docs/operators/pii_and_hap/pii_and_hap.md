@@ -244,33 +244,38 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
 
 ```json
 {
-  "nodes": [
+  "flow_name": "pii-detection-ollama",
+  "description": "Basic PII detection pipeline using Ollama",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true
+  },
+  "flow": [
     {
-      "id": "ingest",
-      "operator": "ingest_local",
+      "name": "ingest",
+      "type": "ingest_local",
       "config": {
         "input_folder": "data/documents"
       }
     },
     {
-      "id": "extract",
-      "operator": "extract_operator",
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": ["ingest"],
       "config": {
         "text_extraction_mode": "docling_library"
       }
     },
     {
-      "id": "pii_detection",
-      "operator": "pii_and_hap",
+      "name": "pii_detection",
+      "type": "pii_and_hap",
+      "depends_on": ["extract"],
       "config": {
         "provider": "ollama",
         "model_name": "granite3.1-dense:8b"
       }
     }
-  ],
-  "edges": [
-    {"from": "ingest", "to": "extract"},
-    {"from": "extract", "to": "pii_detection"}
   ]
 }
 ```
@@ -279,26 +284,37 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
 
 ```json
 {
-  "nodes": [
+  "flow_name": "pii-detection-watsonx",
+  "description": "Enterprise PII detection pipeline using WatsonX",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true
+  },
+  "flow": [
     {
-      "id": "ingest",
-      "operator": "ingest_source",
+      "name": "ingest",
+      "type": "ingest_source",
       "config": {
-        "source_type": "s3",
-        "bucket": "my-documents",
-        "prefix": "sensitive/"
+        "provider": "s3",
+        "connection_params": {
+          "bucket": "my-documents",
+          "prefix": "sensitive/"
+        }
       }
     },
     {
-      "id": "extract",
-      "operator": "extract_operator",
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": ["ingest"],
       "config": {
         "text_extraction_mode": "docling_library"
       }
     },
     {
-      "id": "pii_detection",
-      "operator": "pii_and_hap",
+      "name": "pii_detection",
+      "type": "pii_and_hap",
+      "depends_on": ["extract"],
       "config": {
         "provider": "watsonx",
         "provider_config": {
@@ -309,10 +325,6 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
         }
       }
     }
-  ],
-  "edges": [
-    {"from": "ingest", "to": "extract"},
-    {"from": "extract", "to": "pii_detection"}
   ]
 }
 ```

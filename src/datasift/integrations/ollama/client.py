@@ -220,11 +220,15 @@ class OllamaClient(BaseLLMClient):
                 return ""  # Fallback for unexpected response format
             else:
                 response = client.generate(model=self.model_name, prompt=prompt)
-                # When stream=False, response is a dict with the generated text
-                # Returns empty string if response format is unexpected (e.g., streaming mode not fully handled)
+                # Handle both dict and GenerateResponse object
                 if isinstance(response, dict):
                     return response.get("response", "")
-                return ""  # Fallback for unexpected response format
+                elif hasattr(response, "response"):
+                    # GenerateResponse object from newer ollama versions
+                    return response.response or ""
+                else:
+                    logger.warning(f"Unexpected response type: {type(response).__name__}")
+                    return ""
         except (ConnectionError, TimeoutError) as exc:
             logger.error(f"Connection failed: {exc}")
             raise DatasiftException(
@@ -256,14 +260,27 @@ class OllamaClient(BaseLLMClient):
         Returns:
             Parsed dict if successful, None otherwise
         """
+        if not raw or not raw.strip():
+            return None
+
         # Try direct JSON parse
         try:
             return json.loads(raw)
         except json.JSONDecodeError:
             pass
 
-        # Try extracting JSON from markdown or mixed content
-        # Use JSONDecoder for more robust extraction
+        # Try extracting JSON from markdown code blocks
+        import re
+
+        # Look for JSON in markdown code blocks
+        markdown_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
+        if markdown_match:
+            try:
+                return json.loads(markdown_match.group(1))
+            except json.JSONDecodeError:
+                pass
+
+        # Try extracting JSON from mixed content using JSONDecoder
         try:
             decoder = json.JSONDecoder()
             # Find first valid JSON object
@@ -271,6 +288,18 @@ class OllamaClient(BaseLLMClient):
             if idx != -1:
                 obj, _end_idx = decoder.raw_decode(raw, idx)
                 return obj
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+        # Try to find JSON array
+        try:
+            idx = raw.find("[")
+            if idx != -1:
+                decoder = json.JSONDecoder()
+                obj, _end_idx = decoder.raw_decode(raw, idx)
+                # Wrap array in expected format
+                if isinstance(obj, list):
+                    return {"detections": obj}
         except (json.JSONDecodeError, ValueError):
             pass
 
