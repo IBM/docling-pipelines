@@ -371,7 +371,6 @@ class IngestSourceOperator(AbstractOperator):
                     "metadata": [],
                     "source_id": [],
                     "path": [],
-                    "binary_content": [],
                     "modified_time": [],
                 },
                 schema=pa.schema(
@@ -381,7 +380,6 @@ class IngestSourceOperator(AbstractOperator):
                         ("metadata", pa.string()),
                         ("source_id", pa.string()),
                         ("path", pa.string()),
-                        ("binary_content", pa.binary()),
                         ("modified_time", pa.int64()),
                     ]
                 ),
@@ -638,18 +636,9 @@ class IngestSourceOperator(AbstractOperator):
                 "name": source,
                 "metadata": json.dumps(doc.metadata),
                 "source_id": source,
+                "path": source,
                 "modified_time": modified_time if isinstance(modified_time, int) else 0,
             }
-
-            # Download binary content so downstream ExtractOperator can process it
-            if not self.extract_content(
-                doc=doc,
-                source=source,
-                processed_doc=processed_doc,
-                metadata=metadata,
-                idx=idx,
-            ):
-                return None
 
             logger.info(
                 f"Successfully processed document: {source}",
@@ -670,107 +659,12 @@ class IngestSourceOperator(AbstractOperator):
             )
             return None
 
-    def extract_content(
-        self,
-        doc: Document,
-        source: str,
-        processed_doc: dict[str, Any],
-        metadata: dict[str, Any],
-        idx: int,
-    ) -> bool:
-        """
-        Download and store binary content for a document so that downstream operators
-        (e.g. ExtractOperator) can process it.  Mirrors the pattern used by
-        IngestLocalOperator.extract_content().
-
-        For providers that expose a file_id / object key in the document metadata the
-        binary is fetched directly via the provider SDK.  For all other cases the
-        already-extracted page_content text is encoded to UTF-8 bytes as a fallback so
-        that the pipeline can still continue.
-
-        Args:
-            doc: LangChain Document object returned by the loader.
-            source: Source identifier (URL, path, file ID …).
-            processed_doc: Document dictionary being built; ``binary_content`` and
-                ``path`` are added in-place.
-            metadata: Operator metadata dictionary used for error tracking.
-            idx: Document index (used for error reporting only).
-
-        Returns:
-            True if binary content was successfully obtained, False otherwise.
-        """
-        try:
-            binary_content = self._get_binary_content(doc, source)
-            if binary_content is None:
-                return False
-
-            processed_doc["binary_content"] = binary_content
-            processed_doc["path"] = source
-            return True
-
-        except Exception as exc:
-            logger.error(
-                f"Error extracting content for document {idx} ({source}): {exc}",
-                extra=self.common_log_arguments,
-            )
-            self.record_failed_document(
-                metadata=metadata,
-                doc_id=str(idx),
-                doc_name=source,
-                reason=f"Could not extract binary content: {exc}",
-            )
-            return False
-
-    # Provides fallback if _binary_content is missing
-    # Provider specific logic can be removed after all the adapters have been migrated
-    def _get_binary_content(self, doc: Document, source: str) -> bytes | None:
-        """
-        Get binary content from document using appropriate method based on provider.
-
-        Args:
-            doc: LangChain Document object.
-            source: Source identifier.
-
-        Returns:
-            Binary content as bytes, or None if unavailable.
-        """
-        # Check for pre-fetched binary content from adapters
-        binary_content = self._check_adapter_binary_content(doc, source)
-        if binary_content is not None:
-            return binary_content
-        else:
-            # when binary content is not available, use the fallback method
-            binary_content = self._fallback_to_page_content(doc, source)
-        return binary_content
-
-    # Required for the new adapters
-    def _check_adapter_binary_content(self, doc: Document, source: str) -> bytes | None:
-        """Check if binary content is pre-fetched from adapter."""
-        if hasattr(doc, "_binary_content") and doc._binary_content is not None:
-            logger.info(
-                f"Using pre-fetched binary content from adapter for: {source} (size: {len(doc._binary_content)} bytes)",
-                extra=self.common_log_arguments,
-            )
-            return doc._binary_content
-
-        if doc.metadata.get("has_binary_content"):
-            logger.error(
-                f"Binary content marked as available but not found for: {source}. "
-                f"has_attr: {hasattr(doc, '_binary_content')}, "
-                f"value: {getattr(doc, '_binary_content', 'NOT_SET')}",
-                extra=self.common_log_arguments,
-            )
-            return None
-
-        return None
-
-    def _fallback_to_page_content(self, doc: Document, source: str) -> bytes:
-        """Fallback to encoding page_content as UTF-8 bytes."""
-        logger.info(
-            f"No provider-specific download available for {source}; using page_content as binary content.",
-            extra=self.common_log_arguments,
-        )
-        return (doc.page_content or "").encode("utf-8")
+    # REMOVED: extract_content() method - binary loading now handled by downstream operators
+    # REMOVED: _get_binary_content() method - no longer needed
+    # REMOVED: _check_adapter_binary_content() method - no longer needed
+    # REMOVED: _fallback_to_page_content() method - no longer needed
+    # Note: Adapters still attach _binary_content to documents, but we don't extract it here.
+    # The 'path' field in the output table allows downstream operators to load binary on-demand.
 
     def _is_hidden_path(self, key: str) -> bool:
         """Check if any path component is hidden (starts with .)."""
@@ -826,13 +720,6 @@ class IngestSourceOperator(AbstractOperator):
                 OperatorConstants.Columns.NAME: "Source Path",
                 OperatorConstants.Config.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
-                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
-                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
-            },
-            "binary_content": {
-                OperatorConstants.Columns.NAME: "Binary Content",
-                OperatorConstants.Config.DESCRIPTION: "The raw binary content of the document for downstream extraction operators",
-                OperatorConstants.Config.AVAILABLE_FOR_FILTER: False,
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },

@@ -256,7 +256,17 @@ class PrefectEngine(AbstractFlowEngine):
                 self.logger.info(
                     f"Batch {batch_num} (ID: {batch_id}): starting execution", extra=self.common_log_arguments
                 )
+                from datasift.core.constants.operator_constants import OperatorConstants
+
+                self.logger.debug(
+                    f"Batch {batch_num}: global_config has ingest_source={OperatorConstants.Config.INGEST_SOURCE in global_config}",
+                    extra=self.common_log_arguments,
+                )
                 batch_global_config = global_config.copy()
+                self.logger.debug(
+                    f"Batch {batch_num}: batch_global_config (after copy) has ingest_source={OperatorConstants.Config.INGEST_SOURCE in batch_global_config}",
+                    extra=self.common_log_arguments,
+                )
                 if global_config.get(DatasiftConstants.ENABLE_MICRO_BATCHING, False):
                     batch_global_config[DatasiftConstants.BATCH_NUM] = batch_num
                     batch_global_config[DatasiftConstants.BATCH_ID] = batch_id

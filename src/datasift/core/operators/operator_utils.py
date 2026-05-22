@@ -727,33 +727,38 @@ class OperatorUtils:
         return False
 
     @staticmethod
-    def prepare_document_content_fetch(table: pa.Table) -> list:
+    def prepare_document_content_fetch(*, table: pa.Table, global_config: dict[str, Any] | None = None) -> list:
         """
-        Prepare to fetch document content from a PyArrow table row.
+        Prepare to fetch document content from a PyArrow table row using on-demand fetching.
 
-        This method resolves document content using a path-based approach:
-        - Primary behavior: Reads file bytes from the 'path' column when 'binary_content' is absent
-        - Fallback behavior: Uses 'binary_content' column if present (for backward compatibility)
-        - Error handling: Raises ValueError if neither 'path' nor 'binary_content' exists
+        This method resolves document content using an on-demand fetching strategy:
+        - If global_config contains 'ingest_source': Fetches from cloud provider on-demand
+        - Otherwise: Reads from local filesystem (existing behavior)
+        - Fallback: Uses 'binary_content' column if present (for backward compatibility)
 
-        The path-based approach is the expected input from local ingest operators,
-        which provide file paths rather than loading entire files into memory.
+        The on-demand fetching approach allows operators to defer binary content fetching until
+        it's actually needed, supporting both cloud sources and local files.
 
         Args:
             table: PyArrow table containing document data with columns:
-                - path: File path to read document bytes from (primary input)
+                - path: File path or source identifier (primary input)
+                - source_id: Cloud source identifier (for cloud sources)
                 - binary_content: Pre-loaded binary content (optional, for backward compatibility)
                 - id: Document identifier (optional)
                 - name: Document name (optional)
+            global_config: Global configuration that may contain ingest_source parameters
+                for cloud provider access (optional)
 
         Returns:
             List of dicts with keys: idx, doc_id, doc_name, binary_content or error
 
         Raises:
-            ValueError: If neither 'path' nor 'binary_content' column exists for a document
+            ValueError: If binary content cannot be fetched from any source
 
         """
         doc_tasks = []
+        global_config = global_config or {}
+
         for row_idx in range(table.num_rows):
             try:
                 doc_id = None
@@ -769,16 +774,51 @@ class OperatorUtils:
                     else f"document_{row_idx}"
                 )
 
-                # Get binary content
+                # Get binary content using on-demand fetching strategy
                 if OperatorConstants.Columns.BINARY_CONTENT in table.column_names:
+                    # Backward compatibility: Use pre-loaded binary content if available
                     binary_content = table[OperatorConstants.Columns.BINARY_CONTENT][row_idx].as_py()
                 else:
+                    # Build document metadata for on-demand fetching
+                    doc_metadata = {"name": doc_name}
+
+                    # Add path if available
                     if OperatorConstants.Columns.PATH in table.column_names:
-                        file_path = table[OperatorConstants.Columns.PATH][row_idx].as_py()
-                        with open(file_path, "rb") as f:
-                            binary_content = f.read()
-                    else:
-                        raise ValueError(f"No binary content or path available for document {doc_name}")
+                        doc_metadata["path"] = table[OperatorConstants.Columns.PATH][row_idx].as_py()
+
+                    # Add source_id if available (for cloud sources)
+                    if "source_id" in table.column_names:
+                        doc_metadata["source_id"] = table["source_id"][row_idx].as_py()
+
+                    # Add source if available (for cloud sources)
+                    if "source" in table.column_names:
+                        doc_metadata["source"] = table["source"][row_idx].as_py()
+
+                    # Add metadata column content if available (contains item_id for OneDrive/SharePoint)
+                    if OperatorConstants.Metadata.METADATA in table.column_names:
+                        metadata_str = table[OperatorConstants.Metadata.METADATA][row_idx].as_py()
+                        if metadata_str:
+                            import json
+
+                            try:
+                                metadata_dict = json.loads(metadata_str)
+                                # Extract item_id if present (for OneDrive/SharePoint lazy loading)
+                                if "item_id" in metadata_dict:
+                                    doc_metadata["item_id"] = metadata_dict["item_id"]
+                            except (json.JSONDecodeError, TypeError):
+                                pass
+
+                    # Use binary content fetcher utility to fetch binary content on-demand
+                    # Import here to avoid circular dependency
+                    from datasift.utils.operators.binary_content_fetcher import get_binary_content
+
+                    binary_content = get_binary_content(
+                        doc_metadata=doc_metadata,
+                        global_config=global_config,
+                    )
+
+                    if binary_content is None:
+                        raise ValueError(f"Failed to fetch binary content for document {doc_name}")
 
                 doc_tasks.append(
                     {"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "binary_content": binary_content}

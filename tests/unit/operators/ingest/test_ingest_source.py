@@ -348,12 +348,12 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Create domain documents for the new adapter
+        # Create domain documents for the new adapter (lazy loading - no binary content)
         domain_docs = [
             DomainDocument(
                 id="file1.txt",
                 name="file1.txt",
-                content=b"This is the first document content.",
+                content=b"",  # Empty - lazy loading
                 source_url="s3://test-bucket/test-prefix/file1.txt",
                 modified_time=datetime(2024, 1, 1, 12, 0, 0),
                 metadata={"bucket": "test-bucket", "key": "test-prefix/file1.txt"},
@@ -361,7 +361,7 @@ class TestTransform:
             DomainDocument(
                 id="file2.txt",
                 name="file2.txt",
-                content=b"This is the second document content.",
+                content=b"",  # Empty - lazy loading
                 source_url="s3://test-bucket/test-prefix/file2.txt",
                 modified_time=datetime(2024, 1, 2, 12, 0, 0),
                 metadata={"bucket": "test-bucket", "key": "test-prefix/file2.txt"},
@@ -369,7 +369,7 @@ class TestTransform:
             DomainDocument(
                 id="file3.txt",
                 name="file3.txt",
-                content=b"This is the third document content.",
+                content=b"",  # Empty - lazy loading
                 source_url="s3://test-bucket/test-prefix/file3.txt",
                 modified_time=datetime(2024, 1, 3, 12, 0, 0),
                 metadata={"bucket": "test-bucket", "key": "test-prefix/file3.txt"},
@@ -409,8 +409,9 @@ class TestTransform:
         assert "metadata" in result_table.column_names
         assert "source_id" in result_table.column_names
         assert "path" in result_table.column_names
-        assert "binary_content" in result_table.column_names
         assert "modified_time" in result_table.column_names
+        # binary_content column should NOT be present (lazy loading)
+        assert "binary_content" not in result_table.column_names
 
         # Check metadata is JSON serialized
         metadata_list = result_table["metadata"].to_pylist()
@@ -539,11 +540,11 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Create domain document from mock LangChain document
+        # Create domain document from mock LangChain document (lazy loading - no binary)
         domain_doc = DomainDocument(
             id="test-id",
             name="file1.txt",
-            content=mock_documents[0].page_content.encode("utf-8"),
+            content=b"",  # Empty - lazy loading
             source_url="s3://test-bucket/file1.txt",
             mimetype="text/plain",
             extension=".txt",
@@ -570,20 +571,22 @@ class TestTransform:
         }
 
         operator = IngestSourceOperator(config)
-        result_tables, metadata = operator.transform(empty_input_table)
+        result_tables, _ = operator.transform(empty_input_table)
 
         result_table = result_tables[0]
         schema = result_table.schema
 
-        # Verify schema - includes id, name, path, binary_content, and modified_time fields
-        assert len(schema) == 7
+        # Verify schema - NO binary_content column (lazy loading)
+        assert len(schema) == 6
         assert schema.field("id").type == pa.string()
         assert schema.field("name").type == pa.string()
         assert schema.field("metadata").type == pa.string()
         assert schema.field("source_id").type == pa.string()
         assert schema.field("path").type == pa.string()
-        assert schema.field("binary_content").type == pa.binary()
         assert schema.field("modified_time").type == pa.int64()
+        # binary_content should NOT be in schema
+        with pytest.raises(KeyError):
+            schema.field("binary_content")
 
     @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
     @patch("os.path.exists")
@@ -676,11 +679,11 @@ class TestTransform:
         mock_util_instance.get_all_processed_docs.return_value = {}
         mock_incremental_util.return_value = mock_util_instance
 
-        # Document without source (domain model)
+        # Document without source (domain model, lazy loading)
         doc_no_source = DomainDocument(
             id="test-doc-1",
             name="file1.txt",
-            content=b"Content without source",
+            content=b"",  # Empty - lazy loading
             source_url="s3://test-bucket/file1.txt",
             metadata={"page": 1},
         )
@@ -704,7 +707,7 @@ class TestTransform:
         }
 
         operator = IngestSourceOperator(config)
-        result_tables, metadata = operator.transform(empty_input_table)
+        result_tables, _ = operator.transform(empty_input_table)
 
         result_table = result_tables[0]
         source_ids = result_table["source_id"].to_pylist()
@@ -735,12 +738,12 @@ class TestIntegrationScenarios:
 
         from datasift.core.operators.ingest.domain.models import Document as DomainDocument
 
-        # Create domain documents for the new adapter
+        # Create domain documents for the new adapter (lazy loading - no binary)
         domain_docs = [
             DomainDocument(
                 id="invoices/inv_001.pdf",
                 name="inv_001.pdf",
-                content=b"Invoice #12345\nTotal: $1000",
+                content=b"",  # Empty - lazy loading
                 source_url="s3://my-bucket/invoices/inv_001.pdf",
                 modified_time=datetime(2024, 1, 1, 12, 0, 0),
                 metadata={"bucket": "my-bucket", "key": "invoices/inv_001.pdf"},
@@ -748,7 +751,7 @@ class TestIntegrationScenarios:
             DomainDocument(
                 id="invoices/inv_002.pdf",
                 name="inv_002.pdf",
-                content=b"Invoice #12346\nTotal: $2000",
+                content=b"",  # Empty - lazy loading
                 source_url="s3://my-bucket/invoices/inv_002.pdf",
                 modified_time=datetime(2024, 1, 2, 12, 0, 0),
                 metadata={"bucket": "my-bucket", "key": "invoices/inv_002.pdf"},
@@ -792,8 +795,9 @@ class TestIntegrationScenarios:
         assert "metadata" in df.columns
         assert "source_id" in df.columns
         assert "path" in df.columns
-        assert "binary_content" in df.columns
         assert "modified_time" in df.columns
+        # binary_content should NOT be present (lazy loading)
+        assert "binary_content" not in df.columns
 
 
 if __name__ == "__main__":

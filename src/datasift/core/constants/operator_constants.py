@@ -156,10 +156,13 @@ class OperatorConstants:
         BATCH_SIZE: Final[str] = "batch_size"
         CONFIG: Final[str] = "config"
         CONFIGURATION: Final[str] = "configuration"
+        CONNECTION_PARAMS: Final[str] = "connection_params"
+        CREDENTIALS: Final[str] = "credentials"
         CUSTOM_SCHEMA: Final[str] = "custom_schema"
         DEFAULT: Final[str] = "default"
         DESCRIPTION: Final[str] = "description"
         GLOBAL_CONFIG: Final[str] = "global_config"
+        INGEST_SOURCE: Final[str] = "ingest_source"
         MAX_CONCURRENT_REQUESTS: Final[str] = "max_concurrent_requests"
         PARAMETERS: Final[str] = "parameters"
         PROPERTIES: Final[str] = "properties"
@@ -770,6 +773,22 @@ Rules:
         CATALOG: Final[str] = "catalog"
         PROJECT: Final[str] = "project"
         SPACE: Final[str] = "space"
+
+    class MimeTypes:
+        """MIME type constants for document processing and ingestion."""
+
+        # Standard Document Types
+        PDF: Final[str] = "application/pdf"
+
+        # Google Workspace Document Types
+        GOOGLE_APPS_PREFIX: Final[str] = "application/vnd.google-apps."
+        GOOGLE_APPS_DOCUMENT: Final[str] = "application/vnd.google-apps.document"
+        GOOGLE_APPS_SPREADSHEET: Final[str] = "application/vnd.google-apps.spreadsheet"
+        GOOGLE_APPS_PRESENTATION: Final[str] = "application/vnd.google-apps.presentation"
+        GOOGLE_APPS_DRAWING: Final[str] = "application/vnd.google-apps.drawing"
+
+        # Export Formats
+        EXCEL_XLSX: Final[str] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
     class DocumentSet:
         """Document Set constants."""

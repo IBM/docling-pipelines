@@ -188,7 +188,8 @@ class TextExtractionAdapterFactory:
         adapter_config = TextExtractionAdapterFactory.build_adapter_config(mode=mode, operator_config=operator_config)
 
         # Add common configuration
-        full_config = {**adapter_config, "max_workers": max_workers, "use_processes": use_processes}
+        # IMPORTANT: Merge operator_config first to preserve global_config keys like ingest_source
+        full_config = {**operator_config, **adapter_config, "max_workers": max_workers, "use_processes": use_processes}
 
         if mode == TextExtractionMode.DOCLING_LIBRARY:
             # Check if VLM is enabled

@@ -71,6 +71,7 @@ class TextExtractionPort(ABC):
                 - doc_column: Column name for extracted content (default: "doc_content")
                 - extract_tables: Extract tables flag (default: True)
                 - extract_images: Extract images flag (default: True)
+                - ingest_source: Ingest source configuration for on-demand binary fetching (optional)
                 - job_run_id: Job run identifier for progress tracking (optional)
                 - node_id: Node identifier for progress tracking (optional)
                 - node_name: Node name for progress tracking (optional)
@@ -83,6 +84,9 @@ class TextExtractionPort(ABC):
         self.extract_tables = config.get("extract_tables", False)
         self.extract_images = config.get("extract_images", False)
         self.common_log_arguments = config.get("common_log_arguments", {})
+
+        # Store full config for on-demand binary fetching (includes ingest_source if present)
+        self.global_config = config
 
         # Job tracking context for progress updates
         self.job_run_id = config.get(DatasiftConstants.JOB_RUN_ID)
@@ -215,8 +219,10 @@ class TextExtractionPort(ABC):
             )
             return [table], metadata
 
-        # Prepare document tasks
-        doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(table=table)
+        # Prepare document tasks with on-demand binary fetching support
+        doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
+            table=table, global_config=self.global_config
+        )
         doc_contents: list[str] = [""] * table.num_rows
         doc_metadata_list: list[dict[str, Any]] = [{}] * table.num_rows
         doc_tables_list: list[list[dict[str, Any]]] = [[]] * table.num_rows

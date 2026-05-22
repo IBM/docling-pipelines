@@ -299,7 +299,7 @@ class TestS3SourceAdapter:
 
     @pytest.mark.asyncio
     async def test_fetch_documents(self, adapter, config):
-        """Test fetching documents from S3."""
+        """Test fetching documents from S3 with lazy loading (no binary download)."""
         # Mock S3 client
         mock_client = Mock()
 
@@ -330,15 +330,13 @@ class TestS3SourceAdapter:
         ]
         mock_paginator.paginate.return_value = mock_pages
 
-        # Mock get_object responses
-        def mock_get_object(Bucket, Key):  # noqa: N803
-            content = b"Mock file content"
+        # Mock head_object responses (for content type, no binary download)
+        def mock_head_object(Bucket, Key):  # noqa: N803
             return {
-                "Body": Mock(read=Mock(return_value=content)),
                 "ContentType": "application/pdf" if Key.endswith(".pdf") else "text/plain",
             }
 
-        mock_client.get_object.side_effect = mock_get_object
+        mock_client.head_object.side_effect = mock_head_object
 
         with patch.object(adapter, "_create_s3_client", return_value=mock_client):
             documents = await collect_async(adapter.fetch_documents(config))
@@ -351,9 +349,10 @@ class TestS3SourceAdapter:
             assert doc.__class__.__module__ == "datasift.core.operators.ingest.domain.models"
         assert documents[0].name == "file1.pdf"
         assert documents[1].name == "file2.txt"
-        assert documents[0].content == b"Mock file content"
+        # Verify lazy loading: content should be empty
+        assert documents[0].content == b""
+        assert documents[1].content == b""
         assert documents[0].metadata["bucket"] == "test-bucket"
         assert documents[0].metadata["key"] == "documents/file1.pdf"
-
-
-# Made with Bob
+        # Verify get_object was NOT called (lazy loading)
+        mock_client.get_object.assert_not_called()

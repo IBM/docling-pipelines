@@ -61,6 +61,7 @@ class EntityExtractionPort(ABC):
                 - doc_column: Column name for document text (default: "doc_content")
                 - output_column: Column name for entities (default: "entities")
                 - expand_extracted_data: Expand entities into columns (default: False)
+                - ingest_source: Ingest source configuration for on-demand binary fetching (optional)
                 - job_run_id: Job run identifier for progress tracking (optional)
                 - node_id: Node identifier for progress tracking (optional)
                 - node_name: Node name for progress tracking (optional)
@@ -76,6 +77,9 @@ class EntityExtractionPort(ABC):
         )
         self.custom_schema = config.get(OperatorConstants.Config.CUSTOM_SCHEMA, {})
         self.common_log_arguments = config.get("common_log_arguments", {})
+
+        # Store full config for on-demand binary fetching (includes ingest_source if present)
+        self.global_config = config
 
         # Job tracking context for progress updates
         from datasift.core.constants.constants import DatasiftConstants

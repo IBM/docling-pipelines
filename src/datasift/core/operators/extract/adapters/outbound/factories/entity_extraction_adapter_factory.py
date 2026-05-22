@@ -217,7 +217,8 @@ class EntityExtractionAdapterFactory:
         adapter_config = EntityExtractionAdapterFactory.build_adapter_config(mode=mode, operator_config=operator_config)
 
         # Add common configuration
-        full_config = {**adapter_config, "max_workers": max_workers}
+        # IMPORTANT: Merge operator_config first to preserve global_config keys like ingest_source
+        full_config = {**operator_config, **adapter_config, "max_workers": max_workers}
 
         if mode == OperatorConstants.ExtractionModes.ENTITY_MODE_OLLAMA:
             logger.info(

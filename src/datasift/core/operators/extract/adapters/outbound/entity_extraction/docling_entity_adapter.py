@@ -312,12 +312,11 @@ class DoclingEntityAdapter(EntityExtractionPort):
     ) -> list[dict[str, Any]]:
         """Prepare document tasks with binary content for Docling processing.
 
-        This override fetches binary content from the table instead of text content.
+        This override fetches binary content from the table instead of text content,
+        using on-demand fetching to support both local files and cloud sources.
         It looks for columns in this order of preference:
-        1. "binary_content"
-        2. "content"
-
-        If neither exists, falls back to parent class implementation.
+        1. "binary_content" (pre-loaded)
+        2. "path" or "source_id" (fetched on-demand from local or cloud)
 
         Args:
             table: PyArrow table containing document data
@@ -327,7 +326,9 @@ class DoclingEntityAdapter(EntityExtractionPort):
         Returns:
             List of task dictionaries with binary content
         """
-        doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(table)
+        doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
+            table=table, global_config=self.global_config
+        )
 
         for doc_task in doc_tasks:
             row_idx = doc_task["idx"]

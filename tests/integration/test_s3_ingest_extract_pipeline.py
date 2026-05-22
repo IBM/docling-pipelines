@@ -58,7 +58,7 @@ class TestS3IngestExtractPipeline:
         mock_incremental_util,
         mock_s3_documents,
     ):
-        """Test that S3 ingest operator creates binary_content column."""
+        """Test that S3 ingest operator sets has_binary_content metadata flag (lazy loading)."""
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
@@ -97,34 +97,41 @@ class TestS3IngestExtractPipeline:
         result_tables, _metadata = operator.transform(empty_table)
         result_table = result_tables[0]
 
-        # Verify binary_content column exists
-        assert "binary_content" in result_table.column_names, "binary_content column should exist after S3 ingest"
+        # Verify binary_content column does NOT exist (lazy loading)
+        assert "binary_content" not in result_table.column_names, (
+            "binary_content column should NOT exist with lazy loading"
+        )
         assert result_table.num_rows == 2, "Should have 2 documents"
 
-        # Verify binary_content has data
-        binary_contents = result_table["binary_content"].to_pylist()
-        assert all(content is not None for content in binary_contents), "All binary_content values should be non-null"
-        assert all(len(content) > 0 for content in binary_contents), "All binary_content values should be non-empty"
+        # Verify has_binary_content flag is set in metadata
+        assert "metadata" in result_table.column_names
+        metadata_list = result_table["metadata"].to_pylist()
+        for metadata_json in metadata_list:
+            import json
+
+            metadata_dict = json.loads(metadata_json)
+            assert metadata_dict.get("has_binary_content") is True, "has_binary_content flag should be True in metadata"
 
         # Verify other expected columns
         assert "id" in result_table.column_names
         assert "name" in result_table.column_names
         assert "path" in result_table.column_names
-        assert "metadata" in result_table.column_names
 
     @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_binary_content")
     @patch(
         "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.DoclingAdapter.extract_single_document"
     )
     def test_extract_operator_drops_binary_content_column(
         self,
         mock_extract_single,
+        mock_fetch_binary,
         mock_fetch_documents,
         mock_incremental_util,
         mock_s3_documents,
     ):
-        """Test that extract operator drops binary_content column after extraction."""
+        """Test that extract operator works with lazy loading (no binary_content column)."""
         from datasift.core.operators.extract.extract_operator import ExtractOperator
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
@@ -139,6 +146,16 @@ class TestS3IngestExtractPipeline:
                 yield doc
 
         mock_fetch_documents.return_value = mock_async_gen()
+
+        # Mock fetch_binary_content to return binary content from mock documents
+        def mock_fetch_binary_side_effect(*, source_id, connection_params, credentials):
+            # Find the matching document by source_id
+            for doc in mock_s3_documents:
+                if source_id == doc.source_url or source_id.endswith(doc.id):
+                    return doc.content
+            return None
+
+        mock_fetch_binary.side_effect = mock_fetch_binary_side_effect
 
         # Mock DoclingAdapter.extract_single_document
         mock_extract_single.return_value = {
@@ -169,10 +186,13 @@ class TestS3IngestExtractPipeline:
         ingest_result_tables, _ingest_metadata = ingest_operator.transform(empty_table)
         ingest_result_table = ingest_result_tables[0]
 
-        # Verify binary_content exists after ingest
-        assert "binary_content" in ingest_result_table.column_names, "binary_content should exist after ingest"
+        # Verify binary_content does NOT exist after ingest (lazy loading)
+        assert "binary_content" not in ingest_result_table.column_names, (
+            "binary_content should NOT exist with lazy loading"
+        )
 
         # Step 2: Extract
+        # Include ingest_source in config so ExtractOperator can fetch binary content on-demand
         extract_config = {
             "text_extraction_mode": "docling_library",
             "entity_extraction_mode": "none",
@@ -180,15 +200,26 @@ class TestS3IngestExtractPipeline:
             "extract_tables": False,
             "extract_images": False,
             "max_workers": 2,
+            "ingest_source": {
+                "provider": "s3",
+                "connection_params": {
+                    "bucket": "test-bucket",
+                    "prefix": "documents/",
+                },
+                "credentials": {
+                    "access_key": "test-access-key",
+                    "secret_key": "test-secret-key",  # pragma: allowlist secret
+                },
+            },
         }
 
         extract_operator = ExtractOperator(config=extract_config)
         extract_result_tables, extract_metadata = extract_operator.transform(ingest_result_table)
         extract_result_table = extract_result_tables[0]
 
-        # Verify binary_content is dropped after extraction
+        # Verify binary_content still does not exist after extraction
         assert "binary_content" not in extract_result_table.column_names, (
-            "binary_content column should be dropped after extraction"
+            "binary_content column should not exist (lazy loading)"
         )
 
         # Verify extraction succeeded
@@ -203,17 +234,19 @@ class TestS3IngestExtractPipeline:
 
     @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
+    @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_binary_content")
     @patch(
         "datasift.core.operators.extract.adapters.outbound.text_extraction.docling_adapter.DoclingAdapter.extract_single_document"
     )
     def test_complete_s3_to_extract_pipeline_with_binary_content_handling(
         self,
         mock_extract_single,
+        mock_fetch_binary,
         mock_fetch_documents,
         mock_incremental_util,
         mock_s3_documents,
     ):
-        """Test complete pipeline: S3 ingest → Extract, verifying binary_content lifecycle."""
+        """Test complete pipeline: S3 ingest → Extract, verifying lazy loading behavior."""
         from datasift.core.operators.extract.extract_operator import ExtractOperator
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
@@ -228,6 +261,16 @@ class TestS3IngestExtractPipeline:
                 yield doc
 
         mock_fetch_documents.return_value = mock_async_gen()
+
+        # Mock fetch_binary_content to return binary content from mock documents
+        def mock_fetch_binary_side_effect(*, source_id, connection_params, credentials):
+            # Find the matching document by source_id
+            for doc in mock_s3_documents:
+                if source_id == doc.source_url or source_id.endswith(doc.id):
+                    return doc.content
+            return None
+
+        mock_fetch_binary.side_effect = mock_fetch_binary_side_effect
 
         # Mock DoclingAdapter.extract_single_document
         mock_extract_single.return_value = {
@@ -262,6 +305,17 @@ class TestS3IngestExtractPipeline:
             "extract_tables": False,
             "extract_images": False,
             "max_workers": 2,
+            "ingest_source": {
+                "provider": "s3",
+                "connection_params": {
+                    "bucket": "test-bucket",
+                    "prefix": "documents/",
+                },
+                "credentials": {
+                    "access_key": "test-access-key",
+                    "secret_key": "test-secret-key",  # pragma: allowlist secret
+                },
+            },
         }
 
         # Execute pipeline
@@ -272,18 +326,26 @@ class TestS3IngestExtractPipeline:
         ingest_tables, ingest_meta = ingest_operator.transform(empty_table)
         ingest_table = ingest_tables[0]
 
-        # Verify Stage 1: binary_content present
-        assert "binary_content" in ingest_table.column_names
+        # Verify Stage 1: binary_content NOT present (lazy loading)
+        assert "binary_content" not in ingest_table.column_names, "binary_content should NOT exist with lazy loading"
         assert ingest_table.num_rows == 2
         assert ingest_meta["processed_docs"] == 2
+
+        # Verify has_binary_content flag in metadata
+        import json
+
+        metadata_list = ingest_table["metadata"].to_pylist()
+        for metadata_json in metadata_list:
+            metadata_dict = json.loads(metadata_json)
+            assert metadata_dict.get("has_binary_content") is True
 
         # Stage 2: Extract
         extract_operator = ExtractOperator(config=extract_config)
         extract_tables, extract_meta = extract_operator.transform(ingest_table)
         extract_table = extract_tables[0]
 
-        # Verify Stage 2: binary_content dropped, content added
-        assert "binary_content" not in extract_table.column_names, "binary_content should be dropped"
+        # Verify Stage 2: binary_content still not present, content added
+        assert "binary_content" not in extract_table.column_names, "binary_content should not exist (lazy loading)"
         assert "content" in extract_table.column_names, "content should be present"
         assert extract_table.num_rows == 2
         assert extract_meta["processed_docs"] == 2
@@ -293,9 +355,8 @@ class TestS3IngestExtractPipeline:
         assert "name" in extract_table.column_names
         assert "doc_id_hash" in extract_table.column_names
 
-        # Verify no data loss (all original columns except binary_content should be preserved)
-        original_columns = set(ingest_table.column_names) - {"binary_content"}
-        for col in original_columns:
+        # Verify columns are preserved (no binary_content to exclude)
+        for col in ingest_table.column_names:
             if col not in ["content", "doc_id_hash", "pages_processed"]:  # These are added/modified by extract
                 assert col in extract_table.column_names, f"Column {col} should be preserved"
 
@@ -306,7 +367,7 @@ class TestS3IngestExtractPipeline:
         mock_fetch_documents,
         mock_incremental_util,
     ):
-        """Test that empty S3 ingest result still has correct schema with binary_content."""
+        """Test that empty S3 ingest result has correct schema (no binary_content with lazy loading)."""
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
         # Mock incremental update utility
@@ -341,10 +402,13 @@ class TestS3IngestExtractPipeline:
         result_tables, _metadata = operator.transform(empty_table)
         result_table = result_tables[0]
 
-        # Verify schema includes binary_content even with no rows
+        # Verify schema does NOT include binary_content (lazy loading)
         assert result_table.num_rows == 0
-        assert "binary_content" in result_table.column_names
-        assert result_table.schema.field("binary_content").type == pa.binary()
+        assert "binary_content" not in result_table.column_names, "binary_content should NOT exist with lazy loading"
+        # Verify expected columns exist
+        assert "id" in result_table.column_names
+        assert "name" in result_table.column_names
+        assert "metadata" in result_table.column_names
 
 
 if __name__ == "__main__":

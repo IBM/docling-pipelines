@@ -1,5 +1,6 @@
 """Google Drive source adapter using LangChain loader."""
 
+import os
 import pickle
 from datetime import datetime
 from io import BytesIO
@@ -14,6 +15,7 @@ from langchain_core.document_loaders import BaseLoader
 from langchain_core.documents import Document as LangChainDocument
 from langchain_google_community import GoogleDriveLoader
 
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
 from datasift.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
 from datasift.core.operators.ingest.domain.models import Document
@@ -279,167 +281,174 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             file_loader_cls=PyPDFFileLoader,
         )
 
-    def _prepare_document(self, lc_doc) -> Document:
+    def _prepare_document(self, *, file_metadata: dict, config: GoogleDriveSourceConfig) -> Document:
         """
-        Convert a LangChain document to the domain document model.
+        Convert Google Drive file metadata to domain document model (lazy loading).
 
-        Extracts binary content from the _binary_content attribute attached by
-        PyPDFFileLoader, preserving original file bytes for Extract operator.
+        Creates document with metadata only, no binary content download.
+        Binary content is fetched on-demand by Extract operator.
         """
-        metadata = lc_doc.metadata
-        doc_id = metadata.get("id", "")
-        doc_name = metadata.get("name", "unknown")
+        doc_id = file_metadata.get("id", "")
+        doc_name = file_metadata.get("name", "unknown")
 
-        # Get binary content from _binary_content attribute (set by PyPDFFileLoader)
-        if not hasattr(lc_doc, "_binary_content"):
-            raise ValueError(f"Binary content missing for document {doc_name} (ID: {doc_id}). ")
-
-        content = lc_doc._binary_content
-
+        # Parse modified time if available
         modified_time = None
-        if metadata.get("modified_time"):
+        modified_time_str = file_metadata.get("modifiedTime")
+        if modified_time_str:
             try:
-                modified_time = datetime.fromisoformat(metadata["modified_time"].replace("Z", "+00:00"))
+                modified_time = datetime.fromisoformat(modified_time_str.replace("Z", "+00:00"))
             except (ValueError, AttributeError):
                 pass
+
+        # Get file size
+        file_size = int(file_metadata.get("size", 0))
+
+        # Get mime type
+        mime_type = file_metadata.get("mimeType", "application/octet-stream")
+
+        # Get file extension
+        extension = os.path.splitext(doc_name)[1].lower()
+
+        # Build source URL
+        source_url = file_metadata.get("webViewLink", f"https://drive.google.com/file/d/{doc_id}")
 
         return Document(
             id=doc_id,
             name=doc_name,
-            content=content,
-            source_url=metadata.get("source", f"https://drive.google.com/file/d/{doc_id}"),
+            content=b"",  # Empty - binary loaded on-demand by downstream operators
+            source_url=source_url,
             modified_time=modified_time,
-            extension=metadata.get("extension"),  # First-class field
+            mimetype=mime_type,
+            size=file_size,
+            extension=extension,
             metadata={
-                "mime_type": metadata.get("mime_type"),
-                "file_size": len(content),
-                "drive_id": doc_id,
+                "mime_type": mime_type,
+                "file_size": file_size,
+                "file_id": doc_id,
                 "drive_name": doc_name,
-                "total_pages": metadata.get("total_pages"),
+                "web_view_link": source_url,
+                # Store credentials for lazy loading
+                "credentials_path": config.credentials_path,
+                "service_account_json_path": config.service_account_json_path,
+                "folder_id": config.folder_id,
             },
         )
 
-    def _consolidate_multi_part_documents(self, *, langchain_docs: list) -> list:
+    def _list_files_from_drive(self, *, config: GoogleDriveSourceConfig) -> list[dict]:
         """
-        Consolidate multi-part documents (like Google Sheets) into single documents.
+        List files from Google Drive using Drive API v3 (metadata only, no download).
 
-        Google Sheets come as multiple LangChain documents (one per sheet/tab).
-        This method groups them by file ID and consolidates their binary content.
+        Returns list of file metadata dictionaries.
         """
-        # Group documents by file ID
-        file_groups: dict[str, list] = {}
+        try:
+            from googleapiclient.discovery import build
+        except ImportError:
+            raise ImportError(
+                "Google API client not installed. Install with: pip install google-api-python-client"
+            ) from None
 
-        for lc_doc in langchain_docs:
-            source = lc_doc.metadata.get("source", "")
+        creds = self._get_credentials(config)
+        service = build("drive", "v3", credentials=creds)
 
-            # Extract file ID from source URL (ignore gid parameter for Google Sheets)
-            file_id = ""
-            if "/d/" in source:
-                file_id = source.split("/d/")[1].split("/")[0].split("?")[0]
+        # Build query
+        query_parts = [f"'{config.folder_id}' in parents"]
+        query_parts.append("trashed = false")
 
-            if file_id:
-                if file_id not in file_groups:
-                    file_groups[file_id] = []
-                file_groups[file_id].append(lc_doc)
+        # Add file type filter if specified
+        if config.file_extensions:
+            # Map extensions to mime types where possible
+            mime_conditions = []
+            for ext in config.file_extensions:
+                if ext == ".pdf":
+                    mime_conditions.append("mimeType = 'application/pdf'")
+                elif ext in [".doc", ".docx"]:
+                    mime_conditions.append("mimeType contains 'document'")
+                elif ext in [".xls", ".xlsx"]:
+                    mime_conditions.append("mimeType contains 'spreadsheet'")
+                elif ext in [".ppt", ".pptx"]:
+                    mime_conditions.append("mimeType contains 'presentation'")
 
-        # Consolidate multi-part documents
-        consolidated_docs = []
-        for file_id, doc_group in file_groups.items():
-            if len(doc_group) == 1:
-                # Single document - use as-is (only if it has binary content)
-                if hasattr(doc_group[0], "_binary_content"):
-                    consolidated_docs.append(doc_group[0])
-                else:
-                    logger.warning(
-                        f"Skipping document {file_id} ({doc_group[0].metadata.get('name', 'unknown')}): "
-                        "no binary content"
-                    )
-            else:
-                # Multiple documents (e.g., Google Sheets) - consolidate
-                first_doc = doc_group[0]
+            if mime_conditions:
+                query_parts.append(f"({' or '.join(mime_conditions)})")
 
-                # Combine binary content from all parts with sheet separators
-                all_content_parts = []
-                parts_with_content = 0
-                for idx, lc_doc in enumerate(doc_group):
-                    # Skip parts without binary content
-                    if not hasattr(lc_doc, "_binary_content"):
-                        continue
+        query = " and ".join(query_parts)
 
-                    source = lc_doc.metadata.get("source", "")
+        # List files with pagination
+        files = []
+        page_token = None
 
-                    # Extract sheet identifier
-                    sheet_id = "unknown"
-                    if "?gid=" in source:
-                        sheet_id = source.split("?gid=")[1].split("&")[0]
-
-                    # Add sheet separator
-                    sheet_header = f"\n\n--- Sheet {idx + 1} (gid: {sheet_id}) ---\n\n"
-                    all_content_parts.append(sheet_header.encode("utf-8"))
-
-                    # Add binary content
-                    all_content_parts.append(lc_doc._binary_content)
-                    parts_with_content += 1
-
-                # Only create consolidated doc if at least one part has content
-                if parts_with_content == 0:
-                    logger.warning(
-                        f"Skipping multi-part document {file_id} ({first_doc.metadata.get('name', 'unknown')}): "
-                        f"none of {len(doc_group)} parts have binary content"
-                    )
-                    continue
-
-                # Combine all binary content
-                combined_binary = b"".join(all_content_parts)
-
-                # Create consolidated document
-                consolidated_doc = LangChainDocument(page_content="", metadata=first_doc.metadata.copy())
-                # Remove gid parameter from source URL
-                if "source" in consolidated_doc.metadata:
-                    consolidated_doc.metadata["source"] = consolidated_doc.metadata["source"].split("?")[0]
-
-                # Attach combined binary content
-                consolidated_doc._binary_content = combined_binary  # type: ignore[attr-defined]
-                consolidated_docs.append(consolidated_doc)
-
-                logger.info(
-                    f"Consolidated {parts_with_content}/{len(doc_group)} parts into single document: {file_id} "
-                    f"({first_doc.metadata.get('name', 'unknown')})"
+        while True:
+            results = (
+                service.files()
+                .list(
+                    q=query,
+                    spaces="drive",
+                    fields="nextPageToken, files(id, name, mimeType, size, modifiedTime, webViewLink)",
+                    pageToken=page_token,
+                    pageSize=100,
                 )
+                .execute()
+            )
 
-        return consolidated_docs
+            items = results.get("files", [])
+            files.extend(items)
+
+            page_token = results.get("nextPageToken")
+            if not page_token:
+                break
+
+        # Apply recursive folder traversal if needed
+        if config.recursive:
+            # Find folders and recursively list their contents
+            folders = [f for f in files if f.get("mimeType") == "application/vnd.google-apps.folder"]
+            for folder in folders:
+                # Create temporary config for subfolder
+                subfolder_config = GoogleDriveSourceConfig(
+                    **{**config.model_dump(), "folder_id": folder["id"], "recursive": True}
+                )
+                files.extend(self._list_files_from_drive(config=subfolder_config))
+
+        # Filter out folders from final list
+        files = [f for f in files if f.get("mimeType") != "application/vnd.google-apps.folder"]
+
+        return files
 
     def _iter_documents(self, config: GoogleDriveSourceConfig) -> list[Document]:
         """
-        Load and convert Google Drive documents.
+        List Google Drive files and create documents with metadata only (lazy loading).
 
-        Returns one document per file with binary content preserved.
-        Multi-part files (like Google Sheets) are consolidated into single documents.
+        No binary content is downloaded - that happens on-demand via fetch_binary_content().
         """
-        loader = self._create_loader(config)
-        langchain_docs = loader.load()
+        # List files from Google Drive (metadata only)
+        files = self._list_files_from_drive(config=config)
 
-        # Consolidate multi-part documents (e.g., Google Sheets with multiple tabs)
-        original_count = len(langchain_docs)
-        consolidated_langchain_docs = self._consolidate_multi_part_documents(langchain_docs=langchain_docs)
+        logger.info(f"Found {len(files)} files in Google Drive folder '{config.folder_id}'")
 
         # Convert to domain documents
-        documents = [self._prepare_document(lc_doc) for lc_doc in consolidated_langchain_docs]
+        documents = []
+        for file_metadata in files:
+            # Apply file extension filter if specified
+            if config.file_extensions:
+                file_name = file_metadata.get("name", "")
+                file_ext = os.path.splitext(file_name)[1].lower()
+                if file_ext not in config.file_extensions:
+                    continue
 
-        # Log summary
-        total_files = len(documents)
-        logger.info("Google Drive ingestion summary:")
-        logger.info(f"  Total unique files: {total_files}")
-        logger.info(f"  Original documents from loader: {original_count}")
-        logger.info(f"  Consolidated documents: {len(documents)}")
+            # Apply file size filter if specified
+            if config.max_file_size_mb:
+                file_size = int(file_metadata.get("size", 0))
+                file_size_mb = file_size / (1024 * 1024)
+                if file_size_mb > config.max_file_size_mb:
+                    continue
 
-        if original_count != len(documents):
-            logger.info("  Note: Multi-part files (like Google Sheets) were consolidated into single documents")
+            doc = self._prepare_document(file_metadata=file_metadata, config=config)
+            documents.append(doc)
+            logger.debug(f"Created document metadata for Google Drive file: {doc.name} ({doc.size} bytes)")
 
-        # Count file extensions
+        # Count file extensions for logging
         extension_counts: dict[str, int] = {}
         for doc in documents:
-            extension = doc.metadata.get("extension", "unknown")
+            extension = doc.extension or "unknown"
             extension_counts[extension] = extension_counts.get(extension, 0) + 1
 
         if extension_counts:
@@ -447,6 +456,7 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             for extension, count in sorted(extension_counts.items(), key=lambda x: x[1], reverse=True):
                 logger.info(f"    - {extension}: {count} file(s)")
 
+        logger.info(f"Created {len(documents)} document metadata entries from Google Drive")
         return documents
 
     async def fetch_documents(self, config: GoogleDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
@@ -508,6 +518,117 @@ class GoogleDriveSourceAdapter(DocumentSourcePort):
             type[GoogleDriveSourceConfig]: The Pydantic configuration model
         """
         return GoogleDriveSourceConfig
+
+    def fetch_binary_content(
+        self,
+        *,
+        source_id: str,
+        connection_params: dict[str, Any],
+        credentials: dict[str, Any],
+    ) -> bytes | None:
+        """
+        Fetch binary content for a specific document from Google Drive on-demand.
+
+        Args:
+            source_id: Google Drive file ID
+            connection_params: Connection parameters (folder_id, etc.)
+            credentials: Authentication credentials (credentials_path or service_account_json_path)
+
+        Returns:
+            bytes | None: Binary content of the Google Drive file, or None if not found or error occurred
+        """
+        try:
+            from io import BytesIO
+
+            from googleapiclient.discovery import build
+        except ImportError:
+            logger.error("Google API client not installed. Install with: pip install google-api-python-client")
+            return None
+
+        try:
+            # Build minimal config for authentication
+            credentials_path = credentials.get("credentials_path")
+            service_account_json_path = credentials.get("service_account_json_path")
+            folder_id = connection_params.get("folder_id")
+            if not folder_id:
+                logger.warning(
+                    "No folder_id specified in connection_params. Defaulting to 'root' which will scan entire Google Drive. "
+                    "This may be slow for large drives. Consider specifying a specific folder_id for better performance."
+                )
+                folder_id = "root"
+
+            # Create minimal config for authentication
+            config_dict = {
+                "folder_id": folder_id,
+                "recursive": False,
+                "file_extensions": [],
+                "exclude_patterns": [],
+                "scopes": credentials.get("scopes", ["https://www.googleapis.com/auth/drive.readonly"]),
+            }
+
+            if credentials_path:
+                config_dict["credentials_path"] = credentials_path
+                config_dict["token_path"] = credentials.get("token_path", "~/.datasift/google_drive_token.pickle")
+
+            if service_account_json_path:
+                config_dict["service_account_json_path"] = service_account_json_path
+
+            temp_config = GoogleDriveSourceConfig(**config_dict)
+
+            # Get credentials
+            creds = self._get_credentials(temp_config)
+
+            # Build Drive API service
+            service = build("drive", "v3", credentials=creds)
+
+            # Download file content
+            logger.info(f"Downloading binary content from Google Drive: file_id={source_id}")
+
+            # Get file metadata first to check mime type
+            file_metadata = service.files().get(fileId=source_id, fields="mimeType,name").execute()
+            mime_type = file_metadata.get("mimeType", "")
+            file_name = file_metadata.get("name", "unknown")
+
+            # Handle Google Workspace files (need to export)
+            if mime_type.startswith(OperatorConstants.MimeTypes.GOOGLE_APPS_PREFIX):
+                # Export Google Workspace files
+                export_mime_type = None
+                if "document" in mime_type:
+                    export_mime_type = OperatorConstants.MimeTypes.PDF
+                elif "spreadsheet" in mime_type:
+                    export_mime_type = OperatorConstants.MimeTypes.EXCEL_XLSX
+                elif "presentation" in mime_type:
+                    export_mime_type = OperatorConstants.MimeTypes.PDF
+                elif "drawing" in mime_type:
+                    export_mime_type = OperatorConstants.MimeTypes.PDF
+
+                if export_mime_type:
+                    request = service.files().export_media(fileId=source_id, mimeType=export_mime_type)
+                else:
+                    logger.warning(f"Unsupported Google Workspace file type: {mime_type} for {file_name}")
+                    return None
+            else:
+                # Regular file download
+                request = service.files().get_media(fileId=source_id)
+
+            # Download content
+            file_buffer = BytesIO()
+            from googleapiclient.http import MediaIoBaseDownload
+
+            downloader = MediaIoBaseDownload(file_buffer, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+                if status:
+                    logger.debug(f"Download progress: {int(status.progress() * 100)}%")
+
+            content = file_buffer.getvalue()
+            logger.info(f"Successfully downloaded {len(content)} bytes from Google Drive: {source_id}")
+            return content
+
+        except Exception as e:
+            logger.error(f"Error fetching binary content from Google Drive {source_id}: {e}", exc_info=True)
+            return None
 
     def build_config_from_operator_params(
         self,

@@ -2,7 +2,7 @@
 
 import os
 from datetime import datetime
-from typing import AsyncGenerator, cast
+from typing import Any, AsyncGenerator, cast
 
 from pydantic import BaseModel
 
@@ -16,6 +16,10 @@ from datasift.core.operators.ingest.domain.models import Document
 from datasift.core.operators.ingest.ingest_source import MicrosoftGraphLoader
 from datasift.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
 from datasift.core.operators.operator_utils import resolve_env_var
+from datasift.integrations.rest_client import RestMethod
+from datasift.utils.infrastructure.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @register_source_adapter
@@ -52,21 +56,24 @@ class OneDriveSourceAdapter(DocumentSourcePort):
     SOURCE_DESCRIPTION = "Ingest documents from OneDrive using Microsoft Graph API"
     SOURCE_VERSION = "1.0.0"
 
-    async def fetch_documents(self, config: BaseModel) -> AsyncGenerator[Document, None]:  # type: ignore[override]
+    async def fetch_documents(self, config: OneDriveSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
-        Fetch documents from OneDrive using Microsoft Graph API.
+        Fetch document metadata from OneDrive using Microsoft Graph API.
+
+        This method implements lazy loading - it only fetches metadata, not binary content.
+        Binary content is fetched on-demand by the Extract operator via fetch_binary_content().
 
         Args:
             config: Validated OneDrive configuration (OneDriveSourceConfig)
 
         Yields:
-            Document: Domain documents from OneDrive
+            Document: Domain documents with metadata only (content=b"")
 
         Raises:
             ImportError: If required dependencies (msal, requests) are not installed
             ValueError: If authentication fails or folder not found
         """
-        onedrive_config: OneDriveSourceConfig = cast(OneDriveSourceConfig, config)
+        onedrive_config: OneDriveSourceConfig = config
         try:
             # Create MicrosoftGraphLoader with configuration
             loader = MicrosoftGraphLoader(
@@ -78,23 +85,34 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                 recursive=onedrive_config.recursive,
             )
 
-            # Load documents (synchronous operation)
-            # Note: MicrosoftGraphLoader.lazy_load() returns an iterator
-            langchain_docs = loader.lazy_load()
+            # List files to get metadata only (don't download binary content)
+            token = loader._get_token()
+            headers = {"Authorization": f"Bearer {token}"}
 
-            # Convert LangChain documents to domain documents
-            for lc_doc in langchain_docs:
-                # Extract metadata
-                metadata = lc_doc.metadata
-                doc_id = metadata.get("id", "")
-                doc_name = metadata.get("source", "unknown")
+            # Resolve folder path to item ID if specified
+            folder_item_id = None
+            if config.folder_path:
+                path = config.folder_path.strip("/")
+                endpoint = f"/drives/{config.drive_id}/root:/{path}"
+                try:
+                    data = loader._rest_client.call_rest_json(
+                        method=RestMethod.GET,
+                        endpoint=endpoint,
+                        headers=headers,
+                    )
+                    folder_item_id = data.get("id")
+                except Exception as e:
+                    raise ValueError(
+                        f"Folder path '{config.folder_path}' not found in drive '{config.drive_id}': {e!s}"
+                    ) from e
 
-                # Get binary content - prefer _binary_content attribute if available
-                if hasattr(lc_doc, "_binary_content") and lc_doc._binary_content is not None:
-                    content = lc_doc._binary_content
-                else:
-                    # Fallback: Convert page_content (string) to bytes
-                    content = lc_doc.page_content.encode("utf-8")
+            # List files without downloading content
+            files = loader._list_files(folder_item_id=folder_item_id)
+
+            # Convert file metadata to domain documents
+            for item in files:
+                doc_id = item.get("id", "")
+                doc_name = item.get("name", "unknown")
 
                 # Apply file extension filter if specified
                 if onedrive_config.file_extensions:
@@ -103,39 +121,53 @@ class OneDriveSourceAdapter(DocumentSourcePort):
                         continue
 
                 # Apply file size filter if specified
+                file_size = item.get("size", 0)
                 if onedrive_config.max_file_size_mb:
-                    file_size_mb = len(content) / (1024 * 1024)
+                    file_size_mb = file_size / (1024 * 1024)
                     if file_size_mb > onedrive_config.max_file_size_mb:
                         continue
 
                 # Parse modified time if available
                 modified_time = None
-                if metadata.get("modified_time"):
+                last_modified = item.get("lastModifiedDateTime")
+                if last_modified:
                     try:
                         # Microsoft Graph returns ISO 8601 format
-                        modified_time = datetime.fromisoformat(metadata["modified_time"].replace("Z", "+00:00"))
+                        modified_time = datetime.fromisoformat(last_modified.replace("Z", "+00:00"))
                     except (ValueError, AttributeError):
                         pass
 
                 # Build source URL
-                source_url = metadata.get("web_url", f"https://onedrive.live.com/?cid={doc_id}")
+                source_url = item.get("webUrl", f"https://onedrive.live.com/?cid={doc_id}")
 
-                # Create domain document
+                # Get file extension
+                extension = os.path.splitext(doc_name)[1].lower()
+
+                # Create domain document WITHOUT binary content (lazy loading)
                 document = Document(
                     id=doc_id,
                     name=doc_name,
-                    content=content,
+                    content=b"",  # Empty - binary loaded on-demand by downstream operators
                     source_url=source_url,
                     modified_time=modified_time,
+                    mimetype=item.get("file", {}).get("mimeType", "application/octet-stream"),
+                    size=file_size,
+                    extension=extension,
                     metadata={
                         "drive_id": onedrive_config.drive_id,
-                        "file_size": metadata.get("size", len(content)),
-                        "mime_type": metadata.get("mime_type"),
-                        "created_time": metadata.get("created_time"),
-                        "web_url": metadata.get("web_url"),
+                        "item_id": doc_id,
+                        "file_size": file_size,
+                        "mime_type": item.get("file", {}).get("mimeType"),
+                        "created_time": item.get("createdDateTime"),
+                        "web_url": source_url,
+                        # Store credentials for lazy loading
+                        "client_id": onedrive_config.client_id,
+                        "client_secret": onedrive_config.client_secret,
+                        "tenant_id": onedrive_config.tenant_id,
                     },
                 )
 
+                logger.debug(f"Created document metadata for OneDrive file: {doc_name} ({file_size} bytes)")
                 yield document
 
         except ImportError as e:
@@ -193,6 +225,109 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             type[BaseModel]: The Pydantic configuration model
         """
         return OneDriveSourceConfig
+
+    def fetch_binary_content(
+        self,
+        *,
+        source_id: str,
+        connection_params: dict[str, Any],
+        credentials: dict[str, Any],
+    ) -> bytes | None:
+        """
+        Fetch binary content for a specific document from OneDrive on-demand.
+
+        Args:
+            source_id: OneDrive item ID (file ID) or web URL
+            connection_params: Connection parameters (drive_id, etc.)
+            credentials: Authentication credentials (client_id, client_secret, tenant_id)
+
+        Returns:
+            bytes | None: Binary content of the OneDrive file, or None if not found or error occurred
+        """
+        try:
+            # Extract required parameters
+            drive_id = connection_params.get("drive_id")
+            client_id = credentials.get("client_id")
+            client_secret = credentials.get("client_secret")
+            tenant_id = credentials.get("tenant_id")
+
+            if not all([drive_id, client_id, client_secret, tenant_id]):
+                logger.error("Missing required parameters for OneDrive binary content fetch")
+                return None
+
+            # Handle case where source_id is a web URL instead of item_id
+            # During lazy loading, the binary fetcher may receive the web URL as source_id
+            # We need to extract the actual item_id from credentials if available
+            item_id = source_id
+            if source_id.startswith("http"):
+                # source_id is a web URL, extract item_id from credentials
+                extracted_id = credentials.get("item_id")
+                if not extracted_id:
+                    logger.error(f"source_id is a web URL but no item_id found in credentials: {source_id}")
+                    return None
+                item_id = str(extracted_id)
+                logger.info(f"Extracted item_id from credentials: {item_id} (source_id was web URL)")
+
+            # Create MicrosoftGraphLoader to reuse authentication logic
+            loader = MicrosoftGraphLoader(
+                drive_id=str(drive_id),
+                client_id=str(client_id),
+                client_secret=str(client_secret),
+                tenant_id=str(tenant_id),
+                folder_path=None,
+                recursive=False,
+            )
+
+            # Get access token
+            token = loader._get_token()
+            headers = {"Authorization": f"Bearer {token}"}
+
+            # Download file content using Graph API
+            logger.info(f"Downloading binary content from OneDrive: drive_id={drive_id}, item_id={item_id}")
+
+            # Try direct download URL first
+            endpoint = f"/drives/{drive_id}/items/{item_id}"
+            item_data = loader._rest_client.call_rest_json(
+                method=RestMethod.GET,
+                endpoint=endpoint,
+                headers=headers,
+            )
+
+            download_url = item_data.get("@microsoft.graph.downloadUrl")
+
+            if download_url:
+                # Use direct download URL
+                from datasift.integrations.rest_client import RestClient, RestClientConfig
+
+                temp_config = RestClientConfig(
+                    timeout=120,
+                    max_retries=3,
+                    retry_backoff_factor=2.0,
+                    verify_ssl=True,
+                )
+                temp_client = RestClient(config=temp_config)
+                response = temp_client.call_rest(
+                    method=RestMethod.GET,
+                    endpoint=download_url,
+                )
+                content = response.content
+            else:
+                # Fallback: use content endpoint
+                content_endpoint = f"/drives/{drive_id}/items/{item_id}/content"
+                response = loader._rest_client.call_rest(
+                    method=RestMethod.GET,
+                    endpoint=content_endpoint,
+                    headers=headers,
+                    expected_status_codes=[200, 302],
+                )
+                content = response.content
+
+            logger.info(f"Successfully downloaded {len(content)} bytes from OneDrive: {item_id}")
+            return content
+
+        except Exception as e:
+            logger.error(f"Error fetching binary content from OneDrive {source_id}: {e}", exc_info=True)
+            return None
 
     def build_config_from_operator_params(
         self,

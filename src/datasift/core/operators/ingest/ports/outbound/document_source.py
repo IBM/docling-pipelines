@@ -102,6 +102,41 @@ class DocumentSourcePort(ABC, Generic[SourceConfig]):  # noqa: UP046
         """
         pass
 
+    @abstractmethod
+    def fetch_binary_content(
+        self,
+        *,
+        source_id: str,
+        connection_params: dict[str, Any],
+        credentials: dict[str, Any],
+    ) -> bytes | None:
+        """
+        Fetch binary content for a specific document on-demand.
+
+        This method enables lazy loading of document content by fetching
+        the actual binary data only when needed, rather than during initial
+        document discovery.
+
+        Args:
+            source_id: Unique identifier for the document in the source system
+                      (e.g., S3 key, file path, document ID)
+            connection_params: Connection parameters from operator config
+            credentials: Credentials from operator config
+
+        Returns:
+            bytes | None: Binary content of the document, or None if:
+                - Document not found
+                - Access denied
+                - Download failed
+                - Provider doesn't support binary fetching
+
+        Raises:
+            ConnectionError: If unable to connect to source
+            AuthenticationError: If authentication fails
+            ValueError: If source_id is invalid or missing
+        """
+        pass
+
     def get_metadata(self) -> dict:
         """
         Get metadata about this source for discovery and UI purposes.

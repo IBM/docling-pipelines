@@ -34,7 +34,8 @@ class S3SourceAdapter(DocumentSourcePort):
     - Size-based filtering
 
     Features:
-    - Direct binary content download (no temporary files)
+    - Lazy loading: Documents contain metadata only, no binary content
+    - Binary content loaded on-demand by downstream operators
     - Efficient pagination for large buckets
     - Metadata preservation (modified time, size, content type)
     - Error handling with detailed logging
@@ -335,7 +336,7 @@ class S3SourceAdapter(DocumentSourcePort):
         self, s3_client: Any, config: S3SourceConfig, s3_obj: dict[str, Any]
     ) -> Document | None:
         """
-        Download S3 object and create domain Document.
+        Create domain Document from S3 object metadata (lazy loading - no binary download).
 
         Args:
             s3_client: boto3 S3 client
@@ -343,15 +344,11 @@ class S3SourceAdapter(DocumentSourcePort):
             s3_obj: S3 object metadata
 
         Returns:
-            Document or None if download fails
+            Document with metadata only, or None if processing fails
         """
         key = s3_obj["Key"]
 
         try:
-            # Download object
-            response = s3_client.get_object(Bucket=config.bucket, Key=key)
-            binary_content = response["Body"].read()
-
             # Extract metadata
             last_modified = s3_obj.get("LastModified")
             if isinstance(last_modified, datetime):
@@ -359,43 +356,130 @@ class S3SourceAdapter(DocumentSourcePort):
             else:
                 modified_time = None
 
-            size = s3_obj.get("Size", len(binary_content))
-            content_type = response.get("ContentType", "application/octet-stream")
+            size = s3_obj.get("Size", 0)
 
-            # Build S3 URL
+            # Get content type from metadata (no download)
+            try:
+                head_response = s3_client.head_object(Bucket=config.bucket, Key=key)
+                content_type = head_response.get("ContentType", "application/octet-stream")
+            except Exception:
+                content_type = "application/octet-stream"
+
+            # Build S3 URI
+            s3_uri = f"s3://{config.bucket}/{key}"
+
+            # Build HTTP URL for reference
             if config.endpoint_url:
                 # S3-compatible storage
-                source_url = f"{config.endpoint_url}/{config.bucket}/{key}"
+                http_url = f"{config.endpoint_url}/{config.bucket}/{key}"
             else:
                 # AWS S3
                 region = config.region or "us-east-1"
-                source_url = f"https://{config.bucket}.s3.{region}.amazonaws.com/{key}"
+                http_url = f"https://{config.bucket}.s3.{region}.amazonaws.com/{key}"
 
-            # Create domain document
+            # Determine file extension
+            extension = os.path.splitext(key)[1].lower()
+
+            # Create domain document WITHOUT binary content (lazy loading)
             document = Document(
                 id=key,
                 name=os.path.basename(key),
-                content=binary_content,
-                source_url=source_url,
+                content=b"",  # Empty - binary loaded on-demand by downstream operators
+                source_url=s3_uri,
                 modified_time=modified_time,
                 mimetype=content_type,
                 size=size,
+                extension=extension,
                 metadata={
                     "bucket": config.bucket,
                     "key": key,
+                    "endpoint_url": config.endpoint_url,
+                    "region": config.region,
                     "etag": s3_obj.get("ETag", "").strip('"'),
                     "storage_class": s3_obj.get("StorageClass", "STANDARD"),
                     "content_type": content_type,
+                    "http_url": http_url,
                 },
             )
 
-            logger.debug(f"Downloaded S3 object: {key} ({size} bytes)")
+            logger.debug(f"Created document metadata for S3 object: {key} ({size} bytes)")
             return document
 
         except ClientError as e:
             error_code = e.response.get("Error", {}).get("Code", "Unknown")
-            logger.error(f"Failed to download {key}: S3 error ({error_code}): {e}")
+            logger.error(f"Failed to get metadata for {key}: S3 error ({error_code}): {e}")
             return None
         except Exception as e:
-            logger.error(f"Failed to download {key}: {e}", exc_info=True)
+            logger.error(f"Failed to process {key}: {e}", exc_info=True)
+            return None
+
+    def fetch_binary_content(
+        self,
+        *,
+        source_id: str,
+        connection_params: dict[str, Any],
+        credentials: dict[str, Any],
+    ) -> bytes | None:
+        """
+        Fetch binary content for a specific S3 object on-demand.
+
+        Args:
+            source_id: S3 URI (s3://bucket/key) or S3 key
+            connection_params: S3 connection parameters (bucket, endpoint_url, region)
+            credentials: S3 credentials (access_key, secret_key)
+
+        Returns:
+            bytes | None: Binary content of the S3 object, or None if not found or error occurred
+        """
+        try:
+            # Parse S3 URI to extract bucket and key
+            if source_id.startswith("s3://"):
+                # Format: s3://bucket/key
+                parts = source_id[5:].split("/", 1)
+                bucket = parts[0]
+                key = parts[1] if len(parts) > 1 else ""
+            else:
+                # Assume it's just the key, get bucket from connection_params
+                bucket_value = connection_params.get("bucket")
+                if not bucket_value:
+                    logger.error("Cannot determine S3 bucket from source_id or connection_params")
+                    return None
+                bucket = str(bucket_value)
+                key = source_id
+
+            # Create S3 client
+            client_kwargs: dict[str, Any] = {
+                "aws_access_key_id": credentials.get("access_key"),
+                "aws_secret_access_key": credentials.get("secret_key"),
+            }
+
+            # Add endpoint URL for S3-compatible storage
+            endpoint_url = connection_params.get("endpoint_url")
+            if endpoint_url:
+                client_kwargs["endpoint_url"] = endpoint_url
+
+            # Add region if specified
+            region = connection_params.get("region")
+            if region:
+                client_kwargs["region_name"] = region
+
+            s3_client = boto3.client("s3", **client_kwargs)
+
+            # Download binary content
+            logger.info(f"Downloading binary content from S3: bucket={bucket}, key={key}")
+            response = s3_client.get_object(Bucket=bucket, Key=key)
+            content = response["Body"].read()
+
+            logger.info(f"Successfully downloaded {len(content)} bytes from S3: {source_id}")
+            return content
+
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "Unknown")
+            logger.error(f"S3 ClientError ({error_code}) fetching {source_id}: {e}")
+            return None
+        except BotoCoreError as e:
+            logger.error(f"S3 BotoCoreError fetching {source_id}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error fetching binary content from S3 {source_id}: {e}", exc_info=True)
             return None

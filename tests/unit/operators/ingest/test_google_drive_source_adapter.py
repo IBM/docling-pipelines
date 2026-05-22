@@ -136,37 +136,37 @@ class TestGoogleDriveSourceAdapter:
             with pytest.raises(ValueError, match="Credentials file not found"):
                 adapter._get_credentials(config)
 
-    def test_fetch_documents_maps_langchain_docs(self):
+    def test_fetch_documents_returns_metadata_only(self):
+        """Test that fetch_documents returns documents with empty content (lazy loading)."""
         adapter = GoogleDriveSourceAdapter()
         config = self.make_config()
-        langchain_doc = Mock()
-        langchain_doc.page_content = "hello"
-        langchain_doc._binary_content = b"hello"
-        langchain_doc.metadata = {
+
+        # Mock file metadata from Google Drive API
+        file_metadata = {
             "id": "doc1",
             "name": "file.pdf",
-            "source": "https://drive.google.com/file/d/doc1",
-            "mime_type": "application/pdf",
-            "modified_time": "2024-01-01T10:00:00Z",
+            "mimeType": "application/pdf",
+            "size": "1024",
+            "modifiedTime": "2024-01-01T10:00:00Z",
+            "webViewLink": "https://drive.google.com/file/d/doc1",
         }
-
-        loader_instance = Mock()
-        loader_instance.load.return_value = [langchain_doc]
 
         with (
             patch.object(adapter, "_get_credentials", return_value=Mock()),
-            patch(
-                "datasift.core.operators.ingest.adapters.outbound.sources.google_drive.adapter.GoogleDriveLoader",
-                return_value=loader_instance,
-            ),
+            patch.object(adapter, "_list_files_from_drive", return_value=[file_metadata]),
         ):
             docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
 
         assert len(docs) == 1
         assert docs[0].id == "doc1"
         assert docs[0].name == "file.pdf"
-        assert docs[0].content == b"hello"
+        # Verify lazy loading - content should be empty
+        assert docs[0].content == b""
+        assert docs[0].size == 1024
         assert docs[0].modified_time == datetime.fromisoformat("2024-01-01T10:00:00+00:00")
+        # Verify metadata is stored for lazy loading
+        assert docs[0].metadata["file_id"] == "doc1"
+        assert docs[0].metadata["credentials_path"] == "/tmp/credentials.json"
 
     def test_fetch_documents_wraps_errors(self):
         adapter = GoogleDriveSourceAdapter()

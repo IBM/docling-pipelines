@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 from box_sdk_gen import BoxClient, BoxJWTAuth, JWTConfig
 
@@ -211,6 +211,7 @@ class BoxSourceAdapter(DocumentSourcePort):
 
     def build_config_from_operator_params(
         self,
+        *,
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
@@ -231,3 +232,55 @@ class BoxSourceAdapter(DocumentSourcePort):
             config_dict["max_files"] = max_files
 
         return BoxSourceConfig(**config_dict)
+
+    def fetch_binary_content(
+        self,
+        *,
+        source_id: str,
+        connection_params: dict[str, Any],
+        credentials: dict[str, Any],
+    ) -> bytes | None:
+        """
+        Fetch binary content for a specific Box file on-demand.
+
+        Args:
+            source_id: Box file ID
+            connection_params: Box connection parameters (not used, credentials contain all needed info)
+            credentials: Box credentials (credentials_json_path)
+
+        Returns:
+            bytes | None: Binary content of the Box file, or None if not found or error occurred
+        """
+        try:
+            # Build minimal config just for authentication
+            credentials_path = credentials.get("credentials_json_path")
+            if not credentials_path:
+                logger.error("Missing 'credentials_json_path' in credentials")
+                return None
+
+            config = BoxSourceConfig(
+                credentials_path=credentials_path,
+                recursive=False,
+                file_extensions=[],
+                exclude_patterns=[],
+            )
+
+            # Get authenticated client
+            client = self._get_box_client(config=config)
+
+            # Download file content using existing method
+            logger.info(f"Downloading binary content from Box: file_id={source_id}")
+            content = self._download_file_content(client=client, file_id=source_id)
+
+            logger.info(f"Successfully downloaded {len(content)} bytes from Box: {source_id}")
+            return content
+
+        except FileNotFoundError as e:
+            logger.error(f"Box credentials file not found: {e}")
+            return None
+        except ValueError as e:
+            logger.error(f"Box authentication error: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error fetching binary content from Box {source_id}: {e}", exc_info=True)
+            return None

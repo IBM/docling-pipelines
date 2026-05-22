@@ -75,14 +75,14 @@ class TestFilesystemSourceAdapter:
     def test_build_config_from_operator_params(self, tmp_path):
         adapter = FilesystemSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            {
+            connection_params={
                 "root_path": str(tmp_path),
                 "recursive": False,
                 "exclude_patterns": ["*.tmp"],
                 "follow_symlinks": True,
                 "max_file_size_mb": 3,
             },
-            {},
+            credentials={},
             included_extensions=["txt"],
         )
         config_data = config.model_dump()

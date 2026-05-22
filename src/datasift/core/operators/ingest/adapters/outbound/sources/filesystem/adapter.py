@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import AsyncGenerator, Generator
+from typing import Any, AsyncGenerator, Generator
 
 from pydantic import BaseModel
 
@@ -131,9 +131,11 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
 
     def build_config_from_operator_params(
         self,
+        *,
         connection_params: dict,
         credentials: dict,
         included_extensions: list[str] | None = None,
+        max_files: int | None = None,
     ) -> FilesystemSourceConfig:
         """
         Build Filesystem configuration from operator parameters.
@@ -146,6 +148,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             connection_params: Connection parameters from operator config
             credentials: Credentials from operator config (unused for filesystem)
             included_extensions: File extensions to include (optional)
+            max_files: Maximum number of files to fetch (optional, not used by filesystem adapter)
 
         Returns:
             FilesystemSourceConfig: Validated configuration object
@@ -166,6 +169,57 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
 
         return FilesystemSourceConfig(**config_dict)
+
+    def fetch_binary_content(
+        self,
+        *,
+        source_id: str,
+        connection_params: dict[str, Any],
+        credentials: dict[str, Any],
+    ) -> bytes | None:
+        """
+        Fetch binary content for a specific file on-demand.
+
+        Args:
+            source_id: File path (absolute or relative to root_path)
+            connection_params: Filesystem connection parameters (root_path)
+            credentials: Credentials (unused for filesystem)
+
+        Returns:
+            bytes | None: Binary content of the file, or None if not found or error occurred
+        """
+        try:
+            file_path = Path(source_id)
+
+            # If path is not absolute, try relative to root_path
+            if not file_path.is_absolute():
+                root_path = connection_params.get("root_path")
+                if root_path:
+                    file_path = Path(root_path) / file_path
+
+            # Check if file exists
+            if not file_path.exists():
+                print(f"File not found: {file_path}")
+                return None
+
+            # Check if it's a file (not directory)
+            if not file_path.is_file():
+                print(f"Path is not a file: {file_path}")
+                return None
+
+            # Read and return file content
+            with open(file_path, "rb") as f:
+                content = f.read()
+
+            print(f"Successfully read {len(content)} bytes from: {file_path}")
+            return content
+
+        except PermissionError as e:
+            print(f"Permission denied reading file {source_id}: {e}")
+            return None
+        except Exception as e:
+            print(f"Unexpected error reading file {source_id}: {e}")
+            return None
 
     def _walk_directory(self, root_path: Path, config: FilesystemSourceConfig) -> Generator[Path, None, None]:
         """

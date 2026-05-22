@@ -63,3 +63,6 @@ Thumbs.db
 examples/connectors/.env
 examples/connectors/*-service-account.json
 examples/connectors/google-service-account.json
+
+# Local test artifacts with credentials
+test_flows/

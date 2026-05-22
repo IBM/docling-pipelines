@@ -134,30 +134,36 @@ class TestOneDriveSourceAdapter:
         assert config_data["recursive"] is False
         assert config_data["file_extensions"] == [".txt"]
 
-    def test_fetch_documents_binary_and_text_paths(self):
+    def test_fetch_documents_returns_metadata_only(self):
+        """Test that fetch_documents returns documents with empty content (lazy loading)."""
         adapter = OneDriveSourceAdapter()
         config = self.make_config()
 
-        binary_doc = Mock()
-        binary_doc.metadata = {
+        # Mock file metadata from Graph API
+        file1 = {
             "id": "1",
-            "source": "file1.txt",
-            "modified_time": "2024-01-01T10:00:00Z",
-            "size": 4,
-            "mime_type": "text/plain",
-            "created_time": "2024-01-01T09:00:00Z",
-            "web_url": "https://example/1",
+            "name": "file1.txt",
+            "size": 1024,
+            "lastModifiedDateTime": "2024-01-01T10:00:00Z",
+            "createdDateTime": "2024-01-01T09:00:00Z",
+            "webUrl": "https://example/1",
+            "file": {"mimeType": "text/plain"},
         }
-        binary_doc._binary_content = b"data"
-        binary_doc.page_content = "ignored"
 
-        text_doc = Mock()
-        text_doc.metadata = {"id": "2", "source": "file2.txt"}
-        text_doc._binary_content = None
-        text_doc.page_content = "hello"
+        file2 = {
+            "id": "2",
+            "name": "file2.txt",
+            "size": 2048,
+            "lastModifiedDateTime": "2024-01-02T10:00:00Z",
+            "createdDateTime": "2024-01-02T09:00:00Z",
+            "webUrl": "https://example/2",
+            "file": {"mimeType": "text/plain"},
+        }
 
         loader_instance = Mock()
-        loader_instance.lazy_load.return_value = [binary_doc, text_doc]
+        loader_instance._get_token.return_value = "mock_token"
+        loader_instance._rest_client = Mock()
+        loader_instance._list_files.return_value = [file1, file2]
 
         with patch(
             "datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
@@ -166,25 +172,42 @@ class TestOneDriveSourceAdapter:
             docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
 
         assert len(docs) == 2
-        assert docs[0].content == b"data"
-        assert docs[1].content == b"hello"
+        # Verify lazy loading - content should be empty
+        assert docs[0].content == b""
+        assert docs[1].content == b""
+        # Verify metadata is stored
+        assert docs[0].id == "1"
+        assert docs[0].name == "file1.txt"
+        assert docs[0].size == 1024
+        assert docs[0].metadata["item_id"] == "1"
+        assert docs[0].metadata["client_id"] == "client"
+        assert docs[1].id == "2"
 
     def test_fetch_documents_filters_extension_and_size(self):
+        """Test that file extension and size filters work correctly."""
         adapter = OneDriveSourceAdapter()
         config = self.make_config()
 
-        skipped_ext = Mock(
-            metadata={"id": "1", "source": "file.pdf"},
-            _binary_content=b"x",
-            page_content="x",
-        )
-        skipped_size = Mock(
-            metadata={"id": "2", "source": "file.txt"},
-            _binary_content=b"x" * (2 * 1024 * 1024),
-            page_content="x",
-        )
+        # File with wrong extension (should be skipped)
+        skipped_ext = {
+            "id": "1",
+            "name": "file.pdf",
+            "size": 100,
+            "file": {"mimeType": "application/pdf"},
+        }
+
+        # File too large (should be skipped)
+        skipped_size = {
+            "id": "2",
+            "name": "file.txt",
+            "size": 2 * 1024 * 1024,  # 2MB, config max is 1MB
+            "file": {"mimeType": "text/plain"},
+        }
+
         loader_instance = Mock()
-        loader_instance.lazy_load.return_value = [skipped_ext, skipped_size]
+        loader_instance._get_token.return_value = "mock_token"
+        loader_instance._rest_client = Mock()
+        loader_instance._list_files.return_value = [skipped_ext, skipped_size]
 
         with patch(
             "datasift.core.operators.ingest.adapters.outbound.sources.onedrive.adapter.MicrosoftGraphLoader",
@@ -250,25 +273,26 @@ class TestSharePointSourceAdapter:
         assert config_data["recursive"] is False
         assert config_data["file_extensions"] == [".txt"]
 
-    def test_fetch_documents_maps_documents(self):
+    def test_fetch_documents_returns_metadata_only(self):
+        """Test that fetch_documents returns documents with empty content (lazy loading)."""
         adapter = SharePointSourceAdapter()
         config = self.make_config()
 
-        lc_doc = Mock()
-        lc_doc.metadata = {
+        # Mock file metadata from Graph API
+        file1 = {
             "id": "1",
-            "source": "file1.txt",
-            "modified_time": "2024-01-01T10:00:00Z",
-            "size": 4,
-            "mime_type": "text/plain",
-            "created_time": "2024-01-01T09:00:00Z",
-            "web_url": "https://example/1",
+            "name": "file1.txt",
+            "size": 1024,
+            "lastModifiedDateTime": "2024-01-01T10:00:00Z",
+            "createdDateTime": "2024-01-01T09:00:00Z",
+            "webUrl": "https://example/1",
+            "file": {"mimeType": "text/plain"},
         }
-        lc_doc._binary_content = b"data"
-        lc_doc.page_content = "ignored"
 
         loader_instance = Mock()
-        loader_instance.lazy_load.return_value = [lc_doc]
+        loader_instance._get_token.return_value = "mock_token"
+        loader_instance._rest_client = Mock()
+        loader_instance._list_files.return_value = [file1]
 
         with patch(
             "datasift.core.operators.ingest.adapters.outbound.sources.sharepoint.adapter.MicrosoftGraphLoader",
@@ -277,8 +301,13 @@ class TestSharePointSourceAdapter:
             docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
 
         assert len(docs) == 1
+        # Verify lazy loading - content should be empty
+        assert docs[0].content == b""
+        # Verify metadata is stored
         assert docs[0].metadata["document_library_id"] == "lib1"
+        assert docs[0].metadata["item_id"] == "1"
         assert docs[0].source_url == "https://example/1"
+        assert docs[0].size == 1024
 
     def test_test_connection_error_paths(self):
         adapter = SharePointSourceAdapter()

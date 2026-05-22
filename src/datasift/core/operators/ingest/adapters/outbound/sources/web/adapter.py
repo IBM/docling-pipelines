@@ -1,6 +1,6 @@
 """Web page source adapter using LangChain's RecursiveUrlLoader."""
 
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 
 import requests
 from langchain_community.document_loaders import RecursiveUrlLoader
@@ -181,6 +181,55 @@ class WebPageSourceAdapter(DocumentSourcePort):
             type[BaseModel]: The Pydantic configuration model
         """
         return WebPageSourceConfig
+
+    def fetch_binary_content(
+        self,
+        *,
+        source_id: str,
+        connection_params: dict[str, Any],
+        credentials: dict[str, Any],
+    ) -> bytes | None:
+        """
+        Fetch binary content for a specific URL via HTTP download.
+
+        Args:
+            source_id: URL to download
+            connection_params: Connection parameters (timeout, etc.)
+            credentials: Authentication credentials (not used for web)
+
+        Returns:
+            Binary content as bytes, or None if download fails
+        """
+        # Get timeout from connection_params or use default
+        timeout = connection_params.get("timeout", 30)
+
+        try:
+            logger.info(f"Downloading binary content from URL: {source_id}")
+
+            # Download content via HTTP GET
+            response = requests.get(
+                source_id,
+                timeout=timeout,
+                allow_redirects=True,
+            )
+            response.raise_for_status()
+
+            content = response.content
+            logger.info(f"Successfully downloaded {len(content)} bytes from {source_id}")
+            return content
+
+        except requests.exceptions.Timeout:
+            logger.error(f"Timeout downloading from {source_id} after {timeout}s")
+            return None
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error downloading from {source_id}: {e}")
+            return None
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error downloading from {source_id}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error downloading from {source_id}: {e}", exc_info=True)
+            return None
 
     def build_config_from_operator_params(
         self,

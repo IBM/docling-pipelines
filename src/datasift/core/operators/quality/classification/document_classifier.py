@@ -123,6 +123,9 @@ class DocumentClassifierOperator(AbstractOperator):
         """
         super().__init__(config)
 
+        # Store full config for on-demand binary fetching (includes ingest_source if present)
+        self.global_config = config
+
         # Provider configuration
         self.provider: str = config.get(OperatorConstants.Config.PROVIDER, DEFAULT_PROVIDER).lower()
         self.model_id: str | None = config.get(OperatorConstants.Config.MODEL_ID)
@@ -374,7 +377,7 @@ class DocumentClassifierOperator(AbstractOperator):
             logger.info(f"'{self.doc_column}' column not found, fetching content from documents")
             content_was_fetched = True
             # Prepare document data for parallel processing
-            doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table)
+            doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table, global_config=self.global_config)
 
             logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
             # Process documents in parallel using ThreadPoolExecutor

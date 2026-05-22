@@ -389,6 +389,11 @@ class AbstractOrchestrator(ABC):
         # note: In the union of 2 dictionaries below, if an element exists in both global config and local config (
         # op_def['config']), the value from global_config will be overwritten by the local config
         global_config = {} if global_config is None else global_config
+        operator_name = op_def.get(OperatorConstants.Columns.NAME, "unknown")
+        self.logger.debug(
+            f"create_executor for '{operator_name}': ingest_source in global_config={OperatorConstants.Config.INGEST_SOURCE in global_config}",
+            extra=self.common_log_arguments,
+        )
         operator_config = op_def.get(OperatorConstants.Config.CONFIG, {})
         operator_config_params = global_config.get(
             op_def[OperatorConstants.Columns.NAME],
@@ -523,6 +528,42 @@ class AbstractOrchestrator(ABC):
             op_flow=op_flow, present_job_status=self.job_status, message=self.message
         )
 
+    def _populate_ingest_source_config(self, *, ingest_operator, global_config):
+        """
+        Populate global_config with ingest_source params for lazy binary loading.
+
+        Args:
+            ingest_operator: The ingest operator definition
+            global_config: Global configuration dictionary to be modified in place
+        """
+        operator_type = ingest_operator.get(OperatorConstants.Misc.OPERATOR, "")
+        self.logger.info(
+            f"Checking if operator is ingest_source: operator_type='{operator_type}'",
+            extra=self.common_log_arguments,
+        )
+        if "ingest_source" in operator_type.lower() or "IngestSourceOperator" in operator_type:
+            operator_config = ingest_operator.get(OperatorConstants.Config.CONFIG, {})
+            global_config[OperatorConstants.Config.INGEST_SOURCE] = {
+                OperatorConstants.Config.PROVIDER: operator_config.get(OperatorConstants.Config.PROVIDER),
+                OperatorConstants.Config.CONNECTION_PARAMS: operator_config.get(
+                    OperatorConstants.Config.CONNECTION_PARAMS, {}
+                ),
+                OperatorConstants.Config.CREDENTIALS: operator_config.get(OperatorConstants.Config.CREDENTIALS, {}),
+            }
+            self.logger.info(
+                f"Populated global_config with ingest_source params for provider: {operator_config.get(OperatorConstants.Config.PROVIDER)}",
+                extra=self.common_log_arguments,
+            )
+            self.logger.debug(
+                f"global_config after population: ingest_source keys={list(global_config.get(OperatorConstants.Config.INGEST_SOURCE, {}).keys())}",
+                extra=self.common_log_arguments,
+            )
+        else:
+            self.logger.info(
+                "Operator is NOT ingest_source, skipping global_config population",
+                extra=self.common_log_arguments,
+            )
+
     # ??? insert some of the parameters to self.
     def execute_flow(self, *, op_flow, global_config):
         """
@@ -550,6 +591,9 @@ class AbstractOrchestrator(ABC):
             op_def=ingest_operator, global_config=global_config, prev_results=initial_result, deleted_docs_count=0
         )
 
+        # Populate global_config with ingest_source params for lazy binary loading
+        self._populate_ingest_source_config(ingest_operator=ingest_operator, global_config=global_config)
+
         deleted_docs_count = ingest_results.internal_metadata.get(Metrics.Internal.DELETED_FROM_LAST_RUN, 0)
         self.message = self._get_ingest_summary_message(
             output_table=ingest_results.tables[0], deleted_docs_count=deleted_docs_count, operator=ingest_operator
@@ -571,8 +615,16 @@ class AbstractOrchestrator(ABC):
             return
 
         # Prepare batches using batch manager
+        self.logger.debug(
+            f"Before prepare_batches: ingest_source in global_config={OperatorConstants.Config.INGEST_SOURCE in global_config}",
+            extra=self.common_log_arguments,
+        )
         batches, global_config = self.batch_manager.prepare_batches(
             ingested_table=ingested_table, global_config=global_config, common_log_arguments=self.common_log_arguments
+        )
+        self.logger.debug(
+            f"After prepare_batches: ingest_source in global_config={OperatorConstants.Config.INGEST_SOURCE in global_config}",
+            extra=self.common_log_arguments,
         )
 
         # Store ingest node ID for batch processing (needed to handle references to excluded ingest operator)
