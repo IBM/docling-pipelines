@@ -79,7 +79,8 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
                 common_log_arguments=common_log_arguments,
             )
             self.set_default_node_stats(tables=tables)
-            if isinstance(tables, dict):
+            is_merge_operator = isinstance(tables, dict)
+            if is_merge_operator:
                 logger.info(f"Invoking the transform method with multiple tables for the {op.short_name} operator...")
                 result = op.transform(table=pa.table({}), tables=tables)
             else:
@@ -93,7 +94,12 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
                     )
             metadata_copy = copy.deepcopy(result[1])
             # Handle empty documents after execution
-            out_tables, metadata = self._handle_empty_documents(out_tables=result[0], metadata=result[1])
+            # Skip empty document handling for merge operators as they may have null values
+            # in some columns due to outer joins, which doesn't mean the document is empty
+            if is_merge_operator:
+                out_tables, metadata = result[0], result[1]
+            else:
+                out_tables, metadata = self._handle_empty_documents(out_tables=result[0], metadata=result[1])
             cleanup_pyarrow_buffers(
                 operator_name=op.name,
                 phase=MemoryLogPhases.TRANSFORM_COMPLETED,
