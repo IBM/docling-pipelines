@@ -9,7 +9,7 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
-from datasift.core.operators.vectordb.opensearch_index_manager import (
+from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
     OpenSearchIndexManager,
 )
 from datasift.exceptions.datasift_exceptions import DatasiftException
@@ -273,12 +273,8 @@ class TestDimensionDetection:
     """Test vector dimension detection"""
 
     def test_detect_dimension_from_flat_embeddings(self, mock_client):
-        """Test dimension detection from flat embeddings"""
-        manager = OpenSearchIndexManager(
-            client=mock_client,
-            index_name="test_index",
-            embeddings_column="embeddings",
-        )
+        """Test dimension detection from flat embeddings using shared utility"""
+        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
         # Create table with flat embeddings
         data = {
@@ -290,16 +286,12 @@ class TestDimensionDetection:
         }
         table = pa.table(data)
 
-        dimension = manager.detect_vector_dimension(table)
+        dimension = detect_vector_dimension(table=table, embeddings_column="embeddings")
         assert dimension == 384
 
     def test_detect_dimension_from_chunked_embeddings(self, mock_client):
-        """Test dimension detection from chunked embeddings"""
-        manager = OpenSearchIndexManager(
-            client=mock_client,
-            index_name="test_index",
-            embeddings_column="embeddings",
-        )
+        """Test dimension detection from chunked embeddings using shared utility"""
+        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
         # Create table with chunked embeddings
         data = {
@@ -311,42 +303,30 @@ class TestDimensionDetection:
         }
         table = pa.table(data)
 
-        dimension = manager.detect_vector_dimension(table)
+        dimension = detect_vector_dimension(table=table, embeddings_column="embeddings")
         assert dimension == 384
 
     def test_detect_dimension_empty_table(self, mock_client):
-        """Test dimension detection with empty table"""
-        manager = OpenSearchIndexManager(
-            client=mock_client,
-            index_name="test_index",
-            embeddings_column="embeddings",
-        )
+        """Test dimension detection with empty table using shared utility"""
+        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
         empty_table = pa.table({"doc_id": [], "embeddings": []})
 
-        dimension = manager.detect_vector_dimension(empty_table)
+        dimension = detect_vector_dimension(table=empty_table, embeddings_column="embeddings")
         assert dimension is None
 
     def test_detect_dimension_missing_column(self, mock_client):
-        """Test dimension detection with missing embeddings column"""
-        manager = OpenSearchIndexManager(
-            client=mock_client,
-            index_name="test_index",
-            embeddings_column="embeddings",
-        )
+        """Test dimension detection with missing embeddings column using shared utility"""
+        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
         table = pa.table({"doc_id": ["doc1"], "content": ["test"]})
 
-        dimension = manager.detect_vector_dimension(table)
+        dimension = detect_vector_dimension(table=table, embeddings_column="embeddings")
         assert dimension is None
 
     def test_detect_dimension_with_none_values(self, mock_client):
-        """Test dimension detection skips None values"""
-        manager = OpenSearchIndexManager(
-            client=mock_client,
-            index_name="test_index",
-            embeddings_column="embeddings",
-        )
+        """Test dimension detection skips None values using shared utility"""
+        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
         data = {
             "doc_id": ["doc1", "doc2", "doc3"],
@@ -354,16 +334,12 @@ class TestDimensionDetection:
         }
         table = pa.table(data)
 
-        dimension = manager.detect_vector_dimension(table)
+        dimension = detect_vector_dimension(table=table, embeddings_column="embeddings")
         assert dimension == 384
 
     def test_detect_dimension_with_empty_lists(self, mock_client):
-        """Test dimension detection skips empty lists"""
-        manager = OpenSearchIndexManager(
-            client=mock_client,
-            index_name="test_index",
-            embeddings_column="embeddings",
-        )
+        """Test dimension detection skips empty lists using shared utility"""
+        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
         data = {
             "doc_id": ["doc1", "doc2"],
@@ -371,31 +347,23 @@ class TestDimensionDetection:
         }
         table = pa.table(data)
 
-        dimension = manager.detect_vector_dimension(table)
+        dimension = detect_vector_dimension(table=table, embeddings_column="embeddings")
         assert dimension == 384
 
     def test_detect_dimension_malformed_data(self, mock_client):
-        """Test dimension detection with malformed data"""
-        manager = OpenSearchIndexManager(
-            client=mock_client,
-            index_name="test_index",
-            embeddings_column="embeddings",
-        )
+        """Test dimension detection with malformed data using shared utility"""
+        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
         # Non-list value
         data = {"doc_id": ["doc1"], "embeddings": ["not a list"]}
         table = pa.table(data)
 
-        dimension = manager.detect_vector_dimension(table)
+        dimension = detect_vector_dimension(table=table, embeddings_column="embeddings")
         assert dimension is None
 
     def test_detect_dimension_with_different_dimensions(self, mock_client):
-        """Test dimension detection uses first valid embedding"""
-        manager = OpenSearchIndexManager(
-            client=mock_client,
-            index_name="test_index",
-            embeddings_column="embeddings",
-        )
+        """Test dimension detection uses first valid embedding using shared utility"""
+        from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
         # All embeddings have same dimension - should detect 384
         data = {
@@ -408,7 +376,7 @@ class TestDimensionDetection:
         }
         table = pa.table(data)
 
-        dimension = manager.detect_vector_dimension(table)
+        dimension = detect_vector_dimension(table=table, embeddings_column="embeddings")
         assert dimension == 384
 
 
@@ -789,5 +757,3 @@ class TestIndexOperations:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

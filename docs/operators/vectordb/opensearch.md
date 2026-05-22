@@ -101,8 +101,8 @@ Connection and engine-specific parameters are configured inside the `provider_co
 ### Example 1: Basic Usage with FAISS
 
 ```python
-from core.operators.vectordb import VectorDBOperator
-from common.constants.operator_constants import OperatorConstants
+from datasift.core.operators.vectordb import VectorDBOperator
+from datasift.common.constants.operator_constants import OperatorConstants
 import pyarrow as pa
 import numpy as np
 
@@ -163,7 +163,7 @@ print(f"Indexed {metadata['processed_docs']} documents")
 ### Example 2: Lucene Engine with Cosine Similarity
 
 ```python
-from common.constants.operator_constants import OperatorConstants
+from datasift.common.constants.operator_constants import OperatorConstants
 
 config = {
     "provider": "opensearch",
@@ -186,7 +186,7 @@ config = {
 ### Example 3: AWS OpenSearch with IAM Authentication
 
 ```python
-from common.constants.operator_constants import OperatorConstants
+from datasift.common.constants.operator_constants import OperatorConstants
 
 config = {
     "provider": "opensearch",
@@ -207,7 +207,7 @@ config = {
 For AWS OpenSearch or custom deployments with JWT authentication:
 
 ```python
-from common.constants.operator_constants import OperatorConstants
+from datasift.common.constants.operator_constants import OperatorConstants
 import os
 
 config = {
@@ -332,7 +332,7 @@ config = {
 
 #### FAISS + HNSW (Balanced)
 ```python
-from common.constants.operator_constants import OperatorConstants
+from datasift.common.constants.operator_constants import OperatorConstants
 
 OperatorConstants.Config.PROVIDER_CONFIG: {
     OperatorConstants.VectorDB.ENGINE: "faiss",

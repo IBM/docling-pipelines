@@ -12,8 +12,8 @@ import pytest
 
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.vectordb import VectorDBOperator
-from datasift.core.operators.vectordb.opensearch_client import OpenSearchClient
-from datasift.core.operators.vectordb.opensearch_index_manager import (
+from datasift.core.operators.vectordb.adapters.outbound.opensearch.client import OpenSearchClient
+from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import (
     OpenSearchAlgorithmTypes,
     OpenSearchEngineTypes,
     VectorSimilarityTypes,
@@ -100,7 +100,7 @@ def test_engine(engine="nmslib", algorithm="hnsw", space_type="l2"):
         table = create_sample_data(5, 128)
 
         # Index documents
-        result_tables, metadata = operator.transform(table)
+        _result_tables, metadata = operator.transform(table)
 
         if metadata["processed_docs"] == 5:
             print(f"  ✅ Indexed {metadata['processed_docs']} documents")
@@ -235,7 +235,7 @@ def test_schema_evolution():
                 "embeddings": [np.random.rand(128).tolist() for _ in range(2)],
             }
         )
-        result, metadata = operator1.transform(table1)
+        _, metadata = operator1.transform(table1)
         print(f"  ✅ Indexed {metadata['processed_docs']} documents with initial schema")
 
         # Step 2: Add new field to existing index
@@ -273,7 +273,7 @@ def test_schema_evolution():
                 "category": ["cat_a", "cat_b"],
             }
         )
-        result, metadata = operator2.transform(table2)
+        _result, metadata = operator2.transform(table2)
         print(f"  ✅ Indexed {metadata['processed_docs']} documents with new field")
 
         # Step 3: Verify total count
@@ -397,7 +397,7 @@ def test_error_handling():
             }
         )
 
-        result, metadata = operator.transform(table)
+        _, metadata = operator.transform(table)
 
         if metadata["skipped_docs_count"] == 2 and metadata["processed_docs"] == 2:
             tests.append(
@@ -427,7 +427,7 @@ def test_error_handling():
 
         empty_table = pa.table({"doc_id_hash": [], "embeddings": []})
 
-        result, metadata = operator.transform(empty_table)
+        _result, metadata = operator.transform(empty_table)
 
         if metadata["total_docs_count"] == 0 and metadata["processed_docs"] == 0:
             tests.append(("Empty table", True, "Handled gracefully"))

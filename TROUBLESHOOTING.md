@@ -42,13 +42,16 @@ curl http://localhost:11434/api/tags
 # 5. Check OpenSearch service
 curl -u admin:MyStrongPass123! http://localhost:9200
 
-# 6. Verify you're in the project root
+# 6. Check Milvus service
+python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Milvus: Connected')"
+
+# 7. Verify you're in the project root
 pwd  # Should end with /datasift-opensource
 
-# 7. List available Ollama models
+# 8. List available Ollama models
 ollama list
 
-# 8. Check OpenSearch cluster health
+# 9. Check OpenSearch cluster health
 curl -u admin:MyStrongPass123! "http://localhost:9200/_cluster/health?pretty"
 ```
 
@@ -72,6 +75,9 @@ curl -s http://localhost:11434/api/tags > /dev/null && echo "✅ Ollama running"
 echo ""
 echo "5. OpenSearch Service:"
 curl -s -u admin:MyStrongPass123! http://localhost:9200 > /dev/null && echo "✅ OpenSearch running" || echo "❌ OpenSearch not responding"
+echo ""
+echo "6. Milvus Service:"
+python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530)" 2>/dev/null && echo "✅ Milvus running" || echo "❌ Milvus not responding"
 ```
 
 ---
@@ -676,8 +682,8 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/_cat/indices?v"
 
 ```json
 {
-  "operator_type": "VectorDBOperator",
-  "operator_params": {
+  "operator": "vectordb",
+  "config": {
     "provider": "opensearch",
     "index_name": "my-index",  // Must be lowercase, no spaces
     "vector_dimension": 768,  // Must match embedding model dimension
@@ -784,6 +790,246 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
 
 ---
 
+### Milvus Issues
+
+#### Issue: Milvus Connection Refused
+
+**Symptoms:**
+- Error: `Connection refused` or `Failed to connect to Milvus`
+- Pipeline fails at VectorDB operator with Milvus adapter
+
+**Causes:**
+1. Milvus server not running
+2. Wrong host/port configuration
+3. Firewall blocking connection
+
+**Solutions:**
+
+1. **Check if Milvus is running:**
+   ```bash
+   # Docker
+   docker ps | grep milvus
+   
+   # Podman
+   podman ps | grep milvus
+   ```
+
+2. **Start Milvus if not running:**
+   ```bash
+   docker-compose -f docker-compose.milvus.yml up -d
+   ```
+
+3. **Verify connection:**
+   ```bash
+   python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Connected successfully')"
+   ```
+
+4. **Check configuration in flow:**
+   ```json
+   {
+     "id": "a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d",
+     "operator": "vectordb",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "provider_config": {
+         "host": "localhost",
+         "port": 19530
+       }
+     }
+   }
+   ```
+
+#### Issue: Milvus Collection Creation Failed
+
+**Symptoms:**
+- Error: `Collection already exists` or `Invalid collection name`
+- VectorDB operator fails during initialization
+
+**Causes:**
+1. Collection name conflicts
+2. Invalid collection name format
+3. Dimension mismatch with existing collection
+
+**Solutions:**
+
+1. **Drop existing collection:**
+   ```bash
+   python3 -c "from pymilvus import connections, utility; connections.connect(host='localhost', port=19530); utility.drop_collection('your_collection_name')"
+   ```
+
+2. **Use unique collection names:**
+   - Avoid special characters
+   - Use alphanumeric and underscores only
+   - Keep names under 255 characters
+
+3. **Verify dimension matches embeddings:**
+   ```json
+   {
+     "id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+     "operator": "vectordb",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "vector_dimension": 768,
+       "provider_config": {
+         "index_type": "HNSW"
+       }
+     }
+   }
+   ```
+
+#### Issue: Milvus Dimension Mismatch
+
+**Symptoms:**
+- Error: `Dimension mismatch` or `Invalid vector dimension`
+- Insertion fails with dimension error
+
+**Causes:**
+1. Configured dimension doesn't match embedding dimension
+2. Chunked embeddings not properly detected
+3. Wrong embedding model used
+
+**Solutions:**
+
+1. **Verify embedding dimension:**
+   ```python
+   # Check your embedding model's output dimension
+   # For Ollama nomic-embed-text: 768
+   # For sentence-transformers: varies by model
+   ```
+
+2. **Let auto-detection work:**
+   - Remove `vector_dimension` from config to enable auto-detection
+   - System will detect dimension from first batch
+
+3. **Match embedding model:**
+   ```json
+   {
+     "id": "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
+     "operator": "embeddings",
+     "config": {
+       "embeddings_type": "ollama",
+       "embeddings_model_id": "nomic-embed-text",
+       "embeddings_column": "embeddings"
+     }
+   },
+   {
+     "id": "d4e5f6a7-b8c9-0d1e-2f3a-4b5c6d7e8f9a",
+     "operator": "vectordb",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "vector_dimension": 768,
+       "provider_config": {
+         "index_type": "HNSW"
+       }
+     }
+   }
+   ```
+
+#### Issue: Milvus Index Build Failed
+
+**Symptoms:**
+- Error: `Index build failed` or `Invalid index parameters`
+- Collection created but index not built
+
+**Causes:**
+1. Invalid index type for metric type
+2. Insufficient memory for index building
+3. Invalid index parameters
+
+**Solutions:**
+
+1. **Use compatible index and metric combinations:**
+   ```json
+   {
+     "id": "e5f6a7b8-c9d0-1e2f-3a4b-5c6d7e8f9a0b",
+     "operator": "vectordb",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "provider_config": {
+         "index_type": "HNSW",
+         "metric_type": "L2"
+       }
+     }
+   }
+   ```
+
+2. **Adjust index parameters:**
+   ```json
+   {
+     "id": "f6a7b8c9-d0e1-2f3a-4b5c-6d7e8f9a0b1c",
+     "operator": "vectordb",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "provider_config": {
+         "index_type": "HNSW",
+         "index_parameters": {
+           "M": 16,
+           "efConstruction": 256
+         }
+       }
+     }
+   }
+   ```
+
+3. **Check Milvus memory:**
+   ```bash
+   docker stats milvus-standalone
+   ```
+#### Issue: Unable to Access Watsonx.data Milvus from macOS
+
+**Symptoms:**
+- Error: `MilvusException: (code=2, message=Fail connecting to server on <host>:<port>)`
+- Connection fails when accessing watsonx.data Milvus from non-VM macOS system
+- Works fine from Linux or VM environments
+
+**Cause:**
+- gRPC DNS resolution issue on macOS when connecting to watsonx.data Milvus
+- The default DNS resolver doesn't work properly with GRPC certificates on macOS
+
+**Solution:**
+
+Set the `GRPC_DNS_RESOLVER` environment variable to `"native"` before running your Python script:
+
+```python
+import os
+os.environ["GRPC_DNS_RESOLVER"] = "native"
+
+from pymilvus import connections
+connections.connect(
+    alias="<db_name>",
+    host="<host>",
+    port=443,
+    secure=True,
+    server_name="<host>",
+    user="<username>",
+    password="<password>"
+)
+```
+
+**Alternative: Set environment variable before execution:**
+
+```bash
+export GRPC_DNS_RESOLVER="native"
+datasift-orchestrator --flow-file sample_flows/milvus_dense_watsonx_flow.json
+```
+
+**Verification Steps:**
+
+1. Check if Milvus instance was deleted and recreated (GRPC server/host URL might have changed)
+2. Verify the certificate is a GRPC certificate (not an https certificate)
+3. Add the environment variable setting to your script or shell
+
+**Reference:**
+- [IBM watsonx.data Documentation](https://www.ibm.com/docs/en/watsonxdata/standard/2.3.x?topic=milvus-unable-access-from-non-vm-macos-system)
+
+---
+
+
 ### Pipeline Execution
 
 #### Issue: Flow Validation Failed
@@ -810,11 +1056,11 @@ Message code: INGEST_OPERATOR_MISPLACED
 
 ```json
 {
-  "nodes": [
+  "dag": [
     {
       "id": "ingest_1",
-      "operator_type": "IngestLocalFolder",
-      "operator_params": {
+      "operator": "ingest_local",
+      "config": {
         "input_folder": "sample_documents"
       }
     }
@@ -1027,7 +1273,7 @@ FileNotFoundError: Input folder not found: ~/documents
 
 ```json
 {
-  "operator_params": {
+  "config": {
     "input_folder": "/Users/username/datasift-opensource/sample_documents"
   }
 }
@@ -1037,7 +1283,7 @@ FileNotFoundError: Input folder not found: ~/documents
 
 ```json
 {
-  "operator_params": {
+  "config": {
     "input_folder": "sample_documents"
   }
 }
@@ -1076,8 +1322,8 @@ Message code: CHUNKER_INVALID_CHUNK_TYPE
 
 ```json
 {
-  "operator_type": "Chunker",
-  "operator_params": {
+  "operator": "chunker",
+  "config": {
     "chunk_type": "semantic", // Must be: simple, semantic, or hybrid
     "chunk_size": 512,
     "chunk_overlap": 50
@@ -1219,8 +1465,8 @@ Message code: DROPPING_MANDATORY_FEATURES
 
 ```json
 {
-  "operator_type": "SQLFilter",
-  "operator_params": {
+  "operator": "sql_filter",
+  "config": {
     "filter_criteria": "SELECT * FROM table WHERE length > 100"
     // Don't use: SELECT column1, column2 (missing id, content)
   }
@@ -1242,10 +1488,10 @@ Message code: EXTRACT_OPERATOR_MISSING
 
 ```json
 {
-  "nodes": [
-    {"id": "ingest_1", "operator_type": "IngestLocalFolder"},
-    {"id": "extract_1", "operator_type": "ExtractOperator"},  // Add this
-    {"id": "chunk_1", "operator_type": "Chunker"}
+  "dag": [
+    {"id": "ingest_1", "operator": "ingest_local"},
+    {"id": "extract_1", "operator": "extract_operator"},  // Add this
+    {"id": "chunk_1", "operator": "chunker"}
   ],
   "edges": [
     {"source": "ingest_1", "target": "extract_1"},
@@ -1803,6 +2049,83 @@ curl -u admin:MyStrongPass123! "http://localhost:9200/my-index/_mapping?pretty"
 
 ---
 
+### Milvus Troubleshooting
+
+#### Check Milvus Status
+```bash
+# Check if running
+docker ps | grep milvus
+
+# Test connection
+python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Connected')"
+
+# Check collections
+python3 -c "from pymilvus import connections, utility; connections.connect(host='localhost', port=19530); print(utility.list_collections())"
+```
+
+#### Milvus Performance Issues
+
+**Slow search:**
+```bash
+# Check collection stats
+python3 -c "
+from pymilvus import connections, Collection
+connections.connect(host='localhost', port=19530)
+collection = Collection('your_collection')
+print(f'Entities: {collection.num_entities}')
+print(f'Index: {collection.index().params}')
+"
+
+# Use faster index type
+# HNSW is generally faster than IVF_FLAT for most use cases
+```
+
+**High memory usage:**
+```bash
+# Check Milvus container stats
+docker stats milvus-standalone
+
+# Reduce index parameters in flow config:
+# "M": 8,  # Lower value = less memory
+# "efConstruction": 128  # Lower value = less memory
+```
+
+#### Milvus Collection Issues
+
+**List collections:**
+```bash
+python3 -c "from pymilvus import connections, utility; connections.connect(host='localhost', port=19530); print(utility.list_collections())"
+```
+
+**Drop collection:**
+```bash
+python3 -c "from pymilvus import connections, utility; connections.connect(host='localhost', port=19530); utility.drop_collection('collection_name')"
+```
+
+**Check collection schema:**
+```bash
+python3 -c "
+from pymilvus import connections, Collection
+connections.connect(host='localhost', port=19530)
+collection = Collection('your_collection')
+print(collection.schema)
+"
+```
+
+**Query collection:**
+```bash
+python3 -c "
+from pymilvus import connections, Collection
+connections.connect(host='localhost', port=19530)
+collection = Collection('your_collection')
+collection.load()
+results = collection.query(expr='pk >= \"\"', output_fields=['pk'], limit=5)
+print(results)
+"
+```
+
+---
+
 ### Docling Troubleshooting
 
 #### Docling Extraction Failures
@@ -1844,7 +2167,7 @@ uv sync --extra dev
 
 ```json
 {
-  "operator_type": "ExtractOperator",
+  "operator": "extract_operator",
   "config": {
     "text_extraction_mode": "docling_library",
     "entity_extraction_mode": "none",

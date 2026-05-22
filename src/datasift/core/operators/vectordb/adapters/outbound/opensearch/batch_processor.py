@@ -10,6 +10,7 @@ from typing import Any
 from opensearchpy import OpenSearch, helpers
 
 from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.operators.vectordb_utils import calculate_batch_size_bytes
 
 logger = get_logger()
 
@@ -218,21 +219,6 @@ class OpenSearchBatchProcessor:
 
         return metadata
 
-    def calculate_batch_size_bytes(self, documents: list[dict[str, Any]]) -> int:
-        """
-        Calculate approximate size of documents in bytes.
-
-        Args:
-            documents: List of documents
-
-        Returns:
-            Size in bytes
-        """
-        try:
-            return len(json.dumps(documents).encode("utf-8"))
-        except Exception:
-            return 0
-
     def bulk_index(self, actions: list[dict[str, Any]]) -> tuple[int, list[dict[str, Any]]]:
         """
         Perform bulk indexing operation.
@@ -315,7 +301,7 @@ class OpenSearchBatchProcessor:
             }
 
             # Check batch size
-            action_size: int = self.calculate_batch_size_bytes([action])
+            action_size: int = calculate_batch_size_bytes(documents=[action])
             if current_batch and (
                 current_batch_size + action_size > max_batch_size_bytes or len(current_batch) >= self.batch_size
             ):

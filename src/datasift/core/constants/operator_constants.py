@@ -287,6 +287,22 @@ class OperatorConstants:
         AWS_REGION: Final[str] = "aws_region"
         JWT_TOKEN: Final[str] = "jwt_token"
 
+        # Milvus-specific Configuration
+        URI: Final[str] = "uri"
+        TOKEN: Final[str] = "token"
+        DATABASE: Final[str] = "database"
+        DB_NAME: Final[str] = "db_name"
+        SSL: Final[str] = "ssl"
+        SSL_CERTIFICATE: Final[str] = "ssl_certificate"
+        AUTH_TYPE: Final[str] = "auth_type"
+        SECURE: Final[str] = "secure"
+
+        # Milvus Authentication Types
+        AUTH_TYPE_STANDALONE: Final[str] = "standalone"
+        AUTH_TYPE_GRPC: Final[str] = "grpc"
+        AUTH_TYPE_URI: Final[str] = "uri"
+        AUTH_TYPE_TOKEN: Final[str] = "token"
+
         # OpenSearch Index Configuration
         CREATE_INDEX: Final[str] = "create_index"
         INDEX_MAPPINGS: Final[str] = "index_mappings"
@@ -298,10 +314,16 @@ class OperatorConstants:
 
         # Vector Configuration
         ADD_SPARSE_VECTOR: Final[str] = "add_sparse_vector"
-        ADD_SPARSE_VECTOR_DEFAULT: Final[bool] = True
+        ADD_SPARSE_VECTOR_DEFAULT: Final[bool] = False
+        SPARSE_EMBEDDINGS_COLUMN_DEFAULT: Final[str] = "sparse_embeddings"
+        DENSE_EMBEDDINGS_COLUMN_DEFAULT: Final[str] = "dense_embeddings"
+        # Milvus field names (mapped names in collection schema)
+        SPARSE_VECTOR_FIELD_NAME: Final[str] = "sparse_vector"
+        DENSE_VECTOR_FIELD_NAME: Final[str] = "vector"
         METRIC_TYPE: Final[str] = "metric_type"
         SEMANTIC_CONFIG: Final[str] = "semantic_config"
         VECTOR_DIMENSION: Final[str] = "vector_dimension"
+        DEFAULT_VECTOR_DIMENSION: Final[int] = 384
         VECTOR_SIMILARITY_KEY: Final[str] = "vector_similarity"
 
         # Vector DB General
@@ -313,6 +335,51 @@ class OperatorConstants:
         ALGORITHM: Final[str] = "algorithm"
         SPACE_TYPE: Final[str] = "space_type"
         ENGINE_PARAMETERS: Final[str] = "engine_parameters"
+
+        # Milvus-specific parameters
+        INDEX_PARAMETERS: Final[str] = "index_parameters"
+        PRIMARY_KEY_FIELD: Final[str] = "primary_key_field"
+        DEFAULT_PRIMARY_KEY_FIELD: Final[str] = "pk"
+
+        # Environment Variable Keys for OpenSearch
+        OPENSEARCH_HOST: Final[str] = "OPENSEARCH_HOST"
+        OPENSEARCH_PORT: Final[str] = "OPENSEARCH_PORT"
+        OPENSEARCH_USE_SSL: Final[str] = "OPENSEARCH_USE_SSL"
+        OPENSEARCH_VERIFY_CERTS: Final[str] = "OPENSEARCH_VERIFY_CERTS"
+        OPENSEARCH_ENGINE: Final[str] = "OPENSEARCH_ENGINE"
+        OPENSEARCH_ALGORITHM: Final[str] = "OPENSEARCH_ALGORITHM"
+        OPENSEARCH_SPACE_TYPE: Final[str] = "OPENSEARCH_SPACE_TYPE"
+        OPENSEARCH_BATCH_SIZE: Final[str] = "OPENSEARCH_BATCH_SIZE"
+        OPENSEARCH_USERNAME: Final[str] = "OPENSEARCH_USERNAME"
+        OPENSEARCH_PASSWORD: Final[str] = "OPENSEARCH_PASSWORD"
+        OPENSEARCH_AWS_AUTH: Final[str] = "OPENSEARCH_AWS_AUTH"
+        OPENSEARCH_AWS_REGION: Final[str] = "OPENSEARCH_AWS_REGION"
+        OPENSEARCH_JWT_TOKEN: Final[str] = "OPENSEARCH_JWT_TOKEN"
+        OPENSEARCH_VECTOR_DIMENSION: Final[str] = "OPENSEARCH_VECTOR_DIMENSION"
+        OPENSEARCH_CREATE_INDEX: Final[str] = "OPENSEARCH_CREATE_INDEX"
+        OPENSEARCH_INDEX_NAME: Final[str] = "OPENSEARCH_INDEX_NAME"
+        OPENSEARCH_DOC_ID_COLUMN: Final[str] = "OPENSEARCH_DOC_ID_COLUMN"
+        OPENSEARCH_EMBEDDINGS_COLUMN: Final[str] = "OPENSEARCH_EMBEDDINGS_COLUMN"
+
+        # Environment Variable Keys for Milvus
+        MILVUS_HOST: Final[str] = "MILVUS_HOST"
+        MILVUS_PORT: Final[str] = "MILVUS_PORT"
+        MILVUS_URI: Final[str] = "MILVUS_URI"
+        MILVUS_DATABASE: Final[str] = "MILVUS_DATABASE"
+        MILVUS_INDEX_TYPE: Final[str] = "MILVUS_INDEX_TYPE"
+        MILVUS_METRIC_TYPE: Final[str] = "MILVUS_METRIC_TYPE"
+        MILVUS_BATCH_SIZE: Final[str] = "MILVUS_BATCH_SIZE"
+        MILVUS_USERNAME: Final[str] = "MILVUS_USERNAME"
+        MILVUS_PASSWORD: Final[str] = "MILVUS_PASSWORD"
+        MILVUS_TOKEN: Final[str] = "MILVUS_TOKEN"
+        MILVUS_SSL: Final[str] = "MILVUS_SSL"
+        MILVUS_SSL_CERTIFICATE: Final[str] = "MILVUS_SSL_CERTIFICATE"
+        MILVUS_AUTH_TYPE: Final[str] = "MILVUS_AUTH_TYPE"
+        MILVUS_VECTOR_DIMENSION: Final[str] = "MILVUS_VECTOR_DIMENSION"
+        MILVUS_CREATE_INDEX: Final[str] = "MILVUS_CREATE_INDEX"
+        MILVUS_COLLECTION_NAME: Final[str] = "MILVUS_COLLECTION_NAME"
+        MILVUS_DOC_ID_COLUMN: Final[str] = "MILVUS_DOC_ID_COLUMN"
+        MILVUS_EMBEDDINGS_COLUMN: Final[str] = "MILVUS_EMBEDDINGS_COLUMN"
 
         # OpenSearch Schema Keys
         SCHEMA_KEY_FIELD_TYPES: Final[str] = "field_types"

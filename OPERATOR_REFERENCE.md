@@ -1438,15 +1438,229 @@ For **ollama** provider:
 
 **Class:** `core.operators.vectordb.vectordb_operator.VectorDBOperator`
 
-| Parameter           | Type   | Required | Default       | Description                 |
-| ------------------- | ------ | -------: | ------------- | --------------------------- |
-| `provider`          | string |       No | `opensearch`  | VectorDB backend            |
-| `index_name`        | string |      Yes | -             | Target index name           |
-| `doc_id_column`     | string |       No | `doc_id_hash` | Primary document id column  |
-| `embeddings_column` | string |       No | `embeddings`  | Vector column               |
-| `create_index`      | bool   |       No | `true`        | Auto-create index           |
-| `vector_dimension`  | int    |       No | `384`         | Configured vector dimension |
-| `provider_config`   | object |      Yes | -             | Adapter-specific settings   |
+| Parameter | Type | Required | Default | Description                 |
+|---|---|---:|---|-----------------------------|
+| `provider` | string | Yes | - | VectorDB backend (`opensearch` or `milvus`) |
+| `index_name` | string | Yes | - | Target index/collection name |
+| `doc_id_column` | string | No | `doc_id_hash` | Primary document id column  |
+| `embeddings_column` | string | No | `embeddings` | Vector column               |
+| `create_index` | bool | No | `true` | Auto-create index           |
+| `vector_dimension` | int | No | Auto-detected | Vector dimension (auto-detected from embeddings if not specified) |
+| `provider_config` | object | Yes | - | Provider-specific configuration (see examples below) |
+| `available_features` | object | No | - | Feature definitions for vector DB schema |
+| `feature_mappings` | object | No | - | Mapping of PyArrow columns to vector DB fields |
+
+**Supported Vector Databases:**
+
+1. **OpenSearch** (`provider: "opensearch"`)
+   - Multiple KNN engines: NMSLIB, Faiss, Lucene
+   - Configurable space types: cosinesimil, l2, innerproduct
+   - HTTP/HTTPS connections with optional authentication
+
+2. **Milvus** (`provider: "milvus"`)
+   - **Index Types**:
+     - Dense: HNSW, IVF_FLAT, IVF_SQ8, IVF_PQ, FLAT, DISKANN, AUTOINDEX
+     - Sparse: SPARSE_INVERTED_INDEX, SPARSE_WAND
+   - **Metric Types**:
+     - Dense: L2 (Euclidean), IP (Inner Product), COSINE
+     - Sparse: BM25 (required for sparse mode)
+   - **Vector Modes**:
+     - Dense vectors only (default)
+     - Sparse + Dense vectors (dual storage with BM25 function)
+   - **Deployment Options**:
+     - Standalone Milvus (local or remote)
+     - Watsonx.data Milvus (IBM Cloud, SSL-enabled)
+   - **Features**:
+     - Auto-detection of vector dimensions from embeddings
+     - BM25 sparse vector generation from content
+     - Configurable index parameters (M, efConstruction for HNSW)
+     - Batch processing with configurable batch sizes
+     - SSL/TLS support for secure connections
+
+**OpenSearch Configuration Example:**
+```json
+{
+  "operator": "vectordb",
+  "config": {
+    "provider": "opensearch",
+    "index_name": "my_documents",
+    "vector_dimension": 768,
+    "create_index": true,
+    "provider_config": {
+      "host": "localhost",
+      "port": 9200,
+      "engine": "nmslib",
+      "space_type": "cosinesimil",
+      "username": "admin",
+      "password": "admin"
+    }
+  }
+}
+```
+
+**Milvus Standalone Configuration Example:**
+```json
+{
+  "operator": "vectordb",
+  "config": {
+    "provider": "milvus",
+    "index_name": "my_collection",
+    "create_index": true,
+    "add_sparse_vector": false,
+    "provider_config": {
+      "auth_type": "standalone",
+      "host": "localhost",
+      "port": 19530,
+      "uri": null,
+      "token": null,
+      "username": "root",
+      "password": "Milvus", # pragma: allowlist secret
+      "database": "default",
+      "secure": false,
+      "index_type": "HNSW",
+      "metric_type": "L2",
+      "index_parameters": {
+        "M": 16,
+        "efConstruction": 256
+      },
+      "batch_size": 100,
+      "primary_key_field": "pk"
+    },
+    "available_features": {
+      "doc_id_hash": {
+        "name": "Document ID",
+        "available_for_vector_db": true,
+        "mandatory_for_vector_db": true,
+        "type": "string",
+        "is_primary": true
+      },
+      "embeddings": {
+        "name": "Embeddings",
+        "available_for_vector_db": true,
+        "mandatory_for_vector_db": true,
+        "type": "vector"
+      }
+    },
+    "feature_mappings": {
+      "doc_id_hash": "pk",
+      "embeddings": "vector_embeddings"
+    }
+  }
+}
+```
+
+**Milvus Watsonx.data with gRPC Configuration Example:**
+```json
+{
+  "operator": "vectordb",
+  "config": {
+    "provider": "milvus",
+    "index_name": "wxdata_collection",
+    "add_sparse_vector": false,
+    "create_index": true,
+    "provider_config": {
+      "auth_type": "grpc",
+      "host": "YOUR_WXDATA_HOST.lakehouse.ibmappdomain.cloud",
+      "port": 32671,
+      "uri": null,
+      "token": null,
+      "username": "ibmlhapikey_YOUR_USERNAME",
+      "password": "YOUR_API_KEY", # pragma: allowlist secret
+      "database": "default",
+      "secure": true,
+      "index_type": "HNSW",
+      "metric_type": "L2",
+      "index_parameters": {
+        "M": 16,
+        "efConstruction": 256
+      },
+      "batch_size": 100,
+      "primary_key_field": "pk"
+    }
+  }
+}
+```
+
+**Milvus Watsonx.data with IAM Token Configuration Example:**
+```json
+{
+  "operator": "vectordb",
+  "config": {
+    "provider": "milvus",
+    "index_name": "wxdata_token_collection",
+    "create_index": true,
+    "add_sparse_vector": false,
+    "provider_config": {
+      "auth_type": "token",
+      "host": "YOUR_WXDATA_HOST.lakehouse.ibmappdomain.cloud",
+      "port": 32671,
+      "uri": null,
+      "token": "YOUR_IAM_TOKEN",
+      "username": "YOUR_USERNAME",
+      "password": null,
+      "database": "default",
+      "secure": true,
+      "index_type": "HNSW",
+      "metric_type": "L2",
+      "index_parameters": {
+        "M": 16,
+        "efConstruction": 256
+      },
+      "batch_size": 100,
+      "primary_key_field": "pk"
+    }
+  }
+}
+```
+
+**Provider Config Parameters:**
+
+**OpenSearch:**
+- `host`: OpenSearch server hostname
+- `port`: OpenSearch server port (default: 9200)
+- `engine`: KNN engine (nmslib, faiss, lucene)
+- `space_type`: Distance metric (cosinesimil, l2, innerproduct)
+- `username`: Optional authentication username
+- `password`: Optional authentication password
+
+**Milvus:**
+- `auth_type`: **Required** - Authentication type (`standalone`, `grpc`, `uri`, or `token`)
+- `host`: Milvus server hostname (required for `standalone`, `grpc`, `token`)
+- `port`: Milvus server port (default: 19530, required for `standalone`, `grpc`, `token`)
+- `uri`: Full connection URI (required for `uri` auth_type)
+- `token`: IAM token (required for `token` auth_type)
+- `username`: Authentication username (optional for `standalone`, required for `grpc` and `token`)
+- `password`: Authentication password/API key (optional for `standalone`, required for `grpc` - should be API key)
+- `database`: Database name (default: "default")
+- `secure` : Required for IBM watsonx.data MilvusDB for https connection and is set to true in this case.
+- `index_type`: Index algorithm (HNSW, IVF_FLAT, IVF_SQ8, IVF_PQ, FLAT, DISKANN, AUTOINDEX for dense; SPARSE_INVERTED_INDEX, SPARSE_WAND for sparse)
+- `metric_type`: Distance metric (L2, IP, COSINE for dense; BM25 required for sparse mode)
+- `index_parameters`: Index-specific parameters (e.g., M and efConstruction for HNSW)
+- `batch_size`: Batch size for bulk operations (default: 100)
+- `primary_key_field`: Name of the primary key field in Milvus collection (default: "pk")
+
+**Milvus Authentication Types:**
+- `standalone`: Local Milvus with optional username/password
+- `grpc`: IBM wx.data with gRPC (username must have `ibmlhapikey_` prefix, password is API key)
+- `uri`: Pre-constructed URI with embedded API key (format: `https://ibmlhapikey_<username>:<api-key>@<host>:<port>`)
+- `token`: IAM token-based (constructs URI internally: `https://ibmlhtoken_<username>:<token>@<host>:<port>`)
+
+**Sparse Vector Mode:**
+
+When `add_sparse_vector: true` is set:
+- Requires `metric_type: "BM25"` (validated)
+- Creates BM25 function for automatic sparse vector generation from text content
+- Feature mappings must include:
+  - `embeddings` → `vector` (dense embeddings)
+  - `sparse_embeddings` → `sparse_vector` (BM25-generated)
+  - `content` → `text` (source text for BM25)
+- Index type auto-set to `SPARSE_INVERTED_INDEX` if not specified
+- See [`sample_flows/milvus_sparse_localhost_flow.json`](sample_flows/milvus_sparse_localhost_flow.json) for complete example
+
+**Notes:**
+- Vector dimension is auto-detected from embeddings if not specified
+- See [`docs/milvus/README.md`](../../docs/milvus/README.md) for detailed Milvus configuration
+- See [`PROVIDER_CONFIG_GUIDE.md`](src/datasift/core/operators/vectordb/PROVIDER_CONFIG_GUIDE.md) for provider configuration patterns
 
 **Provider Config (OpenSearch)**
 

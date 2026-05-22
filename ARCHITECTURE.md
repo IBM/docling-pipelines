@@ -32,7 +32,7 @@ Datasift-open is a modular, operator-based data processing framework designed fo
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
 - **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator nodes
 - **Prefect Orchestration**: Workflow execution managed by Prefect with support for both ephemeral (local) and distributed execution via work pools (Docker, Kubernetes / OpenShift)
-- **Modern AI/ML Integrations**: Native support for Ollama (LLM operations), Docling (document processing), and OpenSearch (vector and scalar storage)
+- **Modern AI/ML Integrations**: Native support for Ollama (LLM operations), Docling (document processing), OpenSearch (vector and scalar storage) and Milvus (vector storage)
 
 ### Architectural Patterns
 
@@ -54,18 +54,18 @@ This architectural diversity is a deliberate design choice that supports the fra
 
 ### Technology Stack
 
-| Layer                   | Technologies                                                                                                                              |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **Orchestration**       | Prefect, Python 3.12+                                                                                                                     |
-| **Data Processing**     | PyArrow                                                                                                                                   |
-| **Storage**             | DuckDB (metadata and tables), Filesystem (metadata only)                                                                                  |
-| **Document Processing** | Docling (with ASR support for audio/video via ffmpeg)                                                                                     |
+| Layer                   | Technologies                                                                                                                                          |
+| ----------------------- |-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Orchestration**       | Prefect, Python 3.12+                                                                                                                                 |
+| **Data Processing**     | PyArrow                                                                                                                                               |
+| **Storage**             | DuckDB (metadata and tables), Filesystem (metadata only)                                                                                              |
+| **Document Processing** | Docling (with ASR support for audio/video via ffmpeg)                                                                                                 |
 | **LLM Integration**     | Ollama, Watsonx.ai, LiteLLM (unified interface supporting 100+ LLM providers including OpenAI, Anthropic, Google, AWS Bedrock, and more), HuggingFace |
-| **Vector Storage**      | OpenSearch, NMSLIB, Faiss                                                                                                                 |
-| **Language Detection**  | FastText, langdetect                                                                                                                      |
-| **Web Framework**       | FastAPI (optional)                                                                                                                        |
-| **Testing**             | pytest, pytest-cov                                                                                                                        |
-| **Package Management**  | uv                                                                                                                                        |
+| **Vector Storage**      | OpenSearch, Milvus, NMSLIB, Faiss                                                                                                                     |
+| **Language Detection**  | FastText, langdetect                                                                                                                                  |
+| **Web Framework**       | FastAPI (optional)                                                                                                                                    |
+| **Testing**             | pytest, pytest-cov                                                                                                                                    |
+| **Package Management**  | uv                                                                                                                                                    |
 
 ---
 
@@ -1267,7 +1267,7 @@ config = {
     "id": "extract_1",
     "job_id": "job_123",
     "job_run_id": "run_456",
-    "operator_params": {
+    "config": {
         "docling_url": "http://localhost:5000",
         "batch_size": 10
     }
@@ -1280,7 +1280,7 @@ config = {
 - `self.id`: Unique operator ID
 - `self.job_id`: Job identifier
 - `self.job_run_id`: Job run identifier
-- Custom parameters from `operator_params`
+- Custom parameters from `config`
 
 #### 3. Validation
 
@@ -1621,7 +1621,7 @@ graph TB
 }
 ```
 
-### 3. OpenSearch Schema Templates and Metadata Normalization
+### 4. OpenSearch Schema Templates and Metadata Normalization
 
 The OpenSearch adapter supports a flexible schema template system that enables reusable index configurations with placeholder-based dynamic values, along with automatic metadata column normalization.
 
@@ -2025,7 +2025,130 @@ graph TB
 - **Schema Templates**: JSON files defining reusable index configurations
 - **Validation System**: Ensures schema correctness before index creation
 
-### 4. Embeddings Operator Integration Architecture
+### 5. Milvus Integration Architecture
+
+```mermaid
+graph TB
+    subgraph "Datasift Layer"
+        VDB[VectorDBOperator]
+    end
+    
+    subgraph "Adapter Layer (Hexagonal)"
+        PORT[VectorDB Port<br/>Interface]
+        MA[Milvus Adapter]
+    end
+    
+    subgraph "Milvus Service"
+        MS[Milvus Server<br/>localhost:19530]
+        COLL[Collections]
+        IDX1[HNSW Index]
+        IDX2[IVF_FLAT Index]
+        IDX3[FLAT Index]
+    end
+    
+    VDB --> PORT
+    PORT --> MA
+    MA --> MS
+    MS --> COLL
+    COLL --> IDX1
+    COLL --> IDX2
+    COLL --> IDX3
+    
+    style VDB fill:#ffe1e1
+    style PORT fill:#fff4e1
+    style MA fill:#e1ffe1
+    style MS fill:#e1f5ff
+```
+
+**Hexagonal Architecture Benefits:**
+
+1. **Decoupling**: VectorDBOperator independent of Milvus specifics
+2. **Testability**: Easy to mock adapters for testing
+3. **Extensibility**: Add new vector DB adapters without changing operator
+4. **Flexibility**: Switch vector databases via configuration
+
+**Supported Index Types:**
+- **Dense Vectors**: HNSW, IVF_FLAT, IVF_SQ8, IVF_PQ, FLAT, DISKANN, AUTOINDEX
+- **Sparse Vectors**: SPARSE_INVERTED_INDEX, SPARSE_WAND
+
+**Supported Metric Types:**
+- **Dense Vectors**: L2 (Euclidean), IP (Inner Product), COSINE (Cosine similarity)
+- **Sparse Vectors**: BM25 (required for sparse mode)
+
+**Vector Modes:**
+- **Dense Only** (default): Stores only dense embeddings from embeddings operator
+- **Sparse + Dense**: Dual storage mode with BM25 function generating sparse vectors from content
+  - Requires `add_sparse_vector: true` and `metric_type: "BM25"`
+  - Still requires embeddings operator in pipeline
+  - Stores both dense embeddings and BM25-generated sparse vectors
+
+**Example Configuration (Dense Vectors):**
+```json
+{
+  "operator": "vectordb",
+  "config": {
+    "provider": "milvus",
+    "index_name": "my_collection",
+    "vector_dimension": 768,
+    "create_index": true,
+    "add_sparse_vector": false,
+    "provider_config": {
+      "auth_type": "standalone",
+      "host": "localhost",
+      "port": 19530,
+      "uri": null,
+      "token": null,
+      "username": "root",
+      "password": "Milvus", # pragma: allowlist secret
+      "database": "default",
+      "secure": false,
+      "index_type": "HNSW",
+      "metric_type": "L2",
+      "index_parameters": {
+        "M": 16,
+        "efConstruction": 256
+      },
+      "batch_size": 100,
+      "primary_key_field": "pk"
+    }
+  }
+```
+
+**Example Configuration (Sparse Vectors):**
+```json
+{
+  "id": "b2c3d4e5-f6a7-8b9c-0d1e-2f3a4b5c6d7e",
+  "operator": "vectordb",
+  "config": {
+    "provider": "milvus",
+    "index_name": "documents_sparse",
+    "vector_dimension": 768,
+    "add_sparse_vector": true,
+    "provider_config": {
+      "auth_type": "standalone",
+      "host": "localhost",
+      "port": 19530,
+      "username": "root",
+      "password": "Milvus", # pragma: allowlist secret
+      "index_type": "SPARSE_INVERTED_INDEX",
+      "metric_type": "BM25",
+      "primary_key_field": "pk"
+    }
+  }
+}
+```
+
+**Authentication Types:**
+- `standalone`: Local Milvus with optional username/password
+- `grpc`: IBM wx.data with gRPC (username with `ibmlhapikey_` prefix, password is API key)
+- `uri`: Pre-constructed URI with embedded API key
+- `token`: IAM token-based authentication
+
+**Deployment Support:**
+- **Standalone Milvus**: Single-node deployment for development and testing
+- **wx.data**: IBM watsonx.data integration for enterprise deployments with multiple auth options
+
+### 6. Embeddings Operator Integration Architecture
 
 The Embeddings Operator supports multiple embedding providers through a hexagonal architecture with pluggable adapters:
 
@@ -2080,16 +2203,18 @@ graph TB
 Ollama (Local):
 ```json
 {
-  "provider": "ollama",
-  "model_name": "nomic-embed-text"
+  "embeddings_type": "ollama",
+  "embeddings_model_id": "nomic-embed-text",
+  "embeddings_column": "embeddings"
 }
 ```
 
 HuggingFace (Local):
 ```json
 {
-  "provider": "huggingface",
-  "model_name": "sentence-transformers/all-MiniLM-L6-v2",
+  "embeddings_type": "huggingface",
+  "embeddings_model_id": "sentence-transformers/all-MiniLM-L6-v2",
+  "embeddings_column": "embeddings",
   "provider_config": {
     "device": "cuda"
   }
@@ -2099,8 +2224,9 @@ HuggingFace (Local):
 LiteLLM (OpenAI):
 ```json
 {
-  "provider": "litellm",
-  "model_name": "text-embedding-3-small",
+  "embeddings_type": "litellm",
+  "embeddings_model_id": "text-embedding-3-small",
+  "embeddings_column": "embeddings",
   "provider_config": {
     "api_key": "${OPENAI_API_KEY}"
   }
@@ -2110,8 +2236,9 @@ LiteLLM (OpenAI):
 Watsonx (IBM Cloud):
 ```json
 {
-  "provider": "watsonx",
-  "model_name": "ibm/slate-125m-english-rtrvr",
+  "embeddings_type": "watsonx",
+  "embeddings_model_id": "ibm/slate-125m-english-rtrvr",
+  "embeddings_column": "embeddings",
   "provider_config": {
     "api_key": "${WATSONX_API_KEY}",
     "api_base": "${WATSONX_API_BASE}",
@@ -2127,7 +2254,7 @@ Watsonx (IBM Cloud):
 - Batch processing support
 - Provider-specific optimizations
 
-### 5. Docling Integration Architecture
+### 7. Docling Integration Architecture
 
 ```mermaid
 graph TB
@@ -2189,7 +2316,7 @@ graph TB
 }
 ```
 
-### 5. DocumentClassifier Pattern
+### 8. DocumentClassifier Pattern
 
 The DocumentClassifier operator uses **hexagonal architecture** (ports and adapters pattern) to classify documents into predefined categories using Large Language Models. It supports multiple LLM providers through a unified interface, including IBM watsonx.ai.
 
@@ -2305,7 +2432,7 @@ graph LR
 - **Optional Overrides**: Use `WATSONX_API_BASE_URL` and `WATSONX_CONTAINER_KIND` when the default region or container type is not appropriate
 - **Non-Sensitive Settings**: Keep runtime options such as `api_base`, `container_kind`, and `request_timeout` in `provider_config`
 
-### 6. External Service Pattern
+### 9. External Service Pattern
 
 **Common Pattern for All Integrations:**
 
@@ -2347,7 +2474,7 @@ sequenceDiagram
 4. Error handling and logging
 5. Timeout management
 
-### 6. PIIAndHAPAnnotator Hexagonal Architecture Pattern
+### 10. PIIAndHAPAnnotator Hexagonal Architecture Pattern
 
 The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using Large Language Models. It implements hexagonal architecture to support multiple detection providers through a pluggable adapter system.
 
@@ -2416,8 +2543,8 @@ graph TB
 
 ```json
 {
-  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "operator_params": {
+  "operator": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
+  "config": {
     "provider": "ollama",
     "model_name": "granite3.1-dense:8b",
     "provider_config": {}
@@ -2429,8 +2556,8 @@ graph TB
 
 ```json
 {
-  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "operator_params": {
+  "operator": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
+  "config": {
     "provider": "watsonx",
     "provider_config": {
       "api_key": "your-ibm-cloud-api-key",  # pragma: allowlist secret
@@ -2447,8 +2574,8 @@ graph TB
 
 ```json
 {
-  "operator_type": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "operator_params": {
+  "operator": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
+  "config": {
     "provider": "litellm",
     "model_name": "gpt-4",
     "provider_config": {
@@ -2634,8 +2761,8 @@ graph TB
 
 ```json
 {
-  "operator_type": "IngestSourceOperator",
-  "operator_params": {
+  "operator": "IngestSourceOperator",
+  "config": {
     "provider": "s3",
     "connection_params": {
       "bucket": "my-documents",
@@ -2656,8 +2783,8 @@ graph TB
 
 ```json
 {
-  "operator_type": "IngestSourceOperator",
-  "operator_params": {
+  "operator": "IngestSourceOperator",
+  "config": {
     "provider": "ibm_cos",
     "connection_params": {
       "bucket": "enterprise-docs",
@@ -2677,8 +2804,8 @@ graph TB
 
 ```json
 {
-  "operator_type": "IngestSourceOperator",
-  "operator_params": {
+  "operator": "IngestSourceOperator",
+  "config": {
     "provider": "sharepoint",
     "connection_params": {
       "drive_id": "b!abc123...",
@@ -2700,8 +2827,8 @@ graph TB
 
 ```json
 {
-  "operator_type": "IngestSourceOperator",
-  "operator_params": {
+  "operator": "IngestSourceOperator",
+  "config": {
     "provider": "onedrive",
     "connection_params": {
       "drive_id": "b!xyz789...",
@@ -2722,8 +2849,8 @@ graph TB
 
 ```json
 {
-  "operator_type": "IngestSourceOperator",
-  "operator_params": {
+  "operator": "IngestSourceOperator",
+  "config": {
     "provider": "google_drive",
     "connection_params": {
       "folder_id": "1a2b3c4d5e6f7g8h9i0j",
@@ -2738,11 +2865,10 @@ graph TB
 ```
 
 **Web Pages:**
-
 ```json
 {
-  "operator_type": "IngestSourceOperator",
-  "operator_params": {
+  "operator": "IngestSourceOperator",
+  "config": {
     "provider": "web",
     "connection_params": {
       "urls": ["https://example.com", "https://www.iana.org/domains/reserved"],
@@ -4116,7 +4242,8 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 
 - **VectorDBOperator**: Generic vector database operator using hexagonal architecture (ports & adapters)
   - Supports multiple vector databases through adapter pattern
-  - **OpenSearch Adapter**: OpenSearch vector storage and retrieval with multiple KNN engines
+  - **OpenSearch Adapter**: OpenSearch vector storage and retrieval with multiple KNN engines (NMSLIB, Faiss, Lucene)
+  - **Milvus Adapter**: Milvus vector storage supporting both standalone and wx.data deployments with multiple index types (HNSW, IVF_FLAT, FLAT, etc.)
 
 #### Storage Operators (`storage/`)
 

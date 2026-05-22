@@ -64,6 +64,7 @@ dependencies = [
     "pyiceberg-core==0.7.0",
     "pyiceberg[glue]==0.9.1",
     "pyjwt==2.12.1",
+    "pymilvus==2.6.13",
     "pypdf==6.10.0",
     "python-dotenv==1.2.1",
     "python-jose[cryptography]==3.5.0",

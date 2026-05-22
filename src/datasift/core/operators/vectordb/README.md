@@ -90,7 +90,7 @@ The main operator that:
 ### Basic Configuration
 
 ```python
-from core.operators.vectordb import VectorDBOperator
+from datasift.core.operators.vectordb import VectorDBOperator
 
 config = {
     "provider": "opensearch",  # Selects OpenSearch adapter
@@ -146,10 +146,10 @@ To add support for a new vector database (e.g., Pinecone, Weaviate):
 ### 1. Create an Adapter
 
 ```python
-# adapters/outbound/pinecone_adapter.py
-from core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
-from core.operators.vectordb.domain.models import IndexRequest, IndexResult
-from core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
+# adapters/outbound/pinecone/adapter.py
+from datasift.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
+from datasift.core.operators.vectordb.domain.models import IndexRequest, IndexResult
+from datasift.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
 
 @register_vector_store("pinecone")
 class PineconeAdapter(VectorStorePort):
@@ -235,6 +235,7 @@ operator = VectorDBOperator(config)
 ```
 vectordb/
 ├── README.md                          # This file
+├── MILVUS_README.md                   # Milvus-specific documentation
 ├── __init__.py                        # Public API exports
 ├── vectordb_operator.py               # Main operator
 ├── domain/
@@ -244,14 +245,22 @@ vectordb/
 │   └── outbound/
 │       ├── __init__.py
 │       └── vector_store.py            # Port interface
-├── adapters/
-│   └── outbound/
-│       ├── __init__.py
-│       ├── opensearch_adapter.py      # OpenSearch implementation
-│       └── factories/
-│           ├── __init__.py
-│           └── vector_store_factory.py # Factory with registration
-├── opensearch_client.py               # OpenSearch connection (internal)
-├── opensearch_index_manager.py        # OpenSearch index ops (internal)
-└── opensearch_batch_processor.py      # OpenSearch bulk ops (internal)
+└── adapters/
+    └── outbound/
+        ├── __init__.py
+        ├── opensearch/                # OpenSearch provider
+        │   ├── __init__.py
+        │   ├── adapter.py             # OpenSearch adapter
+        │   ├── client.py              # OpenSearch connection
+        │   ├── index_manager.py       # OpenSearch index ops
+        │   └── batch_processor.py     # OpenSearch bulk ops
+        ├── milvus/                    # Milvus provider
+        │   ├── __init__.py
+        │   ├── adapter.py             # Milvus adapter
+        │   ├── client.py              # Milvus connection
+        │   ├── index_manager.py       # Milvus collection ops
+        │   └── batch_processor.py     # Milvus bulk ops
+        └── factories/
+            ├── __init__.py
+            └── vector_store_factory.py # Factory with registration
 ```

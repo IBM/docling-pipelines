@@ -162,6 +162,9 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
   - See [OpenSearch Documentation](docs/opensearch/) - Complete setup and usage guide
   - See [Operator Reference](docs/operators/vectordb/opensearch.md) - Technical API documentation
   - See [Integration Example](examples/opensearch_example_README.md) - Code examples
+- **Milvus** - High-performance vector database with multiple index types (HNSW, IVF_FLAT, FLAT)
+  - Supports both standalone Milvus and wx.data deployments
+  - Configurable similarity metrics (L2, IP, COSINE)
 
 ### Ingest Operators
 
@@ -1402,6 +1405,93 @@ podman-compose -f docker/docker-compose.opensearch.yml down
 - [VectorDBOperator Documentation](src/datasift/core/operators/vectordb/vectordb_operator.py) - Operator reference
 - [Operator Reference](OPERATOR_REFERENCE.md) - VectorDBOperator parameters
 - [Troubleshooting Guide](TROUBLESHOOTING.md) - OpenSearch connection issues
+
+---
+
+### Milvus Vector Store
+
+The [`VectorDBOperator`](src/datasift/core/operators/vectordb/vectordb_operator.py) with Milvus adapter requires a running Milvus instance. The quickest way to get one locally is via the provided Compose file.
+
+#### Step 1 — Start Milvus
+
+**Docker:**
+
+```bash
+docker-compose -f docker/docker-compose.milvus.yml up -d
+```
+
+**Podman:**
+
+```bash
+podman-compose -f docker/docker-compose.milvus.yml up -d
+```
+
+This starts:
+
+- Milvus standalone server on `localhost:19530`
+- Attu (Milvus web UI) on `http://localhost:8000`
+
+#### Step 2 — Verify it's running
+
+```bash
+python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Connected to Milvus successfully')"
+```
+
+#### Step 3 — Configure in flow
+
+Add Milvus operator to your flow configuration:
+
+```json
+{
+  "operator": "vectordb",
+  "config": {
+    "provider": "milvus",
+    "index_name": "my_collection",
+    "vector_dimension": 768,
+    "provider_config": {
+      "auth_type": "standalone",
+      "host": "localhost",
+      "port": 19530,
+      "index_type": "HNSW",
+      "metric_type": "L2"
+    }
+  }
+}
+```
+
+**Authentication Types:**
+- `standalone` - Local Milvus (optional username/password)
+- `grpc` - IBM wx.data with gRPC (requires username with `ibmlhapikey_` prefix and API key as password)
+- `uri` - Pre-constructed URI with embedded API key
+- `token` - IAM token-based (constructs URI internally)
+
+For detailed authentication configuration, see [Milvus Documentation](docs/milvus/README.md).
+
+**Supported Index Types:**
+- `HNSW` - Hierarchical Navigable Small World (recommended for most use cases)
+- `IVF_FLAT` - Inverted File with Flat compression
+- `FLAT` - Brute-force search (exact results, slower)
+- `IVF_SQ8` - Inverted File with Scalar Quantization
+- `IVF_PQ` - Inverted File with Product Quantization
+
+**Supported Metric Types:**
+- `L2` - Euclidean distance
+- `IP` - Inner product
+- `COSINE` - Cosine similarity
+
+#### Step 4 — Stop Milvus
+
+```bash
+# Docker
+docker-compose -f docker/docker-compose.milvus.yml down
+
+# Podman
+podman-compose -f docker/docker-compose.milvus.yml down
+```
+
+**See also:**
+- [VectorDBOperator Documentation](src/datasift/core/operators/vectordb/vectordb_operator.py) - Operator reference
+- [Milvus Official Documentation](https://milvus.io/docs) - Milvus documentation
 
 ---
 

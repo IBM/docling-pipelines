@@ -134,7 +134,7 @@ To add new fixtures:
 
 ```python
 import pytest
-from core.operators.your_operator import YourOperator
+from datasift.core.operators.your_operator import YourOperator
 
 class TestYourOperator:
     @pytest.fixture
@@ -156,8 +156,8 @@ class TestYourOperator:
 
 ```python
 import pytest
-from core.operators.operator1 import Operator1
-from core.operators.operator2 import Operator2
+from datasift.core.operators.operator1 import Operator1
+from datasift.core.operators.operator2 import Operator2
 
 class TestOperatorPipeline:
     @pytest.fixture

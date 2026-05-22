@@ -9,11 +9,12 @@ import pyarrow as pa
 
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import register_vector_store
-from datasift.core.operators.vectordb.opensearch_batch_processor import OpenSearchBatchProcessor
-from datasift.core.operators.vectordb.opensearch_client import OpenSearchClient
-from datasift.core.operators.vectordb.opensearch_index_manager import OpenSearchIndexManager
+from datasift.core.operators.vectordb.adapters.outbound.opensearch.batch_processor import OpenSearchBatchProcessor
+from datasift.core.operators.vectordb.adapters.outbound.opensearch.client import OpenSearchClient
+from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
 from datasift.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.operators.vectordb_utils import detect_vector_dimension
 
 logger = get_logger(__name__)
 
@@ -230,4 +231,4 @@ class OpenSearchAdapter(VectorStorePort):
         Returns:
             Detected dimension or None if detection fails
         """
-        return self.index_manager.detect_vector_dimension(table)
+        return detect_vector_dimension(table=table, embeddings_column=self.embeddings_column)

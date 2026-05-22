@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from datasift.core.operators.vectordb.opensearch_index_manager import OpenSearchIndexManager
+from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
 from datasift.exceptions.datasift_exceptions import DatasiftException
 
 

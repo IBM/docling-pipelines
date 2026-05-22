@@ -222,6 +222,7 @@ pyiceberg==0.9.1
 pyiceberg-core==0.7.0
 pyjwt==2.12.1
 pylatexenc==2.10
+pymilvus==2.6.13
 pyobjc-core==12.1 ; sys_platform == 'darwin'
 pyobjc-framework-cocoa==12.1 ; sys_platform == 'darwin'
 pyobjc-framework-coreml==12.1 ; sys_platform == 'darwin'

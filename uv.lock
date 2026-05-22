@@ -835,6 +835,7 @@ dependencies = [
     { name = "pyiceberg", extra = ["glue"] },
     { name = "pyiceberg-core" },
     { name = "pyjwt" },
+    { name = "pymilvus" },
     { name = "pypdf" },
     { name = "python-dotenv" },
     { name = "python-jose", extra = ["cryptography"] },
@@ -953,6 +954,7 @@ requires-dist = [
     { name = "pyiceberg", extras = ["glue"], specifier = "==0.9.1" },
     { name = "pyiceberg-core", specifier = "==0.7.0" },
     { name = "pyjwt", specifier = "==2.12.1" },
+    { name = "pymilvus", specifier = "==2.6.13" },
     { name = "pypdf", specifier = "==6.10.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==9.0.2" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = "==1.3.0" },
@@ -3931,6 +3933,26 @@ name = "pylatexenc"
 version = "2.10"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/5d/ab/34ec41718af73c00119d0351b7a2531d2ebddb51833a36448fc7b862be60/pylatexenc-2.10.tar.gz", hash = "sha256:3dd8fd84eb46dc30bee1e23eaab8d8fb5a7f507347b23e5f38ad9675c84f40d3", size = 162597, upload-time = "2021-04-06T07:56:07.854Z" }
+
+[[package]]
+name = "pymilvus"
+version = "2.6.13"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cachetools" },
+    { name = "grpcio" },
+    { name = "numpy" },
+    { name = "orjson" },
+    { name = "pandas" },
+    { name = "protobuf" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "setuptools" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/28/78/68e752283ad58891687c2d9e56a09019585a31d03637af9b60bf2d396821/pymilvus-2.6.13.tar.gz", hash = "sha256:d29908d9623967be7be41c518d1fb68fe5816b9ab780af2737fd3059f2d370c0", size = 1579003, upload-time = "2026-05-07T12:08:36.179Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/15/f2/850c023173525ba02701cc0990461a67ef999825b301847ce16db9efee32/pymilvus-2.6.13-py3-none-any.whl", hash = "sha256:3098204172413f6fe7c7928652adba0e1ec70150d6e515b83da4e319b98d9e69", size = 319649, upload-time = "2026-05-07T12:08:34.362Z" },
+]
 
 [[package]]
 name = "pyobjc-core"

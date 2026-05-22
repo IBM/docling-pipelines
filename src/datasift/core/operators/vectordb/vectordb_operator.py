@@ -85,6 +85,9 @@ class VectorDBOperator(AbstractOperator):
         self.config_vector_dimension: int = config.get(
             OperatorConstants.VectorDB.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION
         )
+        self.add_sparse_vector: bool = config.get(
+            OperatorConstants.VectorDB.ADD_SPARSE_VECTOR, OperatorConstants.VectorDB.ADD_SPARSE_VECTOR_DEFAULT
+        )
 
         # Initialize adapter using factory
         try:
@@ -101,6 +104,11 @@ class VectorDBOperator(AbstractOperator):
             adapter_config[OperatorConstants.Config.FEATURE_MAPPINGS] = self.config.get(
                 OperatorConstants.Config.FEATURE_MAPPINGS, {}
             )
+            # Add sparse vector configuration if present (Milvus-specific)
+            if OperatorConstants.VectorDB.ADD_SPARSE_VECTOR in self.config:
+                adapter_config[OperatorConstants.VectorDB.ADD_SPARSE_VECTOR] = self.config[
+                    OperatorConstants.VectorDB.ADD_SPARSE_VECTOR
+                ]
 
             # Pass schema_template_path if provided (operator-level config)
             schema_template_path = self.config.get(SCHEMA_TEMPLATE_PATH_KEY)
@@ -169,14 +177,30 @@ class VectorDBOperator(AbstractOperator):
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             return [table], metadata
 
-        if self.embeddings_column not in table.column_names:
-            missing_embeddings_msg: str = f"Required column '{self.embeddings_column}' not found in table"
-            logger.error(missing_embeddings_msg, extra=self.common_log_arguments)
-            metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
-            return [table], metadata
+        # Handle embeddings column validation and dimension detection
+        detected_dimension: int | None = None
 
-        # Auto-detect vector dimension from embeddings data
-        detected_dimension: int | None = self.adapter.detect_vector_dimension(table)
+        if self.add_sparse_vector:
+            # Sparse mode: embeddings column is optional (for dual vector mode)
+            if self.embeddings_column in table.column_names:
+                # Dual vector mode: detect dimension from dense embeddings
+                detected_dimension = self.adapter.detect_vector_dimension(table)
+                logger.info(f"Sparse mode with dense embeddings: detected dimension {detected_dimension}")
+            else:
+                # Pure sparse mode: no dense embeddings
+                logger.info("Pure sparse vector mode: no dense embeddings column, using BM25 only")
+        else:
+            # Dense mode: embeddings column is required
+            if self.embeddings_column not in table.column_names:
+                missing_embeddings_msg: str = f"Required column '{self.embeddings_column}' not found in table"
+                logger.error(missing_embeddings_msg, extra=self.common_log_arguments)
+                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+                return [table], metadata
+
+            # Auto-detect vector dimension from embeddings data
+            detected_dimension = self.adapter.detect_vector_dimension(table)
+
+        # Process detected dimension if available (only in dense mode)
         if detected_dimension is not None:
             if detected_dimension != self.config_vector_dimension:
                 logger.info(

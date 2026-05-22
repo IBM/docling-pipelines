@@ -1,5 +1,6 @@
 """Outbound adapters for vector database operations."""
 
-from .opensearch_adapter import OpenSearchAdapter
+from datasift.core.operators.vectordb.adapters.outbound.milvus.adapter import MilvusAdapter
+from datasift.core.operators.vectordb.adapters.outbound.opensearch.adapter import OpenSearchAdapter
 
-__all__ = ["OpenSearchAdapter"]
+__all__ = ["MilvusAdapter", "OpenSearchAdapter"]

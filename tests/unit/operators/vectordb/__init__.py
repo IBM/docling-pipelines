@@ -1,2 +1,0 @@
-# VectorDB operator tests
-
