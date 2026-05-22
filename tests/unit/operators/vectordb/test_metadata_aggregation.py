@@ -290,14 +290,14 @@ class TestIndexMappingWithMetadata:
         return OpenSearchIndexManager(
             client=mock_client,
             index_name="test_index",
-            vector_dimension=384,
             available_features=available_features,
             feature_mappings=feature_mappings,
         )
 
     def test_metadata_object_in_mapping(self, *, index_manager):
         """Test that metadata object is added to index mapping."""
-        mapping = index_manager.create_index_mapping()
+        dimension_mapping = {"embeddings": 384}
+        mapping = index_manager.create_index_mapping(dimension_mapping=dimension_mapping)
 
         properties = mapping["mappings"]["properties"]
 
@@ -308,7 +308,8 @@ class TestIndexMappingWithMetadata:
 
     def test_metadata_mapping_with_other_fields(self, *, index_manager):
         """Test that metadata mapping coexists with other field mappings."""
-        mapping = index_manager.create_index_mapping()
+        dimension_mapping = {"embeddings": 384}
+        mapping = index_manager.create_index_mapping(dimension_mapping=dimension_mapping)
 
         properties = mapping["mappings"]["properties"]
 
@@ -324,7 +325,9 @@ class TestIndexMappingWithMetadata:
 
     def test_index_body_includes_metadata(self, *, index_manager):
         """Test that full index body includes metadata mapping."""
-        index_body = index_manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+
+        index_body = index_manager.build_index_body(dimension_mapping=dimension_mapping)
 
         properties = index_body["mappings"]["properties"]
 

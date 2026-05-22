@@ -1650,7 +1650,6 @@ graph TB
   "config": {
     "provider": "opensearch",
     "index_name": "documents",
-    "vector_dimension": 768,
     "provider_config": {
       "host": "localhost",
       "port": 9200,
@@ -1660,6 +1659,8 @@ graph TB
   }
 }
 ```
+
+**Note:** Vector dimensions are auto-detected from embedding data. OpenSearch supports multiple vector columns with different dimensions in a single index.
 
 ### 4. OpenSearch Schema Templates and Metadata Normalization
 
@@ -1757,12 +1758,13 @@ Templates support two formats:
       "host": "localhost",
       "port": 9200,
       "engine": "faiss",
-      "algorithm": "hnsw",
-      "vector_dimension": 768
+      "algorithm": "hnsw"
     }
   }
 }
 ```
+
+**Note:** Vector dimensions are auto-detected from embedding data.
 
 #### Indexing Rules System
 
@@ -2129,7 +2131,6 @@ graph TB
   "config": {
     "provider": "milvus",
     "index_name": "my_collection",
-    "vector_dimension": 768,
     "create_index": true,
     "add_sparse_vector": false,
     "provider_config": {
@@ -2152,7 +2153,10 @@ graph TB
       "primary_key_field": "pk"
     }
   }
+}
 ```
+
+**Note:** Vector dimension is auto-detected from `embeddings` column data. Milvus currently supports single vector column (multi-model support planned for future update).
 
 **Example Configuration (Sparse Vectors):**
 ```json
@@ -2162,7 +2166,6 @@ graph TB
   "config": {
     "provider": "milvus",
     "index_name": "documents_sparse",
-    "vector_dimension": 768,
     "add_sparse_vector": true,
     "provider_config": {
       "auth_type": "standalone",

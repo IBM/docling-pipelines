@@ -12,7 +12,6 @@
   "field_types": {
     "vector": {
       "type": "knn_vector",
-      "dimension": "__VECTOR_DIMENSION__",
       "method": {
         "name": "__ALGORITHM__",
         "space_type": "__SPACE_TYPE__",

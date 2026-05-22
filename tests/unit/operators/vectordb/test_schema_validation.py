@@ -51,7 +51,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Should not raise exception
@@ -65,7 +64,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         del valid_schema["schema_name"]
@@ -83,7 +81,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         del valid_schema["schema_version"]
@@ -101,7 +98,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         valid_schema["schema_version"] = 0
@@ -119,7 +115,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         del valid_schema["settings"]
@@ -137,7 +132,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         del valid_schema["mappings"]
@@ -155,7 +149,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         del valid_schema["mappings"]["properties"]
@@ -173,7 +166,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Remove vector field
@@ -192,7 +184,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         valid_schema["mappings"]["properties"]["embeddings"]["dimension"] = -1
@@ -211,7 +202,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         valid_schema["mappings"]["properties"]["embeddings"]["method"]["engine"] = "invalid_engine"
@@ -229,7 +219,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         valid_schema["mappings"]["properties"]["embeddings"]["method"]["name"] = "invalid_algo"
@@ -247,7 +236,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Lucene doesn't support IVF
@@ -267,7 +255,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Set m outside optimal range
@@ -284,7 +271,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="ivf",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Change to IVF algorithm
@@ -305,7 +291,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Create deeply nested structure (5 levels)
@@ -335,7 +320,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Add many fields
@@ -353,7 +337,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Add field with undefined analyzer
@@ -370,7 +353,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Define custom analyzer
@@ -391,7 +373,6 @@ class TestSchemaValidation:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
         )
 
         # Use built-in analyzer

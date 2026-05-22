@@ -828,9 +828,10 @@ class EmbeddingsOperator(AbstractOperator):
                     # Store embeddings as files if chunks are stored as files
                     if row_chunks_as_files:
                         # Lazy initialization of embeddings directory
+                        # Include embeddings column name to segregate multi-model embeddings
                         if embeddings_dir is None:
                             embeddings_dir = get_data_path(
-                                sub_dir=f"/{self.job_id}/{self.job_run_id}/temp_data/embeddings"
+                                sub_dir=f"/{self.job_id}/{self.job_run_id}/temp_data/embeddings/{self.embeddings_column}"
                             )
 
                         # Generate filename using sanitized document ID

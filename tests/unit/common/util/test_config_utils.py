@@ -24,11 +24,9 @@ class TestGetOpensearchConfig:
             config = get_opensearch_config()
 
             # Operator-level params
-            assert config[OperatorConstants.VectorDB.VECTOR_DIMENSION] == 384
             assert config[OperatorConstants.VectorDB.CREATE_INDEX] is True
             assert config[OperatorConstants.VectorDB.INDEX_NAME] == "datasift_test"
             assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "doc_id_hash"
-            assert config[OperatorConstants.Columns.EMBEDDINGS_COLUMN] == "embeddings"
 
             # Provider-specific params are in provider_config
             provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]
@@ -65,11 +63,9 @@ class TestGetOpensearchConfig:
             config = get_opensearch_config()
 
             # Operator-level params
-            assert config[OperatorConstants.VectorDB.VECTOR_DIMENSION] == 768
             assert config[OperatorConstants.VectorDB.CREATE_INDEX] is False
             assert config[OperatorConstants.VectorDB.INDEX_NAME] == "custom_index"
             assert config[OperatorConstants.Columns.DOC_ID_COLUMN] == "custom_id"
-            assert config[OperatorConstants.Columns.EMBEDDINGS_COLUMN] == "custom_embeddings"
 
             # Provider-specific params are in provider_config
             provider_config = config[OperatorConstants.Config.PROVIDER_CONFIG]

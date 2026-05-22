@@ -14,7 +14,7 @@ from datasift.core.operators.vectordb.adapters.outbound.opensearch.client import
 from datasift.core.operators.vectordb.adapters.outbound.opensearch.index_manager import OpenSearchIndexManager
 from datasift.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from datasift.utils.infrastructure.logging import get_logger
-from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+from datasift.utils.operators.vectordb_utils import detect_all_vector_dimensions, detect_vector_dimension
 
 logger = get_logger(__name__)
 
@@ -75,8 +75,6 @@ class OpenSearchAdapter(VectorStorePort):
         """
         # Extract operator-level parameters (added by VectorDBOperator)
         self.index_name = adapter_config.get(OperatorConstants.VectorDB.INDEX_NAME)
-        self.embeddings_column = adapter_config.get(OperatorConstants.Columns.EMBEDDINGS_COLUMN, "embeddings")
-        self.vector_dimension = adapter_config.get(OperatorConstants.VectorDB.VECTOR_DIMENSION, 384)
         available_features = adapter_config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         feature_mappings = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, {})
 
@@ -123,12 +121,10 @@ class OpenSearchAdapter(VectorStorePort):
             engine=engine,
             algorithm=algorithm,
             space_type=space_type,
-            vector_dimension=self.vector_dimension,
             engine_parameters=engine_parameters or {},
             index_settings=index_settings,
             available_features=available_features,
             feature_mappings=feature_mappings,
-            embeddings_column=self.embeddings_column,
             schema_template_path=schema_template_path,
         )
 
@@ -196,19 +192,14 @@ class OpenSearchAdapter(VectorStorePort):
         """
         return self.batch_processor.get_document_count()
 
-    def create_index(self, dimension: int) -> None:
+    def create_index(self, *, dimension_mapping: dict[str, int]) -> None:
         """Create the OpenSearch index if it doesn't exist.
 
         Args:
-            dimension: Vector dimension for the index
+            dimension_mapping: Dictionary mapping vector column names to their dimensions
         """
-        # Update dimension if provided
-        if dimension != self.vector_dimension:
-            self.index_manager.vector_dimension = dimension
-            self.vector_dimension = dimension
-
-        self.index_manager.create_index()
-        logger.info(f"Created index: {self.index_name} with dimension: {dimension}")
+        self.index_manager.create_index(dimension_mapping=dimension_mapping)
+        logger.info(f"Created index: {self.index_name} with dimension mapping: {dimension_mapping}")
 
     def refresh_index(self) -> None:
         """Refresh the index to make recent changes visible."""
@@ -222,13 +213,28 @@ class OpenSearchAdapter(VectorStorePort):
         """
         return self.index_manager.index_exists()
 
-    def detect_vector_dimension(self, table: pa.Table) -> int | None:
+    def detect_vector_dimension(self, *, table: pa.Table, column_name: str | None = None) -> int | None:
         """Detect vector dimension from embeddings data.
 
         Args:
             table: PyArrow table containing embeddings
+            column_name: Optional specific column to detect dimension for
 
         Returns:
             Detected dimension or None if detection fails
         """
-        return detect_vector_dimension(table=table, embeddings_column=self.embeddings_column)
+        if column_name is None:
+            raise ValueError("column_name parameter is required for detect_vector_dimension")
+        return detect_vector_dimension(table=table, embeddings_column=column_name)
+
+    def detect_all_vector_dimensions(self, table: pa.Table, *, vector_columns: list[str]) -> dict[str, int]:
+        """Detect dimensions for all specified vector columns.
+
+        Args:
+            table: PyArrow table containing embeddings
+            vector_columns: List of column names to detect dimensions for
+
+        Returns:
+            Dictionary mapping column names to their detected dimensions
+        """
+        return detect_all_vector_dimensions(table=table, vector_columns=vector_columns)

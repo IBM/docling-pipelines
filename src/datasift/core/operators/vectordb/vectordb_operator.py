@@ -77,14 +77,7 @@ class VectorDBOperator(AbstractOperator):
         self.doc_id_column: str = config.get(
             OperatorConstants.Columns.DOC_ID_COLUMN, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
-        self.embeddings_column: str = config.get(
-            OperatorConstants.Columns.EMBEDDINGS_COLUMN,
-            OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT,
-        )
         self.create_index: bool = config.get(OperatorConstants.VectorDB.CREATE_INDEX, True)
-        self.config_vector_dimension: int = config.get(
-            OperatorConstants.VectorDB.VECTOR_DIMENSION, DEFAULT_VECTOR_DIMENSION
-        )
         self.add_sparse_vector: bool = config.get(
             OperatorConstants.VectorDB.ADD_SPARSE_VECTOR, OperatorConstants.VectorDB.ADD_SPARSE_VECTOR_DEFAULT
         )
@@ -96,8 +89,6 @@ class VectorDBOperator(AbstractOperator):
 
             # Add operator-level parameters that the adapter needs
             adapter_config[OperatorConstants.VectorDB.INDEX_NAME] = self.index_name
-            adapter_config[OperatorConstants.VectorDB.VECTOR_DIMENSION] = self.config_vector_dimension
-            adapter_config[OperatorConstants.Columns.EMBEDDINGS_COLUMN] = self.embeddings_column
             adapter_config[OperatorConstants.Config.AVAILABLE_FEATURES] = self.config.get(
                 OperatorConstants.Config.AVAILABLE_FEATURES, {}
             )
@@ -170,56 +161,56 @@ class VectorDBOperator(AbstractOperator):
             logger.warning("Empty table provided", extra=self.common_log_arguments)
             return [table], metadata
 
-        # Validate required columns
+        # Validate required doc_id column
         if self.doc_id_column not in table.column_names:
             missing_doc_id_msg: str = f"Required column '{self.doc_id_column}' not found in table"
             logger.error(missing_doc_id_msg, extra=self.common_log_arguments)
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             return [table], metadata
 
-        # Handle embeddings column validation and dimension detection
-        detected_dimension: int | None = None
+        # Identify all DENSE vector columns from available_features
+        vector_columns = [
+            col_name
+            for col_name, feature_config in self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {}).items()
+            if feature_config.get("type") == "vector" and feature_config.get("available_for_vector_db", False)
+        ]
 
+        # Handle sparse vector mode
         if self.add_sparse_vector:
-            # Sparse mode: embeddings column is optional (for dual vector mode)
-            if self.embeddings_column in table.column_names:
-                # Dual vector mode: detect dimension from dense embeddings
-                detected_dimension = self.adapter.detect_vector_dimension(table)
-                logger.info(f"Sparse mode with dense embeddings: detected dimension {detected_dimension}")
+            # Sparse mode: dense embeddings are optional
+            if not vector_columns:
+                logger.info("Pure sparse vector mode: no dense embeddings, using BM25 only")
+                dimension_mapping = {}  # No dense vectors to detect
             else:
-                # Pure sparse mode: no dense embeddings
-                logger.info("Pure sparse vector mode: no dense embeddings column, using BM25 only")
+                # Dual mode: detect dimensions for dense vectors
+                dimension_mapping = self.adapter.detect_all_vector_dimensions(table, vector_columns=vector_columns)
+                logger.info(
+                    f"Sparse + dense mode: detected dimensions for {len(vector_columns)} column(s): {dimension_mapping}",
+                    extra=self.common_log_arguments,
+                )
         else:
-            # Dense mode: embeddings column is required
-            if self.embeddings_column not in table.column_names:
-                missing_embeddings_msg: str = f"Required column '{self.embeddings_column}' not found in table"
-                logger.error(missing_embeddings_msg, extra=self.common_log_arguments)
+            # Dense-only mode: at least one dense vector column required
+            if not vector_columns:
+                error_msg = "No vector columns found in available_features. Cannot proceed without embeddings."
+                logger.error(error_msg, extra=self.common_log_arguments)
                 metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
                 return [table], metadata
 
-            # Auto-detect vector dimension from embeddings data
-            detected_dimension = self.adapter.detect_vector_dimension(table)
-
-        # Process detected dimension if available (only in dense mode)
-        if detected_dimension is not None:
-            if detected_dimension != self.config_vector_dimension:
-                logger.info(
-                    f"Using auto-detected vector dimension: {detected_dimension} "
-                    f"(config specified: {self.config_vector_dimension})",
-                    extra=self.common_log_arguments,
-                )
-            else:
-                logger.info(
-                    f"Auto-detected vector dimension matches config: {detected_dimension}",
-                    extra=self.common_log_arguments,
-                )
-            dimension_to_use = detected_dimension
-        else:
             logger.info(
-                f"Could not auto-detect dimension, using config value: {self.config_vector_dimension}",
+                f"Detecting dimensions for {len(vector_columns)} vector column(s): {vector_columns}",
                 extra=self.common_log_arguments,
             )
-            dimension_to_use = self.config_vector_dimension
+
+            # Auto-detect dimensions for all vector columns
+            dimension_mapping = self.adapter.detect_all_vector_dimensions(table, vector_columns=vector_columns)
+
+            if not dimension_mapping:
+                error_msg = f"Failed to auto-detect dimensions for vector columns: {vector_columns}"
+                logger.error(error_msg, extra=self.common_log_arguments)
+                metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
+                return [table], metadata
+
+            logger.info(f"Auto-detected dimensions: {dimension_mapping}", extra=self.common_log_arguments)
 
         # Create index if needed
         if self.create_index:
@@ -230,7 +221,7 @@ class VectorDBOperator(AbstractOperator):
                         extra=self.common_log_arguments,
                     )
                 else:
-                    self.adapter.create_index(dimension_to_use)
+                    self.adapter.create_index(dimension_mapping=dimension_mapping)
             except Exception as e:
                 logger.error(f"Failed to create index: {e!s}", extra=self.common_log_arguments)
                 raise DatasiftException(
@@ -268,62 +259,93 @@ class VectorDBOperator(AbstractOperator):
 
                 doc_id: str = str(row_doc_id)
 
-                # Check if we have file references (both chunks and embeddings will be file refs together)
+                # Check if we have chunked content
                 chunked_content_value: Any = row_data.get(OperatorConstants.Columns.CHUNKED_CONTENT)
-                embeddings_value: Any = row_data.get(self.embeddings_column)
 
                 # Determine if chunked based on chunked_content structure
                 is_chunked: bool = False
                 chunks_filepath: str | None = None
-                embeddings_filepath: str | None = None
 
                 if (
                     isinstance(chunked_content_value, dict)
                     and DatasiftConstants.CHUNKS_MEMMAP_FILE in chunked_content_value
                 ):
-                    # File references - both chunks and embeddings are file paths
+                    # File references for chunks
                     chunks_filepath = chunked_content_value[DatasiftConstants.CHUNKS_MEMMAP_FILE]
-                    embeddings_filepath = (
-                        embeddings_value.get(DatasiftConstants.EMBEDDINGS_MEMMAP_FILE)
-                        if isinstance(embeddings_value, dict)
-                        else None
-                    )
                     is_chunked = True
                     logger.debug(
-                        f"Detected file references for chunked data - chunks: {chunks_filepath}, embeddings: {embeddings_filepath}",
+                        f"Detected file references for chunked data - chunks: {chunks_filepath}",
                         extra=self.common_log_arguments,
                     )
                 elif isinstance(chunked_content_value, list) and len(chunked_content_value) > 0:
                     # In-memory chunks
                     is_chunked = True
-                    # Embeddings should also be in memory and chunked
-                    if embeddings_value and isinstance(embeddings_value, list) and len(embeddings_value) > 0:
-                        if isinstance(embeddings_value[0], list):
-                            if len(embeddings_value[0]) > 0 and isinstance(embeddings_value[0][0], (int, float)):
-                                logger.debug(
-                                    f"Detected in-memory chunked embeddings with {len(embeddings_value)} chunks for doc {doc_id}",
-                                    extra=self.common_log_arguments,
-                                )
+                    logger.debug(
+                        f"Detected in-memory chunked content with {len(chunked_content_value)} chunks for doc {doc_id}",
+                        extra=self.common_log_arguments,
+                    )
 
                 if is_chunked:
-                    # Simplified: Either both are file refs or both are in memory
-                    if chunks_filepath and embeddings_filepath:
-                        # Both from files - use yield for memory-efficient streaming
+                    # Collect embeddings data for all vector columns
+                    vector_column_data: dict[str, Any] = {}
+                    vector_column_filepaths: dict[str, str] = {}
+                    vector_column_generators: dict[str, Any] = {}
+                    num_chunks: int | None = None
+
+                    for vec_col in vector_columns:
+                        embeddings_value: Any = row_data.get(vec_col)
+
+                        if embeddings_value is None:
+                            continue
+
+                        # Check if file reference
+                        if (
+                            isinstance(embeddings_value, dict)
+                            and DatasiftConstants.EMBEDDINGS_MEMMAP_FILE in embeddings_value
+                        ):
+                            embeddings_filepath = embeddings_value[DatasiftConstants.EMBEDDINGS_MEMMAP_FILE]
+                            vector_column_filepaths[vec_col] = embeddings_filepath
+                            # Get dimension and create generator
+                            dim = read_embedding_metadata(embeddings_filepath)
+                            vector_column_generators[vec_col] = yield_embeddings_from_memmap_file(
+                                embeddings_filepath, dim
+                            )
+                        elif isinstance(embeddings_value, list) and len(embeddings_value) > 0:
+                            # In-memory embeddings
+                            vector_column_data[vec_col] = embeddings_value
+                            # Validate chunk count consistency
+                            if num_chunks is None:
+                                num_chunks = len(embeddings_value)
+                            elif num_chunks != len(embeddings_value):
+                                raise ValueError(
+                                    f"Inconsistent chunk counts for doc {doc_id}: "
+                                    f"expected {num_chunks}, got {len(embeddings_value)} for column {vec_col}"
+                                )
+
+                    # Process chunks
+                    if chunks_filepath and vector_column_filepaths:
+                        # File-based streaming for memory efficiency
                         logger.debug(
-                            "Using yield for both embeddings and chunks for memory-efficient streaming",
+                            f"Using yield for streaming {len(vector_column_filepaths)} vector columns from files",
                             extra=self.common_log_arguments,
                         )
-                        # Get dimension from metadata
-                        dim = read_embedding_metadata(embeddings_filepath)
-                        # Stream both embeddings and chunks one at a time
-                        embeddings_gen = yield_embeddings_from_memmap_file(embeddings_filepath, dim)
                         chunks_gen = yield_chunks_from_file(chunks_filepath)
 
-                        for chunk_idx, (chunk_embedding, chunk_data) in enumerate(
-                            zip(embeddings_gen, chunks_gen, strict=True)
-                        ):
+                        # Create list of (column_name, generator) tuples for zip
+                        vec_col_names = list(vector_column_generators.keys())
+                        vec_gens = [vector_column_generators[col] for col in vec_col_names]
+
+                        # Zip all generators together with chunks
+                        for chunk_idx, chunk_and_embeddings in enumerate(zip(chunks_gen, *vec_gens, strict=True)):
                             chunk_row_data: dict[str, Any] = row_data.copy()
-                            chunk_row_data[self.embeddings_column] = chunk_embedding.tolist()
+
+                            # First element is chunk_data, rest are embeddings
+                            chunk_data = chunk_and_embeddings[0]
+                            chunk_embeddings = chunk_and_embeddings[1:]
+
+                            # Add embeddings from all vector columns
+                            for vec_col, chunk_embedding in zip(vec_col_names, chunk_embeddings, strict=True):
+                                chunk_row_data[vec_col] = chunk_embedding.tolist()
 
                             # Parse chunk data (it's a JSON string)
                             import json
@@ -339,13 +361,22 @@ class VectorDBOperator(AbstractOperator):
                             # Track mapping from chunk ID to original document ID
                             chunk_id_to_doc_id[chunk_doc_id] = doc_id
                     else:
-                        # Both in memory - iterate normally
+                        # In-memory processing
                         chunked_content_list: list[dict[str, Any]] = row_data.get(
                             OperatorConstants.Columns.CHUNKED_CONTENT, []
                         )
-                        for chunk_idx, chunk_embedding in enumerate(embeddings_value):
+
+                        # Determine number of chunks from chunked_content or in-memory embeddings
+                        if num_chunks is None:
+                            num_chunks = len(chunked_content_list)
+
+                        for chunk_idx in range(num_chunks):
                             chunk_row_data = row_data.copy()
-                            chunk_row_data[self.embeddings_column] = chunk_embedding
+
+                            # Add embeddings from all vector columns
+                            for vec_col, embeddings_list in vector_column_data.items():
+                                if chunk_idx < len(embeddings_list):
+                                    chunk_row_data[vec_col] = embeddings_list[chunk_idx]
 
                             # Replace content field with chunk-specific text
                             if chunk_idx < len(chunked_content_list):
@@ -359,7 +390,7 @@ class VectorDBOperator(AbstractOperator):
                             # Track mapping from chunk ID to original document ID
                             chunk_id_to_doc_id[chunk_doc_id] = doc_id
                 else:
-                    # Single embedding - process as before
+                    # Non-chunked document - process as-is with all vector columns
                     documents.append((doc_id, row_data))
 
             except Exception as e:

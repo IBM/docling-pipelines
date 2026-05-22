@@ -1451,12 +1451,26 @@ For **ollama** provider:
 | `provider` | string | Yes | - | VectorDB backend (`opensearch` or `milvus`) |
 | `index_name` | string | Yes | - | Target index/collection name |
 | `doc_id_column` | string | No | `doc_id_hash` | Primary document id column  |
-| `embeddings_column` | string | No | `embeddings` | Vector column               |
 | `create_index` | bool | No | `true` | Auto-create index           |
-| `vector_dimension` | int | No | Auto-detected | Vector dimension (auto-detected from embeddings if not specified) |
 | `provider_config` | object | Yes | - | Provider-specific configuration (see examples below) |
 | `available_features` | object | No | - | Feature definitions for vector DB schema |
 | `feature_mappings` | object | No | - | Mapping of PyArrow columns to vector DB fields |
+
+**Multi-Model Embeddings Support:**
+
+The VectorDBOperator supports multiple embedding columns with different dimensions:
+- **OpenSearch**: Full multi-model support
+  - Automatically detects all vector columns from `available_features` (columns with `type: "vector"`)
+  - Auto-detects dimension for each vector column from actual embedding data
+  - Creates index fields for all vector columns with their respective dimensions
+  - Example: Store both 384-dim and 768-dim embeddings in same document (e.g., `embeddings` and `embeddings_alt`)
+  - Use with BranchingOperator + multiple EmbeddingsOperators + MergeOperator for multi-model pipelines
+  - See `sample_flows/branching_dual_embeddings_flow.json` for complete example
+- **Milvus**: Single-model support (uses `embeddings` column only)
+  - Dimension auto-detected from `embeddings` column data
+  - Additional vector columns in the table are stored as metadata but not indexed as vectors
+  - Multi-model support planned for future update
+  - For multi-model scenarios with Milvus, use separate collections per embedding model
 
 **Supported Vector Databases:**
 
@@ -1492,7 +1506,6 @@ For **ollama** provider:
   "config": {
     "provider": "opensearch",
     "index_name": "my_documents",
-    "vector_dimension": 768,
     "create_index": true,
     "provider_config": {
       "host": "localhost",
@@ -1666,7 +1679,9 @@ When `add_sparse_vector: true` is set:
 - See [`sample_flows/milvus_sparse_localhost_flow.json`](sample_flows/milvus_sparse_localhost_flow.json) for complete example
 
 **Notes:**
-- Vector dimension is auto-detected from embeddings if not specified
+- Vector dimensions are auto-detected from actual embedding data for each vector column
+- OpenSearch supports multiple vector columns with different dimensions in a single index
+- Milvus currently supports single vector column (multi-model support planned for future update)
 - See [`docs/milvus/README.md`](../../docs/milvus/README.md) for detailed Milvus configuration
 - See [`PROVIDER_CONFIG_GUIDE.md`](src/datasift/core/operators/vectordb/PROVIDER_CONFIG_GUIDE.md) for provider configuration patterns
 

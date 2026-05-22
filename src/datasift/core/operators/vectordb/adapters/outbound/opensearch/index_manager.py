@@ -10,10 +10,8 @@ from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any, ClassVar
 
-import pyarrow as pa
 from opensearchpy import OpenSearch
 
-from datasift.core.constants.constants import DatasiftConstants
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_codes import ErrorCode
@@ -131,12 +129,10 @@ class OpenSearchIndexManager:
         engine: str = "faiss",
         algorithm: str = "hnsw",
         space_type: str = "l2",
-        vector_dimension: int = 384,
         engine_parameters: dict[str, Any] | None = None,
         index_settings: dict[str, Any] | None = None,
         available_features: dict[str, Any] | None = None,
         feature_mappings: dict[str, str] | None = None,
-        embeddings_column: str = "embeddings",
         schema_template_path: str | None = None,
     ) -> None:
         """
@@ -148,12 +144,10 @@ class OpenSearchIndexManager:
             engine: KNN engine (faiss, lucene, nmslib, jvector)
             algorithm: KNN algorithm (hnsw, ivf)
             space_type: Similarity metric (l2, cosine, inner_product)
-            vector_dimension: Dimension of vector embeddings
             engine_parameters: Custom engine-specific parameters
             index_settings: Custom index settings
             available_features: Feature configuration
             feature_mappings: Column to field mappings
-            embeddings_column: Name of embeddings column
             schema_template_path: Optional path to JSON schema template file
         """
         self.client = client
@@ -161,12 +155,10 @@ class OpenSearchIndexManager:
         self.engine = engine
         self.algorithm = algorithm
         self.space_type = space_type
-        self.vector_dimension = vector_dimension
         self.engine_parameters = engine_parameters or {}
         self.index_settings = index_settings
         self.available_features = available_features or {}
         self.feature_mappings = feature_mappings or {}
-        self.embeddings_column = embeddings_column
         self.schema_template_path = schema_template_path
 
         self._validate_engine_algorithm()
@@ -205,93 +197,6 @@ class OpenSearchIndexManager:
             default_params.update(self.engine_parameters)
 
         return default_params
-
-    def detect_vector_dimension(self, table: pa.Table) -> int | None:
-        """
-        Auto-detect vector dimension from the embeddings column in the PyArrow table.
-
-        Handles both flat embeddings and nested (chunked) embeddings:
-        - Flat: [float1, float2, ..., floatN] -> dimension is length of list
-        - Nested: [[emb1], [emb2], ...] -> dimension is length of first inner list
-
-        Args:
-            table: PyArrow table containing embeddings
-
-        Returns:
-            Detected dimension or None if detection fails
-        """
-        if self.embeddings_column not in table.column_names:
-            logger.debug(f"Embeddings column '{self.embeddings_column}' not found in table")
-            return None
-
-        if table.num_rows == 0:
-            logger.debug("Cannot detect dimension from empty table")
-            return None
-
-        try:
-            embeddings_col: pa.ChunkedArray = table[self.embeddings_column]
-
-            for idx in range(min(table.num_rows, 10)):  # Check first 10 rows
-                embedding_value: Any = embeddings_col[idx].as_py()
-
-                if embedding_value is None:
-                    continue
-
-                # Handle memmap file path references
-                if isinstance(embedding_value, dict) and DatasiftConstants.EMBEDDINGS_MEMMAP_FILE in embedding_value:
-                    from datasift.utils.core.memmap_file_utils import (
-                        read_embedding_metadata,
-                        yield_embeddings_from_memmap_file,
-                    )
-
-                    embeddings_filepath = embedding_value[DatasiftConstants.EMBEDDINGS_MEMMAP_FILE]
-                    logger.debug(
-                        f"Using yield to get first embedding from memmap file for dimension detection: {embeddings_filepath}"
-                    )
-
-                    # Get dimension from metadata and yield just the first embedding
-                    dim = read_embedding_metadata(embeddings_filepath)
-                    embedding_generator = yield_embeddings_from_memmap_file(embeddings_filepath, dim)
-                    first_embedding = next(embedding_generator, None)
-
-                    if first_embedding is None:
-                        logger.warning(f"No embeddings found in memmap file: {embeddings_filepath}")
-                        continue
-
-                    # Convert to list for dimension detection
-                    embedding_value = [first_embedding.tolist()]
-
-                if not isinstance(embedding_value, list):
-                    logger.warning(f"Embedding at row {idx} is not a list: {type(embedding_value)}")
-                    continue
-
-                if len(embedding_value) == 0:
-                    continue
-
-                # Check if this is nested embeddings (chunked)
-                if isinstance(embedding_value[0], list):
-                    # Nested structure: [[emb1], [emb2], ...]
-                    if len(embedding_value[0]) > 0:
-                        nested_dimension: int = len(embedding_value[0])
-                        logger.info(f"Auto-detected vector dimension: {nested_dimension} (from chunked embeddings)")
-                        return nested_dimension
-                elif isinstance(embedding_value[0], (int, float)):
-                    # Flat structure: [float1, float2, ...]
-                    flat_dimension: int = len(embedding_value)
-                    logger.info(f"Auto-detected vector dimension: {flat_dimension} (from flat embeddings)")
-                    return flat_dimension
-                else:
-                    logger.warning(
-                        f"Unexpected embedding structure at row {idx}: first element is {type(embedding_value[0])}"
-                    )
-                    continue
-
-            logger.warning("Could not find valid embeddings in first 10 rows for dimension detection")
-            return None
-
-        except Exception as e:
-            logger.warning(f"Error detecting vector dimension: {e!s}")
-            return None
 
     def _load_schema_template(self) -> dict[str, Any] | None:
         """
@@ -364,7 +269,6 @@ class OpenSearchIndexManager:
         Recursively replace placeholders in schema template.
 
         Placeholders:
-            __VECTOR_DIMENSION__ -> self.vector_dimension
             __ENGINE__ -> self.engine
             __ALGORITHM__ -> self.algorithm
             __SPACE_TYPE__ -> self.space_type
@@ -382,9 +286,7 @@ class OpenSearchIndexManager:
             return [self._replace_placeholders(obj=item) for item in obj]
         elif isinstance(obj, str):
             # Check if entire string is a placeholder
-            if obj == "__VECTOR_DIMENSION__":
-                return self.vector_dimension
-            elif obj == "__ENGINE__":
+            if obj == "__ENGINE__":
                 return self.engine
             elif obj == "__ALGORITHM__":
                 return self.algorithm
@@ -396,7 +298,6 @@ class OpenSearchIndexManager:
             # Otherwise, replace placeholders within string
             result = obj
             replacements = {
-                "__VECTOR_DIMENSION__": str(self.vector_dimension),
                 "__ENGINE__": self.engine,
                 "__ALGORITHM__": self.algorithm,
                 "__SPACE_TYPE__": self.space_type,
@@ -772,9 +673,12 @@ class OpenSearchIndexManager:
 
         check_analyzer_refs(obj={OperatorConstants.VectorDB.SCHEMA_KEY_PROPERTIES: properties})
 
-    def build_index_body(self) -> dict[str, Any]:
+    def build_index_body(self, *, dimension_mapping: dict[str, int]) -> dict[str, Any]:
         """
         Build index body for OpenSearch.
+
+        Args:
+            dimension_mapping: Dictionary mapping vector column names to their dimensions
 
         Tries to use schema template if schema_template_path is provided.
         Falls back to dynamic generation if template not found or invalid.
@@ -796,7 +700,9 @@ class OpenSearchIndexManager:
                     and OperatorConstants.VectorDB.SCHEMA_KEY_FIELD_TYPES in schema
                     and OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS not in schema
                 ):
-                    schema = self._build_index_body_from_field_type_template(schema=schema)
+                    schema = self._build_index_body_from_field_type_template(
+                        schema=schema, dimension_mapping=dimension_mapping
+                    )
 
                 # Inject runtime metadata (must happen before validation)
                 if isinstance(schema, dict) and OperatorConstants.VectorDB.SCHEMA_KEY_MAPPINGS in schema:
@@ -843,7 +749,7 @@ class OpenSearchIndexManager:
 
         # Fall back to dynamic generation
         logger.info("Building index body using dynamic feature mapping")
-        index_body = self.create_index_mapping()
+        index_body = self.create_index_mapping(dimension_mapping=dimension_mapping)
 
         # Add settings
         if self.index_settings:
@@ -860,8 +766,12 @@ class OpenSearchIndexManager:
 
         return index_body
 
-    def create_index_mapping(self) -> dict[str, Any]:
-        """Create index mapping based on available features and feature mappings."""
+    def create_index_mapping(self, *, dimension_mapping: dict[str, int]) -> dict[str, Any]:
+        """Create index mapping based on available features and feature mappings.
+
+        Args:
+            dimension_mapping: Dictionary mapping vector column names to their dimensions
+        """
         properties: dict[str, Any] = {}
 
         # Process each feature
@@ -874,10 +784,17 @@ class OpenSearchIndexManager:
 
             # Map feature types to OpenSearch types
             if feature_type == "vector":
+                # Get dimension for this specific vector column
+                dimension = dimension_mapping.get(feature_name) or dimension_mapping.get(mapped_name)
+                if dimension is None:
+                    raise ValueError(
+                        f"No dimension found for vector column '{feature_name}' (mapped to '{mapped_name}')"
+                    )
+
                 # Dense vector field with engine-specific configuration
                 properties[mapped_name] = {
                     "type": OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR,
-                    "dimension": self.vector_dimension,
+                    "dimension": dimension,
                     "method": {
                         "name": self.algorithm,
                         "space_type": self.space_type,
@@ -929,9 +846,15 @@ class OpenSearchIndexManager:
             }
         }
 
-    def _build_index_body_from_field_type_template(self, *, schema: dict[str, Any]) -> dict[str, Any]:
+    def _build_index_body_from_field_type_template(
+        self, *, schema: dict[str, Any], dimension_mapping: dict[str, int]
+    ) -> dict[str, Any]:
         """
         Convert a field-type schema template into a valid OpenSearch index body.
+
+        Args:
+            schema: Schema template dictionary
+            dimension_mapping: Dictionary mapping vector column names to their dimensions
 
         Supports schemas with or without settings or custom analysis blocks.
         Resolves configurations dynamically by matching features against indexing_rules.
@@ -1003,11 +926,26 @@ class OpenSearchIndexManager:
             # Merge overrides into our mapping properties payload
             properties[mapped_name] = _deep_merge(base=template_mapping, override=overrides)
 
+            # Override dimension for vector fields from runtime-detected dimension_mapping
+            if properties[mapped_name].get("type") == OperatorConstants.VectorDB.SCHEMA_KEY_KNN_VECTOR:
+                # Look up dimension using both feature_name and mapped_name
+                dimension = dimension_mapping.get(feature_name) or dimension_mapping.get(mapped_name)
+                if dimension is None:
+                    raise ValueError(
+                        f"No dimension found for vector column '{feature_name}' (mapped to '{mapped_name}') "
+                        f"in dimension_mapping: {dimension_mapping}"
+                    )
+                properties[mapped_name]["dimension"] = dimension
+                logger.debug(f"Applied runtime dimension {dimension} to vector field '{mapped_name}'")
+
         return index_body
 
-    def create_index(self) -> None:
+    def create_index(self, *, dimension_mapping: dict[str, int]) -> None:
         """
         Create the OpenSearch index if it doesn't exist.
+
+        Args:
+            dimension_mapping: Dictionary mapping vector column names to their dimensions
 
         Raises:
             DatasiftException: If index creation fails
@@ -1019,7 +957,7 @@ class OpenSearchIndexManager:
 
         try:
             # Build index configuration
-            index_body = self.build_index_body()
+            index_body = self.build_index_body(dimension_mapping=dimension_mapping)
 
             logger.info(f"OpenSearch index body for '{self.index_name}': {json.dumps(index_body, default=str)}")
 

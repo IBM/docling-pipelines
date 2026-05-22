@@ -14,7 +14,7 @@ from datasift.core.operators.vectordb.adapters.outbound.milvus.client import Mil
 from datasift.core.operators.vectordb.adapters.outbound.milvus.index_manager import MilvusIndexManager
 from datasift.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from datasift.utils.infrastructure.logging import get_logger
-from datasift.utils.operators.vectordb_utils import detect_vector_dimension
+from datasift.utils.operators.vectordb_utils import detect_all_vector_dimensions, detect_vector_dimension
 
 logger = get_logger(__name__)
 
@@ -221,16 +221,23 @@ class MilvusAdapter(VectorStorePort):
         """
         return self.batch_processor.get_document_count()
 
-    def create_index(self, dimension: int) -> None:
+    def create_index(self, *, dimension_mapping: dict[str, int]) -> None:
         """Create the Milvus collection if it doesn't exist.
 
         Args:
-            dimension: Vector dimension for the collection
+            dimension_mapping: Dictionary mapping vector column names to their dimensions
         """
-        # Update dimension if provided
-        if dimension != self.vector_dimension:
-            self.index_manager.vector_dimension = dimension
-            self.vector_dimension = dimension
+        # Get dimension from mapping
+        if self.embeddings_column not in dimension_mapping:
+            raise ValueError(
+                f"Embeddings column '{self.embeddings_column}' not found in dimension_mapping. "
+                f"Available columns: {list(dimension_mapping.keys())}"
+            )
+        dimension = dimension_mapping[self.embeddings_column]
+
+        # Update dimension
+        self.index_manager.vector_dimension = dimension
+        self.vector_dimension = dimension
 
         self.index_manager.create_collection()
         logger.info(f"Created collection: {self.collection_name} with dimension: {dimension}")
@@ -256,13 +263,31 @@ class MilvusAdapter(VectorStorePort):
         """
         return self.index_manager.collection_exists()
 
-    def detect_vector_dimension(self, table: pa.Table) -> int | None:
+    def detect_vector_dimension(self, *, table: pa.Table, column_name: str | None = None) -> int | None:
         """Detect vector dimension from embeddings data.
 
         Args:
             table: PyArrow table containing embeddings
+            column_name: Name of the embeddings column to detect dimension for
 
         Returns:
             Detected dimension or None if detection fails
         """
-        return detect_vector_dimension(table=table, embeddings_column=self.embeddings_column)
+        col_name = column_name if column_name is not None else self.embeddings_column
+        return detect_vector_dimension(table=table, embeddings_column=col_name)
+
+    def detect_all_vector_dimensions(self, table: pa.Table, *, vector_columns: list[str]) -> dict[str, int]:
+        """Detect dimensions for all vector columns.
+
+        Note: Milvus adapter currently supports only single-model embeddings.
+        For compatibility, this detects all requested columns but only the primary
+        embeddings_column will be used during index creation.
+
+        Args:
+            table: PyArrow table containing embeddings
+            vector_columns: List of vector column names to detect dimensions for
+
+        Returns:
+            Dictionary mapping column names to their dimensions
+        """
+        return detect_all_vector_dimensions(table=table, vector_columns=vector_columns)

@@ -19,8 +19,9 @@ class TestVectorDBMetrics:
         """Create a mock adapter for testing."""
         adapter = MagicMock()
         adapter.detect_vector_dimension.return_value = 2
+        adapter.detect_all_vector_dimensions.return_value = {"embeddings": 2}
         adapter.index_exists.return_value = True
-        adapter.index_documents.return_value = (4, [])  # 4 items indexed, 0 failed
+        adapter.index_documents.return_value = (4, [])  # 4 items indexed, no failed chunks
         adapter.refresh_index.return_value = None
         return adapter
 
@@ -34,6 +35,27 @@ class TestVectorDBMetrics:
             "embeddings_column": "embeddings",
             "create_index": False,
             "vector_dimension": 2,
+            "available_features": {
+                "doc_id_hash": {
+                    "available_for_vector_db": True,
+                    "mandatory_for_vector_db": True,
+                    "type": "string",
+                    "is_primary": True,
+                },
+                "embeddings": {
+                    "available_for_vector_db": True,
+                    "mandatory_for_vector_db": True,
+                    "type": "vector",
+                },
+                "content": {
+                    "available_for_vector_db": True,
+                    "type": "string",
+                },
+                "chunked_content": {
+                    "available_for_vector_db": True,
+                    "type": "string",
+                },
+            },
             "provider_config": {
                 "host": "localhost",
                 "port": 9200,

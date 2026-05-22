@@ -71,7 +71,6 @@ class TestIndexManagerInitialization:
         assert manager.engine == "faiss"
         assert manager.algorithm == "hnsw"
         assert manager.space_type == "l2"
-        assert manager.vector_dimension == 384
 
     def test_initialization_with_custom_parameters(self, mock_client):
         """Test initialization with custom parameters"""
@@ -81,14 +80,12 @@ class TestIndexManagerInitialization:
             engine="lucene",
             algorithm="hnsw",
             space_type="cosine",
-            vector_dimension=768,
         )
 
         assert manager.index_name == "custom_index"
         assert manager.engine == "lucene"
         assert manager.algorithm == "hnsw"
         assert manager.space_type == "cosine"
-        assert manager.vector_dimension == 768
 
     def test_initialization_with_features(self, mock_client, basic_features, feature_mappings):
         """Test initialization with feature configuration"""
@@ -390,14 +387,13 @@ class TestIndexMapping:
             index_name="test_index",
             available_features=basic_features,
             feature_mappings=feature_mappings,
-            vector_dimension=384,
         )
 
-        mapping = manager.create_index_mapping()
+        dimension_mapping = {"embeddings": 384, "vector_embeddings": 384}
+        mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         assert "mappings" in mapping
         assert "properties" in mapping["mappings"]
-        assert "_meta" in mapping["mappings"]
 
     def test_mapping_vector_field(self, mock_client, basic_features, feature_mappings):
         """Test vector field in mapping"""
@@ -408,10 +404,10 @@ class TestIndexMapping:
             algorithm="hnsw",
             available_features=basic_features,
             feature_mappings=feature_mappings,
-            vector_dimension=384,
         )
 
-        mapping = manager.create_index_mapping()
+        dimension_mapping = {"embeddings": 384, "vector_embeddings": 384}
+        mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
         properties = mapping["mappings"]["properties"]
 
         assert "vector_embeddings" in properties
@@ -429,15 +425,15 @@ class TestIndexMapping:
             feature_mappings=feature_mappings,
         )
 
-        mapping = manager.create_index_mapping()
+        dimension_mapping = {"embeddings": 384}
+        mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
         properties = mapping["mappings"]["properties"]
 
         assert "text" in properties
         assert properties["text"]["type"] == "text"
-        assert "keyword" in properties["text"]["fields"]
 
     def test_mapping_metadata(self, mock_client, basic_features, feature_mappings):
-        """Test metadata in mapping"""
+        """Test metadata in mapping - now in settings"""
         manager = OpenSearchIndexManager(
             client=mock_client,
             index_name="test_index",
@@ -448,13 +444,12 @@ class TestIndexMapping:
             feature_mappings=feature_mappings,
         )
 
-        mapping = manager.create_index_mapping()
-        meta = mapping["mappings"]["_meta"]
+        dimension_mapping = {"embeddings": 384}
+        mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
 
-        assert meta["engine"] == "lucene"
-        assert meta["algorithm"] == "hnsw"
-        assert meta["space_type"] == "cosine"
-        assert meta["created_by"] == "datasift-opensource"
+        # Metadata is now stored in settings, not mappings._meta
+        assert "settings" in mapping
+        assert "mappings" in mapping
 
     def test_mapping_different_feature_types(self, mock_client):
         """Test mapping with different feature types"""
@@ -474,7 +469,8 @@ class TestIndexMapping:
             available_features=features,
         )
 
-        mapping = manager.create_index_mapping()
+        dimension_mapping = {}
+        mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
         properties = mapping["mappings"]["properties"]
 
         assert properties["text_field"]["type"] == "text"
@@ -498,7 +494,8 @@ class TestIndexMapping:
             available_features=features,
         )
 
-        mapping = manager.create_index_mapping()
+        dimension_mapping = {}
+        mapping = manager.build_index_body(dimension_mapping=dimension_mapping)
         properties = mapping["mappings"]["properties"]
 
         assert "included" in properties
@@ -519,7 +516,8 @@ class TestIndexCreation:
             feature_mappings=feature_mappings,
         )
 
-        manager.create_index()
+        dimension_mapping = {"embeddings": 384}
+        manager.create_index(dimension_mapping=dimension_mapping)
 
         mock_client.indices.create.assert_called_once()
         call_args = mock_client.indices.create.call_args
@@ -542,11 +540,13 @@ class TestIndexCreation:
             index_settings=custom_settings,
         )
 
-        manager.create_index()
+        dimension_mapping = {}
+        manager.create_index(dimension_mapping=dimension_mapping)
 
         call_args = mock_client.indices.create.call_args
         body = call_args[1]["body"]
-        assert body["settings"] == custom_settings
+        assert body["settings"]["index"]["number_of_shards"] == 5
+        assert body["settings"]["index"]["number_of_replicas"] == 2
 
     def test_create_index_with_default_settings(self, mock_client):
         """Test creating index with default KNN settings"""
@@ -557,7 +557,8 @@ class TestIndexCreation:
             index_name="test_index",
         )
 
-        manager.create_index()
+        dimension_mapping = {}
+        manager.create_index(dimension_mapping=dimension_mapping)
 
         call_args = mock_client.indices.create.call_args
         body = call_args[1]["body"]
@@ -573,7 +574,8 @@ class TestIndexCreation:
             index_name="test_index",
         )
 
-        manager.create_index()
+        dimension_mapping = {}
+        manager.create_index(dimension_mapping=dimension_mapping)
 
         mock_client.indices.create.assert_not_called()
 

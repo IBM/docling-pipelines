@@ -203,7 +203,9 @@ class AuthoringCompiler:
                 if len(operator.depends_on) == 1:
                     link_id = branch_name
             else:
-                input_edges.append({"node_id_ref": operator_ids[dependency]})
+                # Use operator name as link_name for non-branch dependencies
+                # This ensures merge operators can distinguish between multiple inputs
+                input_edges.append({"node_id_ref": operator_ids[dependency], DatasiftConstants.LINK_NAME: dependency})
 
         return input_edges, link_id
 

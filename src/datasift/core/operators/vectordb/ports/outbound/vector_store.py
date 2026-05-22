@@ -83,11 +83,11 @@ class VectorStorePort(ABC):
         pass
 
     @abstractmethod
-    def create_index(self, dimension: int) -> None:
+    def create_index(self, *, dimension_mapping: dict[str, int]) -> None:
         """Create the vector database index if it doesn't exist.
 
         Args:
-            dimension: Vector dimension for the index
+            dimension_mapping: Dictionary mapping vector column names to their dimensions
 
         Raises:
             Exception: If index creation fails
@@ -113,13 +113,28 @@ class VectorStorePort(ABC):
         pass
 
     @abstractmethod
-    def detect_vector_dimension(self, table: pa.Table) -> int | None:
+    def detect_vector_dimension(self, *, table: pa.Table, column_name: str | None = None) -> int | None:
         """Detect vector dimension from embeddings data.
 
         Args:
             table: PyArrow table containing embeddings
+            column_name: Optional specific column to detect dimension for.
+                        If None, uses default embeddings column.
 
         Returns:
             Detected dimension or None if detection fails
+        """
+        pass
+
+    @abstractmethod
+    def detect_all_vector_dimensions(self, table: pa.Table, *, vector_columns: list[str]) -> dict[str, int]:
+        """Detect dimensions for all specified vector columns.
+
+        Args:
+            table: PyArrow table containing embeddings
+            vector_columns: List of column names to detect dimensions for
+
+        Returns:
+            Dictionary mapping column names to their detected dimensions
         """
         pass

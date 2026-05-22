@@ -59,7 +59,6 @@ class TestSchemaTemplateLoading:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
             schema_template_path=str(schema_file),
             available_features={
                 "doc_id": {"type": "string", "available_for_vector_db": True},
@@ -69,7 +68,8 @@ class TestSchemaTemplateLoading:
         )
 
         # Build index body
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify placeholders were replaced
         assert index_body["mappings"]["properties"]["embeddings"]["dimension"] == 384
@@ -91,13 +91,13 @@ class TestSchemaTemplateLoading:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
             available_features={"embeddings": {"type": "vector", "available_for_vector_db": True}},
             schema_template_path="nonexistent/schema.json",
         )
 
         # Build index body - should fall back to dynamic generation
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify dynamic generation was used
         assert "mappings" in index_body
@@ -117,13 +117,13 @@ class TestSchemaTemplateLoading:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
             available_features={"embeddings": {"type": "vector", "available_for_vector_db": True}},
             schema_template_path=str(schema_file),
         )
 
         # Build index body - should fall back to dynamic generation
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify dynamic generation was used
         assert "mappings" in index_body
@@ -137,7 +137,6 @@ class TestSchemaTemplateLoading:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
             available_features={
                 "embeddings": {"type": "vector", "available_for_vector_db": True},
                 "text": {"type": "string", "available_for_vector_db": True},
@@ -145,7 +144,8 @@ class TestSchemaTemplateLoading:
         )
 
         # Build index body
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify dynamic generation was used
         assert "mappings" in index_body
@@ -185,7 +185,6 @@ class TestSchemaTemplateLoading:
             engine="lucene",
             algorithm="hnsw",
             space_type="cosine",
-            vector_dimension=512,
             engine_parameters={"ef_construction": 256, "m": 32},
             schema_template_path=str(schema_file),
             available_features={
@@ -194,7 +193,8 @@ class TestSchemaTemplateLoading:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 512}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify all placeholders were replaced
         embeddings = index_body["mappings"]["properties"]["embeddings"]
@@ -233,7 +233,6 @@ class TestSchemaTemplateLoading:
             engine="faiss",
             algorithm="ivf",
             space_type="l2",
-            vector_dimension=384,
             engine_parameters={"nlist": 256, "nprobe": 16},
             schema_template_path=str(schema_file),
             available_features={
@@ -241,7 +240,8 @@ class TestSchemaTemplateLoading:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify ENGINE_PARAMETERS was replaced with actual dict
         params = index_body["mappings"]["properties"]["embeddings"]["method"]["parameters"]
@@ -300,7 +300,6 @@ class TestSchemaTemplateLoading:
             engine="faiss",
             algorithm="hnsw",
             space_type="l2",
-            vector_dimension=384,
             schema_template_path=str(schema_file),
             available_features={
                 "content": {"type": "string", "available_for_vector_db": True},
@@ -313,7 +312,8 @@ class TestSchemaTemplateLoading:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify content field was renamed to document_content and has custom analyzer
         assert "document_content" in index_body["mappings"]["properties"]
@@ -378,7 +378,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify correct field_type template is used
         assert index_body["mappings"]["properties"]["content"]["type"] == "text"
@@ -408,7 +409,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify boost is applied correctly
         assert index_body["mappings"]["properties"]["title"]["boost"] == 2.0
@@ -438,7 +440,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify copy_to array is applied
         assert index_body["mappings"]["properties"]["content"]["copy_to"] == ["all_text", "searchable"]
@@ -479,7 +482,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify all overrides are applied correctly
         content_field = index_body["mappings"]["properties"]["content"]
@@ -515,7 +519,8 @@ class TestIndexingRules:
             feature_mappings={"content": "document_content"},
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify feature_name rule takes priority (boost should be 3.0, not 1.0)
         assert "document_content" in index_body["mappings"]["properties"]
@@ -546,7 +551,8 @@ class TestIndexingRules:
             feature_mappings={"content": "document_content"},
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify mapped_name rule is used
         assert "document_content" in index_body["mappings"]["properties"]
@@ -574,7 +580,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify system_type is used as fallback
         assert "content" in index_body["mappings"]["properties"]
@@ -607,7 +614,8 @@ class TestIndexingRules:
 
         # Should raise DatasiftException for unknown field type
         with pytest.raises(DatasiftException) as exc_info:
-            manager.build_index_body()
+            dimension_mapping = {}
+            manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify error message contains helpful information
         assert "Unknown field type 'nonexistent_type'" in str(exc_info.value)
@@ -642,7 +650,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify empty analysis block is removed
         assert "analysis" not in index_body["settings"]
@@ -682,7 +691,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify nested properties are correctly merged
         content_fields = index_body["mappings"]["properties"]["content"]["fields"]
@@ -720,7 +730,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify only allowlisted properties are applied
         content_field = index_body["mappings"]["properties"]["content"]
@@ -754,7 +765,8 @@ class TestIndexingRules:
             },
         )
 
-        index_body = manager.build_index_body()
+        dimension_mapping = {"embeddings": 384}
+        index_body = manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify dict format with field_type works correctly
         assert "content" in index_body["mappings"]["properties"]

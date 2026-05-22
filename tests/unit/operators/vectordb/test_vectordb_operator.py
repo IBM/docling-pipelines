@@ -24,12 +24,8 @@ def basic_config():
     config = {
         OperatorConstants.Config.PROVIDER: "opensearch",
         OperatorConstants.VectorDB.INDEX_NAME: "test_index",
-        OperatorConstants.VectorDB.VECTOR_DIMENSION: env_config.get(OperatorConstants.VectorDB.VECTOR_DIMENSION, 384),
         OperatorConstants.VectorDB.CREATE_INDEX: True,
         OperatorConstants.Columns.DOC_ID_COLUMN: env_config.get(OperatorConstants.Columns.DOC_ID_COLUMN, "doc_id_hash"),
-        OperatorConstants.Columns.EMBEDDINGS_COLUMN: env_config.get(
-            OperatorConstants.Columns.EMBEDDINGS_COLUMN, "embeddings"
-        ),
         OperatorConstants.Config.AVAILABLE_FEATURES: {
             "doc_id_hash": {
                 "name": "Document ID",
