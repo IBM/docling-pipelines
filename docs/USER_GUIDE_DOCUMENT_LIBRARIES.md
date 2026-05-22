@@ -20,9 +20,20 @@ A Document Library is a named collection that contains references to multiple Do
 - **Reference-Based**: Libraries store Document Set IDs, not copies of data
 
 ### Storage Architecture
-Document Libraries use DuckDB for metadata storage with two tables:
-1. **document_libraries**: Stores library metadata
-2. **library_documentset_junction**: Manages many-to-many relationships
+Document Libraries follow a hybrid storage approach aligned with Document Sets pattern:
+
+1. **Library Metadata (JSON Storage)**:
+   - Uses `KeyValueStorage` interface for library metadata
+   - Stored as JSON in `data` column (CAMS-compatible)
+   - Schema: `key, data (JSON), created_at, updated_at`
+   - Same pattern as Document Sets and Flows
+
+2. **Junction Table (Relational Storage)**:
+   - Uses direct SQL for many-to-many relationships
+   - Optimized for bulk operations
+   - Table: `library_documentset_junction`
+
+This hybrid approach balances architectural consistency (JSON for assets) with performance (SQL for relationships).
 
 ## Prerequisites
 
@@ -537,31 +548,46 @@ except requests.exceptions.RequestException as e:
 
 ### Database Schema
 
-The Document Library feature uses two DuckDB tables:
+The Document Library feature uses a hybrid storage approach:
 
-**document_libraries table**:
+**1. Library Metadata (KeyValueStorage - JSON)**:
 ```sql
 CREATE TABLE document_libraries (
-    library_id VARCHAR PRIMARY KEY,
-    name VARCHAR NOT NULL UNIQUE,
-    description VARCHAR,
-    tags JSON,
+    key VARCHAR PRIMARY KEY,           -- library asset_id
+    data JSON NOT NULL,                -- Full library metadata as JSON
     created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL,
-    aggregate_metrics JSON
+    updated_at TIMESTAMP NOT NULL
 );
 ```
 
-**library_documentset_junction table**:
+**JSON Structure in `data` column**:
+```json
+{
+  "asset_id": "uuid",
+  "name": "Library Name",
+  "description": "Description",
+  "purpose": "Purpose",
+  "tags": ["tag1", "tag2"],
+  "created_by": "user@example.com",
+  "href": "https://..."
+}
+```
+
+**2. Junction Table (Relational Storage)**:
 ```sql
 CREATE TABLE library_documentset_junction (
     library_id VARCHAR NOT NULL,
     document_set_id VARCHAR NOT NULL,
     added_at TIMESTAMP NOT NULL,
-    PRIMARY KEY (library_id, document_set_id),
-    FOREIGN KEY (library_id) REFERENCES document_libraries(library_id)
+    PRIMARY KEY (library_id, document_set_id)
 );
 ```
+
+**Architecture Notes**:
+- Library metadata uses `KeyValueStorage` interface (same as Document Sets)
+- JSON storage enables flexible schema and CAMS compatibility
+- Junction table uses relational storage for performance
+- Follows Document Sets pattern: JSON for assets, SQL for relationships
 
 ### Hexagonal Architecture
 

@@ -41,16 +41,22 @@ from datasift.api.dto.field_definitions import (
     UUID_LENGTH,
     UUID_PATTERN,
 )
-from datasift.core.assets.document_libraries.adapters.repositories.duckdb_document_library_metadata_repository import (
-    DuckDBDocumentLibraryMetadataRepository,
+from datasift.core.assets.document_libraries.adapters.duckdb import (
+    DuckDBDocumentLibraryMetadataRepository,  # Import to trigger registration
 )
-from datasift.core.assets.document_libraries.adapters.storage.duckdb_storage import DuckDBStorage
 from datasift.core.assets.document_libraries.application.services.document_library_service import (
     DocumentLibraryService,
 )
 from datasift.core.assets.document_libraries.domain.ports.document_library_repository import (
     DocumentLibraryRepository,
 )
+from datasift.core.assets.document_libraries.factories.document_library_repository_factory import (
+    DocumentLibraryRepositoryFactory,
+)
+from datasift.core.constants.constants import DatasiftConstants
+
+# Ensure adapter is registered (import triggers @register decorator)
+_ = DuckDBDocumentLibraryMetadataRepository
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -191,17 +197,17 @@ def get_document_library_repository() -> DocumentLibraryRepository:
     """Dependency provider for document library repository (singleton).
 
     Creates a single repository instance that is reused across all requests
-    using LRU cache. Initializes DuckDB storage and repository.
+    using LRU cache. Uses factory pattern to create DuckDB adapter.
 
     Returns:
         DocumentLibraryRepository: Configured repository instance (cached singleton)
 
     Note:
-        Uses DuckDB for metadata storage. Database path is configured via
-        DuckDBStorage initialization.
+        Uses factory pattern with KeyValueStorage for metadata and direct SQL for junction tables.
+        Database path is configured via DatasiftConstants.
     """
-    storage = DuckDBStorage()
-    return DuckDBDocumentLibraryMetadataRepository(storage=storage)
+    config = {"database_path": DatasiftConstants.DOCUMENT_LIBRARY_DEFAULT_DB_PATH}
+    return DocumentLibraryRepositoryFactory.create(adapter_name="duckdb", config=config)
 
 
 def get_document_library_service(

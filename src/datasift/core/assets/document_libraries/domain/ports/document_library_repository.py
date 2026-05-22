@@ -5,8 +5,10 @@ Following the hexagonal architecture pattern, this is a port in the domain layer
 """
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from datasift.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
+from datasift.core.assets.document_libraries.domain.types import HealthCheckResult
 
 
 class DocumentLibraryRepository(ABC):
@@ -259,5 +261,36 @@ class DocumentLibraryRepository(ABC):
             DocumentLibraryStorageException: If storage operation fails
         """
         pass
+
+    @abstractmethod
+    def health_check(self) -> HealthCheckResult:
+        """Check the health status of the repository.
+
+        Returns:
+            A dictionary containing health status information with keys:
+            - healthy: bool indicating if the repository is operational
+            - message: str with status description
+            - details: optional dict with additional diagnostic information
+
+        Raises:
+            No exceptions should be raised; errors should be reflected in the result
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def validate_config(cls, *, config: dict[str, Any]) -> list[str]:
+        """Validate repository configuration.
+
+        This class method validates configuration before instantiation,
+        allowing early detection of configuration errors.
+
+    Args:
+        config: Configuration dictionary to validate
+
+    Returns:
+        List of validation error messages, empty if configuration is valid
+    """
+    pass
 
 
