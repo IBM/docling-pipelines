@@ -390,7 +390,7 @@ class TestGetFlowEndpoint:
     """Tests for GET /flows/{flow_id} endpoint."""
 
     def test_get_flow_with_existing_id_returns_200(self, client, override_service, sample_flow_with_id):
-        """Test retrieving an existing flow returns 200."""
+        """Test retrieving an existing flow returns 200 (Elyra format)."""
         # Arrange
         override_service.get_flow.return_value = sample_flow_with_id
 
@@ -400,7 +400,24 @@ class TestGetFlowEndpoint:
         # Assert
         assert response.status_code == 200
         assert response.json()["flow_id"] == "12345678-1234-1234-1234-123456789abc"
-        assert response.json()["name"] == "Test Flow"
+        assert response.json()["name"] == "Test Flow"  # Elyra format uses 'name'
+        override_service.get_flow.assert_called_once_with("12345678-1234-1234-1234-123456789abc")
+
+    def test_get_flow_with_existing_id_authoring_format_returns_200(
+        self, client, override_service, sample_authoring_flow_with_id
+    ):
+        """Test retrieving an existing flow returns 200 (Authoring format)."""
+        # Arrange
+        override_service.get_flow.return_value = sample_authoring_flow_with_id
+
+        # Act
+        response = client.get("/flows/12345678-1234-1234-1234-123456789abc")
+
+        # Assert
+        assert response.status_code == 200
+        assert response.json()["flow_id"] == "12345678-1234-1234-1234-123456789abc"
+        assert response.json()["flow_name"] == "Test Flow"  # Authoring format uses 'flow_name'
+        assert "flow" in response.json()  # Authoring format has 'flow' array
         override_service.get_flow.assert_called_once_with("12345678-1234-1234-1234-123456789abc")
 
     def test_get_flow_with_nonexistent_id_returns_404(self, client, override_service):

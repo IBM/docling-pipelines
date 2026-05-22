@@ -1176,5 +1176,3 @@ async def bulk_delete_flows(
         f"Bulk delete completed: {result['total_deleted']} deleted, "
         f"{result['total_failed']} failed out of {result['total_requested']} requested"
     )
-
-    return result

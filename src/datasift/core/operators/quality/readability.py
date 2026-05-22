@@ -21,34 +21,20 @@ from datasift.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
 
-FLESCH_EASE: str = "flesch_ease_textstat"
-FLESCH_KINCAID: str = "flesch_kincaid_textstat"
-GUNNING_FOG: str = "gunning_fog_textstat"
-SMOG_INDEX: str = "smog_index_textstat"
-COLEMAN_LIAU_INDEX: str = "coleman_liau_index_textstat"
-AUTOMATED_READABILITY_INDEX: str = "automated_readability_index_textstat"
-DALE_CHALL_READABILITY_SCORE: str = "dale_chall_readability_score_textstat"
-DIFFICULT_WORDS: str = "difficult_words_textstat"
-LINSEAR_WRITE_FORMULA: str = "linsear_write_formula_textstat"
-TEXT_STANDARD: str = "text_standard_textstat"
-SPACHE_READABILITY: str = "spache_readability_textstat"
-MCALPINE_EFLAW: str = "mcalpine_eflaw_textstat"
-READING_TIME: str = "reading_time_textstat"
-
 DEFAULT_READABILITY_SCORES: list[str] = [
-    FLESCH_EASE,
-    FLESCH_KINCAID,
-    GUNNING_FOG,
-    SMOG_INDEX,
-    COLEMAN_LIAU_INDEX,
-    AUTOMATED_READABILITY_INDEX,
-    DALE_CHALL_READABILITY_SCORE,
-    DIFFICULT_WORDS,
-    LINSEAR_WRITE_FORMULA,
-    TEXT_STANDARD,
-    SPACHE_READABILITY,
-    MCALPINE_EFLAW,
-    READING_TIME,
+    OperatorConstants.Columns.FLESCH_EASE,
+    OperatorConstants.Columns.FLESCH_KINCAID,
+    OperatorConstants.Columns.GUNNING_FOG,
+    OperatorConstants.Columns.SMOG_INDEX,
+    OperatorConstants.Columns.COLEMAN_LIAU_INDEX,
+    OperatorConstants.Columns.AUTOMATED_READABILITY_INDEX,
+    OperatorConstants.Columns.DALE_CHALL_READABILITY_SCORE,
+    OperatorConstants.Columns.DIFFICULT_WORDS,
+    OperatorConstants.Columns.LINSEAR_WRITE_FORMULA,
+    OperatorConstants.Columns.TEXT_STANDARD,
+    OperatorConstants.Columns.SPACHE_READABILITY,
+    OperatorConstants.Columns.MCALPINE_EFLAW,
+    OperatorConstants.Columns.READING_TIME,
 ]
 
 
@@ -82,79 +68,79 @@ class ReadabilityOperator(ReadabilityTransform, AbstractOperator):
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ReadabilityOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Readability Operator",
             OperatorConstants.Config.FEATURES: {
-                FLESCH_EASE: {
+                OperatorConstants.Columns.FLESCH_EASE: {
                     OperatorConstants.Misc.NAME: "Flesch Reading Ease",
                     OperatorConstants.Config.DESCRIPTION: "Rates text on a 0 to 100 scale where higher scores mean easier reading.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                FLESCH_KINCAID: {
+                OperatorConstants.Columns.FLESCH_KINCAID: {
                     OperatorConstants.Misc.NAME: "Flesch Kincaid Grade",
                     OperatorConstants.Config.DESCRIPTION: "Estimates the U.S. school grade level needed to understand the text.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                GUNNING_FOG: {
+                OperatorConstants.Columns.GUNNING_FOG: {
                     OperatorConstants.Misc.NAME: "Gunning Fog",
                     OperatorConstants.Config.DESCRIPTION: "Estimates the grade level needed based on long sentences and difficult words.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                SMOG_INDEX: {
+                OperatorConstants.Columns.SMOG_INDEX: {
                     OperatorConstants.Misc.NAME: "Smog Index",
                     OperatorConstants.Config.DESCRIPTION: "Shows the grade level needed, based mainly on how many hard words the text has.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                COLEMAN_LIAU_INDEX: {
+                OperatorConstants.Columns.COLEMAN_LIAU_INDEX: {
                     OperatorConstants.Misc.NAME: "Coleman Liau Index",
                     OperatorConstants.Config.DESCRIPTION: "Estimates reading grade level using letter counts instead of syllables.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                AUTOMATED_READABILITY_INDEX: {
+                OperatorConstants.Columns.AUTOMATED_READABILITY_INDEX: {
                     OperatorConstants.Misc.NAME: "Automated Readability Index",
                     OperatorConstants.Config.DESCRIPTION: "Gives the school grade level needed using characters per word and words per sentence.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                DALE_CHALL_READABILITY_SCORE: {
+                OperatorConstants.Columns.DALE_CHALL_READABILITY_SCORE: {
                     OperatorConstants.Misc.NAME: "Dale Chall Readability Score",
                     OperatorConstants.Config.DESCRIPTION: "Estimates the grade level by checking how many uncommon words are used.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                DIFFICULT_WORDS: {
+                OperatorConstants.Columns.DIFFICULT_WORDS: {
                     OperatorConstants.Misc.NAME: "Difficult Words",
                     OperatorConstants.Config.DESCRIPTION: "Returns the count of words that are not commonly used, which make the text harder for readers.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                LINSEAR_WRITE_FORMULA: {
+                OperatorConstants.Columns.LINSEAR_WRITE_FORMULA: {
                     OperatorConstants.Misc.NAME: "Linsear Write Formula",
                     OperatorConstants.Config.DESCRIPTION: "Computes grade level based on easy vs. hard words and sentence length.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                TEXT_STANDARD: {
+                OperatorConstants.Columns.TEXT_STANDARD: {
                     OperatorConstants.Misc.NAME: "Text Standard",
                     OperatorConstants.Config.DESCRIPTION: "Provides an overall grade-level estimate by combining multiple readability formulas.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                SPACHE_READABILITY: {
+                OperatorConstants.Columns.SPACHE_READABILITY: {
                     OperatorConstants.Misc.NAME: "Spache Readability",
                     OperatorConstants.Config.DESCRIPTION: "Estimates reading grade level for texts aimed at young children up to 4th grade.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                MCALPINE_EFLAW: {
+                OperatorConstants.Columns.MCALPINE_EFLAW: {
                     OperatorConstants.Misc.NAME: "Mcalpine Eflaw",
                     OperatorConstants.Config.DESCRIPTION: "Rates readability for learners of English, focusing on short 'miniwords' and sentence length.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.DOUBLE,
                 },
-                READING_TIME: {
+                OperatorConstants.Columns.READING_TIME: {
                     OperatorConstants.Misc.NAME: "Reading Time",
                     OperatorConstants.Config.DESCRIPTION: "The reading time of the given text. Assumes 14.69ms per character.",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,

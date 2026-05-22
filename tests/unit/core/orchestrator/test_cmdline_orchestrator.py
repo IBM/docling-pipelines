@@ -118,6 +118,8 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                     "name": "test-operator",
                     OperatorConstants.Misc.OPERATOR: "test-operator",
                     "config": {},
+                    "input_edges": [],
+                    "output_edges": [],
                 }
             ]
         }

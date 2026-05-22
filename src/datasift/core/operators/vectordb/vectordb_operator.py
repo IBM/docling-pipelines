@@ -54,7 +54,7 @@ class VectorDBOperator(AbstractOperator):
     3. The provider will be automatically available
     """
 
-    short_name: str = "vectordb"
+    short_name: str = OperatorConstants.Operators.VECTORDB
     category: OperatorCategory = OperatorCategory.VectorDB
     owner = DatasiftConstants.OWNER_DATASIFT
 

@@ -10,10 +10,14 @@ from datasift.core.constants.constants import DatasiftConstants, OrchestratorTyp
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.models.session_info import get_session_info, set_session_info
 from datasift.core.operators.abstract_operator import OperatorCategory
+from datasift.core.operators.operator_metadata import OperatorMetadata
 from datasift.core.orchestration.abstract_orchestrator import AbstractOrchestrator
+from datasift.core.orchestration.feature_propagation import (
+    FeaturePropagationResult,
+    FeaturePropagator,
+)
 from datasift.core.orchestration.operator_factory import OperatorFactory, OperatorFactoryProvider
 from datasift.exceptions.datasift_exceptions import (
-    DatasiftException,
     ErrorCode,
     FlowValidationException,
     ValidationAlert,
@@ -27,9 +31,55 @@ logger = get_logger()
 
 
 class ValidateStepResults:
-    """Container for validation results including features, errors, and warnings."""
+    """Container for validation results including features, errors, and warnings.
 
-    def __init__(self, available_features, errors, warnings):
+    Separates validation concerns (errors/warnings) from feature propagation state,
+    allowing validators to accumulate results during DAG traversal without mixing
+    feature tracking with error reporting.
+
+    This class acts as a mutable accumulator that is passed through the validation
+    pipeline, collecting errors and warnings from various validation checks while
+    also tracking which features are available at each node.
+
+    Attributes:
+        available_features: Dict mapping node IDs to lists of available feature names
+            at that node. Used for debugging and feature availability checks.
+        errors: List of validation errors (ValidationAlert objects or dicts).
+            Non-empty list indicates validation failure.
+        warnings: List of validation warnings (ValidationAlert objects or dicts).
+            Warnings don't fail validation but indicate potential issues.
+
+    Example:
+        ```python
+        results = ValidateStepResults(
+            available_features={},
+            errors=[],
+            warnings=[]
+        )
+
+        # Validators add errors/warnings during traversal
+        results.errors.append(ValidationAlert(
+            code="OPERATOR_NOT_FOUND",
+            message="Operator not found"
+        ))
+
+        # Feature tracking
+        results.available_features["node-1"] = ["id", "content", "metadata"]
+        ```
+
+    Note:
+        This is a simple data container without methods. Validators directly
+        mutate the lists and dict to accumulate results.
+    """
+
+    def __init__(self, *, available_features: dict, errors: list, warnings: list):
+        """Initialize validation results container.
+
+        Args:
+            available_features: Empty dict to be populated with node_id -> feature list mappings
+            errors: Empty list to be populated with validation errors
+            warnings: Empty list to be populated with validation warnings
+        """
         self.available_features = available_features
         self.errors = errors
         self.warnings = warnings
@@ -38,32 +88,131 @@ class ValidateStepResults:
 class FlowValidator:
     """Handles all flow validation logic for the datasift orchestrator.
 
-    This class encapsulates validation methods that check:
-    - DAG structure and connectivity
-    - Operator placement and categories
-    - Node naming and uniqueness
-    - Operator-specific validation rules
+    This class encapsulates comprehensive validation logic for DAG-based data
+    processing flows, ensuring structural integrity, operator correctness, and
+    feature availability throughout the pipeline.
+
+    Validation Responsibilities:
+        - DAG Structure: Validates graph connectivity, detects cycles, checks for disjoint nodes
+        - Operator Placement: Ensures Ingest operators are first, VectorDB operators are last
+        - Operator Availability: Verifies all operators are registered and available
+        - Operator Configuration: Validates operator-specific parameters and requirements
+        - Feature Propagation: Tracks features through the pipeline and validates availability
+        - Node Naming: Checks for unique node names and proper identification
+
+    Architecture:
+        FlowValidator works in conjunction with:
+        - FeaturePropagator: Handles feature tracking through the DAG
+        - OperatorMetadata: Provides operator capability information
+        - FlowEngine: Executes validation traversal (Prefect-based)
+
+    Validation Modes:
+        1. validate(): Basic structural validation without feature tracking
+        2. validate_dag(): Full validation with error accumulation
+        3. validate_dag_with_features(): Validation + feature propagation results
+        4. debug_feature_propagation(): Detailed per-node feature snapshots
+
+    Thread Safety:
+        FlowValidator instances are NOT thread-safe. Each validation request
+        should use its own validator instance (created with its own orchestrator).
+
+    Example:
+        ```python
+        from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from datasift.core.orchestration.flow_validator import FlowValidator
+
+        # Create orchestrator and validator
+        orchestrator = OrchestratorFactory.create_orchestrator("python")
+        orchestrator.initialize(job_id="val-job", job_run_id="val-run")
+        validator = FlowValidator(orchestrator=orchestrator)
+
+        # Validate flow (internal runtime DAG format)
+        # Note: Authoring format is converted to this format before validation
+        flow_def = {
+            "dag": [
+                {
+                    "id": "ingest-1",
+                    "name": "Ingest",
+                    "operator": "ingest_local",
+                    "config": {"folder_path": "/data"},
+                    "output_edges": [{"node_id_ref": "extract-1"}]
+                },
+                {
+                    "id": "extract-1",
+                    "name": "Extract",
+                    "operator": "extract_operator",
+                    "config": {},
+                    "input_edges": [{"node_id_ref": "ingest-1"}],
+                    "output_edges": []
+                }
+            ]
+        }
+
+        try:
+            validator.validate_dag(flow_def=flow_def, global_config={})
+            print("Validation passed!")
+        except FlowValidationException as e:
+            print(f"Validation failed: {e.errors}")
+        ```
+
+    See Also:
+        - FeaturePropagator: Feature tracking engine
+        - ValidationService: API-level validation facade
+        - AbstractOrchestrator: Orchestrator interface
     """
 
-    def __init__(self, orchestrator: AbstractOrchestrator):
+    def __init__(self, *, orchestrator: AbstractOrchestrator):
         """Initialize the FlowValidator.
 
+        Creates a validator instance tied to a specific orchestrator. The validator
+        loads operator metadata once during initialization for efficient validation.
+
         Args:
-            orchestrator: Reference to the AbstractOrchestrator instance
+            orchestrator: Reference to the AbstractOrchestrator instance that will
+                execute the validation traversal. Must have flow_engine initialized.
+
+        Note:
+            Operator metadata loading may fail for operators requiring external services
+            (e.g., Ollama, OpenSearch). This is acceptable as validation only needs
+            structural information, not runtime capabilities.
         """
         self.orchestrator = orchestrator
         self.logger = get_logger()
         self.common_log_arguments = orchestrator.common_log_arguments
+        self.operator_metadata = OperatorMetadata()
+        # Load operator metadata once during initialization
+        # Operators that require external services may fail to load metadata
+        # This is acceptable for validation as we only need structural information
+        try:
+            self.operator_metadata.get_operator_metadata(internal_features=True)
+        except Exception as e:
+            self.logger.warning(
+                f"Some operators failed to load metadata (this is normal if external services are unavailable): {e!s}"
+            )
+            # Continue with whatever metadata was successfully loaded
+        # Initialize feature propagator
+        self.feature_propagator = FeaturePropagator()
 
     def validate(self, *, flow_def: dict, params: dict):
         """Main validation entry point for a flow definition.
 
+        Performs basic structural validation without feature propagation.
+        This is the simplest validation mode, suitable for quick checks.
+
         Args:
-            flow_def: The flow definition dictionary
-            params: Additional parameters to merge with global config
+            flow_def: The flow definition dictionary containing:
+                - dag: List of operator node definitions
+                - global_config: Optional global configuration
+            params: Additional parameters to merge with global config.
+                Typically used to override or extend global_config.
 
         Raises:
-            FlowValidationException: If validation fails
+            FlowValidationException: If validation fails with errors.
+                Contains errors and warnings lists.
+
+        Note:
+            Validation can be disabled by setting disable_validation=True
+            in global_config or params.
         """
         global_config = flow_def.get(OperatorConstants.Config.GLOBAL_CONFIG, {}) | params
 
@@ -86,12 +235,38 @@ class FlowValidator:
     def validate_dag(self, *, flow_def: dict, global_config: dict):
         """Validate the DAG structure and all nodes.
 
+        Performs comprehensive validation including structure checks, operator
+        validation, and feature propagation. This is the standard validation
+        method used by most validation workflows.
+
+        Validation Steps:
+            1. Check DAG exists and is non-empty
+            2. Check for unnamed operators (warning)
+            3. Check for duplicate operator names (error)
+            4. Validate first operator is Ingest category
+            5. Validate no disjoint (disconnected) operators
+            6. Validate no cycles in the DAG
+            7. Validate all operators are available/registered
+            8. Traverse DAG and validate each node
+            9. Validate last operator is VectorDB (warning if not)
+
         Args:
-            flow_def: The flow definition dictionary
-            global_config: Global configuration dictionary
+            flow_def: The flow definition dictionary containing:
+                - dag: List of operator node definitions (required)
+                - global_config: Optional global configuration
+            global_config: Global configuration dictionary merged with flow_def config.
+                Used for operator configuration and validation settings.
 
         Raises:
-            FlowValidationException: If validation fails
+            FlowValidationException: If validation fails with errors or warnings.
+                The exception contains:
+                - errors: List of validation errors (non-empty means failure)
+                - warnings: List of validation warnings (don't fail validation)
+
+        Note:
+            This method uses the flow_engine to traverse the DAG in topological
+            order, validating each node and propagating features. The traversal
+            is non-executing (no actual data processing).
         """
         logger.info("Validating DAG", extra=self.common_log_arguments)
         errors: list[Any] = []
@@ -140,10 +315,16 @@ class FlowValidator:
 
         self.validate_first_operator(dag=dag, global_config=global_config, validate_results=validate_results)
         self.validate_disjoint_operators(dag=dag, validate_results=validate_results)
+        self.validate_no_cycles(dag=dag, validate_results=validate_results)
+        self.validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
 
         def node_validation_task(task_name, op_def, result=None, link_name=None):
             return self._validate_node(
-                op_def=op_def, global_config=global_config, validate_results=validate_results, session_info=session_info
+                op_def=op_def,
+                prev_result=result,
+                global_config=global_config,
+                validate_results=validate_results,
+                session_info=session_info,
             )
 
         if self.orchestrator.flow_engine is None:
@@ -167,6 +348,365 @@ class FlowValidator:
         if validate_results.errors or validate_results.warnings:
             self.logger.error(f"Validation errors: {validate_results.errors}")
             raise FlowValidationException(errors=validate_results.errors, warnings=validate_results.warnings)
+
+    def validate_dag_with_features(self, *, flow_def: dict, global_config: dict) -> FeaturePropagationResult:
+        """Validate DAG and propagate features through all nodes.
+
+        This method enhances the standard validate_dag() by adding feature propagation
+        and returning detailed feature information for each node. It's the most
+        comprehensive validation mode, used by the validation API.
+
+        Process:
+            1. Run standard validate_dag() - raises if validation fails
+            2. Perform separate feature propagation traversal
+            3. Collect feature metadata for all nodes
+            4. Return FeaturePropagationResult with complete feature information
+
+        The feature propagation traversal tracks:
+            - Input features available to each node
+            - Output features produced by each node
+            - Feature metadata (description, tags, availability flags)
+            - Global parameters (e.g., embeddings_model_id)
+            - Features dropped by operators (e.g., SQLFilter)
+
+        Args:
+            flow_def: The flow definition dictionary containing:
+                - dag: List of operator node definitions (required)
+                - global_config: Optional global configuration
+            global_config: Global configuration dictionary for operators
+
+        Returns:
+            FeaturePropagationResult containing:
+                - available_features: Dict[node_id, List[feature_names]]
+                - opensearch_features: Dict[node_id, List[vector_db_features]]
+                - feature_metadata: Dict[feature_name, FeatureMetadata]
+                - global_params: Dict[param_name, param_value]
+                - output_features_to_drop: Dict[node_id, OutputFeaturesToDrop]
+
+        Raises:
+            FlowValidationException: If validation fails (from validate_dag call).
+                Feature propagation only runs if validation succeeds.
+
+        Example:
+            ```python
+            result = validator.validate_dag_with_features(
+                flow_def=flow_def,
+                global_config={}
+            )
+
+            # Check features available at specific node
+            node_features = result.available_features.get("node-123", [])
+            print(f"Features at node: {node_features}")
+
+            # Check feature metadata
+            for feature_name, metadata in result.feature_metadata.items():
+                print(f"{feature_name}: {metadata.description}")
+            ```
+
+        Note:
+            This method performs two DAG traversals: one for validation and one
+            for feature propagation. For large DAGs, this may take longer than
+            validate_dag() alone.
+
+        See Also:
+            - validate_dag: Standard validation without feature propagation
+            - debug_feature_propagation: Detailed per-node feature snapshots
+            - FeaturePropagator.propagate_features: Core feature tracking logic
+        """
+        # First, run standard validation (this will raise if validation fails)
+        self.validate_dag(flow_def=flow_def, global_config=global_config)
+
+        # If validation passed, perform feature propagation
+        logger.info("Performing feature propagation", extra=self.common_log_arguments)
+
+        dag = flow_def.get(DatasiftConstants.DAG, [])
+        propagation_result = FeaturePropagationResult()
+
+        def feature_propagation_task(task_name, op_def, prev_result=None, link_name=None):
+            """Task function for feature propagation traversal."""
+            node_result = self._build_node_feature_result(
+                op_def=op_def,
+                prev_result=prev_result,
+                global_config=global_config,
+            )
+            self._merge_node_result_into_propagation_result(
+                op_def=op_def,
+                node_result=node_result,
+                propagation_result=propagation_result,
+            )
+            return node_result
+
+        # Execute feature propagation traversal
+        if self.orchestrator.flow_engine is None:
+            raise FlowValidationException(
+                errors=[
+                    ValidationAlert(
+                        ErrorCode.FLOW_VALIDATION_FAILED.value,
+                        message="Flow engine not initialized",
+                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
+                    )
+                ]
+            )
+
+        self.orchestrator.flow_engine.execute_non_execute_flow(
+            flow_name="feature_propagation_flow", task=feature_propagation_task, dag=dag
+        )
+        clean_up_prefect_home()
+
+        logger.info(
+            f"Feature propagation complete: {len(propagation_result.available_features)} nodes processed",
+            extra=self.common_log_arguments,
+        )
+
+        return propagation_result
+
+    def _validate_node(
+        self,
+        *,
+        op_def: dict[str, Any],
+        prev_result: Any,
+        global_config: dict[str, Any],
+        validate_results: ValidateStepResults,
+        session_info: Any,
+    ) -> FeaturePropagationResult:
+        """Validate a single DAG node and return its propagation result."""
+        if session_info is not None:
+            set_session_info(session_info=session_info)
+
+        node_result = self._build_node_feature_result(
+            op_def=op_def,
+            prev_result=prev_result,
+            global_config=global_config,
+        )
+        node_id, operator_name, _ = self._get_required_node_fields(op_def=op_def)
+
+        input_features = list(node_result.get_input_features(node_id=node_id).keys())
+        output_features = list(node_result.feature_metadata.keys())
+        validate_results.available_features[node_id] = output_features
+
+        operator_factory: OperatorFactory = OperatorFactoryProvider.get_operator_factory(
+            orchestrator=OrchestratorType.PYTHON
+        )
+
+        if self._evaluate_node_validation_skip(
+            operator=operator_name,
+            operator_factory=operator_factory,
+            global_config=global_config,
+        ):
+            return node_result
+
+        try:
+            operator_class = operator_factory.operators.get(operator_name)
+
+            if operator_class is None:
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=f"Operator '{operator_name}' is not available. Please check operator name and registration.",
+                        message_code="OPERATOR_NOT_AVAILABLE",
+                    ),
+                    op_def=op_def,
+                    alerts=validate_results.errors,
+                )
+                return node_result
+
+            config = global_config | op_def.get(OperatorConstants.Config.CONFIG, {})
+            operator = operator_class(config=config)
+            operator.name = op_def.get(OperatorConstants.Columns.NAME)
+            operator.id = op_def.get(OperatorConstants.Columns.ID)
+
+            errors: list[Any] = []
+            warnings: list[Any] = []
+            operator.validate(errors=errors, warnings=warnings, available_features=input_features)
+
+            self.create_validation_alerts(op_def=op_def, messages=errors, alerts=validate_results.errors)
+            self.create_validation_alerts(op_def=op_def, messages=warnings, alerts=validate_results.warnings)
+        except FlowValidationException as exc:
+            if exc.errors:
+                validate_results.errors.extend(exc.errors)
+            if exc.warnings:
+                validate_results.warnings.extend(exc.warnings)
+        except Exception as exc:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=f"Validation failed for operator '{operator_name}': {exc!s}",
+                    message_code="OPERATOR_VALIDATION_FAILED",
+                ),
+                op_def=op_def,
+                alerts=validate_results.errors,
+            )
+
+        return node_result
+
+    def _get_parent_results(self, *, prev_result: Any) -> list[FeaturePropagationResult]:
+        """Normalize Prefect traversal input into a list of parent propagation results."""
+        if isinstance(prev_result, FeaturePropagationResult):
+            return [prev_result]
+        if isinstance(prev_result, list):
+            return [parent for parent in prev_result if isinstance(parent, FeaturePropagationResult)]
+        if isinstance(prev_result, dict):
+            return [parent for parent in prev_result.values() if isinstance(parent, FeaturePropagationResult)]
+        return []
+
+    def _feature_metadata_to_dict(self, *, result: FeaturePropagationResult) -> dict[str, dict[str, Any]]:
+        """Convert node feature metadata into plain dictionaries for downstream propagation/debugging."""
+        return {
+            name: {
+                "description": meta.description,
+                "tags": meta.tags,
+                "available_for_filter": meta.available_for_filter,
+                "available_for_vector_db": meta.available_for_vector_db,
+                "type": meta.type,
+                **({"source_node_id": meta.node_id} if meta.node_id else {}),
+            }
+            for name, meta in result.feature_metadata.items()
+        }
+
+    def _get_required_node_fields(self, *, op_def: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
+        """Extract required propagation fields from a DAG node definition."""
+        node_id = op_def.get(OperatorConstants.Misc.ID)
+        operator = op_def.get(OperatorConstants.Misc.OPERATOR)
+        operator_config = op_def.get(OperatorConstants.Config.CONFIG, {})
+
+        if not isinstance(node_id, str) or not node_id:
+            raise FlowValidationException(
+                errors=[
+                    ValidationAlert(
+                        ErrorCode.FLOW_VALIDATION_FAILED.value,
+                        message="Flow node is missing a valid id",
+                        message_code="INVALID_FLOW_NODE_ID",
+                    )
+                ]
+            )
+
+        if not isinstance(operator, str) or not operator:
+            raise FlowValidationException(
+                errors=[
+                    ValidationAlert(
+                        ErrorCode.FLOW_VALIDATION_FAILED.value,
+                        message=f"Flow node '{node_id}' is missing a valid operator",
+                        message_code="INVALID_FLOW_NODE_OPERATOR",
+                    )
+                ]
+            )
+
+        if not isinstance(operator_config, dict):
+            operator_config = {}
+
+        return node_id, operator, operator_config
+
+    def _build_node_feature_result(
+        self,
+        *,
+        op_def: dict[str, Any],
+        prev_result: Any,
+        global_config: dict[str, Any],
+    ) -> FeaturePropagationResult:
+        """Build propagation state for a single node from its parents."""
+        node_id, operator, operator_config = self._get_required_node_fields(op_def=op_def)
+
+        parent_results = self._get_parent_results(prev_result=prev_result)
+        input_features: dict[str, dict[str, Any]] = {}
+
+        for parent_result in parent_results:
+            input_features.update(self._feature_metadata_to_dict(result=parent_result))
+
+        return self.feature_propagator.propagate_features(
+            node_id=node_id,
+            operator_short_name=operator,
+            operator_config=operator_config,
+            input_features=input_features,
+            global_config=global_config,
+            parent_results=parent_results,
+        )
+
+    def _merge_node_result_into_propagation_result(
+        self,
+        *,
+        op_def: dict[str, Any],
+        node_result: FeaturePropagationResult,
+        propagation_result: FeaturePropagationResult,
+    ) -> None:
+        """Store per-node propagation output in the aggregate flow result."""
+        node_id, _, _ = self._get_required_node_fields(op_def=op_def)
+        feature_names = list(node_result.feature_metadata.keys())
+        propagation_result.set_available_features(node_id=node_id, features=feature_names)
+
+        opensearch_features = [
+            name for name, meta in node_result.feature_metadata.items() if meta.available_for_vector_db
+        ]
+        if opensearch_features:
+            propagation_result.set_opensearch_features(node_id=node_id, features=opensearch_features)
+
+        for feature_name, feature_meta in node_result.feature_metadata.items():
+            scoped_feature_name = f"{node_id}.{feature_name}"
+            propagation_result.feature_metadata[scoped_feature_name] = feature_meta
+            if feature_name not in propagation_result.feature_metadata:
+                propagation_result.feature_metadata[feature_name] = feature_meta
+
+        propagation_result.global_params.update(node_result.global_params)
+
+        if node_id in node_result.output_features_to_drop:
+            propagation_result.output_features_to_drop[node_id] = node_result.output_features_to_drop[node_id]
+
+    def debug_feature_propagation(self, *, flow_def: dict, global_config: dict) -> dict[str, dict[str, Any]]:
+        """Return per-node feature propagation snapshots without changing validation behavior."""
+        normalized_flow_def = flow_def
+        if "definition" in normalized_flow_def:
+            normalized_flow_def = normalized_flow_def["definition"]
+        if "flow" in normalized_flow_def:
+            normalized_flow_def = normalized_flow_def["flow"]
+
+        dag = normalized_flow_def.get(DatasiftConstants.DAG, [])
+        debug_snapshots: dict[str, dict[str, Any]] = {}
+        parent_node_map: dict[str, list[str]] = {}
+
+        for node in dag:
+            node_id = node.get(OperatorConstants.Misc.ID)
+            parent_ids = [edge.get("node_id_ref") for edge in node.get("input_edges", []) if edge.get("node_id_ref")]
+            parent_node_map[node_id] = parent_ids
+
+        def feature_debug_task(task_name, op_def, prev_result=None, link_name=None):
+            node_id = op_def.get(OperatorConstants.Misc.ID)
+            operator = op_def.get(OperatorConstants.Misc.OPERATOR)
+
+            node_result = self._build_node_feature_result(
+                op_def=op_def,
+                prev_result=prev_result,
+                global_config=global_config,
+            )
+
+            debug_snapshots[node_id] = {
+                "node_id": node_id,
+                "node_name": op_def.get(OperatorConstants.Misc.NAME),
+                "operator": operator,
+                "parent_node_ids": parent_node_map.get(node_id, []),
+                "input_features": node_result.get_input_features(node_id=node_id),
+                "output_features": node_result.get_output_features(node_id=node_id),
+                "available_features": self._feature_metadata_to_dict(result=node_result),
+                "dropped_features": sorted(
+                    node_result.get_output_features_to_drop(node_id=node_id).get_features_to_drop()
+                ),
+                "global_params": dict(node_result.global_params),
+            }
+
+            return node_result
+
+        if self.orchestrator.flow_engine is None:
+            raise FlowValidationException(
+                errors=[
+                    ValidationAlert(
+                        ErrorCode.FLOW_VALIDATION_FAILED.value,
+                        message="Flow engine not initialized",
+                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
+                    )
+                ]
+            )
+
+        self.orchestrator.flow_engine.execute_non_execute_flow(
+            flow_name="feature_propagation_debug_flow", task=feature_debug_task, dag=dag
+        )
+        clean_up_prefect_home()
+        return debug_snapshots
 
     def validate_first_operator(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
         """Validate that the first operator in the DAG is an Ingest operator.
@@ -224,7 +764,8 @@ class FlowValidator:
         """
         graph: dict[str, list[str]] = {n["id"]: [] for n in dag}
         for node in dag:
-            for edge in node.get(DatasiftConstants.OUTPUT_EDGES, []):
+            output_edges = node.get(DatasiftConstants.OUTPUT_EDGES, [])
+            for edge in output_edges:
                 graph[node["id"]].append(edge["node_id_ref"])
         return graph
 
@@ -320,6 +861,83 @@ class FlowValidator:
                 alerts=validate_results.warnings,
             )
 
+    def validate_no_cycles(self, *, dag: list, validate_results: ValidateStepResults):
+        """Validate that the DAG does not contain cycles.
+
+        Uses depth-first search with recursion stack to detect cycles.
+
+        Args:
+            dag: List of operator definitions
+            validate_results: Container for validation results
+        """
+        graph = self._build_graph(dag)
+        visited = set()
+        rec_stack = set()
+
+        def has_cycle(node_id: str) -> bool:
+            """DFS helper to detect cycles."""
+            visited.add(node_id)
+            rec_stack.add(node_id)
+
+            for neighbor in graph.get(node_id, []):
+                if neighbor not in visited:
+                    if has_cycle(neighbor):
+                        return True
+                elif neighbor in rec_stack:
+                    return True
+
+            rec_stack.remove(node_id)
+            return False
+
+        # Check each node for cycles
+        for node in dag:
+            node_id = node.get("id")
+            if node_id and node_id not in visited:
+                if has_cycle(node_id):
+                    add_validation_alert(
+                        message=ValidationMessage(
+                            message="Cyclic dependency detected in DAG. Flows must be acyclic.",
+                            message_code="CYCLIC_DEPENDENCY_DETECTED",
+                        ),
+                        op_def=node,
+                        alerts=validate_results.errors,
+                    )
+                    break
+
+    def validate_operator_availability(self, *, dag: list, global_config: dict, validate_results: ValidateStepResults):
+        """Validate that all operators in the DAG are available in the operator factory.
+
+        Performs early check before DAG traversal to fail fast with clear error.
+
+        Args:
+            dag: List of operator definitions
+            global_config: Global configuration dictionary
+            validate_results: Container for validation results
+        """
+        operator_factory: OperatorFactory = OperatorFactoryProvider.get_operator_factory(
+            orchestrator=OrchestratorType.PYTHON
+        )
+
+        for node in dag:
+            operator_name = node.get(OperatorConstants.Misc.OPERATOR)
+
+            # Skip validation for custom operators if configured
+            if self._evaluate_node_validation_skip(
+                operator=operator_name, operator_factory=operator_factory, global_config=global_config
+            ):
+                continue
+
+            # Check if operator exists in factory
+            if operator_name and operator_name not in operator_factory.operators:
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=f"Operator '{operator_name}' is not available. Please check operator name and registration.",
+                        message_code="OPERATOR_NOT_AVAILABLE",
+                    ),
+                    op_def=node,
+                    alerts=validate_results.errors,
+                )
+
     def validate_operator_category(
         self,
         *,
@@ -374,31 +992,35 @@ class FlowValidator:
                 op_def=op_def,
                 alerts=alerts,
             )
-        operator = None
-        try:
-            operator = self.orchestrator.create_executor(op_def=op_def, global_config=global_config).get_operator()
-        except DatasiftException:
-            errors: list[Any] = []
+        # Get operator name from definition
+        operator_name = op_def.get(OperatorConstants.Misc.OPERATOR)
+        if not operator_name:
             add_validation_alert(
                 ValidationMessage(
-                    message=ValidationCodeMessages.GET_OPERATOR_FAILED.value,
-                    message_code=ValidationCodeMessages.GET_OPERATOR_FAILED.name,
+                    message="Operator name is missing from node definition",
+                    message_code="MISSING_OPERATOR_NAME",
                 ),
                 op_def=op_def,
-                alerts=errors,
+                alerts=alerts,
             )
-        if operator is None:
-            errors = []
+            return None
+
+        # Look up category from cached metadata (avoids operator instantiation)
+        metadata = self.operator_metadata.operator_metadata.get(operator_name, {})
+        category = metadata.get(OperatorConstants.Misc.CATEGORY)
+
+        if category is None:
             add_validation_alert(
                 ValidationMessage(
-                    message=ValidationCodeMessages.GET_OPERATOR_FAILED.value,
-                    message_code=ValidationCodeMessages.GET_OPERATOR_FAILED.name,
+                    message=f"Could not determine category for operator '{operator_name}'. Operator may not be registered or metadata is unavailable.",
+                    message_code="OPERATOR_CATEGORY_UNKNOWN",
                 ),
                 op_def=op_def,
-                alerts=errors,
+                alerts=alerts,
             )
-            raise FlowValidationException(errors=errors)
-        return operator.category
+            return None
+
+        return category
 
     def create_validation_alerts(self, op_def: dict, messages: list, alerts: list, **kwargs):
         """Create validation alerts from a list of messages.
@@ -411,96 +1033,6 @@ class FlowValidator:
         """
         for message in messages:
             add_validation_alert(message=message, op_def=op_def, alerts=alerts, **kwargs)
-
-    def _validate_node(
-        self,
-        *,
-        op_def,
-        global_config,
-        validate_results: ValidateStepResults,
-        session_info,
-    ):
-        """Validate a single node in the DAG.
-
-        Args:
-            op_def: Operator definition dictionary
-            global_config: Global configuration dictionary
-            validate_results: Container for validation results
-            session_info: Session information
-
-        Returns:
-            Updated validate_results
-        """
-        node_id = op_def["id"]
-        node_name = op_def.get("name", "")
-        operator = op_def.get("operator", "")
-
-        operator_factory: OperatorFactory = OperatorFactoryProvider.get_operator_factory(
-            orchestrator=OrchestratorType.PYTHON
-        )
-        if self._evaluate_node_validation_skip(
-            operator=operator,
-            operator_factory=operator_factory,
-            global_config=global_config,
-        ):
-            self.logger.info(
-                f"Skipping validating node: {node_name} ({operator})",
-                extra=self.common_log_arguments,
-            )
-            return validate_results
-
-        set_session_info(session_info)
-        self.logger.info(f"Validating node: {node_name} ({operator})", extra=self.common_log_arguments)
-
-        input_refs = op_def.get(DatasiftConstants.INPUT_EDGES, [])  # list of dicts with node_id_ref
-        prev_node_ids = [ref.get("node_id_ref") for ref in input_refs if "node_id_ref" in ref]
-        output_refs = op_def.get(DatasiftConstants.OUTPUT_EDGES, [])
-
-        available_features = set()
-        for parent_id in prev_node_ids:
-            available_features.update(validate_results.available_features.get(parent_id, []))
-
-        executor = self.orchestrator.create_executor(op_def=op_def, global_config=global_config)
-        operator = executor.get_operator()
-
-        # Get features that this operator produces from its metadata
-        # This is the authoritative source for what columns an operator will produce
-        operator_metadata = operator.get_metadata()
-        operator_features = operator_metadata.get(OperatorConstants.Config.FEATURES, {})
-        new_features = set(operator_features.keys())
-
-        all_features = list(available_features.union(new_features))
-        validate_results.available_features[node_id] = all_features
-
-        error_messages: list[ValidationMessage] = []
-        warning_messages: list[ValidationMessage] = []
-
-        if not output_refs:
-            # If the operator does not have any output refs and it is not VectorDB operator, then add a warning
-            category = self.get_operator_category(
-                op_def=op_def,
-                global_config=global_config,
-                alerts=validate_results.errors,
-            )
-            if category != OperatorCategory.VectorDB:
-                warning_msg = ValidationMessage(
-                    message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
-                    message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name,
-                )
-                warning_messages.append(warning_msg)
-
-        executor.validate(
-            errors=error_messages,
-            warnings=warning_messages,
-            available_features=all_features,
-        )
-
-        self.create_validation_alerts(op_def=op_def, messages=error_messages, alerts=validate_results.errors)
-        self.create_validation_alerts(op_def=op_def, messages=warning_messages, alerts=validate_results.warnings)
-
-        self.logger.info(f"Completed validation: {node_name}", extra=self.common_log_arguments)
-        logger.info(f"Validating node: {node_name} ({operator})", extra=self.common_log_arguments)
-        return validate_results
 
     def get_duplicate_node_names(self, *, nodes):
         """Get duplicate names of nodes from pipeline.

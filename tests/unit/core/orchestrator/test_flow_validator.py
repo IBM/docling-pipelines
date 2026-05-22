@@ -23,7 +23,7 @@ class TestValidateStepResults:
         errors = ["error1"]
         warnings = ["warning1"]
 
-        result = ValidateStepResults(available_features, errors, warnings)
+        result = ValidateStepResults(available_features=available_features, errors=errors, warnings=warnings)
 
         assert result.available_features == available_features
         assert result.errors == errors
@@ -38,7 +38,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         assert validator.orchestrator == mock_orchestrator
         assert validator.common_log_arguments == {}
@@ -48,7 +48,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         flow_def = {
             OperatorConstants.Config.GLOBAL_CONFIG: {OperatorConstants.Config.DISABLE_VALIDATION: True},
@@ -63,7 +63,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         flow_def = {}
 
@@ -78,7 +78,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         flow_def = {DatasiftConstants.DAG: []}
 
@@ -95,7 +95,7 @@ class TestFlowValidator:
         mock_orchestrator.prefect_executor = Mock()
         mock_orchestrator.prefect_executor.build_non_execute_flow = Mock(return_value=Mock())
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         flow_def = {
             DatasiftConstants.DAG: [
@@ -121,7 +121,7 @@ class TestFlowValidator:
         mock_orchestrator.prefect_executor = Mock()
         mock_orchestrator.prefect_executor.build_non_execute_flow = Mock(return_value=Mock())
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         flow_def = {
             DatasiftConstants.DAG: [
@@ -148,7 +148,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         nodes = ["node1", "node2", "node1", "node3", "node2"]
         result = validator.get_duplicate_node_names(nodes=nodes)
@@ -160,7 +160,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         nodes = ["node1", "node2", "node3"]
         result = validator.get_duplicate_node_names(nodes=nodes)
@@ -172,10 +172,10 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         dag = [{"id": "node1", "operator": "ingest_op"}]
-        validate_results = ValidateStepResults({}, [], [])
+        validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         with patch.object(validator, "validate_operator_category") as mock_validate:
             validator.validate_first_operator(dag=dag, global_config={}, validate_results=validate_results)
@@ -187,7 +187,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         dag = [
             {"id": "node1", DatasiftConstants.OUTPUT_EDGES: [{"node_id_ref": "node2"}]},
@@ -206,7 +206,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         graph = {"node1": ["node2"], "node2": ["node3"], "node3": []}
 
@@ -222,7 +222,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         undirected = {
             "node1": {"node2"},
@@ -240,7 +240,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         undirected = {
             "node1": {"node2"},
@@ -258,14 +258,14 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         dag = [
             {"id": "node1", DatasiftConstants.OUTPUT_EDGES: [{"node_id_ref": "node2"}]},
             {"id": "node2", DatasiftConstants.OUTPUT_EDGES: []},
         ]
 
-        validate_results = ValidateStepResults({}, [], [])
+        validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         # Should not add errors for connected graph
         validator.validate_disjoint_operators(dag=dag, validate_results=validate_results)
@@ -277,14 +277,14 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         dag = [
             {"id": "node1", DatasiftConstants.OUTPUT_EDGES: []},
             {"id": "node2", DatasiftConstants.OUTPUT_EDGES: []},
         ]
 
-        validate_results = ValidateStepResults({}, [], [])
+        validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
 
         validator.validate_disjoint_operators(dag=dag, validate_results=validate_results)
 
@@ -296,7 +296,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         sequence = [
             {"id": "node1", "operator": "extract_op1"},
@@ -318,7 +318,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}
         alerts = []
@@ -341,7 +341,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}
         alerts = []
@@ -367,7 +367,7 @@ class TestFlowValidator:
         mock_orchestrator.common_log_arguments = {}
         mock_orchestrator.create_executor = Mock()
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"operator": "test_op"}  # Missing ID
         alerts = []
@@ -385,7 +385,7 @@ class TestFlowValidator:
         mock_orchestrator.common_log_arguments = {}
         mock_orchestrator.create_executor = Mock()
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "operator": "test_op"}  # Missing NAME
         alerts = []
@@ -402,13 +402,12 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        mock_executor = Mock()
-        mock_operator = Mock()
-        mock_operator.category = OperatorCategory.Ingest
-        mock_executor.get_operator.return_value = mock_operator
-        mock_orchestrator.create_executor.return_value = mock_executor
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
-        validator = FlowValidator(mock_orchestrator)
+        # Mock the operator metadata to return Ingest category for test_op
+        validator.operator_metadata.operator_metadata = {
+            "test_op": {OperatorConstants.Misc.CATEGORY: OperatorCategory.Ingest}
+        }
 
         op_def = {
             "id": "node1",
@@ -426,7 +425,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         op_def = {"id": "node1", "name": "Test"}
         messages = [Mock(), Mock()]
@@ -442,7 +441,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         mock_factory = Mock()
         mock_factory.operators = {"known_op": Mock()}
@@ -462,7 +461,7 @@ class TestFlowValidator:
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
 
-        validator = FlowValidator(mock_orchestrator)
+        validator = FlowValidator(orchestrator=mock_orchestrator)
 
         mock_factory = Mock()
         mock_factory.operators = {"known_op": Mock()}
@@ -768,5 +767,3 @@ class TestFlowValidatorIntegration:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

@@ -89,7 +89,7 @@ class FlowExecutor:
 
         # Validate flow definition
         try:
-            flow_validator = FlowValidator(self.__orchestrator)
+            flow_validator = FlowValidator(orchestrator=self.__orchestrator)
             flow_validator.validate(flow_def=self.flow_def, params=params or {})
         except FlowValidationException as exc:
             if not exc.errors or len(exc.errors) == 0:

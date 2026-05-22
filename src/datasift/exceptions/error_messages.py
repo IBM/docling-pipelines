@@ -92,6 +92,7 @@ class ValidationCodeMessages(StrEnum):
         """Flow contains disconnected operators. Ensure every operator has valid input and output connections."""
     )
 
+    INVALID_FLOW_WRAPPER = "Flow wrapper contains invalid structure"
 
     # Document Library error messages
     DOCUMENT_LIBRARY_NOT_FOUND = "Document library not found: {details}"

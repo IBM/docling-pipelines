@@ -122,7 +122,7 @@ def validate_flow_definition(flow_file: str) -> bool:
 
         orchestrator.initialize(job_id=validation_job_id, job_run_id=validation_job_run_id)
 
-        FlowValidator(orchestrator).validate(flow_def=flow_def, params={})
+        FlowValidator(orchestrator=orchestrator).validate(flow_def=flow_def, params={})
 
         logger.info("Validation successful: '%s' is valid", flow_name)
         return True

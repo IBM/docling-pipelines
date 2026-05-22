@@ -58,12 +58,14 @@ class OperatorConstants:
         READABILITY: Final[str] = "readability"
         REDACTION: Final[str] = "redaction"
         REGEX_ANNOTATOR: Final[str] = "regex_annotator"
+        PII_AND_HAP: Final[str] = "pii_and_hap"
         SQL_FILTER: Final[str] = "sql_filter"
 
         # Storage Operators
         ENTITY_CURATION_OPERATOR: Final[str] = "entity_curation_operator"
         ENTITY_STORE_OPERATOR: Final[str] = "entity_store"
         OPENSEARCH: Final[str] = "opensearch"
+        VECTORDB: Final[str] = "vectordb"
 
         # Utility Operators
         DESIGN_FLOW_OUTPUT_OPERATOR: Final[str] = "design_flow_output"
@@ -131,6 +133,21 @@ class OperatorConstants:
         COLUMN_LIST: Final[str] = "column_list"
         FEATURES: Final[str] = "columns"
         INNER_JOIN_DUPLICATE_COLUMN: Final[str] = "inner_join"
+
+        # Readability Operator - Score Feature Names
+        FLESCH_EASE: Final[str] = "flesch_ease"
+        FLESCH_KINCAID: Final[str] = "flesch_kincaid"
+        GUNNING_FOG: Final[str] = "gunning_fog"
+        SMOG_INDEX: Final[str] = "smog_index"
+        COLEMAN_LIAU_INDEX: Final[str] = "coleman_liau_index"
+        AUTOMATED_READABILITY_INDEX: Final[str] = "automated_readability_index"
+        DALE_CHALL_READABILITY_SCORE: Final[str] = "dale_chall_readability_score"
+        DIFFICULT_WORDS: Final[str] = "difficult_words"
+        LINSEAR_WRITE_FORMULA: Final[str] = "linsear_write_formula"
+        TEXT_STANDARD: Final[str] = "text_standard"
+        SPACHE_READABILITY: Final[str] = "spache_readability"
+        MCALPINE_EFLAW: Final[str] = "mcalpine_eflaw"
+        READING_TIME: Final[str] = "reading_time"
 
     class Merge:
         """Merge operator constants."""
@@ -549,6 +566,26 @@ Rules:
         REDACTION_MASKING_CHARACTER_KEY: Final[str] = "redaction_masking_character"
         REDACTION_REGEX_KEY: Final[str] = "redaction_regex"
 
+        # Redaction Type Values
+        REDACTION_TYPE_PII: Final[str] = "PII"
+        REDACTION_TYPE_HAP: Final[str] = "HAP"
+
+        # PII Type Values (as they appear in pii_list)
+        PII_TYPE_PHONE_NUMBER: Final[str] = "PhoneNumber"
+        PII_TYPE_SOCIAL_SECURITY_NUMBER: Final[str] = "SocialSecurityNumber"
+        PII_TYPE_BANK_ACCOUNT_NUMBER: Final[str] = "BankAccountNumber"
+        PII_TYPE_IP_ADDRESS: Final[str] = "IPAddress"
+        PII_TYPE_EMAIL_ADDRESS: Final[str] = "EmailAddress"
+        PII_TYPE_CREDIT_CARD_NUMBER: Final[str] = "CreditCardNumber"
+
+        # Normalized search terms for feature name matching
+        PII_SEARCH_PHONE_NUMBER: Final[str] = "phonenumber"
+        PII_SEARCH_SSN: Final[str] = "ssn"
+        PII_SEARCH_BANK_ACCOUNT: Final[str] = "bankaccount"
+        PII_SEARCH_IP_ADDRESS: Final[str] = "ipaddress"
+        PII_SEARCH_EMAIL_ADDRESS: Final[str] = "emailaddress"
+        PII_SEARCH_CREDIT_CARD: Final[str] = "creditcard"
+
     class Filtering:
         """Filtering constants."""
 
@@ -711,6 +748,18 @@ Rules:
         TYPE: Final[str] = "type"
         USER_CODE: Final[str] = "user_code"
         USER_DATA: Final[str] = "user_data"
+
+        # Merge Operator - Strategy Names
+        MERGE_STRATEGY_CONCATENATION: Final[str] = "concatenation_with_different_schema"
+        MERGE_STRATEGY_INNER_JOIN: Final[str] = "inner_join_with_duplicate_columns"
+        MERGE_STRATEGY_FULL_OUTER_JOIN: Final[str] = "full_outer_join"
+
+        # Feature Attribute Keys (for feature dictionaries)
+        FEATURE_ATTR_NAME: Final[str] = "name"
+        FEATURE_ATTR_DESCRIPTION: Final[str] = "description"
+        FEATURE_ATTR_AVAILABLE_FOR_FILTER: Final[str] = "available_for_filter"
+        FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB: Final[str] = "available_for_vector_db"
+        FEATURE_ATTR_NODE_ID: Final[str] = "node_id"
         VALUE_DATA_TYPE: Final[str] = "value_data_type"
 
         # Operator and Collection Constants

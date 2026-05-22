@@ -9,60 +9,87 @@ from datasift.core.assets.flows.domain.models.flow import Flow
 
 
 @pytest.fixture
-def sample_flow_data() -> dict[str, Any]:
-    """Sample flow data dictionary for testing."""
+def sample_flow_data_elyra() -> dict[str, Any]:
+    """Sample flow data dictionary for testing (Elyra format)."""
     return {
-        "name": "Test Flow",
-        "description": "A test flow for unit testing",
-        "definition": {
-            "doc_type": "pipeline",
-            "version": "3.0",
-            "id": "test-pipeline-id",
-            "primary_pipeline": "test-pipeline-id",
-            "pipelines": [
-                {
-                    "id": "test-pipeline-id",
-                    "nodes": [
-                        {
-                            "id": "node1",
-                            "type": "execution_node",
-                            "op": "execute-notebook-node",
-                        }
-                    ],
-                    "app_data": {"ds_flow": {}, "ui_data": {}},
-                }
-            ],
-            "schemas": [],
-        },
-        "tags": ["test", "unit-test"],
-        "container_kind": "project",
-        "container_id": "550e8400-e29b-41d4-a716-446655440000",
-        "is_hidden": False,
-        "flow_version": "2.0",
-        "job_id": "660e8400-e29b-41d4-a716-446655440000",
-        "created_by": "test_user",
+        "doc_type": "pipeline",
+        "version": "3.0",
+        "json_schema": "https://api.dataplatform.ibm.com/schemas/common-pipeline/pipeline-flow/pipeline-flow-v3-schema.json",
+        "id": "550e8400-e29b-41d4-a716-446655440000",
+        "primary_pipeline": "660e8400-e29b-41d4-a716-446655440000",
+        "pipelines": [
+            {
+                "id": "660e8400-e29b-41d4-a716-446655440000",
+                "nodes": [],
+                "app_data": {
+                    "ds_flow": {
+                        "name": "Test Flow",
+                        "description": "A test flow for unit testing",
+                    },
+                    "ui_data": {"comments": []},
+                },
+            }
+        ],
+        "schemas": [],
     }
 
 
 @pytest.fixture
-def sample_flow_with_id(sample_flow_data) -> Flow:
-    """Sample Flow domain object with a specific flow_id for testing."""
+def sample_flow_data_authoring() -> dict[str, Any]:
+    """Sample flow data dictionary for testing (authoring format)."""
+    return {
+        "flow_name": "Test Flow",
+        "description": "A test flow for unit testing",
+        "flow": [
+            {
+                "type": "ingest_local",
+                "name": "ingest_node",
+                "config": {"input_folder": "./data"},
+                "depends_on": [],
+            },
+            {
+                "type": "extract_operator",
+                "name": "extract_node",
+                "config": {},
+                "depends_on": ["ingest_node"],
+            },
+        ],
+        "global_config": {},
+    }
+
+
+# Backward compatibility: keep sample_flow_data pointing to authoring format
+@pytest.fixture
+def sample_flow_data(sample_flow_data_authoring) -> dict[str, Any]:
+    """Sample flow data dictionary for testing (defaults to authoring format for backward compatibility)."""
+    return sample_flow_data_authoring
+
+
+@pytest.fixture
+def sample_flow_with_id_elyra(sample_flow_data_elyra) -> Flow:
+    """Sample Flow domain object with Elyra format definition for testing."""
     flow = Flow(
         flow_id="12345678-1234-1234-1234-123456789abc",
-        name=sample_flow_data["name"],
-        description=sample_flow_data["description"],
-        definition=sample_flow_data["definition"],
-        tags=sample_flow_data["tags"],
-        container_kind=sample_flow_data["container_kind"],
-        container_id=sample_flow_data["container_id"],
-        is_hidden=sample_flow_data["is_hidden"],
-        flow_version=sample_flow_data["flow_version"],
-        job_id=sample_flow_data["job_id"],
-        created_by=sample_flow_data["created_by"],
+        name="Test Flow",
+        description="A test flow for unit testing",
+        definition=sample_flow_data_elyra,  # Elyra format definition
+        tags=["test", "unit-test"],
+        container_kind="project",
+        container_id="550e8400-e29b-41d4-a716-446655440000",
+        is_hidden=False,
+        flow_version="2.0",
+        job_id="660e8400-e29b-41d4-a716-446655440000",
+        created_by="test_user",
         created_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
         modified_on=datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC),
     )
     return flow
+
+
+@pytest.fixture
+def sample_flow_with_id(sample_flow_with_id_elyra) -> Flow:
+    """Sample Flow domain object with a specific flow_id for testing (defaults to Elyra format for backward compatibility)."""
+    return sample_flow_with_id_elyra
 
 
 @pytest.fixture

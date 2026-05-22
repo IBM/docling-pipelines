@@ -866,7 +866,7 @@ class OpenSearchIndexManager:
 
         # Process each feature
         for feature_name, feature_config in self.available_features.items():
-            if not feature_config.get("available_for_vector_db", False):
+            if not feature_config.get(OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB, False):
                 continue
 
             mapped_name: str = self.feature_mappings.get(feature_name, feature_name)

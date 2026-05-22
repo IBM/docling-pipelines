@@ -936,3 +936,128 @@ class BulkDeleteResponse(BaseModel):
             ]
         }
     )
+
+
+class ValidationAlertDTO(BaseModel):
+    """DTO for a single validation alert (error or warning).
+
+    Represents issues found during flow validation such as missing features,
+    invalid operator configurations, or incompatible operator sequences.
+
+    Matches the structure of ValidationAlert from datasift_exceptions.py.
+    """
+
+    code: str | None = Field(
+        default=None,
+        description="Error or warning code",
+        max_length=100,
+        examples=["MISSING_REQUIRED_FEATURE", "INVALID_OPERATOR_CONFIG"],
+    )
+    message: str | None = Field(
+        default=None,
+        description="Human-readable description of the issue",
+        max_length=1000,
+        examples=["Required feature 'content' not available for operator 'chunker'"],
+    )
+    message_code: str | None = Field(
+        default=None,
+        description="Message code for internationalization",
+        max_length=100,
+        examples=["MISSING_REQUIRED_FEATURE"],
+    )
+    node_id: str | None = Field(
+        default=None,
+        description="ID of the operator node where the issue was found",
+        min_length=UUID_LENGTH,
+        max_length=UUID_LENGTH,
+        pattern=UUID_PATTERN,
+        examples=[UUID_EXAMPLE],
+    )
+    node_name: str | None = Field(
+        default=None,
+        description="Name of the operator where the issue was found",
+        max_length=200,
+        examples=["Extract Documents", "Chunk Content"],
+    )
+    operator: str | None = Field(
+        default=None,
+        description="Operator type where the issue was found",
+        max_length=200,
+        examples=["ExtractOperator", "Chunker"],
+    )
+
+    # Allow extra fields to match ValidationAlert's **kwargs behavior
+    model_config = ConfigDict(
+        extra="allow",
+        json_schema_extra={
+            "examples": [
+                {
+                    "code": "MISSING_REQUIRED_FEATURE",
+                    "message": "Required feature 'content' not available for operator 'chunker'",
+                    "message_code": "MISSING_REQUIRED_FEATURE",
+                    "node_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "node_name": "Chunk Content",
+                    "operator": "Chunker",
+                },
+                {
+                    "code": "INVALID_OPERATOR_CONFIG",
+                    "message": "Embeddings operator should come after chunker for better performance",
+                    "message_code": "SUBOPTIMAL_OPERATOR_SEQUENCE",
+                    "node_id": "550e8400-e29b-41d4-a716-446655440001",
+                    "node_name": "Generate Embeddings",
+                    "operator": "EmbeddingsOperator",
+                },
+            ]
+        },
+    )
+
+
+class FlowValidationResponse(BaseModel):
+    """Response DTO for POST /flows/validate endpoint.
+
+    Matches FlowValidationResult from datasift-api for compatibility.
+    """
+
+    status: str = Field(
+        description="Status of the flow validation: SUCCEEDED, FAILED, or SUCCEEDED_WITH_WARNINGS",
+        min_length=1,
+        max_length=50,
+        pattern="^[ -~]{1,50}$",
+        examples=["SUCCEEDED", "FAILED", "SUCCEEDED_WITH_WARNINGS"],
+    )
+    message: str | None = Field(
+        default=None,
+        description="Overall validation message",
+        min_length=1,
+        max_length=10000,
+        examples=["Flow validation failed.", "Flow validation succeeded."],
+    )
+    errors: list[ValidationAlertDTO] = Field(
+        default_factory=list, description="List of validation errors that prevent flow execution", max_length=30
+    )
+    warnings: list[ValidationAlertDTO] = Field(
+        default_factory=list, description="List of validation warnings (non-blocking issues)", max_length=30
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "description": "This model contains results from flow validation.",
+            "examples": [
+                {"status": "SUCCEEDED", "message": None, "errors": [], "warnings": []},
+                {
+                    "status": "FAILED",
+                    "message": "Flow validation failed.",
+                    "errors": [
+                        {
+                            "code": "flow_validation_failed",
+                            "message": "Required feature 'content' not available",
+                            "node_id": "123e4567-e89b-12d3-a456-426614174000",
+                            "node_name": "Chunk Content",
+                            "operator": "Chunker",
+                        }
+                    ],
+                    "warnings": [],
+                },
+            ],
+        }
+    )

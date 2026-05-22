@@ -9,6 +9,7 @@ from typing import Any
 
 from opensearchpy import OpenSearch, helpers
 
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.utils.infrastructure.logging import get_logger
 from datasift.utils.operators.vectordb_utils import calculate_batch_size_bytes
 
@@ -107,7 +108,7 @@ class OpenSearchBatchProcessor:
             feature_config: dict[str, Any] = self.available_features.get(feature_name, {})
 
             # Skip if explicitly marked as unavailable for vector db
-            if feature_config.get("available_for_vector_db") is False:
+            if feature_config.get(OperatorConstants.Misc.FEATURE_ATTR_AVAILABLE_FOR_VECTOR_DB) is False:
                 continue
 
             # Skip binary data types that cannot be JSON serialized

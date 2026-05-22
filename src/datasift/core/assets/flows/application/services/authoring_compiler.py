@@ -152,8 +152,14 @@ class AuthoringCompiler:
             operator_name=operator.name, dependency_graph=dependency_graph, operator_ids=operator_ids
         )
 
+        config = dict(operator.config or {})
+
         # Transform config for specific operators
         config = self._transform_operator_config(operator=operator)
+
+        # Always rebuild input_links for merge operators to ensure proper link_names
+        if operator.type == OperatorConstants.Operators.MERGE:
+            config[OperatorConstants.Merge.INPUT_LINKS] = self._build_merge_input_links(input_edges=input_edges)
 
         node_dict = {
             OperatorConstants.Columns.ID: node_id,
@@ -254,9 +260,23 @@ class AuthoringCompiler:
                 for branch_name, branch_config in branches.items():
                     branch_item = {
                         OperatorConstants.Misc.LINK_ID: branch_name,
+                        OperatorConstants.Misc.LINK_NAME: branch_name,  # Add link_name for validation
                         **branch_config,
                     }
                     branch_list.append(branch_item)
                 config[OperatorConstants.Misc.BRANCHES] = branch_list
 
         return config
+
+    def _build_merge_input_links(self, *, input_edges: list[dict[str, str]]) -> list[dict[str, str]]:
+        """Build merge input_links config from compiled input edges."""
+        return [
+            {
+                OperatorConstants.Misc.LINK_NAME: input_edge.get(
+                    DatasiftConstants.LINK_NAME,
+                    f"input_{index + 1}",
+                ),
+                "node_id_ref": input_edge["node_id_ref"],
+            }
+            for index, input_edge in enumerate(input_edges)
+        ]
