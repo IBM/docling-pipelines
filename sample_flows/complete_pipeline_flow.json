@@ -4,7 +4,7 @@
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
-    "force_ingest": true,
+    "force_ingest": false,
     "storage": "in-memory",
     "execute_type": "local"
   },

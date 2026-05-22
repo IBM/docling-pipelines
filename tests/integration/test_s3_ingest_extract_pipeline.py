@@ -50,21 +50,25 @@ class TestS3IngestExtractPipeline:
             ),
         ]
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_s3_ingest_creates_binary_content_column(
         self,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         mock_s3_documents,
     ):
         """Test that S3 ingest operator sets has_binary_content metadata flag (lazy loading)."""
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Mock async generator for fetch_documents
         async def mock_async_gen():
@@ -117,7 +121,8 @@ class TestS3IngestExtractPipeline:
         assert "name" in result_table.column_names
         assert "path" in result_table.column_names
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_binary_content")
     @patch(
@@ -128,17 +133,20 @@ class TestS3IngestExtractPipeline:
         mock_extract_single,
         mock_fetch_binary,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         mock_s3_documents,
     ):
         """Test that extract operator works with lazy loading (no binary_content column)."""
         from datasift.core.operators.extract.extract_operator import ExtractOperator
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Mock async generator for fetch_documents
         async def mock_async_gen():
@@ -232,7 +240,8 @@ class TestS3IngestExtractPipeline:
         assert all(content is not None for content in contents), "All content values should be non-null"
         assert all(len(content) > 0 for content in contents), "All content values should be non-empty"
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_binary_content")
     @patch(
@@ -243,17 +252,20 @@ class TestS3IngestExtractPipeline:
         mock_extract_single,
         mock_fetch_binary,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         mock_s3_documents,
     ):
         """Test complete pipeline: S3 ingest → Extract, verifying lazy loading behavior."""
         from datasift.core.operators.extract.extract_operator import ExtractOperator
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Mock async generator for fetch_documents
         async def mock_async_gen():
@@ -360,20 +372,24 @@ class TestS3IngestExtractPipeline:
             if col not in ["content", "doc_id_hash", "pages_processed"]:  # These are added/modified by extract
                 assert col in extract_table.column_names, f"Column {col} should be preserved"
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_s3_ingest_with_empty_result_handles_binary_content(
         self,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
     ):
         """Test that empty S3 ingest result has correct schema (no binary_content with lazy loading)."""
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Mock empty async generator
         async def mock_async_gen():

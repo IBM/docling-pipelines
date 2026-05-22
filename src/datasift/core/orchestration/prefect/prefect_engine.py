@@ -23,6 +23,8 @@ from prefect.task_runners import ThreadPoolTaskRunner  # noqa: E402
 
 from datasift.core.constants.constants import DatasiftConstants, TaskType  # noqa: E402
 from datasift.core.constants.operator_constants import OperatorConstants  # noqa: E402
+from datasift.core.incremental_metadata import IncrementalUpdateService  # noqa: E402
+from datasift.core.incremental_metadata.adapters.config import create_incremental_metadata_store  # noqa: E402
 from datasift.core.models.session_info import get_session_info  # noqa: E402
 from datasift.core.orchestration.futured_list import FuturedList  # noqa: E402
 from datasift.core.orchestration.prefect.ports.batch_execution_port import (  # noqa: E402
@@ -34,7 +36,6 @@ from datasift.exceptions.datasift_exceptions import (  # noqa: E402
     FlowValidationException,
     PrefectFlowFailed,
 )
-from datasift.utils.data.incremental_update import IncrementalUpdateUtil  # noqa: E402
 from datasift.utils.infrastructure.logging import get_logger  # noqa: E402
 from datasift.utils.orchestration.flow_utils import create_node_id_to_index_map  # noqa: E402
 
@@ -565,9 +566,9 @@ class PrefectEngine(AbstractFlowEngine):
         destinations: list[tuple[PrefectFuture, Any]] = []
         node_id_to_index_map = create_node_id_to_index_map(flow_def=op_flow)
         deleted_docs_count = 0
-        # Extract flow-level incremental metadata config if present
-        flow_incremental_config = global_config.get("incremental_metadata")
-        incremental_update_util = IncrementalUpdateUtil(flow_config=flow_incremental_config)
+        # Create incremental update service (config loaded from datasift-config.yaml)
+        store = create_incremental_metadata_store(job_id=self.orchestrator.context_id)
+        incremental_update_util = IncrementalUpdateService(store=store)
 
         is_sequential_flow = (
             False

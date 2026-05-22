@@ -210,11 +210,14 @@ class TestEmptyDocumentHandling:
         assert processed_tables is None
         assert updated_metadata == metadata
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
-    def test_save_empty_docs_to_incremental_metadata_success(self, mock_incremental_util_class, executor):
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
+    def test_save_empty_docs_to_incremental_metadata_success(self, mock_create_store, mock_service_class, executor):
         """Test saving empty documents to incremental metadata successfully."""
-        mock_incremental_util = Mock()
-        mock_incremental_util_class.return_value = mock_incremental_util
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service_class.return_value = mock_service
 
         table = pa.table({
             "id": ["doc1", "doc2", "doc3"],
@@ -226,19 +229,22 @@ class TestEmptyDocumentHandling:
             empty_doc_indices=[1]
         )
 
-        mock_incremental_util.save_metadata_for_incremental_update.assert_called_once()
-        call_args = mock_incremental_util.save_metadata_for_incremental_update.call_args
+        mock_service.save_metadata_for_incremental_update.assert_called_once()
+        call_args = mock_service.save_metadata_for_incremental_update.call_args
         assert call_args.kwargs["job_id"] == "test_job"
         assert call_args.kwargs["job_run_id"] == "test_run"
         assert len(call_args.kwargs["tables"]) == 1
         assert call_args.kwargs["tables"][0].num_rows == 1
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
-    def test_save_empty_docs_to_incremental_metadata_failure(self, mock_incremental_util_class, executor):
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
+    def test_save_empty_docs_to_incremental_metadata_failure(self, mock_create_store, mock_service_class, executor):
         """Test handling failure when saving to incremental metadata."""
-        mock_incremental_util = Mock()
-        mock_incremental_util.save_metadata_for_incremental_update.side_effect = Exception("Save failed")
-        mock_incremental_util_class.return_value = mock_incremental_util
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.save_metadata_for_incremental_update.side_effect = Exception("Save failed")
+        mock_service_class.return_value = mock_service
 
         table = pa.table({
             "id": ["doc1", "doc2"],
@@ -259,12 +265,12 @@ class TestEmptyDocumentHandling:
         })
 
         # Should return early without attempting to save
-        with patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil") as mock_util:
+        with patch("datasift.core.incremental_metadata.IncrementalUpdateService") as mock_service:
             executor._save_empty_docs_to_incremental_metadata(
                 table=table,
                 empty_doc_indices=[]
             )
-            mock_util.assert_not_called()
+            mock_service.assert_not_called()
 
     def test_custom_doc_column(self, mock_operator):
         """Test handling empty documents with custom doc_column."""

@@ -18,6 +18,7 @@ from typing import Any
 import yaml
 
 from datasift.core.constants import DatasiftConfigKeys, EnvironmentVariables
+from datasift.core.constants.constants import _find_project_root
 from datasift.core.job_management.adapters.frameworks import DefaultJobRunManager
 from datasift.core.job_management.adapters.services import JobTrackerService
 from datasift.core.job_management.adapters.stores import (
@@ -47,7 +48,7 @@ class StorageBackend(StrEnum):
     """Supported storage backends."""
 
     IN_MEMORY = "inmemory"
-    JSON = "json"
+    FILESYSTEM = "filesystem"
     POSTGRESQL = "postgresql"
     DUCKDB = "duckdb"
 
@@ -59,7 +60,7 @@ class FrameworkType(StrEnum):
     # User can add there custom framework here
 
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[6] / "datasift-config.yaml"
+DEFAULT_CONFIG_PATH = _find_project_root() / "datasift-config.yaml"
 ENV_CONFIG_PATH_KEY = EnvironmentVariables.DATASIFT_CONFIG_PATH
 ENV_JOB_STATS_BASE_DIR_KEY = EnvironmentVariables.DATASIFT_JOB_STATS_BASE_DIR
 
@@ -157,7 +158,7 @@ class JobManagementFactory:
             EnvironmentVariables.DATASIFT_FRAMEWORK_TYPE: self.framework_type.value,
         }
 
-        if self.storage_backend == StorageBackend.JSON:
+        if self.storage_backend == StorageBackend.FILESYSTEM:
             # Re-resolve base_dir as start_tracking_job does
             base_dir_override = os.getenv(ENV_JOB_STATS_BASE_DIR_KEY)
             configured_base_dir = self.config.get(DatasiftConfigKeys.BASE_DIR)
@@ -200,7 +201,7 @@ class JobManagementFactory:
 
         Supports:
         - IN_MEMORY: Fast in-memory storage (testing/development)
-        - JSON: Persistent JSON file storage (restart recovery)
+        - FILESYSTEM: Persistent filesystem storage (restart recovery)
         - POSTGRESQL: PostgreSQL database storage (production)
         - DUCKDB: DuckDB embedded database storage (production, no server required)
 
@@ -215,7 +216,7 @@ class JobManagementFactory:
                 self._job_stats_store = InMemoryJobStatsStore()
                 logger.info("Created InMemoryJobStatsStore")
 
-            case StorageBackend.JSON:
+            case StorageBackend.FILESYSTEM:
                 lock_timeout = self.config.get(DatasiftConfigKeys.LOCK_TIMEOUT, 30.0)
                 base_dir_override = os.getenv(ENV_JOB_STATS_BASE_DIR_KEY)
                 configured_base_dir = self.config.get(DatasiftConfigKeys.BASE_DIR)
@@ -371,20 +372,35 @@ class JobManagementFactory:
             logger.warning(f"Empty configuration file: {config_path}, using defaults")
             return cls()
 
+        # Extract global_storage configuration (shared defaults)
+        global_storage_config = yaml_config.get(DatasiftConfigKeys.GLOBAL_STORAGE, {})
+
+        # Extract job_management specific configuration
         job_mgmt_config = yaml_config.get(DatasiftConfigKeys.JOB_MANAGEMENT, {})
         framework_config = job_mgmt_config.get(DatasiftConfigKeys.FRAMEWORK, {}) or {}
         store_config = job_mgmt_config.get(DatasiftConfigKeys.STORE, {}) or {}
 
-        storage_str = store_config.get(
-            DatasiftConfigKeys.TYPE,
-            job_mgmt_config.get(DatasiftConfigKeys.STORAGE_BACKEND, StorageBackend.IN_MEMORY.value),
-        )
+        # Determine storage backend with precedence: service-specific > global_storage > defaults
+        # First check service-specific config
+        storage_str = store_config.get(DatasiftConfigKeys.TYPE)
+        if not storage_str:
+            storage_str = job_mgmt_config.get(DatasiftConfigKeys.STORAGE_BACKEND)
+        # Fall back to global_storage if no service-specific config
+        if not storage_str and global_storage_config:
+            storage_str = global_storage_config.get(DatasiftConfigKeys.TYPE)
+        # Final fallback to default
+        if not storage_str:
+            storage_str = StorageBackend.IN_MEMORY.value
+
         try:
             storage_backend = StorageBackend(storage_str)
-        except ValueError as e:
+        except ValueError:
+            # Fail fast on invalid backend
+            supported = [e.value for e in StorageBackend]
             raise ValueError(
-                f"Invalid storage backend: {storage_str}. Supported: {[e.value for e in StorageBackend]}"
-            ) from e
+                f"Invalid storage backend '{storage_str}' for job management. "
+                f"Supported backends: {supported}"
+            ) from None
 
         framework_str = framework_config.get(
             DatasiftConfigKeys.TYPE,
@@ -397,13 +413,32 @@ class JobManagementFactory:
                 f"Invalid framework type: {framework_str}. Supported: {[e.value for e in FrameworkType]}"
             ) from e
 
+        # Merge configuration with precedence: service-specific > global_storage > defaults
         merged_config: dict[str, Any] = {}
+
+        if global_storage_config:
+            merged_config.update(global_storage_config.get(DatasiftConfigKeys.CONFIG, {}) or {})
+            if DatasiftConfigKeys.POSTGRES in global_storage_config:
+                merged_config[DatasiftConfigKeys.POSTGRES] = global_storage_config[DatasiftConfigKeys.POSTGRES]
+
         merged_config.update(job_mgmt_config.get(DatasiftConfigKeys.STORAGE_CONFIG, {}) or {})
         merged_config.update(store_config.get(DatasiftConfigKeys.CONFIG, {}) or {})
+
+        if DatasiftConfigKeys.POSTGRES in job_mgmt_config:
+            merged_config[DatasiftConfigKeys.POSTGRES] = job_mgmt_config[DatasiftConfigKeys.POSTGRES]
+
         merged_config.update(job_mgmt_config.get(DatasiftConfigKeys.FRAMEWORK_CONFIG, {}) or {})
         merged_config.update(framework_config.get(DatasiftConfigKeys.CONFIG, {}) or {})
 
-        logger.info(f"Loaded configuration from {config_path}: storage={storage_backend}, framework={framework_type}")
+        config_source = (
+            "service-specific"
+            if store_config.get(DatasiftConfigKeys.TYPE)
+            else ("global_storage" if global_storage_config else "defaults")
+        )
+        logger.info(
+            f"Loaded job management configuration from {config_path}: "
+            f"storage={storage_backend} (source: {config_source}), framework={framework_type}"
+        )
 
         return cls(storage_backend=storage_backend, framework_type=framework_type, config=merged_config)
 

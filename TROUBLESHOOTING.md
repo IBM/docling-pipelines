@@ -207,14 +207,14 @@ Job run exists on the submitter but worker updates do not appear in job status A
 ```
 
 **Likely cause:**
-- JSON job stats storage is configured with a local path that workers cannot access
+- Filesystem job stats storage is configured with a local path that workers cannot access
 - submitter and workers resolve different filesystem paths
 - worker environment does not receive the same job stats backend configuration
 
 **Solutions:**
 1. Check job management configuration via environment variables and confirm the selected backend matches your deployment model.
 2. For distributed execution, prefer PostgreSQL job stats storage.
-3. If using JSON storage, configure a shared filesystem path visible to both submitter and workers.
+3. If using filesystem storage, configure a shared filesystem path visible to both submitter and workers.
 4. Ensure worker environments inherit the same effective backend configuration and connection settings.
 5. If needed, override config explicitly with `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, `DATASIFT_JOB_STATS_BASE_DIR`, and PostgreSQL env variables.
 6. Review [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md) for distributed storage guidance.

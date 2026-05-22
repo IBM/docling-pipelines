@@ -8,9 +8,11 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
   - [Table of Contents](#table-of-contents)
   - [Documentation](#documentation)
     - [Getting Started](#getting-started)
+    - [Flow Authoring](#flow-authoring)
     - [Architecture \& Design](#architecture--design)
     - [API \& Reference](#api--reference)
     - [Operator Documentation](#operator-documentation)
+      - [Operator Configuration Guides](#operator-configuration-guides)
     - [Additional Resources](#additional-resources)
   - [Available Operators](#available-operators)
     - [Vector Database Operators](#vector-database-operators)
@@ -21,7 +23,13 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
     - [Quality Operators](#quality-operators)
     - [Utility Operators](#utility-operators)
     - [Storage Operators](#storage-operators)
+    - [Custom Operators](#custom-operators)
   - [Project Structure](#project-structure)
+  - [Job Runs and Execution Tracking](#job-runs-and-execution-tracking)
+    - [Job Stats Components](#job-stats-components)
+    - [Supported Backends](#supported-backends)
+    - [API Surface](#api-surface)
+    - [User Configuration](#user-configuration)
   - [Setup](#setup)
     - [Quick Start (Automated Setup)](#quick-start-automated-setup)
     - [Manual Setup](#manual-setup)
@@ -58,6 +66,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
     - [Testing](#testing)
       - [Quick Start](#quick-start-2)
       - [Test Organization](#test-organization)
+      - [Filtering Tests by Speed](#filtering-tests-by-speed)
       - [Coverage Reports](#coverage-reports)
       - [Test Configuration](#test-configuration)
     - [Code Quality](#code-quality)
@@ -67,7 +76,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
     - [Adding New Routes](#adding-new-routes)
   - [Environment Variables](#environment-variables)
   - [Operator Specific Setup](#operator-specific-setup)
-    - [Embeddings Operator — Ollama Setup](#embeddings-operator--ollama-setup)
+    - [Embeddings Operator Setup](#embeddings-operator-setup)
       - [Step 1 — Install Ollama](#step-1--install-ollama)
       - [Step 2 — Start the Ollama server](#step-2--start-the-ollama-server)
       - [Step 3 — Pull a model](#step-3--pull-a-model)
@@ -77,9 +86,12 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
       - [Step 2 — Verify it's running](#step-2--verify-its-running)
       - [Step 3 — Configure environment variables](#step-3--configure-environment-variables)
       - [Step 4 — Stop OpenSearch](#step-4--stop-opensearch)
+    - [Milvus Vector Store](#milvus-vector-store)
+      - [Step 1 — Start Milvus](#step-1--start-milvus)
+      - [Step 2 — Verify it's running](#step-2--verify-its-running-1)
+      - [Step 3 — Configure in flow](#step-3--configure-in-flow)
+      - [Step 4 — Stop Milvus](#step-4--stop-milvus)
   - [Contributing](#contributing)
-    - [Step 4 — Stop OpenSearch](#step-4--stop-opensearch-1)
-  - [Contributing](#contributing-1)
 
 ---
 
@@ -317,23 +329,26 @@ Job run APIs are exposed through [`job_runs.py`](src/datasift/api/routes/job_run
 ### User Configuration
 
 The primary user-facing runtime configuration lives in [`datasift-config.yaml`](datasift-config.yaml), including:
-- [`assets_management.flow_repository`](datasift-config.yaml#L1) for the flow repository location
-- [`job_management.framework.type`](datasift-config.yaml#L9) for the job framework type
-- [`job_management.store.type`](datasift-config.yaml#L12) for the job stats store backend (inmemory, json, duckdb, postgresql)
-- [`job_management.store.config`](datasift-config.yaml#L15) for backend-specific settings such as JSON `base_dir`, DuckDB `database_path`, or PostgreSQL connection details
+
+- `assets_management.flow_repository` for the flow repository location
+- `job_management.storage.type` for the job stats storage backend (`filesystem`, `duckdb`, `postgresql`, `inmemory`)
+- `job_management.storage.config` for backend-specific job stats settings
+- `incremental_metadata.storage.type` for incremental metadata backend selection (`filesystem`, `postgresql`)
+- `incremental_metadata.storage.config` for backend-specific incremental metadata settings
+- `incremental_metadata.postgres` for PostgreSQL connection details when the incremental metadata backend is `postgresql`
+
+Incremental metadata configuration is centralized in `datasift-config.yaml`. Flow-level `incremental_metadata` configuration is no longer the supported configuration source.
 
 Environment overrides can replace config values at runtime, including:
+
 - `DATASIFT_CONFIG_PATH`
 - `DATASIFT_STORAGE_BACKEND`
 - `DATASIFT_FRAMEWORK_TYPE`
 - `DATASIFT_JOB_STATS_BASE_DIR`
-- `DATASIFT_POSTGRES_HOST`
-- `DATASIFT_POSTGRES_PORT`
-- `DATASIFT_POSTGRES_DB`
-- `DATASIFT_POSTGRES_USER`
-- `DATASIFT_POSTGRES_PASSWORD`
 
-When using distributed Prefect workers, all workers must resolve job stats storage consistently. JSON storage requires a shared filesystem path. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective job-management configuration resolved from environment variables and [`datasift-config.yaml`](datasift-config.yaml).
+Sensitive values such as PostgreSQL passwords should be supplied through environment variable substitution in `datasift-config.yaml`, for example `${POSTGRES_PASSWORD}` or `${INCR_META_DB_PASSWORD}`.
+
+When using distributed Prefect workers, all workers must resolve job stats storage and incremental metadata storage consistently. File-based backends such as Filesystem (for incremental metadata) require a shared filesystem path for submitters and workers. PostgreSQL storage requires matching backend configuration and connection settings in worker environments. If work-pool env values are not set explicitly, worker runtime inherits the submitter's effective configuration resolved from environment variables and [`datasift-config.yaml`](datasift-config.yaml). See [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md#incremental-metadata-configuration) for backend examples.
 
 ## Setup
 

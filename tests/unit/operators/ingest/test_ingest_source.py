@@ -328,12 +328,14 @@ class TestGetLoader:
 class TestTransform:
     """Test cases for transform method."""
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_success(
         self,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         mock_documents,
         empty_input_table,
     ):
@@ -343,10 +345,12 @@ class TestTransform:
         from datasift.core.operators.ingest.domain.models import Document as DomainDocument
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Create domain documents for the new adapter (lazy loading - no binary content)
         domain_docs = [
@@ -426,21 +430,25 @@ class TestTransform:
         assert metadata["processed_docs"] == 3
         assert metadata["total_docs_count"] == 3
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_empty_documents(
         self,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         empty_input_table,
     ):
         """Test transform handles empty document list."""
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Mock async generator that yields no documents
         async def mock_async_gen():
@@ -473,21 +481,25 @@ class TestTransform:
         assert metadata["node_status"] == "Completed"
         assert metadata["processed_docs"] == 0
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_error_handling(
         self,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         empty_input_table,
     ):
         """Test transform handles errors gracefully with S3 adapter."""
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Mock adapter to raise exception immediately
         async def failing_fetch():
@@ -520,12 +532,14 @@ class TestTransform:
         assert metadata["node_status"] == "CompletedWithErrors"
         assert metadata["failed_docs_count"] == 1
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_schema_validation(
         self,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         mock_documents,
         empty_input_table,
     ):
@@ -535,10 +549,12 @@ class TestTransform:
         from datasift.core.operators.ingest.domain.models import Document as DomainDocument
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Create domain document from mock LangChain document (lazy loading - no binary)
         domain_doc = DomainDocument(
@@ -588,14 +604,16 @@ class TestTransform:
         with pytest.raises(KeyError):
             schema.field("binary_content")
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("os.path.exists")
     @patch("os.makedirs")
     def test_transform_google_drive(
         self,
         mock_makedirs,
         mock_path_exists,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         mock_documents,
         empty_input_table,
     ):
@@ -605,10 +623,12 @@ class TestTransform:
         # Mock os.path.exists to return True
         mock_path_exists.return_value = True
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Create properly mocked LangChain Documents with _binary_content attribute
         def mock_load_documents_via_adapter():
@@ -662,22 +682,26 @@ class TestTransform:
         assert result_tables[0].num_rows == 3
         assert metadata["node_status"] == "Completed"
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_transform_document_without_source(
         self,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         empty_input_table,
     ):
         """Test transform handles documents without source in metadata."""
         from datasift.core.operators.ingest.domain.models import Document as DomainDocument
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         # Document without source (domain model, lazy loading)
         doc_no_source = DomainDocument(
@@ -718,21 +742,25 @@ class TestTransform:
 class TestIntegrationScenarios:
     """Integration test scenarios for common use cases."""
 
-    @patch("datasift.utils.data.incremental_update.IncrementalUpdateUtil")
+    @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
+    @patch("datasift.core.incremental_metadata.adapters.config.create_incremental_metadata_store")
     @patch("datasift.core.operators.ingest.adapters.outbound.sources.s3.adapter.S3SourceAdapter.fetch_documents")
     def test_s3_to_pyarrow_pipeline(
         self,
         mock_fetch_documents,
-        mock_incremental_util,
+        mock_create_store,
+        mock_service_class,
         empty_input_table,
     ):
         """Test complete S3 ingestion to PyArrow table pipeline."""
         from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        # Mock incremental update utility
-        mock_util_instance = Mock()
-        mock_util_instance.get_all_processed_docs.return_value = {}
-        mock_incremental_util.return_value = mock_util_instance
+        # Mock incremental update service
+        mock_store = Mock()
+        mock_create_store.return_value = mock_store
+        mock_service = Mock()
+        mock_service.get_all_processed_docs.return_value = {}
+        mock_service_class.return_value = mock_service
 
         from datetime import datetime
 

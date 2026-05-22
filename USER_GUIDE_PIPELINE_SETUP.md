@@ -278,7 +278,7 @@ datasift-opensource supports pluggable job stats storage for job runs, node exec
 ### Available Backends
 
 - **In-memory** - test and development scenarios
-- **JSON storage** - local file-backed persistence
+- **Filesystem storage** - local file-backed persistence
 - **DuckDB** - embedded database for local development (no server required)
 - **PostgreSQL** - durable storage for concurrent and distributed execution
 
@@ -294,7 +294,7 @@ job_management:
     type: default
     config: {}
   store:
-    type: json
+    type: filesystem
     config:
       base_dir: ./data/job_stats_store_data
 ```
@@ -323,9 +323,9 @@ Effective precedence for job-management runtime selection is:
 1. explicit environment variables
 2. built-in defaults in [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py)
 
-### JSON Storage Guidance
+### Filesystem Storage Guidance
 
-JSON storage is useful for single-host execution and simple local testing.
+Filesystem storage is useful for single-host execution and simple local testing.
 
 Important requirements:
 
@@ -394,6 +394,121 @@ Important behavior:
 This makes it possible to configure job management via environment variables per environment or per deployment.
 
 For full distributed execution examples and work-pool-specific configuration, see [`docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`](docs/prefect/DISTRIBUTED_EXECUTION_GUIDE.md).
+
+---
+
+## Incremental Metadata Configuration
+
+datasift-opensource supports incremental processing to avoid reprocessing unchanged input data. Incremental metadata stores processing state such as file identity and modification information so ingest operators can determine whether an item is new, changed, or already processed.
+
+### Configuration
+
+Use the `incremental_metadata` section in `datasift-config.yaml`:
+
+```yaml
+incremental_metadata:
+  storage:
+    type: "filesystem"  # Options: filesystem, postgresql
+    config:
+      base_dir: "./data"
+      lock_timeout: 30.0
+```
+
+This configuration is the single source of truth for incremental metadata backend selection and runtime settings.
+
+### Storage Backends
+
+#### JSON
+
+JSON storage is the default backend. It is file-based, easy to inspect, and suitable for development or smaller single-host deployments.
+
+```yaml
+incremental_metadata:
+  storage:
+    type: "json"
+    config:
+      base_dir: "./data/incremental_metadata"
+      lock_timeout: 30.0
+```
+
+Use JSON when:
+
+- you want a simple file-based backend
+- you are running locally or on a single host
+- you want metadata files that are easy to inspect during debugging
+
+#### Parquet
+
+Parquet storage uses a columnar file format and is better suited to larger datasets or analytics-oriented workflows.
+
+```yaml
+incremental_metadata:
+  storage:
+    type: "parquet"
+    config:
+      base_dir: "./data/incremental_metadata"
+      lock_timeout: 30.0
+```
+
+Use Parquet when:
+
+- you need more efficient columnar storage than JSON
+- you want better compression for larger metadata volumes
+- you are operating on a shared filesystem but do not need a database backend
+
+#### PostgreSQL
+
+PostgreSQL is the recommended backend for production deployments that require stronger concurrency behavior and durable centralized storage.
+
+```yaml
+incremental_metadata:
+  storage:
+    type: "postgresql"
+    config:
+      base_dir: "./data"
+      lock_timeout: 30.0
+  postgres:
+    host: "${POSTGRES_HOST:-localhost}"
+    port: 5432
+    database: "${POSTGRES_DB:-datasift}"
+    user: "${POSTGRES_USER:-datasift_user}"
+    password: "${POSTGRES_PASSWORD}"
+    schema: "incremental_metadata"
+```
+
+Use PostgreSQL when:
+
+- multiple workers need to access incremental metadata concurrently
+- submitters and workers do not share a reliable local filesystem path
+- you need durable centralized state for distributed or production execution
+
+### Environment Variables for Sensitive Data
+
+Use environment variable substitution in `datasift-config.yaml` for credentials and deployment-specific values.
+
+```yaml
+incremental_metadata:
+  storage:
+    type: "postgresql"
+    config:
+      base_dir: "${DATA_DIR:-./data}"
+      lock_timeout: "${LOCK_TIMEOUT:-30.0}"
+  postgres:
+    host: "${INCR_META_DB_HOST:-localhost}"
+    port: "${INCR_META_DB_PORT:-5432}"
+    database: "${INCR_META_DB_NAME:-datasift}"
+    user: "${INCR_META_DB_USER:-datasift_user}"
+    password: "${INCR_META_DB_PASSWORD}"
+    schema: "${INCR_META_DB_SCHEMA:-incremental_metadata}"
+```
+
+Guidance:
+
+- use `${VAR_NAME}` for required secrets
+- use `${VAR_NAME:-default}` for optional values with safe defaults
+- do not commit real credentials into version control
+
+See [`datasift-config.yaml.example`](datasift-config.yaml.example) for complete backend examples and environment variable patterns.
 
 ---
 

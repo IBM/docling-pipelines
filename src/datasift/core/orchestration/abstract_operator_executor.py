@@ -330,16 +330,19 @@ class AbstractOperatorExecutor:
             return
 
         try:
-            from datasift.utils.data.incremental_update import IncrementalUpdateUtil
+            from datasift.core.incremental_metadata import IncrementalUpdateService
+            from datasift.core.incremental_metadata.adapters.config import create_incremental_metadata_store
 
             # Create a table with only the empty documents
             empty_docs_table = table.take(empty_doc_indices)
 
-            # Initialize IncrementalUpdateUtil
-            incremental_util = IncrementalUpdateUtil()
+            # Initialize incremental update service
+            job_id = self._params.get(DatasiftConstants.JOB_ID)
+            store = create_incremental_metadata_store(job_id=job_id)
+            incremental_service = IncrementalUpdateService(store=store)
 
             # Save empty documents to incremental metadata
-            incremental_util.save_metadata_for_incremental_update(
+            incremental_service.save_metadata_for_incremental_update(
                 job_id=self._params.get(DatasiftConstants.JOB_ID),
                 job_run_id=self._params.get(DatasiftConstants.JOB_RUN_ID),
                 tables=[empty_docs_table],

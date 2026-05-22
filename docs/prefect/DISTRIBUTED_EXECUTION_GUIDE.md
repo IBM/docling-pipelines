@@ -162,8 +162,8 @@ export PREFECT_API_URL=http://localhost:4200/api
 - `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, and `DATASIFT_JOB_STATS_BASE_DIR` can be set explicitly in work-pool env, but if they are omitted the worker inherits the submitter's effective job-management configuration resolved from env
 - [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py) can work for `work-pool-process` only when the submitter and worker share the same filesystem semantics
 - Requirement: the submitter and worker must share the same filesystem and the same absolute path namespace for the job stats directory
-- Relative JSON `base_dir` paths depend on where the submitter and worker processes are started
-- If JSON storage is effective for the submitter, `DATASIFT_JOB_STATS_BASE_DIR` is propagated to workers as a resolved absolute path so workers do not reinterpret relative `base_dir` values differently
+- Relative filesystem `base_dir` paths depend on where the submitter and worker processes are started
+- If filesystem storage is effective for the submitter, `DATASIFT_JOB_STATS_BASE_DIR` is propagated to workers as a resolved absolute path so workers do not reinterpret relative `base_dir` values differently
 - For reliable distributed execution across different containers, pods, or machines, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
 - If PostgreSQL storage is effective for the submitter, the worker inherits `DATASIFT_POSTGRES_HOST`, `DATASIFT_POSTGRES_PORT`, `DATASIFT_POSTGRES_DB`, `DATASIFT_POSTGRES_USER`, and `DATASIFT_POSTGRES_PASSWORD` unless explicitly overridden in work-pool env
 
@@ -325,7 +325,7 @@ This matches:
 
 **Job stats store guidance:**
 - The worker job environment can explicitly define `DATASIFT_STORAGE_BACKEND`, `DATASIFT_FRAMEWORK_TYPE`, and backend-specific settings, but if omitted the worker inherits the submitter's effective job-management configuration
-- JSON job stats storage is acceptable only when submitter and worker processes read/write the same filesystem path namespace
+- Filesystem job stats storage is acceptable only when submitter and worker processes read/write the same filesystem path namespace
 - Requirement: submitter and workers must share the same filesystem and must see the same absolute job stats path
 - If using [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py), `DATASIFT_JOB_STATS_BASE_DIR` should resolve to the same absolute shared path for submitter and workers instead of relying on cwd-relative resolution
 - Example shared path choices:
@@ -493,7 +493,7 @@ Private registries require authentication configured on the worker host machine.
 - Do not rely on [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py) unless you have explicitly provisioned and mounted the same shared filesystem path into all relevant pods, including any component that reads those stats
 - Requirement: all relevant pods must share the same mounted filesystem and the same in-container absolute path for job stats
 - If Kubernetes worker infrastructure is changed to Prefect `process` execution and all participants share a mounted volume, set `DATASIFT_JOB_STATS_BASE_DIR` to that in-container absolute path, for example `/app/data/job_stats`
-- If that shared mounted path does not exist, JSON job stats storage is not a valid option
+- If that shared mounted path does not exist, filesystem job stats storage is not a valid option
 
 **Use cases:**
 - Production deployments on Kubernetes
@@ -1727,9 +1727,9 @@ export PREFECT_API_URL=http://localhost:4200/api
 |----------|----------|-------------|---------|
 | `PREFECT_MODE` | Yes (for distributed) | Execution mode | `server` or `ephemeral` |
 | `PREFECT_API_URL` | Yes (for distributed) | Prefect server URL | `http://localhost:4200/api` |
-| `DATASIFT_STORAGE_BACKEND` | Optional | Effective job stats storage backend for worker runtime; inherited from submitter if omitted | `json`, `postgresql`, `inmemory` |
+| `DATASIFT_STORAGE_BACKEND` | Optional | Effective job stats storage backend for worker runtime; inherited from submitter if omitted | `filesystem`, `postgresql`, `inmemory` |
 | `DATASIFT_FRAMEWORK_TYPE` | Optional | Effective job framework type for worker runtime; inherited from submitter if omitted | `default` |
-| `DATASIFT_JOB_STATS_BASE_DIR` | Optional for JSON store | Absolute shared job stats path for JSON-backed job stats; inherited from submitter if omitted | `/app/data/job_stats` |
+| `DATASIFT_JOB_STATS_BASE_DIR` | Optional for filesystem store | Absolute shared job stats path for filesystem-backed job stats; inherited from submitter if omitted | `/app/data/job_stats` |
 | `DATASIFT_POSTGRES_HOST` | Optional for PostgreSQL store | PostgreSQL host for job stats store; inherited from submitter if omitted | `postgres` |
 | `DATASIFT_POSTGRES_PORT` | Optional for PostgreSQL store | PostgreSQL port for job stats store; inherited from submitter if omitted | `5432` |
 | `DATASIFT_POSTGRES_DB` | Optional for PostgreSQL store | PostgreSQL database name for job stats store; inherited from submitter if omitted | `datasift` |

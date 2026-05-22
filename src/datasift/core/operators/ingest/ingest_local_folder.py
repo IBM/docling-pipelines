@@ -11,6 +11,8 @@ from datasift.core.constants.constants import (
     Metrics,
 )
 from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.incremental_metadata import IncrementalUpdateService
+from datasift.core.incremental_metadata.adapters.config import create_incremental_metadata_store
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
@@ -18,7 +20,6 @@ from datasift.core.operators.ingest.ingest_utils import (
     is_doc_previously_processed,
 )
 from datasift.core.operators.operator_utils import get_supported_file_extensions
-from datasift.utils.data.incremental_update import IncrementalUpdateUtil
 from datasift.utils.infrastructure.logging import get_logger
 
 INPUT_FOLDER_NAME_KEY: str = "input_folder"
@@ -131,12 +132,15 @@ class IngestLocalOperator(AbstractOperator):
         to a new column named "content" in the table. The output
         column name is configurable using the "config" dictionary.
         """
-        incremental_update_util: IncrementalUpdateUtil = IncrementalUpdateUtil()
+        # Create incremental update service
+        store = create_incremental_metadata_store(job_id=str(self.context_id) if self.context_id else None)
+        incremental_service = IncrementalUpdateService(store=store)
+
         # get all previously processed doc IDs with modification time
         self.previously_processed_docs_dict = (
             None
             if self.force_ingest or not self.context_id
-            else incremental_update_util.get_all_processed_docs(job_id=str(self.context_id))
+            else incremental_service.get_all_processed_docs(job_id=str(self.context_id))
         )
 
         doc_data: list[dict[str, Any]]

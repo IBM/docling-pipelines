@@ -1,6 +1,5 @@
 """Data utilities for PyArrow table operations, schema management, and incremental updates."""
 
-from .incremental_update import IncrementalUpdateUtil
 from .pyarrow_handler import (
     BaseParquetTableHandler,
     CpdParquetTableHandler,
@@ -13,8 +12,6 @@ __all__ = [
     # PyArrow Handler
     "BaseParquetTableHandler",
     "CpdParquetTableHandler",
-    # Incremental Update
-    "IncrementalUpdateUtil",
     # Transform Utils
     "TransformUtils",
     "_combine_tables",
@@ -23,5 +20,3 @@ __all__ = [
     "align_table_schema",
     "get_parquet_table_handler",
 ]
-
-# Made with Bob

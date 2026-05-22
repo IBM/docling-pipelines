@@ -217,38 +217,129 @@ Configuration for tracking and processing only changed documents.
 
 ---
 
-### `incremental_metadata`
+### Centralized Incremental Metadata Configuration
 
-**Type**: `object`
-**Default**: `{}`
-**Description**: Configuration for incremental processing metadata storage. Tracks which documents have been processed to enable incremental updates.
+**Configuration Location**: `datasift-config.yaml`
 
-**Parameters**:
-- `storage_type`: Storage backend type (values: `in_memory`, `file_system`, `postgresql`)
-- `config`: Nested dict with backend-specific settings
-  - For `file_system`: `base_dir` - directory path for metadata storage
-  - For `postgresql`: postgres connection parameters
+Datasift uses a centralized configuration system for incremental metadata storage. Instead of configuring incremental metadata in each flow JSON file, you configure it once in a repository-level `datasift-config.yaml` file.
+
+#### Configuration Structure
+
+The incremental metadata configuration is defined in `datasift-config.yaml`:
+
+```yaml
+# datasift-config.yaml
+storage:
+  incremental_metadata:
+    base_dir: "./data/incremental_metadata"
+    backend: "filesystem"  # Options: filesystem, postgresql
+    
+    # PostgreSQL-specific configuration (only if backend is postgresql)
+    postgresql:
+      host: "localhost"
+      port: 5432
+      database: "datasift"
+      user: "datasift_user"
+      password: "secure_password"
+      schema: "incremental_metadata"
+```
+
+#### Supported Storage Backends
+
+Datasift supports two storage backends for incremental metadata:
+
+1. **Filesystem** (default)
+   - Efficient columnar storage using Apache Parquet format
+   - Best for: Development, small to medium-scale deployments
+   - Configuration: Only requires `base_dir`
+   - Features: Thread-safe operations with file locking, atomic writes
+
+2. **PostgreSQL**
+   - Relational database storage
+   - Best for: Production deployments, multi-user environments, high concurrency
+   - Configuration: Requires database connection parameters
+
+**Note**: JSON storage is no longer supported. The filesystem backend uses Parquet format for efficient storage.
+
+#### Environment Variables
+
+You can override configuration using environment variables:
+
+- `DATASIFT_INCREMENTAL_BASE_DIR`: Override the base directory for incremental metadata
+- `DATASIFT_INCREMENTAL_STORAGE_BACKEND`: Override the storage backend (filesystem, postgresql)
+- `DATASIFT_CONFIG_PATH`: Specify a custom path to datasift-config.yaml
 
 **Example**:
+```bash
+export DATASIFT_INCREMENTAL_BASE_DIR="/data/incremental"
+export DATASIFT_INCREMENTAL_STORAGE_BACKEND="filesystem"
+datasift-orchestrator --flow-file my_flow.json
+```
+
+#### Configuration Precedence
+
+Configuration is resolved in the following order (highest to lowest priority):
+
+1. **Environment variables** (`DATASIFT_INCREMENTAL_BASE_DIR`, `DATASIFT_INCREMENTAL_STORAGE_BACKEND`)
+2. **Service-specific configuration** (e.g., `storage.incremental_metadata` in datasift-config.yaml)
+3. **Global storage configuration** (e.g., `storage.base_dir` in datasift-config.yaml)
+4. **System defaults** (Filesystem backend with `./data/incremental_metadata`)
+
+#### Flow JSON Configuration
+
+In your flow JSON files, you no longer need to specify incremental metadata configuration. The system automatically uses the centralized configuration:
+
 ```json
 {
+  "flow_name": "My Pipeline",
+  "description": "Pipeline with centralized incremental metadata",
   "global_config": {
-    "incremental_metadata": {
-      "storage_type": "file_system",
+    "force_ingest": false,
+    "retain_deleted_docs": true
+  },
+  "flow": [
+    {
+      "type": "ingest_local",
+      "name": "ingest",
       "config": {
-        "base_dir": "./data/incremental_metadata"
+        "input_folder": "./documents"
       }
     }
-  }
+  ]
 }
 ```
 
-**Use Cases**:
-- Processing only new or modified documents
-- Resuming interrupted pipeline runs
-- Efficient updates to large document collections
+#### Migration from Flow-Level Configuration
 
-**Related Documentation**: [incremental metadata](docs/INCREMENTAL_METADATA_STORAGE.md)
+If you have existing flows with flow-level incremental metadata configuration, follow these steps:
+
+1. **Create datasift-config.yaml** in your repository root:
+   ```yaml
+   storage:
+     incremental_metadata:
+       base_dir: "./data/incremental_metadata"
+       backend: "filesystem"
+   ```
+
+2. **Remove incremental_metadata from flow JSON**:
+   - Delete the `incremental_metadata` section from `global_config`
+   - The system will automatically use the centralized configuration
+
+3. **Verify configuration**:
+   ```bash
+   datasift-orchestrator --flow-file your_flow.json --validate
+   ```
+
+#### Use Cases
+
+- **Processing only new or modified documents**: Incremental metadata tracks document hashes and modification times
+- **Resuming interrupted pipeline runs**: Metadata persists across runs, allowing pipelines to resume where they left off
+- **Efficient updates to large document collections**: Only process changed documents, not the entire collection
+- **Multi-flow coordination**: Share incremental metadata across multiple flows using the same base directory
+
+**Related Documentation**:
+- [Incremental Metadata Storage](docs/INCREMENTAL_METADATA_STORAGE.md)
+- [Incremental Metadata Migration Plan](docs/INCREMENTAL_METADATA_MIGRATION_PLAN.md)
 
 ---
 
@@ -574,7 +665,9 @@ In this example, all operators use `doc_column: "content"` except the `extract_o
 
 ## Complete Example
 
-Here's a comprehensive example showing multiple configuration options:
+Here's a comprehensive example showing the separation between flow JSON and datasift-config.yaml:
+
+### Flow JSON (`production_pipeline.json`)
 
 ```json
 {
@@ -589,10 +682,6 @@ Here's a comprehensive example showing multiple configuration options:
         "output_folder": "./output"
     },
     "data_storage_type": "local",
-    "incremental_metadata": {
-      "storage_path": "./data/job-id-in-uuid/incremental_metadata",
-      "enabled": true
-    },
     "prefect": {
       "batch_execution": {
         "strategy": "work-pool-docker",
@@ -631,3 +720,37 @@ Here's a comprehensive example showing multiple configuration options:
   ]
 }
 ```
+
+### Centralized Configuration (`datasift-config.yaml`)
+
+```yaml
+# Repository-level configuration for incremental metadata
+storage:
+  incremental_metadata:
+    base_dir: "./data/incremental_metadata"
+    backend: "parquet"  # Options: json, parquet, postgresql
+    
+    # PostgreSQL configuration (only needed if backend is postgresql)
+    # postgresql:
+    #   host: "localhost"
+    #   port: 5432
+    #   database: "datasift"
+    #   user: "datasift_user"
+    #   password: "secure_password"
+    #   schema: "incremental_metadata"
+```
+
+### Execution
+
+```bash
+# The flow automatically uses the centralized incremental metadata configuration
+datasift-orchestrator --flow-file production_pipeline.json
+
+datasift-orchestrator --flow-file production_pipeline.json
+```
+
+**Key Points**:
+- Incremental metadata configuration is in `datasift-config.yaml`
+- Flow JSON focuses on pipeline structure and execution parameters
+- Centralized configuration is shared across all flows in the repository
+- Environment variables can override configuration for specific runs

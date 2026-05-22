@@ -17,6 +17,8 @@ from datasift.core.constants.constants import (
     Metrics,
 )
 from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.incremental_metadata import IncrementalUpdateService
+from datasift.core.incremental_metadata.adapters.config import create_incremental_metadata_store
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.ingest.ingest_utils import (
     filter_based_on_extension,
@@ -24,7 +26,6 @@ from datasift.core.operators.ingest.ingest_utils import (
     is_doc_previously_processed,
 )
 from datasift.integrations.rest_client import RestClient, RestClientConfig, RestMethod
-from datasift.utils.data.incremental_update import IncrementalUpdateUtil
 from datasift.utils.infrastructure.logging import get_logger
 
 # Microsoft Graph API Constants
@@ -337,8 +338,7 @@ class IngestSourceOperator(AbstractOperator):
             Tuple of (list of output tables, metadata dictionary)
         """
 
-        # Initialize incremental update utility
-        incremental_update_util: IncrementalUpdateUtil = IncrementalUpdateUtil()
+        # Initialize incremental update service
         job_id_for_tracking: str = ""
         if self.context_id:
             job_id_for_tracking = self.context_id
@@ -348,8 +348,11 @@ class IngestSourceOperator(AbstractOperator):
             else:
                 job_id_for_tracking = ""
 
+        store = create_incremental_metadata_store(job_id=job_id_for_tracking if job_id_for_tracking else None)
+        incremental_service = IncrementalUpdateService(store=store)
+
         self.previously_processed_docs_dict = (
-            None if self.force_ingest else incremental_update_util.get_all_processed_docs(job_id=job_id_for_tracking)
+            None if self.force_ingest else incremental_service.get_all_processed_docs(job_id=job_id_for_tracking)
         )
 
         # Initialize metadata

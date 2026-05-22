@@ -82,7 +82,7 @@ class TestIngestSourceGlobalConfig:
         with patch.object(orchestrator, "_execute_step", side_effect=mock_execute_step):
             with patch.object(orchestrator, "execute_flow", side_effect=wrapped_execute_flow):
                 with patch.object(orchestrator, "_finalize_dag_flow"):
-                    with patch("datasift.core.orchestration.abstract_orchestrator.IncrementalUpdateUtil"):
+                    with patch("datasift.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
                         with patch("datasift.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
                             # Execute the flow
                             orchestrator.execute(flow_def=flow_def, params=params)
@@ -160,7 +160,7 @@ class TestIngestSourceGlobalConfig:
         with patch.object(orchestrator, "_execute_step", side_effect=mock_execute_step):
             with patch.object(orchestrator, "execute_flow", side_effect=wrapped_execute_flow):
                 with patch.object(orchestrator, "_finalize_dag_flow"):
-                    with patch("datasift.core.orchestration.abstract_orchestrator.IncrementalUpdateUtil"):
+                    with patch("datasift.core.orchestration.abstract_orchestrator.create_incremental_metadata_store"):
                         with patch("datasift.core.orchestration.abstract_orchestrator.clean_up_prefect_home"):
                             # Execute the flow
                             orchestrator.execute(flow_def=flow_def, params=params)

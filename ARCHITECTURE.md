@@ -980,25 +980,65 @@ Configuration flows through multiple layers:
 ```mermaid
 graph TD
     JSON[Flow JSON] --> FE[FlowExecutor]
+    YAML[datasift-config.yaml] --> ORCH[Orchestrator]
     FE --> PARAMS[Runtime Parameters]
-    PARAMS --> ORCH[Orchestrator]
+    PARAMS --> ORCH
     ORCH --> OP_CONFIG[Operator Config]
     OP_CONFIG --> OP[Operator Instance]
 
-    ENV[Environment Variables] --> OP_CONFIG
+    ENV[Environment Variables] --> YAML
     DEFAULTS[Default Values] --> OP_CONFIG
 
     style JSON fill:#e1f5ff
+    style YAML fill:#f3e5ff
     style PARAMS fill:#fff4e1
     style OP fill:#e1ffe1
 ```
 
 **Configuration Hierarchy:**
 
-1. Flow JSON (base configuration)
-2. Runtime parameters (override flow values)
-3. Environment variables (system-level settings)
-4. Default values (fallback configuration)
+1. Flow JSON for flow topology and operator parameters
+2. `datasift-config.yaml` for centralized system configuration
+3. Environment variables for deployment-specific overrides
+4. Default values for unspecified settings
+
+Flow JSON remains the source for DAG structure and operator-specific behavior, while shared runtime infrastructure such as job management, asset repositories, and incremental metadata is configured centrally through `datasift-config.yaml`.
+
+#### Incremental Metadata Configuration
+
+Incremental metadata configuration is YAML-first and uses `datasift-config.yaml` as the single source of truth. Flow-level `incremental_metadata` settings are no longer part of the supported configuration model.
+
+The centralized configuration shape is:
+
+```yaml
+incremental_metadata:
+  storage:
+    type: "filesystem"  # Options: filesystem, postgresql
+    config:
+      base_dir: "./data"
+      lock_timeout: 30.0
+```
+
+When `storage.type` is `postgresql`, the configuration also includes a dedicated `postgres` section for connection settings and schema selection.
+
+Supported storage backends:
+
+- **Filesystem** - file-backed storage using Parquet format for development and single-host execution
+- **PostgreSQL** - centralized durable storage for concurrent and distributed execution
+
+Environment variable substitution is supported inside `datasift-config.yaml`, allowing secrets such as database passwords to be supplied at deployment time rather than committed to source control.
+
+#### Incremental Metadata Hexagonal Architecture
+
+Incremental metadata is implemented as a hexagonal subsystem under [`src/datasift/core/incremental_metadata/`](src/datasift/core/incremental_metadata/):
+
+- `domain/models/incremental_record.py` defines the domain record model
+- `domain/ports/incremental_metadata_store.py` defines the storage port
+- `adapters/config/` resolves backend configuration from `datasift-config.yaml`
+- `adapters/stores/filesystem/` contains the Filesystem storage adapter (using Parquet format)
+- `adapters/stores/postgres/` contains the PostgreSQL storage adapter
+
+This structure separates domain contracts from infrastructure concerns and allows backend selection without changing ingest operator code. The orchestration layer resolves the configured incremental metadata store once and passes that capability to the ingest path that performs incremental change detection.
 
 ---
 

@@ -1,7 +1,7 @@
 """
-JsonJobStatsStore - JSON file-based storage adapter
+JsonJobStatsStore - Filesystem-based storage adapter
 
-Production-grade JSON persistence implementation of JobStatsStore port.
+Production-grade filesystem persistence implementation of JobStatsStore port.
 Process-safe and thread-safe with file-level locking for concurrent micro-batch execution.
 
 File Layout:

@@ -5,7 +5,7 @@ This module contains concrete implementations of the JobStatsStore port.
 
 Available Implementations:
 - InMemoryJobStatsStore: Thread-safe in-memory storage (testing/development)
-- JsonJobStatsStore: JSON file-based storage (restart recovery/inspection)
+- JsonJobStatsStore: Filesystem-based storage (restart recovery/inspection)
 - PostgresJobStatsStore: PostgreSQL with atomic operations (production)
 - DuckDBJobStatsStore: DuckDB embedded database (production, no server required)
 

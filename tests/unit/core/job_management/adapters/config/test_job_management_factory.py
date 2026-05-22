@@ -25,9 +25,9 @@ class TestJobManagementFactoryStoreSelection:
         assert store is not None
         assert store.__class__.__name__ == "InMemoryJobStatsStore"
 
-    def test_json_store_creation(self):
+    def test_filesystem_store_creation(self):
         """Test JsonJobStatsStore creation."""
-        factory = JobManagementFactory(storage_backend=StorageBackend.JSON)
+        factory = JobManagementFactory(storage_backend=StorageBackend.FILESYSTEM)
         store = factory.create_job_stats_store()
 
         assert store is not None
@@ -120,6 +120,3 @@ class TestJobManagementFactoryStoreSelection:
         with patch.dict(os.environ, {"DATASIFT_STORAGE_BACKEND": "invalid_backend"}):
             with pytest.raises(ValueError, match="Invalid DATASIFT_STORAGE_BACKEND"):
                 JobManagementFactory.from_environment()
-
-
-# Made with Bob

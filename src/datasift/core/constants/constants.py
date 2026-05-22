@@ -257,6 +257,14 @@ class DatasiftConfigKeys:
     MAX_OVERFLOW = "max_overflow"
     POOL_TIMEOUT = "pool_timeout"
 
+    # Incremental metadata configuration keys
+    INCREMENTAL_METADATA = "incremental_metadata"
+    INCREMENTAL_STORAGE = "storage"
+    # Note: Use TYPE and CONFIG from above for storage_type and storage_config
+
+    # Global storage configuration keys (shared defaults for all services)
+    GLOBAL_STORAGE = "global_storage"
+
 
 class EnvironmentVariables:
     """Environment variable names used across Datasift runtime components."""

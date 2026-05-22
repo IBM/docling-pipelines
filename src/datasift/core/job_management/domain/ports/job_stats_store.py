@@ -3,7 +3,7 @@ JobStatsStore Port - Interface for job statistics storage
 
 Implemented adapters:
 - InMemoryJobStatsStore (testing/development)
-- JsonJobStatsStore (persistent file storage)
+- JsonJobStatsStore (filesystem-based persistent storage)
 
 """
 
@@ -24,7 +24,7 @@ class JobStatsStore(ABC):
     This abstraction allows pluggable storage backends:
     - PostgreSQLJobStatsStore: PostgreSQL with atomic operations
     - InMemoryJobStatsStore: In-memory for testing
-    - JsonJobStatsStore: File-based JSON storage for simple persistence
+    - JsonJobStatsStore: Filesystem-based storage for simple persistence
 
     Responsibilities:
     - Persist and retrieve job-level statistics

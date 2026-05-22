@@ -9,6 +9,8 @@ from data_processing.data_access import DataAccess, DataAccessFactory
 
 from datasift.core.constants.constants import DatasiftConstants, ExecutionStatus, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.incremental_metadata import IncrementalUpdateService
+from datasift.core.incremental_metadata.adapters.config import create_incremental_metadata_store
 from datasift.core.job_management.domain.ports import JobRunManager, JobStatsService
 from datasift.core.models.session_info import SessionInfo, get_session_info, set_session_info
 from datasift.core.operators.abstract_operator import OperatorCategory
@@ -19,7 +21,6 @@ from datasift.core.orchestration.flow_execution_event_handler import FlowExecuti
 from datasift.core.orchestration.prefect.prefect_engine import AbstractFlowEngine, ExecuteStepResults, PrefectEngine
 from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 from datasift.utils.core.datetime import get_current_timestamp
-from datasift.utils.data.incremental_update import IncrementalUpdateUtil
 from datasift.utils.data.pyarrow_handler import BaseParquetTableHandler, get_parquet_table_handler
 from datasift.utils.infrastructure.logging import get_logger
 from datasift.utils.orchestration.deleted_rows_tracker import (
@@ -599,10 +600,11 @@ class AbstractOrchestrator(ABC):
             output_table=ingest_results.tables[0], deleted_docs_count=deleted_docs_count, operator=ingest_operator
         )
 
-        flow_incremental_config = global_config.get(DatasiftConstants.INCREMENTAL_METADATA_REPOSITORY_CONFIG)
-        incremental_update_util = IncrementalUpdateUtil(flow_config=flow_incremental_config)
+        # Create incremental update service (config loaded from datasift-config.yaml)
+        store = create_incremental_metadata_store(job_id=self.job_id)
+        incremental_service = IncrementalUpdateService(store=store)
         doc_ids = ingest_results.internal_metadata.get(Metrics.Internal.ALL_DOC_IDS, [])
-        incremental_update_util.process_ingested_docs(config=global_config, job_id=self.job_id, doc_ids=doc_ids)
+        incremental_service.process_ingested_docs(config=global_config, job_id=self.job_id, doc_ids=doc_ids)
 
         # Get the ingested table
         ingested_table = ingest_results.tables[0]
