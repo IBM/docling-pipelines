@@ -410,6 +410,7 @@ class TestTransform:
         assert result_table.num_rows == 3
         assert "id" in result_table.column_names
         assert "name" in result_table.column_names
+        assert "document_format" in result_table.column_names
         assert "metadata" in result_table.column_names
         assert "source_id" in result_table.column_names
         assert "path" in result_table.column_names
@@ -593,9 +594,10 @@ class TestTransform:
         schema = result_table.schema
 
         # Verify schema - NO binary_content column (lazy loading)
-        assert len(schema) == 6
+        assert len(schema) == 7
         assert schema.field("id").type == pa.string()
         assert schema.field("name").type == pa.string()
+        assert schema.field("document_format").type == pa.string()
         assert schema.field("metadata").type == pa.string()
         assert schema.field("source_id").type == pa.string()
         assert schema.field("path").type == pa.string()

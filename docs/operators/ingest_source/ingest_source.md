@@ -237,13 +237,15 @@ print(f"Schema: {result_table.schema}")
 ### Output Schema
 The operator returns a PyArrow table with the following schema:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | string | Document ID (MD5 hash of source path) |
-| `name` | string | Source path/identifier |
-| `text` | string | Document content (page_content from LangChain Document) |
-| `metadata` | string | JSON-serialized metadata from source |
-| `source_id` | string | Source identifier (extracted from metadata['source']) |
+| Column            | Type   | Description                                           |
+| ----------------- | ------ | ----------------------------------------------------- |
+| `id`              | string | Document ID (MD5 hash of source path)                 |
+| `name`            | string | Source path/identifier                                |
+| `document_format` | string | File extension (e.g., `.pdf`, `.xlsx`, `.docx`)       |
+| `metadata`        | string | JSON-serialized metadata from source                  |
+| `source_id`       | string | Source identifier (extracted from metadata['source']) |
+| `path`            | string | Source path/URL for on-demand binary loading          |
+| `modified_time`   | int64  | Document modification timestamp (Unix timestamp)      |
 
 ### Accessing Results
 ```python

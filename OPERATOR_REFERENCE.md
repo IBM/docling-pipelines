@@ -275,7 +275,15 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 **Output Schema**
 
-- provider-normalized document rows with metadata and optional binary content
+| Column            | Type   | Description                                           |
+| ----------------- | ------ | ----------------------------------------------------- |
+| `id`              | string | MD5 hash of the source path                           |
+| `name`            | string | Source identifier (file path, URL, etc.)              |
+| `document_format` | string | File extension (e.g., `.pdf`, `.xlsx`, `.docx`)       |
+| `metadata`        | string | JSON-serialized metadata from the source document     |
+| `source_id`       | string | The source identifier                                 |
+| `path`            | string | Source path/URL for on-demand binary loading          |
+| `modified_time`   | int64  | Document modification timestamp (Unix timestamp)      |
 
 **Exceptions**
 

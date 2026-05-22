@@ -371,6 +371,7 @@ class IngestSourceOperator(AbstractOperator):
                 {
                     "id": [],
                     "name": [],
+                    "document_format": [],
                     "metadata": [],
                     "source_id": [],
                     "path": [],
@@ -380,6 +381,7 @@ class IngestSourceOperator(AbstractOperator):
                     [
                         ("id", pa.string()),
                         ("name", pa.string()),
+                        ("document_format", pa.string()),
                         ("metadata", pa.string()),
                         ("source_id", pa.string()),
                         ("path", pa.string()),
@@ -633,10 +635,14 @@ class IngestSourceOperator(AbstractOperator):
                 )
                 return None
 
+            # Extract document format from metadata
+            document_format: str = doc.metadata.get("extension", "")
+
             # Create processed document
             processed_doc: dict[str, Any] = {
                 "id": doc_id,
                 "name": source,
+                "document_format": document_format,
                 "metadata": json.dumps(doc.metadata),
                 "source_id": source,
                 "path": source,
@@ -644,7 +650,7 @@ class IngestSourceOperator(AbstractOperator):
             }
 
             logger.info(
-                f"Successfully processed document: {source}",
+                f"Successfully processed document: {source} (format: {document_format})",
                 extra=self.common_log_arguments,
             )
             return processed_doc
@@ -722,6 +728,13 @@ class IngestSourceOperator(AbstractOperator):
             "path": {
                 OperatorConstants.Columns.NAME: "Source Path",
                 OperatorConstants.Config.DESCRIPTION: "The source identifier (URL, file path, etc.) for the document",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+            },
+            "document_format": {
+                OperatorConstants.Columns.NAME: "Document Format",
+                OperatorConstants.Config.DESCRIPTION: "File format/extension of the document (e.g., .pdf, .xlsx)",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
