@@ -74,6 +74,7 @@ class DoclingAdapter(TextExtractionPort):
                 - vlm_preset: VLM preset name (default: "granite_docling")
                 - vlm_engine_type: Engine type (optional)
                 - vlm_provider_config: Provider-specific configuration (optional)
+                - additional_formats: List of additional output formats beyond markdown (default: [])
                 - use_asr_pipeline: Enable ASR extraction for audio/video (default: False)
                 - asr_model_name: ASR model name (optional)
         """
@@ -81,14 +82,17 @@ class DoclingAdapter(TextExtractionPort):
         self.vlm_preset = config.get("vlm_preset", "granite_docling")
         self.vlm_engine_type = config.get("vlm_engine_type")
         self.vlm_provider_config = config.get("vlm_provider_config")
+        self.additional_formats = config.get("additional_formats", [])
         self.use_asr_pipeline = config.get("use_asr_pipeline", False) and _ASR_AVAILABLE
         # Always use string default for ASR model name
         self.asr_model_name = config.get("asr_model_name", "whisper_turbo")
+
         if self.use_vlm_pipeline:
             logger.info(
-                "Initialized DoclingAdapter with VLM enabled - preset: %s, engine: %s",
+                "Initialized DoclingAdapter with VLM enabled - preset: %s, engine: %s, additional formats: %s",
                 self.vlm_preset,
                 self.vlm_engine_type or "default",
+                self.additional_formats,
             )
         if self.use_asr_pipeline:
             logger.info(
@@ -100,7 +104,7 @@ class DoclingAdapter(TextExtractionPort):
                 "ASR pipeline requested but dependencies not available. Install with: uv pip install -e '.[asr]'"
             )
         if not self.use_vlm_pipeline and not self.use_asr_pipeline:
-            logger.info("Initialized DoclingAdapter with standard extraction")
+            logger.info("Initialized DoclingAdapter with standard extraction, additional formats: %s", self.additional_formats)
 
     def _configure_vlm_engine(self) -> Any:
         """Configure VLM pipeline options based on engine type.
@@ -234,13 +238,14 @@ class DoclingAdapter(TextExtractionPort):
             if format_options:
                 converter_config = {"format_options": format_options}
 
-            # Use common extraction method
+            # Use common extraction method with output_formats
             result = OperatorUtils.extract_content(
                 file_path=file_path,
                 binary_content=binary_content,
                 extract_tables=self.extract_tables,
                 extract_images=self.extract_images,
                 converter_config=converter_config,
+                additional_formats=self.additional_formats,
             )
 
             # Add VLM-specific metadata if extraction succeeded and VLM was used

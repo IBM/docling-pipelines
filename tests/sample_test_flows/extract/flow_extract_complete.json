@@ -46,6 +46,7 @@
         "doc_column": "content",
         "extract_tables": false,
         "extract_images": false,
+        "additional_formats": ["html", "json"],
         "entity_model_name": "granite4:latest",
         "entity_temperature": 0.0,
         "entity_max_tokens": 4096,

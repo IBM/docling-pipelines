@@ -61,6 +61,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -74,6 +75,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -90,6 +92,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -103,6 +106,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -122,6 +126,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -135,6 +140,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -152,6 +158,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -165,6 +172,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -182,6 +190,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -195,6 +204,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -212,6 +222,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -225,6 +236,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -243,6 +255,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -256,6 +269,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -274,6 +288,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -287,6 +302,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -305,6 +321,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -318,6 +335,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -336,6 +354,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -349,6 +368,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -367,6 +387,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -380,6 +401,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -398,6 +420,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -411,6 +434,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,
@@ -429,6 +453,7 @@ class TestTextExtractionPageCount:
         doc_metadata_list = [{}]
         doc_tables_list = [[]]
         doc_images_list = [[]]
+        format_lists = {}
         doc_pages_processed = [0]
         remove_row_idx = []
         metadata = {Metrics.External.PROCESSED_DOCS: 0}
@@ -442,6 +467,7 @@ class TestTextExtractionPageCount:
             doc_metadata_list=doc_metadata_list,
             doc_tables_list=doc_tables_list,
             doc_images_list=doc_images_list,
+            format_lists=format_lists,
             doc_pages_processed=doc_pages_processed,
             remove_row_idx=remove_row_idx,
             metadata=metadata,

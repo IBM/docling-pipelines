@@ -532,6 +532,7 @@ Uses hexagonal architecture (ports and adapters pattern):
 | `entity_extraction_mode`                                  | string |       No | `none`                    | Entity extraction mode: `ollama`, `docling`, `litellm`, `watsonx`, or `none`. **Note:** When using any entity extraction mode (not `none`), either `custom_schema` must be provided in the operator configuration OR a `document_type` column must be present from an upstream classification operator (e.g., DocumentClassifierOperator). If neither is provided, a `ConfigurationError` will be thrown. |
 | `doc_column`                                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
 | `output_column`                                           | string |       No | `entities`                | Column name for storing extracted entities                                                         |
+| `additional_formats`                                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`                       |
 | `extract_tables`                                          | bool   |       No | `false`                   | Extract tables from documents (text extraction)                                                    |
 | `extract_images`                                          | bool   |       No | `false`                   | Extract images from documents (text extraction)                                                    |
 | `max_workers`                                             | int    |       No | auto                      | Maximum parallel workers (auto-detected based on CPU)                                              |
@@ -577,7 +578,11 @@ Uses hexagonal architecture (ports and adapters pattern):
 
 **Output Schema**
 
-- `doc_content` (or configured `doc_column`) - Extracted markdown text
+- `content` (or configured via `doc_column` parameter) - Extracted markdown text (always generated)
+- `content_html` - HTML format (if `additional_formats` includes "html")
+- `content_json` - JSON structured format (if `additional_formats` includes "json")
+- `content_text` - Plain text format (if `additional_formats` includes "text")
+- `content_doctags` - Docling's native DocTags format (if `additional_formats` includes "doctags")
 - `entities` (or configured `output_column`) - Extracted entities as JSON string (if entity extraction enabled)
 - `doc_id_hash` - Document hash identifier
 - `tables` - Extracted tables as JSON (if `extract_tables=true`)
@@ -689,6 +694,22 @@ The operator provides the following metadata after execution:
       "api_key": "${OPENAI_API_KEY}",
       "api_base": "https://api.openai.com/v1"
     }
+  }
+}
+```
+
+**Example: Multi-Format Output**
+
+```json
+{
+  "id": "extract-node",
+  "name": "extract",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction_mode": "docling_library",
+    "additional_formats": ["html", "json", "text"],
+    "extract_tables": true,
+    "extract_images": true
   }
 }
 ```

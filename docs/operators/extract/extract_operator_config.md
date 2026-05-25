@@ -102,7 +102,31 @@ The Extract Operator is a unified extraction operator that provides text and ent
 "extract_images": false
 ```
 
-#### 6. `max_workers` (Integer)
+#### 6. `additional_formats` (Array)
+**Type:** Array of strings
+**Required:** No
+**Default:** `[]` (empty array - markdown only)
+**Description:** Additional output formats to generate beyond the mandatory markdown format. Each format creates a separate column in the output table.
+
+**Valid Values:** `"html"`, `"json"`, `"text"`, `"doctags"`
+
+**Examples:**
+```json
+"additional_formats": ["html", "json"]
+```
+
+```json
+"additional_formats": ["html", "json", "text", "doctags"]
+```
+
+**Important Notes:**
+- Markdown format is ALWAYS generated in the `content` column regardless of this parameter (column name can be customized via `doc_column` parameter)
+- This parameter specifies which formats to generate **in addition to** markdown
+- Each additional format creates a corresponding column: `content_html`, `content_json`, `content_text`, `content_doctags`
+- **Additional formats are only generated for documents processed through Docling** (docling_library or docling_serve modes). Plain text files (.txt, .md) are read directly and will not generate these additional format columns.
+- Only request formats you actually need to minimize memory usage and storage
+
+#### 7. `max_workers` (Integer)
 **Type:** Integer  
 **Required:** No  
 **Default:** Auto (CPU-based)  
@@ -410,10 +434,10 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ## Output Features
 
 ### `content` (String)
-**Type:** String  
-**Description:** The markdown content extracted from the document  
-**Available for Filter:** Yes  
-**Available for Vector DB:** Yes  
+**Type:** String
+**Description:** The markdown content extracted from the document (always generated). Column name can be customized via `doc_column` parameter (default: "content")
+**Available for Filter:** Yes
+**Available for Vector DB:** Yes
 **Tags:** `mandatory`
 
 ### `doc_id_hash` (String)
@@ -443,6 +467,34 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Available for Filter:** Yes
 **Available for Vector DB:** Yes
 **Note:** Added as serialized JSON when images are extracted from documents
+
+### `content_html` (String)
+**Type:** String
+**Description:** HTML format of extracted content (when `additional_formats` includes "html")
+**Available for Filter:** Yes
+**Available for Vector DB:** Yes
+**Note:** Only present when "html" is specified in `additional_formats` parameter
+
+### `content_json` (String)
+**Type:** String
+**Description:** JSON structured format of extracted content (when `additional_formats` includes "json")
+**Available for Filter:** Yes
+**Available for Vector DB:** Yes
+**Note:** Only present when "json" is specified in `additional_formats` parameter
+
+### `content_text` (String)
+**Type:** String
+**Description:** Plain text format of extracted content (when `additional_formats` includes "text")
+**Available for Filter:** Yes
+**Available for Vector DB:** Yes
+**Note:** Only present when "text" is specified in `additional_formats` parameter
+
+### `content_doctags` (String)
+**Type:** String
+**Description:** Docling's native DocTags format (when `additional_formats` includes "doctags")
+**Available for Filter:** Yes
+**Available for Vector DB:** Yes
+**Note:** Only present when "doctags" is specified in `additional_formats` parameter
 
 ### `entity_{key}` (Dynamic Columns)
 **Type:** String
@@ -521,7 +573,22 @@ The Extract Operator is a unified extraction operator that provides text and ent
 }
 ```
 
-### Example 5: LiteLLM Entity Extraction
+### Example 5: Multi-Format Output
+```json
+{
+  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction_mode": "docling_library",
+    "additional_formats": ["html", "json", "text"],
+    "extract_tables": true,
+    "extract_images": true
+  }
+}
+```
+**Output columns**: `content` (markdown), `content_html`, `content_json`, `content_text`, `tables`, `images`
+
+### Example 6: LiteLLM Entity Extraction
 ```json
 {
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",

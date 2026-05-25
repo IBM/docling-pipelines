@@ -99,6 +99,9 @@ class TextExtractionAdapterFactory:
             OperatorConstants.Config.EXTRACT_IMAGES: operator_config.get(
                 OperatorConstants.Config.EXTRACT_IMAGES, False
             ),
+            OperatorConstants.Extraction.ADDITIONAL_FORMATS: operator_config.get(
+                OperatorConstants.Extraction.ADDITIONAL_FORMATS, []
+            ),
             "common_log_arguments": operator_config.get("common_log_arguments", {}),
             # Job tracking context for progress updates
             DatasiftConstants.JOB_RUN_ID: operator_config.get(DatasiftConstants.JOB_RUN_ID),

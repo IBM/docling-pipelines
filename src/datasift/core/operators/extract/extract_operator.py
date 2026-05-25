@@ -748,11 +748,43 @@ class ExtractOperator(AbstractOperator):
         metadata_features = {
             OperatorConstants.Columns.DOC_COLUMN_DEFAULT: {
                 OperatorConstants.Misc.NAME: "Document Content",
-                OperatorConstants.Config.DESCRIPTION: "The markdown content extracted from the document",
+                OperatorConstants.Config.DESCRIPTION: "The markdown content extracted from the document (always present)",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
+            },
+            OperatorConstants.Columns.CONTENT_HTML: {
+                OperatorConstants.Misc.NAME: "HTML Content",
+                OperatorConstants.Config.DESCRIPTION: "HTML format of extracted content (optional, if 'html' in additional_formats)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.TAGS: [],
+            },
+            OperatorConstants.Columns.CONTENT_JSON: {
+                OperatorConstants.Misc.NAME: "JSON Content",
+                OperatorConstants.Config.DESCRIPTION: "JSON format of extracted content (optional, if 'json' in additional_formats)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.TAGS: [],
+            },
+            OperatorConstants.Columns.CONTENT_TEXT: {
+                OperatorConstants.Misc.NAME: "Text Content",
+                OperatorConstants.Config.DESCRIPTION: "Plain text format of extracted content (optional, if 'text' in additional_formats)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.TAGS: [],
+            },
+            OperatorConstants.Columns.CONTENT_DOCTAGS: {
+                OperatorConstants.Misc.NAME: "DocTags Content",
+                OperatorConstants.Config.DESCRIPTION: "DocTags format of extracted content (optional, if 'doctags' in additional_formats)",
+                OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                OperatorConstants.Misc.TAGS: [],
             },
             OperatorConstants.Columns.DOC_ID_HASH_DEFAULT: {
                 OperatorConstants.Misc.NAME: "Hash ID",
@@ -887,6 +919,23 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                },
+                OperatorConstants.Extraction.ADDITIONAL_FORMATS: {
+                    OperatorConstants.Misc.NAME: "Additional Output Formats",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "List of additional output formats to generate beyond the mandatory markdown format. "
+                        "Markdown format is ALWAYS generated (creates doc_content column). "
+                        "Additional options: "
+                        "'html' (creates content_html column), "
+                        "'json' (creates content_json column), "
+                        "'text' (creates content_text column), "
+                        "'doctags' (creates content_doctags column). "
+                        "Example: ['html', 'json'] will generate markdown + HTML + JSON formats"
+                    ),
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: [],
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.VALID_VALUES: OperatorConstants.Extraction.VALID_OUTPUT_FORMATS,
                 },
                 OperatorConstants.Config.EXPAND_EXTRACTED_DATA: {
                     OperatorConstants.Misc.NAME: "Expand Extracted Data",

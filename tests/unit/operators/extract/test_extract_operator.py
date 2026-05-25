@@ -118,6 +118,131 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
 
 
 @pytest.mark.unit
+def test_extract_operator_multi_format_output(sample_pdf_files):
+    """Test the ExtractOperator with multiple output formats."""
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+
+    # Use fixture for test files
+    test_files = sample_pdf_files[:1]  # Test with first file
+
+    # Prepare data for PyArrow table
+    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+
+    for file_path in test_files:
+        with open(file_path, "rb") as f:
+            binary_content = f.read()
+
+        file_data["id"].append(str(file_path))
+        file_data["name"].append(file_path.name)
+        file_data["path"].append(str(file_path))
+        file_data["binary_content"].append(binary_content)
+
+    # Create PyArrow table
+    table = pa.table(file_data)
+    assert table.num_rows > 0, "Table should have rows"
+
+    # Initialize operator with additional output formats (markdown is always generated)
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "doc_column": "doc_content",
+        "additional_formats": ["html", "json"],
+        "extract_tables": True,
+        "extract_images": True,
+        "max_workers": 2,
+    }
+
+    operator = ExtractOperator(config=config)
+
+    # Transform the table
+    result_tables, metadata = operator.transform(table)
+    result_table = result_tables[0]
+
+    # Assertions for all format columns
+    assert "doc_content" in result_table.column_names, "Markdown content column should exist"
+    assert "content_html" in result_table.column_names, "HTML content column should exist"
+    assert "content_json" in result_table.column_names, "JSON content column should exist"
+    assert "doc_id_hash" in result_table.column_names, "Hash ID column should exist"
+
+    # Check markdown content
+    markdown_content = result_table["doc_content"][0].as_py()
+    assert markdown_content is not None, "Markdown content should not be None"
+    assert len(markdown_content) > 0, "Markdown content should not be empty"
+
+    # Check HTML content
+    html_content = result_table["content_html"][0].as_py()
+    assert html_content is not None, "HTML content should not be None"
+    assert len(html_content) > 0, "HTML content should not be empty"
+    assert "<" in html_content, "HTML content should contain HTML tags"
+
+    # Check JSON content
+    json_content = result_table["content_json"][0].as_py()
+    assert json_content is not None, "JSON content should not be None"
+    assert len(json_content) > 0, "JSON content should not be empty"
+    # Verify it's valid JSON
+    json_data = json.loads(json_content)
+    assert isinstance(json_data, dict), "JSON content should be a dictionary"
+
+    # Check metadata
+    assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
+    assert metadata["processed_docs"] > 0, "Should have processed at least one document"
+
+
+@pytest.mark.unit
+def test_extract_operator_default_format(sample_pdf_files):
+    """Test the ExtractOperator with default format (backward compatibility)."""
+    import pyarrow as pa
+
+    from datasift.core.operators.extract.extract_operator import ExtractOperator
+
+    # Use fixture for test files
+    test_files = sample_pdf_files[:1]
+
+    # Prepare data for PyArrow table
+    file_data = {"id": [], "name": [], "path": [], "binary_content": []}
+
+    for file_path in test_files:
+        with open(file_path, "rb") as f:
+            binary_content = f.read()
+
+        file_data["id"].append(str(file_path))
+        file_data["name"].append(file_path.name)
+        file_data["path"].append(str(file_path))
+        file_data["binary_content"].append(binary_content)
+
+    # Create PyArrow table
+    table = pa.table(file_data)
+
+    # Initialize operator without additional_formats (should generate markdown only by default)
+    config = {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "doc_column": "doc_content",
+        "extract_tables": True,
+        "extract_images": True,
+        "max_workers": 2,
+    }
+
+    operator = ExtractOperator(config=config)
+
+    # Transform the table
+    result_tables, _ = operator.transform(table)
+    result_table = result_tables[0]
+
+    # Assertions - should only have markdown column
+    assert "doc_content" in result_table.column_names, "Markdown content column should exist"
+    assert "content_html" not in result_table.column_names, "HTML column should not exist by default"
+    assert "content_json" not in result_table.column_names, "JSON column should not exist by default"
+
+    # Check content
+    markdown_content = result_table["doc_content"][0].as_py()
+    assert markdown_content is not None, "Markdown content should not be None"
+    assert len(markdown_content) > 0, "Markdown content should not be empty"
+
+
+@pytest.mark.unit
 @pytest.mark.skip(reason="Requires docling-serve service running")
 def test_extract_operator_docling_serve_mode(sample_pdf_files):
     """Test the ExtractOperator with docling_serve text extraction mode."""

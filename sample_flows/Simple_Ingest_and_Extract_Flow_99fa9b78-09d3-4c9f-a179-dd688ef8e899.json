@@ -25,7 +25,12 @@
         "ingest"
       ],
       "config": {
-        "doc_column": "content"
+        "doc_column": "content",
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "additional_formats": ["html", "json"],
+        "extract_tables": true,
+        "extract_images": false
       }
     }
   ]

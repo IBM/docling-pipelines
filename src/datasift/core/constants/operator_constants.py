@@ -95,6 +95,12 @@ class OperatorConstants:
         USER_DEFINED_CONTENT_COLUMN: Final[str] = "user_defined_content_column"
         SUMMARY: Final[str] = "summary"
 
+        # Multi-format extraction columns
+        CONTENT_HTML: Final[str] = "content_html"
+        CONTENT_JSON: Final[str] = "content_json"
+        CONTENT_TEXT: Final[str] = "content_text"
+        CONTENT_DOCTAGS: Final[str] = "content_doctags"
+
         # Embeddings and Vector Columns
         DENSE_EMBEDDINGS_COLUMN_DEFAULT: Final[str] = "vector_embeddings"
         EMBEDDINGS: Final[str] = "embeddings"
@@ -447,6 +453,24 @@ class OperatorConstants:
 
         # Extraction Configuration
         KEY: Final[str] = "key"
+
+        # Multi-format extraction configuration
+        ADDITIONAL_FORMATS: Final[str] = "additional_formats"
+
+        # Output format values
+        OUTPUT_FORMAT_MARKDOWN: Final[str] = "markdown"
+        OUTPUT_FORMAT_HTML: Final[str] = "html"
+        OUTPUT_FORMAT_JSON: Final[str] = "json"
+        OUTPUT_FORMAT_TEXT: Final[str] = "text"
+        OUTPUT_FORMAT_DOCTAGS: Final[str] = "doctags"
+
+        # Valid output formats list (markdown is always generated, so not in this list)
+        VALID_OUTPUT_FORMATS: Final[list[str]] = [
+            OUTPUT_FORMAT_HTML,
+            OUTPUT_FORMAT_JSON,
+            OUTPUT_FORMAT_TEXT,
+            OUTPUT_FORMAT_DOCTAGS,
+        ]
 
         # File Extensions
         TEXT_EXTENSION: Final[str] = ".txt"

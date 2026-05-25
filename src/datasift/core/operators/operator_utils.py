@@ -1013,6 +1013,7 @@ class OperatorUtils:
         extract_tables: bool,
         extract_images: bool,
         converter_config: dict[str, Any] | None = None,
+        additional_formats: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Common method for document extraction using Docling's DocumentConverter.
@@ -1021,7 +1022,7 @@ class OperatorUtils:
         1. File extension detection
         2. Temporary file creation
         3. Document conversion
-        4. Markdown export
+        4. Multi-format export (markdown is MANDATORY, additional formats optional)
         5. Table extraction (if enabled)
         6. Image extraction (if enabled)
 
@@ -1033,17 +1034,38 @@ class OperatorUtils:
             converter_config: Optional configuration for DocumentConverter initialization.
                              If provided, should contain 'format_options' key with format-specific settings.
                              Example: {'format_options': {InputFormat.PDF: PdfFormatOption(...)}}
+            additional_formats: Optional list of additional formats to generate beyond mandatory markdown.
+                               Options: 'html', 'json', 'text', 'doctags'.
+                               Each format creates a separate column in the output.
+                               Note: Markdown is ALWAYS generated and should NOT be included in this list.
 
         Returns:
             Dictionary containing:
                 - success: True if extraction succeeded
-                - doc_content: Extracted content as markdown
+                - content: Extracted content as markdown (ALWAYS present - required by downstream operators)
+                - content_html: HTML format (if 'html' in additional_formats)
+                - content_json: JSON format (if 'json' in additional_formats)
+                - content_text: Plain text format (if 'text' in additional_formats)
+                - content_doctags: DocTags format (if 'doctags' in additional_formats)
                 - tables: List of extracted tables with references
                 - images: List of extracted images with captions
-                - metadata: Extraction metadata (table_count, image_count, char_count)
+                - metadata: Extraction metadata (table_count, image_count, char_count, page_count, formats)
                 - error: Error message if extraction failed
         """
-        logger.info("Processing file with Docling: %s", file_path)
+        # Markdown is ALWAYS generated (required by downstream operators like Chunker, Embeddings, PII, HAP)
+        # Additional formats are optional
+        if additional_formats is None:
+            additional_formats = []
+
+        # Filter out 'markdown' if user mistakenly included it (it's always generated)
+        additional_formats = [
+            fmt for fmt in additional_formats
+            if fmt.lower() != OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
+        ]
+
+        # Build complete format list for logging (markdown + additional)
+        all_formats = [OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN, *additional_formats]
+        logger.info("Processing file with Docling (formats: %s): %s", all_formats, file_path)
 
         try:
             # Determine the effective file extension
@@ -1078,28 +1100,79 @@ class OperatorUtils:
                 # Convert document directly from stream
                 result = converter.convert(doc_stream)
 
-            # Export to markdown
-            markdown_text = result.document.export_to_markdown()
-            logger.info(f"Extracted markdown length: {len(markdown_text) if markdown_text else 0} for file {file_path}")
+            # Generate content in all requested formats
+            content_dict: dict[str, str | None] = {}
+            formats_generated = []
+            formats_failed = []
+
+            # Always generate markdown first (mandatory)
+            try:
+                content_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = result.document.export_to_markdown()
+                formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN)
+                logger.info(f"Generated markdown format for {file_path}")
+            except Exception as e:
+                # Markdown is mandatory - if it fails, the entire extraction fails
+                logger.error(f"Failed to generate mandatory markdown format for {file_path}: {e}")
+                return {
+                    OperatorConstants.Extraction.SUCCESS: False,
+                    OperatorConstants.Extraction.ERROR: f"Failed to generate mandatory markdown format: {e}",
+                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
+                }
+
+            # Generate additional formats if requested
+            for fmt in additional_formats:
+                try:
+                    if fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_HTML:
+                        content_dict[OperatorConstants.Columns.CONTENT_HTML] = result.document.export_to_html()
+                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_HTML)
+                        logger.info(f"Generated HTML format for {file_path}")
+                    elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_JSON:
+                        import json
+                        content_dict[OperatorConstants.Columns.CONTENT_JSON] = json.dumps(result.document.export_to_dict(), indent=2)
+                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_JSON)
+                        logger.info(f"Generated JSON format for {file_path}")
+                    elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT:
+                        content_dict[OperatorConstants.Columns.CONTENT_TEXT] = result.document.export_to_text()
+                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT)
+                        logger.info(f"Generated text format for {file_path}")
+                    elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS:
+                        content_dict[OperatorConstants.Columns.CONTENT_DOCTAGS] = result.document.export_to_doctags()
+                        formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_DOCTAGS)
+                        logger.info(f"Generated doctags format for {file_path}")
+                    else:
+                        logger.warning(f"Unknown format '{fmt}' requested for {file_path}, skipping")
+                        formats_failed.append(fmt)
+                except Exception as e:
+                    logger.error(f"Failed to generate {fmt} format for {file_path}: {e}")
+                    content_dict[f"content_{fmt}" if fmt != OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN else OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = None
+                    formats_failed.append(fmt)
+
             # Extract tables and images using helper methods
             tables = OperatorUtils._extract_tables_from_result(result) if extract_tables else []
             images = OperatorUtils._extract_images_from_result(result) if extract_images else []
 
+            # Get character count from markdown (default format)
+            markdown_content = content_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT, "")
+            char_count = len(markdown_content) if markdown_content else 0
+
             # Get native page count from Docling result
             native_page_count = len(result.document.pages) if hasattr(result.document, "pages") else 0
 
-            logger.info("Completed extraction for %s", file_path)
+            logger.info("Completed extraction for %s (formats: %s)", file_path, formats_generated)
 
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: markdown_text,
+                **content_dict,  # Spread all format columns
                 OperatorConstants.Columns.TABLES: tables,
                 OperatorConstants.Columns.IMAGES: images,
                 OperatorConstants.Metadata.METADATA: {
                     "table_count": len(tables),
                     "image_count": len(images),
-                    "char_count": len(markdown_text),
+                    "char_count": char_count,
                     "page_count": native_page_count,
+                    "output_formats_requested": all_formats,
+                    "output_formats_generated": formats_generated,
+                    "output_formats_failed": formats_failed,
                 },
             }
 
