@@ -31,8 +31,8 @@ class TestReadabilityOperator(unittest.TestCase):
         self.assertIn(OperatorConstants.Misc.LABEL, metadata)
         self.assertEqual(metadata[OperatorConstants.Misc.LABEL], "Readability Operator")
         self.assertIn(OperatorConstants.Config.FEATURES, metadata)
-        # Metadata uses names without _textstat suffix
-        self.assertIn("flesch_ease", metadata[OperatorConstants.Config.FEATURES])
+        # Metadata uses names with _textstat suffix
+        self.assertIn("flesch_ease_textstat", metadata[OperatorConstants.Config.FEATURES])
 
     def test_readability_transform(self):
         config = {
@@ -96,9 +96,8 @@ class TestReadabilityOperator(unittest.TestCase):
 
         table_list, _ = operator.transform(table=test_table)
         transformed_table = table_list[0]
-        # Transform output adds _textstat suffix to score names
         for score in DEFAULT_READABILITY_SCORES:
-            self.assertIn(f"{score}_textstat", transformed_table.column_names)
+            self.assertIn(score, transformed_table.column_names)
 
 
 def test_operator_metadata():

@@ -732,7 +732,7 @@ class IngestSourceOperator(AbstractOperator):
                 OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: False,
                 OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
             },
-            "document_format": {
+            OperatorConstants.Metadata.DOCUMENT_FORMAT: {
                 OperatorConstants.Columns.NAME: "Document Format",
                 OperatorConstants.Config.DESCRIPTION: "File format/extension of the document (e.g., .pdf, .xlsx)",
                 OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
