@@ -6,6 +6,8 @@ LLM provider or infrastructure concerns.
 
 from dataclasses import dataclass
 
+from datasift.core.constants.operator_constants import OperatorConstants
+
 
 @dataclass
 class ClassificationRequest:
@@ -87,15 +89,15 @@ Document content:
 {sanitized_content}
 
 Respond with a JSON object containing:
-- document_type: The document type that best matches (must be one of the types listed above)
-- confidence: Confidence score from 1-10 (10 = certain)
-- reasoning: Brief explanation for why this document type was chosen
+- {OperatorConstants.Classification.FIELD_DOCUMENT_TYPE}: The document type that best matches (must be one of the types listed above)
+- {OperatorConstants.Classification.FIELD_CONFIDENCE}: Confidence score from 1-10 (10 = certain)
+- {OperatorConstants.Classification.FIELD_REASONING}: Brief explanation for why this document type was chosen
 
 Example response:
 {{
-  "document_type": "invoice",
-  "confidence": 9,
-  "reasoning": "Contains line items, totals, and payment terms typical of invoices"
+  "{OperatorConstants.Classification.FIELD_DOCUMENT_TYPE}": "invoice",
+  "{OperatorConstants.Classification.FIELD_CONFIDENCE}": 9,
+  "{OperatorConstants.Classification.FIELD_REASONING}": "Contains line items, totals, and payment terms typical of invoices"
 }}"""
 
     return prompt

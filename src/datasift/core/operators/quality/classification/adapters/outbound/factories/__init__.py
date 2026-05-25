@@ -1,1 +1,0 @@
-"""Classification adapter factories."""

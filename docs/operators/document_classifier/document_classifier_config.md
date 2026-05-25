@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Document Classifier operator uses LLM-based classification to identify document types with confidence scores and reasoning. It supports multiple LLM providers (Ollama and watsonx) and can classify documents into predefined categories.
+The Document Classifier operator uses LLM-based classification to identify document types with confidence scores and reasoning. It supports multiple LLM providers (LiteLLM and watsonx) and can classify documents into predefined categories.
 
 - **Operator Name:** `document_classifier`
 - **Category**: Functional
@@ -13,27 +13,29 @@ The Document Classifier operator uses LLM-based classification to identify docum
 #### 1. `provider` (String)
 **Type:** String
 **Required:** No
-**Default:** `"ollama"`
+**Default:** `"litellm"`
 **Description:** LLM provider to use for classification.
 
 **Valid Values:**
-- `"ollama"` - Uses Ollama via native API (requires Ollama server running locally)
+- `"litellm"` - Unified interface for 100+ LLM providers (OpenAI, Anthropic, Azure, AWS Bedrock, Google, Ollama via OpenAI-compatible API, etc.)
 - `"watsonx"` - Uses IBM watsonx.ai via REST API (requires API credentials)
 
 **Examples:**
 ```json
-"provider": "ollama"
+"provider": "litellm"
 "provider": "watsonx"
 ```
 
 #### 2. `provider_config` (JSON/Dictionary)
 **Type:** JSON Object
-**Required:** No (Yes for watsonx)
+**Required:** No (Yes for watsonx and most litellm providers)
 **Default:** `{}`
-**Description:** Provider-specific configuration parameters passed.
+**Description:** Provider-specific configuration parameters.
 
-**For Ollama:**
-- Currently no specific configuration required (uses defaults)
+**For LiteLLM:**
+- `api_key` (String, Required for most providers): API key for authentication
+- `api_base` (String, Optional): Custom API endpoint (e.g., for Ollama OpenAI-compatible endpoint)
+- `request_timeout` (Integer, Optional): Request timeout in seconds (default: 120)
 
 **For watsonx:**
 - `api_base` (String, Required): API endpoint URL
@@ -44,7 +46,24 @@ The Document Classifier operator uses LLM-based classification to identify docum
 
 **Examples:**
 
-watsonx :
+LiteLLM with OpenAI:
+```json
+"provider_config": {
+  "api_key": "${OPENAI_API_KEY}",
+  "request_timeout": 120
+}
+```
+
+LiteLLM with Ollama (OpenAI-compatible endpoint):
+```json
+"provider_config": {
+  "api_key": "ollama",  # pragma: allowlist secret
+  "api_base": "http://localhost:11434/v1",
+  "request_timeout": 120
+}
+```
+
+watsonx:
 ```json
 "provider_config": {
   "api_base": "https://us-south.ml.cloud.ibm.com",
@@ -58,18 +77,19 @@ watsonx :
 #### 4. `model_id` (String)
 **Type:** String
 **Required:** No (Yes for watsonx)
-**Default:** `"granite4:latest"` (Default is for Ollama; no default model_id for watsonx)
-**Description:** Model identifier for the selected provider.
+**Default:** `"openai/granite3.1-dense:8b"` (Default is for LiteLLM with Ollama; no default model_id for watsonx)
+**Description:** Model identifier in `<provider>/<model_id>` format for the selected provider.
 
 **Valid Values:**
 
-**Ollama Models:**
-- `"granite4:latest"` - IBM Granite 4 (default)
-- `"llama3.2"` - Meta Llama 3.2
-- `"llama3.1:70b"` - Meta Llama 3.1 70B
-- `"mistral"` - Mistral AI
-- `"mixtral"` - Mixtral 8x7B
-- Any other Ollama-compatible model
+**LiteLLM Models (100+ providers):**
+- OpenAI: `"openai/gpt-4o-mini"`, `"openai/gpt-4"`, `"openai/gpt-3.5-turbo"`
+- Anthropic: `"anthropic/claude-3-opus"`, `"anthropic/claude-3-sonnet"`, `"anthropic/claude-3-haiku"`
+- Azure OpenAI: `"azure/gpt-4"`
+- AWS Bedrock: `"bedrock/anthropic.claude-3-sonnet"`
+- Google Vertex AI: `"vertex_ai/gemini-pro"`
+- HuggingFace: `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`, `"huggingface/mistralai/Mistral-7B-Instruct-v0.2"`
+- Ollama (via OpenAI-compatible API): `"openai/llama3.2:latest"`, `"openai/granite3.1-dense:8b"`, `"openai/mistral:latest"`
 
 **watsonx Models:**
 - `"ibm/granite-3-8b-instruct"` - IBM Granite 3 8B
@@ -80,7 +100,10 @@ watsonx :
 
 **Examples:**
 ```json
-"model_id": "granite4:latest"
+"model_id": "openai/gpt-4o-mini"
+"model_id": "openai/llama3.2:latest"
+"model_id": "openai/granite3.1-dense:8b"
+"model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct"
 "model_id": "ibm/granite-3-8b-instruct"
 ```
 
@@ -290,25 +313,53 @@ If not specified, the operator loads 30+ predefined document types from `common/
 
 ## Configuration Examples
 
-### Example 1: Basic Ollama Classification
+### Example 1: LiteLLM with OpenAI
 ```json
 {
   "id": "classifier-node-1",
   "operator": "document_classifier",
   "config": {
-    "provider": "ollama",
-    "provider_config": {},
-    "model_id": "granite4:latest",
+    "provider": "litellm",
+    "model_id": "openai/gpt-4o-mini",
+    "provider_config": {
+      "api_key": "${OPENAI_API_KEY}"
+    },
     "document_types": ["invoice", "receipt", "contract", "report"],
-    "confidence_threshold": 7.0
+    "confidence_threshold": 7.0,
+    "include_confidence": true
   }
 }
 ```
 
-### Example 2: watsonx Classification with Reasoning
+### Example 2: LiteLLM with Ollama (OpenAI-Compatible Endpoint)
 ```json
 {
   "id": "classifier-node-2",
+  "operator": "document_classifier",
+  "config": {
+    "provider": "litellm",
+    "model_id": "openai/llama3.2:latest",
+    "provider_config": {
+      "api_key": "ollama",  # pragma: allowlist secret
+      "api_base": "http://localhost:11434/v1"
+    },
+    "document_types": {
+      "invoice": "Business invoice with line items and totals",
+      "receipt": "Payment receipt or confirmation",
+      "contract": "Legal contract or agreement",
+      "report": "Business or technical report"
+    },
+    "confidence_threshold": 7.0,
+    "include_confidence": true,
+    "include_reasoning": true
+  }
+}
+```
+
+### Example 3: watsonx Classification with Reasoning
+```json
+{
+  "id": "classifier-node-3",
   "operator": "document_classifier",
   "config": {
     "provider": "watsonx",
@@ -337,10 +388,14 @@ If not specified, the operator loads 30+ predefined document types from `common/
 1. **Document Type Selection**: Choose 3-10 distinct document types for best results
 2. **Content Length**: Balance between accuracy (more content) and speed (less content)
 3. **Confidence Threshold**: Start with 7.0, adjust based on accuracy requirements
-4. **Provider Selection**: Use Ollama for development, watsonx for production
+4. **Provider Selection**:
+   - Use LiteLLM with Ollama (OpenAI-compatible endpoint) for local development and privacy
+   - Use LiteLLM with OpenAI/Anthropic for high accuracy in production
+   - Use watsonx for enterprise deployments with IBM infrastructure
 5. **Error Handling**: Always check confidence scores and handle low-confidence results
 6. **Testing**: Test with representative sample documents before production deployment
 7. **Model Selection**: Choose models appropriate for your document types and language
+8. **Migration from Ollama**: If upgrading from direct Ollama provider, switch to LiteLLM with `api_base: "http://localhost:11434/v1"` and prefix model names with `openai/`
 
 ## Complete flow example
 

@@ -299,6 +299,37 @@ class OperatorConstants:
         NODES_METADATA_FILE: Final[str] = "nodes_metadata.json"
         PIPELINE_DETAILS: Final[str] = "pipeline_details"
 
+    class Classification:
+        """Document classification constants."""
+
+        # Provider Configuration
+        DEFAULT_PROVIDER: Final[str] = "litellm"
+        DEFAULT_MODEL: Final[str] = "openai/granite3.1-dense:8b"
+
+        # Classification Parameters
+        DEFAULT_CONFIDENCE_THRESHOLD: Final[float] = 7.0
+        DEFAULT_OUTPUT_COLUMN: Final[str] = "document_type"
+        DEFAULT_DOC_COLUMN: Final[str] = "content"  # References Columns.DOC_COLUMN_DEFAULT
+        DEFAULT_REQUEST_TIMEOUT: Final[int] = 120
+        DEFAULT_MAX_CONTENT_LENGTH: Final[int] = 2000
+
+        # Configuration Keys
+        DOC_COLUMN_KEY: Final[str] = "doc_column"  # References Columns.DOC_COLUMN
+
+        # Response Field Names
+        FIELD_DOCUMENT_TYPE: Final[str] = "document_type"
+        FIELD_CONFIDENCE: Final[str] = "confidence"
+        FIELD_REASONING: Final[str] = "reasoning"
+
+        # Default Values
+        UNKNOWN_TYPE: Final[str] = "unknown"
+
+        # Adapter and Provider Names
+        ADAPTER_LLM: Final[str] = "llm"
+        PROVIDER_WATSONX: Final[str] = "watsonx"
+        PROVIDER_LITELLM: Final[str] = "litellm"
+        PROVIDER_OLLAMA: Final[str] = "ollama"  # Deprecated - for validation/rejection only
+
     class VectorDB:
         """Vector database constants."""
 

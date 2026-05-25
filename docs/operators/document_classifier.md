@@ -6,16 +6,16 @@ title: Document Classification Operator
 
 ## Overview
 
-The Document Classification operator classifies documents into predefined types using Large Language Models (LLMs) with confidence scoring and reasoning. It implements a **hexagonal architecture** (ports and adapters pattern) to support multiple LLM providers through a unified interface.
+The Document Classification operator classifies documents into predefined types using Large Language Models (LLMs) with confidence scoring and reasoning. It uses a **simplified service-based architecture** that leverages shared LLM infrastructure for multi-provider support.
 
 ### Key Features
 
-- **Multi-Provider Support**: Ollama, LiteLLM (100+ providers), and IBM Watsonx.ai
+- **Multi-Provider Support**: LiteLLM (100+ providers including Ollama via OpenAI-compatible API) and IBM Watsonx.ai
 - **Confidence Scoring**: 1-10 scale confidence scores for each classification
 - **Reasoning Output**: Optional explanations for classification decisions
 - **Flexible Document Types**: Support for both simple lists and detailed descriptions
 - **Parallel Processing**: Efficient batch processing with configurable workers
-- **Extensible Architecture**: Easy to add new LLM providers via adapter pattern
+- **Shared Infrastructure**: Leverages common LLM adapter factory for consistency
 
 ### Operator Category
 
@@ -25,100 +25,75 @@ The Document Classification operator classifies documents into predefined types 
 
 ## Architecture
 
-### Hexagonal Architecture (Ports and Adapters)
+### Simplified Service-Based Architecture
 
-The operator follows hexagonal architecture principles to separate business logic from infrastructure concerns:
+The operator uses a streamlined architecture that leverages shared LLM infrastructure:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                   DocumentClassifierOperator                 │
-│                     (Application Layer)                      │
+│                     (Main Operator)                          │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Domain Layer                              │
+│                  ClassificationService                       │
+│              (Business Logic Layer)                          │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  ClassificationRequest                                │  │
-│  │  ClassificationResponse                               │  │
-│  │  ModelInfo                                            │  │
+│  │  Domain Models:                                       │  │
+│  │  - ClassificationRequest                              │  │
+│  │  - ClassificationResponse                             │  │
+│  │  - build_classification_prompt()                      │  │
 │  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+└────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Ports Layer                               │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  ClassificationServicePort (Interface)                │  │
-│  │    - classify_document(request) -> response           │  │
-│  │    - get_model_info() -> ModelInfo                    │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+│              Shared LLM Adapter Infrastructure               │
+│                  (LLMAdapterFactory)                         │
+└────────────────────────┬────────────────────────────────────┘
                          │
         ┌────────────────┼────────────────┐
         ▼                ▼                ▼
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│   Ollama     │  │   LiteLLM    │  │   Watsonx    │
-│   Adapter    │  │   Adapter    │  │   Adapter    │
+│   LiteLLM    │  │  Watsonx.ai  │  │ HuggingFace  │
+│   Client     │  │   Client     │  │   Client     │
 └──────────────┘  └──────────────┘  └──────────────┘
 ```
 
 ### Component Responsibilities
 
-#### 1. **Domain Layer** ([`domain/models.py`](../../src/datasift/core/operators/quality/classification/domain/models.py))
-- Pure business logic, no infrastructure dependencies
-- [`ClassificationRequest`](src/datasift/core/operators/quality/classification/domain/models.py:8): Input data structure
-- [`ClassificationResponse`](src/datasift/core/operators/quality/classification/domain/models.py:16): Output data structure
-- [`ModelInfo`](src/datasift/core/operators/quality/classification/domain/models.py:24): Model metadata
-- [`build_classification_prompt()`](src/datasift/core/operators/quality/classification/domain/models.py:31): Provider-agnostic prompt builder
+#### 1. **Operator Layer** ([`document_classifier.py`](../../src/datasift/core/operators/quality/classification/document_classifier.py))
+- Handles PyArrow table processing and orchestration
+- Manages parallel document classification
+- Integrates with job tracking and progress reporting
 
-#### 2. **Ports Layer** ([`ports/outbound/classification_service.py`](../../src/datasift/core/operators/quality/classification/ports/outbound/classification_service.py))
-- [`ClassificationServicePort`](src/datasift/core/operators/quality/classification/ports/outbound/classification_service.py:9): Abstract interface defining classification contract
-- Ensures all adapters implement the same interface
+#### 2. **Service Layer** ([`classification_service.py`](../../src/datasift/core/operators/quality/classification/classification_service.py))
+- Contains business logic for document classification
+- Validates configuration parameters
+- Manages LLM adapter lifecycle
 
-#### 3. **Adapters Layer** ([`adapters/outbound/`](src/datasift/core/operators/quality/classification/adapters/outbound))
-- [`OllamaClassificationAdapter`](src/datasift/core/operators/quality/classification/adapters/outbound/ollama_adapter.py:18): Native Ollama API integration
-- [`LiteLLMClassificationAdapter`](src/datasift/core/operators/quality/classification/adapters/outbound/litellm_adapter.py:18): Unified interface for 100+ LLM providers (OpenAI, Anthropic, Azure, AWS Bedrock, Google, etc.)
-- [`WatsonxClassificationAdapter`](src/datasift/core/operators/quality/classification/adapters/outbound/watsonx_adapter.py:19): IBM Watsonx.ai REST API integration
-- Each adapter translates between domain models and provider-specific APIs
+#### 3. **Domain Layer** ([`domain/models.py`](../../src/datasift/core/operators/quality/classification/domain/models.py))
+- Pure domain models: `ClassificationRequest`, `ClassificationResponse`
+- Provider-agnostic prompt building logic
+- No infrastructure dependencies
 
-#### 4. **Factory Layer** ([`adapters/outbound/factories/`](src/datasift/core/operators/quality/classification/adapters/outbound/factories))
-- [`ClassificationAdapterFactory`](src/datasift/core/operators/quality/classification/adapters/outbound/factories/classification_adapter_factory.py:9): Registry-based adapter creation
-- Decorator-based auto-registration via [`register_classification_adapter()`](src/datasift/core/operators/quality/classification/adapters/outbound/factories/classification_adapter_factory.py:60)
-- Centralized adapter management
-
-The active runtime operator remains [`DocumentClassifierOperator`](src/datasift/core/operators/quality/document_classifier.py:26), which delegates provider-specific classification to the runtime-native classification package under [`src/datasift/core/operators/quality/classification`](src/datasift/core/operators/quality/classification).
+#### 4. **Infrastructure Layer** (Shared `LLMAdapterFactory`)
+- Creates provider-specific LLM adapters (LiteLLM, Watsonx)
+- Manages adapter configuration and initialization
+- Provides unified `LLMInferencePort` interface
 
 ---
 
 ## Supported Providers
 
-### 1. Ollama (Local LLM)
+### 1. LiteLLM (100+ LLM Providers)
 
-**Use Case**: Local, privacy-focused classification with no external API calls
+**Use Case**: Unified interface for OpenAI, Anthropic, Azure, AWS Bedrock, Google, Ollama (via OpenAI-compatible API), and 100+ other providers
 
-**Configuration**:
-```json
-{
-  "provider": "ollama",
-  "model_id": "granite4:latest"
-}
-```
+**Configuration Examples**:
 
-**Requirements**:
-- Ollama server running on `http://localhost:11434`
-- Model pulled: `ollama pull granite4:latest`
-
-**Advantages**:
-- No API costs
-- Complete data privacy
-- Low latency for local deployments
-
-### 2. LiteLLM (100+ LLM Providers)
-
-**Use Case**: Unified interface for OpenAI, Anthropic, Azure, AWS Bedrock, Google, and 100+ other providers
-
-**Configuration**:
+**OpenAI:**
 ```json
 {
   "provider": "litellm",
@@ -129,25 +104,41 @@ The active runtime operator remains [`DocumentClassifierOperator`](src/datasift/
 }
 ```
 
+**Ollama (via OpenAI-compatible API):**
+```json
+{
+  "provider": "litellm",
+  "model_id": "openai/granite3.1-dense:8b",
+  "provider_config": {
+    "api_base": "http://localhost:11434/v1",
+    "api_key": "ollama" # pragma: allowlist secret
+  }
+}
+```
+
 **Supported Providers**:
 - OpenAI (openai/gpt-4, openai/gpt-4o-mini, openai/gpt-3.5-turbo)
-- Anthropic (claude-3-opus, claude-3-sonnet, claude-3-haiku)
-- Azure OpenAI
-- AWS Bedrock (Claude, Llama, Titan)
-- Google Vertex AI (Gemini, PaLM)
-- Cohere, Replicate, Hugging Face, and more
+- Anthropic (anthropic/claude-3-opus, anthropic/claude-3-sonnet, anthropic/claude-3-haiku)
+- Azure OpenAI (azure/gpt-4)
+- AWS Bedrock (bedrock/anthropic.claude-3-sonnet)
+- Google Vertex AI (vertex_ai/gemini-pro)
+- HuggingFace (huggingface/meta-llama/Llama-3.3-70B-Instruct)
+- **Ollama via OpenAI-compatible endpoint** (openai/llama3.2:latest, openai/granite3.1-dense:8b with api_base)
+- Cohere, Replicate, and 100+ more
 
 **Requirements**:
-- Valid API key for chosen provider
+- Valid API key for chosen provider (or "ollama" for local Ollama)
 - Network access to API endpoint
+- For Ollama: Server running on `http://localhost:11434`
 
 **Advantages**:
 - Single interface for 100+ providers
 - Easy provider switching
 - High-quality classifications
 - Automatic retry and fallback support
+- Local Ollama support via OpenAI-compatible API
 
-### 3. Watsonx (IBM Watsonx.ai)
+### 2. Watsonx (IBM Watsonx.ai)
 
 **Use Case**: Enterprise deployments with IBM Cloud infrastructure
 
@@ -183,8 +174,8 @@ The active runtime operator remains [`DocumentClassifierOperator`](src/datasift/
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `provider` | string | LLM provider: `"ollama"`, `"litellm"`, or `"watsonx"` |
-| `model_id` | string | Model identifier (e.g., `"granite4:latest"`, `"gpt-4o-mini"`, `"claude-3-sonnet"`) |
+| `provider` | string | LLM provider: `"litellm"` or `"watsonx"` |
+| `model_id` | string | Model identifier in `<provider>/<model_id>` format for LiteLLM (e.g., `"openai/granite3.1-dense:8b"`, `"openai/gpt-4o-mini"`, `"anthropic/claude-3-sonnet"`), or plain format for Watsonx (e.g., `"ibm/granite-13b-chat-v2"`) |
 
 ### Optional Parameters
 
@@ -201,14 +192,6 @@ The active runtime operator remains [`DocumentClassifierOperator`](src/datasift/
 | `use_processes` | boolean | false | Use processes instead of threads |
 
 ### Provider-Specific Configuration
-
-#### Ollama
-```json
-{
-  "provider": "ollama",
-  "model_id": "granite4:latest"
-}
-```
 
 #### LiteLLM
 ```json
@@ -240,7 +223,11 @@ The active runtime operator remains [`DocumentClassifierOperator`](src/datasift/
 {"provider": "litellm", "model_id": "vertex_ai/gemini-pro"}
 
 // Ollama via OpenAI-compatible endpoint
-{"provider": "litellm", "model_id": "openai/llama3", "provider_config": {"api_base": "http://localhost:11434/v1"}}
+{"provider": "litellm", "model_id": "openai/llama3.2:latest", "provider_config": {"api_base": "http://localhost:11434/v1"}}
+{"provider": "litellm", "model_id": "openai/granite3.1-dense:8b", "provider_config": {"api_base": "http://localhost:11434/v1"}}
+
+// HuggingFace
+{"provider": "litellm", "model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct"}
 ```
 
 #### Watsonx
@@ -329,7 +316,7 @@ The operator adds the following columns to the output table:
 
 ## Usage Examples
 
-### Example 1: Basic Classification with Ollama
+### Example 1: Basic Classification with LiteLLM (Ollama via OpenAI-compatible API)
 
 ```json
 {
@@ -337,8 +324,12 @@ The operator adds the following columns to the output table:
   "name": "classify",
   "operator": "document_classifier",
   "config": {
-    "provider": "ollama",
-    "model_id": "granite4:latest",
+    "provider": "litellm",
+    "model_id": "openai/granite3.1-dense:8b",
+    "provider_config": {
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "ollama" # pragma: allowlist secret
+    },
     "document_types": ["invoice", "receipt", "contract", "report"],
     "confidence_threshold": 7.0,
     "include_confidence": true,
@@ -407,7 +398,7 @@ The operator adds the following columns to the output table:
 ```json
 {
   "flow_name": "Document Classification Pipeline",
-  "description": "Classify documents using Ollama",
+  "description": "Classify documents using LiteLLM with Ollama",
   "global_config": {
     "doc_column": "content"
   },
@@ -433,8 +424,12 @@ The operator adds the following columns to the output table:
       "type": "document_classifier",
       "depends_on": ["extract"],
       "config": {
-        "provider": "ollama",
-        "model_id": "granite4:latest",
+        "provider": "litellm",
+        "model_id": "openai/granite3.1-dense:8b",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "ollama" # pragma: allowlist secret
+        },
         "document_types": {
           "invoice": "Business invoice with line items",
           "receipt": "Payment receipt",
@@ -483,10 +478,10 @@ The operator adds the following columns to the output table:
 
 | Use Case | Recommended Provider |
 |----------|---------------------|
-| Local/Privacy | Ollama |
+| Local/Privacy | LiteLLM with Ollama (via OpenAI-compatible API) |
 | High Accuracy | LiteLLM (GPT-4, Claude-3-Opus) |
 | Enterprise | Watsonx or LiteLLM (Azure/Bedrock) |
-| Cost-Effective | Ollama or LiteLLM (GPT-4o-mini) |
+| Cost-Effective | LiteLLM with Ollama or LiteLLM (GPT-4o-mini) |
 | Multi-Provider | LiteLLM (100+ providers) |
 
 ### 5. Performance Optimization
@@ -505,51 +500,6 @@ The operator adds the following columns to the output table:
 
 ---
 
-## Adding New Providers
-
-The hexagonal architecture makes it easy to add new LLM providers:
-
-### Step 1: Create Adapter Class
-
-```python
-from core.operators.quality.classification.ports.outbound.classification_service import ClassificationServicePort
-from core.operators.quality.classification.adapters.outbound.factories.classification_adapter_factory import register_classification_adapter
-
-@register_classification_adapter
-class MyLLMAdapter(ClassificationServicePort):
-    ADAPTER_NAME = "myllm"
-    ADAPTER_DISPLAY_NAME = "My LLM Provider"
-    
-    def __init__(self, *, model_id: str | None = None, **kwargs):
-        self.model_id = model_id
-        # Initialize your LLM client
-    
-    def classify_document(self, *, request: ClassificationRequest) -> ClassificationResponse:
-        # Implement classification logic
-        pass
-    
-    def get_model_info(self) -> ModelInfo:
-        # Return model information
-        pass
-```
-
-### Step 2: Register Adapter
-
-The `@register_classification_adapter` decorator automatically registers your adapter with the factory.
-
-### Step 3: Use in Configuration
-
-```json
-{
-  "provider": "myllm",
-  "model_id": "my-model-v1",
-  "provider_config": {
-    "api_key": "${MYLLM_API_KEY}",
-    "api_base": "${MYLLM_API_BASE}"
-  }
-}
-```
-
 ---
 
 ## Troubleshooting
@@ -559,10 +509,11 @@ The `@register_classification_adapter` decorator automatically registers your ad
 **Cause**: Missing or invalid provider configuration
 
 **Solution**:
-- Verify provider name is correct (`ollama`, `litellm`, `watsonx`)
+- Verify provider name is correct (`litellm`, `watsonx`)
 - Check all required provider_config parameters
 - Ensure API keys and endpoints are valid
-- For LiteLLM, verify model ID format matches provider (e.g., `gpt-4o-mini`, `claude-3-sonnet-20240229`)
+- For LiteLLM, verify model ID format matches provider (e.g., `openai/gpt-4o-mini`, `anthropic/claude-3-sonnet-20240229`)
+- For Ollama via LiteLLM, ensure api_base is set to `http://localhost:11434/v1`
 
 ### Issue: Low confidence scores
 
@@ -621,15 +572,26 @@ Sample test flows are available in `tests/sample_test_flows/classification/`:
 
 ## API Reference
 
-### ClassificationServicePort Interface
+### ClassificationService
 
 ```python
-class ClassificationServicePort(ABC):
-    """Port interface for document classification services."""
+class ClassificationService:
+    """Simplified classification service using LLM adapters directly."""
     
-    @abstractmethod
+    def __init__(
+        self,
+        *,
+        model_id: str | None = None,
+        provider_name: str,
+        provider_config: dict[str, Any] | None = None,
+        temperature: float = 0.0,
+        max_tokens: int = 500,
+    ) -> None:
+        """Initialize classification service."""
+        pass
+    
     def classify_document(self, *, request: ClassificationRequest) -> ClassificationResponse:
-        """Classify a document.
+        """Classify a document using the LLM adapter.
         
         Args:
             request: Classification request with content and document types
@@ -639,12 +601,34 @@ class ClassificationServicePort(ABC):
         """
         pass
     
-    @abstractmethod
-    def get_model_info(self) -> ModelInfo:
-        """Get information about the classification model.
+    def get_model_info(self) -> dict[str, Any]:
+        """Get model information.
         
         Returns:
-            Model information including name, provider, and capabilities
+            Dictionary with model_id, provider, temperature, and max_tokens
+        """
+        pass
+    
+    @staticmethod
+    def validate_config(
+        *,
+        provider: str | None = None,
+        model_id: str | None = None,
+        provider_config: dict[str, Any] | None = None,
+        document_types: list[str] | dict[str, str] | None = None,
+        confidence_threshold: float | None = None,
+    ) -> tuple[list[str], list[str]]:
+        """Validate classification configuration parameters.
+        
+        Validates:
+        - Provider is 'litellm' or 'watsonx' (rejects 'ollama')
+        - provider_config is present for both litellm and watsonx providers
+        - model_id is not empty
+        - document_types is valid list or dict
+        - confidence_threshold is between 1.0 and 10.0
+        
+        Returns:
+            Tuple of (errors, warnings) lists
         """
         pass
 ```
@@ -682,19 +666,22 @@ class ModelInfo:
 - [Extract Operator](./extract_operator.md) - Document content extraction
 - [Embeddings Operator](./embeddings.md) - Vector embeddings generation
 - [Architecture Guide](../../ARCHITECTURE.md) - System architecture overview
-- [Hexagonal Architecture](https://en.wikipedia.org/wiki/Hexagonal_architecture_(software)) - Pattern explanation
+- [Operator Reference](../../OPERATOR_REFERENCE.md) - Complete operator API reference
 
 ---
 
 ## Version History
 
+- **v2.0.0** : Simplified architecture
+  - Removed hexagonal architecture (ports/adapters) in favor of simplified service-based design
+  - Leverages shared LLM infrastructure (`LLMAdapterFactory`)
+  - Removed standalone Ollama provider (use LiteLLM with OpenAI-compatible API instead)
+  - Added `validate_config()` static method for configuration validation
+  - Supports LiteLLM (100+ providers) and Watsonx
 - **v1.1.0** : LiteLLM integration
   - Replaced OpenAI adapter with LiteLLM adapter
   - Support for 100+ LLM providers (OpenAI, Anthropic, Azure, AWS Bedrock, Google, etc.)
   - Unified interface for all providers
-  - Backward compatible configuration
-- **v1.0.0** : Initial release with hexagonal architecture
-  - Ollama adapter
-  - Watsonx adapter
-  - Factory-based adapter registration
+- **v1.0.0** : Initial release
+  - Ollama, LiteLLM, and Watsonx providers
   - Confidence scoring and reasoning

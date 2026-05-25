@@ -107,7 +107,7 @@ This reference is organized around four entry points:
 - Use the operator sections when authoring flow JSON.
 - Use the flow manager section when embedding datasift in Python code.
 - Use the CLI section when running or validating flows from the shell.
-- For classification-specific architecture details, see [`docs/operators/document_classifier.md`](docs/operators/document_classifier.md), which documents the runtime-native hexagonal package used by [`DocumentClassifierOperator`](src/datasift/core/operators/quality/document_classifier.py:26).
+- For classification-specific architecture details, see [`docs/operators/document_classifier.md`](docs/operators/document_classifier.md), which documents the simplified service-based architecture used by [`DocumentClassifierOperator`](src/datasift/core/operators/quality/document_classifier.py:26).
 
 ---
 
@@ -314,16 +314,16 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 #### DocumentClassifierOperator
 
-**Purpose:** Classifies documents into predefined types using LLM-based classification with confidence scoring and reasoning. Implements hexagonal architecture supporting multiple LLM providers (Ollama, LiteLLM, Watsonx).
+**Purpose:** Classifies documents into predefined types using LLM-based classification with confidence scoring and reasoning. Uses simplified service-based architecture with shared LLM infrastructure supporting multiple providers (LiteLLM, Watsonx).
 
 **Category:** Quality
 
 **Class:** `core.operators.quality.classification.document_classifier.DocumentClassifierOperator`
 
-| Parameter              | Type      | Required | Default             | Description                                                                               |
-| ---------------------- | --------- | -------- | ------------------- | ----------------------------------------------------------------------------------------- |
-| `provider`             | string    | No       | `"ollama"`          | LLM provider: `"ollama"`, `"litellm"`, or `"watsonx"`                                     |
-| `model_id`             | string    | No       | `"granite4:latest"` | Model identifier (e.g., `"granite4:latest"`, `"openai/gpt-4o-mini"`, `"claude-3-sonnet"`) |
+| Parameter              | Type      | Required | Default                  | Description                                                                               |
+| ---------------------- | --------- | -------- | ------------------------ | ----------------------------------------------------------------------------------------- |
+| `provider`             | string    | No       | `"litellm"`              | LLM provider: `"litellm"` or `"watsonx"`                                                  |
+| `model_id`             | string    | No       | `"openai/granite3.1-dense:8b"`   | Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"` for Ollama, `"openai/gpt-4o-mini"`, `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`)  |
 | `provider_config`      | object    | No       | `{}`                | Provider-specific configuration (api_key, api_base, etc.)                                 |
 | `document_types`       | list/dict | No       | Auto-loaded         | Document types to classify into (list or dict with descriptions)                          |
 | `confidence_threshold` | float     | No       | `7.0`               | Minimum confidence for classification (1-10 scale)                                        |
@@ -336,15 +336,6 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 | `use_processes`        | boolean   | No       | `false`             | Use processes instead of threads                                                          |
 
 **Provider-Specific Configuration**
-
-**Ollama:**
-
-```json
-{
-  "provider": "ollama",
-  "model_id": "granite4:latest"
-}
-```
 
 **LiteLLM (100+ providers):**
 
@@ -366,7 +357,8 @@ Supported LiteLLM providers:
 - Azure OpenAI: `azure/gpt-4`
 - AWS Bedrock: `bedrock/anthropic.claude-3-sonnet`
 - Google Vertex AI: `vertex_ai/gemini-pro`
-- Ollama via OpenAI-compatible endpoint: `openai/llama3` with `api_base: "http://localhost:11434/v1"`
+- HuggingFace: `huggingface/meta-llama/Llama-3.3-70B-Instruct`, `huggingface/mistralai/Mistral-7B-Instruct-v0.2`
+- Ollama via OpenAI-compatible endpoint: `openai/llama3.2:latest`, `openai/granite3.1-dense:8b` with `api_base: "http://localhost:11434/v1"`
 
 **Watsonx:**
 
@@ -428,24 +420,6 @@ Detailed dictionary format (recommended):
 - `ValueError`: Invalid response format from LLM
 - `json.JSONDecodeError`: Failed to parse LLM response
 
-**Example - Basic Ollama Classification**
-
-```json
-{
-  "id": "classify-node",
-  "name": "classify",
-  "operator": "document_classifier",
-  "config": {
-    "provider": "ollama",
-    "model_id": "granite4:latest",
-    "document_types": ["invoice", "receipt", "contract", "report"],
-    "confidence_threshold": 7.0,
-    "include_confidence": true,
-    "include_reasoning": false
-  }
-}
-```
-
 **Example - LiteLLM with OpenAI**
 
 ```json
@@ -482,7 +456,7 @@ Detailed dictionary format (recommended):
   "operator": "document_classifier",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/llama3",
+    "model_id": "openai/llama3.2:latest",
     "provider_config": {
       "api_key": "${api-key}",
       "api_base": "http://localhost:11434/v1"
@@ -502,12 +476,14 @@ Detailed dictionary format (recommended):
 
 **Architecture**
 
-Uses hexagonal architecture (ports and adapters pattern):
+Uses simplified service-based architecture:
 
-- **Domain Layer**: Pure business logic with `ClassificationRequest`, `ClassificationResponse`, `ModelInfo` models
-- **Ports Layer**: `ClassificationServicePort` interface defining classification contract
-- **Adapters Layer**: Provider-specific implementations (OllamaClassificationAdapter, LiteLLMClassificationAdapter, WatsonxClassificationAdapter)
-- **Factory Layer**: `ClassificationAdapterFactory` with decorator-based auto-registration
+- **Operator Layer**: `DocumentClassifierOperator` handles PyArrow table processing and orchestration
+- **Service Layer**: `ClassificationService` contains business logic for document classification
+- **Domain Layer**: Pure domain models (`ClassificationRequest`, `ClassificationResponse`) and prompt building
+- **Infrastructure Layer**: Leverages shared `LLMAdapterFactory` for multi-provider LLM support (LiteLLM, Watsonx)
+
+This simplified design removes the port/adapter overhead while maintaining clean separation of concerns and provider flexibility through the shared LLM infrastructure.
 
 **Related Documentation**
 
@@ -1349,7 +1325,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 |-----------|------|----------|---------|-------------|
 | `provider` | string | No | `ollama` | LLM provider (`ollama`, `watsonx`, `litellm`) |
 | `provider_config` | object | No | `{}` | Provider-specific configuration |
-| `model_id` | string | Conditional | `granite3.1-dense:8b` | Model for detection (required for watsonx/litellm) |
+| `model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
 | `doc_column` | string | No | `content` | Input text column |
 | `pii_types` | list[string] | No | all types | PII types to detect |
 | `hap_types` | list[string] | No | all types | HAP types to detect |
@@ -1367,46 +1343,6 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 ---
 
 
-#### DocumentClassifierOperator
-
-**Purpose:** Classify documents into a predefined set of document types using Ollama or watsonx-compatible model calls.
-
-**Category:** Quality in intent; current source sets a functional category.
-
-**Class:** `core.operators.quality.document_classifier.DocumentClassifierOperator`
-
-| Parameter              | Type           |    Required | Default           | Description                                                      |
-| ---------------------- | -------------- | ----------: | ----------------- | ---------------------------------------------------------------- |
-| `provider`             | string         |          No | `ollama`          | `ollama` or `watsonx`                                            |
-| `provider_config`      | object         |          No | `{}`              | Provider-specific configuration (see below)                      |
-| `model_id`             | string         | Conditional | `granite4:latest` | Classification model (required for watsonx, optional for ollama) |
-| `document_types`       | list or object |         Yes | catalog-derived   | Allowed target document types                                    |
-| `confidence_threshold` | float          |          No | `7.0`             | Minimum accepted confidence                                      |
-| `doc_column`           | string         |          No | `content`         | Input content column                                             |
-| `output_column`        | string         |          No | `document_type`   | Classification result column                                     |
-| `include_confidence`   | bool           |          No | `true`            | Emit confidence column                                           |
-| `include_reasoning`    | bool           |          No | `false`           | Emit reasoning column                                            |
-
-**Provider Configuration (`provider_config`)**
-
-For **watsonx** provider:
-
-- `api_base` (string, required): API endpoint URL
-- `api_key` (string, required): API key for authentication
-- `container_kind` (string, optional): Container type (`project` or `space`, default: `project`)
-- `container_id` (string, required): Container ID
-- `request_timeout` (integer, optional): Request timeout in seconds (default: `120`)
-
-For **ollama** provider:
-
-- Currently no provider-specific configuration required (uses defaults)
-
-**Output Schema**
-
-- `document_type`
-- optional confidence and reasoning columns
-
----
 
 #### EdedupOperator
 

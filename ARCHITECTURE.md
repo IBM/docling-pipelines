@@ -38,7 +38,7 @@ Datasift-open is a modular, operator-based data processing framework designed fo
 
 Datasift-opensource intentionally employs a **mixed architectural approach** rather than adhering to a single dominant pattern. This diversity enables flexibility, modularity, and maintainability across different system layers:
 
-- **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes. Quality operators such as [`DocumentClassifierOperator`](src/datasift/core/operators/quality/document_classifier.py:26) and the PII/HAP stack also use runtime-native ports-and-adapters packages under [`src/datasift/core/operators/quality`](src/datasift/core/operators/quality).
+- **Hexagonal Architecture (Ports & Adapters)**: Core domain logic and operator abstractions are isolated from external dependencies, allowing operators to be framework-agnostic and easily testable. The Prefect orchestration module specifically uses hexagonal architecture with ports and adapters for batch execution strategies, enabling seamless switching between local and distributed execution modes. Quality operators such as the PII/HAP stack use runtime-native ports-and-adapters packages under [`src/datasift/core/operators/quality`](src/datasift/core/operators/quality).
 - **Factory Pattern**: `OrchestratorFactory` and `OperatorFactory` provide centralized instantiation logic for orchestrators and operators
 - **Strategy Pattern**: Different operator implementations can be swapped based on configuration without changing the orchestration logic
 - **Observer Pattern**: Event handling system (`AbstractFlowExecutionEventHandler`, `FlowExecutionEventHandler`) enables monitoring and logging of flow execution
@@ -2361,7 +2361,7 @@ graph TB
 
 ### 8. DocumentClassifier Pattern
 
-The DocumentClassifier operator uses **hexagonal architecture** (ports and adapters pattern) to classify documents into predefined categories using Large Language Models. It supports multiple LLM providers through a unified interface, including IBM watsonx.ai.
+The DocumentClassifier operator classifies documents into predefined categories using Large Language Models. It uses a simplified service-based architecture that leverages the shared LLM adapter infrastructure for multi-provider support.
 
 **Typical Workflow Position:**
 
@@ -2381,53 +2381,53 @@ graph LR
     style F fill:#e1fff5
 ```
 
-**Hexagonal Architecture:**
+**Simplified Architecture:**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                   DocumentClassifierOperator                 │
-│                     (Application Layer)                      │
+│                     (Main Operator)                          │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Domain Layer                              │
+│                  ClassificationService                       │
+│              (Business Logic Layer)                          │
 │  ┌──────────────────────────────────────────────────────┐  │
-│  │  ClassificationRequest                                │  │
-│  │  ClassificationResponse                               │  │
-│  │  ModelInfo                                            │  │
+│  │  Domain Models:                                       │  │
+│  │  - ClassificationRequest                              │  │
+│  │  - ClassificationResponse                             │  │
+│  │  - build_classification_prompt()                      │  │
 │  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+└────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    Ports Layer                               │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  ClassificationServicePort (Interface)                │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+│              Shared LLM Adapter Infrastructure               │
+│                  (LLMAdapterFactory)                         │
+└────────────────────────┬────────────────────────────────────┘
                          │
         ┌────────────────┼────────────────┐
         ▼                ▼                ▼
 ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│   Ollama     │  │   LiteLLM    │  │  Watsonx.ai  │
-│   Adapter    │  │   Adapter    │  │   Adapter    │
+│   LiteLLM    │  │  Watsonx.ai  │  │ HuggingFace  │
+│   Client     │  │   Client     │  │   Client     │
 └──────────────┘  └──────────────┘  └──────────────┘
 ```
 
 **Classification Features:**
 
 1. **LLM-Based Classification**: Uses Large Language Models for intelligent document classification
-2. **Multi-Provider Support**: Ollama, LiteLLM (100+ providers), and IBM watsonx.ai
-3. **Hexagonal Architecture**: Clean separation between business logic and infrastructure
+2. **Multi-Provider Support**: LiteLLM (100+ providers) and IBM watsonx.ai via shared LLM infrastructure
+3. **Simplified Architecture**: Direct service-based design without port/adapter overhead
 4. **Confidence Scoring**: 1-10 scale confidence scores for each classification
 5. **Reasoning Output**: Optional explanations for classification decisions
-6. **Extensible Design**: Easy to add new LLM providers via adapter pattern
+6. **Shared Infrastructure**: Leverages common LLM adapter factory for consistency
 
 **Supported Providers:**
 
-- **Ollama**: Local LLM deployment for privacy-focused classification
 - **LiteLLM**: Unified interface for 100+ providers (OpenAI, Anthropic, Azure, AWS Bedrock, Google, etc.)
+  - Use with Ollama via OpenAI-compatible API: `provider='litellm'`, `api_base='http://localhost:11434/v1'`
 - **Watsonx**: IBM watsonx.ai enterprise LLM platform
 
 **Example Configuration:**
@@ -4271,7 +4271,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 
 #### Quality Operators (`quality/`)
 
-- **DocumentClassifier**: LLM-based document classification (hexagonal architecture with Ollama, LiteLLM, and Watsonx.ai adapters)
+- **DocumentClassifier**: LLM-based document classification (simplified service-based architecture with LiteLLM and Watsonx.ai support via shared LLM infrastructure)
 - **Dedup**: Deduplication
 - **DocQuality**: Document quality assessment using dpk_doc_quality (word count, mean word length, symbol ratios, bad words, etc.)
 - **MLEnrichment**: ML-based enrichment

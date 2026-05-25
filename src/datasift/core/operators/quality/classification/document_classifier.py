@@ -12,31 +12,16 @@ from typing import Any
 import pyarrow as pa
 from data_processing.utils import TransformUtils
 
-# Import adapters to trigger registration
-import datasift.core.operators.quality.classification.adapters.outbound  # noqa: F401
+from datasift.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from datasift.core.constants import AttributeDataTypes, DatasiftConstants, Metrics, OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.operator_utils import OperatorUtils
-from datasift.core.operators.quality.classification.adapters.outbound.factories.classification_adapter_factory import (
-    ClassificationAdapterFactory,
-)
+from datasift.core.operators.quality.classification.classification_service import ClassificationService
 from datasift.core.operators.quality.classification.domain.models import ClassificationRequest
-from datasift.core.operators.quality.classification.ports.outbound.classification_service import (
-    ClassificationServicePort,
-)
+from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
-
-# Default values
-DEFAULT_PROVIDER: str = "ollama"
-DEFAULT_OLLAMA_MODEL: str = "granite4:latest"
-DEFAULT_CONFIDENCE_THRESHOLD: float = 7.0
-DEFAULT_OUTPUT_COLUMN: str = "document_type"
-DEFAULT_DOC_COLUMN: str = OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-DEFAULT_REQUEST_TIMEOUT: int = 120
-DEFAULT_MAX_CONTENT_LENGTH: int = 2000
-DOC_COLUMN_KEY: str = OperatorConstants.Columns.DOC_COLUMN
 
 
 class DocumentClassifierOperator(AbstractOperator):
@@ -44,11 +29,10 @@ class DocumentClassifierOperator(AbstractOperator):
     Operator for classifying documents into predefined types using LLM.
 
     This operator uses LLM-based classification to identify document types
-    with confidence scores and reasoning. Supports Ollama (via native API)
-    and watsonx (via REST API).
+    with confidence scores and reasoning. Supports watsonx and litellm providers.
 
     Features:
-    - Multi-provider support (Ollama via native ollama package, watsonx via REST API)
+    - Multi-provider support (watsonx, litellm)
     - Confidence scoring (1-10 scale)
     - Optional reasoning output
     - Vision model support for scanned documents
@@ -65,12 +49,23 @@ class DocumentClassifierOperator(AbstractOperator):
       * classification_reasoning (optional): Explanation
 
     Example Configuration:
-        # Ollama provider (minimal config)
+        # LiteLLM provider with Ollama (default configuration)
         {
-            "provider": "ollama",
-            "provider_config": {},  # Uses defaults
-            "model_id": "granite4:latest",
+            "provider": "litellm",
+            "model_id": "openai/granite3.1-dense:8b",
             "document_types": ["invoice", "receipt", "contract"]
+        }
+        # Note: Default provider_config uses Ollama at http://localhost:11434/v1
+
+        # LiteLLM provider with custom Ollama model
+        {
+            "provider": "litellm",
+            "provider_config": {
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "ollama" # pragma: allowlist secret
+            },
+            "model_id": "openai/llama3.2:latest",
+            "document_types": {...}
         }
 
         # WatsonX provider (with environment variables for security)
@@ -99,7 +94,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
         Args:
             config: Configuration dictionary containing:
-                - provider: LLM provider ("watsonx", "ollama", or "litellm", default: "ollama")
+                - provider: LLM provider ("watsonx" or "litellm", default: "litellm")
                 - provider_config: Provider-specific configuration dictionary containing:
                     For watsonx:
                         - api_base: API endpoint URL
@@ -107,19 +102,20 @@ class DocumentClassifierOperator(AbstractOperator):
                         - request_timeout: Request timeout in seconds (default: 120)
                         Note: api_key and container_id MUST be set via environment variables:
                               WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config for security)
-                    For ollama:
-                        - (currently none, uses defaults)
-                    For litellm:
-                        - api_base: API endpoint URL (optional)
-                        - api_key: API key for authentication (optional)
+                    For litellm (default, configured for Ollama):
+                        - api_base: API endpoint URL (default: "http://localhost:11434/v1")
+                        - api_key: API key for authentication (default: "ollama")
                         - request_timeout: Request timeout in seconds (default: 120)
-                - model_id: Model identifier
+                - model_id: Model identifier in <provider>/<model_id> format (default: "openai/granite3.1-dense:8b" for Ollama via OpenAI-compatible API)
                 - document_types: List of document types or dict with descriptions
                 - confidence_threshold: Minimum confidence for classification (default: 7.0)
                 - doc_column: Column containing document text (default: "content")
                 - output_column: Column name for classification result (default: "document_type")
                 - include_confidence: Include confidence score in output (default: True)
                 - include_reasoning: Include reasoning in output (default: False)
+
+        Raises:
+            ValueError: If provider is "ollama" (no longer supported)
         """
         super().__init__(config)
 
@@ -127,11 +123,32 @@ class DocumentClassifierOperator(AbstractOperator):
         self.global_config = config
 
         # Provider configuration
-        self.provider: str = config.get(OperatorConstants.Config.PROVIDER, DEFAULT_PROVIDER).lower()
-        self.model_id: str | None = config.get(OperatorConstants.Config.MODEL_ID)
+        self.provider: str = config.get(
+            OperatorConstants.Config.PROVIDER, OperatorConstants.Classification.DEFAULT_PROVIDER
+        ).lower()
 
-        # The adapter factory will unpack and validate these parameters
+        # Reject Ollama provider explicitly
+        if self.provider == OperatorConstants.Classification.PROVIDER_OLLAMA:
+            raise ValueError(
+                "Ollama provider is no longer supported for classification. "
+                "Please use 'litellm' provider with Ollama via OpenAI-compatible API. "
+                "Example: provider='litellm', provider_config={'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'}"  # pragma: allowlist secret
+            )
+
+        self.model_id: str | None = config.get(
+            OperatorConstants.Config.MODEL_ID, OperatorConstants.Classification.DEFAULT_MODEL
+        )
+
+        # Get provider config - required for litellm provider
         self.provider_config: dict[str, Any] = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        # Validate provider_config is provided for litellm
+        if self.provider == OperatorConstants.Classification.PROVIDER_LITELLM and not self.provider_config:
+            raise DatasiftException(
+                "provider_config is required for litellm provider. "
+                "Must include at minimum: {'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'} for Ollama, "  # pragma: allowlist secret
+                "or appropriate API keys for other providers."
+            )
 
         # Document types configuration
         self.document_types: list[str] | dict[str, str] = config.get(OperatorConstants.Config.DOCUMENT_TYPES, [])
@@ -140,12 +157,16 @@ class DocumentClassifierOperator(AbstractOperator):
 
         # Classification parameters
         self.confidence_threshold: float = config.get(
-            OperatorConstants.Config.CONFIDENCE_THRESHOLD, DEFAULT_CONFIDENCE_THRESHOLD
+            OperatorConstants.Config.CONFIDENCE_THRESHOLD, OperatorConstants.Classification.DEFAULT_CONFIDENCE_THRESHOLD
         )
 
         # Column configuration
-        self.doc_column: str = config.get(OperatorConstants.Columns.DOC_COLUMN, DEFAULT_DOC_COLUMN)
-        self.output_column: str = config.get(OperatorConstants.Columns.OUTPUT_COLUMN, DEFAULT_OUTPUT_COLUMN)
+        self.doc_column: str = config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Classification.DEFAULT_DOC_COLUMN
+        )
+        self.output_column: str = config.get(
+            OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Classification.DEFAULT_OUTPUT_COLUMN
+        )
 
         # Output options
         self.include_confidence: bool = config.get(OperatorConstants.Config.INCLUDE_CONFIDENCE, True)
@@ -153,7 +174,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
         # Content length limit
         self.max_content_length: int = config.get(
-            OperatorConstants.Config.MAX_CONTENT_LENGTH, DEFAULT_MAX_CONTENT_LENGTH
+            OperatorConstants.Config.MAX_CONTENT_LENGTH, OperatorConstants.Classification.DEFAULT_MAX_CONTENT_LENGTH
         )
 
         # Job tracking context for progress updates
@@ -188,10 +209,17 @@ class DocumentClassifierOperator(AbstractOperator):
         """
         super().validate(errors, warnings, available_features)
 
-        available_adapters = ClassificationAdapterFactory.list_adapters()
+        # Validate provider using LLMAdapterFactory
         if self.should_validate_field(field_value=self.provider):
-            if self.provider not in available_adapters:
-                errors.append(f"provider must be one of {available_adapters}")
+            if self.provider == OperatorConstants.Classification.PROVIDER_OLLAMA:
+                errors.append(
+                    "Ollama provider is no longer supported. Use 'litellm' provider with Ollama via OpenAI-compatible API. "
+                    "Example: provider='litellm', provider_config={'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'}"  # pragma: allowlist secret
+                )
+            else:
+                supported_providers = LLMAdapterFactory.get_supported_providers(capability="inference")
+                if self.provider not in supported_providers:
+                    errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
 
         # Note: Provider-specific parameter validation (model_id, api_base, etc.) is handled
         # by the adapters themselves during initialization, following hexagonal architecture
@@ -215,12 +243,15 @@ class DocumentClassifierOperator(AbstractOperator):
                 elif not (1.0 <= self.confidence_threshold <= 10.0):
                     errors.append("confidence_threshold must be between 1.0 and 10.0")
 
-    def _create_classification_service(self) -> ClassificationServicePort:
-        """Create and return the provider-specific classification service."""
-        return ClassificationAdapterFactory.create(
-            adapter_name=self.provider,
+    def _create_classification_service(self) -> ClassificationService:
+        """Create and return the classification service.
+
+        Uses the simplified ClassificationService that directly uses LLMAdapterFactory.
+        """
+        return ClassificationService(
             model_id=self.model_id,
-            **self.provider_config,
+            provider_name=self.provider,
+            provider_config=self.provider_config,
         )
 
     @staticmethod
@@ -312,21 +343,21 @@ class DocumentClassifierOperator(AbstractOperator):
                 return {
                     OperatorConstants.Extraction.SUCCESS: False,
                     OperatorConstants.Extraction.ERROR: response.error or "Unknown classification error",
-                    "document_type": None,
-                    "confidence": 0,
-                    "reasoning": response.reasoning,
+                    OperatorConstants.Classification.FIELD_DOCUMENT_TYPE: None,
+                    OperatorConstants.Classification.FIELD_CONFIDENCE: 0,
+                    OperatorConstants.Classification.FIELD_REASONING: response.reasoning,
                 }
 
             logger.info(
-                f"Classified document {doc_name or 'unknown'}: "
+                f"Classified document {doc_name or OperatorConstants.Classification.UNKNOWN_TYPE}: "
                 f"type={response.document_type}, confidence={response.confidence}"
             )
 
             return {
                 OperatorConstants.Extraction.SUCCESS: True,
-                "document_type": response.document_type,
-                "confidence": response.confidence,
-                "reasoning": response.reasoning,
+                OperatorConstants.Classification.FIELD_DOCUMENT_TYPE: response.document_type,
+                OperatorConstants.Classification.FIELD_CONFIDENCE: response.confidence,
+                OperatorConstants.Classification.FIELD_REASONING: response.reasoning,
                 "is_confident": response.confidence >= self.confidence_threshold,
             }
         except Exception as e:
@@ -479,21 +510,21 @@ class DocumentClassifierOperator(AbstractOperator):
                     if result[OperatorConstants.Extraction.SUCCESS]:
                         # Enforce confidence threshold using pre-calculated is_confident flag
                         if result["is_confident"]:
-                            classifications[idx] = result["document_type"]
-                            confidences[idx] = result["confidence"]
-                            reasonings[idx] = result.get("reasoning", "")
+                            classifications[idx] = result[OperatorConstants.Classification.FIELD_DOCUMENT_TYPE]
+                            confidences[idx] = result[OperatorConstants.Classification.FIELD_CONFIDENCE]
+                            reasonings[idx] = result.get(OperatorConstants.Classification.FIELD_REASONING, "")
                             metadata[Metrics.External.PROCESSED_DOCS] += 1
                         else:
                             # Below threshold - return None
                             classifications[idx] = None
-                            confidences[idx] = result["confidence"]
+                            confidences[idx] = result[OperatorConstants.Classification.FIELD_CONFIDENCE]
                             reasonings[idx] = (
-                                f"Confidence {result['confidence']} below threshold {self.confidence_threshold} "
-                                f"to classify as {result['document_type']}"
+                                f"Confidence {result[OperatorConstants.Classification.FIELD_CONFIDENCE]} below threshold {self.confidence_threshold} "
+                                f"to classify as {result[OperatorConstants.Classification.FIELD_DOCUMENT_TYPE]}"
                             )
                             logger.info(
-                                f"Document {task['doc_name']} confidence {result['confidence']} below threshold {self.confidence_threshold}, "
-                                f"predicted type {result['document_type']}, returning None",
+                                f"Document {task['doc_name']} confidence {result[OperatorConstants.Classification.FIELD_CONFIDENCE]} below threshold {self.confidence_threshold}, "
+                                f"predicted type {result[OperatorConstants.Classification.FIELD_DOCUMENT_TYPE]}, returning None",
                                 extra=self.common_log_arguments,
                             )
                             metadata[Metrics.External.PROCESSED_DOCS] += 1
@@ -568,19 +599,19 @@ class DocumentClassifierOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: DocumentClassifierOperator.category.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: DocumentClassifierOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Document Classifier",
-            OperatorConstants.Config.DESCRIPTION: "Classify documents into predefined types using LLM (Ollama via native API, watsonx via REST API)",
+            OperatorConstants.Config.DESCRIPTION: "Classify documents into predefined types using LLM (litellm or watsonx providers). Default: litellm with Ollama",
             OperatorConstants.Config.FEATURES: {
-                DEFAULT_OUTPUT_COLUMN: {
+                OperatorConstants.Classification.DEFAULT_OUTPUT_COLUMN: {
                     OperatorConstants.Misc.NAME: "Document Type",
                     OperatorConstants.Config.DESCRIPTION: "Classified document type",
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
                 },
-                f"{DEFAULT_OUTPUT_COLUMN}_confidence": {
+                f"{OperatorConstants.Classification.DEFAULT_OUTPUT_COLUMN}_confidence": {
                     OperatorConstants.Misc.NAME: "Classification Confidence",
                     OperatorConstants.Config.DESCRIPTION: "Confidence score for classification (1-10)",
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_FLOAT,
                 },
-                f"{DEFAULT_OUTPUT_COLUMN}_reasoning": {
+                f"{OperatorConstants.Classification.DEFAULT_OUTPUT_COLUMN}_reasoning": {
                     OperatorConstants.Misc.NAME: "Classification Reasoning",
                     OperatorConstants.Config.DESCRIPTION: "Explanation for the classification decision",
                     OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
@@ -589,29 +620,31 @@ class DocumentClassifierOperator(AbstractOperator):
             OperatorConstants.Config.ATTRIBUTES: {
                 OperatorConstants.Config.PROVIDER: {
                     OperatorConstants.Misc.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: "LLM provider (ollama, litellm, or watsonx)",
+                    OperatorConstants.Config.DESCRIPTION: "LLM provider (litellm or watsonx). Default is litellm configured for Ollama. Note: Ollama is no longer supported as a direct provider; use litellm with OpenAI-compatible API instead.",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: DEFAULT_PROVIDER,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Classification.DEFAULT_PROVIDER,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                    OperatorConstants.Config.VALID_VALUES: ClassificationAdapterFactory.list_adapters(),
+                    OperatorConstants.Config.VALID_VALUES: [
+                        OperatorConstants.Classification.PROVIDER_WATSONX,
+                        OperatorConstants.Classification.PROVIDER_LITELLM,
+                    ],
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
                     OperatorConstants.Config.DESCRIPTION: (
                         "Provider-specific configuration dictionary. "
+                        "Default for litellm: {'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'} (Ollama via OpenAI-compatible API). "  # pragma: allowlist secret
                         "For watsonx: {'api_base': 'https://...', 'container_kind': 'project', 'request_timeout': 120}. "
-                        "Security: api_key and container_id MUST be set via environment variables WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config). "
-                        "For ollama: {} (uses defaults). "
-                        "For litellm: {'api_base': 'https://...', 'api_key': '...', 'request_timeout': 120}"
+                        "Security: api_key and container_id MUST be set via environment variables WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config)."
                     ),
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: {},
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 OperatorConstants.Config.MODEL_ID: {
                     OperatorConstants.Misc.NAME: "Model ID",
-                    OperatorConstants.Config.DESCRIPTION: "Model identifier for the selected provider",
+                    OperatorConstants.Config.DESCRIPTION: "Model identifier in <provider>/<model_id> format for the selected provider. Default: 'openai/granite3.1-dense:8b' for Ollama via OpenAI-compatible API",
                     OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Classification.DEFAULT_MODEL,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.DOCUMENT_TYPES: {
@@ -624,7 +657,7 @@ class DocumentClassifierOperator(AbstractOperator):
                     OperatorConstants.Misc.NAME: "Confidence Threshold",
                     OperatorConstants.Config.DESCRIPTION: "Minimum confidence score for classification (1-10)",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: DEFAULT_CONFIDENCE_THRESHOLD,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Classification.DEFAULT_CONFIDENCE_THRESHOLD,
                     OperatorConstants.Filtering.MIN_VALUE: 1.0,
                     OperatorConstants.Filtering.MAX_VALUE: 10.0,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
@@ -633,7 +666,7 @@ class DocumentClassifierOperator(AbstractOperator):
                     OperatorConstants.Misc.NAME: "Output Column",
                     OperatorConstants.Config.DESCRIPTION: "Column name for classification result",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: DEFAULT_OUTPUT_COLUMN,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Classification.DEFAULT_OUTPUT_COLUMN,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.INCLUDE_CONFIDENCE: {
@@ -656,11 +689,11 @@ class DocumentClassifierOperator(AbstractOperator):
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
-                DOC_COLUMN_KEY: {
+                OperatorConstants.Classification.DOC_COLUMN_KEY: {
                     OperatorConstants.Misc.NAME: "Document Column",
                     OperatorConstants.Config.DESCRIPTION: "Column name containing document content to classify",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: DEFAULT_DOC_COLUMN,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Classification.DEFAULT_DOC_COLUMN,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
             },

@@ -1,6 +1,6 @@
 {
   "flow_name": "classify then extract flow",
-  "description": "A flow to classify documents first, then extract content with Docling",
+  "description": "A flow to classify documents first, then extract text content using Docling",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
@@ -24,9 +24,12 @@
       "name": "classify",
       "type": "document_classifier",
       "config": {
-        "provider": "ollama",
-        "provider_config": {},
-        "model_id": "granite4:latest",
+        "provider": "litellm",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "ollama" # pragma: allowlist secret
+        },
+        "model_id": "openai/granite4:latest",
         "document_types": {
           "invoice": "Business invoice with line items, totals, and payment terms",
           "receipt": "Payment receipt or transaction confirmation",
@@ -56,21 +59,9 @@
       "type": "extract_operator",
       "config": {
         "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "docling",
+        "entity_extraction_mode": "none",
         "doc_column": "content",
-        "expand_extracted_data": true,
-        "template": {
-          "invoice_number": "string",
-          "invoice_date": "string",
-          "payment_due": "string",
-          "bill_to": "string",
-          "vendor_name": "string",
-          "vendor_address": "string",
-          "subtotal": "float",
-          "tax": "float",
-          "total": "float",
-          "grand_total": "float"
-        }
+        "expand_extracted_data": true
       },
       "depends_on": [
         "classify"
