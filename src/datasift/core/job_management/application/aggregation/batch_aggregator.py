@@ -429,32 +429,37 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
                         OperatorConstants.Extraction.STAGE_STATUS, OperatorConstants.Extraction.STAGE_STATUS_PENDING
                     )
                 )
-        # Handle completed batches (no stage progress, use persistent metadata)
-        # Include COMPLETED, COMPLETED_WITH_ERRORS, and COMPLETED_WITH_WARNINGS
+        # Handle completed and failed batches (no stage progress, use persistent metadata)
+        # Include COMPLETED, COMPLETED_WITH_ERRORS, COMPLETED_WITH_WARNINGS, and FAILED
         elif record.node_status in (
             ExecutionStatus.COMPLETED.value,
             ExecutionStatus.COMPLETED_WITH_ERRORS.value,
             ExecutionStatus.COMPLETED_WITH_WARNINGS.value,
+            ExecutionStatus.FAILED.value,
         ):
-            # For completed batches, use total_docs_count and processed_docs from nested metadata
+            # For completed/failed batches, use total_docs_count and processed_docs from nested metadata
             total_docs = metadata.get(Metrics.External.TOTAL_DOCS, 0)
             processed_docs = metadata.get(Metrics.External.PROCESSED_DOCS, 0)
 
             if total_docs > 0:
-                # Add to both text and entity extraction stages as completed
-                for stage_name in ["text_extraction", "entity_extraction"]:
-                    if stage_name not in stage_aggregates:
-                        stage_aggregates[stage_name] = {
-                            OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
-                            OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
-                            OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
-                            "statuses": [],
-                        }
+                # Only add to text_extraction stage for completed/failed batches without stage_progress
+                # Entity extraction stage should only be added if it was actually performed
+                stage_name = "text_extraction"
+                if stage_name not in stage_aggregates:
+                    stage_aggregates[stage_name] = {
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
+                        "statuses": [],
+                    }
 
-                    stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += total_docs
-                    stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED] += (
-                        processed_docs
-                    )
+                stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += total_docs
+                stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED] += processed_docs
+
+                # Set status based on batch status
+                if record.node_status == ExecutionStatus.FAILED.value:
+                    stage_aggregates[stage_name]["statuses"].append(OperatorConstants.Extraction.STAGE_STATUS_FAILED)
+                else:
                     stage_aggregates[stage_name]["statuses"].append(OperatorConstants.Extraction.STAGE_STATUS_COMPLETED)
         # FALLBACK: Handle running batches WITHOUT stage_progress but WITH total_docs
         elif record.node_status == ExecutionStatus.RUNNING.value:
@@ -462,19 +467,20 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
             total_docs = metadata.get("total_docs", 0)
 
             if total_docs > 0:
-                # Add to both stages as running with 0 completed
-                for stage_name in ["text_extraction", "entity_extraction"]:
-                    if stage_name not in stage_aggregates:
-                        stage_aggregates[stage_name] = {
-                            OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
-                            OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
-                            OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
-                            "statuses": [],
-                        }
+                # Only add to text_extraction stage for running batches without stage_progress
+                # Entity extraction stage should only be added if it was actually performed
+                stage_name = "text_extraction"
+                if stage_name not in stage_aggregates:
+                    stage_aggregates[stage_name] = {
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
+                        OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
+                        "statuses": [],
+                    }
 
-                    stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += total_docs
-                    # Don't add to completed since we don't have progress info
-                    stage_aggregates[stage_name]["statuses"].append(OperatorConstants.Extraction.STAGE_STATUS_RUNNING)
+                stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += total_docs
+                # Don't add to completed since we don't have progress info
+                stage_aggregates[stage_name]["statuses"].append(OperatorConstants.Extraction.STAGE_STATUS_RUNNING)
 
     # Calculate final stage progress
     result: dict[str, Any] = {}
