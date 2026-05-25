@@ -261,7 +261,7 @@ MAX_FILES_DEFAULT_VALUE: int = 100
 INCLUDE_FILTER_KEY: str = "include_filter"
 EXCLUDE_FILTER_KEY: str = "exclude_filter"
 ADAPTER_MANAGED_PROVIDERS: frozenset[str] = frozenset(
-    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "filesystem"}
+    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "filesystem", "web"}
 )
 
 logger = get_logger()
@@ -294,6 +294,38 @@ class IngestSourceOperator(AbstractOperator):
     short_name: str = "ingest_source"
     category: OperatorCategory = OperatorCategory.Ingest
     owner = DatasiftConstants.OWNER_DATASIFT
+
+    def validate(self, errors: list, warnings: list, available_features: list):
+        """
+        Validate operator configuration including adapter-specific requirements.
+
+        This method validates:
+        1. Required features (via parent class)
+        2. Provider-specific configuration (for adapter-managed providers)
+
+        Args:
+            errors: List to append validation errors
+            warnings: List to append validation warnings
+            available_features: List of available input features
+        """
+        # Call parent validation for required features
+        super().validate(errors=errors, warnings=warnings, available_features=available_features)
+
+        # Validate adapter configuration for adapter-managed providers
+        if self.provider in ADAPTER_MANAGED_PROVIDERS:
+            try:
+                # Attempt to build adapter config to trigger Pydantic validation
+                # This will catch missing required fields like secret_key
+                _, _ = self._build_adapter_config(self.provider)
+            except Exception as e:
+                # Extract meaningful error message from Pydantic validation errors
+                error_msg = str(e)
+                # Format Pydantic validation errors more clearly
+                if "validation error" in error_msg.lower():
+                    # Extract field-specific errors from Pydantic
+                    errors.append(f"Configuration validation failed for provider '{self.provider}': {error_msg}")
+                else:
+                    errors.append(f"Invalid configuration for provider '{self.provider}': {error_msg}")
 
     def __init__(self, config: dict[str, Any]) -> None:
         """
@@ -684,11 +716,11 @@ class IngestSourceOperator(AbstractOperator):
         """
         Factory method to initialize the correct LangChain loader.
 
-        Note: Providers using hexagonal architecture adapters (S3, SharePoint, OneDrive, Google Drive)
+        Note: Providers using hexagonal architecture adapters (S3, SharePoint, OneDrive, Google Drive, Web)
         should not call this method. They are handled via _load_documents_via_adapter().
         """
 
-        # 1. Amazon S3 / IBM COS (S3 Compatible), Microsoft SharePoint, OneDrive, Google Drive & Box
+        # 1. Amazon S3 / IBM COS (S3 Compatible), Microsoft SharePoint, OneDrive, Google Drive , Box & Web
         # These providers now use the hexagonal architecture adapter
         if self.provider in ADAPTER_MANAGED_PROVIDERS:
             raise ValueError(
