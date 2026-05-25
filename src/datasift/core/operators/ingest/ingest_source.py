@@ -636,7 +636,7 @@ class IngestSourceOperator(AbstractOperator):
                 return None
 
             # Generate document ID (use source hash for consistency)
-            doc_id: str = hashlib.md5(source.encode()).hexdigest()
+            doc_id: str = hashlib.md5(source.encode(), usedforsecurity=False).hexdigest()
 
             # Check if document was previously processed
             # For cloud sources, we use the source path as a proxy for modification time
