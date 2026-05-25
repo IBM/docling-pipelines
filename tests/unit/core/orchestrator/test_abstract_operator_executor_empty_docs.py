@@ -41,80 +41,68 @@ class TestEmptyDocumentHandling:
 
     def test_add_empty_docs_to_skipped_metadata(self, executor, mock_operator):
         """Test adding empty documents to skipped metadata."""
-        table = pa.table({
-            "id": ["doc1", "doc2", "doc3"],
-            "name": ["file1.pdf", "file2.pdf", "file3.pdf"],
-            "content": ["valid", "", "also valid"],
-        })
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2", "doc3"],
+                "name": ["file1.pdf", "file2.pdf", "file3.pdf"],
+                "content": ["valid", "", "also valid"],
+            }
+        )
         metadata = {}
 
-        executor._add_empty_docs_to_skipped_metadata(
-            table=table,
-            empty_doc_indices=[1],
-            metadata=metadata
-        )
+        executor._add_empty_docs_to_skipped_metadata(table=table, empty_doc_indices=[1], metadata=metadata)
 
         mock_operator.record_skipped_document.assert_called_once_with(
-            metadata=metadata,
-            doc_id="doc2",
-            doc_name="file2.pdf",
-            reason="Extracted content is empty"
+            metadata=metadata, doc_id="doc2", doc_name="file2.pdf", reason="Extracted content is empty"
         )
 
     def test_add_empty_docs_updates_node_status(self, executor, mock_operator):
         """Test that adding empty docs updates node status to COMPLETED_WITH_WARNINGS."""
-        table = pa.table({
-            "id": ["doc1", "doc2"],
-            "name": ["file1.pdf", "file2.pdf"],
-            "content": ["valid", ""],
-        })
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "name": ["file1.pdf", "file2.pdf"],
+                "content": ["valid", ""],
+            }
+        )
         metadata = {Metrics.External.NODE_STATUS: ExecutionStatus.COMPLETED.value}
 
         with patch("datasift.core.orchestration.abstract_operator_executor.OperatorUtils.merge_status") as mock_merge:
             mock_merge.return_value = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
 
-            executor._add_empty_docs_to_skipped_metadata(
-                table=table,
-                empty_doc_indices=[1],
-                metadata=metadata
-            )
+            executor._add_empty_docs_to_skipped_metadata(table=table, empty_doc_indices=[1], metadata=metadata)
 
             mock_merge.assert_called_once_with(
-                ExecutionStatus.COMPLETED.value,
-                ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+                ExecutionStatus.COMPLETED.value, ExecutionStatus.COMPLETED_WITH_WARNINGS.value
             )
 
     def test_process_table_for_empty_docs_no_doc_column(self, executor):
         """Test processing table when doc_column doesn't exist."""
-        table = pa.table({
-            "id": ["doc1", "doc2"],
-            "other_column": ["data1", "data2"],
-        })
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "other_column": ["data1", "data2"],
+            }
+        )
         metadata = {}
 
-        result = executor._process_table_for_empty_docs(
-            table=table,
-            doc_column="content",
-            metadata=metadata
-        )
+        result = executor._process_table_for_empty_docs(table=table, doc_column="content", metadata=metadata)
 
         assert result == table
 
     def test_process_table_for_empty_docs_with_empty_docs(self, executor, mock_operator):
         """Test processing table with empty documents."""
-        table = pa.table({
-            "id": ["doc1", "doc2", "doc3"],
-            "name": ["file1.pdf", "file2.pdf", "file3.pdf"],
-            "content": ["valid content", "", "more content"],
-        })
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2", "doc3"],
+                "name": ["file1.pdf", "file2.pdf", "file3.pdf"],
+                "content": ["valid content", "", "more content"],
+            }
+        )
         metadata = {}
 
         with patch.object(executor, "_save_empty_docs_to_incremental_metadata"):
-            result = executor._process_table_for_empty_docs(
-                table=table,
-                doc_column="content",
-                metadata=metadata
-            )
+            result = executor._process_table_for_empty_docs(table=table, doc_column="content", metadata=metadata)
 
             assert result.num_rows == 2
             assert result["id"].to_pylist() == ["doc1", "doc3"]
@@ -122,16 +110,17 @@ class TestEmptyDocumentHandling:
 
     def test_handle_empty_documents_single_table(self, executor, mock_operator):
         """Test _handle_empty_documents with a single table."""
-        table = pa.table({
-            "id": ["doc1", "doc2", "doc3"],
-            "content": ["valid", "", "also valid"],
-        })
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2", "doc3"],
+                "content": ["valid", "", "also valid"],
+            }
+        )
         metadata = {}
 
         with patch.object(executor, "_save_empty_docs_to_incremental_metadata"):
             processed_tables, _updated_metadata = executor._handle_empty_documents(
-                out_tables=[table],
-                metadata=metadata
+                out_tables=[table], metadata=metadata
             )
 
             assert len(processed_tables) == 1
@@ -140,20 +129,23 @@ class TestEmptyDocumentHandling:
 
     def test_handle_empty_documents_multiple_tables(self, executor, mock_operator):
         """Test _handle_empty_documents with multiple tables."""
-        table1 = pa.table({
-            "id": ["doc1", "doc2"],
-            "content": ["valid", ""],
-        })
-        table2 = pa.table({
-            "id": ["doc3", "doc4"],
-            "content": ["", "valid"],
-        })
+        table1 = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "content": ["valid", ""],
+            }
+        )
+        table2 = pa.table(
+            {
+                "id": ["doc3", "doc4"],
+                "content": ["", "valid"],
+            }
+        )
         metadata = {}
 
         with patch.object(executor, "_save_empty_docs_to_incremental_metadata"):
             processed_tables, _updated_metadata = executor._handle_empty_documents(
-                out_tables=[table1, table2],
-                metadata=metadata
+                out_tables=[table1, table2], metadata=metadata
             )
 
             assert len(processed_tables) == 2
@@ -164,20 +156,23 @@ class TestEmptyDocumentHandling:
 
     def test_handle_empty_documents_nested_lists(self, executor, mock_operator):
         """Test _handle_empty_documents with nested lists (branching operator)."""
-        branch1_table = pa.table({
-            "id": ["doc1", "doc2"],
-            "content": ["valid", ""],
-        })
-        branch2_table = pa.table({
-            "id": ["doc3"],
-            "content": ["valid"],
-        })
+        branch1_table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "content": ["valid", ""],
+            }
+        )
+        branch2_table = pa.table(
+            {
+                "id": ["doc3"],
+                "content": ["valid"],
+            }
+        )
         metadata = {}
 
         with patch.object(executor, "_save_empty_docs_to_incremental_metadata"):
             processed_tables, _updated_metadata = executor._handle_empty_documents(
-                out_tables=[[branch1_table, branch2_table]],
-                metadata=metadata
+                out_tables=[[branch1_table, branch2_table]], metadata=metadata
             )
 
             assert len(processed_tables) == 1
@@ -190,10 +185,7 @@ class TestEmptyDocumentHandling:
         """Test _handle_empty_documents with empty table list."""
         metadata = {}
 
-        processed_tables, updated_metadata = executor._handle_empty_documents(
-            out_tables=[],
-            metadata=metadata
-        )
+        processed_tables, updated_metadata = executor._handle_empty_documents(out_tables=[], metadata=metadata)
 
         assert processed_tables == []
         assert updated_metadata == metadata
@@ -202,10 +194,7 @@ class TestEmptyDocumentHandling:
         """Test _handle_empty_documents with None tables."""
         metadata = {}
 
-        processed_tables, updated_metadata = executor._handle_empty_documents(
-            out_tables=None,
-            metadata=metadata
-        )
+        processed_tables, updated_metadata = executor._handle_empty_documents(out_tables=None, metadata=metadata)
 
         assert processed_tables is None
         assert updated_metadata == metadata
@@ -219,15 +208,14 @@ class TestEmptyDocumentHandling:
         mock_service = Mock()
         mock_service_class.return_value = mock_service
 
-        table = pa.table({
-            "id": ["doc1", "doc2", "doc3"],
-            "content": ["valid", "", "also valid"],
-        })
-
-        executor._save_empty_docs_to_incremental_metadata(
-            table=table,
-            empty_doc_indices=[1]
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2", "doc3"],
+                "content": ["valid", "", "also valid"],
+            }
         )
+
+        executor._save_empty_docs_to_incremental_metadata(table=table, empty_doc_indices=[1])
 
         mock_service.save_metadata_for_incremental_update.assert_called_once()
         call_args = mock_service.save_metadata_for_incremental_update.call_args
@@ -246,30 +234,28 @@ class TestEmptyDocumentHandling:
         mock_service.save_metadata_for_incremental_update.side_effect = Exception("Save failed")
         mock_service_class.return_value = mock_service
 
-        table = pa.table({
-            "id": ["doc1", "doc2"],
-            "content": ["valid", ""],
-        })
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "content": ["valid", ""],
+            }
+        )
 
         # Should not raise exception, just log warning
-        executor._save_empty_docs_to_incremental_metadata(
-            table=table,
-            empty_doc_indices=[1]
-        )
+        executor._save_empty_docs_to_incremental_metadata(table=table, empty_doc_indices=[1])
 
     def test_save_empty_docs_to_incremental_metadata_no_empty_docs(self, executor):
         """Test saving when there are no empty documents."""
-        table = pa.table({
-            "id": ["doc1", "doc2"],
-            "content": ["valid1", "valid2"],
-        })
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "content": ["valid1", "valid2"],
+            }
+        )
 
         # Should return early without attempting to save
         with patch("datasift.core.incremental_metadata.IncrementalUpdateService") as mock_service:
-            executor._save_empty_docs_to_incremental_metadata(
-                table=table,
-                empty_doc_indices=[]
-            )
+            executor._save_empty_docs_to_incremental_metadata(table=table, empty_doc_indices=[])
             mock_service.assert_not_called()
 
     def test_custom_doc_column(self, mock_operator):
@@ -288,19 +274,16 @@ class TestEmptyDocumentHandling:
         )
         executor.get_operator = Mock(return_value=mock_operator)
 
-        table = pa.table({
-            "id": ["doc1", "doc2"],
-            "custom_content": ["valid", ""],
-        })
+        table = pa.table(
+            {
+                "id": ["doc1", "doc2"],
+                "custom_content": ["valid", ""],
+            }
+        )
         metadata = {}
 
         with patch.object(executor, "_save_empty_docs_to_incremental_metadata"):
-            processed_tables, _ = executor._handle_empty_documents(
-                out_tables=[table],
-                metadata=metadata
-            )
+            processed_tables, _ = executor._handle_empty_documents(out_tables=[table], metadata=metadata)
 
             assert processed_tables[0].num_rows == 1
             assert processed_tables[0]["id"].to_pylist() == ["doc1"]
-
-# Made with Bob

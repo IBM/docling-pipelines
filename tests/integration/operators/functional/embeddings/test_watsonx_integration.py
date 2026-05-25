@@ -361,6 +361,3 @@ class TestWatsonxErrorHandling:
 
         assert isinstance(embedding, list)
         assert len(embedding) == 768
-
-
-# Made with Bob

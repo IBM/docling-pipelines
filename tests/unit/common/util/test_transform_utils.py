@@ -133,7 +133,7 @@ class TestTransformUtils:
         # Data with wrong length
         wrong_length_data = [10, 20]  # Only 2 elements instead of 3
 
-        with pytest.raises(Exception):
+        with pytest.raises(pa.ArrowInvalid):
             TransformUtils.add_column(table, "bad_col", wrong_length_data)
 
     def test_add_column_with_unicode_name(self):
@@ -255,6 +255,3 @@ class TestTransformUtilsEdgeCases:
         assert "new_value" in result.column_names
         # Original value column should still exist
         assert "value" in result.column_names
-
-
-# Made with Bob

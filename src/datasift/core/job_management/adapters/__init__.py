@@ -33,5 +33,3 @@ __all__ = [
     "get_default_factory",
     "reset_default_factory",
 ]
-
-# Made with Bob

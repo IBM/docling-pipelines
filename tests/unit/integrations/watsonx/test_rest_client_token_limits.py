@@ -371,6 +371,3 @@ class TestTokenLimitIntegration:
 
             assert payload1["parameters"]["truncate_input_tokens"] == 512
             assert payload2["parameters"]["truncate_input_tokens"] == 1024
-
-
-# Made with Bob

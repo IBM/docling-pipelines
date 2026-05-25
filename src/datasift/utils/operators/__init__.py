@@ -16,5 +16,3 @@ __all__ = [
     "get_log_and_job_file_path",
     "retrieve_operator_logs",
 ]
-
-# Made with Bob

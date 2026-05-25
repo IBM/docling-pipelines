@@ -11,5 +11,3 @@ Centralizes PyArrow table column operations across all operators
 from data_processing.utils import TransformUtils
 
 __all__ = ["TransformUtils"]
-
-# Made with Bob

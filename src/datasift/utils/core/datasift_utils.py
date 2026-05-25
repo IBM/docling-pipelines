@@ -23,6 +23,3 @@ def generate_hex_digest(*, text: str) -> str:
         'f6e5d4c3b2a1...'
     """
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-# Made with Bob

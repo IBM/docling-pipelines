@@ -158,7 +158,7 @@ class TestEmbeddingsOllamaIntegration:
         table = pa.table(data)
 
         # Transform should handle empty content gracefully
-        result_tables, metadata = operator.transform(table)
+        _result_tables, metadata = operator.transform(table)
 
         # Check that the document was marked as failed
         assert metadata["processed_docs"] == 0
@@ -176,7 +176,7 @@ class TestEmbeddingsOllamaIntegration:
         }
         table = pa.table(data)
 
-        result_tables, metadata = operator.transform(table)
+        result_tables, _metadata = operator.transform(table)
         result_table = result_tables[0]
 
         # Get both embeddings
@@ -186,7 +186,7 @@ class TestEmbeddingsOllamaIntegration:
         # They should be identical or very similar
         assert len(embedding1) == len(embedding2)
         # Check if embeddings are very similar (allowing for small numerical differences)
-        differences = sum(abs(a - b) for a, b in zip(embedding1, embedding2))
+        differences = sum(abs(a - b) for a, b in zip(embedding1, embedding2, strict=True))
         avg_difference = differences / len(embedding1)
         assert avg_difference < 0.01, "Embeddings for same text should be nearly identical"
 
@@ -281,5 +281,3 @@ if __name__ == "__main__":
         print("  ollama serve")
         print("  ollama pull granite4  # or another model")
         print("=" * 60 + "\n")
-
-# Made with Bob

@@ -1224,7 +1224,7 @@ def write_queries_to_csv(queries: list[dict[str, Any]], filename: str) -> None:
                 writer.writerow(row)
 
     except OSError as e:
-        raise OSError(f"Error writing to CSV file '{filename}': {e}")
+        raise OSError(f"Error writing to CSV file '{filename}': {e}") from e
 
 
 if __name__ == "__main__":
@@ -1279,7 +1279,7 @@ if __name__ == "__main__":
 
         if not complexity_filter:
             print("\nQuery breakdown by complexity:")
-            complexity_counts = {}
+            complexity_counts: dict[str, int] = {}
             for query in queries:
                 complexity = query.get("complexity", "unknown")
                 complexity_counts[complexity] = complexity_counts.get(complexity, 0) + 1
@@ -1315,5 +1315,3 @@ if __name__ == "__main__":
         print("  simple, filtered, aggregation, time_based, multi_condition,")
         print("  comparison, complex, edge_case")
         sys.exit(1)
-
-# Made with Bob

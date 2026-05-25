@@ -186,6 +186,3 @@ class TestTokenWithDifferentData:
         assert response.status_code == 200
         # Custom fields should be preserved in token but not in User model
         assert response.json()["username"] == "testuser"
-
-
-# Made with Bob

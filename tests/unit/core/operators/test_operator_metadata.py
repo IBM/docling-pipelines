@@ -930,5 +930,3 @@ def test_get_operator_metadata_handles_non_static_get_metadata(mock_session_info
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

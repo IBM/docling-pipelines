@@ -50,6 +50,3 @@ def pyarrow_to_duckdb_type(pa_type: pa.DataType) -> str:
     else:
         logger.warning(f"Unknown PyArrow type {pa_type}, defaulting to VARCHAR")
         return "VARCHAR"
-
-
-# Made with Bob

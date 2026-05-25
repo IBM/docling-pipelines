@@ -92,7 +92,7 @@ class TestGetLogAndJobFilePath:
         """Test getting log and job file paths."""
         mock_data_path.return_value = "/test/warehouse"
 
-        log_path, job_path, metadata_path, agg_path = get_log_and_job_file_path(job_id="job_123", jobrun_id="run_456")
+        log_path, job_path, _metadata_path, agg_path = get_log_and_job_file_path(job_id="job_123", jobrun_id="run_456")
 
         assert "job_123" in log_path
         assert "run_456" in log_path
@@ -465,5 +465,3 @@ class TestFormatOperatorLogs:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-
-# Made with Bob

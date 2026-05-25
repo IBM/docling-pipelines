@@ -181,6 +181,3 @@ class OllamaLLMAdapter(LLMServicePort):
                 return None
 
         return self._cached_dimension
-
-
-# Made with Bob

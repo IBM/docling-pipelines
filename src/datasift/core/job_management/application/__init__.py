@@ -11,5 +11,3 @@ __all__ = [
     "JobManagementService",
     "NodeStatsAggregator",
 ]
-
-# Made with Bob

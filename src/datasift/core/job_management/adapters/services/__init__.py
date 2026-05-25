@@ -15,5 +15,3 @@ from .job_tracker_service import JobTrackerService
 __all__ = [
     "JobTrackerService",
 ]
-
-# Made with Bob

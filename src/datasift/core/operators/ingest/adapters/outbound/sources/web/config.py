@@ -95,6 +95,3 @@ class WebPageSourceConfig(BaseModel):
                 "extractor": None,
             }
         }
-
-
-# Made with Bob

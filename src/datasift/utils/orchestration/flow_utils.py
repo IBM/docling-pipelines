@@ -113,5 +113,3 @@ __all__ = [
     "create_node_id_to_index_map",
     "write_job_logs",
 ]
-
-# Made with Bob

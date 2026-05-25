@@ -493,6 +493,3 @@ class TestDoclingServeConfiguration:
 
         assert result_tables[0].num_rows == 1
         assert metadata.get("processed_docs", 0) == 1
-
-
-# Made with Bob

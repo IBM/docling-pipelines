@@ -63,5 +63,3 @@ roleRef:
   kind: ClusterRole
   name: prefect-worker-clusterrole
   apiGroup: rbac.authorization.k8s.io
-
-# Made with Bob

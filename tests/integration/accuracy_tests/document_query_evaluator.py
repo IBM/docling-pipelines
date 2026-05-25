@@ -59,8 +59,8 @@ class DocumentQueryEvaluator:
         self.ollama_model = ollama_model
 
         # Initialize converters for each document type
-        self.converters = {}
-        self.sql_clients = {}
+        self.converters: dict[str, Any] = {}
+        self.sql_clients: dict[str, Any] = {}
 
         if OllamaNLToSQLConverter and OpenSearchSQLClient:
             self.sql_client = OpenSearchSQLClient(client)
@@ -178,7 +178,7 @@ class DocumentQueryEvaluator:
             Score (0 to max_score)
         """
         max_score = int(query.get("max_score", 10))
-        score = 0
+        score = 0.0
 
         # Basic scoring: if query executed successfully and returned results
         if not sql_result.error:
@@ -255,7 +255,9 @@ class DocumentQueryEvaluator:
         score_percentage = (total_score / max_possible_score * 100) if max_possible_score > 0 else 0
 
         # Statistics by difficulty
-        by_difficulty = defaultdict(lambda: {"total": 0, "passed": 0, "total_score": 0, "max_score": 0})
+        by_difficulty: dict[str, dict[str, int]] = defaultdict(
+            lambda: {"total": 0, "passed": 0, "total_score": 0, "max_score": 0}
+        )
         for r in results:
             diff = r["difficulty"]
             by_difficulty[diff]["total"] += 1
@@ -265,7 +267,9 @@ class DocumentQueryEvaluator:
             by_difficulty[diff]["max_score"] += r["max_score"]
 
         # Statistics by document type
-        by_doc_type = defaultdict(lambda: {"total": 0, "passed": 0, "total_score": 0, "max_score": 0})
+        by_doc_type: dict[str, dict[str, int]] = defaultdict(
+            lambda: {"total": 0, "passed": 0, "total_score": 0, "max_score": 0}
+        )
         for r in results:
             dtype = r["doc_type"]
             by_doc_type[dtype]["total"] += 1
@@ -469,5 +473,3 @@ if __name__ == "__main__":
     print()
 
     main()
-
-# Made with Bob

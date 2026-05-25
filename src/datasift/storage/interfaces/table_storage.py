@@ -128,6 +128,3 @@ class TableStorage(ABC):
             RuntimeError: If query execution fails
         """
         pass
-
-
-# Made with Bob

@@ -91,5 +91,3 @@ spec:
   resources:
     requests:
       storage: 5Gi
-
-# Made with Bob

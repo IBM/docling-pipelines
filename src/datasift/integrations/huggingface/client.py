@@ -380,6 +380,3 @@ class HuggingFaceLLMClient(BaseLLMClient):
                 "Set HF_TOKEN or HUGGINGFACE_TOKEN environment variable "
                 "or pass 'api_token' parameter."
             )
-
-
-# Made with Bob

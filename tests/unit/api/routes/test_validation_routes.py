@@ -465,6 +465,3 @@ class TestFlowValidationResponseStructure:
         assert data["warnings"] == []
         assert isinstance(data["errors"], list)
         assert isinstance(data["warnings"], list)
-
-
-# Made with Bob

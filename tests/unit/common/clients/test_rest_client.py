@@ -676,6 +676,3 @@ class TestMethodConfig:
         config = METHOD_CONFIG[RestMethod.DELETE]
         assert config["expected_status_codes"] == [200, 204]
         assert config["supports_body"] is False
-
-
-# Made with Bob

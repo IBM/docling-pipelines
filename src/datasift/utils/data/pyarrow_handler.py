@@ -170,5 +170,3 @@ __all__ = [
     "TransformUtils",
     "get_parquet_table_handler",
 ]
-
-# Made with Bob

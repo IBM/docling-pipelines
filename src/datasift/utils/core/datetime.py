@@ -11,6 +11,3 @@ def get_current_timestamp():
         Current timestamp in seconds since epoch, rounded to nearest integer
     """
     return round(datetime.now().timestamp())
-
-
-# Made with Bob

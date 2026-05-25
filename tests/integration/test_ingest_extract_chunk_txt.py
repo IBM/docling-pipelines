@@ -245,5 +245,3 @@ def test_basic_txt_integration():
 if __name__ == "__main__":
     # Run tests
     pytest.main([__file__, "-v", "-s"])
-
-# Made with Bob

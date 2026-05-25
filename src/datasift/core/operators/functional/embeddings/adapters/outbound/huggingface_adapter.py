@@ -90,6 +90,3 @@ class HuggingFaceLLMAdapter(LLMServicePort):
             return HuggingFaceLLMClient.get_embedding_dimension(self.model_name)
         except Exception:
             return None
-
-
-# Made with Bob

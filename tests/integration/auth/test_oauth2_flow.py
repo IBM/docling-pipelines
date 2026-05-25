@@ -269,6 +269,3 @@ class TestOAuth2EndToEndFlow:
 
         assert response.status_code == 200
         assert response.json()["username"] == "test@gmail.com"
-
-
-# Made with Bob

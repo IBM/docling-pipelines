@@ -230,6 +230,3 @@ class BatchExecutionFactory:
         logger.info("Using default batch execution strategy: ThreadPoolAdapter")
 
         return ThreadPoolAdapter(prefect_engine=prefect_engine, batch_manager=batch_manager)
-
-
-# Made with Bob

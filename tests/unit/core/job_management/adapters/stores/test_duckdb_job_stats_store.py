@@ -646,6 +646,3 @@ class TestDatabasePersistence:
         retrieved = store2.get_job_stats(sample_job_stats.job_run_id)
         assert retrieved is not None
         assert retrieved.processed_docs == 100
-
-
-# Made with Bob

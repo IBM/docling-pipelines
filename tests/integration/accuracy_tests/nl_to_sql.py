@@ -826,7 +826,7 @@ class NLToSQLQueryEvaluator:
             if row_dict:
                 # Get the first value (should be the count)
                 try:
-                    actual_count = int(list(row_dict.values())[0])
+                    actual_count = int(next(iter(row_dict.values())))
                 except (ValueError, TypeError):
                     # If first value is not a number, return row count
                     actual_count = len(result.datarows)
@@ -856,7 +856,7 @@ class NLToSQLQueryEvaluator:
             top_row.get("supplier.name")
             or top_row.get("supplier_name")
             or top_row.get("name")
-            or str(list(top_row.values())[0])
+            or str(next(iter(top_row.values())))
         )
 
         order_count = (
@@ -881,7 +881,7 @@ class NLToSQLQueryEvaluator:
             top_row.get("supplier.name")
             or top_row.get("supplier_name")
             or top_row.get("name")
-            or str(list(top_row.values())[0])
+            or str(next(iter(top_row.values())))
         )
 
         passed = supplier_name == expected_supplier
@@ -951,7 +951,7 @@ class NLToSQLQueryEvaluator:
         else:
             # Try dict format
             row_dict = result.to_dict_list()[0] if result.to_dict_list() else {}
-            actual_value = list(row_dict.values())[0] if row_dict else None
+            actual_value = next(iter(row_dict.values())) if row_dict else None
 
         # Convert to appropriate type for comparison
         if actual_value is not None and expected_value is not None:
@@ -972,7 +972,7 @@ class NLToSQLQueryEvaluator:
             return (False, "No results")
 
         first_row = result.to_dict_list()[0]
-        actual_top = str(list(first_row.values())[0]) if first_row else "None"
+        actual_top = str(next(iter(first_row.values()))) if first_row else "None"
         passed = expected_top.lower() in actual_top.lower()
         return (passed, actual_top)
 
@@ -1102,7 +1102,7 @@ class NLToSQLQueryTester:
         id_to_complexity = {q["id"]: q.get("complexity", "unknown") for q in test_queries}
 
         # Calculate stats by complexity
-        complexity_stats = defaultdict(lambda: {"total": 0, "passed": 0, "failed": 0})
+        complexity_stats: dict[str, dict[str, int]] = defaultdict(lambda: {"total": 0, "passed": 0, "failed": 0})
 
         for query_id, result in results.items():
             complexity = id_to_complexity.get(query_id, "unknown")
@@ -1193,5 +1193,3 @@ if __name__ == "__main__":
     print()
 
     main()
-
-# Made with Bob

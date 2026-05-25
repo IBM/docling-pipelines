@@ -148,5 +148,3 @@ __all__ = [
     "combine_cumulative_deleted_rows",
     "update_deleted_rows",
 ]
-
-# Made with Bob

@@ -72,6 +72,3 @@ class BatchExecutionPort(ABC):
             Strategy name string
         """
         pass
-
-
-# Made with Bob

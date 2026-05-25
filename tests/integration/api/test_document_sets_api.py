@@ -513,6 +513,3 @@ class TestDocumentSetConcurrency:
 
         # Should return same document set (idempotent)
         assert data1["id"] == data2["id"]
-
-
-# Made with Bob

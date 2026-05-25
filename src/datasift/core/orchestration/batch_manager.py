@@ -285,6 +285,3 @@ class BatchManager:
         batch_data_access = data_access_factory.create_data_access()
         batch_data_access.save_table(path="", table=batch_table)
         return batch_data_access
-
-
-# Made with Bob

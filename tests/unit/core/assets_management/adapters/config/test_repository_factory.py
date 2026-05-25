@@ -173,6 +173,3 @@ class TestRepositoryFactory:
         assert RepositoryType.LOCAL.value == "local"
         # Verify only expected types exist
         assert len(list(RepositoryType)) == 1
-
-
-# Made with Bob

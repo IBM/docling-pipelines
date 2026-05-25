@@ -182,6 +182,3 @@ class TestAggregationStrategies:
         result = aggregator.aggregate_metadata(metadata_list=metadata_list)
 
         assert result["custom_field"] == "value3"
-
-
-# Made with Bob

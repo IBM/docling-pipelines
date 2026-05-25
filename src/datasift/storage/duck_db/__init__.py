@@ -7,5 +7,3 @@ __all__ = [
     "DuckDBKeyValueStorage",
     "DuckDBTableStorage",
 ]
-
-# Made with Bob

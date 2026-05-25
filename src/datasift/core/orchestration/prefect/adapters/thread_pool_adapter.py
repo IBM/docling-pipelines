@@ -78,6 +78,3 @@ class ThreadPoolAdapter(BatchExecutionPort):
     def get_strategy_name(self) -> str:
         """Return strategy name for logging."""
         return ExecutionStrategyType.THREAD_POOL.value
-
-
-# Made with Bob

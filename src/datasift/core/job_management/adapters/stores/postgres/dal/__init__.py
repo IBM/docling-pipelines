@@ -9,5 +9,3 @@ from .job_stats_dal import JobStatsDAL
 from .node_stats_dal import NodeStatsDAL
 
 __all__ = ["BaseDAO", "JobStatsDAL", "NodeStatsDAL"]
-
-# Made with Bob

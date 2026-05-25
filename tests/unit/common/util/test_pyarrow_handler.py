@@ -307,6 +307,3 @@ class TestEdgeCases:
         assert read_table.num_rows == 3
         assert "list_col" in read_table.column_names
         assert "struct_col" in read_table.column_names
-
-
-# Made with Bob

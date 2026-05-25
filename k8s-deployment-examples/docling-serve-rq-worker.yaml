@@ -50,5 +50,3 @@ spec:
           preStop:
             exec:
               command: ["/bin/sh", "-c", "sleep 60"]
-
-# Made with Bob

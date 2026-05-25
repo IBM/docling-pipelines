@@ -13,5 +13,3 @@ __all__ = [
     "JobStatsService",
     "JobStatsStore",
 ]
-
-# Made with Bob

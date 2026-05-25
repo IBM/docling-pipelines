@@ -263,5 +263,3 @@ networks:
   datasift-net:
     driver: bridge
     name: datasift-net
-
-# Made with Bob

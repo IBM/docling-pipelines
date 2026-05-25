@@ -111,6 +111,3 @@ class KeyValueStorage(ABC):
             True if record exists, False otherwise
         """
         pass
-
-
-# Made with Bob

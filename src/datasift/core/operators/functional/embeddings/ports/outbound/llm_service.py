@@ -88,6 +88,3 @@ class LLMServicePort(ABC):
             Dimension of embedding vectors, or None if unknown
         """
         return None
-
-
-# Made with Bob

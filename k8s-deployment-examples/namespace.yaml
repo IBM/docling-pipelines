@@ -7,5 +7,3 @@ metadata:
   labels:
     app: datasift
     environment: production
-
-# Made with Bob

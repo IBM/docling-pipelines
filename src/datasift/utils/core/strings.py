@@ -113,6 +113,3 @@ def is_null_or_empty(value: str | None) -> bool:
         True if value is None or empty string, False otherwise
     """
     return value is None or value == ""
-
-
-# Made with Bob

@@ -284,6 +284,3 @@ class BaseLLMClient(ABC):
             raise ExternalServiceError(
                 f"Invalid embeddings from model '{self.model_name}': all elements must be numeric"
             )
-
-
-# Made with Bob

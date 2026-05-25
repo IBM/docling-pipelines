@@ -105,5 +105,3 @@ spec:
       name: postgres
   clusterIP: None  # Headless service for StatefulSet
   type: ClusterIP
-
-# Made with Bob

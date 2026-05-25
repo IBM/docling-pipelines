@@ -98,6 +98,3 @@ def register_llm_adapter(adapter_class: type[LLMServicePort]) -> type[LLMService
             ...
     """
     return LLMAdapterFactory.register(adapter_class)
-
-
-# Made with Bob

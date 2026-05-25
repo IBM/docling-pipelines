@@ -337,6 +337,3 @@ class TestEdgeCases:
         unicode_name = "测试日志器"
         logger = get_logger(name=unicode_name)
         assert logger.name == unicode_name
-
-
-# Made with Bob

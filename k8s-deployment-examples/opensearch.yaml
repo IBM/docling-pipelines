@@ -255,5 +255,3 @@ spec:
 #     protocol: TCP
 #     name: http
 #   type: NodePort
-
-# Made with Bob

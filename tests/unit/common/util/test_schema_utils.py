@@ -334,6 +334,3 @@ class TestEdgeCases:
         """Test counting rows with many single-row tables."""
         tables = [pa.table({"id": [i]}) for i in range(100)]
         assert _total_rows(tables) == 100
-
-
-# Made with Bob

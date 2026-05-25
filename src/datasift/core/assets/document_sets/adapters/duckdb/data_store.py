@@ -357,5 +357,3 @@ class DuckDBDocumentSetDataStore(DocumentSetDataStore):
 
 
 DuckDBDataStore = DuckDBDocumentSetDataStore
-
-# Made with Bob

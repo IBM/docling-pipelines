@@ -70,6 +70,3 @@ class OllamaClientEmbeddings(Embeddings):
             Embedding vector as list of floats
         """
         return self.client.generate_embeddings(text)
-
-
-# Made with Bob

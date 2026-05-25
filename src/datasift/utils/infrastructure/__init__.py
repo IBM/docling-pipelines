@@ -39,5 +39,3 @@ __all__ = [
     "should_retry_on_result",
     "submit_task_with_context_propagation",
 ]
-
-# Made with Bob

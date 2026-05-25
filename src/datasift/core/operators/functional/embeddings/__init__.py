@@ -35,5 +35,3 @@ __all__ = [
     # Adapters
     "OllamaLLMAdapter",
 ]
-
-# Made with Bob

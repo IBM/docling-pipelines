@@ -126,6 +126,3 @@ def get_map_from_map(obj: dict[str, Any], key: str) -> dict[str, Any]:
     """
     val = obj.get(key)
     return val if isinstance(val, dict) else {}
-
-
-# Made with Bob

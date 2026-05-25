@@ -405,8 +405,8 @@ class DocumentQueryGenerator:
         print(f"Saved {len(queries)} queries to {filename}")
 
         # Print summary
-        difficulty_counts = {}
-        doc_type_counts = {}
+        difficulty_counts: dict[str, int] = {}
+        doc_type_counts: dict[str, int] = {}
         for query in queries:
             diff = query["difficulty"]
             dtype = query["doc_type"]
@@ -483,5 +483,3 @@ if __name__ == "__main__":
     print()
 
     main()
-
-# Made with Bob

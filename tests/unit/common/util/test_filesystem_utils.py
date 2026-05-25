@@ -365,6 +365,3 @@ class TestEdgeCases:
         # Cleanup
         if os.path.exists(results[0]):
             shutil.rmtree(results[0])
-
-
-# Made with Bob

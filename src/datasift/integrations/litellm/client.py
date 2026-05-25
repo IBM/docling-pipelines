@@ -387,6 +387,3 @@ class LiteLLMLLMClient(BaseLLMClient):
         so validation is minimal.
         """
         super().validate_configuration()
-
-
-# Made with Bob

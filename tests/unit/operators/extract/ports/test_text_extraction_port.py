@@ -475,6 +475,3 @@ class TestTextExtractionPageCount:
 
         # Verify - uses native page_count (15) not character-based (10)
         assert doc_pages_processed[0] == 15
-
-
-# Made with Bob

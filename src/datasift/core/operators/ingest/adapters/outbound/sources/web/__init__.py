@@ -4,5 +4,3 @@ from .adapter import WebPageSourceAdapter
 from .config import WebPageSourceConfig
 
 __all__ = ["WebPageSourceAdapter", "WebPageSourceConfig"]
-
-# Made with Bob

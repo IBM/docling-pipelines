@@ -4,5 +4,3 @@
 from datasift.utils.duckdb.connection_manager import DuckDBConnectionManager
 
 __all__ = ["DuckDBConnectionManager"]
-
-# Made with Bob

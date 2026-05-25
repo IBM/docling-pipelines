@@ -7,5 +7,3 @@ __all__ = [
     "KeyValueStorage",
     "TableStorage",
 ]
-
-# Made with Bob

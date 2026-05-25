@@ -91,5 +91,3 @@ __all__ = [
     "_total_rows",
     "align_table_schema",
 ]
-
-# Made with Bob

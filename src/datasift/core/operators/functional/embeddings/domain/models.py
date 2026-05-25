@@ -52,6 +52,3 @@ class ModelInfo:
     dimension: int | None
     token_limit: int
     provider: str
-
-
-# Made with Bob
