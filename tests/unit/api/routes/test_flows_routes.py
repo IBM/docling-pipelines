@@ -217,7 +217,7 @@ class TestCreateFlowEndpoint:
                 {
                     "type": "ingest_local",
                     "name": "ingest_node",
-                    "config": {"input_folder": "./data"},
+                    "config": {"paths": "./data"},
                 },
                 {
                     "type": "extract_operator",
@@ -273,7 +273,7 @@ class TestCreateFlowEndpoint:
                 {
                     "type": "ingest_local",
                     "name": "ingest_node",
-                    "config": {"input_folder": "./data"},
+                    "config": {"paths": "./data"},
                 },
                 {
                     "type": "extract_operator",
@@ -303,7 +303,7 @@ class TestCreateFlowEndpoint:
             "flow_name": "complete-document-pipeline",
             "description": "Complete RAG pipeline",
             "flow": [
-                {"type": "ingest_local", "name": "ingest", "config": {"input_folder": "./docs"}},
+                {"type": "ingest_local", "name": "ingest", "config": {"paths": "./docs"}},
                 {"type": "extract_operator", "name": "extract", "depends_on": ["ingest"]},
                 {"type": "chunker", "name": "chunk", "depends_on": ["extract"], "config": {"chunk_size": 512}},
                 {"type": "embeddings", "name": "embed", "depends_on": ["chunk"]},
@@ -358,7 +358,7 @@ class TestCreateFlowEndpoint:
         request_data = {
             "flow_name": "invalid-flow",
             "flow": [
-                {"type": "ingest_local", "config": {"input_folder": "./data"}},  # Missing 'name'
+                {"type": "ingest_local", "config": {"paths": "./data"}},  # Missing 'name'
             ],
         }
 

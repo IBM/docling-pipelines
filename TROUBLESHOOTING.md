@@ -1061,7 +1061,7 @@ Message code: INGEST_OPERATOR_MISPLACED
       "id": "ingest_1",
       "operator": "ingest_local",
       "config": {
-        "input_folder": "sample_documents"
+        "paths": "sample_documents"
       }
     }
   ]
@@ -1274,7 +1274,7 @@ FileNotFoundError: Input folder not found: ~/documents
 ```json
 {
   "config": {
-    "input_folder": "/Users/username/datasift-opensource/sample_documents"
+    "paths": "/Users/username/datasift-opensource/sample_documents"
   }
 }
 ```
@@ -1284,7 +1284,7 @@ FileNotFoundError: Input folder not found: ~/documents
 ```json
 {
   "config": {
-    "input_folder": "sample_documents"
+    "paths": "sample_documents"
   }
 }
 ```
@@ -1293,10 +1293,10 @@ FileNotFoundError: Input folder not found: ~/documents
 
 ```bash
 # ❌ Don't use
-"input_folder": "~/documents"
+"paths": "~/documents"
 
 # ✅ Use instead
-"input_folder": "/Users/username/documents"
+"paths": "/Users/username/documents"
 ```
 
 ---

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from datasift.core.operators.extract.extract_operator import ExtractOperator
-from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
 
 EXPECTED_INGEST_COLUMNS = {
     "id",
@@ -35,7 +35,7 @@ class TestIngestExtractIntegration:
     def test_path_only_ingest_to_extract_sequence(self, fixtures_dir):
         """Test the sequence: path-only IngestLocal -> ExtractOperator."""
         ingest_config = {
-            "input_folder": fixtures_dir,
+            "paths": fixtures_dir,
             "include_filter": "pdf",
             "max_files": 3,
             "force_ingest": True,
@@ -84,7 +84,7 @@ class TestIngestExtractIntegration:
     def test_path_only_ingest_to_combined_docling_text_entity_extraction(self, fixtures_dir):
         """Test combined docling text+entity extraction works with path-only ingest."""
         ingest_config = {
-            "input_folder": fixtures_dir,
+            "paths": fixtures_dir,
             "include_filter": "pdf",
             "max_files": 2,
             "force_ingest": True,
@@ -120,7 +120,7 @@ class TestIngestExtractIntegration:
     def test_metadata_preservation(self, fixtures_dir):
         """Test that ingest metadata columns are preserved through extraction."""
         ingest_config = {
-            "input_folder": fixtures_dir,
+            "paths": fixtures_dir,
             "include_filter": "pdf",
             "max_files": 2,
             "force_ingest": True,
@@ -160,7 +160,7 @@ def test_basic_integration():
         pytest.skip(f"Fixtures directory not found: {fixtures_dir}")
 
     ingest_config = {
-        "input_folder": str(fixtures_dir),
+        "paths": str(fixtures_dir),
         "include_filter": "pdf",
         "max_files": 1,
         "force_ingest": True,

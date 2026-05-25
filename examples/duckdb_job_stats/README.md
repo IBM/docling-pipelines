@@ -189,7 +189,7 @@ FROM node_stats GROUP BY node_id, name;
 
 ### Test data directory not found
 - The example creates `./test_data/` automatically
-- If you see "input_folder does not exist", ensure you're running from the project root
+- If you see "paths" does not exist", ensure you're running from the project root
 
 ## Next Steps
 

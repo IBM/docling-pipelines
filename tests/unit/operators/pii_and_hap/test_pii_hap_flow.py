@@ -23,14 +23,14 @@ def test_pii_hap_with_ollama():
     # load_flow_definition compiles authoring format to runtime DAG format
     flow_def = load_flow_definition(file_path=str(flow_file))
 
-    # Fix the input_folder path to be absolute
+    # Fix the paths path to be absolute
     project_root = Path(__file__).resolve().parents[4]
     for node in flow_def["dag"]:
-        if node.get("operator") == "ingest_local" and "input_folder" in node.get("config", {}):
-            relative_path = node["config"]["input_folder"]
+        if node.get("operator") == "ingest_local" and "paths" in node.get("config", {}):
+            relative_path = node["config"]["paths"]
             absolute_path = str(project_root / relative_path)
-            node["config"]["input_folder"] = absolute_path
-            print(f"Updated input_folder to: {absolute_path}")
+            node["config"]["paths"] = absolute_path
+            print(f"Updated paths to: {absolute_path}")
 
     print("=" * 80)
     print("Testing PII and HAP Detection Operator")

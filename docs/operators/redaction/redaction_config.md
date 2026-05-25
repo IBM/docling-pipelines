@@ -116,7 +116,7 @@ Contact us at ##################### or ##################
       "name": "ingest_documents",
       "type": "ingest_local_folder",
       "config": {
-        "input_folder": "./sample_documents",
+        "paths": "./sample_documents",
       }
     },
     {

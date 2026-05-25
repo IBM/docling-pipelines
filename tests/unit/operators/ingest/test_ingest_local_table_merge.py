@@ -9,7 +9,7 @@ from pathlib import Path
 import pyarrow as pa
 import pytest
 
-from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
 
 EXPECTED_METADATA_COLUMNS = {
     "id",
@@ -27,7 +27,7 @@ class TestIngestLocalOperatorTableMerge:
     def test_transform_with_none_input_table(self, temp_test_dir):
         """Test transform with None input table."""
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "max_files": 10,
             "force_ingest": True,
         }
@@ -64,7 +64,7 @@ class TestIngestLocalOperatorTableMerge:
         input_table = pa.Table.from_pylist(input_data)
 
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "max_files": 10,
             "force_ingest": True,
         }
@@ -91,7 +91,7 @@ class TestIngestLocalOperatorTableMerge:
         input_table = pa.Table.from_pylist(input_data)
 
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "max_files": 10,
             "force_ingest": True,
         }
@@ -129,7 +129,7 @@ class TestIngestLocalOperatorTableMerge:
         input_table = pa.Table.from_pylist(input_data)
 
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "max_files": 10,
             "force_ingest": True,
         }
@@ -156,7 +156,7 @@ class TestIngestLocalOperatorTableMerge:
         input_table = pa.Table.from_pylist([])
 
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "max_files": 10,
             "force_ingest": True,
         }
@@ -190,7 +190,7 @@ def test_table_concatenation_basic():
     input_table = pa.Table.from_pylist(input_data)
 
     config = {
-        "input_folder": str(fixtures_dir),
+        "paths": str(fixtures_dir),
         "include_filter": "pdf",
         "max_files": 2,
         "force_ingest": True,

@@ -211,13 +211,13 @@ uv run pytest tests/test_datasift_cli.py -v
 
 ### Modifying Input Paths
 
-Update the `input_folder` in ingest operators:
+Update the `paths` in ingest operators:
 
 ```json
 {
   "operator": "ingest_local",
   "config": {
-    "input_folder": "./your/custom/path",
+    "paths": "./your/custom/path",
     "include_filter": "pdf,docx,txt"
   }
 }
@@ -295,7 +295,7 @@ Ingest → Extract → Quality Checks → Enrich → Chunk → Embed → Store
    - Check credentials in flow config
 
 3. **File Not Found**
-   - Verify `input_folder` paths are correct
+   - Verify `paths` paths are correct
    - Use absolute paths or paths relative to execution directory
 
 4. **Import Errors**

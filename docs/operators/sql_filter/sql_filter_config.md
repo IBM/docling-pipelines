@@ -215,7 +215,7 @@ Result: `WHERE (language = 'en') AND (word_count > 100)`
       "name": "ingest_documents",
       "type": "ingest_local_folder",
       "config": {
-        "input_folder": "./sample_documents"
+        "paths": "./sample_documents"
       }
     },
     {

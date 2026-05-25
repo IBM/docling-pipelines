@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Ingest Local Folder Operator discovers and loads file metadata from a local filesystem directory. This operator performs metadata-only ingestion - it does NOT extract text content. Text extraction is handled by downstream operators like ExtractOperator.
+The Ingest Local Operator discovers and loads file metadata from a local filesystem file or directory. This operator performs metadata-only ingestion - it does NOT extract text content. Text extraction is handled by downstream operators like ExtractOperator.
 
 - **Operator Name:** `ingest_local`
 - **Category**: Ingest
@@ -10,18 +10,18 @@ The Ingest Local Folder Operator discovers and loads file metadata from a local 
 
 ## Configuration Parameters
 
-### 1. `input_folder` (String)
+### 1. `paths` (String)
 **Type:** String
 **Required:** Yes
-**Description:** Path to the folder containing documents to ingest. Must be an existing directory.
+**Description:** Path to the file or folder containing documents to ingest.
 
 **Examples:**
 ```json
-"input_folder": "/path/to/documents"
+"paths": "/path/to/documents"
 ```
 
 ```json
-"input_folder": "./data/pdfs"
+"paths": "./data/test1.txt"
 ```
 
 ### 2. `max_files` (Integer)
@@ -116,7 +116,7 @@ The Ingest Local Folder Operator discovers and loads file metadata from a local 
   "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
   "operator": "ingest_local",
   "config": {
-    "input_folder": "/data/documents",
+    "paths": "/data/documents",
     "max_files": 500,
     "include_filter": "pdf,docx"
   }
@@ -129,7 +129,7 @@ The Ingest Local Folder Operator discovers and loads file metadata from a local 
   "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
   "operator": "ingest_local",
   "config": {
-    "input_folder": "./documents",
+    "paths": "./documents",
     "max_files": 1000,
     "max_file_size": 50,
     "include_filter": "pdf,txt,md",
@@ -144,7 +144,7 @@ The Ingest Local Folder Operator discovers and loads file metadata from a local 
   "id": "8b72d6a1-5c4e-4f93-a2b7-1d9e6c3f8a0b",
   "operator": "ingest_local",
   "config": {
-    "input_folder": "/data/updated_docs",
+    "paths": "/data/updated_docs",
     "force_ingest": true,
     "retain_deleted_docs": true
   }
@@ -157,11 +157,11 @@ The Ingest Local Folder Operator discovers and loads file metadata from a local 
 2. **Use Filters**: Leverage `include_filter` and `exclude_filter` to process only relevant files
 3. **Size Limits**: Set appropriate `max_file_size` to avoid memory issues with large files
 4. **Incremental Updates**: Leave `force_ingest` as false for efficient incremental processing
-5. **Path Validation**: Ensure `input_folder` exists and is accessible before running
+5. **Path Validation**: Ensure `paths` exists and is accessible before running
 
 ## Validation Rules
 
-- `input_folder` must exist and be a directory
+- `paths` must exist (can be a file or directory)
 - `max_files` must be greater than 0
 - `max_file_size` must be greater than 0
 - File extensions in filters should not include the dot (use "pdf" not ".pdf")

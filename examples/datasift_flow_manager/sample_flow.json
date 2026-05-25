@@ -11,7 +11,7 @@
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./test_data",
+        "paths": "./test_data",
         "include_filter": "txt,md",
         "store_binary_content": false
       }

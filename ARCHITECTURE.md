@@ -592,7 +592,7 @@ DataSift uses two distinct representations:
       "name": "ingest_local_folder",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./sample_documents"
+        "paths": "./sample_documents"
       }
     },
     {

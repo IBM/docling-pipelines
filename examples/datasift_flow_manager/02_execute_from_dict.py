@@ -56,7 +56,7 @@ def main():
                 "name": "ingest",
                 "type": "ingest_local",
                 "config": {
-                    "input_folder": "./tests/fixtures/invoices",
+                    "paths": "./tests/fixtures/invoices",
                     "include_filter": "pdf",
                     "store_binary_content": False,
                 },

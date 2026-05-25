@@ -12,7 +12,7 @@
       "name": "ingest_audio_video",
       "type": "ingest_local",
       "config": {
-        "input_folder": "sample_flows",
+        "paths": "sample_flows",
         "include_filter": "wav",
         "store_binary_content": true
       }

@@ -1,6 +1,6 @@
 {
   "flow_name": "invoice entities extraction flow (expanded) — UI",
-  "description": "UI copy of flow_invoice_entities_expanded: extracts structured invoice entities using Ollama LLM with expand_extracted_data, then chunks and stores in OpenSearch. input_folder is fixed to the UI uploaded_files directory.",
+  "description": "UI copy of flow_invoice_entities_expanded: extracts structured invoice entities using Ollama LLM with expand_extracted_data, then chunks and stores in OpenSearch. paths is fixed to the UI uploaded_files directory.",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
@@ -13,7 +13,7 @@
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
+        "paths": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
         "include_filter": ".pdf",
         "store_binary_content": true,
         "max_workers": 2

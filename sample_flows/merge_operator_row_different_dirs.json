@@ -12,7 +12,7 @@
       "name": "ingest_invoices",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./tests/fixtures/invoices",
+        "paths": "./tests/fixtures/invoices",
         "include_filter": "txt,md",
         "max_workers": 2
       }
@@ -21,7 +21,7 @@
       "name": "ingest_purchase_orders",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./tests/fixtures/purchase_orders",
+        "paths": "./tests/fixtures/purchase_orders",
         "include_filter": "txt",
         "max_workers": 2
       }

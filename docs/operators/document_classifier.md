@@ -416,7 +416,7 @@ The operator adds the following columns to the output table:
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./documents",
+        "paths": "./documents",
         "store_binary_content": true
       }
     },

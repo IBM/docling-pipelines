@@ -13,7 +13,7 @@
       "type": "ingest_local",
       "name": "ingest_local_folder",
       "config": {
-        "input_folder": "./sample_documents",
+        "paths": "./sample_documents",
         "include_filter": "pdf,txt,docx",
         "store_binary_content": true,
         "max_files": 10,

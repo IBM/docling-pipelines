@@ -9,6 +9,7 @@ This directory also includes source adapters used by `IngestSourceOperator`, inc
 
 ## Features
 
+- Supports single file or directory ingestion
 - Discovers files through recursive directory traversal
 - Collects file metadata (id, name, size, timestamps)
 - Stores file paths for downstream access
@@ -22,7 +23,7 @@ This directory also includes source adapters used by `IngestSourceOperator`, inc
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `input_folder` | string | `"../test-data/input"` | Path to the folder containing documents to ingest |
+| `paths` | string | `"../test-data/input"` | Path to the file or folder containing documents to ingest |
 | `include_filter` | string | `None` | Comma-separated list of file extensions to include (e.g., "pdf,docx,txt") |
 | `exclude_filter` | string | `None` | Comma-separated list of file extensions to exclude |
 | `max_files` | integer | `100` | Maximum number of files to ingest |
@@ -46,10 +47,10 @@ This directory also includes source adapters used by `IngestSourceOperator`, inc
 ### Example 1: Basic Usage
 
 ```python
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.universal.ingest.ingest_local import IngestLocalOperator
 
 config = {
-    "input_folder": "data/documents",
+    "paths": "data/documents",
     "include_filter": "pdf,docx,pptx",
     "max_files": 100
 }
@@ -66,7 +67,7 @@ print(f"Columns: {table.column_names}")
 
 ```python
 config = {
-    "input_folder": "data/documents",
+    "paths": "data/documents",
     "include_filter": "pdf",
     "max_files": 50
 }
@@ -78,12 +79,12 @@ tables, metadata = operator.transform(None)
 ### Example 3: Sequential Flow with ExtractDocling
 
 ```python
-from core.operators.universal.ingest.ingest_local_folder import IngestLocalOperator
+from core.operators.universal.ingest.ingest_local import IngestLocalOperator
 from operators.universal.extract.extract_operator_operator import ExtractOperator
 
 # Step 1: Ingest metadata
 ingest_config = {
-    "input_folder": "data/invoices",
+    "paths": "data/invoices",
     "include_filter": "pdf"
 }
 
@@ -137,7 +138,7 @@ The operator supports incremental updates by tracking previously processed docum
 
 ```python
 config = {
-    "input_folder": "data/documents",
+    "paths": "data/documents",
     "force_ingest": False,  # Skip previously processed documents
     "retain_deleted_docs": True  # Keep records of deleted files
 }

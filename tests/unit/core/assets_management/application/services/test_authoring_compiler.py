@@ -21,7 +21,7 @@ class TestAuthoringCompiler:
             description="Test flow",
             global_config={"doc_column": "content"},
             flow=[
-                AuthoringOperator(type="ingest_local", name="ingest", config={"input_folder": "./data"}, depends_on=[]),
+                AuthoringOperator(type="ingest_local", name="ingest", config={"paths": "./data"}, depends_on=[]),
                 AuthoringOperator(
                     type="extract_operator", name="extract", config={"doc_column": "content"}, depends_on=["ingest"]
                 ),
@@ -99,7 +99,7 @@ class TestAuthoringCompiler:
                     type="ingest_local",
                     name="ingest",
                     config={
-                        "input_folder": "./test-data",
+                        "paths": "./test-data",
                         "include_filter": "pdf,docx",
                         "max_workers": 4,
                         "nested": {"key": "value"},
@@ -114,7 +114,7 @@ class TestAuthoringCompiler:
         runtime_dag = compiler.compile(authoring_flow=flow)
 
         ingest_node = runtime_dag["dag"][0]
-        assert ingest_node["config"]["input_folder"] == "./test-data"
+        assert ingest_node["config"]["paths"] == "./test-data"
         assert ingest_node["config"]["include_filter"] == "pdf,docx"
         assert ingest_node["config"]["max_workers"] == 4
         assert ingest_node["config"]["nested"]["key"] == "value"

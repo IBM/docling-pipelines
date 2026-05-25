@@ -89,7 +89,7 @@ Change this path to point to any flow JSON file in the `tests/` directory:
 | `tests/sample_test_flows/invoice_processing/flow_invoice.json` | Invoice PDFs with template-based structured extraction |
 | `tests/sample_test_flows/invoice_processing/flow_invoice_entities.json` | Invoice PDFs with Ollama entity extraction (schema-free) |
 | `tests/sample_test_flows/invoice_processing/flow_invoice_entities_expanded.json` | Invoice PDFs with Ollama entity extraction (expanded schema) |
-| `tests/sample_test_flows/invoice_processing/flow_invoice_entities_expanded_ui.json` | ✅ **Default** — UI-specific copy of the above; `input_folder` pre-set to `uploaded_files/` |
+| `tests/sample_test_flows/invoice_processing/flow_invoice_entities_expanded_ui.json` | ✅ **Default** — UI-specific copy of the above; `paths` pre-set to `uploaded_files/` |
 
 **Example** — switch to the general document flow:
 
@@ -99,7 +99,7 @@ flow_file = project_root / "tests" / "flow_local_with_ui.json"
 
 ---
 
-## Setting the `input_folder` in a Flow JSON
+## Setting the `paths` in a Flow JSON
 
 When running a flow from the UI, uploaded files are saved to:
 
@@ -107,7 +107,7 @@ When running a flow from the UI, uploaded files are saved to:
 src/datasift_opensource/ui/chat_with_docs/uploaded_files/
 ```
 
-Every flow JSON used with the UI **must** have its `ingest` operator's `input_folder` set to this path. Open the flow JSON and find the `ingest` node — it is always the first node in the `dag` array:
+Every flow JSON used with the UI **must** have its `ingest` operator's `paths` set to this path. Open the flow JSON and find the `ingest` node — it is always the first node in the `dag` array:
 
 ```json
 {
@@ -115,15 +115,15 @@ Every flow JSON used with the UI **must** have its `ingest` operator's `input_fo
     "name": "ingest",
     "operator": "ingest_local",
     "config": {
-        "input_folder": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
+        "paths": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
         ...
     }
 }
 ```
 
-If you create a **new flow JSON** to use with the UI, make sure `input_folder` is set to exactly this relative path. The path is resolved relative to the project root (the directory where `uv run reflex run` is executed from, i.e. `src/datasift_opensource/ui/chat_with_docs/`, but the orchestrator is invoked with `cwd=project_root` so the path must be relative to the repo root).
+If you create a **new flow JSON** to use with the UI, make sure `paths` is set to exactly this relative path. The path is resolved relative to the project root (the directory where `uv run reflex run` is executed from, i.e. `src/datasift_opensource/ui/chat_with_docs/`, but the orchestrator is invoked with `cwd=project_root` so the path must be relative to the repo root).
 
-> **Tip:** Copy an existing UI flow file (e.g. `tests/sample_test_flows/basic/local_to_opensearch_ui.json`) as a starting point — the `input_folder` is already correct.
+> **Tip:** Copy an existing UI flow file (e.g. `tests/sample_test_flows/basic/local_to_opensearch_ui.json`) as a starting point — the `paths` is already correct.
 
 ---
 
@@ -160,7 +160,7 @@ chat_with_docs/
 ├── logs/                            # Pipeline log files (git-ignored)
 │   └── datasift_pipeline.log        # Written during pipeline run, polled by UI
 ├── uploaded_files/                  # Uploaded documents (git-ignored)
-│                                    # ← flow JSON input_folder must point here
+│                                    # ← flow JSON "paths" must point here
 └── chat_with_file_ingestion/
     ├── chat_with_file_ingestion.py  # Page layout
     ├── components/
@@ -207,6 +207,6 @@ Answer displayed in chat window with source snippets
 | "Error querying documents" in chat | Ensure OpenSearch is running and the index exists (run pipeline first) |
 | Pipeline fails with Ollama error | Run `ollama serve` and `ollama pull granite4` |
 | Backend `.venv` not found | Run `uv sync` from project root |
-| No files ingested / empty results | Check that `input_folder` in the flow JSON matches `src/datasift_opensource/ui/chat_with_docs/uploaded_files/` |
+| No files ingested / empty results | Check that `paths` in the flow JSON matches `src/datasift_opensource/ui/chat_with_docs/uploaded_files/` |
 | Chat input stays disabled after pipeline | Check logs — if `pipeline_ran` is False, the pipeline may have crashed before writing output |
 | Log tearsheet shows no output | Check `logs/datasift_pipeline.log` exists and is being written |

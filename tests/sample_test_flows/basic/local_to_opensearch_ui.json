@@ -13,7 +13,7 @@
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
+        "paths": "src/datasift_opensource/ui/chat_with_docs/uploaded_files/",
         "include_filter": "txt,pdf",
         "store_binary_content": false
       }

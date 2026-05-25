@@ -28,7 +28,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                     "name": "ingest",
                     OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
                     "config": {
-                        "input_folder": "tests/fixtures/customer_support_docs",
+                        "paths": "tests/fixtures/customer_support_docs",
                         "include_filter": "txt",
                     },
                     "input_edges": [],
@@ -146,7 +146,7 @@ class TestCommandLineOrchestrator(unittest.TestCase):
                     "name": "ingest",
                     OperatorConstants.Misc.OPERATOR: OperatorConstants.Operators.INGEST_LOCAL,
                     "config": {
-                        "input_folder": "tests/fixtures/customer_support_docs",
+                        "paths": "tests/fixtures/customer_support_docs",
                         "include_filter": "txt",
                     },
                     "input_edges": [],

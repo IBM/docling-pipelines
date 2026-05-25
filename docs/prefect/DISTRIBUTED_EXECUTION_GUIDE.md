@@ -839,7 +839,7 @@ volumes:
       "name": "ingest_documents",
       "type": "ingest_local",
       "config": {
-        "input_folder": "/data/input",
+        "paths": "/data/input",
         "include_filter": "pdf,txt,docx"
       }
     },

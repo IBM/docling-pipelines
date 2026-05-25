@@ -191,7 +191,7 @@ All selected readability scores are added as columns to the output table. Each s
       "name": "ingest_documents",
       "type": "ingest_local_folder",
       "config": {
-        "input_folder": "sample_documents"
+        "paths": "sample_documents"
       }
     },
     {

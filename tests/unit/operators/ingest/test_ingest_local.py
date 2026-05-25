@@ -4,11 +4,13 @@ Unit tests for IngestLocalOperator
 Tests path-only metadata ingest behavior.
 """
 
+import os
+import tempfile
 from pathlib import Path
 
 import pytest
 
-from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
 
 EXPECTED_METADATA_COLUMNS = {
     "id",
@@ -26,7 +28,7 @@ class TestIngestLocalOperator:
     def test_metadata_only_mode(self, temp_test_dir):
         """Test metadata-only mode returns path-based metadata columns only."""
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "max_files": 10,
             "force_ingest": True,
         }
@@ -50,7 +52,7 @@ class TestIngestLocalOperator:
     def test_file_filtering(self, temp_test_dir):
         """Test file filtering by extension."""
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "include_filter": "txt",
             "extract_content": False,
             "max_files": 10,
@@ -72,7 +74,7 @@ class TestIngestLocalOperator:
     def test_max_files_limit(self, temp_test_dir):
         """Test max_files limit stops processing immediately after limit is reached."""
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "extract_content": False,
             "max_files": 1,
             "force_ingest": True,
@@ -113,7 +115,7 @@ class TestIngestLocalOperator:
     def test_path_column_contains_expected_file_paths(self, temp_test_dir):
         """Test path column always exists and contains absolute file paths."""
         config = {
-            "input_folder": temp_test_dir,
+            "paths": temp_test_dir,
             "max_files": 10,
             "force_ingest": True,
         }
@@ -135,7 +137,7 @@ class TestIngestLocalOperator:
                 test_file.write_text(f"Test content {i}")
 
             config = {
-                "input_folder": str(test_dir),
+                "paths": str(test_dir),
                 "extract_content": False,
                 "max_files": 10,
                 "force_ingest": True,
@@ -178,7 +180,7 @@ def test_ingest_local_operator_basic():
         pytest.skip(f"Fixtures directory not found: {fixtures_dir}")
 
     config = {
-        "input_folder": str(fixtures_dir),
+        "paths": str(fixtures_dir),
         "include_filter": "pdf",
         "max_files": 5,
         "force_ingest": True,
@@ -193,6 +195,89 @@ def test_ingest_local_operator_basic():
     assert "content" not in table.column_names
     assert all(path.endswith(".pdf") for path in table["path"].to_pylist())
     assert metadata["processed_docs"] == table.num_rows
+
+
+def test_single_file_ingest():
+    """Test ingesting a single file."""
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        f.write("Test content for single file ingest")
+        temp_file = f.name
+
+    try:
+        # Configure operator with single file path
+        config = {
+            "paths": temp_file,  # Single file path
+            "max_files": 10,
+            "max_file_size": 100,
+            "job_id": "test-job",
+            "job_run_id": "test-run",
+        }
+
+        # Create operator
+        operator = IngestLocalOperator(config)
+
+        # Transform (ingest)
+        tables, metadata = operator.transform(None)
+
+        # Verify results
+        assert len(tables) == 1, f"Expected 1 table, got {len(tables)}"
+        assert tables[0].num_rows == 1, f"Expected 1 row, got {tables[0].num_rows}"
+        assert metadata["total_docs_count"] == 1, f"Expected 1 total doc, got {metadata['total_docs']}"
+        assert metadata["processed_docs"] == 1, f"Expected 1 processed doc, got {metadata['processed_docs']}"
+
+        print("✓ Single file ingest test passed")
+        print(f"  - File: {temp_file}")
+        print(f"  - Rows: {tables[0].num_rows}")
+        print(f"  - Metadata: {metadata}")
+
+    finally:
+        # Cleanup
+        if os.path.exists(temp_file):
+            os.unlink(temp_file)
+
+
+def test_multiple_files_list():
+    """Test ingesting multiple files with list of paths."""
+    # Create temporary files
+    temp_files = []
+    for i in range(2):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+            f.write(f"Test content {i}")
+            temp_files.append(f.name)
+
+    try:
+        # Configure operator with list of paths
+        config = {
+            "paths": temp_files,  # List of paths
+            "max_files": 10,
+            "max_file_size": 100,
+            "job_id": "test-job",
+            "job_run_id": "test-run",
+        }
+
+        # Create operator
+        operator = IngestLocalOperator(config)
+
+        # Transform (ingest)
+        tables, metadata = operator.transform(None)
+
+        # Verify results
+        assert len(tables) == 1, f"Expected 1 table, got {len(tables)}"
+        assert tables[0].num_rows == 2, f"Expected 2 rows, got {tables[0].num_rows}"
+        assert metadata["total_docs_count"] == 2, f"Expected 2 total docs, got {metadata['total_docs']}"
+        assert metadata["processed_docs"] == 2, f"Expected 2 processed docs, got {metadata['processed_docs']}"
+
+        print("✓ Multiple files (list) test passed")
+        print(f"  - Files: {len(temp_files)}")
+        print(f"  - Rows: {tables[0].num_rows}")
+        print(f"  - Metadata: {metadata}")
+
+    finally:
+        # Cleanup
+        for temp_file in temp_files:
+            if os.path.exists(temp_file):
+                os.unlink(temp_file)
 
 
 if __name__ == "__main__":

@@ -125,7 +125,7 @@ The authoring format is a simplified JSON structure for defining DataSift flows 
       "name": "ingest_docs",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./documents",
+        "paths": "./documents",
         "include_filter": "pdf,txt"
       }
     },
@@ -324,7 +324,7 @@ flow_def = {
         {
             "name": "ingest",
             "type": "ingest_local",
-            "config": {"input_folder": "./data"}
+            "config": {"paths": "./data"}
         }
     ]
 }
@@ -366,7 +366,7 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "name": "ingest_pdfs",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./pdfs",
+        "paths": "./pdfs",
         "include_filter": "pdf"
       }
     },
@@ -399,7 +399,7 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./documents",
+        "paths": "./documents",
         "include_filter": "pdf,txt,md"
       }
     },
@@ -460,7 +460,7 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./mixed_docs"
+        "paths": "./mixed_docs"
       }
     },
     {

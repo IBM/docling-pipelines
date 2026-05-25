@@ -82,7 +82,7 @@ class AuthoringOperatorDTO(BaseModel):
     config: dict[str, Any] = Field(
         default_factory=dict,
         description="Operator-specific configuration parameters (optional, defaults to empty dict)",
-        examples=[{"input_folder": "./data", "include_filter": "pdf,docx"}],
+        examples=[{"paths": "./data", "include_filter": "pdf,docx"}],
     )
 
     depends_on: list[str] = Field(

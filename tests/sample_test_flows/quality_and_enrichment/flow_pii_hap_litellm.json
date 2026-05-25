@@ -11,7 +11,7 @@
       "name": "ingest_pii_test_document",
       "type": "ingest_local",
       "config": {
-        "input_folder": "tests/fixtures/customer_support_docs/",
+        "paths": "tests/fixtures/customer_support_docs/",
         "include_filter": "txt",
         "store_binary_content": true,
         "max_workers": 1

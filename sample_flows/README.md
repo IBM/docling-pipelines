@@ -67,11 +67,11 @@ Before running this flow, ensure you have:
 
 #### 1. Change Input Documents Path
 
-Edit the `input_folder` in the `ingest-local-documents` node:
+Edit the `paths` in the `ingest-local-documents` node:
 
 ```json
 "config": {
-  "input_folder": "./your/documents/path",
+  "paths": "./your/documents/path",
   "include_filter": "pdf,txt,docx",
   ...
 }
@@ -223,7 +223,7 @@ The `feature_mappings` in the OpenSearch operator maps PyArrow table columns to 
 
 1. **Ollama not running:** Ensure `ollama serve` is active and model is pulled
 2. **OpenSearch connection failed:** Check if OpenSearch container is running
-3. **No documents found:** Verify the `input_folder` path and file extensions
+3. **No documents found:** Verify the `paths` path and file extensions
 4. **Import errors:** Ensure PYTHONPATH is set correctly when running tests
 
 **Debug Mode:**

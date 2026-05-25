@@ -46,7 +46,7 @@ class TestOpenSearchFlow(unittest.TestCase):
         # Test ingest node
         self.assertEqual(self.ingest_node["name"], "ingest_documents")
         self.assertEqual(self.ingest_node["operator"], "ingest_local")
-        self.assertIn("input_folder", self.ingest_node["config"])
+        self.assertIn("paths", self.ingest_node["config"])
 
         # Test OpenSearch node
         self.assertEqual(self.opensearch_node["name"], "store_in_opensearch")

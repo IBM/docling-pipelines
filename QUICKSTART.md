@@ -200,7 +200,7 @@ datasift-orchestrator --operator-help ingest_local
 ### Create Your Own Pipeline
 
 1. **Copy the sample flow**: `cp sample_flows/complete_pipeline_flow.json my_flow.json`
-2. **Edit the configuration**: Change `input_folder`, `chunk_size`, models, etc.
+2. **Edit the configuration**: Change `paths`, `chunk_size`, models, etc.
 3. **Run your custom flow**: `datasift-orchestrator --flow-file my_flow.json`
 
 **Flow Format:** DataSift uses a simplified authoring format where you define operators with `type`, `name`, `config`, and `depends_on` fields. See the **[Flow Authoring Format Guide](docs/FLOW_AUTHORING_FORMAT.md)** for complete examples and best practices.

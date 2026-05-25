@@ -123,7 +123,7 @@ The Language Detection operator automatically detects the language of document c
         "name": "ingest",
         "type": "ingest_local",
         "config": {
-          "input_folder": "data/documents/",
+          "paths": "data/documents/",
           "include_filter": "txt,pdf",
           "max_workers": 2
         }

@@ -44,7 +44,7 @@ def sample_flow_data_authoring() -> dict[str, Any]:
             {
                 "type": "ingest_local",
                 "name": "ingest_node",
-                "config": {"input_folder": "./data"},
+                "config": {"paths": "./data"},
                 "depends_on": [],
             },
             {
@@ -102,7 +102,7 @@ def sample_authoring_flow_with_id() -> Flow:
             {
                 "type": "ingest_local",
                 "name": "ingest_node",
-                "config": {"input_folder": "./data"},
+                "config": {"paths": "./data"},
                 "depends_on": [],
             },
             {

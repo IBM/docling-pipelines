@@ -163,14 +163,14 @@ Merge optional enrichments, keeping all documents:
       "name": "ingest_folder_1",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./data/source1"
+        "paths": "./data/source1"
       }
     },
     {
       "name": "ingest_folder_2",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./data/source2"
+        "paths": "./data/source2"
       }
     },
     {
@@ -202,7 +202,7 @@ Merge optional enrichments, keeping all documents:
       "name": "ingest_documents",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./documents"
+        "paths": "./documents"
       }
     },
     {

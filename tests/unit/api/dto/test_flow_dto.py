@@ -670,7 +670,7 @@ class TestAuthoringFlowCreateRequestValidation:
         dto = AuthoringFlowCreateRequest(
             flow_name="RAG Pipeline",
             flow=[
-                AuthoringOperatorDTO(type="ingest_local", name="ingest", config={"input_folder": "./docs"}),
+                AuthoringOperatorDTO(type="ingest_local", name="ingest", config={"paths": "./docs"}),
                 AuthoringOperatorDTO(type="extract_operator", name="extract", depends_on=["ingest"]),
                 AuthoringOperatorDTO(type="chunker", name="chunk", depends_on=["extract"], config={"chunk_size": 512}),
                 AuthoringOperatorDTO(type="embeddings", name="embed", depends_on=["chunk"]),

@@ -120,7 +120,7 @@ class TestIngestSourceGlobalConfig:
                     "name": "ingest_local_node",
                     "operator": "datasift.core.operators.ingest.ingest_local_folder.IngestLocalFolderOperator",
                     "config": {
-                        "input_folder": "/test/path",
+                        "paths": "/test/path",
                     },
                     "output_edges": [],
                 }

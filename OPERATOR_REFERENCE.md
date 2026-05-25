@@ -203,21 +203,21 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 
 #### IngestLocalOperator
 
-**Purpose:** Discover files in a local directory and collect metadata for downstream extraction.
+**Purpose:** Discover files in a local file or directory and collect metadata for downstream extraction.
 
 **Category:** Ingest
 
-**Class:** `core.operators.ingest.ingest_local_folder.IngestLocalOperator`
+**Class:** `core.operators.ingest.ingest_local.IngestLocalOperator`
 
-| Parameter             | Type   | Required | Default              | Description                                         |
-| --------------------- | ------ | -------: | -------------------- | --------------------------------------------------- |
-| `input_folder`        | string |      Yes | `../test-data/input` | Root folder to crawl                                |
-| `include_filter`      | string |       No | -                    | Comma-separated extensions to include               |
-| `exclude_filter`      | string |       No | -                    | Comma-separated extensions to exclude               |
-| `max_files`           | int    |       No | `100`                | Maximum number of files to ingest                   |
-| `max_file_size`       | int    |       No | `100`                | Maximum file size in MB                             |
-| `force_ingest`        | bool   |       No | `false`              | Reprocess already-seen documents                    |
-| `retain_deleted_docs` | bool   |       No | project constant     | Retain source-deleted docs in incremental scenarios |
+| Parameter             | Type          | Required | Default              | Description                                                                             |
+| --------------------- | ------------- | -------: | -------------------- | ----------------------------------------------------------------------------------------|
+| `paths`               | string/list   |      Yes | `../test-data/input` | Path(s) to file(s) or folder(s) to ingest. Can be a single path string or list of paths |
+| `include_filter`      | string        |       No | -                    | Comma-separated extensions to include                                                   |
+| `exclude_filter`      | string        |       No | -                    | Comma-separated extensions to exclude                                                   |
+| `max_files`           | int           |       No | `100`                | Maximum number of files to ingest                                                       |
+| `max_file_size`       | int           |       No | `100`                | Maximum file size in MB                                                                 |
+| `force_ingest`        | bool          |       No | `false`              | Reprocess already-seen documents                                                        |
+| `retain_deleted_docs` | bool          |       No | project constant     | Retain source-deleted docs in incremental scenarios                                     |
 
 **Input Schema**
 
@@ -245,7 +245,7 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
   "name": "ingest",
   "operator": "ingest_local",
   "config": {
-    "input_folder": "./tests/fixtures/invoices",
+    "paths": "./tests/fixtures/invoices",
     "include_filter": ".pdf"
   }
 }
@@ -1953,7 +1953,7 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
       "name": "ingest_local_folder",
       "operator": "ingest_local",
       "config": {
-        "input_folder": "tests/fixtures/invoices",
+        "paths": "tests/fixtures/invoices",
         "include_filter": "pdf,txt,md",
         "store_binary_content": true
       }

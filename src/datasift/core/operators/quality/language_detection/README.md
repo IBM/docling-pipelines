@@ -47,7 +47,7 @@ With langdetect provider:
         "name": "ingest_documents",
         "operator": "ingest_local",
         "config": {
-          "input_folder": "data/documents"
+          "paths": "data/documents"
         }
       },
       {

@@ -11,7 +11,7 @@ import pytest
 from datasift.core.constants.constants import Metrics
 from datasift.core.operators.extract.extract_operator import ExtractOperator
 from datasift.core.operators.functional.chunker import ChunkerOperator
-from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
 
 
 class TestIngestExtractChunkTxtIntegration:
@@ -31,7 +31,7 @@ class TestIngestExtractChunkTxtIntegration:
         # Step 1: Ingest .txt files
         print("\n=== Step 1: Ingesting .txt files ===")
         ingest_config = {
-            "input_folder": txt_fixtures_dir,
+            "paths": txt_fixtures_dir,
             "include_filter": "txt",  # Only .txt files
             "max_files": 5,
             "force_ingest": True,  # Skip incremental processing for tests
@@ -147,7 +147,7 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Step 1: Ingest both .txt and .pdf files
         ingest_config = {
-            "input_folder": str(parent_dir),
+            "paths": str(parent_dir),
             "include_filter": "txt,pdf",  # Both file types
             "max_files": 5,
             "force_ingest": True,
@@ -210,7 +210,7 @@ def test_basic_txt_integration():
 
     # Quick integration test
     ingest_config = {
-        "input_folder": str(txt_dir),
+        "paths": str(txt_dir),
         "include_filter": "txt",
         "max_files": 2,
         "force_ingest": True,

@@ -1,7 +1,7 @@
 # Ingest Source Operator
 
 ## Overview
-The [`IngestSourceOperator`](../../../src/datasift/core/operators/ingest/ingest_source.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It inherits from [`AbstractOperator`](../../../src/datasift/core/operators/abstract_operator.py) and follows the same patterns as [`IngestLocalOperator`](../../../src/datasift/core/operators/ingest/ingest_local_folder.py).
+The [`IngestSourceOperator`](../../../src/datasift/core/operators/ingest/ingest_source.py) provides a unified interface for ingesting documents from multiple cloud storage and collaboration platforms using LangChain document loaders. It inherits from [`AbstractOperator`](../../../src/datasift/core/operators/abstract_operator.py) and follows the same patterns as [`IngestLocalOperator`](../../../src/datasift/core/operators/ingest/ingest_local.py).
 
 ## Features
 - **Multi-Provider Support**: Single operator for multiple data sources

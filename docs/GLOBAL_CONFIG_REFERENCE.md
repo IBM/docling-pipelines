@@ -36,7 +36,7 @@ Global configuration is specified in the `global_config` section of your flow de
       "type": "ingest_local",
       "name": "ingest",
       "config": {
-        "input_folder": "./documents"
+        "paths": "./documents"
       }
     },
     {
@@ -240,7 +240,7 @@ storage:
       port: 5432
       database: "datasift"
       user: "datasift_user"
-      password: "secure_password"
+      password: "secure_password" # pragma: allowlist secret
       schema: "incremental_metadata"
 ```
 
@@ -302,7 +302,7 @@ In your flow JSON files, you no longer need to specify incremental metadata conf
       "type": "ingest_local",
       "name": "ingest",
       "config": {
-        "input_folder": "./documents"
+        "paths": "./documents"
       }
     }
   ]
@@ -705,7 +705,7 @@ Here's a comprehensive example showing the separation between flow JSON and data
       "type": "ingest_local",
       "name": "ingest_local_folder",
       "config": {
-        "input_folder": "./sample_documents",
+        "paths": "./sample_documents",
         "include_filter": "pdf,txt,docx"
       }
     },
@@ -736,7 +736,7 @@ storage:
     #   port: 5432
     #   database: "datasift"
     #   user: "datasift_user"
-    #   password: "secure_password"
+    #   password: "secure_password" # pragma: allowlist secret
     #   schema: "incremental_metadata"
 ```
 

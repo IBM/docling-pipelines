@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from datasift.core.operators.extract.extract_operator import ExtractOperator
 from datasift.core.operators.functional.chunker import ChunkerOperator, ChunkType
-from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
 
 
 def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
@@ -52,7 +52,7 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
     fixtures_path = Path(__file__).parent.parent / "tests" / "fixtures" / "customer_support_docs"
     ingest_operator: IngestLocalOperator = IngestLocalOperator(
         {
-            "input_folder": str(fixtures_path),
+            "paths": str(fixtures_path),
             "include_filter": "pdf,txt",
             "force_ingest": True,
         }
@@ -165,7 +165,7 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
     fixtures_path = Path(__file__).parent.parent / "tests" / "fixtures" / "customer_support_docs"
     ingest_operator: IngestLocalOperator = IngestLocalOperator(
         {
-            "input_folder": str(fixtures_path),
+            "paths": str(fixtures_path),
             "include_filter": "pdf,txt",
             "force_ingest": True,
         }

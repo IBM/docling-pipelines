@@ -1,5 +1,4 @@
 import os
-import tempfile
 from typing import Any
 
 import pyarrow as pa
@@ -22,7 +21,7 @@ from datasift.core.operators.ingest.ingest_utils import (
 from datasift.core.operators.operator_utils import get_supported_file_extensions
 from datasift.utils.infrastructure.logging import get_logger
 
-INPUT_FOLDER_NAME_KEY: str = "input_folder"
+PATH_KEY: str = "paths"
 INCLUDE_FILTER_KEY: str = "include_filter"
 EXCLUDE_FILTER_KEY: str = "exclude_filter"
 DOC_COLUMN_NAME_KEY: str = "doc_column"
@@ -38,13 +37,15 @@ logger = get_logger()
 
 class IngestLocalOperator(AbstractOperator):
     """
-    Metadata-only ingest operator for loading file metadata from a local folder.
+    Metadata-only ingest operator for loading file metadata from local files or folders.
 
     This operator discovers files and collects metadata for downstream extraction operators.
     It does NOT extract text content - that is handled by specialized extraction operators
     like ExtractOperator.
 
     Supports:
+    - Single or multiple file/directory paths
+    - Comma-separated paths or list of paths
     - Recursive directory traversal
     - File filtering by extension (include/exclude)
     - File size and count limits
@@ -60,7 +61,7 @@ class IngestLocalOperator(AbstractOperator):
         Initialize the metadata-only ingest operator.
 
         Expected parameters:
-        - input_folder: Path to the folder containing documents
+        - paths: Single path, comma-separated paths, or list of paths to files/folders
         - include_filter: Comma-separated list of file extensions to include
         - exclude_filter: Comma-separated list of file extensions to exclude
         - max_files: Maximum number of files to ingest
@@ -69,7 +70,16 @@ class IngestLocalOperator(AbstractOperator):
         - retain_deleted_docs: Whether to retain documents that have been deleted from source
         """
         super().__init__(config)
-        self.input_folder: str = config.get(INPUT_FOLDER_NAME_KEY, tempfile.gettempdir())
+
+        # Parse paths - can be string (single or comma-separated) or list
+        paths_input = config.get(OperatorConstants.Misc.PATHS, [])
+        if isinstance(paths_input, list):
+            self.paths = [p.strip() for p in paths_input if isinstance(p, str) and p.strip()]
+        elif isinstance(paths_input, str):
+            self.paths = [paths_input.strip()] if paths_input.strip() else []
+        else:
+            self.paths = []
+
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
         self.max_file_size: int = MB * config.get(MAX_FILE_SIZE_KEY, MAX_FILE_SIZE_DEFAULT_VALUE)
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
@@ -95,22 +105,21 @@ class IngestLocalOperator(AbstractOperator):
 
     def _validate_input_parameters(self) -> None:
         """
-        Validate input parameters for the ingest local folder operator.
+        Validate input parameters for the ingest local operator.
 
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        # Validate input folder
-        if not self.input_folder:
-            raise ValueError("input_folder is required")
-        if not isinstance(self.input_folder, str) or not self.input_folder.strip():
-            raise ValueError("input_folder must be a non-empty string")
+        # Validate paths
+        if not self.paths:
+            raise ValueError("paths is required and cannot be empty")
 
-        # Validate folder exists
-        if not os.path.exists(self.input_folder):
-            raise ValueError(f"input_folder does not exist: {self.input_folder}")
-        if not os.path.isdir(self.input_folder):
-            raise ValueError(f"input_folder is not a directory: {self.input_folder}")
+        # Validate each path exists
+        for path in self.paths:
+            if not path or not isinstance(path, str):
+                raise ValueError(f"Each path must be a non-empty string, got: {path}")
+            if not os.path.exists(path):
+                raise ValueError(f"Path does not exist: {path}")
 
         # Validate max_files
         if not isinstance(self.max_files, int):
@@ -124,10 +133,10 @@ class IngestLocalOperator(AbstractOperator):
         if self.max_file_size < 1:
             raise ValueError("max_file_size must be greater than 0")
 
-    def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table | None, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Operator-specific logic to convert one input Table to 0 or more output tables.
-        In this case, crawl through the given folder, find all the files matchng the
+        Processes all paths (files/folders) specified in the paths parameter, find all the files matchng the
         "include_filter", skip the files matching the "exclude_filter" and add the content
         to a new column named "content" in the table. The output
         column name is configurable using the "config" dictionary.
@@ -143,12 +152,33 @@ class IngestLocalOperator(AbstractOperator):
             else incremental_service.get_all_processed_docs(job_id=str(self.context_id))
         )
 
-        doc_data: list[dict[str, Any]]
-        metadata: dict[str, Any]
-        doc_data, metadata = self.process_files(self.input_folder)
+        # Process all paths and collect results
+        all_doc_data: list[dict[str, Any]] = []
+        combined_metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=0)
 
-        # Create new table from ingested documents
-        new_table = pa.Table.from_pylist(doc_data)
+        for path in self.paths:
+            logger.info(f"Processing path: {path}", extra=self.common_log_arguments)
+            doc_data, path_metadata = self.process_files(path)
+            all_doc_data.extend(doc_data)
+
+            # Aggregate metadata from each path
+            combined_metadata[Metrics.External.TOTAL_DOCS] += path_metadata.get(Metrics.External.TOTAL_DOCS, 0)
+            combined_metadata[Metrics.External.PROCESSED_DOCS] += path_metadata.get(Metrics.External.PROCESSED_DOCS, 0)
+            combined_metadata[Metrics.External.FAILED_DOCS_COUNT] += path_metadata.get(
+                Metrics.External.FAILED_DOCS_COUNT, 0
+            )
+            combined_metadata[Metrics.External.SKIPPED_DOCS_COUNT] += path_metadata.get(
+                Metrics.External.SKIPPED_DOCS_COUNT, 0
+            )
+
+            # Merge failed and skipped docs lists
+            combined_metadata[Metrics.External.FAILED_DOCS].extend(path_metadata.get(Metrics.External.FAILED_DOCS, []))
+            combined_metadata[Metrics.External.SKIPPED_DOCS].extend(
+                path_metadata.get(Metrics.External.SKIPPED_DOCS, [])
+            )
+
+        # Create new table from all ingested documents
+        new_table = pa.Table.from_pylist(all_doc_data)
 
         if table is None:
             # No input table, use the newly created table
@@ -160,12 +190,12 @@ class IngestLocalOperator(AbstractOperator):
 
         # Return the resulting pyarrow table and metadata
         node_status: str = ExecutionStatus.COMPLETED.value
-        if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
+        if combined_metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
             node_status = ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        elif metadata[Metrics.External.SKIPPED_DOCS_COUNT] > 0:
+        elif combined_metadata[Metrics.External.SKIPPED_DOCS_COUNT] > 0:
             node_status = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-        metadata[Metrics.External.NODE_STATUS] = node_status
-        return [table], metadata
+        combined_metadata[Metrics.External.NODE_STATUS] = node_status
+        return [table], combined_metadata
 
     def process_files(self, root_folder: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         data: list[dict[str, Any]] = []
@@ -176,37 +206,48 @@ class IngestLocalOperator(AbstractOperator):
         # Initialize metadata
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=0)
 
-        for root, dirs, files in os.walk(root_folder, topdown=True):
-            if max_files_reached:
-                break
-            if files and dirs:
-                logger.info(
-                    ">>> %s/%s/%s",
-                    root,
-                    dirs[0],
-                    files[0],
-                    extra=self.common_log_arguments,
-                )
-            elif files:
-                logger.info(">>> %s/%s", root, files[0], extra=self.common_log_arguments)
-            elif dirs:
-                logger.info("No files found in: %s", root, extra=self.common_log_arguments)
-            else:
-                logger.info(
-                    "No files or subdirectories found in: %s",
-                    root,
-                    extra=self.common_log_arguments,
-                )
-
-            for file in files:
-                file_count += 1
-                doc: dict[str, Any] | None = self.process_file(root, file, metadata, file_count)
-                if doc:
-                    processed_count += 1
-                    data.append(doc)
-                elif file_count > self.max_files:
-                    max_files_reached = True
+        # Process single file
+        if os.path.isfile(root_folder):
+            file_count = 1
+            single_doc: dict[str, Any] | None = self.process_file(
+                os.path.dirname(root_folder), os.path.basename(root_folder), metadata, file_count
+            )
+            if single_doc:
+                processed_count = 1
+                data.append(single_doc)
+        else:
+            # Process directory
+            for root, dirs, files in os.walk(root_folder, topdown=True):
+                if max_files_reached:
                     break
+                if files and dirs:
+                    logger.info(
+                        ">>> %s/%s/%s",
+                        root,
+                        dirs[0],
+                        files[0],
+                        extra=self.common_log_arguments,
+                    )
+                elif files:
+                    logger.info(">>> %s/%s", root, files[0], extra=self.common_log_arguments)
+                elif dirs:
+                    logger.info("No files found in: %s", root, extra=self.common_log_arguments)
+                else:
+                    logger.info(
+                        "No files or subdirectories found in: %s",
+                        root,
+                        extra=self.common_log_arguments,
+                    )
+
+                for file in files:
+                    file_count += 1
+                    doc: dict[str, Any] | None = self.process_file(root, file, metadata, file_count)
+                    if doc:
+                        processed_count += 1
+                        data.append(doc)
+                    elif file_count > self.max_files:
+                        max_files_reached = True
+                        break
 
         # Update total docs and processed count
         metadata[Metrics.External.TOTAL_DOCS] = file_count
@@ -376,9 +417,9 @@ class IngestLocalOperator(AbstractOperator):
             },
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestLocalOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
-                INPUT_FOLDER_NAME_KEY: {
-                    OperatorConstants.Columns.NAME: "Input Folder",
-                    OperatorConstants.Config.DESCRIPTION: "Path to the folder containing documents to ingest",
+                PATH_KEY: {
+                    OperatorConstants.Columns.NAME: "Paths",
+                    OperatorConstants.Config.DESCRIPTION: "Single path, comma-separated paths, or list of paths to files/folders to ingest",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },

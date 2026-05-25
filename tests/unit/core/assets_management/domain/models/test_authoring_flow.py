@@ -15,9 +15,7 @@ class TestAuthoringOperator:
 
     def test_valid_operator(self):
         """Test creating a valid operator."""
-        op = AuthoringOperator(
-            type="ingest_local", name="ingest_docs", config={"input_folder": "./data"}, depends_on=[]
-        )
+        op = AuthoringOperator(type="ingest_local", name="ingest_docs", config={"paths": "./data"}, depends_on=[])
 
         errors = op.validate(all_operator_names={"ingest_docs"}, operator_map={"ingest_docs": op})
 
@@ -99,7 +97,7 @@ class TestAuthoringFlow:
             description="Test flow",
             global_config={},
             flow=[
-                AuthoringOperator(type="ingest_local", name="ingest", config={"input_folder": "./data"}, depends_on=[]),
+                AuthoringOperator(type="ingest_local", name="ingest", config={"paths": "./data"}, depends_on=[]),
                 AuthoringOperator(type="extract_operator", name="extract", config={}, depends_on=["ingest"]),
             ],
             flow_source=FlowSource.CLI,

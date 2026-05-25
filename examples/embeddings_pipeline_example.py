@@ -139,7 +139,7 @@ def main() -> int:
     try:
         from datasift.core.operators.extract.extract_operator import ExtractOperator
         from datasift.core.operators.functional.chunker import ChunkerOperator
-        from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
+        from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
     except ImportError as e:
         logger.error(f"Failed to import required operators: {e}")
         print("\nError: Failed to import operators. Make sure you are running from the repository root.")
@@ -208,7 +208,7 @@ def main() -> int:
         print(f"  Ingesting all PDFs from directory: {ingest_path}")
 
     ingest_config: dict[str, Any] = {
-        "input_folder": ingest_path,
+        "paths": ingest_path,
         "include_filter": include_filter,
         "max_files": 10,
         "store_binary_content": True,

@@ -112,7 +112,7 @@ Create a flow JSON file using your custom operator:
       "name": "ingest",
       "operator": "ingest_local",
       "config": {
-        "input_folder": "./data/input",
+        "paths": "./data/input",
         "store_binary_content": true
       },
       "input_edges": [],

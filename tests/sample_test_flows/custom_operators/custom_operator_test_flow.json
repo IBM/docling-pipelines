@@ -15,7 +15,7 @@
       "name": "ingest",
       "operator": "ingest_local",
       "config": {
-        "input_folder": "./tests/fixtures/customer_support_docs",
+        "paths": "./tests/fixtures/customer_support_docs",
         "store_binary_content": true
       },
       "input_edges": [],

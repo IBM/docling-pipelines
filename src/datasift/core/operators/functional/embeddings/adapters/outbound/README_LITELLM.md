@@ -238,7 +238,7 @@ print(f"Generated {len(result)} embeddings")
       "name": "ingest_documents",
       "type": "ingest_local",
       "config": {
-        "input_folder": "data/documents"
+        "paths": "data/documents"
       }
     },
     {

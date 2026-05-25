@@ -19,7 +19,7 @@ from datasift.core.operators.functional.merge import MergeOperator
 from datasift.core.operators.functional.noop import NOOPOperator
 
 # Ingest Operators
-from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
 from datasift.core.operators.ingest.ingest_source import IngestSourceOperator
 
 # Quality Operators

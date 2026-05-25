@@ -15,7 +15,7 @@
       "name": "ingest_documents",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./tests/fixtures/invoices",
+        "paths": "./tests/fixtures/invoices",
         "include_filter": "txt, pdf"
       }
     },

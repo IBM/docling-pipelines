@@ -149,10 +149,10 @@ To use OpenSearch in a complete pipeline:
 
 ```python
 # 1. Ingest documents
-from datasift.core.operators.ingest.ingest_local_folder import IngestLocalOperator
+from datasift.core.operators.ingest.ingest_local import IngestLocalOperator
 
 ingest_config = {
-    "input_folder": "/path/to/documents",
+    "paths": "/path/to/documents",
     "file_extensions": [".pdf", ".docx", ".txt"]
 }
 ingest_op = IngestLocalOperator(ingest_config)

@@ -45,7 +45,7 @@ def valid_flow_dict_with_output(fixtures_customer_support_dir):
                 "name": "ingest",
                 "depends_on": [],
                 "config": {
-                    "input_folder": str(fixtures_customer_support_dir),
+                    "paths": str(fixtures_customer_support_dir),
                     "include_filter": "txt",
                 },
             },
@@ -117,7 +117,7 @@ def elyra_format_file(tmp_path):
                             "id": "node1",
                             "type": "execution_node",
                             "op": "ingest_local",
-                            "parameters": {"input_folder": "./data", "include_filter": "txt"},
+                            "parameters": {"paths": "./data", "include_filter": "txt"},
                         }
                     ],
                 }
@@ -350,7 +350,7 @@ class TestIntegrationScenarios:
                     "name": "ingest",
                     "depends_on": [],
                     "config": {
-                        "input_folder": str(fixtures_customer_support_dir),
+                        "paths": str(fixtures_customer_support_dir),
                         "include_filter": "txt",
                     },
                 }
@@ -419,7 +419,7 @@ class TestValidateFlowDefinitionRealValidator:
                     "name": "bad_ingest",
                     "depends_on": [],
                     "config": {
-                        # Missing required 'input_folder' parameter
+                        # Missing required 'paths' parameter
                         "include_filter": "txt",
                     },
                 }

@@ -13,7 +13,7 @@
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "tests/fixtures/customer_support_docs/",
+        "paths": "tests/fixtures/customer_support_docs/",
         "include_filter": "txt",
         "store_binary_content": false,
         "max_workers": 2

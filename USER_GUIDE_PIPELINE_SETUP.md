@@ -1008,7 +1008,7 @@ Reads files from a local directory:
   "name": "ingest",
   "type": "ingest_local",
   "config": {
-    "input_folder": "./tests/fixtures/invoices",
+    "paths": "./tests/fixtures/invoices",
     "include_filter": ".pdf",
     "max_workers": 2
   }
@@ -1409,7 +1409,7 @@ cat > my-first-flow.json << 'EOF'
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "./test-documents",
+        "paths": "./test-documents",
         "include_filter": ".pdf"
       }
     },
@@ -1903,7 +1903,7 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "name": "ingest_local_folder",
                 "type": "ingest_local",
                 "config": {
-                    "input_folder": input_folder,
+                    "paths": input_folder,
                     "include_filter": "pdf,txt,docx"
                 }
             },

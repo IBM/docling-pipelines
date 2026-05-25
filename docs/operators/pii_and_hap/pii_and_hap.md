@@ -256,7 +256,7 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
       "name": "ingest",
       "type": "ingest_local",
       "config": {
-        "input_folder": "data/documents"
+        "paths": "data/documents"
       }
     },
     {
