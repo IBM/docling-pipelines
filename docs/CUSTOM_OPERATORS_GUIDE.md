@@ -1,0 +1,933 @@
+# Custom Operators Guide
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Prerequisites](#prerequisites)
+- [Quick Start: Your First Custom Operator](#quick-start-your-first-custom-operator)
+  - [Step 1: Create the Operator File](#step-1-create-the-operator-file)
+  - [Step 2: Register the Operator](#step-2-register-the-operator)
+  - [Step 3: Use in a Flow](#step-3-use-in-a-flow)
+  - [Step 4: Verify Registration](#step-4-verify-registration)
+- [Understanding Custom Operators](#understanding-custom-operators)
+  - [Required Imports](#required-imports)
+  - [Minimum Requirements](#minimum-requirements)
+  - [Class Attributes](#class-attributes)
+  - [Required Methods Overview](#required-methods-overview)
+- [Core Methods: Basic Implementation](#core-methods-basic-implementation)
+  - [transform()](#transform)
+  - [get_metadata() - Basic](#get_metadata---basic)
+  - [get_required_features()](#get_required_features)
+- [Registration and Usage](#registration-and-usage)
+  - [Which Registration Method Should I Use?](#which-registration-method-should-i-use)
+  - [Method 1: Environment Variable (Recommended)](#method-1-environment-variable-recommended)
+  - [Method 2: Programmatic API](#method-2-programmatic-api)
+  - [Verifying Registration](#verifying-registration)
+  - [Using Custom Operators in Flows](#using-custom-operators-in-flows)
+- [Advanced Topics](#advanced-topics)
+  - [get_metadata() - Advanced Configuration](#get_metadata---advanced-configuration)
+  - [validate() - Runtime Validation](#validate---runtime-validation)
+  - [Understanding Features vs Attributes](#understanding-features-vs-attributes)
+  - [S3 Configuration for Enterprise Deployments](#s3-configuration-for-enterprise-deployments)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Complete Reference Example](#complete-reference-example)
+
+---
+
+## Overview
+
+This guide covers creating, registering, and using custom operators in datasift. Custom operators extend datasift's functionality by allowing you to add your own data processing logic to pipelines.
+
+**Custom operators can be provided in two ways:**
+
+1. **Filesystem Paths (Recommended)**: Python files in a local directory
+   - Most common approach for development and deployments
+   - No packaging or installation required
+   - Just place `.py` files in a directory and register the path
+
+2. **S3 URIs (Optional)**: Remote storage for enterprise deployments
+   - For centralized operator management in cloud environments
+   - Covered in [Advanced Topics](#s3-configuration-for-enterprise-deployments)
+
+---
+
+## Prerequisites
+
+Before creating custom operators, ensure you have:
+
+- ✅ **datasift installed**: `pip install datasift-opensource`
+- ✅ **Basic Python knowledge**: Classes, inheritance, type hints
+- ✅ **PyArrow familiarity**: Understanding of PyArrow tables (basic level)
+- ✅ **datasift experience**: Successfully run at least one datasift flow
+
+**New to datasift?** Complete the [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md) first to understand the basics of flows and operators.
+
+---
+
+## Quick Start: Your First Custom Operator
+
+Let's create a simple operator that adds a greeting column to your data.
+
+### Step 1: Create the Operator File
+
+Create a file named `hello_operator.py`:
+
+```python
+from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from datasift.core.constants.constants import DatasiftConstants, AttributeDataTypes
+from datasift.core.constants.operator_constants import OperatorConstants
+import pyarrow as pa
+from typing import Any
+
+class HelloOperator(AbstractOperator):
+    """A simple operator that adds a greeting column to the table."""
+    
+    # Required class attributes
+    short_name: str = "hello"
+    category: OperatorCategory = OperatorCategory.Functional
+    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    
+    def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Add a greeting column to the table."""
+        # Create greeting values for each row
+        greetings = ["Hello from custom operator!"] * table.num_rows
+        
+        # Add new column to table
+        table = table.append_column("greeting", pa.array(greetings))
+        
+        # Return table and metadata
+        metadata = self.create_base_metadata(total_docs_count=table.num_rows)
+        return [table], metadata
+    
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
+        """Return operator metadata for UI and validation."""
+        return {
+            OperatorConstants.Misc.CATEGORY: HelloOperator.category.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+            OperatorConstants.Misc.LABEL: "Hello Operator",
+            OperatorConstants.Config.FEATURES: {
+                "greeting": {
+                    OperatorConstants.Misc.NAME: "Greeting",
+                    OperatorConstants.Config.DESCRIPTION: "A friendly greeting message",
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
+                }
+            },
+            OperatorConstants.Config.ATTRIBUTES: {},
+        }
+    
+    @staticmethod
+    def get_required_features() -> list[str]:
+        """Return list of required input columns."""
+        return []  # No specific columns required
+```
+
+### Step 2: Register the Operator
+
+Create a directory and place your operator file there:
+
+```bash
+# Create directory for custom operators
+mkdir -p ~/my_custom_operators
+
+# Move your operator file there
+mv hello_operator.py ~/my_custom_operators/
+
+# Register the directory
+export DATASIFT_CUSTOM_OPERATORS="$HOME/my_custom_operators"
+```
+
+### Step 3: Use in a Flow
+
+Create a flow JSON file (`hello_flow.json`):
+
+```json
+{
+  "flow_name": "Hello Custom Operator Flow",
+  "description": "Example flow using custom hello operator",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false
+  },
+  "flow": [
+    {
+      "name": "ingest_1",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./sample_documents"
+      }
+    },
+    {
+      "name": "hello_1",
+      "type": "hello",
+      "config": {},
+      "depends_on": ["ingest_1"]
+    }
+  ]
+}
+```
+
+Run the flow:
+
+```bash
+datasift-orchestrator --flow-file hello_flow.json
+```
+
+### Step 4: Verify Registration
+
+Check that your operator is registered:
+
+```bash
+# List all operators (look for owner="custom")
+datasift-orchestrator --list-operators
+
+# Detailed view with parameters
+datasift-orchestrator --list-operators --verbose
+```
+
+You should see output like:
+
+```
+Operator: hello
+  Category: Functional
+  Owner: custom
+  Label: Hello Operator
+```
+
+**Congratulations!** You've created and run your first custom operator. Now let's understand how it works.
+
+---
+
+## Understanding Custom Operators
+
+### Required Imports
+
+Every custom operator needs these imports:
+
+```python
+# Core operator classes
+from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+
+# Constants for metadata and configuration
+from datasift.core.constants.constants import DatasiftConstants, AttributeDataTypes
+from datasift.core.constants.operator_constants import OperatorConstants
+
+# Data handling
+import pyarrow as pa
+from typing import Any
+```
+
+**Optional imports** (depending on your needs):
+```python
+# For logging
+import logging
+
+# For advanced type hints
+from collections.abc import Callable
+
+# For working with PyArrow schemas
+import pyarrow.compute as pc
+```
+
+### Minimum Requirements
+
+Custom operators must:
+
+1. **Inherit from `AbstractOperator`**
+2. **Define required class attributes**: `short_name`, `category`, `owner`
+3. **Implement required methods**: `transform()`, `get_metadata()`, `get_required_features()`
+
+### Class Attributes
+
+```python
+class MyCustomOperator(AbstractOperator):
+    # Unique identifier used in flow JSON files
+    short_name: str = "my_custom"
+    
+    # Operator category: Extract, Ingest, Functional, Quality, VectorDB, Storage
+    category: OperatorCategory = OperatorCategory.Functional
+    
+    # Identifies as custom operator (always use this constant)
+    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+```
+
+**Important:** The `short_name` must be unique. If it conflicts with a built-in operator, your custom operator will override it (first discovered wins).
+
+### Required Methods Overview
+
+| Method | Purpose | When Called |
+|--------|---------|-------------|
+| `transform()` | Process data | During pipeline execution |
+| `get_metadata()` | Define configuration schema | During flow authoring/validation |
+| `get_required_features()` | Declare input dependencies | During flow validation |
+| `validate()` | Runtime validation (optional) | Before pipeline execution |
+
+---
+
+## Core Methods: Basic Implementation
+
+### transform()
+
+The `transform()` method processes PyArrow tables and returns results with metadata.
+
+**Method Signature:**
+```python
+def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+    """
+    Process the input table and return transformed results.
+    
+    Args:
+        table: Input PyArrow table with data to process
+        file_name: Optional filename for context (e.g., for logging)
+    
+    Returns:
+        Tuple of (list of output tables, metadata dictionary)
+    """
+```
+
+**Basic Pattern:**
+```python
+def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+    # 1. Process the table (your custom logic here)
+    result_table = table  # Replace with your transformation
+    
+    # 2. Create metadata
+    metadata = self.create_base_metadata(total_docs_count=table.num_rows)
+    metadata["processed_docs"] = table.num_rows
+    metadata["custom_metric"] = 42  # Add your custom metrics
+    
+    # 3. Return results
+    return [result_table], metadata
+```
+
+**Common Patterns:**
+
+1. **Adding a new column:**
+```python
+def transform(self, table: pa.Table, file_name: str | None = None):
+    # Create new column data
+    new_values = [compute_value(row) for row in range(table.num_rows)]
+    
+    # Add column to table
+    table = table.append_column("new_column", pa.array(new_values))
+    
+    return [table], self.create_base_metadata(total_docs_count=table.num_rows)
+```
+
+2. **Filtering rows:**
+```python
+def transform(self, table: pa.Table, file_name: str | None = None):
+    # Filter based on condition
+    mask = pc.greater(table["score"], 0.5)
+    filtered_table = table.filter(mask)
+    
+    metadata = self.create_base_metadata(total_docs_count=filtered_table.num_rows)
+    metadata["filtered_out"] = table.num_rows - filtered_table.num_rows
+    
+    return [filtered_table], metadata
+```
+
+3. **Splitting into multiple tables:**
+```python
+def transform(self, table: pa.Table, file_name: str | None = None):
+    # Split based on condition
+    high_quality = table.filter(pc.greater(table["score"], 0.8))
+    low_quality = table.filter(pc.less_equal(table["score"], 0.8))
+    
+    metadata = self.create_base_metadata(total_docs_count=table.num_rows)
+    return [high_quality, low_quality], metadata
+```
+
+### get_metadata() - Basic
+
+The `get_metadata()` method defines your operator's configuration interface. Start with this basic structure:
+
+```python
+@staticmethod
+def get_metadata() -> dict[str, Any]:
+    """Return operator metadata for UI display and validation."""
+    return {
+        # Operator category
+        OperatorConstants.Misc.CATEGORY: MyCustomOperator.category.value,
+        
+        # Availability flag
+        OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+        
+        # Display name for UI
+        OperatorConstants.Misc.LABEL: "My Custom Operator",
+        
+        # Output columns this operator produces (see Advanced Topics)
+        OperatorConstants.Config.FEATURES: {},
+        
+        # Input parameters for configuration (see Advanced Topics)
+        OperatorConstants.Config.ATTRIBUTES: {},
+    }
+```
+
+**For now, you can leave `FEATURES` and `ATTRIBUTES` empty.** We'll cover these in detail in the [Advanced Topics](#get_metadata---advanced-configuration) section.
+
+### get_required_features()
+
+This method declares which columns must exist in the input table.
+
+```python
+@staticmethod
+def get_required_features() -> list[str]:
+    """
+    Return list of required input columns.
+    
+    These are columns that must be present in the PyArrow table
+    coming from upstream operators.
+    """
+    return []  # No requirements
+```
+
+**Examples:**
+
+```python
+# Operator needs content column
+@staticmethod
+def get_required_features() -> list[str]:
+    return ["content"]
+
+# Operator needs multiple columns
+@staticmethod
+def get_required_features() -> list[str]:
+    return ["content", "doc_id", "metadata"]
+
+# Operator needs chunked content from ChunkerOperator
+@staticmethod
+def get_required_features() -> list[str]:
+    return ["chunked_content"]
+```
+
+---
+
+## Registration and Usage
+
+### Which Registration Method Should I Use?
+
+Choose based on your use case:
+
+| Scenario | Recommended Method |
+|----------|-------------------|
+| 🏠 Local development | Environment variable |
+| 🔧 Programmatic control needed | Python API |
+| 👥 Team sharing operators | Environment variable + version control |
+| ☁️ Enterprise cloud deployment | S3 URIs (see Advanced Topics) |
+
+**For most users:** Use the environment variable method.
+
+### Method 1: Environment Variable (Recommended)
+
+Set the `DATASIFT_CUSTOM_OPERATORS` environment variable to point to your operators directory:
+
+```bash
+# Single directory
+export DATASIFT_CUSTOM_OPERATORS="/path/to/custom_operators"
+
+# Multiple directories (colon-separated on Unix, semicolon on Windows)
+export DATASIFT_CUSTOM_OPERATORS="/path/to/operators1:/path/to/operators2"
+
+# Run your flow
+datasift-orchestrator --flow-file flow.json
+```
+
+**Make it permanent** (add to `~/.bashrc` or `~/.zshrc`):
+```bash
+echo 'export DATASIFT_CUSTOM_OPERATORS="$HOME/my_custom_operators"' >> ~/.bashrc
+source ~/.bashrc
+```
+
+**Verify immediately:**
+```bash
+datasift-orchestrator --list-operators | grep "custom"
+```
+
+### Method 2: Programmatic API
+
+Register operators programmatically in your Python code:
+
+```python
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+
+# Create flow manager
+manager = DatasiftFlowManager(flow_file="flow.json")
+
+# Register custom operators
+manager.register_custom_operators(package_names=["/path/to/custom_operators"])
+
+# Execute flow
+result = manager.execute()
+```
+
+**Note:** The parameter is called `package_names` but it accepts filesystem paths (not Python package names). This is a naming inconsistency in the current implementation.
+
+### Verifying Registration
+
+After registering, verify your operators are loaded:
+
+**Using CLI:**
+```bash
+# List all operators (custom operators show owner="custom")
+datasift-orchestrator --list-operators
+
+# Detailed view with parameters
+datasift-orchestrator --list-operators --verbose
+```
+
+**Using Python:**
+```python
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+
+# List all operators
+print(DatasiftFlowManager.list_operators())
+
+# Detailed view
+print(DatasiftFlowManager.list_operators(verbose=True))
+```
+
+**What to look for:**
+- ✅ Your operator's `short_name` appears in the list
+- ✅ `owner` field shows `"custom"`
+- ✅ Correct `category` is displayed
+- ⚠️ If a custom operator has the same `short_name` as a built-in operator, the custom one takes precedence
+
+### Using Custom Operators in Flows
+
+Reference custom operators by their `short_name` in flow JSON files:
+
+```json
+{
+  "flow_name": "My Flow with Custom Operator",
+  "description": "Example flow using custom operator",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false
+  },
+  "flow": [
+    {
+      "name": "ingest_1",
+      "type": "ingest_local",
+      "config": {
+        "input_folder": "./documents"
+      }
+    },
+    {
+      "name": "custom_1",
+      "type": "my_custom",
+      "config": {
+        "param_name": "value"
+      },
+      "depends_on": ["ingest_1"]
+    }
+  ]
+}
+```
+
+**Run the flow:**
+```bash
+export DATASIFT_CUSTOM_OPERATORS="/path/to/custom_operators"
+datasift-orchestrator --flow-file flow.json
+```
+
+---
+
+## Advanced Topics
+
+### get_metadata() - Advanced Configuration
+
+Now let's explore the full power of `get_metadata()` for defining operator parameters and outputs.
+
+#### Understanding Features vs Attributes
+
+**Key Concept:**
+
+- **ATTRIBUTES**: INPUT configuration parameters that control how your operator behaves
+  - Example: `batch_size`, `threshold`, `mode`
+  - Set in the flow JSON configuration
+  - Define what users can configure
+
+- **FEATURES**: OUTPUT columns that your operator adds to the PyArrow table
+  - Example: `custom_score`, `processed_text`
+  - Become available for downstream operators
+  - Define what your operator produces
+
+**Visual Example:**
+
+```
+Flow: Ingest → MyOperator → VectorDB
+
+MyOperator ATTRIBUTES (inputs):     MyOperator FEATURES (outputs):
+├─ mode: "advanced"                 ├─ custom_score (added to table)
+├─ threshold: 0.8                   └─ processed_text (added to table)
+└─ batch_size: 100                       ↓
+                                    Available for VectorDB operator
+```
+
+#### Defining Features (Output Columns)
+
+Features define the new columns your operator adds to the PyArrow table:
+
+```python
+OperatorConstants.Config.FEATURES: {
+    "custom_score": {
+        OperatorConstants.Misc.NAME: "Custom Score",
+        OperatorConstants.Config.DESCRIPTION: "Computed quality score for the document",
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
+        OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
+        OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+    },
+    "processed_text": {
+        OperatorConstants.Misc.NAME: "Processed Text",
+        OperatorConstants.Config.DESCRIPTION: "Text after custom processing",
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+        OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
+    },
+}
+```
+
+**Feature Fields:**
+- `name`: Display name for UI
+- `description`: Clear explanation of what the feature contains
+- `type`: Data type (string, integer, float, list, etc.)
+- `tags`: List of tags (`MANDATORY` for required features, `INTERNAL_FEATURE` for system fields)
+- `available_for_vector_db`: (Optional) Boolean for vector database compatibility
+
+#### Defining Attributes (Input Parameters)
+
+Attributes define the configuration parameters users can set:
+
+**Required fields for all attributes:**
+- `name`: Display name for UI
+- `description`: Clear explanation of the parameter's purpose
+- `type`: Data type (string, integer, float, boolean, json, list)
+- `required`: Whether parameter is mandatory (True/False)
+- `default`: Default value if not provided
+
+**Optional fields for validation:**
+- `valid_values`: List of allowed values (enum-like parameters)
+- `min_value`/`max_value`: Numeric range constraints
+
+**Complete Example with All Parameter Types:**
+
+```python
+OperatorConstants.Config.ATTRIBUTES: {
+    # String parameter with valid values (enum-like)
+    "mode": {
+        OperatorConstants.Misc.NAME: "Processing Mode",
+        OperatorConstants.Config.DESCRIPTION: "Mode for processing documents",
+        OperatorConstants.Config.REQUIRED: True,
+        OperatorConstants.Config.DEFAULT: "standard",
+        OperatorConstants.Config.VALID_VALUES: ["standard", "advanced", "custom"],
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+    },
+    
+    # Integer parameter with range validation
+    "batch_size": {
+        OperatorConstants.Misc.NAME: "Batch Size",
+        OperatorConstants.Config.DESCRIPTION: "Number of documents to process in each batch",
+        OperatorConstants.Config.REQUIRED: False,
+        OperatorConstants.Config.DEFAULT: 100,
+        OperatorConstants.Filtering.MIN_VALUE: 1,
+        OperatorConstants.Filtering.MAX_VALUE: 1000,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+    },
+    
+    # Float parameter with range validation
+    "threshold": {
+        OperatorConstants.Misc.NAME: "Confidence Threshold",
+        OperatorConstants.Config.DESCRIPTION: "Minimum confidence score (0.0-1.0)",
+        OperatorConstants.Config.REQUIRED: False,
+        OperatorConstants.Config.DEFAULT: 0.8,
+        OperatorConstants.Filtering.MIN_VALUE: 0.0,
+        OperatorConstants.Filtering.MAX_VALUE: 1.0,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
+    },
+    
+    # Boolean parameter (no validation needed)
+    "enable_feature": {
+        OperatorConstants.Misc.NAME: "Enable Feature",
+        OperatorConstants.Config.DESCRIPTION: "Whether to enable advanced feature processing",
+        OperatorConstants.Config.REQUIRED: False,
+        OperatorConstants.Config.DEFAULT: False,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+    },
+    
+    # JSON parameter for complex configuration
+    "custom_config": {
+        OperatorConstants.Misc.NAME: "Custom Configuration",
+        OperatorConstants.Config.DESCRIPTION: "JSON object with custom settings",
+        OperatorConstants.Config.REQUIRED: False,
+        OperatorConstants.Config.DEFAULT: None,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+    },
+}
+```
+
+**Accessing Parameters in transform():**
+
+Parameters defined in `ATTRIBUTES` become instance variables:
+
+```python
+def transform(self, table: pa.Table, file_name: str | None = None):
+    # Access parameters as instance variables
+    if self.mode == "advanced":
+        # Use advanced processing
+        pass
+    
+    if self.enable_feature:
+        # Feature is enabled
+        pass
+    
+    # Use numeric parameters
+    for i in range(0, table.num_rows, self.batch_size):
+        batch = table.slice(i, self.batch_size)
+        # Process batch
+```
+
+### validate() - Runtime Validation
+
+The `validate()` method performs runtime validation before operator execution. This is **optional** but recommended for robust operators.
+
+**Method Signature:**
+```python
+def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+    """
+    Validate operator configuration at runtime.
+    
+    Args:
+        errors: List to append blocking errors (prevent execution)
+        warnings: List to append non-critical warnings (allow execution)
+        available_features: List of columns available from upstream operators
+    """
+```
+
+**When to Use:**
+- Validate actual configuration values (not just schema)
+- Check that required features are available from upstream operators
+- Verify parameter combinations and logical consistency
+- Validate external dependencies (services, models, etc.)
+
+**Basic Pattern:**
+
+```python
+def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+    # 1. ALWAYS call parent first to validate required features
+    super().validate(errors, warnings, available_features)
+    
+    # 2. Validate required fields
+    if not self.mode:
+        errors.append("mode is required for MyCustomOperator")
+    
+    # 3. Validate value ranges
+    if self.batch_size < 1 or self.batch_size > 1000:
+        errors.append("batch_size must be between 1 and 1000")
+    
+    # 4. Check feature availability
+    if "content" not in available_features:
+        errors.append("'content' column must be available from upstream operators")
+    
+    # 5. Warn about potential conflicts
+    if "custom_score" in available_features:
+        warnings.append("'custom_score' column already exists and will be overwritten")
+```
+
+**Common Validation Patterns:**
+
+1. **Conditional validation** (skip expensive checks during flow validation):
+```python
+if self.should_validate_field(field_value=self.mode):
+    if self.mode not in ["standard", "advanced", "custom"]:
+        errors.append("mode must be one of: standard, advanced, custom")
+```
+
+2. **Parameter combination validation**:
+```python
+if self.enable_advanced and not self.custom_config:
+    errors.append("custom_config is required when enable_advanced is True")
+```
+
+3. **External service validation**:
+```python
+if self.should_validate_field(field_value=self.api_endpoint):
+    try:
+        response = requests.get(self.api_endpoint, timeout=5)
+        if response.status_code != 200:
+            errors.append(f"API endpoint {self.api_endpoint} is not accessible")
+    except Exception as e:
+        errors.append(f"Failed to connect to API: {str(e)}")
+```
+
+**Key Differences: validate() vs get_metadata()**
+
+| Aspect | `validate()` | `get_metadata()` |
+|--------|-------------|------------------|
+| **When Called** | Runtime (before execution) | Design-time (flow authoring) |
+| **Purpose** | Validate actual values | Declare parameter schemas |
+| **Context** | Has `available_features` | No execution context |
+| **Validation Type** | Instance-specific | Schema-level (types, ranges) |
+
+**Best Practices:**
+- ✅ Always call `super().validate()` first
+- ✅ Use `should_validate_field()` for expensive validation checks
+- ✅ Append to error/warning lists, don't raise exceptions
+- ✅ Provide clear, actionable error messages
+- ✅ Use errors for blocking issues, warnings for non-critical ones
+- ✅ Check feature availability before assuming columns exist
+
+### S3 Configuration for Enterprise Deployments
+
+S3 support is an **optional advanced feature** for enterprise deployments that need centralized operator management.
+
+#### When to Use S3
+
+- ☁️ Centralized operator distribution across multiple environments
+- 🚀 Cloud-native deployments (AWS ECS, Lambda, etc.)
+- 📦 Version-controlled operator releases in S3 buckets
+- 👥 Teams that already use S3 for artifact management
+
+#### Prerequisites
+
+1. **Install boto3:**
+```bash
+# Using uv
+uv pip install boto3
+
+# Or install datasift with AWS extras
+uv sync --extra aws
+```
+
+2. **Configure AWS credentials** (boto3 uses standard AWS credential chain):
+
+**Option 1: Environment variables**
+```bash
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"  # pragma: allowlist secret
+export AWS_DEFAULT_REGION="us-east-1"  # Optional
+```
+
+**Option 2: Credentials file** (`~/.aws/credentials`)
+```ini
+[default]
+aws_access_key_id = your-access-key
+aws_secret_access_key = your-secret-key
+```
+
+**Option 3: IAM roles** (automatic for EC2/ECS/Lambda instances)
+
+#### S3 URI Format
+
+```
+s3://bucket-name/path/to/operators/
+```
+
+Operators are downloaded to `~/.datasift/custom_operators_cache/` and loaded from cache.
+
+#### Usage Examples
+
+**Environment variable:**
+```bash
+export DATASIFT_CUSTOM_OPERATORS="s3://my-company-operators/production/"
+datasift-orchestrator --flow-file flow.json
+```
+
+**Programmatic:**
+```python
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+
+manager = DatasiftFlowManager(flow_file="flow.json")
+manager.register_custom_operators(package_names=["s3://my-bucket/operators"])
+result = manager.execute()
+```
+
+**Mixed sources** (filesystem + S3):
+```bash
+export DATASIFT_CUSTOM_OPERATORS="/local/path:s3://bucket/path"
+```
+
+---
+
+## Best Practices
+
+1. **Unique short_name**: Ensure your operator's `short_name` doesn't conflict with built-in operators unless you intend to override them
+
+2. **Proper validation**: Implement `get_required_features()` to validate input columns and `validate()` for runtime checks
+
+3. **Comprehensive metadata**: Provide complete metadata with clear descriptions for all parameters
+
+4. **Error handling**: Use `record_failed_document()` and `record_skipped_document()` for tracking processing issues
+
+5. **Testing**: Test operators independently before integrating into flows
+
+6. **Documentation**: Include docstrings and comments explaining your operator's purpose and usage
+
+7. **Type hints**: Use proper type hints for better IDE support and code clarity
+
+8. **Logging**: Use the logging module for debugging and monitoring
+
+---
+
+## Troubleshooting
+
+**Operator not found:**
+- ✅ Verify `DATASIFT_CUSTOM_OPERATORS` is set correctly
+- ✅ Check that the directory path exists and contains `.py` files
+- ✅ Ensure the operator class inherits from `AbstractOperator`
+- ✅ Verify `short_name` matches what you're using in the flow
+
+**Import errors:**
+- ✅ Ensure all dependencies are installed in the same environment
+- ✅ Check that datasift is installed: `pip show datasift-opensource`
+- ✅ Verify Python version compatibility (Python 3.12+ recommended)
+
+**S3 access denied:**
+- ✅ Check AWS credentials are configured correctly
+- ✅ Verify bucket permissions (s3:GetObject, s3:ListBucket)
+- ✅ Ensure boto3 is installed: `pip show boto3`
+
+**Duplicate operator warning:**
+- ⚠️ Custom operators with same `short_name` as built-in operators will override them
+- ⚠️ First discovered operator wins (check registration order)
+
+**Validation errors:**
+- ✅ Check that required features are available from upstream operators
+- ✅ Verify parameter values are within valid ranges
+- ✅ Review error messages for specific issues
+
+**Operator not appearing in list:**
+- ✅ Run `datasift-orchestrator --list-operators` to verify registration
+- ✅ Check for Python syntax errors in your operator file
+- ✅ Ensure class attributes (`short_name`, `category`, `owner`) are defined
+
+---
+
+## Complete Reference Example
+
+A complete working example is available in the datasift repository at:
+- **File**: `examples/custom_operators/example_custom_operator.py`
+- **Purpose**: Demonstrates adding a custom field to documents
+- **Features**: Shows all required methods with proper implementation
+
+**To use the example:**
+
+```bash
+# Clone the datasift repository
+git clone https://github.com/your-org/datasift-opensource.git
+
+# Navigate to examples
+cd datasift-opensource/examples/custom_operators
+
+# Register and use
+export DATASIFT_CUSTOM_OPERATORS="$(pwd)"
+datasift-orchestrator --list-operators | grep example
+```
+
+For more details on the base class implementation and loading mechanism, refer to:
+- `src/datasift/core/operators/abstract_operator.py` - Base operator class
+- `src/datasift/core/operators/operator_registry.py` - Operator registration system
+- Built-in operators in `src/datasift/core/operators/` - Real-world examples
+
+---
