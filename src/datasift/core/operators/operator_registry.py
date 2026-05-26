@@ -5,9 +5,13 @@ This module provides a frozenset-based registry of all datasift (OSS) operators.
 Operators are imported as class references for immediate access without runtime discovery.
 """
 
-# Extract Operators
+# ACL Operator
+from datasift.core.operators.acl.acl_operator import ACLOperator
+
 # Storage Operators
 from datasift.core.operators.document_sets.document_set_operator import DocumentSetOperator
+
+# Extract Operators
 from datasift.core.operators.extract.extract_operator import ExtractOperator
 
 # Functional Operators
@@ -40,6 +44,8 @@ from datasift.core.operators.vectordb.vectordb_operator import VectorDBOperator
 # Contains direct class references for immediate access
 DATASIFT_OPERATORS = frozenset(
     {
+        # ACL
+        ACLOperator,
         # Extract
         ExtractOperator,
         # Ingest

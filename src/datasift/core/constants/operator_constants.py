@@ -41,6 +41,8 @@ class OperatorConstants:
         EMBEDDINGS: Final[str] = "embeddings"
 
         # Extraction Operators
+        ACL: Final[str] = "acl"
+        ACL_OPERATOR: Final[str] = "acl_operator"
         EXTRACT_OPERATOR: Final[str] = "extract_operator"
         ENTITY_EXTRACT: Final[str] = "extract_entity"
         EXTRACT_JSON: Final[str] = "extract_json"
@@ -75,6 +77,7 @@ class OperatorConstants:
         """DataFrame column name constants."""
 
         # Content and Document Columns
+        ALLOWED_USERS: Final[str] = "allowed_users"
         BINARY_CONTENT: Final[str] = "binary_content"
         CHUNK: Final[str] = "chunk"
         CHUNKED_CONTENT: Final[str] = "chunked_content"
@@ -92,6 +95,7 @@ class OperatorConstants:
         NAME: Final[str] = "name"
         PATH: Final[str] = "path"
         RAW_TEXT: Final[str] = "raw_text"
+        SOURCE_ID: Final[str] = "source_id"
         USER_DEFINED_CONTENT_COLUMN: Final[str] = "user_defined_content_column"
         SUMMARY: Final[str] = "summary"
 
@@ -184,9 +188,11 @@ class OperatorConstants:
         CUSTOM_SCHEMA: Final[str] = "custom_schema"
         DEFAULT: Final[str] = "default"
         DESCRIPTION: Final[str] = "description"
+        FAIL_ON_ERROR: Final[str] = "fail_on_error"
         GLOBAL_CONFIG: Final[str] = "global_config"
         INGEST_SOURCE: Final[str] = "ingest_source"
         MAX_CONCURRENT_REQUESTS: Final[str] = "max_concurrent_requests"
+        OUTPUT_COLUMN: Final[str] = "output_column"
         PARAMETERS: Final[str] = "parameters"
         PROPERTIES: Final[str] = "properties"
         PROVIDER: Final[str] = "provider"
@@ -198,6 +204,7 @@ class OperatorConstants:
         ALL_SCHEMA_DETAILS: Final[str] = "all_schema_details"
         AVAILABLE_FEATURES: Final[str] = "available_features"
         AVAILABLE_FOR_FILTER: Final[str] = "available_for_filter"
+        AVAILABLE_FOR_OPENSEARCH: Final[str] = "available_for_opensearch"
         AVAILABLE_FOR_VECTOR_DB: Final[str] = "available_for_vector_db"
         DEFAULT_FEATURE_MAPPINGS: Final[str] = "default_feature_mappings"
         FEATURE_MAPPINGS: Final[str] = "feature_mappings"
@@ -949,3 +956,33 @@ Rules:
         QUERY_BEGIN_TRANSACTION: Final[str] = "BEGIN TRANSACTION"
         QUERY_COMMIT: Final[str] = "COMMIT"
         QUERY_ROLLBACK: Final[str] = "ROLLBACK"
+
+    class ACL:
+        """ACL (Access Control List) extraction constants."""
+
+        # ACL Provider Types
+        PROVIDER_SHAREPOINT: Final[str] = "sharepoint"
+        PROVIDER_S3: Final[str] = "s3"
+        PROVIDER_GOOGLE_DRIVE: Final[str] = "google_drive"
+        PROVIDER_ONEDRIVE: Final[str] = "onedrive"
+        PROVIDER_BOX: Final[str] = "box"
+
+        # ACL Configuration Keys (used across multiple modules)
+        RESOLVE_INHERITANCE: Final[str] = "resolve_inheritance"
+        EXPAND_GROUPS: Final[str] = "expand_groups"
+        NORMALIZE_IDENTITIES: Final[str] = "normalize_identities"
+
+        # ACL Response Fields
+        DENIED_USERS: Final[str] = "denied_users"
+        INHERITANCE_CHAIN: Final[str] = "inheritance_chain"
+        HAS_UNIQUE_PERMISSIONS: Final[str] = "has_unique_permissions"
+        RESOLUTION_METADATA: Final[str] = "resolution_metadata"
+
+        # Column name
+        ALLOWED_USERS_COLUMN: Final[str] = "allowed_users"
+
+        # Default Values
+        DEFAULT_FAIL_ON_ERROR: Final[bool] = True
+        DEFAULT_RESOLVE_INHERITANCE: Final[bool] = True
+        DEFAULT_EXPAND_GROUPS: Final[bool] = True
+        DEFAULT_NORMALIZE_IDENTITIES: Final[bool] = True

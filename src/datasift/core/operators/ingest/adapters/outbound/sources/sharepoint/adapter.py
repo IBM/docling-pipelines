@@ -161,6 +161,7 @@ class SharePointSourceAdapter(DocumentSourcePort):
                         "mime_type": item.get("file", {}).get("mimeType"),
                         "created_time": item.get("createdDateTime"),
                         "web_url": source_url,
+                        "provider": "sharepoint",
                         # Store credentials for lazy loading
                         "client_id": sharepoint_config.client_id,
                         "client_secret": sharepoint_config.client_secret,

@@ -47,6 +47,13 @@ class ErrorCode(StrEnum):
     OPERATOR_METADATA_FAILED = "operator_metadata_failed"
     SQL_FILTER_ERROR = "sql_filter_error"
 
+    # ACL extraction errors
+    ACL_EXTRACTION_FAILED = "acl_extraction_failed"
+    ACL_ADAPTER_INITIALIZATION_FAILED = "acl_adapter_initialization_failed"
+    ACL_PROVIDER_NOT_SUPPORTED = "acl_provider_not_supported"
+    ACL_AUTHENTICATION_FAILED = "acl_authentication_failed"
+    ACL_PERMISSION_FETCH_FAILED = "acl_permission_fetch_failed"
+
     # Ollama integration
     OLLAMA_CONNECTION_FAILED = "ollama_connection_failed"
     OLLAMA_MODEL_NOT_FOUND = "ollama_model_not_found"

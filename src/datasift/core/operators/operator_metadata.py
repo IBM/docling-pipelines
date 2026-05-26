@@ -168,6 +168,7 @@ class OperatorMetadata:
             purpose: Optional purpose filter. Valid values:
                     - OperatorConstants.Config.AVAILABLE_FOR_FILTER: Features usable in SQL filters
                     - OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: Features storable in vector DBs
+                    - OperatorConstants.Config.AVAILABLE_FOR_OPENSEARCH: Features storable in OpenSearch
                     - None: Return all features (default)
 
         Returns:
@@ -178,6 +179,7 @@ class OperatorMetadata:
             - default: Default value
             - available_for_filter: Can be used in SQL WHERE clauses
             - available_for_vector_db: Can be stored in vector databases
+            - available_for_opensearch: Can be stored in OpenSearch
 
         Example:
             >>> metadata = OperatorMetadata()

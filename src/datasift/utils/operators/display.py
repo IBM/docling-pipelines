@@ -99,6 +99,8 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
                     flags.append("filterable")
                 if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB):
                     flags.append("vectorizable")
+                if feature_info.get(OperatorConstants.Config.AVAILABLE_FOR_OPENSEARCH):
+                    flags.append("opensearch")
                 if feature_info.get(OperatorConstants.Misc.IS_PRIMARY):
                     flags.append("primary")
                 if flags:
