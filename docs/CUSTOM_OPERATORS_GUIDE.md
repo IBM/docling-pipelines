@@ -457,13 +457,13 @@ from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 manager = DatasiftFlowManager(flow_file="flow.json")
 
 # Register custom operators
-manager.register_custom_operators(package_names=["/path/to/custom_operators"])
+manager.register_custom_operators(paths=["/path/to/custom_operators"])
 
 # Execute flow
 result = manager.execute()
 ```
 
-**Note:** The parameter is called `package_names` but it accepts filesystem paths (not Python package names). This is a naming inconsistency in the current implementation.
+**Note:** Only filesystem paths and S3 URIs are supported. Python package names are NOT currently supported.
 
 ### Verifying Registration
 
@@ -839,7 +839,7 @@ datasift-orchestrator --flow-file flow.json
 from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 manager = DatasiftFlowManager(flow_file="flow.json")
-manager.register_custom_operators(package_names=["s3://my-bucket/operators"])
+manager.register_custom_operators(paths=["s3://my-bucket/operators"])
 result = manager.execute()
 ```
 

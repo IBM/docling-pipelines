@@ -25,11 +25,10 @@ class CustomOperatorLoader:
     """Service for loading custom operators from multiple sources.
 
     This service coordinates operator discovery, validation, and loading
-    from various sources (Python packages, filesystem directories, S3 buckets)
+    from various sources (filesystem directories, S3 buckets)
     while handling conflicts and ensuring operator quality.
 
     Supported sources:
-    - Python packages: Installed packages with operator modules
     - Filesystem: Local directories or files containing operators
     - S3: Amazon S3 buckets with operator files
     """
@@ -75,13 +74,13 @@ class CustomOperatorLoader:
         """Create loader from path strings (auto-detect adapter type).
 
         Args:
-            paths: List of paths (local filesystem, S3 URIs, or Python package names)
+            paths: List of paths (local filesystem paths or S3 URIs)
 
         Returns:
             Initialized CustomOperatorLoader instance
 
         Example:
-            paths = ["/local/path", "s3://bucket/path", "my_package"]
+            paths = ["/local/path", "s3://bucket/path"]
             loader = CustomOperatorLoader.from_paths(paths)
         """
         import os
@@ -95,8 +94,12 @@ class CustomOperatorLoader:
                 # Local filesystem path (absolute, exists, or contains path separators)
                 source = OperatorSourceFactory.create("filesystem", path=path)
             else:
-                # Assume it's a Python package name
-                source = OperatorSourceFactory.create("package", package_name=path)
+                # Python package names are not currently supported
+                # Skip paths that don't match filesystem or S3 patterns
+                logger.warning(
+                    f"Skipping unsupported path format: {path}. Only filesystem paths and S3 URIs are supported."
+                )
+                continue
             sources.append(source)
 
         return cls(sources)
