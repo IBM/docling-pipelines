@@ -106,6 +106,19 @@ Whenever changes are made to the project that affect documentation, ensure all r
 - Common flow validation errors → Document error messages and fixes
 - Performance issues → Add optimization tips
 
+#### 8. **docs/operators/**
+**Update When:**
+- Adding new operators
+- Modifying operator parameters or behavior
+- Changing operator configuration options
+- Adding new provider support (for operators like ExtractOperator, DocumentClassifier)
+- Updating operator usage examples
+
+**Examples:**
+- New operator added → Create new markdown file in docs/operators/
+- Operator parameters changed → Update parameter tables and examples
+- New provider added → Document provider configuration and examples
+
 ### Documentation Update Rules
 
 1. **No Timestamps or Changelogs**
@@ -141,7 +154,7 @@ Whenever changes are made to the project that affect documentation, ensure all r
 
 | Change Type | Files to Update |
 |-------------|----------------|
-| New Operator | ARCHITECTURE.md, OPERATOR_REFERENCE.md, README.md (if significant) |
+| New Operator | ARCHITECTURE.md, OPERATOR_REFERENCE.md, docs/operators/, README.md (if significant) |
 | Architecture Change | ARCHITECTURE.md, README.md (if user-facing) |
 | Installation Change | USER_GUIDE_PIPELINE_SETUP.md, QUICKSTART.md, README.md |
 | New Integration | README.md, USER_GUIDE_PIPELINE_SETUP.md, ARCHITECTURE.md, TROUBLESHOOTING.md |
