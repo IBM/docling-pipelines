@@ -10,6 +10,9 @@ class BoxSourceConfig(BaseModel):
     # OAuth credentials
     credentials_path: str = Field(..., description="Path to Box app/JWT config file")
 
+    # Box folder configuration
+    folder_id: str = Field("0", description="Box folder ID to start ingestion from. Default '0' is root folder.")
+
     # Optional parameters
     recursive: bool = Field(True, description="Whether to recursively traverse subdirectories")
 
@@ -67,6 +70,7 @@ class BoxSourceConfig(BaseModel):
         json_schema_extra: ClassVar[dict] = {
             "example": {
                 "credentials_path": "~/.config/box/config.json",
+                "folder_id": "0",
                 "recursive": True,
                 "file_extensions": [".pdf", ".docx", ".txt"],
                 "exclude_patterns": ["*.tmp", "Trash/*"],

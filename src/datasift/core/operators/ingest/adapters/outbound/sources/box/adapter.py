@@ -68,8 +68,16 @@ class BoxSourceAdapter(DocumentSourcePort):
 
         return True
 
-    def _iter_box_files(self, *, client: BoxClient, config: BoxSourceConfig, folder_id: str = "0"):
-        """Iterate Box files recursively from the given folder."""
+    def _iter_box_files(self, *, client: BoxClient, config: BoxSourceConfig, folder_id: str | None = None):
+        """Iterate Box files recursively from the given folder.
+
+        Args:
+            client: Authenticated Box client
+            config: Box source configuration
+            folder_id: Folder ID to start from. If None, uses config.folder_id
+        """
+        if folder_id is None:
+            folder_id = config.folder_id
         try:
             folder = client.folders.get_folder_by_id(folder_id)
             items = client.folders.get_folder_items(folder.id)
@@ -177,7 +185,7 @@ class BoxSourceAdapter(DocumentSourcePort):
             client = self._get_box_client(config=config)
 
             doc_count = 0
-            for file_info in self._iter_box_files(client=client, config=config):
+            for file_info in self._iter_box_files(client=client, config=config, folder_id=config.folder_id):
                 # Check max_files limit
                 if config.max_files is not None and doc_count >= config.max_files:
                     break
@@ -220,6 +228,7 @@ class BoxSourceAdapter(DocumentSourcePort):
         """Build Box configuration from operator parameters."""
         config_dict = {
             "credentials_path": credentials.get("credentials_json_path"),
+            "folder_id": connection_params.get("folder_id", "0"),
             "recursive": connection_params.get("recursive", True),
             "file_extensions": included_extensions or [],
             "exclude_patterns": connection_params.get("exclude_patterns", []),

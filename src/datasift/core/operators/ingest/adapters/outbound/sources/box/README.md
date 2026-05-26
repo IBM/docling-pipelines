@@ -26,6 +26,7 @@ The Box source adapter enables ingesting documents from Box using LangChain's Bo
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
+| `folder_id` | string | `"0"` | Box folder ID to start ingestion from. Default "0" is root folder |
 | `recursive` | boolean | `true` | Whether to recursively traverse subdirectories |
 | `file_extensions` | list[string] | `[]` | File extensions to include (e.g., `[".pdf", ".docx"]`). Empty means all files |
 | `exclude_patterns` | list[string] | `[]` | Glob patterns to exclude (e.g., `["*.tmp", "Trash/*"]`) |
@@ -99,6 +100,7 @@ Examples:
   "config": {
     "provider": "box_driver",
     "connection_params": {
+      "folder_id": "0",
       "recursive": true,
       "max_file_size_mb": 50
     },
@@ -119,6 +121,7 @@ Examples:
   "config": {
     "provider": "box_driver",
     "connection_params": {
+      "folder_id": "123456789",
       "recursive": true,
       "max_file_size_mb": 100,
       "exclude_patterns": ["*.tmp", "Trash/*", ".DS_Store"]

@@ -170,6 +170,7 @@ Ingest documents from Box folders using JWT authentication.
 node_config = {
     'provider': 'box_driver',
     'connection_params': {
+        'folder_id': '0',  # Optional: Box folder ID to start from (default: '0' for root)
         'recursive': True,  # Optional: include subfolders
         'max_file_size_mb': 50,  # Optional: max file size in MB
         'exclude_patterns': ['*.tmp', 'Trash/*']  # Optional: patterns to exclude
@@ -189,6 +190,7 @@ node_config = {
 - Dependencies: `pip install box-sdk-gen`
 
 **Parameters:**
+- `folder_id` (optional): Box folder ID to start ingestion from (default: '0' for root folder)
 - `recursive` (optional): Boolean, include subfolders (default: False)
 - `max_file_size_mb` (optional): Maximum file size in MB to process
 - `exclude_patterns` (optional): List of glob patterns to exclude (e.g., `['*.tmp', 'Trash/*']`)
@@ -658,6 +660,7 @@ node_config = {
 node_config = {
     'provider': 'box_driver',
     'connection_params': {
+        'folder_id': '123456789',  # Specific Box folder ID (use '0' for root)
         'recursive': True,
         'max_file_size_mb': 50,
         'exclude_patterns': ['*.tmp', 'Trash/*']
