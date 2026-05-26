@@ -6,6 +6,7 @@ from datetime import datetime
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any, AsyncGenerator, Generator
+from urllib.parse import unquote, urlparse
 
 from pydantic import BaseModel
 
@@ -34,7 +35,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
     SOURCE_DESCRIPTION = "Ingest documents from local filesystem directories"
     SOURCE_VERSION = "1.0.0"
 
-    async def fetch_documents(self, config: FilesystemSourceConfig) -> AsyncGenerator[Document, None]:
+    async def fetch_documents(self, config: FilesystemSourceConfig) -> AsyncGenerator[Document, None]:  # type: ignore[override]
         """
         Fetch documents from filesystem.
 
@@ -189,13 +190,17 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             bytes | None: Binary content of the file, or None if not found or error occurred
         """
         try:
-            file_path = Path(source_id)
+            parsed_source = urlparse(source_id)
+            if parsed_source.scheme == "file":
+                file_path = Path(unquote(parsed_source.path))
+            else:
+                file_path = Path(source_id)
 
-            # If path is not absolute, try relative to root_path
-            if not file_path.is_absolute():
-                root_path = connection_params.get("root_path")
-                if root_path:
-                    file_path = Path(root_path) / file_path
+                # If path is not absolute, try relative to root_path
+                if not file_path.is_absolute():
+                    root_path = connection_params.get("root_path")
+                    if root_path:
+                        file_path = Path(root_path) / file_path
 
             # Check if file exists
             if not file_path.exists():

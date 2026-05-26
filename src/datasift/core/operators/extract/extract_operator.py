@@ -509,7 +509,12 @@ class ExtractOperator(AbstractOperator):
                     table.num_rows,
                 )
             else:
-                logger.info("Table %d - No binary_content column found. Columns: %s", idx, table.column_names)
+                logger.info(
+                    "Table %d - No binary_content column present; extraction uses on-demand binary fetch and populates "
+                    "'content'. Columns: %s",
+                    idx,
+                    table.column_names,
+                )
                 result_tables.append(table)
 
         return result_tables

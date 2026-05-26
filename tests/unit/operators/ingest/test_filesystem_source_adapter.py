@@ -208,6 +208,19 @@ class TestFilesystemSourceAdapter:
         assert doc.extension == ".txt"
         assert doc.metadata["relative_path"] == "doc.txt"
 
+    def test_fetch_binary_content_reads_file_uri(self, tmp_path):
+        file_path = tmp_path / "doc with spaces.txt"
+        file_path.write_text("hello file uri")
+
+        adapter = FilesystemSourceAdapter()
+        content = adapter.fetch_binary_content(
+            source_id=file_path.resolve().as_uri(),
+            connection_params={"root_path": str(tmp_path)},
+            credentials={},
+        )
+
+        assert content == b"hello file uri"
+
     def test_test_connection_variants(self, tmp_path):
         adapter = FilesystemSourceAdapter()
         config = FilesystemSourceConfig(
