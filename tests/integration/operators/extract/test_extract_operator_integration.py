@@ -345,7 +345,7 @@ class TestExtractOperatorRealWorld:
         # Verify extraction succeeded
         assert metadata["processed_docs"] > 0
         assert len(result_tables) > 0
-        assert "pages_by_format" in metadata
+        assert "page_type_stats" in metadata
         assert "total_pages_converted" in metadata
 
         # Verify content was extracted

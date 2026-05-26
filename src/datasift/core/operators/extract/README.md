@@ -887,7 +887,7 @@ curl http://localhost:5001/health
 
 The operator provides the following metadata after execution:
 
-- **`pages_by_format`** (dict): Aggregate estimated pages grouped by source document format (e.g., `{"pdf": 120, "docx": 45}`)
+- **`page_type_stats`** (dict): Aggregate estimated pages grouped by source document format (e.g., `{"pdf": 120, "docx": 45}`)
 - **`total_pages_converted`** (int): Total estimated pages across all successfully processed documents
 
 These metrics are available through the operator's metadata and can be used for tracking document processing volume and performance analysis.

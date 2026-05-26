@@ -203,7 +203,7 @@ class JobStatsDto(BaseModel):
         pattern=ORCHESTRATOR_PATTERN,
     )
     container_kind: str | None = Field(
-        default="PROJECT",
+        default=None,
         description=CONTAINER_TYPE_DESC,
         min_length=CONTAINER_KIND_MIN_LENGTH,
         max_length=CONTAINER_KIND_MAX_LENGTH,
@@ -223,14 +223,14 @@ class JobStatsDto(BaseModel):
 
     # User & Account Context
     user_id: str | None = Field(
-        default="USER999",
+        default=None,
         description=USER_ID_DESC,
         min_length=USER_ID_MIN_LENGTH,
         max_length=USER_ID_MAX_LENGTH,
         pattern=USER_ID_PATTERN,
     )
     account_id: str | None = Field(
-        default="TENANT999",
+        default=None,
         description=ACCOUNT_ID_DESC,
         min_length=ACCOUNT_ID_MIN_LENGTH,
         max_length=ACCOUNT_ID_MAX_LENGTH,

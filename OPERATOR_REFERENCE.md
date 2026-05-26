@@ -570,7 +570,7 @@ This simplified design removes the port/adapter overhead while maintaining clean
 
 The operator provides the following metadata after execution:
 
-- `pages_by_format` (dict): Aggregate estimated pages grouped by source document format (e.g., `{"pdf": 120, "docx": 45}`)
+- `page_type_stats` (dict): Aggregate estimated pages grouped by source document format (e.g., `{"pdf": 120, "docx": 45}`)
 - `total_pages_converted` (int): Total estimated pages across all successfully processed documents
 
 **Exceptions**

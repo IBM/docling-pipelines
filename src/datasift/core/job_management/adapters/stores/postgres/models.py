@@ -144,7 +144,7 @@ class JobStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
         max_length=50,
     )
     container_kind: str | None = Field(
-        default="PROJECT",
+        default=None,
         title="Container Kind",
         description="Type of container where job run was created",
         min_length=0,
@@ -167,14 +167,14 @@ class JobStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
 
     # User & Account Context (optional in open-source)
     user_id: str | None = Field(
-        default="USER999",
+        default=None,
         title="User ID",
         description="ID of the user who started the job run",
         min_length=0,
         max_length=255,
     )
     account_id: str | None = Field(
-        default="TENANT999",
+        default=None,
         title="Account ID",
         description="Account/Tenant from which job run was started",
         min_length=0,

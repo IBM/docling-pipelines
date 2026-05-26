@@ -218,7 +218,7 @@ class TestDoclingServeBasicExtraction:
         # Verify metadata
         assert metadata.get("processed_docs", 0) == 1, "Should have processed 1 document"
         assert metadata.get("failed_docs_count", 0) == 0, "Should have no failed documents"
-        assert "pages_by_format" in metadata, "Should have pages_by_format in metadata"
+        assert "page_type_stats" in metadata, "Should have page_type_stats in metadata"
         assert "total_pages_converted" in metadata, "Should have total_pages_converted in metadata"
 
 
@@ -257,7 +257,7 @@ class TestDoclingServeOCR:
         assert "pages_processed" in result_table.column_names
         content = result_table["doc_content"][0].as_py()
         assert content is not None
-        assert "pages_by_format" in metadata
+        assert "page_type_stats" in metadata
         assert "total_pages_converted" in metadata
         assert len(content) > 0
 

@@ -49,13 +49,13 @@ class JobStats(BaseModel):
 
     # Execution Context
     orchestrator: str = "Python"
-    container_kind: str | None = "PROJECT"
+    container_kind: str | None = None
     container_id: str | None = ""
     flow_id: str | None = ""
 
     # User & Account Context
-    user_id: str | None = "USER999"
-    account_id: str | None = "TENANT999"
+    user_id: str | None = None
+    account_id: str | None = None
     user_entitlements: dict[str, Any] | None = Field(default_factory=dict)
 
     # Nested Statistics (Populated by aggregation)

@@ -84,9 +84,9 @@ class TestIngestExtractChunkTxtIntegration:
 
         assert content_count > 0, "Should have extracted content from at least one .txt file"
         assert extract_metadata.get("processed_docs", 0) > 0, "Should have processed documents"
-        assert "pages_by_format" in extract_metadata, "Should have pages_by_format in metadata"
+        assert "page_type_stats" in extract_metadata, "Should have page_type_stats in metadata"
         assert "total_pages_converted" in extract_metadata, "Should have total_pages_converted in metadata"
-        assert isinstance(extract_metadata["pages_by_format"], dict), "pages_by_format should be a dict"
+        assert isinstance(extract_metadata["page_type_stats"], dict), "page_type_stats should be a dict"
 
         print(f"Extracted content from {content_count} .txt files")
         print(f"Extract metadata: {extract_metadata}")
@@ -177,7 +177,7 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Verify all files were processed
         assert extract_metadata.get("processed_docs", 0) > 0, "Should have processed documents"
-        assert "pages_by_format" in extract_metadata, "Should have pages_by_format in metadata"
+        assert "page_type_stats" in extract_metadata, "Should have page_type_stats in metadata"
         assert "total_pages_converted" in extract_metadata, "Should have total_pages_converted in metadata"
         assert "pages_processed" in extract_table.column_names, "Should have pages_processed column"
         print(f"Extracted content from {extract_metadata.get('processed_docs', 0)} files")

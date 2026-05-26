@@ -95,7 +95,7 @@ DEFAULT_STRATEGIES = {
     "total_redactions": AggregationStrategy.SUM,
     # Extract operator - page statistics
     OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED: AggregationStrategy.SUM,
-    OperatorConstants.Metadata.PAGES_BY_FORMAT: AggregationStrategy.DEEP_MERGE,
+    OperatorConstants.Metadata.PAGE_TYPE_STATS: AggregationStrategy.DEEP_MERGE,
     # Extract operator - nested stage progress tracking
     OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS: AggregationStrategy.DEEP_MERGE,
 }

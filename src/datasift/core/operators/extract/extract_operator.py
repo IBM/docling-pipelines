@@ -435,7 +435,7 @@ class ExtractOperator(AbstractOperator):
             table: PyArrow table containing 'name' and 'pages_processed' columns
 
         Returns:
-            Updated metadata with pages_by_format and total_pages_converted statistics
+            Updated metadata with page_type_stats and total_pages_converted statistics
         """
         import pyarrow.compute as pc
 
@@ -451,10 +451,10 @@ class ExtractOperator(AbstractOperator):
         pages_column = table.column(OperatorConstants.Columns.PAGES_PROCESSED)
         total_pages = pc.sum(pages_column).as_py()
 
-        # For pages_by_format, we still need to iterate since we need to group by file extension
+        # For page_type_stats, we still need to iterate since we need to group by file extension
         # This is more efficient than converting entire table to pylist
         name_column = table.column(OperatorConstants.Columns.NAME)
-        pages_by_format: dict[str, int] = {}
+        page_type_stats: dict[str, int] = {}
 
         for i in range(table.num_rows):
             name = name_column[i].as_py()
@@ -468,12 +468,12 @@ class ExtractOperator(AbstractOperator):
                 format_key = OperatorConstants.Misc.UNKNOWN
 
             # Accumulate page counts by format
-            pages_by_format[format_key] = pages_by_format.get(format_key, 0) + pages
+            page_type_stats[format_key] = page_type_stats.get(format_key, 0) + pages
 
         # Add to metadata
-        metadata[OperatorConstants.Metadata.PAGES_BY_FORMAT] = pages_by_format
+        metadata[OperatorConstants.Metadata.PAGE_TYPE_STATS] = page_type_stats
         metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = total_pages
-        logger.info("Page statistics by format: %s, total pages: %d", pages_by_format, total_pages)
+        logger.info("Page statistics by format: %s, total pages: %d", page_type_stats, total_pages)
 
         return metadata
 
@@ -586,7 +586,7 @@ class ExtractOperator(AbstractOperator):
 
         if table.num_rows == 0:
             # Add page metadata fields with zero/empty values for empty tables
-            metadata[OperatorConstants.Metadata.PAGES_BY_FORMAT] = {}
+            metadata[OperatorConstants.Metadata.PAGE_TYPE_STATS] = {}
             metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED] = 0
             return [table], metadata
 

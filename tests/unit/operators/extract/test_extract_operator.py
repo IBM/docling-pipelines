@@ -111,9 +111,9 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
     # Check metadata
     assert metadata["total_docs_count"] == table.num_rows, "Total docs should match input rows"
     assert metadata["processed_docs"] > 0, "Should have processed at least one document"
-    assert "pages_by_format" in metadata, "Metadata should contain pages_by_format"
+    assert "page_type_stats" in metadata, "Metadata should contain page_type_stats"
     assert "total_pages_converted" in metadata, "Metadata should contain total_pages_converted"
-    assert isinstance(metadata["pages_by_format"], dict), "pages_by_format should be a dict"
+    assert isinstance(metadata["page_type_stats"], dict), "page_type_stats should be a dict"
     assert metadata["total_pages_converted"] > 0, "total_pages_converted should be greater than 0"
 
 

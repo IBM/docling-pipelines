@@ -12,7 +12,7 @@ Architecture:
 """
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from logging import Logger
 from typing import Any
 
@@ -77,7 +77,7 @@ class JobTrackerService(JobStatsService):
             job_id=job_id,
             job_run_id=job_run_id,
             flow_id=flow_name,  # Store flow_name in flow_id field
-            user_id=user_id or "USER999",
+            user_id=user_id,
             status=ExecutionStatus.RUNNING,
             start_time=round(datetime.now().timestamp()),
             node_stats={},
@@ -739,6 +739,27 @@ class JobTrackerService(JobStatsService):
                     job_stats.total_docs = len(val)
                 elif isinstance(val, int):
                     job_stats.total_docs = val
+
+        # Update page processing stats if present in metadata
+        if OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED in metadata:
+            pages_count = metadata[OperatorConstants.Metadata.TOTAL_PAGES_PROCESSED]
+            if isinstance(pages_count, int):
+                job_stats.total_pages_processed += pages_count
+                # Set execution_time to current UTC timestamp when pages are processed
+                job_stats.execution_time = int(datetime.now(UTC).timestamp())
+
+        # Update page_type_stats if present in metadata
+        if OperatorConstants.Metadata.PAGE_TYPE_STATS in metadata:
+            new_page_type_stats = metadata[OperatorConstants.Metadata.PAGE_TYPE_STATS]
+            if new_page_type_stats and isinstance(new_page_type_stats, dict):
+                if job_stats.page_type_stats is None:
+                    job_stats.page_type_stats = {}
+                # Merge page type stats (sum counts for each page type)
+                for page_type, count in new_page_type_stats.items():
+                    if page_type in job_stats.page_type_stats:
+                        job_stats.page_type_stats[page_type] += count
+                    else:
+                        job_stats.page_type_stats[page_type] = count
 
         self.job_stats_store.store_job_stats(job_stats)
 

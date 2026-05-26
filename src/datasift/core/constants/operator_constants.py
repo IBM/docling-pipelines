@@ -719,7 +719,7 @@ Rules:
         TOTAL_PAGES_PROCESSED: Final[str] = "total_pages_converted"
 
         # Page statistics
-        PAGES_BY_FORMAT: Final[str] = "pages_by_format"
+        PAGE_TYPE_STATS: Final[str] = "page_type_stats"
 
         # Extraction stage progress fields (transient - removed after aggregation)
         EXTRACTION_STAGE_PROGRESS: Final[str] = "extraction_stage_progress"

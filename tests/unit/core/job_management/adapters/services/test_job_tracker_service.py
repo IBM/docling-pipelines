@@ -510,7 +510,7 @@ class TestStartTrackingJob:
         call_args = mock_store.store_job_stats.call_args
         job_stats = call_args[0][0]
 
-        assert job_stats.user_id == "USER999"
+        assert job_stats.user_id is None
 
 
 class TestEndJob:

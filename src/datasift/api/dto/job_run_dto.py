@@ -389,11 +389,11 @@ class JobRunStatusResponse(BaseModel):
                     "page_type_stats": None,
                     "execution_time": None,
                     "orchestrator": "Python",
-                    "container_kind": "PROJECT",
+                    "container_kind": None,
                     "container_id": "",
                     "flow_id": "550e8400-e29b-41d4-a716-446655440000",
-                    "user_id": "USER999",
-                    "account_id": "TENANT999",
+                    "user_id": None,
+                    "account_id": None,
                     "user_entitlements": {},
                     "node_stats": {},
                     "batch_node_stats": {},
@@ -503,8 +503,8 @@ class JobRunListItemResponse(BaseModel):
         max_length=ORCHESTRATOR_MAX_LENGTH,
         pattern=ORCHESTRATOR_PATTERN,
     )
-    user_id: str = Field(
-        default="USER999",
+    user_id: str | None = Field(
+        default=None,
         description=USER_ID_DESC,
         min_length=USER_ID_MIN_LENGTH,
         max_length=USER_ID_MAX_LENGTH,
