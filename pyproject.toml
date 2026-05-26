@@ -81,6 +81,7 @@ dependencies = [
     "textstat==0.7.11",
     "toml==0.10.2",
     "torch==2.11.0",
+    "transformers>=5.8.1,<5.9.0",
     "unicategories==0.1.2",
     "unicodedataplus==16.0.0.post1",
     "urllib3==2.6.3",
