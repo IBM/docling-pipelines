@@ -15,8 +15,6 @@ from typing import Any
 
 import pyarrow as pa
 
-# Import adapters to trigger registration
-import datasift.core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
 from datasift.core.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -25,9 +23,6 @@ from datasift.core.constants.constants import (
 )
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from datasift.core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_hap_adapter_factory import (
-    PIIHAPAdapterFactory,
-)
 from datasift.core.operators.quality.pii_and_hap.pii_and_hap_helper import (
     DEFAULT_HAP_THRESHOLD_VALUE,
     DEFAULT_PII_THRESHOLD_VALUE,
@@ -40,7 +35,7 @@ from datasift.core.operators.quality.pii_and_hap.pii_and_hap_helper import (
     initialize_table_columns,
     update_table,
 )
-from datasift.core.operators.quality.pii_and_hap.ports.outbound.pii_hap_service import PIIHAPServicePort
+from datasift.core.operators.quality.pii_and_hap.services.pii_hap_service import PIIHAPService
 from datasift.utils.core.strings import split_text_into_chunks
 from datasift.utils.infrastructure.logging import get_logger
 
@@ -53,8 +48,7 @@ DEFAULT_BATCH_SIZE = 4
 
 # Provider types
 PROVIDER = "provider"
-PROVIDER_DEFAULT = "ollama"
-PROVIDER_OLLAMA = "ollama"
+PROVIDER_DEFAULT = "litellm"  # Default to LiteLLM (can access Ollama via api_base)
 PROVIDER_WATSONX = "watsonx"
 PROVIDER_LITELLM = "litellm"
 
@@ -97,7 +91,7 @@ class PIIAndHAPAnnotator(AbstractOperator):
     provider_config: dict[str, Any]
     extractor: GuardRailsPIIAndHAPExtractor
     common_log_arguments: dict[str, Any]
-    pii_hap_adapter: PIIHAPServicePort
+    pii_hap_service: PIIHAPService
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
@@ -173,8 +167,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
         # Validate configuration
         self._validate_config()
 
-        # Initialize adapter
-        self.pii_hap_adapter = self._initialize_pii_hap_adapter()
+        # Initialize service
+        self.pii_hap_service = self._initialize_pii_hap_service()
 
         # Initialize extractor and logging
         self.extractor = GuardRailsPIIAndHAPExtractor(config)
@@ -183,46 +177,46 @@ class PIIAndHAPAnnotator(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-    def _initialize_pii_hap_adapter(self) -> PIIHAPServicePort:
-        """Initialize the PII/HAP detection adapter based on configuration.
+    def _initialize_pii_hap_service(self) -> PIIHAPService:
+        """Initialize the PII/HAP detection service using common infrastructure.
 
         Returns:
-            PIIHAPServicePort: Initialized detection adapter
+            PIIHAPService: Initialized detection service
 
         Raises:
-            ValueError: If the adapter cannot be initialized
+            ValueError: If the service cannot be initialized
         """
         try:
             # Extract provider-specific config from provider_config dictionary
-            adapter_config: dict[str, Any] = dict(self.provider_config)
+            service_config: dict[str, Any] = dict(self.provider_config)
 
             # Add provider-specific configuration
             if self.provider == PROVIDER_WATSONX:
                 # Validate required WatsonX parameters
                 required_keys = ["api_key", "url", "container_kind", "container_id"]
-                missing_keys = [key for key in required_keys if key not in adapter_config]
+                missing_keys = [key for key in required_keys if key not in service_config]
                 if missing_keys:
                     raise ValueError(
                         f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
                         f"Missing: {', '.join(missing_keys)}"
                     )
                 # Add default timeout if not specified
-                adapter_config.setdefault("timeout", 300)
-            else:
-                # Ollama and LiteLLM providers need model_name
-                adapter_config.setdefault(OperatorConstants.Config.MODEL_NAME, self.model_name)
+                service_config.setdefault("timeout", 300)
 
-            adapter = PIIHAPAdapterFactory.create(adapter_name=self.provider, **adapter_config)
+            # Create service using common infrastructure
+            service = PIIHAPService(
+                provider=self.provider,
+                model_id=self.model_name,
+                provider_config=service_config,
+            )
             logger.info(
-                f"Successfully initialized {self.provider} adapter",
+                f"Successfully initialized {self.provider} PII/HAP service",
                 extra=self.common_log_arguments,
             )
-            return adapter
+            return service
         except ValueError as e:
-            available_providers = PIIHAPAdapterFactory.list_adapters()
             logger.error(
-                f"Failed to initialize PII/HAP provider '{self.provider}': {e}. "
-                f"Available providers: {available_providers}",
+                f"Failed to initialize PII/HAP service for provider '{self.provider}': {e}",
                 extra=self.common_log_arguments,
             )
             raise
@@ -376,10 +370,13 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 # ------------------------
                 PROVIDER: {
                     OperatorConstants.Misc.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: f"Detection provider ({PROVIDER_OLLAMA}, {PROVIDER_WATSONX}, {PROVIDER_LITELLM})",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        f"Detection provider ({PROVIDER_WATSONX}, {PROVIDER_LITELLM}). "
+                        f"Note: Ollama can be accessed via {PROVIDER_LITELLM} with api_base='http://localhost:11434/v1'"
+                    ),
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
-                    OperatorConstants.Config.VALID_VALUES: PIIHAPAdapterFactory.list_adapters(),
+                    OperatorConstants.Config.VALID_VALUES: [PROVIDER_WATSONX, PROVIDER_LITELLM],
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Config.MODEL_NAME: {
@@ -475,8 +472,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     extra=self.common_log_arguments,
                 )
 
-                # Use adapter for detection
-                response = self.pii_hap_adapter.detect_pii_hap(payload)
+                # Use service for detection
+                response = self.pii_hap_service.detect_pii_hap(payload=payload)
 
                 # Log detection count for this chunk
                 detection_count = len(response.detections) if response.detections else 0

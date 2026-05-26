@@ -1,0 +1,71 @@
+{
+  "flow_name": "pii-detection-litellm-test",
+  "description": "Test PII detection using LiteLLM adapter with OpenAI GPT-4",
+  "global_config": {
+    "disable_validation": true,
+    "force_ingest": true,
+    "storage": "local",
+    "execute_type": "local",
+    "data_storage_type": "local"
+
+  },
+  "flow": [
+    {
+      "name": "ingest_pii_test_document",
+      "type": "ingest_local",
+      "config": {
+        "paths": "tests/fixtures/customer_support_docs/",
+        "include_filter": "txt",
+        "store_binary_content": true,
+        "max_workers": 1
+      }
+    },
+    {
+      "name": "extract_with_docling",
+      "type": "extract_operator",
+      "config": {
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "ingest_pii_test_document"
+      ]
+    },
+    {
+      "name": "detect_pii_with_litellm",
+      "type": "pii_and_hap",
+      "config": {
+        "provider": "litellm",
+        "model_name": "huggingface/meta-llama/Llama-3.3-70B-Instruct",
+        "provider_config": {
+          "api_key": "<api key>"
+        },
+        "pii_threshold": 0.5,
+        "hap_threshold": 0.8,
+        "expected_redactions": [
+          "pii",
+          "hap"
+        ],
+        "pii_list": [
+          "EmailAddress",
+          "PhoneNumber",
+          "SocialSecurityNumber",
+          "CreditCardNumber",
+          "BankAccountNumber",
+          "IPAddress"
+        ],
+        "redaction": false,
+        "redaction_character": "*",
+        "hap_redaction": false,
+        "hap_redaction_character": "#",
+        "display_pii": true,
+        "batch_size": 4,
+        "min_chunk_size_kb": 51200,
+        "max_chunk_size_kb": 102400,
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "extract_with_docling"
+      ]
+    }
+  ]
+}

@@ -2519,7 +2519,7 @@ sequenceDiagram
 
 ### 10. PIIAndHAPAnnotator Hexagonal Architecture Pattern
 
-The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using Large Language Models. It implements hexagonal architecture to support multiple detection providers through a pluggable adapter system.
+The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using shared common-infrastructure ports and adapters. WatsonX uses its native text-detection API, while LiteLLM uses prompt-based chat inference.
 
 ```mermaid
 graph TB
@@ -2527,53 +2527,45 @@ graph TB
         PIIHAP[PIIAndHAPAnnotator]
     end
 
-    subgraph "Adapter Architecture"
-        PORT[PIIHAPServicePort<br/>Interface]
-        FACTORY[PIIHAPAdapterFactory]
-        OLLAMA[Ollama Adapter]
-        WATSONX[WatsonX Adapter]
-        LITELLM[LiteLLM Adapter]
+    subgraph "Service Architecture"
+        SERVICE[PIIHAPService<br/>Business Logic]
+        INFPORT[LLMInferencePort]
+        DETPORT[TextDetectionPort]
+        LITELLM[LiteLLMAdapter]
+        WATSONXDET[WatsonXAdapter<br/>text detection]
     end
 
     subgraph "External Services"
-        OLLAMASRV[Ollama Server<br/>Local LLM]
-        WATSONXAPI[WatsonX.ai API<br/>IBM Cloud]
-        LITELLMAPI[LiteLLM API<br/>100+ Providers]
+        LITELLMAPI[LiteLLM / OpenAI-compatible APIs<br/>100+ Providers]
+        WATSONXAPI[WatsonX.ai /ml/v1/text/detection<br/>IBM Cloud]
     end
 
-    PIIHAP --> PORT
-    PORT --> FACTORY
-    FACTORY --> OLLAMA
-    FACTORY --> WATSONX
-    FACTORY --> LITELLM
+    PIIHAP --> SERVICE
+    SERVICE --> INFPORT
+    SERVICE --> DETPORT
+    INFPORT --> LITELLM
+    DETPORT --> WATSONXDET
 
-    OLLAMA --> OLLAMASRV
-    WATSONX --> WATSONXAPI
     LITELLM --> LITELLMAPI
+    WATSONXDET --> WATSONXAPI
 
     style PIIHAP fill:#ffe1e1
-    style PORT fill:#fff4e1
-    style FACTORY fill:#fff4e1
-    style OLLAMA fill:#e1ffe1
-    style WATSONX fill:#e1ffe1
+    style SERVICE fill:#fff4e1
+    style INFPORT fill:#fff4e1
+    style DETPORT fill:#fff4e1
     style LITELLM fill:#e1ffe1
+    style WATSONXDET fill:#e1ffe1
 ```
 
 **Supported Providers:**
 
-1. **Ollama**: Local LLM models for privacy-sensitive deployments
-   - Local inference without API costs
-   - Models: granite3.1-dense:8b, llama3.2, etc.
-   - Complete data privacy
-   - Offline capability
-
-2. **WatsonX.ai**: IBM's enterprise AI platform
+1. **WatsonX.ai**: IBM's enterprise AI platform
    - IAM-based authentication
    - Enterprise-grade SLAs
    - Compliance certifications
    - Managed infrastructure
 
-3. **LiteLLM**: Multi-provider unified interface
+2. **LiteLLM**: Multi-provider unified interface
    - 100+ LLM providers supported
    - OpenAI (gpt-4, gpt-3.5-turbo)
    - Anthropic (claude-3-opus, claude-3-sonnet)
@@ -2581,19 +2573,6 @@ graph TB
    - Easy provider switching
 
 **Configuration Examples:**
-
-**Ollama (Local):**
-
-```json
-{
-  "operator": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
-  "config": {
-    "provider": "ollama",
-    "model_name": "granite3.1-dense:8b",
-    "provider_config": {}
-  }
-}
-```
 
 **WatsonX.ai (Enterprise):**
 
@@ -2642,13 +2621,13 @@ graph TB
 3. **Provider Flexibility**:
    - Switch providers without code changes
    - Configuration-driven provider selection
-   - Easy testing with local Ollama
+   - Ollama can be accessed through LiteLLM via an OpenAI-compatible `api_base`
    - Production deployment with WatsonX or LiteLLM
 
 4. **Extensibility**:
-   - Add new providers by implementing `PIIHAPServicePort`
-   - Register adapters via decorator pattern
-   - Factory automatically discovers new adapters
+   - Add new providers by extending the shared adapter and port infrastructure
+   - Reuse provider integrations across operators
+   - Keep operator-specific behavior isolated in `PIIHAPService`
 
 **Use Cases:**
 

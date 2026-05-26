@@ -13,20 +13,24 @@ Tests verify the same output format as the enterprise version, including:
 - Column naming conventions
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
 
 from datasift.core.constants.operator_constants import OperatorConstants
+from datasift.core.operators.quality.pii_and_hap.domain.models import (
+    DetectionResult,
+    PIIHAPDetectionResponse,
+)
 from datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator import (
     PIIAndHAPAnnotator,
 )
 
 
-def mock_detect_pii_hap(request_data: dict, model_name: str = "granite4"):
+def mock_detect_pii_hap(payload: dict):
     """Mock detection function that returns deterministic results."""
-    text = request_data.get("input", "")
+    text = payload.get("input", "")
     detections = []
 
     # Check for email addresses
@@ -116,12 +120,9 @@ def mock_detect_pii_hap(request_data: dict, model_name: str = "granite4"):
             }
         )
 
-    # Check for HAP content - check for both straight and curly apostrophes
-    if (
-        "shouldn't even be allowed to speak" in text
-        or "shouldn't even be allowed to speak" in text  # curly apostrophe
-        or "fool" in text.lower()
-    ):
+    # Check for HAP content
+    normalized_text = text.replace("\u2019", "'")
+    if "shouldn't even be allowed to speak" in normalized_text or "fool" in text.lower():
         detections.append(
             {
                 "detection": "HAP",  # Must match METADATA_HAP_FIELD_NAME
@@ -133,31 +134,45 @@ def mock_detect_pii_hap(request_data: dict, model_name: str = "granite4"):
             }
         )
 
-    return {"detections": detections}
+    # Convert dict detections to DetectionResult objects
+    detection_results = [
+        DetectionResult(
+            detection=d["detection"],
+            detection_type=d["detection_type"],
+            score=d["score"],
+            start=d["start"],
+            end=d["end"],
+            text=d.get("text"),  # Include text field for display_pii
+        )
+        for d in detections
+    ]
+
+    # Return PIIHAPDetectionResponse as expected by the service
+    return PIIHAPDetectionResponse(detections=detection_results, input_text=text)
 
 
 @pytest.fixture
-def mock_detection():
-    """Mock the detection function for all tests."""
-    with patch(
-        "datasift.core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter.detect_pii_hap_ollama",
-        side_effect=mock_detect_pii_hap,
-    ):
-        yield
+def mock_pii_hap_service():
+    """Mock the PIIHAPService for all tests."""
+    with patch("datasift.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService") as mock_service_class:
+        mock_service = MagicMock()
+        mock_service.detect_pii_hap.side_effect = mock_detect_pii_hap
+        mock_service_class.return_value = mock_service
+        yield mock_service
 
 
-@patch(
-    "datasift.core.operators.quality.pii_and_hap.adapters.outbound.ollama_adapter.detect_pii_hap_ollama",
-    side_effect=mock_detect_pii_hap,
-)
-def test_both_pii_and_hap_redactions(mock_detect):
+def test_both_pii_and_hap_redactions(mock_pii_hap_service):
     """Test PII and HAP detection with redaction enabled for both."""
     # 1. Construct the operator with the required configuration
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "provider": "ollama",
-            "model_name": "granite4",
+            "provider": "litellm",
+            "model_name": "openai/granite4",
+            "provider_config": {
+                "api_key": "ollama",  # pragma: allowlist secret
+                "api_base": "http://localhost:11434/v1",
+            },
             "redaction": True,
             "redaction_character": "*",
             "hap_redaction": True,
@@ -216,32 +231,36 @@ def test_both_pii_and_hap_redactions(mock_detect):
     expected_pii_ssn_details = [1, 0, 0]
     expected_hap = [0, 0, 1]
 
-    if not expected_pii_bank_account == table["pii_bank_account"].to_pandas().to_list():
+    if expected_pii_bank_account != table["pii_bank_account"].to_pandas().to_list():
         errors.append("Bank Account PII error:" + str(table["pii_bank_account"].to_pandas().to_list()))
-    if not expected_pii_credit_card == table["pii_credit_card"].to_pandas().to_list():
+    if expected_pii_credit_card != table["pii_credit_card"].to_pandas().to_list():
         errors.append("Credit Card PII error:" + str(table["pii_credit_card"].to_pandas().to_list()))
-    if not expected_pii_email_address == table["pii_email_address"].to_pandas().to_list():
+    if expected_pii_email_address != table["pii_email_address"].to_pandas().to_list():
         errors.append("Email Id PII error:" + str(table["pii_email_address"].to_pandas().to_list()))
-    if not expected_pii_ip_address == table["pii_ip_address"].to_pandas().to_list():
+    if expected_pii_ip_address != table["pii_ip_address"].to_pandas().to_list():
         errors.append("Ip Address PII error:" + str(table["pii_ip_address"].to_pandas().to_list()))
-    if not expected_pii_phone_number == table["pii_phone_number"].to_pandas().to_list():
+    if expected_pii_phone_number != table["pii_phone_number"].to_pandas().to_list():
         errors.append("Phone Number PII Error:" + str(table["pii_phone_number"].to_pandas().to_list()))
-    if not expected_pii_ssn_details == table["pii_ssn_details"].to_pandas().to_list():
+    if expected_pii_ssn_details != table["pii_ssn_details"].to_pandas().to_list():
         errors.append("SSN PII Error:" + str(table["pii_ssn_details"].to_pandas().to_list()))
-    if not expected_hap == table["hap"].to_pandas().to_list():
+    if expected_hap != table["hap"].to_pandas().to_list():
         errors.append("HAP Error:" + str(table["hap"].to_pandas().to_list()))
 
     assert not errors, f"Errors: {', '.join(errors)}"
 
 
-def test_pii_extraction_without_redaction_and_displaying_pii(mock_detection):
+def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_service):
     """Test PII extraction without redaction and with display_pii enabled."""
     # 1. Construct the operator
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "provider": "ollama",
-            "model_name": "granite4",
+            "provider": "litellm",
+            "model_name": "openai/granite4",
+            "provider_config": {
+                "api_key": "ollama",  # pragma: allowlist secret
+                "api_base": "http://localhost:11434/v1",
+            },
             "redaction": False,
             "redaction_character": "",
             "hap_redaction": True,
@@ -298,19 +317,19 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_detection):
     expected_hap = [0, 0]
 
     errors = []
-    if not expected_pii_bank_account == table["pii_bank_account"].to_pandas().to_list():
+    if expected_pii_bank_account != table["pii_bank_account"].to_pandas().to_list():
         errors.append("Bank Account PII error:" + str(table["pii_bank_account"].to_pandas().to_list()))
-    if not expected_pii_credit_card == table["pii_credit_card"].to_pandas().to_list():
+    if expected_pii_credit_card != table["pii_credit_card"].to_pandas().to_list():
         errors.append("Credit Card PII error:" + str(table["pii_credit_card"].to_pandas().to_list()))
-    if not expected_pii_email_address == table["pii_email_address"].to_pandas().to_list():
+    if expected_pii_email_address != table["pii_email_address"].to_pandas().to_list():
         errors.append("Email Id PII error:" + str(table["pii_email_address"].to_pandas().to_list()))
-    if not expected_pii_ip_address == table["pii_ip_address"].to_pandas().to_list():
+    if expected_pii_ip_address != table["pii_ip_address"].to_pandas().to_list():
         errors.append("Ip Address PII error:" + str(table["pii_ip_address"].to_pandas().to_list()))
-    if not expected_pii_phone_number == table["pii_phone_number"].to_pandas().to_list():
+    if expected_pii_phone_number != table["pii_phone_number"].to_pandas().to_list():
         errors.append("Phone Number PII Error:" + str(table["pii_phone_number"].to_pandas().to_list()))
-    if not expected_pii_ssn_details == table["pii_ssn_details"].to_pandas().to_list():
+    if expected_pii_ssn_details != table["pii_ssn_details"].to_pandas().to_list():
         errors.append("SSN PII Error:" + str(table["pii_ssn_details"].to_pandas().to_list()))
-    if not expected_hap == table["hap"].to_pandas().to_list():
+    if expected_hap != table["hap"].to_pandas().to_list():
         errors.append("HAP Error:" + str(table["hap"].to_pandas().to_list()))
 
     # 6. Verify detailed PII information (when display_pii is True)
@@ -358,26 +377,30 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_detection):
         }
     ]
 
-    if not expected_email_id_doc1 == table["pii_email_address_info"][0].as_py():
+    if expected_email_id_doc1 != table["pii_email_address_info"][0].as_py():
         errors.append("Doc1: Email Id PII Error")
-    if not expected_phone_number_doc1 == table["pii_phone_number_info"][0].as_py():
+    if expected_phone_number_doc1 != table["pii_phone_number_info"][0].as_py():
         errors.append("Doc1:Phone Number PII Error")
-    if not expected_ssn_doc1 == table["pii_ssn_details_info"][0].as_py():
+    if expected_ssn_doc1 != table["pii_ssn_details_info"][0].as_py():
         errors.append("Doc1:SSN PII Error")
-    if not expected_email_id_doc2 == table["pii_email_address_info"][1].as_py():
+    if expected_email_id_doc2 != table["pii_email_address_info"][1].as_py():
         errors.append("Doc2: Email Id PII Error")
 
     assert not errors, f"Errors: {', '.join(errors)}"
 
 
-def test_pii_extraction_with_redaction(mock_detection):
+def test_pii_extraction_with_redaction(mock_pii_hap_service):
     """Test PII extraction with redaction enabled."""
     # 1. Construct the operator
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "provider": "ollama",
-            "model_name": "granite4",
+            "provider": "litellm",
+            "model_name": "openai/granite4",
+            "provider_config": {
+                "api_key": "ollama",  # pragma: allowlist secret
+                "api_base": "http://localhost:11434/v1",
+            },
             "redaction": True,
             "redaction_character": "*",
             "display_pii": False,
@@ -397,7 +420,7 @@ def test_pii_extraction_with_redaction(mock_detection):
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
     # 3. Run the operator
-    table_list, metadata = operator.transform(input_table)
+    table_list, _ = operator.transform(input_table)
 
     # 4. Verify the content has been redacted
     table = table_list[0]
@@ -410,14 +433,18 @@ def test_pii_extraction_with_redaction(mock_detection):
     assert "*" in redacted_content, "Redaction character should be present"
 
 
-def test_hap_extraction_with_redaction(mock_detection):
+def test_hap_extraction_with_redaction(mock_pii_hap_service):
     """Test HAP extraction with redaction enabled."""
     # 1. Construct the operator
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "provider": "ollama",
-            "model_name": "granite4",
+            "provider": "litellm",
+            "model_name": "openai/granite4",
+            "provider_config": {
+                "api_key": "api-key",  # pragma: allowlist secret
+                "api_base": "http://localhost:11434/v1",
+            },
             "hap_redaction": True,
             "hap_redaction_character": "*",
             "hap_threshold": 0.8,
@@ -437,7 +464,7 @@ def test_hap_extraction_with_redaction(mock_detection):
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
     # 3. Run the operator
-    table_list, metadata = operator.transform(input_table)
+    table_list, _ = operator.transform(input_table)
 
     # 4. Verify HAP detection
     table = table_list[0]
@@ -452,14 +479,18 @@ def test_hap_extraction_with_redaction(mock_detection):
     assert "*" in redacted_content, "HAP content should be redacted"
 
 
-def test_hap_extraction_without_redaction(mock_detection):
+def test_hap_extraction_without_redaction(mock_pii_hap_service):
     """Test HAP extraction without redaction."""
     # 1. Construct the operator
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "provider": "ollama",
-            "model_name": "granite4",
+            "provider": "litellm",
+            "model_name": "openai/granite4",
+            "provider_config": {
+                "api_key": "api-key",  # pragma: allowlist secret
+                "api_base": "http://localhost:11434/v1",
+            },
             "hap_redaction": False,
             "hap_redaction_character": "",
         }
@@ -478,7 +509,7 @@ def test_hap_extraction_without_redaction(mock_detection):
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
     # 3. Run the operator
-    table_list, metadata = operator.transform(input_table)
+    table_list, _ = operator.transform(input_table)
 
     # 4. Verify HAP detection
     table = table_list[0]
@@ -495,14 +526,18 @@ def test_hap_extraction_without_redaction(mock_detection):
     )
 
 
-def test_empty_input_table(mock_detection):
+def test_empty_input_table(mock_pii_hap_service):
     """Test operator with empty input table."""
     # 1. Construct the operator
     operator = PIIAndHAPAnnotator(
         {
             "doc_column": "content",
-            "provider": "ollama",
-            "model_name": "granite4",
+            "provider": "litellm",
+            "model_name": "openai/granite4",
+            "provider_config": {
+                "api_key": "api-key",  # pragma: allowlist secret
+                "api_base": "http://localhost:11434/v1",
+            },
         }
     )
 
@@ -514,7 +549,7 @@ def test_empty_input_table(mock_detection):
     input_table = pa.Table.from_arrays([ids, content, names], names=col_names)
 
     # 3. Run the operator
-    table_list, metadata = operator.transform(input_table)
+    _, metadata = operator.transform(input_table)
 
     # 4. Verify metadata for empty input
     assert metadata["total_docs_count"] == 0
@@ -528,8 +563,12 @@ def test_configuration_validation():
     try:
         operator = PIIAndHAPAnnotator(
             {
-                "provider": "ollama",
-                "model_name": "granite4",
+                "provider": "litellm",
+                "model_name": "openai/granite4",
+                "provider_config": {
+                    "api_key": "api-key",  # pragma: allowlist secret
+                    "api_base": "http://localhost:11434/v1",
+                },
             }
         )
         assert operator.doc_column_name == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
@@ -621,7 +660,7 @@ def test_config_validation_invalid_batch_size():
 def test_config_validation_invalid_chunk_sizes():
     """Test that invalid chunk size configuration raises ValueError."""
     # Test min_chunk_size > max_chunk_size
-    with pytest.raises(ValueError, match="min_chunk_size .* cannot exceed max_chunk_size"):
+    with pytest.raises(ValueError, match=r"min_chunk_size .* cannot exceed max_chunk_size"):
         PIIAndHAPAnnotator(
             {
                 "doc_column": "content",
@@ -657,7 +696,15 @@ def test_config_validation_invalid_chunk_sizes():
 )
 def test_config_validation_valid_edge_cases(config_override, expected_attr, expected_value):
     """Test that valid edge case configurations are accepted."""
-    base_config = {"doc_column": "content"}
+    base_config = {
+        "doc_column": "content",
+        "provider": "litellm",
+        "model_name": "openai/granite4",
+        "provider_config": {
+            "api_key": "api-key",  # pragma: allowlist secret
+            "api_base": "http://localhost:11434/v1",
+        },
+    }
     config = {**base_config, **config_override}
 
     operator = PIIAndHAPAnnotator(config)
@@ -669,7 +716,7 @@ def test_config_validation_valid_edge_cases(config_override, expected_attr, expe
         assert getattr(operator, expected_attr) == expected_value
 
 
-def test_expected_redactions_as_set():
+def test_expected_redactions_as_set(mock_pii_hap_service):
     """Test that expected_redactions is stored as a set with lowercase values."""
     # Test with mixed case input
     operator = PIIAndHAPAnnotator(
@@ -698,7 +745,7 @@ def test_expected_redactions_as_set():
     )
 
 
-def test_expected_redactions_default_value():
+def test_expected_redactions_default_value(mock_pii_hap_service):
     """Test that expected_redactions uses default value when not provided."""
     operator = PIIAndHAPAnnotator(
         {
@@ -712,7 +759,7 @@ def test_expected_redactions_default_value():
     assert "hap" in operator.expected_redactions, "Default should include 'hap'"
 
 
-def test_expected_redactions_membership_check():
+def test_expected_redactions_membership_check(mock_pii_hap_service):
     """Test that set membership checks work correctly for expected_redactions."""
     operator = PIIAndHAPAnnotator(
         {

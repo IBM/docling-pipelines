@@ -10,10 +10,15 @@ providing a unified interface for:
 import json
 import logging
 from typing import Any
+from urllib.parse import urljoin
 
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.ports.llm_embedding_port import LLMEmbeddingPort
 from datasift.core.ports.llm_inference_port import LLMInferencePort
 from datasift.core.ports.text_detection_port import TextDetectionPort
+from datasift.exceptions.datasift_exceptions import DatasiftException, ExternalServiceError
+from datasift.integrations.docling.vlm_pipeline_options_provider import WatsonxPipelineOptionsProvider
+from datasift.integrations.rest_client import RestClient, RestClientConfig, RestMethod
 from datasift.integrations.watsonx.client import WatsonXClient
 
 logger = logging.getLogger(__name__)
@@ -30,6 +35,9 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
         model_name: Default model name (can be overridden per method call)
     """
 
+    # WatsonX API version for text detection endpoint
+    WATSONX_API_VERSION = "2024-07-29"
+
     def __init__(
         self,
         *,
@@ -39,6 +47,7 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
         container_kind: str | None = None,
         timeout: int = 120,
         model_name: str | None = None,
+        project_id: str | None = None,
     ):
         """Initialize unified WatsonX adapter.
 
@@ -49,7 +58,21 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
             container_kind: WatsonX container kind ('project', 'space', or 'catalog')
             timeout: Request timeout in seconds
             model_name: Default model name (optional, can be overridden per method)
+            project_id: Alias for container_id (for backward compatibility)
         """
+        self.api_key = api_key
+        self.api_base = api_base
+
+        # Normalize container_id: accept both container_id and project_id
+        # This centralizes the config normalization logic
+        if container_id is None and project_id is not None:
+            container_id = project_id
+
+        self.container_id = container_id
+        self.container_kind = container_kind
+        self.timeout = timeout
+        self._access_token: str | None = None
+
         self.client = WatsonXClient(
             model_name=model_name or "",  # Can be empty, will be set per method
             api_key=api_key,
@@ -235,14 +258,23 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
         if not text or not text.strip():
             raise ValueError("Input text cannot be empty")
 
-        # Get prompt from kwargs or use default
-        prompt = kwargs.get("prompt", "Detect PII and HAP in the following text:")
+        detector_payload = kwargs.get("detectors")
+        if detector_payload is None:
+            detector_payload = {
+                "pii": {"threshold": 0.5},
+                "hap": {"threshold": 0.8},
+            }
+
+        payload = {
+            OperatorConstants.PIIHAP.INPUT_FIELD: text,
+            "detectors": detector_payload,
+        }
 
         try:
-            result = self.detect_entities(text=text, prompt=prompt)
+            detections = self._call_watsonx_detection_api(payload=payload)
             return {
-                "success": result.get("detected", False),
-                "detections": result.get("entities", []),
+                "success": True,
+                "detections": detections,
                 "error": None,
             }
         except Exception as e:
@@ -285,24 +317,25 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
             raise ValueError("Detection prompt cannot be empty")
 
         try:
-            # Construct the full prompt with text
-            full_prompt = f"{prompt}\n\nText to analyze:\n{text}"
-
-            # Use provided model_name or fall back to default
-            effective_model = model_name or self.model_name
-            if effective_model:
-                self.client.model_name = effective_model
-
-            # Call WatsonX for detection
-            response = self.client.generate(
-                prompt=full_prompt,
-                max_tokens=2000,
-                temperature=0.0,
+            detections = self._call_watsonx_detection_api(
+                payload={
+                    OperatorConstants.PIIHAP.INPUT_FIELD: text,
+                    "detectors": {
+                        "pii": {"threshold": 0.5},
+                        "hap": {"threshold": 0.8},
+                    },
+                }
             )
-
-            # Parse response
-            result = self._parse_detection_response(response)
-            return result
+            return {
+                "detected": bool(detections),
+                "entities": detections,
+                "confidence": 1.0 if detections else 0.0,
+                "raw_response": json.dumps(
+                    {
+                        OperatorConstants.PIIHAP.DETECTIONS_FIELD: detections,
+                    }
+                ),
+            }
 
         except Exception as e:
             logger.error(f"Entity detection failed: {e}")
@@ -352,30 +385,54 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
 
         return results
 
-    def _parse_detection_response(self, response: str) -> dict[str, Any]:
-        """Parse the WatsonX detection response into structured format.
+    def _get_access_token(self) -> str:
+        """Get or refresh IAM access token."""
+        if not self.api_key:
+            raise ValueError("WatsonX API key is required for text detection")
+        if not self._access_token:
+            self._access_token = WatsonxPipelineOptionsProvider._get_iam_access_token(api_key=self.api_key)
+        return self._access_token
 
-        Args:
-            response: Raw response string from WatsonX
+    def _call_watsonx_detection_api(self, *, payload: dict[str, Any]) -> list[dict[str, Any]]:
+        """Call WatsonX native text detection API."""
 
-        Returns:
-            Structured detection result dictionary
-        """
+        if not self.api_base:
+            raise ValueError("WatsonX API base URL is required for text detection")
+        if not self.container_kind or not self.container_id:
+            raise ValueError("container id/ container kind is required for WatsonX detection API")
+
+        # Use urljoin for safe URL construction to prevent injection risks
+        detection_url = urljoin(self.api_base, "/ml/v1/text/detection")
+        params = {"version": self.WATSONX_API_VERSION}
+
+        request_payload = dict(payload)
+        request_payload[f"{self.container_kind}_id"] = self.container_id
+
+        config = RestClientConfig(
+            timeout=self.timeout,
+            retry_max_attempts=3,
+            retry_multiplier=2.0,
+            retry_min_wait=1.0,
+            retry_max_wait=10.0,
+        )
+        client = RestClient(config=config, auth_token=self._get_access_token())
+
         try:
-            # Try to parse as JSON first
-            parsed = json.loads(response)
-            return {
-                "detected": parsed.get("detected", False),
-                "entities": parsed.get("entities", []),
-                "confidence": parsed.get("confidence", 0.0),
-                "raw_response": response,
-            }
-        except json.JSONDecodeError:
-            # If not JSON, return raw response with basic structure
-            logger.warning("Response is not valid JSON, returning raw response")
-            return {
-                "detected": "yes" in response.lower() or "true" in response.lower(),
-                "entities": [],
-                "confidence": 0.5,
-                "raw_response": response,
-            }
+            result = client.call_rest_json(
+                method=RestMethod.POST,
+                endpoint=detection_url,
+                json_data=request_payload,
+                params=params,
+                expected_status_codes=[200],
+            )
+            detections = result.get(OperatorConstants.PIIHAP.DETECTIONS_FIELD, [])
+            return detections if isinstance(detections, list) else []
+        except ExternalServiceError as exc:
+            # Only refresh token on authentication errors (401, 403)
+            # For other errors (network, payload issues), preserve the token
+            if exc.status_code in [401, 403]:
+                self._access_token = None
+            raise DatasiftException(
+                message=f"Failed to call WatsonX detection API: {exc!s}",
+                status_code=exc.status_code or 500,
+            ) from exc

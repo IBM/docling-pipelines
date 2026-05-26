@@ -1,15 +1,8 @@
 """PII and HAP detection adapters.
 
-This module imports all adapters to trigger their registration with the factory.
+This module previously contained operator-specific adapters.
+These have been replaced by the common infrastructure in src/datasift/core/adapters/
+and the PIIHAPService in src/datasift/core/operators/quality/pii_and_hap/services/
 """
 
-# Import adapters to trigger registration
-from .litellm_adapter import LiteLLMAdapter
-from .ollama_adapter import OllamaAdapter
-from .watsonx_adapter import WatsonXAdapter
-
-__all__ = [
-    "LiteLLMAdapter",
-    "OllamaAdapter",
-    "WatsonXAdapter",
-]
+__all__ = []

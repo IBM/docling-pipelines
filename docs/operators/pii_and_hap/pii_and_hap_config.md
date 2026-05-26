@@ -78,25 +78,24 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 **Valid Values:** `true`, `false`
 
 #### 4. `provider` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"ollama"`  
+**Type:** String
+**Required:** No
+**Default:** `"litellm"`
 **Description:** Detection provider to use for PII/HAP analysis.
 
-**Valid Values:** `"ollama"`, `"watsonx"`, `"litellm"`
+**Valid Values:** `"watsonx"`, `"litellm"`
 
 **Examples:**
 ```json
-"provider": "ollama"
 "provider": "watsonx"
 "provider": "litellm"
 ```
 
 #### 5. `model_name` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"granite4"`  
-**Description:** Name of the LLM model to use for detection (primarily for Ollama provider).
+**Type:** String
+**Required:** No
+**Default:** `"granite4"`
+**Description:** Name of the model to use for detection. Required for [`"litellm"`](docs/operators/pii_and_hap/pii_and_hap_config.md) flows and ignored by native WatsonX text detection.
 
 **Examples:**
 ```json

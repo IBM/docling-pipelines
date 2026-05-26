@@ -2,85 +2,123 @@
 
 ## Overview
 
-The PII and HAP Detection operator identifies and annotates sensitive content in documents using Large Language Models (LLMs). It follows hexagonal architecture principles with support for multiple detection providers through a pluggable adapter system.
+The PII and HAP Detection operator identifies and annotates sensitive content in documents using Large Language Models (LLMs). It uses the **common infrastructure architecture** with shared ports and adapters for consistent, maintainable provider integrations.
 
 ## Architecture
 
-The operator implements hexagonal architecture (ports and adapters pattern) to maintain clean separation between business logic and external service integrations:
+The operator implements a service-based architecture that wraps common infrastructure components:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    PIIAndHAPAnnotator                        │
-│                   (Core Operator Logic)                      │
+│                   (Operator - Orchestration)                 │
 └────────────────────────┬────────────────────────────────────┘
-                         │
+                         │ uses
                          ▼
               ┌──────────────────────┐
-              │  PIIHAPServicePort   │
-              │     (Interface)      │
+              │   PIIHAPService      │
+              │  (Business Logic)    │
               └──────────┬───────────┘
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-         ▼               ▼               ▼
-   ┌──────────┐   ┌──────────┐   ┌──────────┐
-   │  Ollama  │   │ WatsonX  │   │ LiteLLM  │
-   │ Adapter  │   │ Adapter  │   │ Adapter  │
-   └────┬─────┘   └────┬─────┘   └────┬─────┘
-        │              │              │
-        ▼              ▼              ▼
-   ┌──────────┐   ┌──────────┐   ┌──────────┐
-   │  Ollama  │   │ WatsonX  │   │ LiteLLM  │
-   │  Server  │   │   API    │   │   API    │
-   └──────────┘   └──────────┘   └──────────┘
+                         │ depends on
+         ┌───────────────┴───────────────┐
+         │                               │
+         ▼                               ▼
+┌─────────────────────┐         ┌─────────────────────┐
+│ LLMInferencePort    │         │ TextDetectionPort   │
+│ (Common Interface)  │         │ (Common Interface)  │
+└──────────┬──────────┘         └──────────┬──────────┘
+           │                               │
+    ┌──────┴──────┐                 ┌─────┴─────┐
+    │             │                 │           │
+    ▼             ▼                 ▼           ▼
+┌─────────┐  ┌─────────┐      ┌─────────┐ ┌──────────┐
+│LiteLLM  │  │WatsonX  │      │WatsonX  │ │ Future   │
+│Inference│  │Inference│      │  Text   │ │ Adapters │
+│Adapter  │  │Adapter  │      │Detection│ │          │
+└─────────┘  └─────────┘      └─────────┘ └──────────┘
 ```
 
 ### Key Components
 
-#### 1. Domain Layer (`domain/`)
-- **PIIDetectionResult**: Represents a single PII detection with type, score, location, and text
-- **HAPDetectionResult**: Represents a single HAP detection with type, score, location, and text
-- **PIIHAPDetectionResponse**: Aggregates all detections for a document
+#### 1. Operator Layer
+- **PIIAndHAPAnnotator**: Orchestrates detection workflow, manages PyArrow tables, handles redaction
 
-#### 2. Port Layer (`ports/outbound/`)
-- **PIIHAPServicePort**: Interface defining the contract for detection services
-  - `detect_pii_hap(payload: dict) -> PIIHAPDetectionResponse`
-  - `cleanup() -> None`
+#### 2. Service Layer
+- **PIIHAPService**: Business logic layer that wraps common ports
+- Implements dual detection paths (WatsonX specialized API vs LiteLLM prompt-based)
+- Handles prompt generation, response parsing, error handling
 
-#### 3. Adapter Layer (`adapters/outbound/`)
-- **OllamaAdapter**: Local LLM detection using Ollama
-- **WatsonXAdapter**: IBM WatsonX.ai detection API
-- **LiteLLMAdapter**: Multi-provider support (OpenAI, Anthropic, Azure, Cohere, Bedrock, Vertex AI, 100+ providers)
-
-#### 4. Factory Pattern (`adapters/outbound/factories/`)
-- **PIIHAPAdapterFactory**: Registry-based factory for creating adapters
-- Supports dynamic adapter registration via `@register_pii_hap_adapter` decorator
+#### 3. Common Infrastructure (`src/datasift/core/adapters/`)
+- **Ports**: Interface contracts (LLMInferencePort, TextDetectionPort)
+- **Adapters**: Provider implementations (WatsonX, LiteLLM)
+- **Factories**: Adapter creation and registration
 
 ## Supported Providers
 
-### 1. Ollama (Local LLM)
+### 1. LiteLLM (Default - Recommended)
 
-**Use Case**: Local development, privacy-sensitive deployments, offline processing
+**Use Case**: Access Ollama and 100+ LLM providers through unified interface
 
-**Configuration**:
+**Configuration for Ollama**:
 ```json
 {
   "operator": "pii_and_hap",
   "config": {
-    "provider": "ollama",
-    "model_name": "granite3.1-dense:8b",
-    "provider_config": {}
+    "provider": "litellm",
+    "model_name": "openai/granite3.1-dense:8b",
+    "provider_config": {
+      "api_key": "${LITELLM_API_KEY}",
+      "api_base": "http://localhost:11434/v1"
+    }
+  }
+}
+```
+
+**Configuration for OpenAI**:
+```json
+{
+  "operator": "pii_and_hap",
+  "config": {
+    "provider": "litellm",
+    "model_name": "gpt-4",
+    "provider_config": {
+      "api_key": "${OPENAI_API_KEY}"
+    }
+  }
+}
+```
+
+**Configuration for Anthropic**:
+```json
+{
+  "operator": "pii_and_hap",
+  "config": {
+    "provider": "litellm",
+    "model_name": "claude-3-opus-20240229",
+    "provider_config": {
+      "api_key": "${ANTHROPIC_API_KEY}"
+    }
   }
 }
 ```
 
 **Requirements**:
-- Ollama server running on `http://localhost:11434`
-- Model pulled: `ollama pull granite3.1-dense:8b`
+- For Ollama: Ollama server running on `http://localhost:11434`
+- For cloud providers: Valid API key for the chosen provider
+
+**Supported Providers** (100+):
+- OpenAI (gpt-4, gpt-3.5-turbo)
+- Anthropic (claude-3-opus, claude-3-sonnet)
+- Azure OpenAI
+- Cohere (command, command-light)
+- AWS Bedrock
+- Google Vertex AI
+- Hugging Face
+- And many more...
 
 ### 2. WatsonX.ai
 
-**Use Case**: Enterprise deployments, IBM Cloud environments, regulated industries
+**Use Case**: Enterprise deployments with IBM WatsonX, specialized detection API
 
 **Configuration**:
 ```json
@@ -89,7 +127,7 @@ The operator implements hexagonal architecture (ports and adapters pattern) to m
   "config": {
     "provider": "watsonx",
     "provider_config": {
-      "api_key": "your-ibm-cloud-api-key", # pragma: allowlist secret
+      "api_key": "${WATSONX_API_KEY}",
       "url": "https://us-south.ml.cloud.ibm.com",
       "container_id": "your-project-id",
       "container_kind": "project"
@@ -103,77 +141,25 @@ The operator implements hexagonal architecture (ports and adapters pattern) to m
 - WatsonX.ai service instance
 - IAM API key with appropriate permissions
 
-### 3. LiteLLM (Multi-Provider)
-
-**Use Case**: Flexible provider selection, cloud-based deployments, production workloads
-
-**Configuration**:
-
-**OpenAI**:
-```json
-{
-  "operator": "pii_and_hap",
-  "config": {
-    "provider": "litellm",
-    "model_name": "gpt-4",
-    "provider_config": {
-      "api_key": "sk-..." # pragma: allowlist secret
-    }
-  }
-}
-```
-
-**Anthropic**:
-```json
-{
-  "operator": "pii_and_hap",
-  "config": {
-    "provider": "litellm",
-    "model_name": "claude-3-opus-20240229",
-    "provider_config": {
-      "api_key": "sk-ant-..." # pragma: allowlist secret
-    }
-  }
-}
-```
-
-**Azure OpenAI**:
-```json
-{
-  "operator": "pii_and_hap",
-  "config": {
-    "provider": "litellm",
-    "model_name": "azure/gpt-4-deployment",
-    "provider_config": {
-      "api_key": "your-azure-key", # pragma: allowlist secret
-      "api_base": "https://your-resource.openai.azure.com"
-    }
-  }
-}
-```
-
-**Supported Providers** (100+):
-- OpenAI (gpt-4, gpt-3.5-turbo)
-- Anthropic (claude-3-opus, claude-3-sonnet)
-- Azure OpenAI
-- Cohere (command, command-light)
-- AWS Bedrock (bedrock/anthropic.claude-v2)
-- Google Vertex AI (vertex_ai/gemini-pro)
-- Hugging Face
-- And many more...
+**Features**:
+- Native `/ml/v1/text/detection` API endpoint
+- IAM token caching (55-minute cache with 5-minute buffer)
+- Automatic token refresh
+- Retry logic with exponential backoff
 
 ## Detection Types
 
 ### PII (Personally Identifiable Information)
 - Email addresses
 - Phone numbers
-- Social Security Numbers
+- Social Security Numbers (SSN)
 - Credit card numbers
-- Addresses
+- IP addresses
+- Bank account numbers
 - Names
+- Addresses
 - Dates of birth
 - Medical record numbers
-- Financial account numbers
 
 ### HAP (Hate, Abuse, and Profanity)
 - Hate speech
@@ -185,29 +171,22 @@ The operator implements hexagonal architecture (ports and adapters pattern) to m
 
 ## Output Format
 
-The operator adds a `pii_hap_detections` column to the PyArrow table with the following structure:
+The operator adds PII/HAP detection columns to the PyArrow table:
 
-```json
-{
-  "detections": [
-    {
-      "detection": "email",
-      "detection_type": "pii",
-      "score": 0.95,
-      "start": 12,
-      "end": 29,
-      "text": "john@example.com"
-    },
-    {
-      "detection": "profanity",
-      "detection_type": "hap",
-      "score": 0.88,
-      "start": 45,
-      "end": 52,
-      "text": "badword"
-    }
-  ]
-}
+```
+Columns added:
+- pii_email_address: Count of email addresses detected
+- pii_phone_number: Count of phone numbers detected
+- pii_ssn_details: Count of SSNs detected
+- pii_credit_card: Count of credit cards detected
+- pii_ip_address: Count of IP addresses detected
+- pii_bank_account: Count of bank accounts detected
+- hap: Count of HAP instances detected
+
+Optional (when display_pii=true):
+- pii_email_address_info: Detailed detection info with text
+- pii_phone_number_info: Detailed detection info with text
+- ... (similar for other PII types)
 ```
 
 ## Configuration Parameters
@@ -216,36 +195,39 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `provider` | string | Yes | - | Detection provider: "ollama", "watsonx", or "litellm" |
-| `model_name` | string | Conditional | - | Model name (required for ollama and litellm) |
+| `provider` | string | No | "litellm" | Detection provider: "watsonx" or "litellm" |
+| `model_name` | string | Conditional | "granite4" | Model name (required for litellm) |
 | `provider_config` | dict | No | {} | Provider-specific configuration |
+| `pii_threshold` | float | No | 0.5 | PII detection confidence threshold (0.0-1.0) |
+| `hap_threshold` | float | No | 0.8 | HAP detection confidence threshold (0.0-1.0) |
+| `redaction` | boolean | No | false | Enable PII redaction in document content |
+| `hap_redaction` | boolean | No | false | Enable HAP redaction in document content |
+| `display_pii` | boolean | No | false | Include actual PII values in output columns |
+| `expected_redactions` | list | No | ["pii", "hap"] | Types to detect/redact |
+| `batch_size` | int | No | 4 | Parallel processing batch size |
 
 ### Provider-Specific Parameters
 
-#### Ollama
-- No additional parameters required
-- Uses local Ollama server at `http://localhost:11434`
+#### LiteLLM
+- `api_key`: Provider API key (optional, can use environment variables)
+- `api_base`: Custom API base URL (required for Ollama: `http://localhost:11434/v1`)
+- Additional provider-specific parameters (temperature, max_tokens, etc.)
 
 #### WatsonX
 - `api_key`: IBM Cloud API key (required)
 - `url`: WatsonX.ai service URL (required)
-- `container_id`: Project or space or Catalog ID (required)
-- `container_kind`: "project" or "space" or "catalog" (required)
+- `container_id`: Project/Space/Catalog ID (required)
+- `container_kind`: "project", "space", or "catalog" (required)
 - `timeout`: Request timeout in seconds (optional, default: 300)
-
-#### LiteLLM
-- `api_key`: Provider API key (optional, can use environment variables)
-- `api_base`: Custom API base URL (optional)
-- Additional provider-specific parameters (temperature, max_tokens, etc.)
 
 ## Example Flows
 
-### Basic PII Detection with Ollama
+### Basic PII Detection with Ollama (via LiteLLM)
 
 ```json
 {
   "flow_name": "pii-detection-ollama",
-  "description": "Basic PII detection pipeline using Ollama",
+  "description": "Basic PII detection pipeline using Ollama via LiteLLM",
   "global_config": {
     "doc_column": "content",
     "disable_validation": false,
@@ -272,8 +254,12 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
       "type": "pii_and_hap",
       "depends_on": ["extract"],
       "config": {
-        "provider": "ollama",
-        "model_name": "granite3.1-dense:8b"
+        "provider": "litellm",
+        "model_name": "openai/granite3.1-dense:8b",
+        "provider_config": {
+          "api_key": "${LITELLM_API_KEY}",
+          "api_base": "http://localhost:11434/v1"
+        }
       }
     }
   ]
@@ -318,7 +304,7 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
       "config": {
         "provider": "watsonx",
         "provider_config": {
-          "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
+          "api_key": "${WATSONX_API_KEY}",
           "url": "https://us-south.ml.cloud.ibm.com",
           "container_id": "${WATSONX_PROJECT_ID}",
           "container_kind": "project"
@@ -332,24 +318,26 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
 ## Best Practices
 
 ### 1. Provider Selection
-- **Development**: Use Ollama for fast local testing
+- **Development**: Use LiteLLM with Ollama for fast local testing
 - **Production**: Use WatsonX for enterprise compliance or LiteLLM for flexibility
-- **Cost-sensitive**: Use Ollama to avoid API costs
+- **Cost-sensitive**: Use LiteLLM with Ollama to avoid API costs
 
 ### 2. Model Selection
-- **Ollama**: Use `granite3.1-dense:8b` or `llama3.2` for balanced performance
-- **LiteLLM**: Use `gpt-4` for highest accuracy, `gpt-3.5-turbo` for cost efficiency
+- **Ollama (via LiteLLM)**: Use `granite3.1-dense:8b` or `llama3.2` for balanced performance
+- **OpenAI**: Use `gpt-4` for highest accuracy, `gpt-3.5-turbo` for cost efficiency
 - **WatsonX**: Use recommended models from IBM documentation
 
 ### 3. Threshold Configuration
 - Default PII threshold: 0.5 (50% confidence)
 - Default HAP threshold: 0.8 (80% confidence)
 - Adjust based on false positive/negative tolerance
+- Lower thresholds = more detections (higher recall, lower precision)
+- Higher thresholds = fewer detections (lower recall, higher precision)
 
 ### 4. Performance Optimization
-- Batch documents when possible
+- Use `batch_size` parameter to control parallel processing
 - Use local Ollama for high-volume processing
-- Consider caching for repeated content
+- Consider chunking for very large documents
 - Monitor API rate limits for cloud providers
 
 ### 5. Security
@@ -357,6 +345,7 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
 - Use environment variables for sensitive configuration
 - Rotate API keys regularly
 - Use IAM roles when possible (WatsonX)
+- Enable redaction for sensitive data in logs
 
 ## Troubleshooting
 
@@ -364,19 +353,27 @@ The operator adds a `pii_hap_detections` column to the PyArrow table with the fo
 ```
 Error: Failed to connect to Ollama server
 ```
-**Solution**: Ensure Ollama is running: `ollama serve`
+**Solution**: 
+1. Ensure Ollama is running: `ollama serve`
+2. Verify model is pulled: `ollama pull granite3.1-dense:8b`
+3. Check `api_base` is set to `http://localhost:11434/v1`
 
 ### WatsonX Authentication Errors
 ```
 Error: Invalid IAM token
 ```
-**Solution**: Verify API key and ensure it has WatsonX.ai permissions
+**Solution**: 
+1. Verify API key is correct
+2. Ensure API key has WatsonX.ai permissions
+3. Check container_id and container_kind are correct
 
 ### LiteLLM API Key Errors
 ```
 Error: API key required for openai provider
 ```
-**Solution**: Set environment variable or pass `api_key` in `provider_config`
+**Solution**: 
+1. Set environment variable: `export OPENAI_API_KEY=your-openai-api-key`
+2. Or pass `api_key` in `provider_config`
 
 ### Model Not Found
 ```
@@ -384,28 +381,64 @@ Error: Model 'granite3.1-dense:8b' not found
 ```
 **Solution**: Pull the model: `ollama pull granite3.1-dense:8b`
 
+### Configuration Errors
+```
+Error: provider must be one of: watsonx, litellm
+```
+**Solution**: Ollama is not a direct provider. Use `provider="litellm"` with `api_base="http://localhost:11434/v1"`
+
 ## Testing
 
 The operator includes comprehensive test coverage:
 
 - **Unit Tests**: `tests/unit/operators/pii_and_hap/`
-  - Adapter tests for each provider
+  - Operator tests (19 tests)
+  - Service layer tests
   - Domain model tests
-  - Factory pattern tests
-  - Integration tests
+
+- **Adapter Tests**: `tests/unit/core/adapters/`
+  - WatsonX adapter tests
+  - LiteLLM adapter tests
 
 Run tests:
 ```bash
 # From project root
 source .venv/bin/activate
-export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
-uv run pytest tests/unit/operators/pii_and_hap/ -v
+
+# All PII/HAP tests
+pytest tests/unit/operators/pii_and_hap/ -v
+
+# Service layer tests
+pytest tests/unit/operators/pii_and_hap/test_pii_hap_service.py -v
+
+# Common adapter tests
+pytest tests/unit/core/adapters/watsonx/ -v
+pytest tests/unit/core/adapters/litellm/ -v
 ```
+
+## Migration from Old Architecture
+
+### New Configuration (Common Infrastructure)
+```json
+{
+  "provider": "litellm",
+  "model_name": "openai/granite4",
+  "provider_config": {
+    "api_key": "${LITELLM_API_KEY}",
+    "api_base": "http://localhost:11434/v1"
+  }
+}
+```
+
+**Key Changes:**
+1. Ollama is accessed via LiteLLM (not a direct provider)
+2. Model name uses OpenAI-compatible format: `openai/model-name`
+3. Must specify `api_base` for Ollama endpoint
+4. Default provider changed from "ollama" to "litellm"
 
 ## Related Documentation
 
-- [PII and HAP Configuration Guide](pii_and_hap_config.md) - Complete configuration reference with all parameters
-- [Operator README](../../../README.md) - Detailed technical documentation
-- [Architecture Guide](../../../ARCHITECTURE.md) - Hexagonal architecture patterns
-- [Ollama Setup](../../../README.md#embeddings-operator--ollama-setup) - Ollama installation guide
-- [LiteLLM Documentation](../../../src/datasift/core/operators/functional/embeddings/adapters/outbound/README_LITELLM.md) - LiteLLM provider guide
+- [Operator README](../../../src/datasift/core/operators/quality/pii_and_hap/README.md) - Technical implementation details
+- [Common Infrastructure](../../../src/datasift/core/adapters/README.md) - Shared ports and adapters
+- [Architecture Guide](../../../ARCHITECTURE.md) - Overall system architecture
+- [Phase 2 Refactoring Guide](../../../PHASE2_PII_HAP_REFACTORING.md) - Migration details
