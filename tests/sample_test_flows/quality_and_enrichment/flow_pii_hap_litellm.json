@@ -19,7 +19,7 @@
     },
     {
       "name": "extract_with_docling",
-      "type": "extract_docling",
+      "type": "extract_operator",
       "config": {
         "doc_column": "content"
       },
@@ -34,7 +34,8 @@
         "provider": "litellm",
         "model_name": "<model name>",
         "provider_config": {
-          "api_key": "<api key>"
+          "api_key": "<api key>",
+          "api_base": "http://localhost:11434/v1"
         },
         "pii_threshold": 0.5,
         "hap_threshold": 0.8,

@@ -27,7 +27,7 @@
         "provider": "litellm",
         "provider_config": {
           "api_base": "http://localhost:11434/v1",
-          "api_key": "ollama" # pragma: allowlist secret
+          "api_key": "<api-key>"
         },
         "model_id": "openai/granite4:latest",
         "document_types": {

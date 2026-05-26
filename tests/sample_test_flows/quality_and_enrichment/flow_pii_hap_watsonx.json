@@ -21,7 +21,7 @@
     },
     {
       "name": "extract",
-      "type": "extract_docling",
+      "type": "extract_operator",
       "config": {
         "doc_column": "content"
       },
