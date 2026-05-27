@@ -1108,8 +1108,8 @@ Generates vector embeddings:
   "type": "embeddings",
   "depends_on": ["chunk"],
   "config": {
-    "embeddings_type": "ollama",
-    "embeddings_model_id": "granite4:latest",
+    "provider": "litellm",
+    "model_id": "openai/granite4:latest",
     "embeddings_column": "embeddings",
     "overlap_ratio": 0.2,
     "doc_column": "content"
@@ -1437,8 +1437,8 @@ cat > my-first-flow.json << 'EOF'
       "type": "embeddings",
       "depends_on": ["chunk"],
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "granite4:latest"
+        "provider": "litellm",
+        "model_id": "openai/granite4:latest"
       }
     },
     {
@@ -1931,8 +1931,8 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "type": "embeddings",
                 "depends_on": ["chunk_documents"],
                 "config": {
-                    "embeddings_type": "ollama",
-                    "embeddings_model_id": "nomic-embed-text",
+                    "provider": "litellm",
+                    "model_id": "openai/nomic-embed-text",
                     "embeddings_column": "content"
                 }
             },

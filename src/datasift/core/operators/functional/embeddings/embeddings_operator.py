@@ -1,8 +1,8 @@
 """
 Embeddings Operator
 
-This operator generates vector embeddings for text content using various embedding providers.
-It supports multiple providers (Ollama, OpenAI, etc.) and handles chunking of long text.
+This operator generates vector embeddings for text content using LLM providers.
+Supports watsonx and litellm (which provides access to 100+ providers including Ollama, HuggingFace, OpenAI, etc.).
 """
 
 import json
@@ -13,8 +13,7 @@ from typing import Any
 import numpy as np
 import pyarrow as pa
 
-# Import adapters to trigger registration
-import datasift.core.operators.functional.embeddings.adapters.outbound  # noqa: F401
+from datasift.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from datasift.core.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
@@ -24,24 +23,15 @@ from datasift.core.constants.constants import (
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.functional.doc_id_hash import DocIdHashOperator
-from datasift.core.operators.functional.embeddings.adapters.outbound.factories.llm_adapter_factory import (
-    LLMAdapterFactory,
-)
-from datasift.core.operators.functional.embeddings.ports.outbound.llm_service import LLMServicePort
 from datasift.core.operators.operator_utils import OperatorUtils
+from datasift.core.ports.llm_embedding_port import LLMEmbeddingPort
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.utils.core.memmap_file_utils import write_content_to_file
-
-# Import TransformUtils from centralized location
 from datasift.utils.data.transform import TransformUtils
 from datasift.utils.infrastructure.filesystem import get_data_path
 from datasift.utils.infrastructure.logging import get_logger
-from datasift.utils.summarization_util import SummarizationUtil
 
 logger = get_logger()
-
-# Supported embeddings providers (for backward compatibility)
-SUPPORTED_EMBEDDINGS_TYPES: list[str] = LLMAdapterFactory.list_adapters()
 
 # Overlap ratio for chunking
 OVERLAP_RATIO_KEY: str = "overlap_ratio"
@@ -49,19 +39,22 @@ OVERLAP_RATIO_DEFAULT: float = 0.2
 OVERLAP_RATIO_MIN: float = 0.0
 OVERLAP_RATIO_MAX: float = 0.5
 
-# Embeddings type configuration key
-EMBEDDINGS_TYPE_KEY: str = "embeddings_type"
-EMBEDDINGS_TYPE_DEFAULT: str = "ollama"
+# Token limit for chunking
+TOKEN_LIMIT_KEY: str = "token_limit"
+TOKEN_LIMIT_DEFAULT: int = 8192
+
+# Provider configuration key
+PROVIDER_KEY: str = "provider"
+PROVIDER_DEFAULT: str = "litellm"
 
 
 class EmbeddingsOperator(AbstractOperator):
     """
-    Operator for generating embeddings using various embedding providers.
+    Operator for generating embeddings using LLM providers.
 
-    This operator processes documents and generates vector embeddings using different
-    embedding providers. It supports:
-    - Multiple embedding providers (Ollama, HuggingFace, LiteLLM)
-    - Multiple embedding models per provider
+    This operator processes documents and generates vector embeddings using
+    watsonx or litellm providers. It supports:
+    - Multiple embedding providers (watsonx, litellm)
     - Automatic chunking for long text
     - Pre-chunked content processing
     - Document hash generation
@@ -69,23 +62,17 @@ class EmbeddingsOperator(AbstractOperator):
     - Batch processing for improved performance
 
     Supported Providers:
-    - ollama: Local Ollama models (nomic-embed-text, llama2, etc.)
-    - huggingface: HuggingFace models (all-MiniLM-L6-v2, mpnet-base-v2, etc.)
-    - litellm: 100+ providers via LiteLLM (OpenAI, Azure, Anthropic, Cohere, etc.)
+    - watsonx: IBM watsonx.ai embedding models
+    - litellm: 100+ providers via LiteLLM including:
+      * Ollama (via OpenAI-compatible API with model prefix 'openai/')
+      * HuggingFace (via API with model prefix 'huggingface/')
+      * OpenAI, Anthropic, Cohere, AWS Bedrock, Google Vertex AI, and 90+ more
 
-    LiteLLM Provider Support:
-    Through the litellm provider, you can access embeddings from:
-    - OpenAI (text-embedding-3-small, text-embedding-ada-002)
-    - Azure OpenAI
-    - Cohere (embed-english-v3.0, embed-multilingual-v3.0)
-    - Bedrock (amazon.titan-embed-text-v1)
-    - Vertex AI (textembedding-gecko)
-    - And 100+ more providers
-
-    To add a new provider:
-    1. Create a new adapter class implementing LLMServicePort
-    2. Register it using @register_llm_adapter decorator
-    3. The provider will be automatically available through the factory pattern
+    LiteLLM Provider Examples:
+    - OpenAI: text-embedding-3-small, text-embedding-ada-002
+    - Ollama: openai/nomic-embed-text, openai/llama2
+    - HuggingFace: huggingface/sentence-transformers/all-MiniLM-L6-v2
+    - Azure OpenAI, Cohere, Bedrock, Vertex AI, etc.
     """
 
     short_name: str = OperatorConstants.Operators.EMBEDDINGS
@@ -98,20 +85,25 @@ class EmbeddingsOperator(AbstractOperator):
 
         Args:
             config: Configuration dictionary containing:
-                - embeddings_type: Provider type ("ollama", "openai", etc.)
-                - embeddings_model_id: Model name for the selected provider
+                - provider: Provider type ("watsonx" or "litellm", default: "litellm")
+                - model_id: Model identifier in <provider>/<model_id> format for litellm (e.g., "openai/nomic-embed-text")
+                - provider_config: Provider-specific configuration dictionary
                 - embeddings_column: Output column name for embeddings (default: "embeddings")
                 - overlap_ratio: Overlap ratio for chunking long text (default: 0.2)
+                - token_limit: Maximum token limit for chunking (default: 8192)
                 - doc_column: Input column containing document content (default: "content")
                 - doc_id_hash_column: Column for document hash (default: "doc_id_hash")
         """
         super().__init__(config)
 
         # Provider configuration
-        self.embeddings_type: str = config.get(EMBEDDINGS_TYPE_KEY, EMBEDDINGS_TYPE_DEFAULT)
+        self.provider: str = config.get(PROVIDER_KEY, PROVIDER_DEFAULT).lower()
 
         # Model configuration
-        self.embeddings_model_id: str = config.get(OperatorConstants.Config.EMBEDDINGS_MODEL_ID, "granite4")
+        self.model_id: str = config.get(OperatorConstants.Config.MODEL_ID, "openai/nomic-embed-text")
+
+        # Provider-specific configuration
+        self.provider_config: dict[str, Any] = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
         # Column names
         self.embeddings_column: str = config.get(
@@ -127,6 +119,7 @@ class EmbeddingsOperator(AbstractOperator):
 
         # Chunking configuration
         self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, OVERLAP_RATIO_DEFAULT)
+        self.token_limit: int = config.get(TOKEN_LIMIT_KEY, TOKEN_LIMIT_DEFAULT)
 
         # Logging
         self.common_log_arguments: dict[str, Any] = {
@@ -134,40 +127,37 @@ class EmbeddingsOperator(AbstractOperator):
             DatasiftConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-        # Initialize embedding adapter
-        self.embedding_adapter: LLMServicePort = self._initialize_embedding_adapter()
+        # Initialize embedding adapter using unified factory
+        self.embedding_adapter: LLMEmbeddingPort = self._initialize_embedding_adapter()
 
         logger.info(
-            f"Initialized EmbeddingsOperator with adapter: {self.embeddings_type}, model: {self.embeddings_model_id}",
+            f"Initialized EmbeddingsOperator with provider: {self.provider}, model: {self.model_id}",
             extra=self.common_log_arguments,
         )
 
-    def _initialize_embedding_adapter(self) -> LLMServicePort:
+    def _initialize_embedding_adapter(self) -> LLMEmbeddingPort:
         """
-        Initialize the appropriate embedding adapter based on embeddings_type.
+        Initialize the appropriate embedding adapter based on provider.
 
-        This method creates and returns the appropriate adapter using LLMAdapterFactory.
-        The adapter is stored as self.embedding_adapter for reuse across multiple
-        embedding operations.
+        Uses the unified LLMAdapterFactory to create adapters for watsonx or litellm providers.
 
         Returns:
-            The initialized embedding adapter for the configured adapter type
+            The initialized embedding adapter implementing LLMEmbeddingPort
 
         Raises:
-            DatasiftException: If the adapter is unsupported or initialization fails
+            DatasiftException: If the provider is unsupported or initialization fails
         """
         try:
-            # Extract adapter_config if present in config
-            adapter_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
-
-            # Create adapter using factory
-            adapter = LLMAdapterFactory.create(
-                adapter_name=self.embeddings_type, model_name=self.embeddings_model_id, **adapter_config
+            # Create adapter using unified factory
+            adapter = LLMAdapterFactory.create_embedding_adapter(
+                provider=self.provider,
+                model_id=self.model_id,
+                provider_config=self.provider_config,
             )
 
             return adapter
         except Exception as e:
-            raise DatasiftException(f"Failed to initialize embedding adapter '{self.embeddings_type}': {e!s}") from e
+            raise DatasiftException(f"Failed to initialize embedding adapter '{self.provider}': {e!s}") from e
 
     @staticmethod
     def get_required_features() -> list[str]:
@@ -185,14 +175,16 @@ class EmbeddingsOperator(AbstractOperator):
         """
         super().validate(errors, warnings, available_features)
 
-        # Validate embeddings type
-        if self.should_validate_field(field_value=self.embeddings_type):
-            if not isinstance(self.embeddings_type, str):
-                errors.append(f"embeddings_type must be a string, got {type(self.embeddings_type)}")
-            elif self.embeddings_type not in SUPPORTED_EMBEDDINGS_TYPES:
-                errors.append(
-                    f"embeddings_type must be one of {SUPPORTED_EMBEDDINGS_TYPES}, got '{self.embeddings_type}'"
-                )
+        # Validate provider
+        if self.should_validate_field(field_value=self.provider):
+            if not isinstance(self.provider, str):
+                errors.append(f"provider must be a string, got {type(self.provider)}")
+            else:
+                supported_providers = LLMAdapterFactory.get_supported_providers(capability="embedding")
+                if self.provider not in supported_providers:
+                    errors.append(
+                        f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'"
+                    )
 
         # Validate overlap ratio
         if self.should_validate_field(field_value=self.overlap_ratio):
@@ -201,16 +193,22 @@ class EmbeddingsOperator(AbstractOperator):
             elif not (OVERLAP_RATIO_MIN <= self.overlap_ratio <= OVERLAP_RATIO_MAX):
                 errors.append(f"overlap_ratio must be between {OVERLAP_RATIO_MIN} and {OVERLAP_RATIO_MAX}")
 
+        # Validate token limit
+        if self.should_validate_field(field_value=self.token_limit):
+            if not isinstance(self.token_limit, int):
+                errors.append(f"token_limit must be an integer, got {type(self.token_limit)}")
+            elif self.token_limit <= 0:
+                errors.append(f"token_limit must be positive, got {self.token_limit}")
+
         # Validate model ID
-        if self.should_validate_field(field_value=self.embeddings_model_id):
-            if not self.embeddings_model_id or not isinstance(self.embeddings_model_id, str):
-                errors.append("embeddings_model_id must be a non-empty string")
+        if self.should_validate_field(field_value=self.model_id):
+            if not self.model_id or not isinstance(self.model_id, str):
+                errors.append("model_id must be a non-empty string")
 
         # Validate provider_config parameters
-        provider_config = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
-        if self.should_validate_field(field_value=provider_config) and isinstance(provider_config, dict):
+        if self.should_validate_field(field_value=self.provider_config) and isinstance(self.provider_config, dict):
             # Validate max_concurrent_requests if present
-            max_concurrent_requests = provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
+            max_concurrent_requests = self.provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
             if max_concurrent_requests is not None and self.should_validate_field(field_value=max_concurrent_requests):
                 if not isinstance(max_concurrent_requests, int):
                     errors.append(
@@ -222,7 +220,7 @@ class EmbeddingsOperator(AbstractOperator):
                     )
 
             # Validate batch_size if present
-            batch_size = provider_config.get(OperatorConstants.Config.BATCH_SIZE)
+            batch_size = self.provider_config.get(OperatorConstants.Config.BATCH_SIZE)
             if batch_size is not None and self.should_validate_field(field_value=batch_size):
                 if not isinstance(batch_size, int):
                     errors.append(f"provider_config.batch_size must be an integer, got {type(batch_size).__name__}")
@@ -242,7 +240,7 @@ class EmbeddingsOperator(AbstractOperator):
             OperatorConstants.Misc.CATEGORY: OperatorCategory.Functional.value,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: EmbeddingsOperator.is_available(),
             OperatorConstants.Misc.LABEL: "Embeddings",
-            OperatorConstants.Config.DESCRIPTION: "Generate vector embeddings using Ollama, HuggingFace, or 100+ providers via LiteLLM (OpenAI, Azure, Cohere, watsonx.ai, etc.)",
+            OperatorConstants.Config.DESCRIPTION: "Generate vector embeddings using watsonx or litellm (100+ providers including Ollama, HuggingFace, OpenAI, Azure, Cohere, etc.)",
             OperatorConstants.Config.FEATURES: {
                 OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT: {
                     OperatorConstants.Misc.NAME: "Embeddings",
@@ -263,18 +261,18 @@ class EmbeddingsOperator(AbstractOperator):
                 },
             },
             OperatorConstants.Config.ATTRIBUTES: {
-                EMBEDDINGS_TYPE_KEY: {
-                    OperatorConstants.Misc.NAME: "Embeddings Provider",
-                    OperatorConstants.Config.DESCRIPTION: "Embedding provider: ollama (local), huggingface (local/remote), litellm (100+ providers including OpenAI, Azure, Cohere)",
+                PROVIDER_KEY: {
+                    OperatorConstants.Misc.NAME: "Provider",
+                    OperatorConstants.Config.DESCRIPTION: "Embedding provider: watsonx (IBM watsonx.ai) or litellm (100+ providers including Ollama, HuggingFace, OpenAI, Azure, Cohere)",
                     OperatorConstants.Config.REQUIRED: True,
-                    OperatorConstants.Config.DEFAULT: EMBEDDINGS_TYPE_DEFAULT,
+                    OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.Config.EMBEDDINGS_MODEL_ID: {
-                    OperatorConstants.Misc.NAME: "Embeddings Model",
-                    OperatorConstants.Config.DESCRIPTION: "Model name for the selected provider",
+                OperatorConstants.Config.MODEL_ID: {
+                    OperatorConstants.Misc.NAME: "Model ID",
+                    OperatorConstants.Config.DESCRIPTION: "Model identifier in <provider>/<model_id> format for litellm (e.g., 'openai/nomic-embed-text', 'huggingface/sentence-transformers/all-MiniLM-L6-v2'). For watsonx, use the model name directly.",
                     OperatorConstants.Config.REQUIRED: True,
-                    OperatorConstants.Config.DEFAULT: "llama2",
+                    OperatorConstants.Config.DEFAULT: "openai/nomic-embed-text",
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Columns.EMBEDDINGS_COLUMN: {
@@ -293,20 +291,49 @@ class EmbeddingsOperator(AbstractOperator):
                     OperatorConstants.Filtering.MAX_VALUE: OVERLAP_RATIO_MAX,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
                 },
+                TOKEN_LIMIT_KEY: {
+                    OperatorConstants.Misc.NAME: "Token Limit",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum token limit for text chunking. Most embedding models support 512-8192 tokens. Adjust based on your model's context window.",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: TOKEN_LIMIT_DEFAULT,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
                     OperatorConstants.Config.DESCRIPTION: (
                         "Provider-specific configuration parameters. "
-                        "Ollama: max_concurrent_requests (int, default: 8) - maximum concurrent requests. "
-                        "HuggingFace: batch_size (int, default: 32), use_local (bool), api_token (str), device (str). "
-                        "LiteLLM: batch_size (int, default: 32), api_key (str), api_base (str). "
-                        "Watsonx: batch_size (int, default: 800), api_key (str), api_base (str), container_kind (str), container_id (str), enable_rate_limiting (bool)."
+                        "LiteLLM: api_key (str), api_base (str, e.g., 'http://localhost:11434/v1' for Ollama). "
+                        "Watsonx: api_key (str), api_base (str), container_kind (str), container_id (str), enable_rate_limiting (bool)."
                     ),
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
             },
         }
+
+    @staticmethod
+    def _build_chunk_text_for_embedding(chunk: dict[str, Any]) -> str:
+        """
+        Prepends summary to chunk text if summary is present.
+        chunk text will be generated as : abstract: <summary>\ncontent: <chunk_text>
+
+        Args:
+            chunk: Dictionary containing chunk data with 'chunk' and optionally 'summary' keys
+
+        Returns:
+            Formatted chunk text with optional summary prefix
+        """
+        chunk_text = chunk.get(OperatorConstants.Columns.CHUNK, "")
+
+        if not chunk_text:
+            return ""
+
+        # If summary exists, prepend it to the chunk text
+        summary = chunk.get(OperatorConstants.Columns.SUMMARY)
+        if summary:
+            return f"abstract: {summary}\ncontent: {chunk_text}"
+
+        return chunk_text
 
     def _generate_document_hash(self, content: str) -> str:
         """
@@ -344,8 +371,8 @@ class EmbeddingsOperator(AbstractOperator):
                 extra=self.common_log_arguments,
             )
             raise DatasiftException(
-                f"Chunked text exceeds the configured embeddings model's (Provider: {self.embeddings_type}, "
-                f"Model: {model_name}) context length.Add Chunking operator and/or adjust the chunk_type/chunk_size"
+                f"Chunked text exceeds the configured embeddings model's (Provider: {self.provider}, "
+                f"Model: {model_name}) context length. Add Chunking operator and/or adjust the chunk_type/chunk_size"
                 " in Chunking operator and the Embeddings model ID in Embeddings operator to avoid this error."
             ) from error
         else:
@@ -360,7 +387,7 @@ class EmbeddingsOperator(AbstractOperator):
         """
         Generate embeddings for text using the configured provider with batch processing.
 
-        This method handles chunking of long text based on model token limits
+        This method handles chunking of long text based on approximate token limits
         and generates embeddings using efficient batch processing.
 
         Args:
@@ -374,8 +401,9 @@ class EmbeddingsOperator(AbstractOperator):
         Raises:
             DatasiftException: If embedding generation fails
         """
-        # Get token limit from adapter
-        token_limit: int = self.embedding_adapter.get_model_token_limit()
+        # Use configured token limit (default: 8192 tokens)
+        # Most embedding models support 512-8192 tokens
+        token_limit: int = self.token_limit
 
         # Approximate: 1 token ≈ 4 characters
         char_limit: int = token_limit * 4
@@ -428,8 +456,8 @@ class EmbeddingsOperator(AbstractOperator):
 
         if texts_to_embed:
             try:
-                # Use batch processing for better performance
-                batch_embeddings = self.embedding_adapter.generate_embeddings_batch(texts_to_embed)
+                # Use batch processing for better performance with keyword arguments
+                batch_embeddings = self.embedding_adapter.generate_embeddings_batch(texts=texts_to_embed)
 
                 # Map embeddings back to original indices
                 for i, embedding in enumerate(batch_embeddings):
@@ -441,8 +469,8 @@ class EmbeddingsOperator(AbstractOperator):
         # Process chunked texts
         for idx, chunks in chunked_texts.items():
             try:
-                # Generate embeddings for chunks in batch
-                chunk_embeddings = self.embedding_adapter.generate_embeddings_batch(chunks)
+                # Generate embeddings for chunks in batch with keyword arguments
+                chunk_embeddings = self.embedding_adapter.generate_embeddings_batch(texts=chunks)
 
                 # Average the chunk embeddings
                 avg_embedding: list[float] = np.mean(chunk_embeddings, axis=0).tolist()
@@ -551,7 +579,7 @@ class EmbeddingsOperator(AbstractOperator):
         for chunk in chunked_content:
             if isinstance(chunk, dict):
                 # Chunk is a dictionary with 'chunk' key
-                chunk_text = SummarizationUtil.build_chunk_text_for_embedding(chunk=chunk)
+                chunk_text = self._build_chunk_text_for_embedding(chunk=chunk)
                 if chunk_text:
                     texts.append(chunk_text)
             elif isinstance(chunk, str):
@@ -687,7 +715,7 @@ class EmbeddingsOperator(AbstractOperator):
         # Generate embeddings using configured provider
         doc_embeddings: list[list[float]] = self._create_embeddings(
             text=texts,
-            model_name=self.embeddings_model_id,
+            model_name=self.model_id,
             overlap_ratio=self.overlap_ratio,
         )
 
@@ -720,7 +748,7 @@ class EmbeddingsOperator(AbstractOperator):
             tuple: (list of output tables, metadata dictionary)
         """
         logger.info(
-            f"Starting embeddings generation with provider: {self.embeddings_type}, model: {self.embeddings_model_id}",
+            f"Starting embeddings generation with provider: {self.provider}, model: {self.model_id}",
             extra=self.common_log_arguments,
         )
 

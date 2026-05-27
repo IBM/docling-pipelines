@@ -1,16 +1,15 @@
 {
-  "flow_name": "Watsonx Embeddings Integration Flow",
-  "flow_id": "watsonx-embeddings-flow-001",
-  "description": "Complete pipeline demonstrating watsonx.ai embeddings: Ingest → Extract → Chunk → Embeddings (watsonx) → VectorDB",
+  "flow_name": "LiteLLM Ollama Embeddings Integration Flow",
+  "flow_id": "litellm-ollama-embeddings-flow-001",
+  "description": "Complete pipeline demonstrating LiteLLM with Ollama embeddings: Ingest → Extract → Chunk → Embeddings (LiteLLM/Ollama) → VectorDB",
   "global_config": {
     "doc_column": "content",
     "disable_validation": false,
     "force_ingest": true,
     "enable_micro_batching": true,
     "micro_batch_size": 10,
-    "storage": "local",
-    "execute_type": "local",
-    "data_storage_type": "local"
+    "storage": "in-memory",
+    "execute_type": "local"
   },
   "flow": [
     {
@@ -52,30 +51,27 @@
       }
     },
     {
-      "name": "generate_embeddings_watsonx",
+      "name": "generate_embeddings_litellm",
       "type": "embeddings",
       "depends_on": ["chunk_documents"],
       "config": {
-        "provider": "watsonx",
-        "model_id": "ibm/slate-125m-english-rtrvr-v2",
+        "provider": "litellm",
+        "model_id": "openai/nomic-embed-text",
         "doc_column": "content",
         "embeddings_column": "embeddings",
         "provider_config": {
-          "api_key": "${WATSONX_API_KEY",
-          "api_base": "${WATSONX_API_BASE}",
-          "container_kind": "project",
-          "container_id": "${WATSONX_CONTAINER_ID}",
-          "batch_size": 800
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<api-key>"
         }
       }
     },
     {
       "name": "store_in_opensearch",
       "type": "vectordb",
-      "depends_on": ["generate_embeddings_watsonx"],
+      "depends_on": ["generate_embeddings_litellm"],
       "config": {
         "provider": "opensearch",
-        "index_name": "datasift_watsonx_embeddings",
+        "index_name": "datasift_litellm_embeddings",
         "vector_dimension": 768,
         "doc_id_column": "doc_id_hash",
         "embeddings_column": "embeddings",
@@ -148,7 +144,7 @@
           },
           "embeddings": {
             "name": "Embeddings",
-            "description": "The text embeddings from watsonx.ai slate-125m model",
+            "description": "The text embeddings from Ollama nomic-embed-text model via LiteLLM",
             "available_for_vector_db": true,
             "mandatory_for_vector_db": true,
             "type": "vector"

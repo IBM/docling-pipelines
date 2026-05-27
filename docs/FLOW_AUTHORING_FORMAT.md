@@ -429,8 +429,8 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "embeddings",
       "depends_on": ["chunk"],
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "nomic-embed-text"
+        "provider": "litellm",
+        "model_id": "openai/nomic-embed-text"
       }
     },
     {

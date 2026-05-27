@@ -2,7 +2,13 @@
 
 ## Overview
 
-The Embeddings Operator generates vector embeddings for text content using various embedding providers. It supports multiple providers (Ollama, HuggingFace, LiteLLM, and Watsonx) and handles chunking of long text, batch processing, and error handling per document.
+The Embeddings Operator generates vector embeddings for text content using LiteLLM and Watsonx providers. It leverages the unified adapter architecture for consistent integration and handles chunking of long text, batch processing, and error handling per document.
+
+**Supported Providers:**
+- **LiteLLM**: Access to 100+ providers including OpenAI, Azure, Anthropic, Cohere, AWS Bedrock, and more
+- **Watsonx**: Native IBM watsonx.ai integration for enterprise deployments
+
+**Note:** For Ollama and HuggingFace models, use LiteLLM with the appropriate model prefix (e.g., `openai/nomic-embed-text` for Ollama, `huggingface/sentence-transformers/all-MiniLM-L6-v2` for HuggingFace).
 
 - **Operator Name:** `embeddings`
 - **Category**: Functional
@@ -10,68 +16,78 @@ The Embeddings Operator generates vector embeddings for text content using vario
 
 ## Configuration Parameters
 
-### 1. `embeddings_type` (String)
+### 1. `provider` (String)
 **Type:** String
 **Required:** Yes
-**Default:** `"ollama"`
-**Description:** Embedding provider type.
+**Default:** `"litellm"`
+**Description:** Embedding provider type. Uses unified adapter architecture.
 
 **Valid Values:**
-- `"ollama"` - Local Ollama models (nomic-embed-text, llama2, etc.)
-- `"huggingface"` - HuggingFace models (all-MiniLM-L6-v2, mpnet-base-v2, etc.)
-- `"litellm"` - 100+ providers via LiteLLM (OpenAI, Azure, Anthropic, Cohere, etc.)
+- `"litellm"` - 100+ providers via LiteLLM (OpenAI, Azure, Anthropic, Cohere, Ollama, HuggingFace, etc.)
 - `"watsonx"` - Native IBM watsonx.ai integration
 
 **Examples:**
 ```json
-"embeddings_type": "ollama"
-"embeddings_type": "huggingface"
-"embeddings_type": "litellm"
-"embeddings_type": "watsonx"
+"provider": "litellm"
+"provider": "watsonx"
 ```
 
-### 2. `embeddings_model_id` (String)
+**Migration Note:** The old `embeddings_type` parameter is deprecated. Use `provider` instead.
+
+### 2. `model_id` (String)
 **Type:** String
 **Required:** Yes
-**Default:** `"llama2"`
-**Description:** Model name for the selected provider.
+**Description:** Model identifier for the selected provider.
 
 **Valid Values:**
 
-**Ollama Models:**
-- `"nomic-embed-text"` - Nomic Embed Text (recommended for embeddings)
-- `"granite4"` - IBM Granite 4
-- `"llama3.2"` - Meta Llama 3.2
-- `"llama2"` - Meta Llama 2
-- Any Ollama-compatible model
+**LiteLLM Models (100+ providers):**
+- **Ollama** (prefix: `openai/`):
+  - `"openai/nomic-embed-text"` - Nomic Embed Text (recommended)
+  - `"openai/granite4"` - IBM Granite 4
+  - `"openai/llama3.2"` - Meta Llama 3.2
+  - Any Ollama-compatible model with `openai/` prefix
 
-**HuggingFace Models:**
-- `"sentence-transformers/all-MiniLM-L6-v2"` - Fast, 384-dim
-- `"sentence-transformers/all-mpnet-base-v2"` - High quality, 768-dim
-- `"sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"` - Multilingual
-- Any HuggingFace embedding model
+- **HuggingFace** (prefix: `huggingface/`):
+  - `"huggingface/sentence-transformers/all-MiniLM-L6-v2"` - Fast, 384-dim
+  - `"huggingface/sentence-transformers/all-mpnet-base-v2"` - High quality, 768-dim
+  - `"huggingface/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"` - Multilingual
+  - Any HuggingFace embedding model with `huggingface/` prefix
 
-**LiteLLM Models:**
-- `"watsonx/ibm/slate-125m-english-rtrvr"` - IBM watsonx.ai (via LiteLLM)
-- `"watsonx/ibm/slate-30m-english-rtrvr"` - IBM watsonx.ai (via LiteLLM)
-- `"text-embedding-3-small"` - OpenAI (1536-dim)
-- `"text-embedding-ada-002"` - OpenAI (1536-dim)
-- `"embed-english-v3.0"` - Cohere
-- `"amazon.titan-embed-text-v1"` - AWS Bedrock
-- 100+ more providers
+- **OpenAI**:
+  - `"openai/text-embedding-3-small"` - OpenAI (1536-dim)
+  - `"openai/text-embedding-3-large"` - OpenAI (3072-dim)
+  - `"openai/text-embedding-ada-002"` - OpenAI (1536-dim)
 
-**Watsonx Models:**
-- `"ibm/slate-125m-english-rtrvr"` - IBM watsonx.ai
-- `"ibm/slate-30m-english-rtrvr"` - IBM watsonx.ai
+- **Cohere**:
+  - `"cohere/embed-english-v3.0"` - Cohere English
+  - `"cohere/embed-multilingual-v3.0"` - Cohere Multilingual
+
+- **AWS Bedrock**:
+  - `"bedrock/amazon.titan-embed-text-v1"` - AWS Bedrock
+  - `"bedrock/cohere.embed-english-v3"` - Cohere on Bedrock
+
+- **Azure OpenAI** (prefix: `azure/`):
+  - `"azure/text-embedding-ada-002"` - Azure OpenAI
+
+- **Watsonx via LiteLLM** (prefix: `watsonx/`):
+  - `"watsonx/ibm/slate-125m-english-rtrvr"` - IBM watsonx.ai
+  - `"watsonx/ibm/slate-30m-english-rtrvr"` - IBM watsonx.ai
+
+**Watsonx Models (Native):**
+- `"ibm/slate-125m-english-rtrvr"` - IBM watsonx.ai (768-dim)
+- `"ibm/slate-30m-english-rtrvr"` - IBM watsonx.ai (384-dim)
 - Any watsonx.ai embedding model
 
 **Examples:**
 ```json
-"embeddings_model_id": "watsonx/ibm/slate-125m-english-rtrvr"
-"embeddings_model_id": "nomic-embed-text"
-"embeddings_model_id": "sentence-transformers/all-MiniLM-L6-v2"
-"embeddings_model_id": "text-embedding-3-small"
+"model_id": "openai/nomic-embed-text"
+"model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2"
+"model_id": "text-embedding-3-small"
+"model_id": "ibm/slate-125m-english-rtrvr"
 ```
+
+**Migration Note:** The old `embeddings_model_id` parameter is deprecated. Use `model_id` instead.
 
 ### 3. `embeddings_column` (String)
 **Type:** String
@@ -103,36 +119,31 @@ The Embeddings Operator generates vector embeddings for text content using vario
 
 ### 5. `provider_config` (JSON)
 **Type:** JSON Object
-**Required:** No
+**Required:** Varies by provider
 **Description:** Provider-specific configuration parameters for the embedding provider.
 
-**Note:** Ollama uses `max_concurrent_requests` for controlling concurrent API calls, while other providers (HuggingFace, LiteLLM, Watsonx) use `batch_size` for grouping texts in batch API calls.
-
-**For HuggingFace:**
-- `api_token` (String, Optional): HuggingFace API token (or use HF_TOKEN env var)
-- `batch_size` (Integer, Optional): Number of texts to process in each batch (default: 32)
-- `device` (String, Optional): Device to use ("cpu", "cuda", "mps") (default: null)
-- `use_local` (Boolean, Optional): Use local model (true) or API (false) (default: true)
-
 **For LiteLLM:**
+- `api_key` (String, Required for most providers): API key for the provider
 - `api_base` (String, Optional): Custom API endpoint
-- `api_key` (String, Required): API key for the provider
 - `api_version` (String, Optional): API version (for Azure)
-- `batch_size` (Integer, Optional): Number of texts to process in each batch (default: 32)
+- `project_id` (String, Optional): Project ID (for watsonx via LiteLLM)
+- `timeout` (Float, Optional): Timeout in seconds for API calls
+- Additional provider-specific parameters as needed
 
-**For Ollama:**
-- `host` (String, Optional): Ollama server URL (default: from OLLAMA_HOST env var or "http://localhost:11434")
-- `max_concurrent_requests` (Integer, Optional): Maximum concurrent requests for batch processing (default: 8)
-- `timeout` (Float, Optional): Timeout in seconds for API calls (default: None)
-- `validate_model` (Boolean, Optional): Whether to validate model availability on initialization (default: true)
-
-**For Watsonx:**
+**For Watsonx (Native):**
 - `api_base` (String, Required): watsonx.ai service URL
 - `api_key` (String, Required): IBM Cloud API key
-- `batch_size` (Integer, Optional): Number of texts to process in each batch (default: 800)
 - `container_id` (String, Required): Project or space ID
 - `container_kind` (String, Optional): "project" or "space" (default: "project")
 - `enable_rate_limiting` (Boolean, Optional): Enable rate limiting (7 req/s) for WatsonX API calls (default: false)
+
+**For Ollama via LiteLLM:**
+- `api_base` (String, Optional): Ollama server URL (default: "http://localhost:11434")
+- No API key required for local Ollama
+
+**For HuggingFace via LiteLLM:**
+- `api_key` (String, Optional): HuggingFace API token (or use HF_TOKEN env var)
+- `api_base` (String, Optional): Custom HuggingFace endpoint
 
 **Examples:**
 
@@ -210,32 +221,30 @@ LiteLLM (Azure):
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
-    "embeddings_type": "litellm",
-    "embeddings_model_id": "watsonx/ibm/slate-125m-english-rtrvr",
+    "provider": "litellm",
+    "model_id": "watsonx/ibm/slate-125m-english-rtrvr",
     "embeddings_column": "embeddings",
     "provider_config": {
       "api_base": "https://us-south.ml.cloud.ibm.com",
       "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
-      "batch_size": 64,
       "project_id": "${WATSONX_PROJECT_ID}"
     }
   }
 }
 ```
 
-### Example 2: Watsonx.ai Embeddings
+### Example 2: Watsonx.ai Embeddings (Native)
 ```json
 {
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
-    "embeddings_type": "watsonx",
-    "embeddings_model_id": "ibm/slate-125m-english-rtrvr",
+    "provider": "watsonx",
+    "model_id": "ibm/slate-125m-english-rtrvr",
     "embeddings_column": "embeddings",
     "provider_config": {
       "api_base": "${WATSONX_API_BASE}",
       "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
-      "batch_size": 64,
       "container_id": "${WATSONX_CONTAINER_ID}",
       "container_kind": "project",
       "enable_rate_limiting": true
@@ -244,34 +253,34 @@ LiteLLM (Azure):
 }
 ```
 
-### Example 3: Ollama Embeddings (Local)
+### Example 3: Ollama Embeddings via LiteLLM (Local)
 ```json
 {
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
-    "embeddings_type": "ollama",
-    "embeddings_model_id": "nomic-embed-text",
+    "provider": "litellm",
+    "model_id": "openai/nomic-embed-text",
     "embeddings_column": "embeddings",
     "overlap_ratio": 0.2,
-    "batch_size": 32
+    "provider_config": {
+      "api_base": "http://localhost:11434"
+    }
   }
 }
 ```
 
-### Example 4: HuggingFace Embeddings (GPU)
+### Example 4: HuggingFace Embeddings via LiteLLM
 ```json
 {
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
-    "embeddings_type": "huggingface",
-    "embeddings_model_id": "sentence-transformers/all-mpnet-base-v2",
+    "provider": "litellm",
+    "model_id": "huggingface/sentence-transformers/all-mpnet-base-v2",
     "embeddings_column": "embeddings",
-    "batch_size": 64,
     "provider_config": {
-      "device": "cuda",
-      "normalize_embeddings": true
+      "api_key": "${HUGGINGFACE_API_KEY}" # pragma: allowlist secret
     }
   }
 }
@@ -283,12 +292,11 @@ LiteLLM (Azure):
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
-    "embeddings_type": "litellm",
-    "embeddings_model_id": "text-embedding-3-small",
+    "provider": "litellm",
+    "model_id": "text-embedding-3-small",
     "embeddings_column": "embeddings",
     "provider_config": {
-      "api_key": "${OPENAI_API_KEY}", # pragma: allowlist secret
-      "batch_size": 100
+      "api_key": "${OPENAI_API_KEY}" # pragma: allowlist secret
     }
   }
 }
@@ -300,12 +308,11 @@ LiteLLM (Azure):
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
-    "embeddings_type": "litellm",
-    "embeddings_model_id": "embed-english-v3.0",
+    "provider": "litellm",
+    "model_id": "embed-english-v3.0",
     "embeddings_column": "embeddings",
     "provider_config": {
-      "api_key": "${COHERE_API_KEY}", # pragma: allowlist secret
-      "batch_size": 96
+      "api_key": "${COHERE_API_KEY}" # pragma: allowlist secret
     }
   }
 }
@@ -314,20 +321,20 @@ LiteLLM (Azure):
 ## Best Practices
 
 1. **Provider Selection**:
-   - Use **Ollama** for development and privacy-sensitive applications
-   - Use **HuggingFace** for local deployment with GPU acceleration
-   - Use **LiteLLM** for production with managed services (100+ providers)
-   - Use **Watsonx** for IBM Cloud enterprise deployments
+   - Use **LiteLLM** for maximum flexibility (100+ providers including Ollama, HuggingFace, OpenAI, etc.)
+   - Use **Watsonx (Native)** for IBM Cloud enterprise deployments with advanced features
+   - For Ollama: Use LiteLLM with `openai/` prefix for local development
+   - For HuggingFace: Use LiteLLM with `huggingface/` prefix for model access
 
 2. **Model Selection**:
    - Choose models with appropriate dimensions for your use case
    - Smaller models generally mean faster inference and less vector storage
    - Larger models generally mean higher quality and more vector storage
 
-3. **Batch Size** (in `provider_config`):
-   - Increase for better throughput (32-128)
-   - Decrease if running out of memory (8-16)
-   - Test with your hardware configuration
+3. **Batch Processing**:
+   - LiteLLM handles batching internally based on provider capabilities
+   - Watsonx native adapter supports configurable batch sizes (default: 800)
+   - Adjust based on your provider's rate limits and quotas
 
 4. **Chunking**:
    - Use Chunker operator before Embeddings for better control
@@ -335,9 +342,10 @@ LiteLLM (Azure):
    - Adjust `overlap_ratio` for context preservation
 
 5. **Performance**:
-   - Ollama: ~1000 docs/min (local)
-   - HuggingFace: ~2000 docs/min (GPU)
-   - LiteLLM: ~500 docs/min (API rate limits)
+   - Ollama via LiteLLM: ~1000 docs/min (local)
+   - HuggingFace via LiteLLM: ~500-2000 docs/min (depends on API/local)
+   - OpenAI via LiteLLM: ~500 docs/min (API rate limits)
+   - Watsonx: ~800 docs/min (with rate limiting enabled)
 
 6. **Error Handling**:
    - Operator handles per-document errors gracefully
@@ -346,8 +354,8 @@ LiteLLM (Azure):
 
 ## Validation Rules
 
-- `embeddings_type` must be one of: ollama, huggingface, litellm, watsonx
-- `embeddings_model_id` must be a non-empty string
+- `provider` must be one of: litellm, watsonx
+- `model_id` must be a non-empty string
 - `overlap_ratio` must be between 0.0 and 0.5
 - Input data must have `content` column or `chunked_content` column
 - For LiteLLM, `provider_config.api_key` is required

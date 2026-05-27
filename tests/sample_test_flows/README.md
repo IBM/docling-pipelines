@@ -231,8 +231,11 @@ Update model references in operator configs:
 {
   "operator": "embeddings",
   "config": {
-    "embeddings_model_id": "llama3.2",  // Change model
-    "embeddings_type": "ollama"
+    "provider": "litellm",
+    "model_id": "openai/llama3.2",  // Change model
+    "provider_config": {
+        "api_base": "http://localhost:11434"
+    } 
   }
 }
 ```

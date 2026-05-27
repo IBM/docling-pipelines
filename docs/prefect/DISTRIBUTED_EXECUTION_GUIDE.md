@@ -940,9 +940,12 @@ volumes:
       "type": "embeddings",
       "depends_on": ["semantic_chunker"],
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "nomic-embed-text",
-        "embeddings_column": "content"
+        "provider": "litellm",
+        "model_id": "openai/nomic-embed-text",
+        "embeddings_column": "embeddings",
+        "provider_config": {
+            "api_base": "http://localhost:11434"
+        }    
       }
     },
     {

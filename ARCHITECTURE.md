@@ -2195,12 +2195,10 @@ graph TB
 
 ### 6. Embeddings Operator Integration Architecture
 
-The Embeddings Operator supports multiple embedding providers through a hexagonal architecture with pluggable adapters:
+The Embeddings Operator uses a unified hexagonal architecture with centralized LLM adapters, supporting two primary providers:
 
 **Supported Providers:**
-- **Ollama** - Local LLM server for privacy-focused deployments
-- **HuggingFace** - Open-source models with local or API options
-- **LiteLLM** - Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, etc.)
+- **LiteLLM** - Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, Ollama, HuggingFace, etc.)
 - **Watsonx** - IBM watsonx.ai cloud service with IAM authentication
 
 **Architecture Pattern:**
@@ -2211,66 +2209,45 @@ graph TB
         EMB[EmbeddingsOperator]
     end
 
-    subgraph "Adapter Layer"
-        OLA[OllamaLLMAdapter]
-        HFA[HuggingFaceLLMAdapter]
-        LLA[LiteLLMLLMAdapter]
-        WXA[WatsonxLLMAdapter]
+    subgraph "Adapter Factory"
+        FAC[LLMAdapterFactory]
+    end
+
+    subgraph "Unified Adapter Layer"
+        LLA[LiteLLMAdapter]
+        WXA[WatsonxAdapter]
+    end
+
+    subgraph "Port Interface"
+        PORT[LLMEmbeddingPort]
     end
 
     subgraph "Client Layer"
-        OLC[OllamaClient]
-        HFC[HuggingFaceClient]
         LLC[LiteLLMClient]
         WRC[WatsonxRestClient]
     end
 
     subgraph "External Services"
-        OLS[Ollama Server]
-        HFS[HuggingFace API]
-        LLS[LiteLLM Providers]
+        LLS[LiteLLM Providers:<br/>OpenAI, Azure, Cohere,<br/>Ollama, HuggingFace, etc.]
         WXS[Watsonx.ai API]
     end
 
-    EMB --> OLA
-    EMB --> HFA
-    EMB --> LLA
-    EMB --> WXA
+    EMB --> FAC
+    FAC --> PORT
+    PORT --> LLA
+    PORT --> WXA
 
-    OLA --> OLC --> OLS
-    HFA --> HFC --> HFS
     LLA --> LLC --> LLS
     WXA --> WRC --> WXS
 ```
 
 **Configuration Examples:**
 
-Ollama (Local):
+LiteLLM with OpenAI:
 ```json
 {
-  "embeddings_type": "ollama",
-  "embeddings_model_id": "nomic-embed-text",
-  "embeddings_column": "embeddings"
-}
-```
-
-HuggingFace (Local):
-```json
-{
-  "embeddings_type": "huggingface",
-  "embeddings_model_id": "sentence-transformers/all-MiniLM-L6-v2",
-  "embeddings_column": "embeddings",
-  "provider_config": {
-    "device": "cuda"
-  }
-}
-```
-
-LiteLLM (OpenAI):
-```json
-{
-  "embeddings_type": "litellm",
-  "embeddings_model_id": "text-embedding-3-small",
+  "provider": "litellm",
+  "model_id": "openai/text-embedding-3-small",
   "embeddings_column": "embeddings",
   "provider_config": {
     "api_key": "${OPENAI_API_KEY}"
@@ -2278,25 +2255,51 @@ LiteLLM (OpenAI):
 }
 ```
 
+LiteLLM with Ollama (via openai/ prefix):
+```json
+{
+  "provider": "litellm",
+  "model_id": "openai/nomic-embed-text",
+  "embeddings_column": "embeddings",
+  "provider_config": {
+    "api_base": "http://localhost:11434"
+  }
+}
+```
+
+LiteLLM with HuggingFace (via huggingface/ prefix):
+```json
+{
+  "provider": "litellm",
+  "model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2",
+  "embeddings_column": "embeddings",
+  "provider_config": {
+    "api_key": "${HUGGINGFACE_API_KEY}"
+  }
+}
+```
+
 Watsonx (IBM Cloud):
 ```json
 {
-  "embeddings_type": "watsonx",
-  "embeddings_model_id": "ibm/slate-125m-english-rtrvr",
+  "provider": "watsonx",
+  "model_id": "ibm/slate-125m-english-rtrvr",
   "embeddings_column": "embeddings",
   "provider_config": {
     "api_key": "${WATSONX_API_KEY}",
     "api_base": "${WATSONX_API_BASE}",
-    "container_id": "${WATSONX_CONTAINER_ID}"
+    "container_id": "${WATSONX_CONTAINER_ID}",
+    "container_kind": "project"
   }
 }
 ```
 
 **Key Features:**
-- Hexagonal architecture with port/adapter pattern
+- Unified hexagonal architecture with centralized LLMAdapterFactory
+- Consistent interface across all LLM-based operators (embeddings, classification, PII/HAP)
+- LiteLLM provides access to 100+ providers through a single interface
 - Automatic retry logic and error handling
-- Dynamic dimension detection for supported providers
-- Batch processing support
+- Batch processing support with keyword arguments
 - Provider-specific optimizations
 
 ### 7. Extract Operator Hexagonal Architecture
@@ -2418,6 +2421,7 @@ graph TB
 ```
 
 ### 8. Docling Integration Architecture
+
 
 ```mermaid
 graph TB

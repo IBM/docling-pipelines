@@ -1,88 +1,53 @@
 #!/usr/bin/env python3
 """
-Comprehensive unit tests for EmbeddingsOperator.
+Comprehensive unit tests for refactored EmbeddingsOperator using unified LLM adapters.
 
 Tests cover:
-- Basic functionality (initialization, metadata)
+- Initialization with litellm and watsonx providers
 - Transform method with various scenarios
-- Embeddings generation with chunking
-- Document hash generation
+- Unified adapter integration
 - Error handling
-- Chunked content processing
+- Configuration validation
 - Metadata validation
-- Provider type validation
-- Multi-provider support structure
 """
 
 from unittest.mock import Mock, patch
 
-import numpy as np
 import pyarrow as pa
 import pytest
 
 from datasift.core.constants.constants import ExecutionStatus, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.functional.embeddings import EmbeddingsOperator
-from datasift.core.operators.functional.embeddings.embeddings_operator import (
-    EMBEDDINGS_TYPE_DEFAULT,
-    OVERLAP_RATIO_DEFAULT,
-    OVERLAP_RATIO_MAX,
-    OVERLAP_RATIO_MIN,
-)
 
 
 # Test Fixtures
-@pytest.fixture(autouse=True)
-def mock_ollama_client():
-    """Mock ollama.Client to prevent actual Ollama connection during tests.
-
-    This fixture is automatically used for all tests in this module to prevent
-    OllamaClient from attempting to connect to a real Ollama server during
-    model validation in __init__.
-
-    Tests MUST configure mock_client.embeddings behavior by setting return_value or side_effect.
-    """
-    with patch("ollama.Client") as mock_client_class:
-        # Create a mock client instance
-        mock_client = Mock()
-        # Mock the list() method to return available models
-        mock_client.list.return_value = {
-            "models": [
-                {"name": "llama3:latest"},
-                {"name": "mistral:latest"},
-                {"name": "granite4:latest"},
-                {"name": "nomic-embed-text"},
-            ]
-        }
-        # Set default embeddings behavior - tests can override with side_effect
-        mock_client.embeddings.return_value = {"embedding": [0.1] * 768}
-        mock_client_class.return_value = mock_client
-        yield mock_client
-
-
 @pytest.fixture
-def mock_ollama_embeddings():
-    """Mock ollama.embeddings() to return realistic embedding vectors."""
-
-    def mock_embeddings(model, prompt):
-        # Return a realistic embedding vector (384 dimensions for most models)
-        embedding = np.random.rand(384).tolist()
-        return {"embedding": embedding}
-
-    with patch("ollama.embeddings", side_effect=mock_embeddings) as mock:
-        yield mock
-
-
-@pytest.fixture
-def sample_config():
-    """Basic configuration for EmbeddingsOperator."""
+def litellm_config():
+    """Configuration for LiteLLM provider."""
     return {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "llama3",
+        "provider": "litellm",
+        "model_id": "text-embedding-3-small",
         "embeddings_column": "embeddings",
-        "doc_column": "content",
-        "doc_id_hash": "doc_id_hash",
-        "overlap_ratio": 0.2,
+        "provider_config": {
+            "api_key": "test-api-key",
+        },
+    }
+
+
+@pytest.fixture
+def watsonx_config():
+    """Configuration for Watsonx provider."""
+    return {
+        "provider": "watsonx",
+        "model_id": "ibm/slate-125m-english-rtrvr",
+        "embeddings_column": "embeddings",
+        "provider_config": {
+            "api_key": "test-api-key",
+            "api_base": "https://us-south.ml.cloud.ibm.com",
+            "container_id": "test-project-id",
+            "container_kind": "project",
+        },
     }
 
 
@@ -113,37 +78,6 @@ def sample_table_multiple_docs():
 
 
 @pytest.fixture
-def sample_table_long_text():
-    """PyArrow table with a document requiring chunking."""
-    # Create text longer than default token limit (4096 tokens ≈ 16384 chars)
-    long_text = "This is a very long document. " * 1000  # ~30000 chars
-    data = {
-        "id": ["doc1"],
-        "name": ["Long Document"],
-        "content": [long_text],
-    }
-    return pa.table(data)
-
-
-@pytest.fixture
-def sample_table_with_chunks():
-    """PyArrow table with pre-chunked content."""
-    data = {
-        "id": ["doc1"],
-        "name": ["Chunked Document"],
-        "content": ["Full document content"],
-        "chunked_content": [
-            [
-                {"chunk": "First chunk of content"},
-                {"chunk": "Second chunk of content"},
-                {"chunk": "Third chunk of content"},
-            ]
-        ],
-    }
-    return pa.table(data)
-
-
-@pytest.fixture
 def sample_table_empty():
     """Empty PyArrow table."""
     data = {
@@ -154,58 +88,101 @@ def sample_table_empty():
     return pa.table(data)
 
 
-# Basic Functionality Tests
+@pytest.fixture
+def mock_llm_adapter():
+    """Mock LLM adapter for testing."""
+    adapter = Mock()
+    adapter.generate_embeddings_batch.return_value = [[0.1] * 384, [0.2] * 384, [0.3] * 384]
+    adapter.get_embedding_dimension.return_value = 384
+    return adapter
+
+
+# Initialization Tests
 class TestEmbeddingsOperatorInitialization:
-    """Test operator initialization and configuration."""
+    """Test operator initialization with unified adapters."""
 
-    def test_init_with_valid_config(self, sample_config):
-        """Test operator initialization with valid configuration."""
-        operator = EmbeddingsOperator(sample_config)
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_init_with_litellm_provider(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test initialization with LiteLLM provider."""
+        mock_factory.return_value = mock_llm_adapter
 
-        assert operator.embeddings_type == "ollama"
-        assert operator.embeddings_model_id == "llama3"
+        operator = EmbeddingsOperator(litellm_config)
+
+        assert operator.provider == "litellm"
+        assert operator.model_id == "text-embedding-3-small"
         assert operator.embeddings_column == "embeddings"
-        assert operator.doc_column == "content"
-        assert operator.doc_id_hash_column == "doc_id_hash"
-        assert operator.overlap_ratio == 0.2
+        mock_factory.assert_called_once_with(
+            provider="litellm",
+            model_id="text-embedding-3-small",
+            provider_config={"api_key": "test-api-key"},
+        )
 
-    def test_init_with_default_values(self):
-        """Test operator initialization with default values."""
-        config = {"embeddings_model_id": "mistral"}
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_init_with_watsonx_provider(self, mock_factory, watsonx_config, mock_llm_adapter):
+        """Test initialization with Watsonx provider."""
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(watsonx_config)
+
+        assert operator.provider == "watsonx"
+        assert operator.model_id == "ibm/slate-125m-english-rtrvr"
+        mock_factory.assert_called_once_with(
+            provider="watsonx",
+            model_id="ibm/slate-125m-english-rtrvr",
+            provider_config={
+                "api_key": "test-api-key",
+                "api_base": "https://us-south.ml.cloud.ibm.com",
+                "container_id": "test-project-id",
+                "container_kind": "project",
+            },
+        )
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_init_with_default_values(self, mock_factory, mock_llm_adapter):
+        """Test initialization with default values."""
+        mock_factory.return_value = mock_llm_adapter
+
+        config = {"model_id": "text-embedding-3-small"}
         operator = EmbeddingsOperator(config)
 
-        assert operator.embeddings_type == EMBEDDINGS_TYPE_DEFAULT
-        assert operator.embeddings_model_id == "mistral"
+        assert operator.provider == "litellm"  # Default provider
+        assert operator.model_id == "text-embedding-3-small"
         assert operator.embeddings_column == OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
-        assert operator.doc_column == OperatorConstants.Columns.DOC_COLUMN_DEFAULT
-        assert operator.doc_id_hash_column == OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
-        assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
 
-    def test_init_with_minimal_config(self):
-        """Test operator initialization with minimal configuration."""
-        config = {}
-        operator = EmbeddingsOperator(config)
+    def test_init_with_invalid_provider(self):
+        """Test initialization with invalid provider."""
+        config = {
+            "provider": "invalid_provider",
+            "model_id": "test-model",
+        }
 
-        # Should use all defaults
-        assert operator.embeddings_type == EMBEDDINGS_TYPE_DEFAULT
-        assert operator.embeddings_model_id == "granite4"
-        assert operator.overlap_ratio == OVERLAP_RATIO_DEFAULT
+        with pytest.raises(Exception) as exc_info:
+            EmbeddingsOperator(config)
 
-    def test_get_required_features(self, sample_config):
+        assert "unsupported" in str(exc_info.value).lower() or "invalid" in str(exc_info.value).lower()
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_get_required_features(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test get_required_features returns correct list."""
-        operator = EmbeddingsOperator(sample_config)
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
         required = operator.get_required_features()
 
         assert "content" in required
         assert len(required) == 1
 
 
+# Metadata Tests
 class TestEmbeddingsOperatorMetadata:
     """Test operator metadata methods."""
 
-    def test_get_metadata_structure(self, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_get_metadata_structure(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test get_metadata returns correct structure."""
-        operator = EmbeddingsOperator(sample_config)
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
         metadata = operator.get_metadata()
 
         assert isinstance(metadata, dict)
@@ -215,9 +192,12 @@ class TestEmbeddingsOperatorMetadata:
         assert OperatorConstants.Misc.IS_OPERATOR_AVAILABLE in metadata
         assert metadata[OperatorConstants.Misc.IS_OPERATOR_AVAILABLE] is True
 
-    def test_get_metadata_features(self, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_get_metadata_features(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test metadata includes correct features."""
-        operator = EmbeddingsOperator(sample_config)
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
         metadata = operator.get_metadata()
 
         features = metadata[OperatorConstants.Config.FEATURES]
@@ -231,43 +211,41 @@ class TestEmbeddingsOperatorMetadata:
         assert embeddings_feature[OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB] is True
         assert embeddings_feature[OperatorConstants.Misc.TYPE] == OperatorConstants.Types.TYPE_VECTOR
 
-    def test_get_metadata_attributes(self, sample_config):
-        """Test metadata includes correct attributes."""
-        operator = EmbeddingsOperator(sample_config)
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_metadata_includes_new_parameters(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test metadata includes new parameter names (provider, model_id)."""
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
         metadata = operator.get_metadata()
 
         attributes = metadata[OperatorConstants.Config.ATTRIBUTES]
 
-        assert "embeddings_type" in attributes
-        assert OperatorConstants.Config.EMBEDDINGS_MODEL_ID in attributes
-        assert OperatorConstants.Columns.EMBEDDINGS_COLUMN in attributes
-        assert "overlap_ratio" in attributes
+        # Check new parameter names are present
+        assert "provider" in attributes
+        assert "model_id" in attributes
 
-        # Check embeddings_type attribute details
-        embeddings_type_attr = attributes["embeddings_type"]
-        assert embeddings_type_attr[OperatorConstants.Config.DEFAULT] == EMBEDDINGS_TYPE_DEFAULT
-
-        # Check overlap_ratio attribute details
-        overlap_attr = attributes["overlap_ratio"]
-        assert overlap_attr[OperatorConstants.Config.DEFAULT] == OVERLAP_RATIO_DEFAULT
-        assert overlap_attr[OperatorConstants.Filtering.MIN_VALUE] == OVERLAP_RATIO_MIN
-        assert overlap_attr[OperatorConstants.Filtering.MAX_VALUE] == OVERLAP_RATIO_MAX
-
-    def test_metadata_label_is_generic(self, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_metadata_label_is_generic(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test that metadata label is generic (not provider-specific)."""
-        operator = EmbeddingsOperator(sample_config)
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
         metadata = operator.get_metadata()
 
         assert metadata[OperatorConstants.Misc.LABEL] == "Embeddings"
-        assert "Ollama" not in metadata[OperatorConstants.Misc.LABEL]
 
 
+# Validation Tests
 class TestEmbeddingsOperatorValidation:
     """Test operator validation logic."""
 
-    def test_validate_valid_config(self, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_valid_config(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test validation with valid configuration."""
-        operator = EmbeddingsOperator(sample_config)
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
         errors = []
         warnings = []
         available_features = ["content"]
@@ -276,84 +254,32 @@ class TestEmbeddingsOperatorValidation:
 
         assert len(errors) == 0
 
-    def test_validate_invalid_embeddings_type(self):
-        """Test validation with invalid embeddings_type."""
-        config = {
-            "embeddings_type": "invalid_provider",
-            "embeddings_model_id": "llama3",
-        }
-        # Invalid provider should raise exception during initialization
-        with pytest.raises(Exception) as exc_info:
-            EmbeddingsOperator(config)
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_missing_content_feature(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test validation with missing content feature."""
+        mock_factory.return_value = mock_llm_adapter
 
-        assert "unsupported" in str(exc_info.value).lower() or "failed to initialize" in str(exc_info.value).lower()
-
-    def test_validate_embeddings_type_not_string(self):
-        """Test validation with non-string embeddings_type."""
-        config = {
-            "embeddings_type": 123,  # Should be string
-            "embeddings_model_id": "llama3",
-        }
-        # Non-string type should raise exception during initialization
-        with pytest.raises(Exception):
-            EmbeddingsOperator(config)
-
-    def test_validate_invalid_overlap_ratio_type(self):
-        """Test validation with invalid overlap_ratio type."""
-        config = {
-            "embeddings_type": "ollama",
-            "embeddings_model_id": "llama3",
-            "overlap_ratio": "invalid",  # Should be float
-        }
-        operator = EmbeddingsOperator(config)
+        operator = EmbeddingsOperator(litellm_config)
         errors = []
         warnings = []
+        available_features = []  # No content feature
 
-        operator.validate(errors, warnings, ["content"])
-
-        assert len(errors) > 0
-        assert any("overlap_ratio must be a number" in err for err in errors)
-
-    def test_validate_overlap_ratio_out_of_range(self):
-        """Test validation with overlap_ratio out of valid range."""
-        config = {
-            "embeddings_type": "ollama",
-            "embeddings_model_id": "llama3",
-            "overlap_ratio": 0.8,  # Too high (max is 0.5)
-        }
-        operator = EmbeddingsOperator(config)
-        errors = []
-        warnings = []
-
-        operator.validate(errors, warnings, ["content"])
+        operator.validate(errors, warnings, available_features)
 
         assert len(errors) > 0
-        assert any("overlap_ratio must be between" in err for err in errors)
+        # Handle ValidationMessage objects by converting to string
+        error_msg = str(errors[0])
+        assert "content" in error_msg.lower()
 
-    @patch("datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient")
-    def test_validate_invalid_model_id(self, mock_ollama_client):
-        """Test validation with invalid model ID."""
-        config = {
-            "embeddings_type": "ollama",
-            "embeddings_model_id": "",  # Empty string
-        }
-        operator = EmbeddingsOperator(config)
-        errors = []
-        warnings = []
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_validate_supported_providers(self, mock_factory, mock_llm_adapter):
+        """Test validation accepts only litellm and watsonx providers."""
+        mock_factory.return_value = mock_llm_adapter
 
-        operator.validate(errors, warnings, ["content"])
-
-        assert len(errors) > 0
-        assert any("embeddings_model_id must be a non-empty string" in err for err in errors)
-
-    @patch("datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient")
-    def test_validate_all_supported_embeddings_types(self, mock_ollama_client):
-        """Test validation accepts all supported embeddings types."""
-        # Only test ollama since openai is not yet implemented
-        for embeddings_type in ["ollama"]:
+        for provider in ["litellm", "watsonx"]:
             config = {
-                "embeddings_type": embeddings_type,
-                "embeddings_model_id": "test_model",
+                "provider": provider,
+                "model_id": "test-model",
             }
             operator = EmbeddingsOperator(config)
             errors = []
@@ -361,21 +287,23 @@ class TestEmbeddingsOperatorValidation:
 
             operator.validate(errors, warnings, ["content"])
 
-            # Should not have embeddings_type errors
-            assert not any("embeddings_type" in err for err in errors)
+            # Should not have provider-related errors
+            assert not any("provider" in err.lower() for err in errors)
 
 
 # Transform Method Tests
 class TestEmbeddingsOperatorTransform:
-    """Test the transform method with various scenarios."""
+    """Test the transform method with unified adapters."""
 
-    @patch("ollama.embeddings")
-    def test_transform_single_document(self, mock_embeddings, sample_config, sample_table_single_doc):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_transform_single_document(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
+    ):
         """Test transform with a single document."""
-        # Mock ollama response
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
+        operator = EmbeddingsOperator(litellm_config)
         result_tables, metadata = operator.transform(sample_table_single_doc)
 
         assert len(result_tables) == 1
@@ -390,13 +318,32 @@ class TestEmbeddingsOperatorTransform:
         assert metadata[Metrics.External.PROCESSED_DOCS] == 1
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
 
-    @patch("ollama.embeddings")
-    def test_transform_multiple_documents(self, mock_embeddings, sample_config, sample_table_multiple_docs):
-        """Test transform with multiple documents."""
-        # Mock ollama response
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        # Verify adapter was called with keyword arguments
+        mock_llm_adapter.generate_embeddings_batch.assert_called()
+        call_args = mock_llm_adapter.generate_embeddings_batch.call_args
+        assert "texts" in call_args.kwargs
 
-        operator = EmbeddingsOperator(sample_config)
+    @patch("datasift.core.operators.functional.doc_id_hash.DocIdHashOperator.transform")
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_transform_multiple_documents(
+        self, mock_factory, mock_doc_hash_transform, litellm_config, mock_llm_adapter, sample_table_multiple_docs
+    ):
+        """Test transform with multiple documents."""
+        # Mock the embedding adapter to return embeddings for each text
+        def mock_batch_embeddings(texts):
+            return [[0.1] * 384] * len(texts)
+
+        mock_llm_adapter.generate_embeddings_batch.side_effect = mock_batch_embeddings
+        mock_factory.return_value = mock_llm_adapter
+
+        # Mock DocIdHashOperator to add doc_id_hash column
+        table_with_hash = sample_table_multiple_docs.append_column(
+            "doc_id_hash",
+            pa.array(["hash1", "hash2", "hash3"])
+        )
+        mock_doc_hash_transform.return_value = ([table_with_hash], {})
+
+        operator = EmbeddingsOperator(litellm_config)
         result_tables, metadata = operator.transform(sample_table_multiple_docs)
 
         result_table = result_tables[0]
@@ -410,10 +357,31 @@ class TestEmbeddingsOperatorTransform:
         assert metadata[Metrics.External.PROCESSED_DOCS] == 3
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
 
-    @patch("ollama.embeddings")
-    def test_transform_empty_table(self, mock_embeddings, sample_config, sample_table_empty):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_transform_with_watsonx_provider(
+        self, mock_factory, watsonx_config, mock_llm_adapter, sample_table_single_doc
+    ):
+        """Test transform with Watsonx provider."""
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 768]
+        mock_llm_adapter.get_embedding_dimension.return_value = 768
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(watsonx_config)
+        result_tables, metadata = operator.transform(sample_table_single_doc)
+
+        result_table = result_tables[0]
+
+        # Check embeddings were generated
+        assert result_table.num_rows == 1
+        assert "embeddings" in result_table.column_names
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 1
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_transform_empty_table(self, mock_factory, litellm_config, mock_llm_adapter, sample_table_empty):
         """Test transform with an empty table."""
-        operator = EmbeddingsOperator(sample_config)
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
         result_tables, metadata = operator.transform(sample_table_empty)
 
         result_table = result_tables[0]
@@ -423,9 +391,11 @@ class TestEmbeddingsOperatorTransform:
         assert metadata[Metrics.External.TOTAL_DOCS] == 0
         assert metadata[Metrics.External.PROCESSED_DOCS] == 0
 
-    @patch("ollama.embeddings")
-    def test_transform_missing_content_column(self, mock_embeddings, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_transform_missing_content_column(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test transform with missing content column."""
+        mock_factory.return_value = mock_llm_adapter
+
         # Create table without content column
         data = {
             "id": ["doc1"],
@@ -433,7 +403,7 @@ class TestEmbeddingsOperatorTransform:
         }
         table = pa.table(data)
 
-        operator = EmbeddingsOperator(sample_config)
+        operator = EmbeddingsOperator(litellm_config)
         result_tables, metadata = operator.transform(table)
 
         result_table = result_tables[0]
@@ -443,11 +413,13 @@ class TestEmbeddingsOperatorTransform:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
-    @patch("ollama.embeddings")
-    def test_transform_preserves_existing_columns(self, mock_embeddings, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_transform_preserves_existing_columns(
+        self, mock_factory, litellm_config, mock_llm_adapter
+    ):
         """Test that transform preserves existing columns."""
-        # Mock ollama response
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
+        mock_factory.return_value = mock_llm_adapter
 
         # Create table with extra columns
         data = {
@@ -458,8 +430,8 @@ class TestEmbeddingsOperatorTransform:
         }
         table = pa.table(data)
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(table)
+        operator = EmbeddingsOperator(litellm_config)
+        result_tables, _metadata = operator.transform(table)
 
         result_table = result_tables[0]
 
@@ -471,129 +443,20 @@ class TestEmbeddingsOperatorTransform:
         assert "embeddings" in result_table.column_names
 
 
-# Embeddings Generation Tests
-class TestEmbeddingsGeneration:
-    """Test embeddings generation with various text lengths and scenarios."""
-
-    def test_create_embeddings_short_text(self, mock_ollama_client, sample_config):
-        """Test embeddings generation with short text."""
-        mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
-
-        operator = EmbeddingsOperator(sample_config)
-        texts = ["Short text"]
-
-        embeddings = operator._create_embeddings(text=texts, model_name="llama3", overlap_ratio=0.2)
-
-        assert len(embeddings) == 1
-        assert len(embeddings[0]) == 384
-        assert mock_ollama_client.embeddings.call_count == 1
-
-    def test_create_embeddings_long_text_requires_chunking(self, mock_ollama_client, sample_config):
-        """Test embeddings generation with long text requiring chunking."""
-        mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
-
-        operator = EmbeddingsOperator(sample_config)
-
-        # Create text longer than token limit (4096 tokens ≈ 16384 chars)
-        long_text = "This is a very long document. " * 1000  # ~30000 chars
-        texts = [long_text]
-
-        embeddings = operator._create_embeddings(text=texts, model_name="llama3", overlap_ratio=0.2)
-
-        assert len(embeddings) == 1
-        assert len(embeddings[0]) == 384
-        # Should be called multiple times for chunks
-        assert mock_ollama_client.embeddings.call_count >= 1
-
-    def test_create_embeddings_multiple_texts_batch(self, mock_ollama_client, sample_config):
-        """Test embeddings generation with multiple texts (batch)."""
-        mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
-
-        operator = EmbeddingsOperator(sample_config)
-        texts = ["Text 1", "Text 2", "Text 3"]
-
-        embeddings = operator._create_embeddings(text=texts, model_name="llama3", overlap_ratio=0.2)
-
-        assert len(embeddings) == 3
-        assert all(len(emb) == 384 for emb in embeddings)
-        assert mock_ollama_client.embeddings.call_count == 3
-
-    def test_create_embeddings_with_different_overlap_ratios(self, mock_ollama_client, sample_config):
-        """Test chunking with different overlap ratios."""
-        # Override the default 768-dim embeddings with 384-dim for this test
-        mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
-
-        operator = EmbeddingsOperator(sample_config)
-        long_text = "This is a very long document. " * 1000
-
-        # Test with different overlap ratios
-        for overlap_ratio in [0.0, 0.2, 0.5]:
-            embeddings = operator._create_embeddings(text=[long_text], model_name="llama3", overlap_ratio=overlap_ratio)
-
-            assert len(embeddings) == 1
-            assert len(embeddings[0]) == 384
-
-    def test_create_embeddings_averaging_for_chunks(self, mock_ollama_client, sample_config):
-        """Test that embeddings are averaged for chunked text."""
-        # Return different embeddings for each chunk
-        call_count = [0]
-
-        def mock_response(model, prompt):
-            call_count[0] += 1
-            # Return different values for each chunk
-            return {"embedding": [float(call_count[0])] * 384}
-
-        mock_ollama_client.embeddings.side_effect = mock_response
-
-        operator = EmbeddingsOperator(sample_config)
-        long_text = "This is a very long document. " * 1000
-
-        embeddings = operator._create_embeddings(text=[long_text], model_name="llama3", overlap_ratio=0.2)
-
-        # Should average multiple chunk embeddings
-        assert len(embeddings) == 1
-        # The averaged embedding should be between the min and max chunk values
-        avg_value = embeddings[0][0]
-        assert 1.0 <= avg_value <= float(call_count[0])
-
-    @patch("ollama.embeddings")
-    def test_create_embeddings_empty_text(self, mock_embeddings, sample_config):
-        """Test embeddings generation with empty text."""
-        operator = EmbeddingsOperator(sample_config)
-        texts = [""]
-
-        embeddings = operator._create_embeddings(text=texts, model_name="llama3", overlap_ratio=0.2)
-
-        # Should return zero vector for empty text
-        assert len(embeddings) == 1
-        assert len(embeddings[0]) == 384
-        assert all(v == 0.0 for v in embeddings[0])
-        # Should not call ollama for empty text
-        assert mock_embeddings.call_count == 0
-
-    def test_create_embeddings_unsupported_provider(self, sample_config):
-        """Test that unsupported provider raises error during initialization."""
-        config = sample_config.copy()
-        config["embeddings_type"] = "unsupported_provider"
-
-        # Unsupported provider should raise exception during initialization
-        with pytest.raises(Exception) as exc_info:
-            EmbeddingsOperator(config)
-
-        assert "unsupported" in str(exc_info.value).lower() or "failed to initialize" in str(exc_info.value).lower()
-
-
 # Document Hash Tests
 class TestEmbeddingsDocumentHash:
     """Test document hash generation and preservation."""
 
-    @patch("ollama.embeddings")
-    def test_automatic_hash_generation(self, mock_embeddings, sample_config, sample_table_single_doc):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_automatic_hash_generation(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
+    ):
         """Test automatic hash generation when missing."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_single_doc)
+        operator = EmbeddingsOperator(litellm_config)
+        result_tables, _metadata = operator.transform(sample_table_single_doc)
 
         result_table = result_tables[0]
 
@@ -603,10 +466,11 @@ class TestEmbeddingsDocumentHash:
         assert doc_hash is not None
         assert len(doc_hash) == 64  # SHA-256 hash length
 
-    @patch("ollama.embeddings")
-    def test_hash_preservation_when_present(self, mock_embeddings, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_hash_preservation_when_present(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test hash preservation when already present."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
+        mock_factory.return_value = mock_llm_adapter
 
         # Create table with existing hash
         existing_hash = "existing_hash_value_123"
@@ -618,8 +482,8 @@ class TestEmbeddingsDocumentHash:
         }
         table = pa.table(data)
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(table)
+        operator = EmbeddingsOperator(litellm_config)
+        result_tables, _metadata = operator.transform(table)
 
         result_table = result_tables[0]
 
@@ -627,9 +491,12 @@ class TestEmbeddingsDocumentHash:
         doc_hash = result_table["doc_id_hash"][0].as_py()
         assert doc_hash == existing_hash
 
-    def test_generate_document_hash_consistency(self, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_generate_document_hash_consistency(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test that hash generation is consistent for same content."""
-        operator = EmbeddingsOperator(sample_config)
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
 
         content = "Test document content"
         hash1 = operator._generate_document_hash(content)
@@ -638,9 +505,12 @@ class TestEmbeddingsDocumentHash:
         assert hash1 == hash2
         assert len(hash1) == 64  # SHA-256 hash length
 
-    def test_generate_document_hash_different_content(self, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_generate_document_hash_different_content(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test that different content produces different hashes."""
-        operator = EmbeddingsOperator(sample_config)
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
 
         hash1 = operator._generate_document_hash("Content 1")
         hash2 = operator._generate_document_hash("Content 2")
@@ -650,14 +520,17 @@ class TestEmbeddingsDocumentHash:
 
 # Error Handling Tests
 class TestEmbeddingsErrorHandling:
-    """Test error handling in various failure scenarios."""
+    """Test error handling with unified adapters."""
 
-    def test_ollama_connection_error(self, mock_ollama_client, sample_config, sample_table_single_doc):
-        """Test handling of Ollama connection errors."""
-        # Simulate connection error using the global mock client
-        mock_ollama_client.embeddings.side_effect = Exception("Connection refused")
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_adapter_error_handling(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
+    ):
+        """Test handling of adapter errors."""
+        mock_llm_adapter.generate_embeddings_batch.side_effect = Exception("API error")
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
+        operator = EmbeddingsOperator(litellm_config)
         result_tables, metadata = operator.transform(sample_table_single_doc)
 
         result_table = result_tables[0]
@@ -667,34 +540,24 @@ class TestEmbeddingsErrorHandling:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
-    def test_invalid_model_name_error(self, mock_ollama_client, sample_config, sample_table_single_doc):
-        """Test handling of invalid model names."""
-        # Simulate model not found error using the global mock client
-        mock_ollama_client.embeddings.side_effect = Exception("Model not found")
-
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_single_doc)
-
-        result_table = result_tables[0]
-
-        # Should handle error gracefully
-        assert result_table.num_rows == 0
-        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
-
-    def test_per_document_error_tracking(self, mock_ollama_client, sample_config, sample_table_multiple_docs):
-        """Test per-document error tracking in metadata."""
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_per_document_error_tracking(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_multiple_docs
+    ):
+        """Test per-document error tracking."""
         # Make second document fail
         call_count = [0]
 
-        def mock_response(model, prompt):
+        def mock_batch_embeddings(texts):
             call_count[0] += 1
             if call_count[0] == 2:
                 raise Exception("Processing error")
-            return {"embedding": [0.1] * 384}
+            return [[0.1] * 384] * len(texts)
 
-        mock_ollama_client.embeddings.side_effect = mock_response
+        mock_llm_adapter.generate_embeddings_batch.side_effect = mock_batch_embeddings
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
+        operator = EmbeddingsOperator(litellm_config)
         result_tables, metadata = operator.transform(sample_table_multiple_docs)
 
         result_table = result_tables[0]
@@ -705,20 +568,24 @@ class TestEmbeddingsErrorHandling:
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
         assert len(metadata[Metrics.External.FAILED_DOCS]) == 1
 
-    def test_graceful_failure_continues_processing(self, mock_ollama_client, sample_config, sample_table_multiple_docs):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_graceful_failure_continues_processing(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_multiple_docs
+    ):
         """Test that processing continues after individual document failures."""
         # Make first document fail, others succeed
         call_count = [0]
 
-        def mock_response(model, prompt):
+        def mock_batch_embeddings(texts):
             call_count[0] += 1
             if call_count[0] == 1:
                 raise Exception("First document error")
-            return {"embedding": [0.1] * 384}
+            return [[0.1] * 384] * len(texts)
 
-        mock_ollama_client.embeddings.side_effect = mock_response
+        mock_llm_adapter.generate_embeddings_batch.side_effect = mock_batch_embeddings
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
+        operator = EmbeddingsOperator(litellm_config)
         result_tables, metadata = operator.transform(sample_table_multiple_docs)
 
         result_table = result_tables[0]
@@ -728,161 +595,98 @@ class TestEmbeddingsErrorHandling:
         assert metadata[Metrics.External.PROCESSED_DOCS] == 2
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
 
-    def test_ollama_import_error(self, sample_config, sample_table_single_doc):
-        """Test handling when ollama package is not installed."""
-        operator = EmbeddingsOperator(sample_config)
 
-        # Mock the import to fail
-        with patch.dict("sys.modules", {"ollama": None}):
-            with pytest.raises(Exception) as exc_info:
-                operator._create_embeddings(text=["test"], model_name="llama3", overlap_ratio=0.2)
-
-            assert "ollama package not installed" in str(exc_info.value)
-
-
-# Chunked Content Tests
-class TestEmbeddingsChunkedContent:
-    """Test processing of pre-chunked content."""
-
-    def test_with_pre_chunked_content(self, mock_ollama_client, sample_config, sample_table_with_chunks):
-        """Test transform with pre-chunked content column."""
-        mock_ollama_client.embeddings.return_value = {"embedding": [0.1] * 384}
-
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_with_chunks)
-
-        result_table = result_tables[0]
-
-        # Should process chunked content
-        assert result_table.num_rows == 1
-        assert "embeddings" in result_table.column_names
-
-        # Should call ollama for each chunk
-        assert mock_ollama_client.embeddings.call_count == 3  # 3 chunks
-
-        # Embeddings should be a list (one per chunk)
-        embeddings = result_table["embeddings"][0].as_py()
-        assert isinstance(embeddings, list)
-        assert len(embeddings) == 3
-
-    @patch("ollama.embeddings")
-    def test_fallback_to_full_content_when_no_chunks(self, mock_embeddings, sample_config):
-        """Test fallback to full content when chunked_content is empty."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
-
-        # Create table with empty chunked_content
-        data = {
-            "id": ["doc1"],
-            "name": ["Document 1"],
-            "content": ["Full document content"],
-            "chunked_content": [[]],  # Empty chunks
-        }
-        table = pa.table(data)
-
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(table)
-
-        result_table = result_tables[0]
-
-        # Should fail because empty chunks raise error
-        assert result_table.num_rows == 0
-        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
-
-    @patch("ollama.embeddings")
-    def test_chunked_content_with_empty_chunks(self, mock_embeddings, sample_config):
-        """Test handling of empty chunks in chunked_content."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
-
-        # Create table with some empty chunks
-        data = {
-            "id": ["doc1"],
-            "name": ["Document 1"],
-            "content": ["Full content"],
-            "chunked_content": [
-                [
-                    {"chunk": "Valid chunk"},
-                    {"chunk": ""},  # Empty chunk
-                    {"chunk": "Another valid chunk"},
-                ]
-            ],
-        }
-        table = pa.table(data)
-
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(table)
-
-        result_table = result_tables[0]
-
-        # Should process successfully (empty chunks get zero vectors)
-        assert result_table.num_rows == 1
-        assert metadata[Metrics.External.PROCESSED_DOCS] == 1
-
-
-# Metadata Tests
+# Metadata Validation Tests
 class TestEmbeddingsMetadataValidation:
     """Test metadata structure and content validation."""
 
-    @patch("ollama.embeddings")
-    def test_metadata_includes_processed_docs_count(self, mock_embeddings, sample_config, sample_table_multiple_docs):
+    @patch("datasift.core.operators.functional.doc_id_hash.DocIdHashOperator.transform")
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_metadata_includes_processed_docs_count(
+        self, mock_factory, mock_doc_hash_transform, litellm_config, mock_llm_adapter, sample_table_multiple_docs
+    ):
         """Test metadata includes processed_docs count."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        # Mock the embedding adapter to return embeddings for each text
+        def mock_batch_embeddings(texts):
+            return [[0.1] * 384] * len(texts)
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_multiple_docs)
+        mock_llm_adapter.generate_embeddings_batch.side_effect = mock_batch_embeddings
+        mock_factory.return_value = mock_llm_adapter
+
+        # Mock DocIdHashOperator
+        table_with_hash = sample_table_multiple_docs.append_column(
+            "doc_id_hash",
+            pa.array(["hash1", "hash2", "hash3"])
+        )
+        mock_doc_hash_transform.return_value = ([table_with_hash], {})
+
+        operator = EmbeddingsOperator(litellm_config)
+        _result_tables, metadata = operator.transform(sample_table_multiple_docs)
 
         assert Metrics.External.PROCESSED_DOCS in metadata
         assert metadata[Metrics.External.PROCESSED_DOCS] == 3
 
-    def test_metadata_includes_failed_docs_count(self, mock_ollama_client, sample_config, sample_table_multiple_docs):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_metadata_includes_failed_docs_count(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_multiple_docs
+    ):
         """Test metadata includes failed_docs count."""
-        # Make one document fail - need to clear return_value first
-        mock_ollama_client.embeddings.return_value = None
+        # Make one document fail
         call_count = [0]
 
-        def mock_response(model, prompt):
+        def mock_batch_embeddings(texts):
             call_count[0] += 1
             if call_count[0] == 2:
                 raise Exception("Error")
-            return {"embedding": [0.1] * 384}
+            return [[0.1] * 384] * len(texts)
 
-        mock_ollama_client.embeddings.side_effect = mock_response
+        mock_llm_adapter.generate_embeddings_batch.side_effect = mock_batch_embeddings
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_multiple_docs)
+        operator = EmbeddingsOperator(litellm_config)
+        _result_tables, metadata = operator.transform(sample_table_multiple_docs)
 
         assert Metrics.External.FAILED_DOCS_COUNT in metadata
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
 
-    @patch("ollama.embeddings")
-    def test_metadata_includes_node_status(self, mock_embeddings, sample_config, sample_table_single_doc):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_metadata_includes_node_status(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
+    ):
         """Test metadata includes node_status."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_single_doc)
+        operator = EmbeddingsOperator(litellm_config)
+        _result_tables, metadata = operator.transform(sample_table_single_doc)
 
         assert Metrics.External.NODE_STATUS in metadata
         # Should be Completed when all succeed
         assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED.value
 
-    def test_metadata_node_status_with_errors(self, mock_ollama_client, sample_config, sample_table_single_doc):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_metadata_node_status_with_errors(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
+    ):
         """Test node_status is COMPLETED_WITH_ERRORS when failures occur."""
-        # Override default return_value with side_effect for this test
-        mock_ollama_client.embeddings.return_value = None
-        mock_ollama_client.embeddings.side_effect = Exception("Error")
+        mock_llm_adapter.generate_embeddings_batch.side_effect = Exception("Error")
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_single_doc)
+        operator = EmbeddingsOperator(litellm_config)
+        _result_tables, metadata = operator.transform(sample_table_single_doc)
 
         assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
-    @patch("ollama.embeddings")
-    def test_metadata_completeness(self, mock_embeddings, sample_config, sample_table_single_doc):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_metadata_completeness(
+        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
+    ):
         """Test that all required metadata fields are present."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
+        mock_factory.return_value = mock_llm_adapter
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_single_doc)
+        operator = EmbeddingsOperator(litellm_config)
+        _result_tables, metadata = operator.transform(sample_table_single_doc)
 
         # Check all required fields
         required_fields = [
@@ -897,17 +701,32 @@ class TestEmbeddingsMetadataValidation:
             assert field in metadata, f"Missing required metadata field: {field}"
 
 
-# Integration-style Tests
+# Integration Tests
 class TestEmbeddingsOperatorIntegration:
     """Integration-style tests combining multiple features."""
 
-    @patch("ollama.embeddings")
-    def test_full_pipeline_with_hash_and_embeddings(self, mock_embeddings, sample_config, sample_table_multiple_docs):
+    @patch("datasift.core.operators.functional.doc_id_hash.DocIdHashOperator.transform")
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_full_pipeline_with_hash_and_embeddings(
+        self, mock_factory, mock_doc_hash_transform, litellm_config, mock_llm_adapter, sample_table_multiple_docs
+    ):
         """Test full pipeline: generate embeddings and hashes."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
+        # Mock the embedding adapter to return embeddings for each text
+        def mock_batch_embeddings(texts):
+            return [[0.1] * 384] * len(texts)
 
-        operator = EmbeddingsOperator(sample_config)
-        result_tables, metadata = operator.transform(sample_table_multiple_docs)
+        mock_llm_adapter.generate_embeddings_batch.side_effect = mock_batch_embeddings
+        mock_factory.return_value = mock_llm_adapter
+
+        # Mock DocIdHashOperator
+        table_with_hash = sample_table_multiple_docs.append_column(
+            "doc_id_hash",
+            pa.array(["hash1", "hash2", "hash3"])
+        )
+        mock_doc_hash_transform.return_value = ([table_with_hash], {})
+
+        operator = EmbeddingsOperator(litellm_config)
+        result_tables, _metadata = operator.transform(sample_table_multiple_docs)
 
         result_table = result_tables[0]
 
@@ -920,55 +739,22 @@ class TestEmbeddingsOperatorIntegration:
             assert result_table["embeddings"][i].as_py() is not None
             assert result_table["doc_id_hash"][i].as_py() is not None
 
-    @patch("ollama.embeddings")
-    def test_different_models_token_limits(self, mock_embeddings, sample_config):
-        """Test that different models use correct token limits."""
-        mock_embeddings.return_value = {"embedding": [0.1] * 384}
-
-        # Test with different models
-        models = ["llama3", "llama3.1", "mistral"]
-
-        for model in models:
-            config = sample_config.copy()
-            config["embeddings_model_id"] = model
-
-            # Mock OllamaClient for this specific model
-            with patch(
-                "datasift.core.operators.functional.embeddings.adapters.outbound.ollama_adapter.OllamaClient"
-            ) as mock_client:
-                mock_instance = Mock()
-                mock_instance.generate_embeddings.return_value = [0.1] * 384
-                mock_instance.generate_embeddings_batch.return_value = [[0.1] * 384]
-                mock_client.return_value = mock_instance
-
-                operator = EmbeddingsOperator(config)
-
-                # Create long text
-                long_text = "Test " * 10000
-                data = {
-                    "id": ["doc1"],
-                    "name": ["Doc"],
-                    "content": [long_text],
-                }
-                table = pa.table(data)
-
-                result_tables, metadata = operator.transform(table)
-
-                # Should process successfully with appropriate chunking
-                assert metadata[Metrics.External.PROCESSED_DOCS] == 1
-
-    def test_mixed_success_and_failure_documents(self, mock_ollama_client, sample_config):
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_mixed_success_and_failure_documents(
+        self, mock_factory, litellm_config, mock_llm_adapter
+    ):
         """Test processing with mix of successful and failed documents."""
         # Make every other document fail
         call_count = [0]
 
-        def mock_response(model, prompt):
+        def mock_batch_embeddings(texts):
             call_count[0] += 1
             if call_count[0] % 2 == 0:
                 raise Exception("Error")
-            return {"embedding": [0.1] * 384}
+            return [[0.1] * 384] * len(texts)
 
-        mock_ollama_client.embeddings.side_effect = mock_response
+        mock_llm_adapter.generate_embeddings_batch.side_effect = mock_batch_embeddings
+        mock_factory.return_value = mock_llm_adapter
 
         # Create table with 4 documents
         data = {
@@ -978,7 +764,7 @@ class TestEmbeddingsOperatorIntegration:
         }
         table = pa.table(data)
 
-        operator = EmbeddingsOperator(sample_config)
+        operator = EmbeddingsOperator(litellm_config)
         result_tables, metadata = operator.transform(table)
 
         result_table = result_tables[0]

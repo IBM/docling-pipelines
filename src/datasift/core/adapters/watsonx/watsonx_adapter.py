@@ -20,6 +20,7 @@ from datasift.exceptions.datasift_exceptions import DatasiftException, ExternalS
 from datasift.integrations.docling.vlm_pipeline_options_provider import WatsonxPipelineOptionsProvider
 from datasift.integrations.rest_client import RestClient, RestClientConfig, RestMethod
 from datasift.integrations.watsonx.client import WatsonXClient
+from datasift.integrations.watsonx.rest_client import WatsonxRestEmbeddingClient
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,18 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
             container_kind=container_kind,
             timeout=timeout,
         )
+
+        # Store parameters for lazy initialization of embedding client
+        # We don't initialize WatsonxRestEmbeddingClient here because it fetches IAM token immediately
+        self._embedding_client: WatsonxRestEmbeddingClient | None = None
+        self._embedding_client_params = {
+            "api_key": api_key,
+            "api_base": api_base,
+            "container_id": container_id,
+            "container_kind": container_kind,
+            "timeout": timeout,
+        }
+
         self.model_name = model_name
         self._dimension: int | None = None
 
@@ -174,12 +187,17 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
         Raises:
             Exception: WatsonX client errors
         """
+        if not self.embedding_client:
+            raise DatasiftException(
+                "WatsonX embedding client not initialized. Ensure api_key, api_base, container_id, and container_kind are provided."
+            )
+
         # Use provided model_name or fall back to default
         effective_model = model_name or self.model_name
         if effective_model:
-            self.client.model_name = effective_model
+            self.embedding_client.model_name = effective_model
 
-        return self.client.generate_embeddings(text=text)
+        return self.embedding_client.generate_embeddings(text=text)
 
     def generate_embeddings_batch(
         self,
@@ -201,12 +219,17 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
         Raises:
             Exception: WatsonX client errors
         """
+        if not self.embedding_client:
+            raise DatasiftException(
+                "WatsonX embedding client not initialized. Ensure api_key, api_base, container_id, and container_kind are provided."
+            )
+
         # Use provided model_name or fall back to default
         effective_model = model_name or self.model_name
         if effective_model:
-            self.client.model_name = effective_model
+            self.embedding_client.model_name = effective_model
 
-        return self.client.generate_embeddings_batch(texts=texts)
+        return self.embedding_client.generate_embeddings_batch(texts=texts)
 
     def get_embedding_dimension(self, *, model_name: str | None = None) -> int:
         """Get embedding dimension for WatsonX model.

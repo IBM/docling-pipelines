@@ -131,8 +131,8 @@ This operator is **internal** and typically not used directly in flows. It's aut
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "embeddings",
   "config": {
-    "embeddings_type": "ollama",
-    "embeddings_model_id": "nomic-embed-text"
+    "provider": "litellm",
+    "model_id": "openai/nomic-embed-text"
   }
 }
 // Automatically generates doc_id_hash if not present

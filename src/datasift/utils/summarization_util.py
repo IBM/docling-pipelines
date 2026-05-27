@@ -272,21 +272,3 @@ class SummarizationUtil:
                 re.IGNORECASE,
             )
         )
-
-    @staticmethod
-    def build_chunk_text_for_embedding(chunk: dict[str, Any]) -> str:
-        """
-        Prepends summary to chunk text if summary is present.
-        chunk text will be generated as : abstract: <summary>\ncontent: <chunk_text>
-        """
-        chunk_text = chunk.get(OperatorConstants.Columns.CHUNK, "")
-
-        if not chunk_text:
-            return ""
-
-        # If summary exists, prepend it to the chunk text
-        summary = chunk.get(OperatorConstants.Columns.SUMMARY)
-        if summary:
-            return f"abstract: {summary}\ncontent: {chunk_text}"
-
-        return chunk_text

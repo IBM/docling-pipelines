@@ -96,8 +96,11 @@ Update the model in the `generate-embeddings` node:
 
 ```json
 "config": {
-  "embeddings_model_id": "llama3.2",  // Any Ollama model
-  ...
+  "provider": "litellm",
+  "model_id": "openai/llama3.2",  // Any Ollama model via LiteLLM
+   "provider_config": {
+      "api_base": "http://localhost:11434"
+    } 
 }
 ```
 

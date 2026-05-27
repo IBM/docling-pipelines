@@ -909,8 +909,8 @@ podman-compose -f docker/docker-compose.opensearch.yml up -d
      "id": "c3d4e5f6-a7b8-9c0d-1e2f-3a4b5c6d7e8f",
      "operator": "embeddings",
      "config": {
-       "embeddings_type": "ollama",
-       "embeddings_model_id": "nomic-embed-text",
+       "provider": "litellm",
+       "model_id": "openai/nomic-embed-text",
        "embeddings_column": "embeddings"
      }
    },
@@ -1427,8 +1427,8 @@ Message code: EMBEDDINGS_INVALID_TYPE
 {
   "operator_type": "EmbeddingsOperator",
   "operator_params": {
-    "embeddings_type": "watsonx",
-    "model_name": "ibm/slate-125m-english-rtrvr",
+    "provider": "watsonx",
+    "model_id": "ibm/slate-125m-english-rtrvr",
     "provider_config": {
       "api_key": "${WATSONX_API_KEY}",
       "api_base": "${WATSONX_API_BASE}",
