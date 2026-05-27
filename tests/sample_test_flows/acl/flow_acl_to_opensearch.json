@@ -1,0 +1,142 @@
+{
+  "flow_name": "acl-test",
+  "description": "test for ACL operator with SharePoint",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "storage": "duckdb",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest_sharepoint_documents",
+      "config": {
+        "provider": "sharepoint",
+        "connection_params": {
+          "document_library_id": "id1",
+          "folder_path": null,
+          "recursive": true
+        },
+        "credentials": {
+          "client_id": "id",
+          "client_secret": "secret",
+          "tenant_id": "123"
+        },
+        "include_filter": ".txt,.pdf,.docx",
+        "force_ingest": true
+      }
+    },
+    {
+      "type": "acl_operator",
+      "name": "extract_acl_permissions",
+      "config": {
+        "fail_on_error": true
+      },
+      "depends_on": ["ingest_sharepoint_documents"]
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract_document_content",
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "doc_column": "content"
+      },
+      "depends_on": ["extract_acl_permissions"]
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "config": {
+        "chunk_type": "hybrid",
+        "doc_column": "content",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "retain_original_content": false
+      },
+      "depends_on": [
+        "extract_document_content"
+      ]
+    },
+    {
+      "name": "embeddings",
+      "type": "embeddings",
+      "config": {
+        "embeddings_type": "ollama",
+        "embeddings_model_id": "nomic-embed-text",
+        "embeddings_column": "embeddings",
+        "overlap_ratio": 0.2,
+        "doc_column": "content"
+      },
+      "depends_on": [
+        "chunk"
+      ]
+    },
+    {
+      "name": "vectordb",
+      "type": "vectordb",
+      "config": {
+        "vector_db_type": "opensearch",
+        "index_name": "aclidx1",
+        "doc_id_column": "doc_id_hash",
+        "embeddings_column": "embeddings",
+        "vector_dimension": 768,
+        "create_index": "true",
+        "provider_config": {
+          "host": "localhost",
+          "port": 9200,
+          "username": "admin",
+          "password": "admin",
+          "use_ssl": false,
+          "verify_certs": false,
+          "batch_size": 100,
+          "engine": "faiss",
+          "algorithm": "hnsw",
+          "space_type": "l2"
+        },
+        "available_features": {
+          "doc_id_hash": {
+            "name": "Document ID Hash",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "string",
+            "is_primary": true
+          },
+          "content": {
+            "name": "Content",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "source_id": {
+            "name": "Source URL",
+            "available_for_vector_db": true,
+            "type": "string"
+          },
+          "embeddings": {
+            "name": "Embeddings",
+            "available_for_vector_db": true,
+            "mandatory_for_vector_db": true,
+            "type": "vector"
+          },
+          "allowed_users": {
+            "name": "Allowed Users (ACL)",
+            "available_for_vector_db": true,
+            "type": "array"
+          }
+        },
+        "feature_mappings": {
+          "doc_id_hash": "pk",
+          "content": "text",
+          "source_id": "source_url",
+          "embeddings": "vector_embeddings",
+          "allowed_users": "allowed_users"
+        }
+      },
+      "depends_on": [
+        "embeddings"
+      ]
+    }
+  ]
+}

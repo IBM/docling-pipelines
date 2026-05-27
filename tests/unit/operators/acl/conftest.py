@@ -75,7 +75,7 @@ def sample_acl_table_missing_source_id(sample_document_metadata):
     """PyArrow table with missing source_id."""
     data = {
         "id": ["doc1", "doc2"],
-        "name": ["Document 1.pdf", "Document 2.docx"],
+        "path": ["Document 1.pdf", "Document 2.docx"],
         "source_id": ["https://contoso.sharepoint.com/sites/mysite/Shared Documents/doc1.pdf", None],
         "content": ["Content 1", "Content 2"],
         "metadata": [sample_document_metadata, sample_document_metadata],

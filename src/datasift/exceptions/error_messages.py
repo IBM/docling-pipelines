@@ -116,3 +116,12 @@ class ValidationCodeMessages(StrEnum):
     MERGE_COLUMN_OPTION_NOT_PROVIDED = "Column option is required when merge_type is 'columns'. Please specify 'column_option' as either 'inner_join' or 'full_outer'."
     MERGE_INVALID_COLUMN_OPTION = "Invalid column option '{column_option}'. When merge_type is 'columns', column_option must be either 'inner_join' or 'full_outer'."
     DATABASE_CONNECTION_ERROR = "Failed to connect to database: {details}"
+
+    # ACL Operator errors
+    ACL_OPERATOR_NO_INPUT = "ACL operator has no input connections. Please connect it to an ingest_source operator."
+    ACL_MULTIPLE_PARENTS = (
+        "ACL operator should have only one parent. Found {parent_count} parents. In flows, only one ingest is allowed."
+    )
+    ACL_OPERATOR_MISPLACED = "ACL operator must be placed immediately after an ingest_source operator. Current predecessor: {predecessor_operator}"
+    ACL_INVALID_PROVIDER = "ACL operator requires ingest_source to use 'sharepoint' provider, but found '{provider}'"
+    MULTIPLE_ACL_OPERATORS = "Multiple ACL operators detected in the flow. Only one ACL operator is allowed per flow."

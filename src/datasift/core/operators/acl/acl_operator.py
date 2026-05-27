@@ -275,7 +275,7 @@ class ACLOperator(AbstractOperator):
         Returns:
             List of required column names
         """
-        return [OperatorConstants.Columns.ID, OperatorConstants.Columns.NAME, OperatorConstants.Columns.SOURCE_ID]
+        return [OperatorConstants.Columns.PATH, OperatorConstants.Columns.SOURCE_ID]
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """Validate operator configuration.
@@ -409,7 +409,7 @@ class ACLOperator(AbstractOperator):
 
         # Extract document metadata from table
         doc_ids = table.column(OperatorConstants.Columns.ID).to_pylist()
-        doc_names = table.column(OperatorConstants.Columns.NAME).to_pylist()
+        doc_names = table.column(OperatorConstants.Columns.PATH).to_pylist()
         source_ids = table.column(OperatorConstants.Columns.SOURCE_ID).to_pylist()
         metadata_column = table.column(OperatorConstants.Metadata.METADATA).to_pylist()
 
@@ -508,7 +508,7 @@ class ACLOperator(AbstractOperator):
 
         # Step 3: Process results synchronously
         successful_row_indices: list[int] = []
-        allowed_users_list: list[str] = []
+        allowed_users_list: list[list[str]] = []
 
         for context, acl_response in zip(request_contexts, responses, strict=False):
             idx = context["idx"]
@@ -538,9 +538,10 @@ class ACLOperator(AbstractOperator):
                     )
                     continue
 
-                # Convert allowed_users set to JSON array
-                allowed_users_json = json.dumps(sorted(acl_response.allowed_users))
-                allowed_users_list.append(allowed_users_json)
+                # Convert allowed_users set to sorted list (not JSON string)
+                # This allows OpenSearch to store it as a proper array field
+                allowed_users_array = sorted(acl_response.allowed_users)
+                allowed_users_list.append(allowed_users_array)
                 successful_row_indices.append(idx)
                 metadata[Metrics.External.PROCESSED_DOCS] += 1
 

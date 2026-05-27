@@ -314,6 +314,7 @@ class FlowValidator:
         session_info = get_session_info()
 
         self.validate_first_operator(dag=dag, global_config=global_config, validate_results=validate_results)
+        self.validate_acl_operator_placement(dag=dag, validate_results=validate_results)
         self.validate_disjoint_operators(dag=dag, validate_results=validate_results)
         self.validate_no_cycles(dag=dag, validate_results=validate_results)
         self.validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
@@ -752,6 +753,118 @@ class FlowValidator:
                     op_def=dag[index],
                     alerts=validate_results.errors,
                 )
+
+    def validate_acl_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
+        """Validate ACL operator placement in the DAG.
+
+        ACL operator must be placed immediately after an ingest operator (ingest_source or ingest_local).
+        Only one ACL operator is allowed per flow.
+
+        Args:
+            dag: List of operator definitions
+            global_config: Global configuration dictionary
+        """
+        # Early exit if no ACL operator present
+        acl_nodes = [
+            node
+            for node in dag
+            if node.get(OperatorConstants.Misc.OPERATOR) == OperatorConstants.Operators.ACL_OPERATOR
+        ]
+        if not acl_nodes:
+            return
+
+        # Check for multiple ACL operators
+        if len(acl_nodes) > 1:
+            for acl_node in acl_nodes:
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=ValidationCodeMessages.MULTIPLE_ACL_OPERATORS.value,
+                        message_code=ValidationCodeMessages.MULTIPLE_ACL_OPERATORS.name,
+                    ),
+                    op_def=acl_node,
+                    alerts=validate_results.errors,
+                )
+            return
+
+        acl_node = acl_nodes[0]
+        acl_node_id = acl_node.get(OperatorConstants.Misc.ID)
+
+        # Build reverse graph to find parent nodes
+        parent_map: dict[str, list[str]] = {n[OperatorConstants.Misc.ID]: [] for n in dag}
+        for node in dag:
+            output_edges = node.get(DatasiftConstants.OUTPUT_EDGES, [])
+            for edge in output_edges:
+                target_id = edge.get("node_id_ref")
+                if target_id and target_id in parent_map:
+                    parent_map[target_id].append(node[OperatorConstants.Misc.ID])
+
+        # Get parent nodes of ACL operator
+        parent_ids = parent_map.get(acl_node_id, [])
+        if not parent_ids:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.ACL_OPERATOR_NO_INPUT.value,
+                    message_code=ValidationCodeMessages.ACL_OPERATOR_NO_INPUT.name,
+                ),
+                op_def=acl_node,
+                alerts=validate_results.errors,
+            )
+            return
+
+        # Find parent operator details
+        parent_operators = [node for node in dag if node.get(OperatorConstants.Misc.ID) in parent_ids]
+
+        # ACL operator should have only one parent
+        if len(parent_operators) > 1:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.ACL_MULTIPLE_PARENTS.value.format(
+                        parent_count=len(parent_operators)
+                    ),
+                    message_code=ValidationCodeMessages.ACL_MULTIPLE_PARENTS.name,
+                ),
+                op_def=acl_node,
+                alerts=validate_results.errors,
+            )
+            return
+
+        # Check if any parent is an ingest_source operator
+        has_valid_parent = False
+        predecessor_operator = None
+        ingest_source_parent = None
+
+        for parent in parent_operators:
+            parent_op_name = parent.get(OperatorConstants.Misc.OPERATOR)
+            if parent_op_name == OperatorConstants.Operators.INGEST_SOURCE:
+                has_valid_parent = True
+                ingest_source_parent = parent
+                break
+            predecessor_operator = parent_op_name
+
+        if not has_valid_parent:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.ACL_OPERATOR_MISPLACED.value.format(
+                        predecessor_operator=predecessor_operator or "unknown"
+                    ),
+                    message_code=ValidationCodeMessages.ACL_OPERATOR_MISPLACED.name,
+                ),
+                op_def=acl_node,
+                alerts=validate_results.errors,
+            )
+        elif ingest_source_parent is not None:
+            # Validate that ingest_source uses SharePoint provider
+            provider = ingest_source_parent.get(OperatorConstants.Config.CONFIG, {}).get("provider", "").lower()
+            if provider != "sharepoint":
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=ValidationCodeMessages.ACL_INVALID_PROVIDER.value.format(provider=provider),
+                        message_code=ValidationCodeMessages.ACL_INVALID_PROVIDER.name,
+                    ),
+                    op_def=acl_node,
+                    alerts=validate_results.errors,
+                )
+        # Early exit if no ACL operator present
 
     def _build_graph(self, dag: list) -> dict:
         """Build a directed graph representation from the DAG.

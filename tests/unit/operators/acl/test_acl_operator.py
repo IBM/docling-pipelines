@@ -1,6 +1,5 @@
 """Unit tests for ACL Operator."""
 
-import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -46,8 +45,7 @@ class TestACLOperatorInitialization:
         operator = ACLOperator(sample_acl_config)
         required = operator.get_required_features()
 
-        assert OperatorConstants.Columns.ID in required
-        assert OperatorConstants.Columns.NAME in required
+        assert OperatorConstants.Columns.PATH in required
         assert OperatorConstants.Columns.SOURCE_ID in required
 
 
@@ -67,7 +65,7 @@ class TestACLOperatorValidation:
                 operator = ACLOperator(sample_acl_config)
                 errors = []
                 warnings = []
-                available_features = ["id", "name", "source_id"]
+                available_features = ["id", "path", "source_id"]
 
                 operator.validate(errors, warnings, available_features)
 
@@ -81,7 +79,7 @@ class TestACLOperatorValidation:
         errors = []
         warnings = []
 
-        operator.validate(errors, warnings, ["id", "name", "source_id"])
+        operator.validate(errors, warnings, ["id", "path", "source_id"])
 
         # Should pass validation since provider is not required in config
         assert len(errors) == 0
@@ -93,7 +91,7 @@ class TestACLOperatorValidation:
         errors = []
         warnings = []
 
-        operator.validate(errors, warnings, ["id", "name", "source_id"])
+        operator.validate(errors, warnings, ["id", "path", "source_id"])
 
         # Should pass - provider validation is at runtime
         assert len(errors) == 0
@@ -110,7 +108,7 @@ class TestACLOperatorValidation:
             errors = []
             warnings = []
 
-            operator.validate(errors, warnings, ["id", "name", "source_id"])
+            operator.validate(errors, warnings, ["id", "path", "source_id"])
 
             assert len(errors) > 0
             assert any("provider_config must be a dict" in err for err in errors)
@@ -127,7 +125,7 @@ class TestACLOperatorValidation:
             errors = []
             warnings = []
 
-            operator.validate(errors, warnings, ["id", "name", "source_id"])
+            operator.validate(errors, warnings, ["id", "path", "source_id"])
 
             assert len(errors) > 0
             assert any("fail_on_error must be a boolean" in err for err in errors)
@@ -202,9 +200,8 @@ class TestACLOperatorTransform:
 
             # Check allowed_users content
             allowed_users_json = result_table[OperatorConstants.ACL.ALLOWED_USERS_COLUMN][0].as_py()
-            allowed_users = json.loads(allowed_users_json)
-            assert isinstance(allowed_users, list)
-            assert len(allowed_users) == 3
+            assert isinstance(allowed_users_json, list)
+            assert len(allowed_users_json) == 3
 
             # Check metadata
             assert metadata[Metrics.External.TOTAL_DOCS] == 1

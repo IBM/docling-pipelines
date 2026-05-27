@@ -230,7 +230,9 @@ class SharePointACLAdapter(ACLExtractionPort[SharePointACLConfig]):
                             principal_id=identity, principal_type=_PRINCIPAL_TYPE_USER, config=config
                         )
                         resolution_metadata["identities_normalized"] += 1
-                    allowed_users.add(identity)
+                    # Only add non-empty identities
+                    if identity and identity.strip():
+                        allowed_users.add(identity)
 
                 # Handle group principals
                 elif perm.principal_type == _PRINCIPAL_TYPE_GROUP and config.expand_groups:

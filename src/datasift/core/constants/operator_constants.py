@@ -36,6 +36,7 @@ class OperatorConstants:
         INGEST: Final[str] = "ingest"
         INGEST_CSV: Final[str] = "ingest_csv"
         INGEST_LOCAL: Final[str] = "ingest_local"
+        INGEST_SOURCE: Final[str] = "ingest_source"
 
         # Embeddings Operators
         EMBEDDINGS: Final[str] = "embeddings"
