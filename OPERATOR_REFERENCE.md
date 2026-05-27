@@ -850,24 +850,73 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 #### ChunkerOperator
 
-**Purpose:** Split extracted text into chunks using simple, semantic, or hybrid/docling strategies.
+**Purpose:** Split extracted text into chunks using simple, semantic, or hybrid/docling strategies with optional multi-provider LLM summarization.
 
 **Category:** Functional
 
 **Class:** `core.operators.functional.chunker.ChunkerOperator`
 
-| Parameter                     | Type   | Required | Default                                  | Description                                  |
-| ----------------------------- | ------ | -------: | ---------------------------------------- | -------------------------------------------- |
-| `doc_column`                  | string |      Yes | `content`                                | Input content column                         |
-| `chunk_type`                  | string |      Yes | `simple`                                 | `simple`, `semantic`, or `hybrid`            |
-| `chunk_size`                  | int    |       No | project default                          | Character or token size depending on chunker |
-| `chunk_overlap`               | int    |       No | `200`                                    | Overlap between chunks                       |
-| `semantic_embeddings_model`   | string |       No | `granite4`                               | Ollama model for semantic chunking           |
-| `breakpoint_threshold_type`   | string |       No | `percentile`                             | Semantic split threshold method              |
-| `breakpoint_threshold_amount` | float  |       No | `null`                                   | Threshold amount                             |
-| `docling_tokenizer`           | string |       No | `sentence-transformers/all-MiniLM-L6-v2` | Hybrid chunking tokenizer                    |
-| `retain_original_content`     | bool   |       No | `false`                                  | Keep original content                        |
-| `enable_summarization`        | bool   |       No | `false`                                  | Create chunk summaries                       |
+| Parameter                       | Type   | Required | Default                                  | Description                                                    |
+| ------------------------------- | ------ | -------: | ---------------------------------------- | -------------------------------------------------------------- |
+| `doc_column`                    | string |      Yes | `content`                                | Input content column                                           |
+| `chunk_type`                    | string |      Yes | `simple`                                 | `simple`, `semantic`, or `hybrid`                              |
+| `chunk_size`                    | int    |       No | project default                          | Character or token size depending on chunker                   |
+| `chunk_overlap`                 | int    |       No | `200`                                    | Overlap between chunks                                         |
+| `semantic_embeddings_model`     | string |       No | `granite4`                               | Ollama model for semantic chunking                             |
+| `breakpoint_threshold_type`     | string |       No | `percentile`                             | Semantic split threshold method                                |
+| `breakpoint_threshold_amount`   | float  |       No | `null`                                   | Threshold amount                                               |
+| `docling_tokenizer`             | string |       No | `sentence-transformers/all-MiniLM-L6-v2` | Hybrid chunking tokenizer                                      |
+| `retain_original_content`       | bool   |       No | `false`                                  | Keep original content                                          |
+| `enable_summarization`          | bool   |       No | `false`                                  | Enable chunk summarization using LLM                           |
+| `summarization_provider`        | string |       No | `litellm`                                | LLM provider: `litellm` or `watsonx`                           |
+| `summarization_model_id`        | string |       No | `granite4`                               | Model ID (auto-prefixed with `openai/` for LiteLLM)           |
+| `summarization_provider_config` | object |       No | `{}`                                     | Provider-specific configuration (see below)                    |
+| `max_input_tokens`              | int    |       No | `8000`                                   | Maximum tokens per LLM request (range: 1000-32000)             |
+| `overlap_ratio`                 | float  |       No | `0.2`                                    | Overlap ratio for sliding window summarization                 |
+| `summary_sentences`             | int    |       No | `2`                                      | Target sentences per summary (range: 1-5)                      |
+| `summary_max_words`             | int    |       No | `20`                                     | Maximum words per summary (range: 10-100)                      |
+
+**Summarization Providers:**
+
+When `enable_summarization` is `true`, the operator uses the common LLM infrastructure to generate summaries for each chunk:
+
+- **LiteLLM** (default): Unified API for 100+ providers (OpenAI, Azure, Anthropic, Cohere, AWS Bedrock, GCP Vertex AI, etc.)
+- **Watsonx**: IBM watsonx.ai cloud service (enterprise AI)
+
+**Provider-Specific Configuration (`summarization_provider_config`):**
+
+| Provider     | Parameter  | Type   | Default                          | Description                                     |
+| ------------ | ---------- | ------ | -------------------------------- | ----------------------------------------------- |
+| **LiteLLM**  | `api_base` | string | `http://localhost:11434/v1`      | API endpoint URL (defaults to Ollama)           |
+|              | `api_key`  | string | `ollama`                         | Provider API key                                |
+| **Watsonx**  | `api_key`  | string | -                                | IBM Cloud API key                               |
+|              | `project_id` | string | -                              | watsonx.ai project ID                           |
+|              | `url`      | string | `https://us-south.ml.cloud.ibm.com` | watsonx.ai service URL                       |
+
+**Backward Compatibility:**
+
+Legacy configurations using only `summarization_model_id` without provider settings are automatically converted to LiteLLM with Ollama defaults:
+
+```json
+{
+  "enable_summarization": true,
+  "summarization_model_id": "llama3.2:3b"
+}
+```
+
+Becomes:
+
+```json
+{
+  "enable_summarization": true,
+  "summarization_provider": "litellm",
+  "summarization_model_id": "openai/llama3.2:3b",
+  "summarization_provider_config": {
+    "api_base": "http://localhost:11434/v1",
+    "api_key": "ollama"
+  }
+}
+```
 
 **Input Schema**
 
@@ -877,15 +926,18 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 - `chunk_sequence_number`
 - `start_index`
-- `chunked_content`
+- `chunked_content` (array of objects with `chunk`, `start_index`, and optional `summary` fields when `enable_summarization` is `true`)
 
 **Exceptions**
 
 - [`DatasiftException`](src/datasift/exceptions/datasift_exceptions.py)
 - validation messages
 - Ollama errors for semantic chunking
+- LLM provider errors for summarization (handled gracefully)
 
-**Example**
+**Examples**
+
+Basic chunking without summarization:
 
 ```json
 {
@@ -897,6 +949,53 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
     "doc_column": "content",
     "chunk_size": 512,
     "chunk_overlap": 128
+  }
+}
+```
+
+Chunking with LiteLLM summarization (Ollama):
+
+```json
+{
+  "id": "chunk-with-summary",
+  "name": "chunk",
+  "operator": "chunker",
+  "config": {
+    "chunk_type": "simple",
+    "doc_column": "content",
+    "chunk_size": 1000,
+    "chunk_overlap": 200,
+    "enable_summarization": true,
+    "summarization_provider": "litellm",
+    "summarization_model_id": "llama3.2:3b",
+    "summarization_provider_config": {
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "ollama"
+    },
+    "summary_sentences": 2,
+    "summary_max_words": 20
+  }
+}
+```
+
+Chunking with Watsonx summarization:
+
+```json
+{
+  "id": "chunk-watsonx",
+  "name": "chunk",
+  "operator": "chunker",
+  "config": {
+    "chunk_type": "simple",
+    "doc_column": "content",
+    "chunk_size": 1000,
+    "enable_summarization": true,
+    "summarization_provider": "watsonx",
+    "summarization_model_id": "ibm/granite-13b-chat-v2",
+    "summarization_provider_config": {
+      "api_key": "${WATSONX_API_KEY}",
+      "project_id": "${WATSONX_PROJECT_ID}"
+    }
   }
 }
 ```

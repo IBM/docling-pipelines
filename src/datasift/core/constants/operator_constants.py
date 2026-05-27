@@ -198,8 +198,13 @@ class OperatorConstants:
         PROPERTIES: Final[str] = "properties"
         PROVIDER: Final[str] = "provider"
         PROVIDER_CONFIG: Final[str] = "provider_config"
+        PROVIDER_LITELLM: Final[str] = "litellm"
         REQUIRED: Final[str] = "required"
         USERNAME: Final[str] = "username"
+
+        # Summarization Configuration
+        SUMMARIZATION_PROVIDER: Final[str] = "summarization_provider"
+        SUMMARIZATION_PROVIDER_CONFIG: Final[str] = "summarization_provider_config"
 
         # Feature and Schema Configuration
         ALL_SCHEMA_DETAILS: Final[str] = "all_schema_details"

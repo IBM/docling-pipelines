@@ -16,6 +16,7 @@ from datasift.core.constants.constants import (
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.functional.chunker_validator import ChunkerValidator
+from datasift.core.operators.functional.summarization_service import SummarizationService
 from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.exceptions.datasift_exceptions import DatasiftException
 from datasift.exceptions.error_messages import ValidationCodeMessages, ValidationMessage
@@ -218,9 +219,32 @@ class ChunkerOperator(AbstractOperator):
             DatasiftConstants.ENABLE_SUMMARIZATION_KEY, ENABLE_SUMMARIZATION_DEFAULT
         )
         if self.enable_summarization:
+            # Multi-provider support for summarization
+            self.summarization_provider: str = config.get(
+                OperatorConstants.Config.SUMMARIZATION_PROVIDER,
+                OperatorConstants.Config.PROVIDER_LITELLM,  # Default to LiteLLM
+            )
             self.summarization_model: str = config.get(
                 DatasiftConstants.SUMMARY_MODEL_ID_KEY, DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT
             )
+            self.summarization_provider_config: dict = config.get(
+                OperatorConstants.Config.SUMMARIZATION_PROVIDER_CONFIG, {}
+            )
+
+            # Backward compatibility: auto-configure Ollama via LiteLLM if no provider config
+            if not self.summarization_provider_config:
+                self.summarization_provider_config = {
+                    "api_base": "http://localhost:11434/v1",
+                    "api_key": "ollama",  # pragma: allowlist secret
+                }
+            # Auto-prefix model with "openai/" for Ollama via LiteLLM if not already prefixed
+            # Models starting with provider prefixes (openai/, huggingface/, anthropic/) are passed through as-is
+            # OpenAI models (gpt-*) work directly with LiteLLM without needing the openai/ prefix
+            # Ollama models (e.g., llama3, mistral) need the openai/ prefix to route through Ollama's OpenAI-compatible API
+            if self.summarization_provider == OperatorConstants.Config.PROVIDER_LITELLM:
+                if not self.summarization_model.startswith(("openai/", "huggingface/", "anthropic/", "gpt-")):
+                    self.summarization_model = f"openai/{self.summarization_model}"
+
             self.max_length: int = config.get(MAX_INPUT_TOKENS_KEY, DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT)
             self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, DatasiftConstants.OVERLAP_RATIO_DEFAULT)
             self.summary_sentences: int = config.get(SUMMARY_SENTENCES_KEY, DatasiftConstants.SUMMARY_SENTENCES_DEFAULT)
@@ -238,6 +262,9 @@ class ChunkerOperator(AbstractOperator):
 
         # Docling HybridChunker will be lazily initialized when needed
         self._docling_chunker = None
+
+        # Summarization service (lazy initialization)
+        self._summarization_service = None
 
         # Provider-based configuration for remote chunking
         self.provider = config.get(OperatorConstants.Config.PROVIDER)
@@ -354,8 +381,8 @@ class ChunkerOperator(AbstractOperator):
                 },
                 DatasiftConstants.SUMMARY_MODEL_ID_KEY: {
                     OperatorConstants.Misc.NAME: "Summarization Model",
-                    OperatorConstants.Config.DESCRIPTION: "Ollama model used for summarization",
-                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DESCRIPTION: "Model ID for summarization (auto-prefixed with 'openai/' for LiteLLM)",
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
@@ -385,6 +412,24 @@ class ChunkerOperator(AbstractOperator):
                     OperatorConstants.Filtering.MIN_VALUE: 1000,
                     OperatorConstants.Filtering.MAX_VALUE: 32000,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                OperatorConstants.Config.SUMMARIZATION_PROVIDER: {
+                    OperatorConstants.Misc.NAME: "Summarization Provider",
+                    OperatorConstants.Config.DESCRIPTION: "LLM provider for summarization: 'litellm' (default, supports 100+ providers) or 'watsonx'",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: OperatorConstants.Config.PROVIDER_LITELLM,
+                    OperatorConstants.Config.VALID_VALUES: [
+                        OperatorConstants.Config.PROVIDER_LITELLM,
+                        "watsonx",
+                    ],
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                },
+                OperatorConstants.Config.SUMMARIZATION_PROVIDER_CONFIG: {
+                    OperatorConstants.Misc.NAME: "Summarization Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for summarization (e.g., api_base, api_key for LiteLLM)",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DEFAULT: {},
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
                 # New provider-based configuration (recommended)
                 OperatorConstants.Config.PROVIDER: {
@@ -455,12 +500,15 @@ class ChunkerOperator(AbstractOperator):
                 errors=errors,
             )
 
-        # Validate summarization model
+        # Validate summarization model and parameters
         ChunkerValidator.validate_summarization(
             enable_summarization=self.enable_summarization,
             summarization_model=self.summarization_model if self.enable_summarization else "",
             should_validate_field_fn=self.should_validate_field,
             errors=errors,
+            max_input_tokens=self.max_length if self.enable_summarization else None,
+            summary_sentences=self.summary_sentences if self.enable_summarization else None,
+            summary_max_words=self.summary_max_words if self.enable_summarization else None,
         )
 
         # Validate remote chunking configuration (provider-based)
@@ -953,33 +1001,51 @@ class ChunkerOperator(AbstractOperator):
         else:
             raise DatasiftException(f"Invalid chunk type: {self.chunk_type}")
 
-    def _initialize_summarization(self, metadata: dict[str, Any]) -> Any:
+    def _initialize_summarization(self, metadata: dict[str, Any]) -> bool:
         """
-        Initialize summarization utility if enabled.
+        Initialize LLM adapter for summarization if enabled.
+
+        Uses the common LLM infrastructure (LLMAdapterFactory) to support multiple providers
+        (LiteLLM, WatsonX) instead of being hardcoded to Ollama.
 
         Args:
             metadata: Metadata dictionary to update with warnings if initialization fails
 
         Returns:
-            SummarizationUtil instance if successful, empty string otherwise
+            bool: True if initialization successful, False otherwise
 
         Note:
-            Updates metadata with warnings and status if initialization fails
+            Updates metadata with warnings and status if initialization fails.
+            Sets self._summarization_service on success.
         """
         if not self.enable_summarization:
-            return ""
+            return False
 
         try:
-            from datasift.utils.summarization_util import SummarizationUtil
+            from datasift.core.adapters.llm_adapter_factory import LLMAdapterFactory
 
-            return SummarizationUtil(
-                model=self.summarization_model,
-                max_length=self.max_length,
+            llm_adapter = LLMAdapterFactory.create_inference_adapter(
+                provider=self.summarization_provider,
+                model_id=self.summarization_model,
+                provider_config=self.summarization_provider_config,
+            )
+
+            # Create the summarization service with the LLM adapter
+            self._summarization_service = SummarizationService(
+                llm_adapter=llm_adapter,
+                max_input_tokens=self.max_length,
                 overlap_ratio=self.overlap_ratio,
                 summary_sentences=self.summary_sentences,
                 summary_max_words=self.summary_max_words,
-                validate_model=False,
             )
+
+            logger.info(
+                f"Initialized summarization with provider={self.summarization_provider}, "
+                f"model={self.summarization_model}",
+                extra=self.common_log_arguments,
+            )
+            return True
+
         except Exception as e:
             logger.warning(
                 f"Summarization initialization failed, skipping summary generation: {e!s}",
@@ -995,10 +1061,10 @@ class ChunkerOperator(AbstractOperator):
                 current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
                 ExecutionStatus.COMPLETED_WITH_WARNINGS,
             ).value
-            return ""
+            return False
 
     def _process_single_document(
-        self, doc: dict[str, Any], idx: int, summarization_util: Any, metadata: dict[str, Any]
+        self, doc: dict[str, Any], idx: int, metadata: dict[str, Any]
     ) -> tuple[list[dict[str, Any]] | None, bool]:
         """
         Process a single document to create chunks.
@@ -1006,7 +1072,6 @@ class ChunkerOperator(AbstractOperator):
         Args:
             doc: Document dictionary containing content and metadata
             idx: Document index in the input data
-            summarization_util: SummarizationUtil instance or empty string
             metadata: Metadata dictionary to update with processing results
 
         Returns:
@@ -1070,9 +1135,9 @@ class ChunkerOperator(AbstractOperator):
                 }
             )
 
-        if self.enable_summarization and chunked_content:
+        if self.enable_summarization and chunked_content and self._summarization_service:
             try:
-                summarization_util.generate_summary_for_chunked_content(chunked_content=chunked_content)
+                self._summarization_service.generate_summary_for_chunked_content(chunked_content=chunked_content)
             except Exception as e:
                 logger.warning(
                     f"Summary generation failed for document {doc.get(OperatorConstants.Misc.NAME, doc.get(OperatorConstants.Columns.ID))}: {e}",
@@ -1188,13 +1253,13 @@ class ChunkerOperator(AbstractOperator):
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
         # Initialize summarization if enabled
-        summarization_util = self._initialize_summarization(metadata)
+        self._initialize_summarization(metadata)
 
         # Process each document
         total_chunks: int = 0
         remove_row_idx: list[int] = []
         for idx, doc in enumerate(input_doc_data):
-            chunked_content, should_remove = self._process_single_document(doc, idx, summarization_util, metadata)
+            chunked_content, should_remove = self._process_single_document(doc, idx, metadata)
 
             if should_remove:
                 remove_row_idx.append(idx)

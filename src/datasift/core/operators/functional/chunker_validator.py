@@ -193,6 +193,9 @@ class ChunkerValidator:
         summarization_model: str,
         should_validate_field_fn,
         errors: list[Any],
+        max_input_tokens: int | None = None,
+        summary_sentences: int | None = None,
+        summary_max_words: int | None = None,
     ) -> None:
         """
         Validate summarization configuration with reduced nesting.
@@ -202,6 +205,9 @@ class ChunkerValidator:
             summarization_model: Ollama model for summarization
             should_validate_field_fn: Function to check if field should be validated
             errors: List to append validation errors to
+            max_input_tokens: Maximum input tokens per summarization request
+            summary_sentences: Number of sentences in each summary
+            summary_max_words: Maximum words per summary
         """
         if not should_validate_field_fn(field_value=enable_summarization):
             return
@@ -218,3 +224,24 @@ class ChunkerValidator:
                 "Invalid model id. Summarization Model id not provided. "
                 "Please select a foundation model from the available models."
             )
+
+        # Validate max_input_tokens
+        if max_input_tokens is not None and should_validate_field_fn(field_value=max_input_tokens):
+            if not is_value_in_range(value=max_input_tokens, min_value=1000, max_value=32000):
+                errors.append(
+                    f"Invalid max_input_tokens: {max_input_tokens}. Must be between 1000 and 32000."
+                )
+
+        # Validate summary_sentences
+        if summary_sentences is not None and should_validate_field_fn(field_value=summary_sentences):
+            if not is_value_in_range(value=summary_sentences, min_value=1, max_value=5):
+                errors.append(
+                    f"Invalid summary_sentences: {summary_sentences}. Must be between 1 and 5."
+                )
+
+        # Validate summary_max_words
+        if summary_max_words is not None and should_validate_field_fn(field_value=summary_max_words):
+            if not is_value_in_range(value=summary_max_words, min_value=10, max_value=100):
+                errors.append(
+                    f"Invalid summary_max_words: {summary_max_words}. Must be between 10 and 100."
+                )

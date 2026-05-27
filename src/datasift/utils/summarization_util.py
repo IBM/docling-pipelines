@@ -1,58 +1,39 @@
+"""Text utility functions for summarization and embedding operations."""
+
 import re
 from collections import defaultdict
 from typing import Any, Iterator
 
-from datasift.core.constants import DatasiftConstants, OperatorConstants
-from datasift.integrations.ollama.client import InteractionMode, OllamaClient
+from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.utils.infrastructure.logging import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 
 class SummarizationUtil:
-    """Generates concise summaries for document content using Ollama models."""
+    """Utility class for generating summaries for chunked content."""
 
-    def __init__(
-        self,
-        model: str = DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT,
-        max_length: int = DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT,
-        overlap_ratio: float = DatasiftConstants.OVERLAP_RATIO_DEFAULT,
-        summary_sentences: int = DatasiftConstants.SUMMARY_SENTENCES_DEFAULT,
-        summary_max_words: int = DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT,
-        validate_model: bool = False,
-    ):
-        self.model = model
+    def __init__(self, client: Any, max_length: int, words_per_token: float, overlap_ratio: float,
+                 task_instruction: str, summary_sentences: int, output_format: str):
+        """
+        Initialize the summarization utility.
+
+        Args:
+            client: The LLM client for generating summaries
+            max_length: Maximum token length for content
+            words_per_token: Approximate words per token ratio
+            overlap_ratio: Overlap ratio for sliding windows
+            task_instruction: Task instruction for the LLM
+            summary_sentences: Maximum number of sentences in summary
+            output_format: Output format instruction for the LLM
+        """
+        self.client = client
         self.max_length = max_length
+        self.words_per_token = words_per_token
         self.overlap_ratio = overlap_ratio
+        self.task_instruction = task_instruction
         self.summary_sentences = summary_sentences
-        self.summary_max_words = summary_max_words
-        # Word-to-token ratio for estimation (1 token ≈ 0.75 words, safer than chars)
-        self.words_per_token = 0.5
-
-        # Initialize Ollama client
-        try:
-            self.client = OllamaClient(model_name=self.model, mode=InteractionMode.CHAT, validate_model=validate_model)
-            logger.info(f"Initialized Ollama model for summarization: {self.model}")
-        except Exception as e:
-            logger.error(f"Failed to initialize Ollama client: {e}")
-            raise
-
-        # Task instruction for the model
-        self.task_instruction = (
-            f"Your task is to write an abstract for each of these paragraphs in no more than {self.summary_sentences} sentence "
-            f"(no more than {self.summary_max_words} words) describing what the paragraph is about.\n"
-            "Ensure that each abstract is self-contained and understandable on its own, while maintaining awareness "
-            "of the overall context of the document. Include relevant details indicating whether the "
-            "paragraph provides an overview, explains specific details, or presents examples."
-        )
-
-        self.output_format = (
-            "Your answer should follow this format:\n"
-            "[### Paragraph [number]] :\n"
-            "[Your abstract goes here]\n"
-            "# repeat for each paragraph\n"
-            "\n\nDo not output any additional text or commentary. Be brief and precise. Avoid repetition."
-        )
+        self.output_format = output_format
 
     def generate_summary_for_chunked_content(self, *, chunked_content: list[dict[str, Any]]) -> None:
         """

@@ -1,0 +1,71 @@
+{
+  "flow_name": "sample flow with summarization",
+  "flow_id": "55578a6c-96b0-4f51-af8f-3aa63c575141",
+  "description": "Test flow demonstrating chunker with summarization enabled",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": true,
+    "force_ingest": true,
+    "enable_micro_batching": true,
+    "micro_batch_size": 10,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/customer_support_docs",
+        "include_filter": "txt",
+        "store_binary_content": false
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": ["ingest"],
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "none",
+        "doc_column": "content"
+      }
+    },
+    {
+      "name": "sql_filter",
+      "type": "sql_filter",
+      "depends_on": ["extract"],
+      "config": {
+        "criteria_json": {
+          "criteria_list": [
+            {
+              "variable": "path",
+              "operator": "is not null"
+            }
+          ],
+          "logical_operator": "AND"
+        },
+        "features_to_drop": ["path"]
+      }
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "depends_on": ["sql_filter"],
+      "config": {
+        "chunk_type": "hybrid",
+        "doc_column": "content",
+        "chunk_size": 512,
+        "chunk_overlap": 128,
+        "retain_original_content": false,
+        "enable_summarization": true,
+        "summarization_provider": "litellm",
+        "summarization_model_id": "llama3.2",
+        "summarization_provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "ollama"
+        }
+      }
+    }
+  ]
+}

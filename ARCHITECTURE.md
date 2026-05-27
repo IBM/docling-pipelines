@@ -3085,7 +3085,94 @@ graph LR
 
 ---
 
-### 8. Document Set Hexagonal Architecture Pattern
+### 8. Chunker Summarization Service Layer Pattern
+
+The Chunker operator's summarization feature follows a service layer architecture pattern, separating business logic from orchestration and using hexagonal architecture for LLM provider flexibility.
+
+#### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ChunkerOperator                          │
+│              (Orchestration Layer)                          │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     │ uses
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              SummarizationService                           │
+│              (Business Logic Layer)                         │
+│  • Prompt engineering                                       │
+│  • Response parsing                                         │
+│  • Sliding window processing                                │
+│  • Sentence splitting (NLTK)                                │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+                     │ depends on
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│              LLMInferencePort                               │
+│              (Interface/Port)                               │
+│  • generate(prompt, **kwargs) -> str                        │
+└────────────────────┬────────────────────────────────────────┘
+                     │
+         ┌───────────┴───────────┐
+         │                       │
+         ▼                       ▼
+┌──────────────────┐    ┌──────────────────┐
+│ LiteLLMInference │    │ WatsonXInference │
+│ Adapter          │    │ Adapter          │
+│ (100+ providers) │    │ (IBM Watsonx.ai) │
+└──────────────────┘    └──────────────────┘
+```
+
+#### Components
+
+**1. ChunkerOperator** (`src/datasift/core/operators/functional/chunker.py`)
+- **Responsibility**: Orchestrates chunking workflow
+- **Summarization Integration**:
+  - Lazy initialization of `SummarizationService` during `transform()`
+  - Delegates all summarization logic to service
+  - Handles configuration and provider setup
+
+**2. SummarizationService** (`src/datasift/core/operators/functional/summarization_service.py`)
+- **Responsibility**: Encapsulates summarization business logic
+- **Key Methods**:
+  - `generate_summaries_for_chunks()`: Main entry point
+  - `_generate_summaries()`: Batch processing with sliding windows
+  - `_call_llm_for_summary()`: LLM interaction via port
+  - `_generate_summary_prompt()`: Prompt engineering
+  - `_parse_summaries()`: Response parsing and validation
+  - `_sliding_text_chunks()`: Sliding window text processing
+  - `_split_into_sentences()`: NLTK-based sentence tokenization
+- **Configuration**: Accepts `max_input_tokens`, `overlap_ratio`, `summary_sentences`, `summary_max_words`
+
+**3. LLMInferencePort** (`src/datasift/core/ports/llm_inference_port.py`)
+- **Responsibility**: Abstract interface for LLM providers
+- **Method**: `generate(prompt: str, **kwargs) -> str`
+- **Implementations**:
+  - `LiteLLMInferenceAdapter`: Supports 100+ LLM providers (OpenAI, Anthropic, Google, AWS Bedrock, etc.)
+  - `WatsonXInferenceAdapter`: IBM Watsonx.ai integration
+
+#### Benefits
+
+1. **Separation of Concerns**: Business logic isolated from operator orchestration
+2. **Testability**: Service can be unit tested independently
+3. **Maintainability**: Single responsibility for summarization logic
+4. **Extensibility**: Easy to add new summarization strategies
+5. **Reusability**: Service can be used by other operators
+6. **Provider Flexibility**: Hexagonal architecture enables easy provider switching
+
+#### Backward Compatibility
+
+Legacy Ollama-only configurations are automatically converted to LiteLLM:
+- Model IDs without `openai/` prefix are auto-prefixed
+- Default `api_base` set to `http://localhost:11434/v1`
+- Default `api_key` set to `ollama`
+
+---
+
+### 9. Document Set Hexagonal Architecture Pattern
 
 The Document Set operator follows hexagonal architecture (ports and adapters pattern) for flexible storage backend support. It uses the storage layer interfaces (KeyValueStorage and TableStorage) for persistence.
 
@@ -4359,11 +4446,17 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 
 - **BranchingOperator**: Conditional workflow branching
 - **MergeOperator**: Combine multiple tables from branches using row concatenation or column joins
-- **Chunker**: Document chunking with multiple strategies:
+- **Chunker**: Document chunking with multiple strategies and optional multi-provider LLM summarization:
   - **Simple**: Basic text splitting with configurable chunk size and overlap
   - **Semantic**: Sentence-based chunking using NLTK
   - **Hybrid**: Advanced chunking using Docling library
     - Supports both local execution (`docling_library` provider) and remote execution via docling-serve API (`docling_serve` provider) for offloading computation
+  - **Summarization**: Optional LLM-based chunk summarization using service layer architecture:
+    - **SummarizationService**: Dedicated service encapsulating summarization business logic (prompt engineering, response parsing, sliding window processing)
+    - **Multi-Provider Support**: Uses shared LLM infrastructure (LiteLLM, Watsonx.ai) via `LLMInferencePort`
+    - **Hexagonal Architecture**: Service depends on `LLMInferencePort` interface, implemented by `LiteLLMInferenceAdapter` and `WatsonXInferenceAdapter`
+    - **Backward Compatibility**: Maintains support for legacy Ollama-only configurations (auto-converted to LiteLLM)
+    - **Lazy Initialization**: Service created during `transform()` for optimal resource usage
 - **DocIdHash**: Document ID generation (internal operator)
 - **EntityCurationOperator**: Schema-based entity transformation with 9 built-in transformations (currency, date, number parsing)
 - **NoopOperator**: Pass-through for testing
