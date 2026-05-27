@@ -11,9 +11,9 @@ Supported Text Extraction Modes:
     - docling_serve: Remote extraction via Docling Serve API
 
 Supported Entity Extraction Modes:
-    - ollama: LLM-based entity extraction using Ollama models
+    - litellm: Multi-provider LLM extraction using LiteLLM (supports Ollama via OpenAI-compatible API)
+    - watsonx: LLM-based entity extraction using IBM watsonx
     - docling: Template-based entity extraction using Docling templates
-    - litellm: Multi-provider LLM extraction using LiteLLM
     - none: No entity extraction (default)
 
 Architecture:
@@ -37,13 +37,17 @@ Example Usage:
         }
     }
 
-    # Text extraction with entity extraction
+    # Text extraction with entity extraction (LiteLLM with Ollama)
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
             "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
-            "entity_model_name": "llama3.2",
+            "entity_extraction_mode": "litellm",
+            "entity_model_name": "openai/granite4:latest",
+            "entity_provider_config": {
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "<ollama_key>"
+            },
             "doc_column": "document",
             "max_workers": 4
         }
@@ -116,7 +120,7 @@ class ExtractOperator(AbstractOperator):
         short_name: Operator identifier ("extract_operator")
         category: Operator category (OperatorCategory.EXTRACT)
         text_extraction_mode: Selected text extraction mode (basic, vlm, docling_serve)
-        entity_extraction_mode: Selected entity extraction mode (ollama, template, litellm, none)
+        entity_extraction_mode: Selected entity extraction mode (litellm, watsonx, docling, none)
         text_adapter: Text extraction adapter instance
         entity_adapter: Entity extraction adapter instance (None if mode is "none")
         doc_column: Column name for storing extracted content
@@ -139,7 +143,7 @@ class ExtractOperator(AbstractOperator):
                 - max_workers: Number of parallel workers (default: 4)
                 - use_processes: Use processes vs threads (default: False)
                 - text_extraction_mode: Text mode selection ("docling_library", "docling_serve")
-                - entity_extraction_mode: Entity mode selection ("ollama", "docling", "litellm", "none")
+                - entity_extraction_mode: Entity mode selection ("litellm", "watsonx", "docling", "none")
 
                 Common Text extraction parameters:
                 - doc_column: Column name for extracted content (default: "doc_content")
@@ -169,19 +173,22 @@ class ExtractOperator(AbstractOperator):
                 - docling_serve_table_mode: Table extraction mode (default: "accurate")
                 - docling_serve_image_export_mode: Image export mode (default: "placeholder")
 
-                Ollama entity extraction parameters:
-                - entity_model_name: Ollama model name (default: "llama3.2")
+                LiteLLM entity extraction parameters:
+                - entity_model_name: LLM model identifier (e.g., "openai/granite4:latest")
                 - entity_temperature: Sampling temperature 0.0-1.0 (default: 0.0)
                 - entity_max_tokens: Maximum response tokens (default: 4096)
                 - entity_max_doc_chars: Maximum document characters to send to LLM (default: 8000)
+                - entity_provider_config: Provider-specific configuration (api_base, api_key, etc.)
+
+                Watsonx entity extraction parameters:
+                - entity_model_name: Watsonx model identifier
+                - entity_temperature: Sampling temperature (default: 0.0)
+                - entity_max_tokens: Maximum tokens in response (default: 4096)
+                - entity_max_doc_chars: Maximum document characters (default: 8000)
+                - entity_provider_config: Watsonx-specific configuration (container_kind, container_id, etc.)
 
                 Docling entity extraction parameters:
                 - No additional parameters required (uses template-based extraction)
-
-                LiteLLM entity extraction parameters:
-                - entity_model_name: LLM model identifier (default: "gpt-3.5-turbo")
-                - entity_temperature: Sampling temperature (default: 0.0)
-                - entity_max_tokens: Maximum tokens in response (default: 2000)
 
         Raises:
             FlowExecutionFailedException: If extraction_mode is invalid or configuration is incomplete
@@ -852,8 +859,9 @@ class ExtractOperator(AbstractOperator):
                 OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: {
                     OperatorConstants.Misc.NAME: "Entity Extraction Mode",
                     OperatorConstants.Config.DESCRIPTION: (
-                        f"Entity extraction strategy: '{OperatorConstants.ExtractionModes.ENTITY_MODE_OLLAMA}' (Ollama LLM), "
-                        f"'{OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING}' (template-based), '{OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM}' (multi-provider LLM), "
+                        f"Entity extraction strategy: '{OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM}' (LiteLLM multi-provider), "
+                        f"'{OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX}' (IBM watsonx), "
+                        f"'{OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING}' (template-based), "
                         f"or '{OperatorConstants.ExtractionModes.ENTITY_MODE_NONE}' (no entity extraction)"
                     ),
                     OperatorConstants.Config.REQUIRED: False,
@@ -863,7 +871,7 @@ class ExtractOperator(AbstractOperator):
                 OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME: {
                     OperatorConstants.Misc.NAME: "Model Name",
                     OperatorConstants.Config.DESCRIPTION: (
-                        "LLM model name for entity extraction (ollama: 'llama3.2', litellm: 'gpt-3.5-turbo')"
+                        "LLM model name for entity extraction (litellm: 'openai/granite4:latest', watsonx: model identifier)"
                     ),
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: "llama3.2",

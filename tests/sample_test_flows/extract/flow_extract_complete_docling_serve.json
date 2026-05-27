@@ -22,7 +22,7 @@
       "type": "extract_operator",
       "config": {
         "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "ollama",
+        "entity_extraction_mode": "litellm",
         "doc_column": "content",
         "docling_serve_base_url": "http://localhost:5001",
         "docling_serve_timeout": 3000,
@@ -31,9 +31,13 @@
         "docling_serve_verify_ssl": false,
         "docling_serve_do_ocr": true,
         "docling_serve_pdf_backend": "dlparse_v2",
-        "entity_model_name": "granite4:latest",
+        "entity_model_name": "openai/granite4:latest",
+        "entity_provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<ollama_key>"
+        },
         "entity_temperature": 0.0,
-        "entity_max_tokens": 4096,
+        "entity_max_tokens": 2000,
         "max_doc_chars": 8000,
 
         "max_workers": 2

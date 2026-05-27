@@ -548,7 +548,6 @@ class OperatorConstants:
         TEXT_MODE_DOCLING_SERVE: Final[str] = "docling_serve"
 
         # Entity Extraction Mode Values
-        ENTITY_MODE_OLLAMA: Final[str] = "ollama"
         ENTITY_MODE_DOCLING: Final[str] = "docling"
         ENTITY_MODE_LITELLM: Final[str] = "litellm"
         ENTITY_MODE_WATSONX: Final[str] = "watsonx"

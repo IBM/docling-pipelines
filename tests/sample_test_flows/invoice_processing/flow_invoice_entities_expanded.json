@@ -24,7 +24,7 @@
       "type": "extract_operator",
       "config": {
         "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "ollama",
+        "entity_extraction_mode": "litellm",
         "doc_column": "content",
         "entity_model_name": "granite4",
         "max_doc_chars": 8000,

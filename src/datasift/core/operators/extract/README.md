@@ -21,7 +21,7 @@ This architecture enables:
 
 - **Dual-Mode Operation**: Supports both text extraction and entity extraction in a single operator
 - **Multiple Text Extraction Strategies**: Docling Library (with optional VLM and ASR pipeline) and Docling Serve API
-- **Multiple Entity Extraction Strategies**: Ollama LLM, Docling template-based, LiteLLM, and WatsonX
+- **Multiple Entity Extraction Strategies**: LiteLLM (including Ollama via openai/ prefix), Docling template-based, and WatsonX
 - **Estimated Page Count Calculation**: Automatically calculates estimated page counts for extracted text
 - **Parallel Processing**: Automatic worker optimization based on CPU count
 - **Flexible Configuration**: Mode-specific parameters with sensible defaults
@@ -237,48 +237,7 @@ No entity extraction is performed. Only text extraction is executed.
 }
 ```
 
-### 2. Ollama Mode
-
-LLM-based entity extraction using locally running Ollama models.
-
-**Configuration:**
-```json
-{
-  "text_extraction_mode": "docling_library",
-  "entity_extraction_mode": "ollama",
-  "entity_model_name": "llama3.2",
-  "entity_temperature": 0.0,
-  "entity_max_tokens": 4096,
-  "max_doc_chars": 8000,
-  "custom_schema": {
-    "invoice_number": "string",
-    "invoice_date": "string",
-    "total_amount": "float",
-    "vendor_name": "string"
-  }
-}
-```
-
-**Parameters:**
-- `entity_model_name`: Ollama model to use (default: "llama3.2")
-- `entity_temperature`: Sampling temperature 0.0-1.0 (default: 0.0, deterministic)
-- `entity_max_tokens`: Maximum response tokens (default: 4096)
-- `entity_max_doc_chars`: Maximum document characters to send to LLM (default: 8000)
-- `custom_schema`: Optional schema dictionary defining expected entity structure
-
-**Prerequisites:**
-- Ollama server running on `http://localhost:11434`
-- Model pulled: `ollama pull llama3.2`
-
-**Use Cases:**
-- Flexible entity extraction without predefined templates
-- Complex document understanding
-- Schema-based or schema-free extraction
-- Local LLM processing
-
-**Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_text_and_entities_ollama.json`](../../../../tests/sample_test_flows/extract/flow_extract_text_and_entities_ollama.json)
-
-### 3. Docling Mode (VLM-Based)
+### 2. Docling Mode (VLM-Based)
 
 Vision-Language Model (VLM) based entity extraction using Docling's VLM pipeline for structured data extraction from documents.
 
@@ -337,7 +296,7 @@ Users can configure custom inline VLM models for entity extraction using the `en
 }
 ```
 
-**Note:** API model configuration is not supported. For API-based entity extraction, use `entity_extraction_mode: "ollama"` or `"litellm"` instead.
+**Note:** API model configuration is not supported. For API-based entity extraction, use `entity_extraction_mode: "litellm"` instead.
 
 **Supported Model Types:**
 - **Inline Models**: HuggingFace models with Transformers, vLLM, or MLX backends
@@ -359,11 +318,11 @@ Users can configure custom inline VLM models for entity extraction using the `en
 - Basic: [`tests/sample_test_flows/extract/flow_extract_template.json`](../../../../tests/sample_test_flows/extract/flow_extract_template.json)
 - Custom Model: [`tests/sample_test_flows/extract/flow_extract_docling_custom_model.json`](../../../../tests/sample_test_flows/extract/flow_extract_docling_custom_model.json)
 
-### 4. LiteLLM Mode
+### 3. LiteLLM Mode
 
-Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (OpenAI, Anthropic, Cohere, etc.).
+Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (OpenAI, Anthropic, Cohere, Ollama, etc.).
 
-**Configuration:**
+**Configuration (OpenAI):**
 ```json
 {
   "text_extraction_mode": "docling_library",
@@ -378,6 +337,25 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 }
 ```
 
+**Configuration (Ollama via LiteLLM):**
+```json
+{
+  "text_extraction_mode": "docling_library",
+  "entity_extraction_mode": "litellm",
+  "entity_model_name": "openai/llama3.2",
+  "entity_temperature": 0.0,
+  "entity_max_tokens": 4096,
+  "entity_provider_config": {
+    "api_base": "http://localhost:11434/v1",
+    "api_key": "<ollama_key>"
+  },
+  "custom_schema": {
+    "invoice_number": "string",
+    "total_amount": "float"
+  }
+}
+```
+
 **Supported Providers:**
 - OpenAI (GPT-3.5, GPT-4, GPT-4o)
 - Anthropic (Claude 3 Opus, Sonnet, Haiku)
@@ -385,7 +363,12 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 - Google (Gemini Pro, Gemini Ultra)
 - Azure OpenAI
 - AWS Bedrock
+- Ollama (via openai/ model prefix)
 - And 100+ other providers via LiteLLM
+
+**Prerequisites for Ollama:**
+- Ollama server running on `http://localhost:11434`
+- Model pulled: `ollama pull llama3.2`
 
 **Use Cases:**
 - Multi-provider LLM support without code changes
@@ -393,10 +376,11 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 - Cost optimization by switching between providers
 - Fallback strategies across multiple providers
 - Schema-based and schema-free entity extraction
+- Local LLM processing via Ollama
 
 **Sample Flow:** [`tests/sample_test_flows/extract/flow_extract_basic_litellm.json`](../../../../tests/sample_test_flows/extract/flow_extract_basic_litellm.json)
 
-### 5. WatsonX Mode
+### 4. WatsonX Mode
 
 IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 
@@ -442,7 +426,7 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `text_extraction_mode` | string | `"docling_library"` | Text extraction strategy: `"docling_library"` or `"docling_serve"` |
-| `entity_extraction_mode` | string | `"none"` | Entity extraction strategy: `"ollama"`, `"docling"`, `"litellm"`, `"watsonx"`, or `"none"` |
+| `entity_extraction_mode` | string | `"none"` | Entity extraction strategy: `"litellm"` (includes Ollama via openai/ prefix), `"docling"`, `"watsonx"`, or `"none"` |
 | `doc_column` | string | `"doc_content"` | Column name for storing extracted content |
 | `extract_tables` | boolean | `true` | Whether to extract tables from documents |
 | `extract_images` | boolean | `true` | Whether to extract images from documents |
@@ -509,22 +493,14 @@ For API models (Ollama, vLLM, OpenAI-compatible):
 }
 ```
 
-### Ollama Entity Extraction Parameters
-
-| Parameter              | Type    | Default      | Description                                |
-|------------------------|---------|--------------|--------------------------------------------|
-| `entity_model_name`    | string  | `"llama3.2"` | Ollama model name                          |
-| `entity_temperature`   | float   | `0.0`        | Sampling temperature (0.0-1.0)             |
-| `entity_max_tokens`    | integer | `4096`       | Maximum response tokens                    |
-| `entity_max_doc_chars` | integer | `8000`       | Maximum document characters to send to LLM |
-
 ### LiteLLM Entity Extraction Parameters
 
-| Parameter            | Type    | Default           | Description             |
-|----------------------|---------|-------------------|-------------------------|
-| `entity_model_name`  | string  | `"gpt-3.5-turbo"` | LLM model identifier    |
-| `entity_temperature` | float   | `0.0`             | Sampling temperature    |
-| `entity_max_tokens`  | integer | `2000`            | Maximum response tokens |
+| Parameter                | Type    | Default           | Description                                                                                        |
+|--------------------------|---------|-------------------|----------------------------------------------------------------------------------------------------|
+| `entity_model_name`      | string  | `"gpt-3.5-turbo"` | LLM model identifier. For Ollama, use `openai/` prefix (e.g., `openai/llama3.2`)                  |
+| `entity_temperature`     | float   | `0.0`             | Sampling temperature                                                                               |
+| `entity_max_tokens`      | integer | `2000`            | Maximum response tokens                                                                            |
+| `entity_provider_config` | object  | `{}`              | Provider config with `api_key`, `api_base`. For Ollama, set `api_base` to `http://localhost:11434/v1` |
 
 ### WatsonX Entity Extraction Parameters
 
@@ -584,18 +560,22 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 }
 ```
 
-### Example 2: Text + Entity Extraction with Ollama
+### Example 2: Text + Entity Extraction with Ollama (via LiteLLM)
 
 ```json
 {
   
   "operator_params": {
     "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "ollama",
+    "entity_extraction_mode": "litellm",
     "doc_column": "content",
-    "entity_model_name": "llama3.2",
+    "entity_model_name": "openai/llama3.2",
     "entity_temperature": 0.0,
     "entity_max_tokens": 4096,
+    "entity_provider_config": {
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama_key>"
+    },
     "custom_schema": {
       "invoice_number": "string",
       "vendor_name": "string",
@@ -665,20 +645,24 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 }
 ```
 
-### Example 6: VLM Pipeline + Ollama Entity Extraction
+### Example 6: VLM Pipeline + Ollama Entity Extraction (via LiteLLM)
 
 ```json
 {
   
   "operator_params": {
     "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "ollama",
+    "entity_extraction_mode": "litellm",
     "doc_column": "content",
     "use_vlm_pipeline": true,
     "vlm_preset": "granite_docling",
     "vlm_engine_type": "transformers",
-    "entity_model_name": "llama3.2",
+    "entity_model_name": "openai/llama3.2",
     "entity_temperature": 0.0,
+    "entity_provider_config": {
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama_key>"
+    },
     "max_workers": 1
   }
 }
@@ -757,7 +741,7 @@ ffmpeg -version
 **Used By:** Text extraction with ASR (Automatic Speech Recognition) when processing audio/video files
 
 
-### Ollama Integration (for Ollama entity extraction)
+### Ollama Integration (for LiteLLM entity extraction with Ollama)
 
 **Requirement:** Ollama server must be running on `http://localhost:11434`
 
@@ -773,7 +757,7 @@ ollama pull llama3.2
 curl http://localhost:11434/api/tags
 ```
 
-**Used By:** Entity extraction when `entity_extraction_mode="ollama"`
+**Used By:** Entity extraction when `entity_extraction_mode="litellm"` with `entity_model_name="openai/llama3.2"` and `api_base="http://localhost:11434/v1"`
 
 ### Docling Serve Integration (for docling_serve text extraction)
 
@@ -806,15 +790,15 @@ curl http://localhost:5001/health
 | **Accuracy**              | Good                      | Excellent              | Excellent                |
 | **External Dependencies** | None                      | Model files            | Docker container         |
 
-| Feature                   | Ollama        | Docling   | LiteLLM    | WatsonX             |
-|---------------------------|---------------|-----------|------------|---------------------|
-| **Processing Location**   | Local         | Local     | Remote API | Remote API          |
-| **Schema Support**        | Yes           | Yes       | Yes        | Yes                 |
-| **Schema-Free Mode**      | Yes           | No        | Yes        | Yes                 |
-| **Setup Complexity**      | Medium        | Low       | Low        | Medium              |
-| **Processing Speed**      | Medium        | Fast      | Fast       | Medium              |
-| **Accuracy**              | High          | Good      | High       | High                |
-| **External Dependencies** | Ollama server | None      | API keys   | WatsonX credentials |
+| Feature                   | LiteLLM (Ollama) | LiteLLM (Cloud) | Docling   | WatsonX             |
+|---------------------------|------------------|-----------------|-----------|---------------------|
+| **Processing Location**   | Local            | Remote API      | Local     | Remote API          |
+| **Schema Support**        | Yes              | Yes             | Yes       | Yes                 |
+| **Schema-Free Mode**      | Yes              | Yes             | No        | Yes                 |
+| **Setup Complexity**      | Medium           | Low             | Low       | Medium              |
+| **Processing Speed**      | Medium           | Fast            | Fast      | Medium              |
+| **Accuracy**              | High             | High            | Good      | High                |
+| **External Dependencies** | Ollama server    | API keys        | None      | WatsonX credentials |
 
 ## Best Practices
 
@@ -845,10 +829,11 @@ curl http://localhost:5001/health
 - Only text extraction is needed
 - Entity extraction will be done in a separate step
 
-**Use Ollama Mode When:**
+**Use LiteLLM Mode When:**
+- Multi-provider LLM support needed
+- Cloud-based or local (Ollama) LLM processing
+- Cost optimization by switching between providers
 - Flexible entity extraction without predefined templates
-- Complex document understanding required
-- Local LLM processing preferred
 - Schema-based or schema-free extraction needed
 
 **Use Docling Mode When:**
@@ -856,11 +841,6 @@ curl http://localhost:5001/health
 - Processing documents with known schema
 - Fast, deterministic extraction required
 - Template-driven workflows
-
-**Use LiteLLM Mode When:**
-- Multi-provider LLM support needed
-- Cloud-based LLM processing preferred
-- Cost optimization by switching between providers
 
 **Use WatsonX Mode When:**
 - Enterprise LLM deployments with IBM WatsonX.ai
@@ -913,8 +893,8 @@ Complete sample flows are available in [`tests/sample_test_flows/extract/`](../.
 - For Docling Serve mode, verify the service is running and accessible
 
 **Issue: "Failed to initialize entity extraction adapter"**
-- Verify the `entity_extraction_mode` value is valid: `"ollama"`, `"docling"`, `"litellm"`, `"watsonx"`, or `"none"`
-- For Ollama mode, ensure Ollama server is running and the model is pulled
+- Verify the `entity_extraction_mode` value is valid: `"litellm"`, `"docling"`, `"watsonx"`, or `"none"`
+- For LiteLLM mode with Ollama, ensure Ollama server is running and the model is pulled, and use `openai/` model prefix
 - For WatsonX mode, ensure environment variables `WATSONX_API_KEY` and `WATSONX_CONTAINER_ID` are set
 - Check that required parameters (model_name, etc.) are provided
 
@@ -953,30 +933,60 @@ Complete sample flows are available in [`tests/sample_test_flows/extract/`](../.
 
 ### Hexagonal Architecture
 
-The ExtractOperator follows hexagonal architecture (ports and adapters pattern):
+The ExtractOperator follows hexagonal architecture (ports and adapters pattern) with clear separation of concerns:
 
 ```
 ExtractOperator (Orchestrator)
     ↓
-TextExtractionPort (Interface)
+┌─────────────────────────────────────────────────────────────┐
+│ Domain Layer                                                 │
+│  - EntityExtractionService (business logic)                  │
+│  - Domain Models (TextExtractionMode, EntityExtractionMode)  │
+└─────────────────────────────────────────────────────────────┘
     ↓
-├── DoclingAdapter (docling_library mode, with optional VLM pipeline)
-└── DoclingServeAdapter (docling_serve mode)
-
-EntityExtractionPort (Interface)
+┌─────────────────────────────────────────────────────────────┐
+│ Port Layer (Interfaces)                                      │
+│  - TextExtractionPort                                        │
+│  - EntityExtractionPort                                      │
+└─────────────────────────────────────────────────────────────┘
     ↓
-├── OllamaEntityAdapter (ollama mode)
-├── DoclingEntityAdapter (docling mode)
-├── LiteLLMEntityAdapter (litellm mode)
-└── WatsonxEntityAdapter (watsonx mode)
+┌─────────────────────────────────────────────────────────────┐
+│ Adapter Layer (Implementations)                              │
+│  Text Extraction:                                            │
+│   - DoclingAdapter (docling_library mode, optional VLM/ASR)  │
+│   - DoclingServeAdapter (docling_serve mode)                 │
+│  Entity Extraction:                                          │
+│   - LLMEntityAdapter (litellm and watsonx modes - unified)   │
+│   - DoclingEntityAdapter (docling mode)                      │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Factory Layer                                                │
+│  - TextExtractionAdapterFactory                              │
+│  - EntityExtractionAdapterFactory                            │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+**Architecture Components:**
+
+- **Domain Layer**: `EntityExtractionService` handles business logic (prompt building, schema validation, response parsing)
+- **Port Layer**: Interfaces define extraction contracts without implementation details
+- **Adapter Layer**: Concrete implementations for different extraction strategies
+- **Factory Layer**: Creates appropriate adapters based on configuration mode
+
+**Key Benefits:**
+- Easy addition of new extraction strategies by implementing ports
+- Clear separation between business logic, interfaces, and implementations
+- Testability through dependency injection and mocking
+- Unified LLM support: Both `litellm` and `watsonx` use the same `LLMEntityAdapter`
 
 ### Execution Flow
 
 1. **Initialization:**
    - Parse extraction modes from configuration
-   - Create text extraction adapter via factory
-   - Create entity extraction adapter via factory (if enabled)
+   - Create text extraction adapter via `TextExtractionAdapterFactory`
+   - Create entity extraction adapter via `EntityExtractionAdapterFactory` (if enabled)
+   - Initialize `EntityExtractionService` with the entity adapter
 
 2. **Text Extraction:**
    - Delegate to text extraction adapter
@@ -984,9 +994,11 @@ EntityExtractionPort (Interface)
    - Collect extracted content and metadata
 
 3. **Entity Extraction (if enabled):**
+   - `EntityExtractionService` builds prompts with schema
    - Delegate to entity extraction adapter
    - Process extracted text in parallel
    - Extract structured entities based on schema or LLM
+   - Service parses and validates responses
 
 4. **Result Assembly:**
    - Combine text and entity extraction results

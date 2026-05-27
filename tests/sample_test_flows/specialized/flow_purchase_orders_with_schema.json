@@ -24,7 +24,7 @@
       "type": "extract_operator",
       "config": {
         "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "ollama",
+        "entity_extraction_mode": "litellm",
         "doc_column": "content",
         "extract_tables": false,
         "extract_images": false,

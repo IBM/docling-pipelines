@@ -82,7 +82,7 @@ class LLMAdapterFactory:
                 model_id="openai/llama2",
                 provider_config={
                     "api_base": "http://localhost:11434/v1",
-                    "api_key": "ollama"  # pragma: allowlist secret
+                    "api_key": "<ollama_key>"  # pragma: allowlist secret
                 }
             )
         """
@@ -159,7 +159,7 @@ class LLMAdapterFactory:
                 model_id="openai/nomic-embed-text",
                 provider_config={
                     "api_base": "http://localhost:11434/v1",
-                    "api_key": "ollama"  # pragma: allowlist secret
+                    "api_key": "<ollama_key>"  # pragma: allowlist secret
                 }
             )
         """

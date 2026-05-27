@@ -2,7 +2,13 @@
 
 ## Overview
 
-The Extract Operator is a unified extraction operator that provides text and entity extraction from documents using multiple strategies. It uses hexagonal architecture to support various extraction modes through specialized adapters.
+The Extract Operator is a unified extraction operator that provides text and entity extraction from documents using multiple strategies. It uses hexagonal architecture (ports and adapters pattern) to support various extraction modes through specialized adapters.
+
+**Architecture Layers:**
+- **Domain Layer**: `EntityExtractionService` for business logic
+- **Port Layer**: `TextExtractionPort` and `EntityExtractionPort` interfaces
+- **Adapter Layer**: Concrete implementations (DoclingAdapter, DoclingServeAdapter, LLMEntityAdapter, DoclingEntityAdapter)
+- **Factory Layer**: Adapter creation based on configuration
 
 - **Operator Name:** `extract_operator`
 - **Category**: Extract
@@ -15,9 +21,9 @@ The Extract Operator is a unified extraction operator that provides text and ent
 - **docling_serve**: Remote extraction via Docling Serve API
 
 ### Entity Extraction Modes
-- **ollama**: LLM-based entity extraction using Ollama models
+- **litellm**: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.). Use this mode to access Ollama models with the `openai/` prefix (e.g., `openai/llama3.2`)
+- **watsonx**: IBM watsonx.ai LLM-based entity extraction
 - **docling**: Template-based entity extraction using Docling templates
-- **litellm**: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
 - **none**: No entity extraction (default)
 
 ## Configuration Parameters
@@ -47,11 +53,13 @@ The Extract Operator is a unified extraction operator that provides text and ent
 **Default:** `"none"`  
 **Description:** Entity extraction strategy. Set to enable structured data extraction from documents.
 
-**Valid Values:** `ollama`, `docling`, `litellm`, `none`
+**Valid Values:** `litellm`, `watsonx`, `docling`, `none`
+
+**Note:** To use Ollama models, set `entity_extraction_mode` to `"litellm"` and use the `openai/` prefix in `entity_model_name` (e.g., `"openai/llama3.2"`). Configure `entity_provider_config` with `"api_base": "http://localhost:11434/v1"`.
 
 **Examples:**
 ```json
-"entity_extraction_mode": "ollama"
+"entity_extraction_mode": "litellm"
 ```
 
 ```json
@@ -520,15 +528,18 @@ The Extract Operator is a unified extraction operator that provides text and ent
 }
 ```
 
-### Example 2: Text + Entity Extraction with Ollama
+### Example 2: Text + Entity Extraction with Ollama (via LiteLLM)
 ```json
 {
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
     "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "ollama",
-    "entity_model_name": "llama3.2",
+    "entity_extraction_mode": "litellm",
+    "entity_model_name": "openai/llama3.2",
+    "entity_provider_config": {
+      "api_base": "http://localhost:11434/v1"
+    },
     "entity_temperature": 0.0,
     "custom_schema": {
       "person_name": "string",

@@ -1487,10 +1487,12 @@ graph TB
 
 **Integration Points:**
 
-1. **Entity Extraction**: Uses Ollama for LLM-based entity extraction
+1. **Entity Extraction**: Supports Ollama via LiteLLM for LLM-based entity extraction (using OpenAI-compatible API)
 2. **Embeddings**: Generates vector embeddings using Ollama models
 3. **Configuration**: Model selection, temperature, context window
 4. **Error Handling**: Retry logic, timeout management
+
+**Note:** Ollama models are supported via LiteLLM provider. Use `openai/` model prefix and configure `api_base` to point to Ollama's OpenAI-compatible endpoint.
 
 **Example Configuration:**
 
@@ -2297,7 +2299,125 @@ Watsonx (IBM Cloud):
 - Batch processing support
 - Provider-specific optimizations
 
-### 7. Docling Integration Architecture
+### 7. Extract Operator Hexagonal Architecture
+
+The ExtractOperator uses hexagonal architecture (ports and adapters pattern) to support multiple extraction strategies with clear separation of concerns.
+
+```mermaid
+graph TB
+    subgraph "Operator Layer"
+        EXT[ExtractOperator<br/>Orchestrator]
+    end
+
+    subgraph "Domain Layer"
+        TES[TextExtractionService]
+        EES[EntityExtractionService]
+        MODELS[Domain Models<br/>TextExtractionMode<br/>EntityExtractionMode<br/>ExtractionRequest/Result]
+    end
+
+    subgraph "Port Layer (Interfaces)"
+        TEP[TextExtractionPort]
+        EEP[EntityExtractionPort]
+    end
+
+    subgraph "Adapter Layer (Implementations)"
+        DA[DoclingAdapter<br/>docling_library mode]
+        DSA[DoclingServeAdapter<br/>docling_serve mode]
+        LEA[LLMEntityAdapter<br/>litellm/watsonx modes]
+        DEA[DoclingEntityAdapter<br/>docling mode]
+    end
+
+    subgraph "Factory Layer"
+        TEF[TextExtractionAdapterFactory]
+        EEF[EntityExtractionAdapterFactory]
+    end
+
+    EXT --> TES
+    EXT --> EES
+    TES --> TEP
+    EES --> EEP
+    TEP -.implements.- DA
+    TEP -.implements.- DSA
+    EEP -.implements.- LEA
+    EEP -.implements.- DEA
+    TEF --> DA
+    TEF --> DSA
+    EEF --> LEA
+    EEF --> DEA
+
+    style EXT fill:#ffe1e1
+    style TES fill:#fff4e1
+    style EES fill:#fff4e1
+    style TEP fill:#e1f5ff
+    style EEP fill:#e1f5ff
+    style DA fill:#e1ffe1
+    style DSA fill:#e1ffe1
+    style LEA fill:#e1ffe1
+    style DEA fill:#e1ffe1
+```
+
+**Architecture Components:**
+
+1. **Domain Layer**:
+   - `EntityExtractionService`: Core business logic for entity extraction (prompt building, schema validation, response parsing)
+   - Domain models define extraction modes, requests, and results
+
+2. **Port Layer** (Interfaces):
+   - `TextExtractionPort`: Interface for text extraction strategies
+   - `EntityExtractionPort`: Interface for entity extraction strategies
+
+3. **Adapter Layer** (Implementations):
+   - **Text Extraction Adapters**:
+     - `DoclingAdapter`: Local extraction using Docling library (supports VLM and ASR pipelines)
+     - `DoclingServeAdapter`: Remote extraction via Docling Serve API (supports OCR)
+   - **Entity Extraction Adapters**:
+     - `LLMEntityAdapter`: Unified adapter for LiteLLM and WatsonX (uses shared LLM infrastructure)
+     - `DoclingEntityAdapter`: Template-based extraction using Docling
+
+4. **Factory Layer**:
+   - `TextExtractionAdapterFactory`: Creates text extraction adapters based on mode
+   - `EntityExtractionAdapterFactory`: Creates entity extraction adapters based on mode
+
+**Key Benefits:**
+
+- **Separation of Concerns**: Clear boundaries between business logic, interfaces, and implementations
+- **Extensibility**: Easy to add new extraction strategies by implementing ports
+- **Testability**: Each layer can be tested independently with mocks
+- **Flexibility**: Text and entity extraction modes can be combined independently
+- **Unified LLM Support**: Both LiteLLM and WatsonX use the same adapter for consistent behavior
+
+**Extraction Modes:**
+
+**Text Extraction:**
+- `docling_library`: Local extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition)
+- `docling_serve`: Remote extraction via Docling Serve API with OCR support
+
+**Entity Extraction:**
+- `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, Ollama via openai/ prefix, etc.)
+- `watsonx`: IBM WatsonX.ai extraction (uses same LLMEntityAdapter as litellm)
+- `docling`: Template-based extraction using Docling templates
+- `none`: No entity extraction (default)
+
+**Example Configuration:**
+
+```json
+{
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction_mode": "docling_library",
+    "entity_extraction_mode": "litellm",
+    "entity_model_name": "openai/llama3.2",
+    "entity_provider_config": {
+      "api_base": "http://localhost:11434/v1"
+    },
+    "doc_column": "content",
+    "extract_tables": true,
+    "extract_images": false
+  }
+}
+```
+
+### 8. Docling Integration Architecture
 
 ```mermaid
 graph TB
@@ -2317,14 +2437,14 @@ graph TB
         TABLE[Table Extractor]
     end
 
-    ED --> DC
+    EXT --> DC
     DC --> RC
     RC --> DS
     DS --> PDF
     DS --> DOCX
     DS --> TABLE
 
-    style ED fill:#ffe1e1
+    style EXT fill:#ffe1e1
     style DC fill:#fff4e1
     style DS fill:#e1f5ff
 ```
@@ -2339,25 +2459,13 @@ graph TB
 **Supported Providers:**
 
 - **Docling Library (Local)**: Local document processing and chunking using the Docling library
-  - Used by ExtractOperator for document parsing
+  - Used by ExtractOperator with `text_extraction_mode: "docling_library"` for document parsing
   - Used by Chunker operator with `provider: "docling_library"` for local Hybrid chunking
-- **Docling-serve (Remote)**: Remote Hybrid chunking via docling-serve API
+- **Docling-serve (Remote)**: Remote extraction and chunking via docling-serve API
+  - Used by ExtractOperator with `text_extraction_mode: "docling_serve"` for distributed extraction
   - Used by Chunker operator with `provider: "docling_serve"` for distributed Hybrid chunking
-  - Enables offloading Hybrid chunking computation to dedicated service
-  - Only supports Hybrid chunking strategy
-
-**Example Configuration:**
-
-```json
-{
-  "operator": "extract_docling",
-  "config": {
-    "doc_column": "content",
-    "extract_tables": true,
-    "extract_images": false
-  }
-}
-```
+  - Enables offloading computation to dedicated service
+  - Only supports Hybrid chunking strategy for Chunker
 
 ### 8. DocumentClassifier Pattern
 
@@ -4216,17 +4324,26 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 
 #### Extract Operators (`extract/`)
 
-- **ExtractOperator**: Extraction operator using hexagonal architecture with multiple adapters; outputs extracted text plus estimated page-count metrics
+- **ExtractOperator**: Unified extraction operator using hexagonal architecture (ports and adapters pattern)
+  - **Architecture Layers**:
+    - **Domain Layer**: `EntityExtractionService` for business logic, domain models for extraction modes and requests
+    - **Port Layer**: `TextExtractionPort` and `EntityExtractionPort` interfaces
+    - **Adapter Layer**: Concrete implementations for different extraction strategies
+    - **Factory Layer**: `TextExtractionAdapterFactory` and `EntityExtractionAdapterFactory` for adapter creation
   - **Text Extraction Modes**:
-    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines
-    - `docling_serve`: Remote extraction via Docling Serve API with OCR support
+    - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines (via `DoclingAdapter`)
+    - `docling_serve`: Remote extraction via Docling Serve API with OCR support (via `DoclingServeAdapter`)
   - **Entity Extraction Modes**:
-    - `ollama`: LLM-based entity extraction using Ollama models
-    - `docling`: Template-based entity extraction using Docling templates
-    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
-    - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models
+    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, Ollama via openai/ prefix, etc.) (via `LLMEntityAdapter`)
+    - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models (via `LLMEntityAdapter` - same adapter as litellm)
+    - `docling`: Template-based entity extraction using Docling templates (via `DoclingEntityAdapter`)
     - `none`: No entity extraction (default)
-  - **Adapters**: DoclingAdapter, DoclingServeAdapter (text); OllamaEntityAdapter, DoclingEntityAdapter, LiteLLMEntityAdapter, WatsonxEntityAdapter (entity)
+  - **Key Features**:
+    - Hexagonal architecture enables easy addition of new extraction strategies
+    - Clear separation between business logic (services), interfaces (ports), and implementations (adapters)
+    - Unified LLM support: Both `litellm` and `watsonx` modes use the same `LLMEntityAdapter` for consistent behavior
+    - Independent text and entity extraction mode selection
+    - Outputs extracted text plus estimated page-count metrics
   - **Configuration**: Supports both text and entity extraction in a single operator with independent mode selection
 
 #### Ingest Operators (`ingest/`)

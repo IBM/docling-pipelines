@@ -376,8 +376,11 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "depends_on": ["ingest_pdfs"],
       "config": {
         "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "ollama",
-        "model_name": "llama3.2"
+        "entity_extraction_mode": "litellm",
+        "entity_model_name": "openai/llama3.2",
+        "entity_provider_config": {
+          "api_base": "http://localhost:11434/v1"
+        }
       }
     }
   ],
@@ -480,7 +483,11 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "extract_operator",
       "depends_on": ["classify.invoices"],
       "config": {
-        "entity_extraction_mode": "ollama",
+        "entity_extraction_mode": "litellm",
+        "entity_model_name": "openai/llama3.2",
+        "entity_provider_config": {
+          "api_base": "http://localhost:11434/v1"
+        },
         "extraction_template": "invoice_template"
       }
     },
@@ -489,7 +496,11 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "extract_operator",
       "depends_on": ["classify.contracts"],
       "config": {
-        "entity_extraction_mode": "ollama",
+        "entity_extraction_mode": "litellm",
+        "entity_model_name": "openai/llama3.2",
+        "entity_provider_config": {
+          "api_base": "http://localhost:11434/v1"
+        },
         "extraction_template": "contract_template"
       }
     },

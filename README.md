@@ -196,16 +196,17 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
 
 ### Extract Operators
 
-- **ExtractOperator** - Unified extraction operator with multiple adapters
+- **ExtractOperator** - Unified extraction operator using hexagonal architecture (ports and adapters pattern)
+  - **Architecture**: Domain layer (`EntityExtractionService`), Port layer (interfaces), Adapter layer (implementations), Factory layer (adapter creation)
   - **Text Extraction Modes**:
     - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines
     - `docling_serve`: Remote extraction via Docling Serve API with OCR support
   - **Entity Extraction Modes**:
-    - `ollama`: LLM-based entity extraction using Ollama models
-    - `docling`: Template-based entity extraction using Docling templates
-    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.)
+    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.). For Ollama, use `entity_model_name: "openai/model_name"` with `entity_provider_config.api_base: "http://localhost:11434/v1"`
     - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models
+    - `docling`: Template-based entity extraction using Docling templates
     - `none`: No entity extraction (default)
+  - **Unified LLM Support**: Both `litellm` and `watsonx` modes use the same `LLMEntityAdapter` for consistent behavior
   - Includes estimated page count output and aggregate page metadata
   - Supports dual-mode operation: text and entity extraction in a single operator
 

@@ -45,9 +45,7 @@ Factory
 
 ## 1. Ollama via LiteLLM
 
-Direct Ollama adapters are deprecated.
-
-Ollama is now accessed through LiteLLM using the OpenAI-compatible API:
+Ollama is accessed through LiteLLM using the OpenAI-compatible API:
 
 ```yaml
 api_base: http://localhost:11434/v1
@@ -491,17 +489,18 @@ result = self.classification_service.classify(text, categories)
 
 ---
 
-## Deprecations
+## Consolidated Architecture
 
-Deprecated operator-specific adapters (no longer needed):
+Operator-specific adapters have been replaced by consolidated provider adapters that implement common ports:
 
 ```text
-watsonx_adapter.py
-ollama_adapter.py
-litellm_adapter.py
-```
+Previous operator-specific files:
+- watsonx_adapter.py
+- ollama_adapter.py
+- litellm_adapter.py
 
-These are replaced by consolidated provider adapters that implement common ports.
+Now replaced by unified provider adapters
+```
 
 ---
 

@@ -1,0 +1,60 @@
+{
+  "flow_name": "LiteLLM Entity Extraction with Custom Schema",
+  "description": "Entity extraction using LiteLLM with a predefined custom schema for structured data extraction",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false,
+    "force_ingest": true,
+    "storage": "in-memory",
+    "execute_type": "local"
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "./tests/fixtures/invoices",
+        "include_filter": "pdf,docx",
+        "store_binary_content": true
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "config": {
+        "text_extraction_mode": "docling_library",
+        "entity_extraction_mode": "litellm",
+        "doc_column": "content",
+        "entity_model_name": "openai/granite4:latest",
+        "entity_provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<ollama_key>"
+        },
+        "entity_temperature": 0.0,
+        "entity_max_tokens": 2000,
+        "max_doc_chars": 8000,
+        "custom_schema": {
+          "invoice_number": "string",
+          "invoice_date": "string",
+          "vendor_name": "string",
+          "vendor_address": "string",
+          "total_amount": "number",
+          "currency": "string",
+          "line_items": [
+            {
+              "description": "string",
+              "quantity": "number",
+              "unit_price": "number",
+              "total": "number"
+            }
+          ]
+        },
+        "expand_extracted_data": true,
+        "max_workers": 2
+      },
+      "depends_on": [
+        "ingest"
+      ]
+    }
+  ]
+}

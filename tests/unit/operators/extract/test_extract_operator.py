@@ -369,7 +369,7 @@ def test_extract_operator_docling_serve_with_ocr_languages():
 def test_extract_operator_docling_library_with_entity_extraction_ollama(
     sample_pdf_files,
 ):
-    """Test ExtractOperator with docling_library text extraction + Ollama entity extraction."""
+    """Test ExtractOperator with docling_library text extraction + LiteLLM entity extraction (Ollama-compatible)."""
     import json
     from unittest.mock import Mock, patch
 
@@ -398,14 +398,18 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
     # Initialize operator with both text and entity extraction
     config = {
         "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "ollama",
-        "entity_model_name": "llama3.2",
-        "temperature": 0.0,
-        "max_tokens": 4096,
+        "entity_extraction_mode": "litellm",
+        "entity_model_name": "openai/llama3.2",
+        "entity_temperature": 0.0,
+        "entity_max_tokens": 4096,
         "doc_column": "doc_content",
         "extract_tables": True,
         "extract_images": False,
         "max_workers": 2,
+        "entity_provider_config": {
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "ollama",  # pragma: allowlist secret
+        },
         "custom_schema": {
             "invoice_number": "string",
             "total_amount": "number",
@@ -413,14 +417,14 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
         },
     }
 
-    # Mock the Ollama client to avoid actual API calls
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    # Mock the LiteLLM client to avoid actual API calls
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        # Mock the run method which is called by entity extraction
-        mock_instance.run.return_value = json.dumps(
+        # Mock the chat method which is called by entity extraction
+        mock_instance.chat.return_value = json.dumps(
             {"invoice_number": "INV-001", "total_amount": 1500.00, "date": "2024-01-15"}
         )
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
         operator = ExtractOperator(config=config)
 
@@ -436,21 +440,27 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
 
 @pytest.mark.unit
 def test_extract_operator_docling_serve_with_entity_extraction():
-    """Test ExtractOperator with docling_serve text + entity extraction."""
+    """Test ExtractOperator with docling_serve text + LiteLLM entity extraction."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock the Ollama client at the import location
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    # Mock the LiteLLM client
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
         # Test configuration combining docling_serve and entity extraction
         config = {
             "text_extraction_mode": "docling_serve",
-            "entity_extraction_mode": "ollama",
-            "entity_model_name": "llama3.2",
+            "entity_extraction_mode": "litellm",
+            "entity_model_name": "gpt-3.5-turbo",
+            "entity_temperature": 0.0,
+            "entity_max_tokens": 2000,
+            "entity_provider_config": {
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
             "doc_column": "doc_content",
             "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
             "docling_serve_timeout": 300,
@@ -461,7 +471,7 @@ def test_extract_operator_docling_serve_with_entity_extraction():
 
         # Verify both modes are configured
         assert operator.text_extraction_mode.value == "docling_serve"
-        assert operator.entity_extraction_mode.value == "ollama"
+        assert operator.entity_extraction_mode.value == "litellm"
         assert operator.entity_adapter is not None
 
 
@@ -676,21 +686,27 @@ def test_extract_operator_asr_with_audio_file():
 
 @pytest.mark.unit
 def test_extract_operator_asr_with_entity_extraction():
-    """Test ASR pipeline combined with entity extraction."""
+    """Test ASR pipeline combined with LiteLLM entity extraction."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
+            "entity_extraction_mode": "litellm",
             "use_asr_pipeline": True,
             "asr_model_name": "whisper_turbo",
-            "entity_model_name": "llama3.2",
+            "entity_model_name": "gpt-3.5-turbo",
+            "entity_temperature": 0.0,
+            "entity_max_tokens": 2000,
+            "entity_provider_config": {
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
             "doc_column": "doc_content",
             "custom_schema": {
                 "speaker": "string",
@@ -702,25 +718,31 @@ def test_extract_operator_asr_with_entity_extraction():
         operator = ExtractOperator(config=config)
         # Verify both ASR and entity extraction are configured
         assert operator.text_extraction_mode.value == "docling_library"
-        assert operator.entity_extraction_mode.value == "ollama"
+        assert operator.entity_extraction_mode.value == "litellm"
 
 
 @pytest.mark.unit
 def test_extract_operator_expand_extracted_data():
-    """Test ExtractOperator with expand_extracted_data flag."""
+    """Test ExtractOperator with expand_extracted_data flag and LiteLLM."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock the Ollama client at the import location
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    # Mock the LiteLLM client
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
-            "entity_model_name": "llama3.2",
+            "entity_extraction_mode": "litellm",
+            "entity_model_name": "gpt-3.5-turbo",
+            "entity_temperature": 0.0,
+            "entity_max_tokens": 2000,
+            "entity_provider_config": {
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
             "expand_extracted_data": True,
             "custom_schema": {"invoice_number": "string", "amount": "number"},
         }
@@ -790,17 +812,24 @@ def test_extract_operator_mode_combinations():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Mock the Ollama client at the import location
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
-        mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+    with (
+        patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class,
+        patch("datasift.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_litellm_class,
+    ):
+        mock_ollama_class.return_value = Mock()
+        mock_litellm_instance = Mock()
+        mock_litellm_instance.chat = Mock(
+            return_value=json.dumps({"person_name": "John Doe", "invoice_number": "INV-123"})
+        )
+        mock_litellm_class.return_value = mock_litellm_instance
 
         # Test all valid text mode + entity mode combinations
         text_modes = ["docling_library", "docling_serve"]
-        entity_modes = ["none", "ollama", "docling", "litellm"]
+        entity_modes = ["none", "litellm", "docling"]
 
         for text_mode in text_modes:
             for entity_mode in entity_modes:
-                config = {
+                config: dict[str, Any] = {
                     "text_extraction_mode": text_mode,
                     "entity_extraction_mode": entity_mode,
                 }
@@ -809,8 +838,12 @@ def test_extract_operator_mode_combinations():
                 if text_mode == "docling_serve":
                     config["docling_serve_base_url"] = "http://localhost:5001"
 
-                if entity_mode in ["ollama", "litellm"]:
+                if entity_mode == "litellm":
                     config["entity_model_name"] = "llama3.2"
+                    config["entity_provider_config"] = {
+                        "api_key": "test-api-key",  # pragma: allowlist secret
+                        "api_base": "https://api.test.local/v1",
+                    }
 
                 operator = ExtractOperator(config=config)
                 assert operator.text_extraction_mode.value == text_mode
@@ -891,7 +924,7 @@ def test_extract_operator_litellm_entity_mode():
         "custom_schema": {"company": "string", "date": "string"},
     }
 
-    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
+    with patch("datasift.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_litellm_class:
         mock_litellm_class.return_value = Mock()
 
         operator = ExtractOperator(config=config)
@@ -942,9 +975,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
         "total_amount": 1500.0,
     }
 
-    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
+    with patch("datasift.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_instance.chat.return_value = json.dumps(mocked_entities)
+        mock_instance.chat = Mock(return_value=json.dumps(mocked_entities))
         mock_litellm_class.return_value = mock_instance
 
         operator = ExtractOperator(config=config)
@@ -1021,9 +1054,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
         "organization": "Acme Corp",
     }
 
-    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
+    with patch("datasift.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_instance.chat.return_value = json.dumps(mocked_entities)
+        mock_instance.chat = Mock(return_value=json.dumps(mocked_entities))
         mock_litellm_class.return_value = mock_instance
 
         operator = ExtractOperator(config=config)
@@ -1088,9 +1121,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
         "total_amount": 2750.5,
     }
 
-    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
+    with patch("datasift.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_instance.chat.return_value = json.dumps(mocked_entities)
+        mock_instance.chat = Mock(return_value=json.dumps(mocked_entities))
         mock_litellm_class.return_value = mock_instance
 
         operator = ExtractOperator(config=config)
@@ -1210,20 +1243,26 @@ def test_extract_operator_custom_doc_column():
 
 @pytest.mark.unit
 def test_extract_operator_custom_output_columns():
-    """Test ExtractOperator with custom output column configuration."""
+    """Test ExtractOperator with custom output column configuration and LiteLLM."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock the Ollama client at the import location
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    # Mock the LiteLLM client
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
-            "entity_model_name": "llama3.2",
+            "entity_extraction_mode": "litellm",
+            "entity_model_name": "gpt-3.5-turbo",
+            "entity_temperature": 0.0,
+            "entity_max_tokens": 2000,
+            "entity_provider_config": {
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
             "doc_column": "my_doc",
             "output_column": "my_entities",
         }
@@ -1236,20 +1275,26 @@ def test_extract_operator_custom_output_columns():
 
 @pytest.mark.unit
 def test_extract_operator_expand_extracted_data_flag():
-    """Test ExtractOperator with expand_extracted_data enabled."""
+    """Test ExtractOperator with expand_extracted_data enabled and LiteLLM."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock the Ollama client at the import location
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    # Mock the LiteLLM client
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
-            "entity_model_name": "llama3.2",
+            "entity_extraction_mode": "litellm",
+            "entity_model_name": "gpt-3.5-turbo",
+            "entity_temperature": 0.0,
+            "entity_max_tokens": 2000,
+            "entity_provider_config": {
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
             "expand_extracted_data": True,
             "custom_schema": {"field1": "string", "field2": "number"},
         }
@@ -1323,12 +1368,12 @@ def test_extract_operator_all_entity_modes():
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock the Ollama client at the import location
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    # Mock the LiteLLM client at the import location
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
-        entity_modes = ["none", "ollama", "docling", "litellm"]
+        entity_modes = ["none", "docling", "litellm"]
 
         for mode in entity_modes:
             config = {
@@ -1337,8 +1382,12 @@ def test_extract_operator_all_entity_modes():
             }
 
             # Add mode-specific required parameters
-            if mode in ["ollama", "litellm"]:
-                config["entity_model_name"] = "test-model"
+            if mode == "litellm":
+                config["entity_model_name"] = "openai/test-model"
+                config["entity_provider_config"] = {
+                    "api_base": "http://localhost:11434/v1",
+                    "api_key": "test-key",  # pragma: allowlist secret
+                }
 
             operator = ExtractOperator(config=config)
             assert operator.entity_extraction_mode.value == mode
@@ -1351,15 +1400,15 @@ def test_extract_operator_all_entity_modes():
 
 @pytest.mark.unit
 def test_extract_operator_custom_schema_validation():
-    """Test ExtractOperator with custom schema for entity extraction."""
+    """Test ExtractOperator with custom schema for LiteLLM entity extraction."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock the Ollama client at the import location
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    # Mock the LiteLLM client
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
         custom_schema = {
             "invoice_number": "string",
@@ -1370,8 +1419,14 @@ def test_extract_operator_custom_schema_validation():
 
         config = {
             "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
-            "entity_model_name": "llama3.2",
+            "entity_extraction_mode": "litellm",
+            "entity_model_name": "gpt-3.5-turbo",
+            "entity_temperature": 0.0,
+            "entity_max_tokens": 2000,
+            "entity_provider_config": {
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
             "custom_schema": custom_schema,
         }
 
@@ -1382,22 +1437,26 @@ def test_extract_operator_custom_schema_validation():
 
 @pytest.mark.unit
 def test_extract_operator_temperature_and_max_tokens():
-    """Test ExtractOperator with custom temperature and max_tokens."""
+    """Test ExtractOperator with custom temperature and max_tokens for LiteLLM."""
     from unittest.mock import Mock, patch
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock the Ollama client at the import location
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
+    # Mock the LiteLLM client
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm_class:
         mock_instance = Mock()
-        mock_ollama_class.return_value = mock_instance
+        mock_litellm_class.return_value = mock_instance
 
         config = {
             "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "ollama",
-            "entity_model_name": "llama3.2",
-            "temperature": 0.7,
-            "max_tokens": 2048,
+            "entity_extraction_mode": "litellm",
+            "entity_model_name": "gpt-3.5-turbo",
+            "entity_temperature": 0.7,
+            "entity_max_tokens": 2048,
+            "entity_provider_config": {
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
         }
 
         operator = ExtractOperator(config=config)
@@ -1707,16 +1766,22 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock Ollama client to avoid connection requirement
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama:
+    # Mock LiteLLM client to avoid connection requirement
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm:
         mock_instance = MagicMock()
-        mock_ollama.return_value = mock_instance
+        mock_litellm.return_value = mock_instance
 
         operator = ExtractOperator(
             config={
                 "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": "ollama",
-                "entity_model_name": "llama3.2",
+                "entity_extraction_mode": "litellm",
+                "entity_model_name": "gpt-3.5-turbo",
+                "entity_temperature": 0.0,
+                "entity_max_tokens": 2000,
+                "entity_provider_config": {
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
             }
         )
 
@@ -1769,16 +1834,22 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
 
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
-    # Mock Ollama client to avoid connection requirement
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama:
+    # Mock LiteLLM client to avoid connection requirement
+    with patch("datasift.integrations.litellm.client.LiteLLMLLMClient") as mock_litellm:
         mock_instance = MagicMock()
-        mock_ollama.return_value = mock_instance
+        mock_litellm.return_value = mock_instance
 
         operator = ExtractOperator(
             config={
                 "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": "ollama",
-                "entity_model_name": "llama3.2",
+                "entity_extraction_mode": "litellm",
+                "entity_model_name": "gpt-3.5-turbo",
+                "entity_temperature": 0.0,
+                "entity_max_tokens": 2000,
+                "entity_provider_config": {
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
             }
         )
 
@@ -1888,238 +1959,3 @@ def test_extract_operator_stage_progress_metadata(mock_text_transform):
     assert text_stage["documents_completed"] == 2
     assert text_stage["documents_failed"] == 0
     assert text_stage["progress_percentage"] == 100.0
-
-
-# ============================================================================
-# Entity Extraction Validation Tests
-# ============================================================================
-
-
-@pytest.mark.unit
-def test_entity_extraction_validation_passes_with_custom_schema():
-    """Test that entity extraction validation passes when custom_schema is provided."""
-    import pyarrow as pa
-
-    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
-        OllamaEntityAdapter,
-    )
-
-    config = {
-        OperatorConstants.Config.MODEL_NAME: "llama3.2",
-        OperatorConstants.Config.CUSTOM_SCHEMA: {
-            "document_type": "invoice",
-            "fields": [{"name": "invoice_number", "type": "string"}],
-        },
-    }
-
-    # Mock Ollama client to avoid connection errors
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
-        mock_instance = MagicMock()
-        mock_ollama_class.return_value = mock_instance
-
-        adapter = OllamaEntityAdapter(config=config)
-
-        # Create table without document_type column
-        table = pa.table(
-            {
-                "id": ["doc1", "doc2"],
-                "name": ["file1.pdf", "file2.pdf"],
-                "doc_content": ["content1", "content2"],
-            }
-        )
-
-        # Should not raise an error
-        document_types, schema_templates = adapter._prepare_schemas(table=table)
-        assert document_types == []
-        assert schema_templates == {}
-
-
-@pytest.mark.unit
-def test_entity_extraction_validation_passes_with_document_type_column():
-    """Test that entity extraction validation passes when document_type column is present."""
-    import pyarrow as pa
-
-    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
-        OllamaEntityAdapter,
-    )
-
-    config = {
-        OperatorConstants.Config.MODEL_NAME: "llama3.2",
-        OperatorConstants.Config.CUSTOM_SCHEMA: {},  # Empty custom schema
-    }
-
-    # Mock Ollama client to avoid connection errors
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
-        mock_instance = MagicMock()
-        mock_ollama_class.return_value = mock_instance
-
-        adapter = OllamaEntityAdapter(config=config)
-
-        # Create table with document_type column
-        table = pa.table(
-            {
-                "id": ["doc1", "doc2"],
-                "name": ["file1.pdf", "file2.pdf"],
-                "doc_content": ["content1", "content2"],
-                OperatorConstants.Columns.DOCUMENT_TYPE: ["invoice", "receipt"],
-            }
-        )
-
-        # Should not raise an error
-        document_types, _ = adapter._prepare_schemas(table=table)
-        assert document_types == ["invoice", "receipt"]
-
-
-@pytest.mark.unit
-def test_entity_extraction_validation_fails_without_custom_schema_or_document_type():
-    """Test that entity extraction validation fails when neither custom_schema nor document_type column is present."""
-    import pyarrow as pa
-
-    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
-        OllamaEntityAdapter,
-    )
-    from datasift.exceptions.datasift_exceptions import ConfigurationError
-
-    config = {
-        OperatorConstants.Config.MODEL_NAME: "llama3.2",
-        OperatorConstants.Config.CUSTOM_SCHEMA: {},  # Empty custom schema
-    }
-
-    # Mock Ollama client to avoid connection errors
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
-        mock_instance = MagicMock()
-        mock_ollama_class.return_value = mock_instance
-
-        adapter = OllamaEntityAdapter(config=config)
-
-        # Create table without document_type column
-        table = pa.table(
-            {
-                "id": ["doc1", "doc2"],
-                "name": ["file1.pdf", "file2.pdf"],
-                "doc_content": ["content1", "content2"],
-            }
-        )
-
-        # Should raise ConfigurationError
-        with pytest.raises(ConfigurationError) as exc_info:
-            adapter._prepare_schemas(table=table)
-
-        assert "Entity extraction requires either a custom_schema in operator config OR a document_type column" in str(
-            exc_info.value
-        )
-
-
-@pytest.mark.unit
-def test_entity_extraction_validation_passes_with_both_custom_schema_and_document_type():
-    """Test that validation passes when both custom_schema and document_type column are present."""
-    import pyarrow as pa
-
-    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
-        OllamaEntityAdapter,
-    )
-
-    config = {
-        OperatorConstants.Config.MODEL_NAME: "llama3.2",
-        OperatorConstants.Config.CUSTOM_SCHEMA: {
-            "document_type": "invoice",
-            "fields": [{"name": "invoice_number", "type": "string"}],
-        },
-    }
-
-    # Mock Ollama client to avoid connection errors
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
-        mock_instance = MagicMock()
-        mock_ollama_class.return_value = mock_instance
-
-        adapter = OllamaEntityAdapter(config=config)
-
-        # Create table with document_type column
-        table = pa.table(
-            {
-                "id": ["doc1", "doc2"],
-                "name": ["file1.pdf", "file2.pdf"],
-                "doc_content": ["content1", "content2"],
-                OperatorConstants.Columns.DOCUMENT_TYPE: ["invoice", "receipt"],
-            }
-        )
-
-        # Should not raise an error
-        document_types, _ = adapter._prepare_schemas(table=table)
-        assert document_types == ["invoice", "receipt"]
-
-
-@pytest.mark.unit
-def test_entity_extraction_validation_fails_with_none_custom_schema_and_no_document_type():
-    """Test that validation fails when custom_schema is None and document_type column is missing."""
-    import pyarrow as pa
-
-    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
-        OllamaEntityAdapter,
-    )
-    from datasift.exceptions.datasift_exceptions import ConfigurationError
-
-    config = {
-        OperatorConstants.Config.MODEL_NAME: "llama3.2",
-        # custom_schema not provided (defaults to {})
-    }
-
-    # Mock Ollama client to avoid connection errors
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
-        mock_instance = MagicMock()
-        mock_ollama_class.return_value = mock_instance
-
-        adapter = OllamaEntityAdapter(config=config)
-
-        # Create table without document_type column
-        table = pa.table(
-            {
-                "id": ["doc1", "doc2"],
-                "name": ["file1.pdf", "file2.pdf"],
-                "doc_content": ["content1", "content2"],
-            }
-        )
-
-        # Should raise ConfigurationError
-        with pytest.raises(ConfigurationError) as exc_info:
-            adapter._prepare_schemas(table=table)
-
-        assert "Entity extraction requires either a custom_schema in operator config OR a document_type column" in str(
-            exc_info.value
-        )
-
-
-@pytest.mark.unit
-def test_entity_extraction_validation_passes_with_non_empty_custom_schema_dict():
-    """Test that validation passes when custom_schema has at least one key."""
-    import pyarrow as pa
-
-    from datasift.core.operators.extract.adapters.outbound.entity_extraction.ollama_entity_adapter import (
-        OllamaEntityAdapter,
-    )
-
-    config = {
-        OperatorConstants.Config.MODEL_NAME: "llama3.2",
-        OperatorConstants.Config.CUSTOM_SCHEMA: {"columns": {"field1": "string"}},
-    }
-
-    # Mock Ollama client to avoid connection errors
-    with patch("datasift.integrations.ollama.client.OllamaClient") as mock_ollama_class:
-        mock_instance = MagicMock()
-        mock_ollama_class.return_value = mock_instance
-
-        adapter = OllamaEntityAdapter(config=config)
-
-        # Create table without document_type column
-        table = pa.table(
-            {
-                "id": ["doc1", "doc2"],
-                "name": ["file1.pdf", "file2.pdf"],
-                "doc_content": ["content1", "content2"],
-            }
-        )
-
-        # Should not raise an error
-        document_types, schema_templates = adapter._prepare_schemas(table=table)
-        assert document_types == []
-        assert schema_templates == {}

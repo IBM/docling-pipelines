@@ -61,16 +61,18 @@ Here's a complete working example:
       "type": "document_classifier",
       "depends_on": ["ingest"],
       "config": {
-        "provider": "ollama",
-        "model_id": "granite4:latest",
+        "provider": "litellm",
+        "model_id": "openai/granite4:latest",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<ollama_key>"
+        },
         "confidence_threshold": 7.0,
         "doc_column": "content",
         "output_column": "document_type",
         "include_confidence": true,
         "include_reasoning": true,
-        "max_content_length": 8000,
-        "extract_tables": true,
-        "extract_images": true
+        "max_content_length": 8000
       }
     },
     {
@@ -79,12 +81,16 @@ Here's a complete working example:
       "depends_on": ["classify"],
       "config": {
         "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "ollama",
-        "entity_model_name": "granite4:latest",
+        "entity_extraction_mode": "litellm",
+        "entity_model_name": "openai/granite4:latest",
+        "entity_temperature": 0.0,
+        "entity_max_tokens": 4096,
+        "entity_provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "<ollama_key>"
+        },
         "doc_column": "content",
         "output_column": "entities",
-        "max_doc_chars": 8000,
-        "entity_temperature": 0.0,
         "max_workers": 4,
         "expand_extracted_data": true
       }

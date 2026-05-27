@@ -22,7 +22,6 @@ class TextExtractionMode(StrEnum):
 class EntityExtractionMode(StrEnum):
     """Entity extraction modes."""
 
-    OLLAMA = OperatorConstants.ExtractionModes.ENTITY_MODE_OLLAMA
     DOCLING = OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING
     LITELLM = OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM
     WATSONX = OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX

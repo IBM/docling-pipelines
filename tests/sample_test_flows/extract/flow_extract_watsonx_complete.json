@@ -58,7 +58,7 @@
           "request_timeout": 120
         },
         "entity_temperature": 0.0,
-        "entity_max_tokens": 4096,
+        "entity_max_tokens": 2000,
         "max_doc_chars": 8000,
         "max_workers": 2
       },

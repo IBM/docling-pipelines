@@ -9,12 +9,14 @@ import io
 import json
 from typing import Any
 
+import pyarrow as pa
 from docling.datamodel.base_models import InputFormat
 from docling_core.types.io import DocumentStream
 
 from datasift.core.constants import OperatorConstants
 from datasift.core.constants.constants import DoclingClientConfigConstants
 from datasift.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
+from datasift.core.operators.extract.services.entity_extraction_service import EntityExtractionService
 from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.utils.document_class_utils import DocumentClassUtils
 from datasift.utils.infrastructure.logging import get_logger
@@ -214,6 +216,45 @@ class DoclingEntityAdapter(EntityExtractionPort):
             logger.error("Failed to build VLM extraction options: %s", e)
             raise ValueError(f"Invalid VLM configuration: {e}") from e
 
+    def transform(self, *, table: pa.Table, metadata: dict[str, Any]) -> tuple[list[pa.Table], dict[str, Any]]:
+        """Transform documents by extracting entities using Docling.
+
+        This method delegates orchestration to EntityExtractionService while
+        maintaining backward compatibility with the adapter interface.
+
+        Args:
+            table: PyArrow table with document information containing columns:
+                - id: Document ID
+                - name: Document name/filename
+                - doc_content: Document text content (or binary_content for Docling)
+                - document_type: Document type for schema selection (optional)
+            metadata: Metadata dictionary to update
+
+        Returns:
+            Tuple of (list of transformed tables, metadata dictionary)
+        """
+        # Create custom service instance that overrides _prepare_document_tasks
+        service = DoclingEntityExtractionService(
+            adapter=self,
+            config={
+                OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
+                OperatorConstants.Columns.OUTPUT_COLUMN: self.output_column,
+                OperatorConstants.Config.EXPAND_EXTRACTED_DATA: self.expand_extracted_data,
+                OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
+                OperatorConstants.Config.CUSTOM_SCHEMA: self.custom_schema,
+                "common_log_arguments": self.common_log_arguments,
+            },
+            max_workers=self.max_workers,
+            job_run_id=self.job_run_id,
+            node_id=self.node_id,
+            node_name=self.node_name,
+            batch_id=self.batch_id,
+            global_config=self.global_config,
+        )
+
+        # Delegate to service for orchestration
+        return service.transform(table=table, metadata=metadata)
+
     def extract_entities_single(
         self, *, doc_id: str, doc_name: str, content: str | bytes, schema: dict[str, Any] | None = None
     ) -> dict[str, Any]:
@@ -337,6 +378,84 @@ class DoclingEntityAdapter(EntityExtractionPort):
 
     def _load_schema_templates(self, *, document_types: list[str], schema_templates: dict[str, dict]) -> None:
         """Load schema templates for given document types.
+
+        Args:
+            document_types: List of document types to load schemas for
+            schema_templates: Dictionary to populate with loaded schemas
+        """
+        loaded_schemas = DocumentClassUtils.generate_docling_templates_for_types(document_types)
+        schema_templates.update(loaded_schemas)
+
+
+class DoclingEntityExtractionService(EntityExtractionService):
+    """Custom entity extraction service for Docling adapter.
+
+    This service extends EntityExtractionService to handle Docling-specific
+    requirements, particularly binary content fetching for document processing.
+    """
+
+    def __init__(
+        self,
+        *,
+        adapter: EntityExtractionPort,
+        config: dict[str, Any],
+        max_workers: int = 4,
+        job_run_id: str | None = None,
+        node_id: str | None = None,
+        node_name: str | None = None,
+        batch_id: str | None = None,
+        global_config: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize the Docling entity extraction service.
+
+        Args:
+            adapter: EntityExtractionPort implementation for extraction
+            config: Configuration dictionary containing extraction parameters
+            max_workers: Number of parallel workers (default: 4)
+            job_run_id: Job run identifier for progress tracking (optional)
+            node_id: Node identifier for progress tracking (optional)
+            node_name: Node name for progress tracking (optional)
+            batch_id: Batch identifier for progress tracking (optional)
+            global_config: Global configuration for on-demand binary fetching (optional)
+        """
+        super().__init__(
+            adapter=adapter,
+            config=config,
+            max_workers=max_workers,
+            job_run_id=job_run_id,
+            node_id=node_id,
+            node_name=node_name,
+            batch_id=batch_id,
+        )
+        self.global_config = global_config or {}
+
+    def _prepare_document_tasks(
+        self, table: pa.Table, document_types: list[str], metadata: dict[str, Any]
+    ) -> list[dict[str, Any]]:
+        """Prepare document tasks with binary content for Docling processing.
+
+        This override fetches binary content from the table instead of text content,
+        using on-demand fetching to support both local files and cloud sources.
+
+        Args:
+            table: PyArrow table containing document data
+            document_types: List of document types corresponding to table rows
+            metadata: Metadata dictionary for recording skipped documents
+
+        Returns:
+            List of task dictionaries with binary content
+        """
+        doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
+            table=table, global_config=self.global_config
+        )
+
+        for doc_task in doc_tasks:
+            row_idx = doc_task["idx"]
+            doc_task.update({"document_type": document_types[row_idx] if document_types else None})
+        return doc_tasks
+
+    def _load_schema_templates(self, *, document_types: list[str], schema_templates: dict[str, dict]) -> None:
+        """Load Docling-specific schema templates for given document types.
 
         Args:
             document_types: List of document types to load schemas for

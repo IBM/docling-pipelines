@@ -12,11 +12,21 @@ These integration tests verify the operator works with real extraction scenarios
 
 ## Architecture
 
-The operator follows hexagonal architecture:
+The operator follows hexagonal architecture (ports and adapters pattern) with clear separation of concerns:
+
+**Layers:**
+- **Domain Layer**: `EntityExtractionService` handles business logic (prompt building, schema validation, response parsing)
+- **Port Layer**: `TextExtractionPort` and `EntityExtractionPort` define extraction interfaces
+- **Adapter Layer**: Concrete implementations for different extraction strategies
+  - Text: `DoclingAdapter` (docling_library), `DoclingServeAdapter` (docling_serve)
+  - Entity: `LLMEntityAdapter` (unified for litellm/watsonx), `DoclingEntityAdapter` (docling)
+- **Factory Layer**: `TextExtractionAdapterFactory` and `EntityExtractionAdapterFactory` create adapters based on mode
 - **Operator**: Thin wrapper handling configuration and delegation
-- **Ports**: Define extraction interfaces (TextExtractionPort, EntityExtractionPort)
-- **Adapters**: Implement specific extraction strategies
-- **Factories**: Create appropriate adapters based on mode
+
+**Key Benefits:**
+- Easy addition of new extraction strategies by implementing ports
+- Clear separation between business logic, interfaces, and implementations
+- Unified LLM support: Both `litellm` and `watsonx` modes use the same `LLMEntityAdapter`
 
 ## Test Coverage
 
@@ -58,11 +68,12 @@ curl http://localhost:5001/health
 
 ### For Entity Extraction Tests
 
-**Ollama Mode:**
-- Ollama server running on `http://localhost:11434`
-- Required model pulled
+**LiteLLM Mode (including Ollama):**
+- For Ollama via LiteLLM: Ollama server running on `http://localhost:11434`
+- For other providers: API keys configured in `entity_provider_config`
 
 ```bash
+# For Ollama setup
 # Install Ollama
 curl -fsSL https://ollama.com/install.sh | sh
 
@@ -77,9 +88,9 @@ curl http://localhost:11434/api/tags
 - No external dependencies required
 - Uses Docling's template-based extraction
 
-**LiteLLM Mode:**
-- Currently a placeholder implementation
-- Will require API keys when fully implemented
+**WatsonX Mode:**
+- WatsonX API credentials configured
+- Environment variables: `WATSONX_API_KEY`, `WATSONX_CONTAINER_ID`
 
 ## Running the Tests
 
@@ -205,13 +216,17 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 }
 ```
 
-**2. Ollama**
+**2. LiteLLM (with Ollama via OpenAI-compatible API)**
 ```json
 {
     "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "ollama",
-    "entity_model_name": "llama3.2",
+    "entity_extraction_mode": "litellm",
+    "entity_model_name": "openai/llama3.2",
     "entity_temperature": 0.0,
+    "entity_provider_config": {
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama_key>"
+    },
     "custom_schema": {
         "invoice_number": "string",
         "total_amount": "float"
