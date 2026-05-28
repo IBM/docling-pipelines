@@ -344,18 +344,18 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
                 if parquet_path.exists():
                     parquet_path.unlink()
 
-                # Remove locks directory
-                locks_dir = job_dir / ".locks"
-                if locks_dir.exists():
-                    shutil.rmtree(locks_dir)
+            # Remove locks directory AFTER releasing the lock
+            locks_dir = job_dir / ".locks"
+            if locks_dir.exists():
+                shutil.rmtree(locks_dir)
 
-                # Remove job directory if empty
-                if job_dir.exists():
-                    remaining = list(job_dir.iterdir())
-                    if not remaining:
-                        job_dir.rmdir()
+            # Remove job directory if empty
+            if job_dir.exists():
+                remaining = list(job_dir.iterdir())
+                if not remaining:
+                    job_dir.rmdir()
 
-                logger.info(f"Cleared all metadata for job_id={job_id}")
+            logger.info(f"Cleared all metadata for job_id={job_id}")
 
         except Timeout as exc:
             raise FlowExecutionFailedException(f"Failed to acquire clear lock for job_id={job_id}") from exc
