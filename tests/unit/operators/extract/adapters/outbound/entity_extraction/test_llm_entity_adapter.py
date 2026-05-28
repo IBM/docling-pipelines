@@ -9,6 +9,7 @@ from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.extract.adapters.outbound.entity_extraction.llm_entity_adapter import (
     LLMEntityAdapter,
 )
+from datasift.exceptions.datasift_exceptions import DatasiftException
 
 
 @pytest.fixture
@@ -367,3 +368,70 @@ class TestLLMEntityAdapterMultiProvider:
             assert call_args.kwargs["provider"] == "litellm"
             assert call_args.kwargs["model_id"] == "openai/granite4:latest"
             assert "api_base" in call_args.kwargs["provider_config"]
+
+
+class TestLLMEntityAdapterValidation:
+    """Tests for LLM adapter validation during initialization."""
+
+    def test_adapter_validation_called_on_init(self, litellm_config):
+        """Test that validate() is called during adapter initialization."""
+        with patch(
+            "datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
+        ) as mock_factory:
+            # Setup mock adapter with validate method
+            mock_adapter = MagicMock()
+            mock_adapter.validate.return_value = {
+                "valid": True,
+                "errors": [],
+                "warnings": [],
+            }
+            mock_factory.return_value = mock_adapter
+
+            # Create adapter - should call validate during initialization
+            adapter = LLMEntityAdapter(config=litellm_config)
+
+            # Verify validate was called
+            mock_adapter.validate.assert_called_once()
+            assert adapter.provider == "litellm"
+            assert adapter.model_name == "openai/granite4:latest"
+
+    def test_adapter_validation_failure_raises_error(self, litellm_config):
+        """Test that validation failures raise DatasiftException."""
+        with patch(
+            "datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
+        ) as mock_factory:
+            # Setup mock adapter with failing validation
+            mock_adapter = MagicMock()
+            mock_adapter.validate.return_value = {
+                "valid": False,
+                "errors": ["API key is required"],
+                "warnings": [],
+            }
+            mock_factory.return_value = mock_adapter
+
+            # Attempt to create adapter should raise DatasiftException
+            with pytest.raises(DatasiftException, match="API key is required"):
+                LLMEntityAdapter(config=litellm_config)
+
+    def test_adapter_validation_with_warnings(self, litellm_config):
+        """Test that warnings don't block adapter initialization."""
+        with patch(
+            "datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter"
+        ) as mock_factory:
+            # Setup mock adapter with warnings
+            mock_adapter = MagicMock()
+            mock_adapter.validate.return_value = {
+                "valid": True,
+                "errors": [],
+                "warnings": ["Consider setting api_base"],
+            }
+            mock_factory.return_value = mock_adapter
+
+            # Create adapter - should succeed despite warnings
+            adapter = LLMEntityAdapter(config=litellm_config)
+
+            # Verify validate was called and adapter was created successfully
+            mock_adapter.validate.assert_called_once()
+            assert adapter.provider == "litellm"
+            assert adapter.model_name == "openai/granite4:latest"
+            # Note: Warning logging happens in LLMEntityAdapter._validate_adapter()

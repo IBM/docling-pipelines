@@ -10,9 +10,14 @@ Supports 100+ providers including OpenAI, Anthropic, Cohere, and Ollama.
 
 from typing import Any
 
+from datasift.core.constants.constants import LLMConstants
 from datasift.core.ports.llm_embedding_port import LLMEmbeddingPort
 from datasift.core.ports.llm_inference_port import LLMInferencePort
 from datasift.integrations.litellm.client import LiteLLMLLMClient
+
+# Validation Messages
+MSG_MODEL_NAME_REQUIRED = "model_name is required"
+MSG_API_KEY_VALIDATION_FAILED = "API key validation failed: {error}"  # pragma: allowlist secret
 
 
 class LiteLLMAdapter(LLMInferencePort, LLMEmbeddingPort):
@@ -262,3 +267,81 @@ class LiteLLMAdapter(LLMInferencePort, LLMEmbeddingPort):
             sample = self.generate_embeddings(model_name=model_name, text="test")
             self._dimension = len(sample)
         return self._dimension
+
+    # ==================== Validation Methods ====================
+
+    def _validate_provider_config(self, *, context: str) -> dict[str, Any]:
+        """Generic validation that works for all LiteLLM providers.
+
+        Uses a generic approach that:
+        1. Validates common requirements (model_name presence)
+        2. Leverages LiteLLM's existing validation (delegates to client)
+
+        Args:
+            context: Validation context ("inference" or "embedding")
+
+        Returns:
+            Dictionary with validation result:
+                - valid: True if all validations pass
+                - context: Validation context
+                - provider: Detected provider name
+                - errors: List of validation errors
+                - warnings: List of validation warnings
+        """
+        errors: list[str] = []
+        warnings: list[str] = []
+
+        # Detect provider from model name
+        provider = self.client._get_provider_from_model(self.model_name)
+
+        # 1. Validate model_name is present
+        if not self.model_name or not self.model_name.strip():
+            errors.append(MSG_MODEL_NAME_REQUIRED)
+
+        # 2. Check if api_key is available (from parameter or environment)
+        # LiteLLM client already handles this in _validate_api_key()
+        try:
+            self.client._validate_api_key()
+        except Exception as e:
+            # Only add error if it's a real validation issue
+            error_msg = str(e)
+            if "API key" in error_msg or "api_key" in error_msg.lower():
+                errors.append(MSG_API_KEY_VALIDATION_FAILED.format(error=error_msg))
+
+        return {
+            LLMConstants.ValidationKeys.VALID: len(errors) == 0,
+            LLMConstants.ValidationKeys.CONTEXT: context,
+            LLMConstants.ValidationKeys.PROVIDER: provider,
+            LLMConstants.ValidationKeys.ERRORS: errors,
+            LLMConstants.ValidationKeys.WARNINGS: warnings,
+        }
+
+    def validate_inference(self) -> dict[str, Any]:
+        """Hook method override for inference validation.
+
+        Validates provider-specific configuration for LiteLLM inference capabilities.
+
+        Returns:
+            Dictionary with validation result:
+                - valid: True if all validations pass
+                - context: "inference"
+                - provider: Detected provider name
+                - errors: List of validation errors
+                - warnings: List of validation warnings
+        """
+        return self._validate_provider_config(context=LLMConstants.ValidationContexts.INFERENCE)
+
+    def validate_embedding(self) -> dict[str, Any]:
+        """Hook method override for embedding validation.
+
+        Validates provider-specific configuration for LiteLLM embedding capabilities.
+
+        Returns:
+            Dictionary with validation result:
+                - valid: True if all validations pass
+                - context: "embedding"
+                - provider: Detected provider name
+                - errors: List of validation errors
+                - warnings: List of validation warnings
+        """
+        return self._validate_provider_config(context=LLMConstants.ValidationContexts.EMBEDDING)

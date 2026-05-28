@@ -204,11 +204,13 @@ class PIIAndHAPAnnotator(AbstractOperator):
                 service_config.setdefault("timeout", 300)
 
             # Create service using common infrastructure
+            # Validation happens automatically in PIIHAPService.__init__
             service = PIIHAPService(
                 provider=self.provider,
                 model_id=self.model_name,
                 provider_config=service_config,
             )
+
             logger.info(
                 f"Successfully initialized {self.provider} PII/HAP service",
                 extra=self.common_log_arguments,

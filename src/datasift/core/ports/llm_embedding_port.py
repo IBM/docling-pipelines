@@ -5,6 +5,9 @@ pluggable embedding providers across the datasift framework.
 """
 
 from abc import ABC, abstractmethod
+from typing import Any
+
+from datasift.core.constants.constants import LLMConstants
 
 
 class LLMEmbeddingPort(ABC):
@@ -55,3 +58,32 @@ class LLMEmbeddingPort(ABC):
             Exception: Provider-specific errors
         """
         pass
+
+    def validate(self) -> dict[str, Any]:
+        """Template method for validation.
+
+        This method defines the validation algorithm structure by calling
+        the hook method validate_embedding(). Subclasses override the hook
+        method to provide specific validation logic.
+
+        Returns:
+            Validation result dictionary from validate_embedding()
+        """
+        return self.validate_embedding()
+
+    def validate_embedding(self) -> dict[str, Any]:
+        """Hook method for embedding validation.
+
+        Default implementation returns a valid result. Subclasses should
+        override this method to provide specific validation logic.
+
+        Returns:
+            Dictionary with validation result:
+                - valid: bool indicating if validation passed
+                - context: str indicating validation context ("embedding")
+                - message: Optional str with additional information
+        """
+        return {
+            LLMConstants.ValidationKeys.VALID: True,
+            LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.EMBEDDING,
+        }

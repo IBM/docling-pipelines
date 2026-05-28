@@ -82,9 +82,9 @@ class LiteLLMLLMClient(BaseLLMClient):
         """
         super().__init__(model_name, **kwargs)
 
-        self.api_key = api_key
         self.api_base = api_base
         self.batch_size = batch_size
+        self.api_key = api_key or self._get_api_key_from_environment(model_name)
 
         require_package("litellm", "pip install litellm")
         import litellm
@@ -133,6 +133,20 @@ class LiteLLMLLMClient(BaseLLMClient):
         # Default to openai
         return "openai"
 
+    def _get_api_key_from_environment(self, model_name: str) -> str | None:
+        """
+        Resolve provider API key from environment based on model/provider.
+
+        Args:
+            model_name: Model name used to infer provider
+
+        Returns:
+            API key from the provider-specific environment variable, if present
+        """
+        provider = self._get_provider_from_model(model_name)
+        env_var = PROVIDER_ENV_VARS.get(provider, f"{provider.upper()}_API_KEY")
+        return os.getenv(env_var)
+
     def _validate_api_key(self) -> None:
         """
         Validate that API key is available either from parameter or environment.
@@ -143,11 +157,7 @@ class LiteLLMLLMClient(BaseLLMClient):
         provider = self._get_provider_from_model(self.model_name)
         env_var = PROVIDER_ENV_VARS.get(provider, f"{provider.upper()}_API_KEY")
 
-        # Check if API key is available
-        has_param_key = self.api_key is not None
-        has_env_key = os.getenv(env_var) is not None
-
-        if not has_param_key and not has_env_key:
+        if self.api_key is None:
             raise ConfigurationError(
                 f"API key required for {provider} provider.\n"
                 f"Please set {env_var} environment variable or pass api_key parameter.\n"
@@ -155,7 +165,7 @@ class LiteLLMLLMClient(BaseLLMClient):
             )
 
         # Security warning if API key is in parameter (flow config)
-        if has_param_key:
+        if os.getenv(env_var) and os.getenv(env_var) != self.api_key:
             logger.warning(
                 f"API key provided via parameter for {provider}. "
                 f"For better security, use environment variable {env_var} instead. "

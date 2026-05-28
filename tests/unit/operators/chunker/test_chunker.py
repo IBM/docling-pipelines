@@ -1286,4 +1286,45 @@ class TestChunkerSummarization(unittest.TestCase):
         # Should handle empty content gracefully
         self.assertEqual(metadata["total_docs_count"], 1)
         # LLM should not be called for empty content
+
+    def test_summarization_service_validation_called_on_init(self):
+        """Test that validate() is called during summarization service initialization."""
+        from datasift.core.operators.functional.summarization_service import SummarizationService
+
+        mock_adapter = MagicMock()
+        mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
+
+        _ = SummarizationService(llm_adapter=mock_adapter)
+
+        # Verify adapter was validated
+        mock_adapter.validate.assert_called_once()
+
+    def test_summarization_service_validation_failure_raises_error(self):
+        """Test that validation failures raise DatasiftException."""
+        from datasift.core.operators.functional.summarization_service import SummarizationService
+        from datasift.exceptions.datasift_exceptions import DatasiftException
+
+        mock_adapter = MagicMock()
+        mock_adapter.validate.return_value = {"valid": False, "errors": ["API key is required"], "warnings": []}
+
+        with self.assertRaises(DatasiftException) as context:
+            SummarizationService(llm_adapter=mock_adapter)
+
+        self.assertIn("API key is required", str(context.exception))
+
+    def test_summarization_service_validation_with_warnings(self):
+        """Test that warnings don't block service initialization."""
+        from datasift.core.operators.functional.summarization_service import SummarizationService
+
+        mock_adapter = MagicMock()
+        mock_adapter.validate.return_value = {
+            "valid": True,
+            "errors": [],
+            "warnings": ["Consider setting api_base for better performance"],
+        }
+
+        service = SummarizationService(llm_adapter=mock_adapter)
+
+        # Service should be created successfully
+        self.assertIsNotNone(service)
         mock_adapter.chat.assert_not_called()

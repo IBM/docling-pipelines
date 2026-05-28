@@ -8,6 +8,7 @@ import json
 from typing import Any
 
 from datasift.core.adapters.llm_adapter_factory import LLMAdapterFactory
+from datasift.core.constants.constants import LLMConstants
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.quality.classification.domain.models import (
     ClassificationRequest,
@@ -91,6 +92,29 @@ class ClassificationService:
                 model_id=model_id,
                 provider_config=self.provider_config,
             )
+
+            # Validate adapter configuration
+            validation_result = self.llm_adapter.validate()
+            if not validation_result.get(LLMConstants.ValidationKeys.VALID, False):
+                errors = validation_result.get(LLMConstants.ValidationKeys.ERRORS, [])
+                warnings = validation_result.get(LLMConstants.ValidationKeys.WARNINGS, [])
+                error_msg = f"Adapter validation failed for provider '{provider_name}'"
+                if errors:
+                    error_msg += f": {'; '.join(errors)}"
+                if warnings:
+                    for warning in warnings:
+                        logger.warning("Adapter configuration warning: %s", warning)
+                raise DatasiftException(
+                    error_code=ErrorCode.INVALID_CONFIGURATION,
+                    message=error_msg,
+                )
+
+            # Log any warnings from validation
+            warnings = validation_result.get(LLMConstants.ValidationKeys.WARNINGS, [])
+            if warnings:
+                for warning in warnings:
+                    logger.warning("Adapter configuration warning: %s", warning)
+
             logger.info(
                 "Initialized ClassificationService with provider=%s, model=%s, temperature=%s, max_tokens=%s",
                 provider_name,
@@ -98,6 +122,8 @@ class ClassificationService:
                 temperature,
                 max_tokens,
             )
+        except DatasiftException:
+            raise
         except Exception as exc:
             raise DatasiftException(
                 error_code=ErrorCode.INVALID_CONFIGURATION,

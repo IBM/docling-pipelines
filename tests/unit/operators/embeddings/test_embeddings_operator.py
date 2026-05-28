@@ -30,7 +30,7 @@ def litellm_config():
         "model_id": "text-embedding-3-small",
         "embeddings_column": "embeddings",
         "provider_config": {
-            "api_key": "test-api-key",
+            "api_key": "<test-api-key>",
         },
     }
 
@@ -43,7 +43,7 @@ def watsonx_config():
         "model_id": "ibm/slate-125m-english-rtrvr",
         "embeddings_column": "embeddings",
         "provider_config": {
-            "api_key": "test-api-key",
+            "api_key": "<test-api-key>",
             "api_base": "https://us-south.ml.cloud.ibm.com",
             "container_id": "test-project-id",
             "container_kind": "project",
@@ -94,6 +94,7 @@ def mock_llm_adapter():
     adapter = Mock()
     adapter.generate_embeddings_batch.return_value = [[0.1] * 384, [0.2] * 384, [0.3] * 384]
     adapter.get_embedding_dimension.return_value = 384
+    adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
     return adapter
 
 
@@ -114,7 +115,7 @@ class TestEmbeddingsOperatorInitialization:
         mock_factory.assert_called_once_with(
             provider="litellm",
             model_id="text-embedding-3-small",
-            provider_config={"api_key": "test-api-key"},
+            provider_config={"api_key": "<test-api-key>"},
         )
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
@@ -130,7 +131,7 @@ class TestEmbeddingsOperatorInitialization:
             provider="watsonx",
             model_id="ibm/slate-125m-english-rtrvr",
             provider_config={
-                "api_key": "test-api-key",
+                "api_key": "<test-api-key>",
                 "api_base": "https://us-south.ml.cloud.ibm.com",
                 "container_id": "test-project-id",
                 "container_kind": "project",
@@ -171,6 +172,44 @@ class TestEmbeddingsOperatorInitialization:
 
         assert "content" in required
         assert len(required) == 1
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_adapter_validation_called_on_init(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test that validate() is called during operator initialization."""
+        mock_llm_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
+        mock_factory.return_value = mock_llm_adapter
+
+        _ = EmbeddingsOperator(litellm_config)
+
+        # Verify adapter was created and validated
+        mock_factory.assert_called_once()
+        mock_llm_adapter.validate.assert_called_once()
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_adapter_validation_failure_raises_error(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test that validation failures raise DatasiftException."""
+        from datasift.exceptions.datasift_exceptions import DatasiftException
+
+        mock_llm_adapter.validate.return_value = {"valid": False, "errors": ["API key is required"], "warnings": []}
+        mock_factory.return_value = mock_llm_adapter
+
+        with pytest.raises(DatasiftException, match="API key is required"):
+            EmbeddingsOperator(litellm_config)
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
+    def test_adapter_validation_with_warnings(self, mock_factory, litellm_config, mock_llm_adapter):
+        """Test that warnings don't block operator initialization."""
+        mock_llm_adapter.validate.return_value = {
+            "valid": True,
+            "errors": [],
+            "warnings": ["Consider setting api_base for better performance"],
+        }
+        mock_factory.return_value = mock_llm_adapter
+
+        operator = EmbeddingsOperator(litellm_config)
+
+        # Operator should be created successfully
+        assert operator is not None
 
 
 # Metadata Tests
@@ -296,9 +335,7 @@ class TestEmbeddingsOperatorTransform:
     """Test the transform method with unified adapters."""
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
-    def test_transform_single_document(
-        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
-    ):
+    def test_transform_single_document(self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc):
         """Test transform with a single document."""
         mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
         mock_factory.return_value = mock_llm_adapter
@@ -329,6 +366,7 @@ class TestEmbeddingsOperatorTransform:
         self, mock_factory, mock_doc_hash_transform, litellm_config, mock_llm_adapter, sample_table_multiple_docs
     ):
         """Test transform with multiple documents."""
+
         # Mock the embedding adapter to return embeddings for each text
         def mock_batch_embeddings(texts):
             return [[0.1] * 384] * len(texts)
@@ -337,10 +375,7 @@ class TestEmbeddingsOperatorTransform:
         mock_factory.return_value = mock_llm_adapter
 
         # Mock DocIdHashOperator to add doc_id_hash column
-        table_with_hash = sample_table_multiple_docs.append_column(
-            "doc_id_hash",
-            pa.array(["hash1", "hash2", "hash3"])
-        )
+        table_with_hash = sample_table_multiple_docs.append_column("doc_id_hash", pa.array(["hash1", "hash2", "hash3"]))
         mock_doc_hash_transform.return_value = ([table_with_hash], {})
 
         operator = EmbeddingsOperator(litellm_config)
@@ -414,9 +449,7 @@ class TestEmbeddingsOperatorTransform:
         assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
-    def test_transform_preserves_existing_columns(
-        self, mock_factory, litellm_config, mock_llm_adapter
-    ):
+    def test_transform_preserves_existing_columns(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test that transform preserves existing columns."""
         mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
         mock_factory.return_value = mock_llm_adapter
@@ -448,9 +481,7 @@ class TestEmbeddingsDocumentHash:
     """Test document hash generation and preservation."""
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
-    def test_automatic_hash_generation(
-        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
-    ):
+    def test_automatic_hash_generation(self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc):
         """Test automatic hash generation when missing."""
         mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
         mock_factory.return_value = mock_llm_adapter
@@ -523,9 +554,7 @@ class TestEmbeddingsErrorHandling:
     """Test error handling with unified adapters."""
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
-    def test_adapter_error_handling(
-        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
-    ):
+    def test_adapter_error_handling(self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc):
         """Test handling of adapter errors."""
         mock_llm_adapter.generate_embeddings_batch.side_effect = Exception("API error")
         mock_factory.return_value = mock_llm_adapter
@@ -606,6 +635,7 @@ class TestEmbeddingsMetadataValidation:
         self, mock_factory, mock_doc_hash_transform, litellm_config, mock_llm_adapter, sample_table_multiple_docs
     ):
         """Test metadata includes processed_docs count."""
+
         # Mock the embedding adapter to return embeddings for each text
         def mock_batch_embeddings(texts):
             return [[0.1] * 384] * len(texts)
@@ -614,10 +644,7 @@ class TestEmbeddingsMetadataValidation:
         mock_factory.return_value = mock_llm_adapter
 
         # Mock DocIdHashOperator
-        table_with_hash = sample_table_multiple_docs.append_column(
-            "doc_id_hash",
-            pa.array(["hash1", "hash2", "hash3"])
-        )
+        table_with_hash = sample_table_multiple_docs.append_column("doc_id_hash", pa.array(["hash1", "hash2", "hash3"]))
         mock_doc_hash_transform.return_value = ([table_with_hash], {})
 
         operator = EmbeddingsOperator(litellm_config)
@@ -678,9 +705,7 @@ class TestEmbeddingsMetadataValidation:
         assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
-    def test_metadata_completeness(
-        self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc
-    ):
+    def test_metadata_completeness(self, mock_factory, litellm_config, mock_llm_adapter, sample_table_single_doc):
         """Test that all required metadata fields are present."""
         mock_llm_adapter.generate_embeddings_batch.return_value = [[0.1] * 384]
         mock_factory.return_value = mock_llm_adapter
@@ -711,6 +736,7 @@ class TestEmbeddingsOperatorIntegration:
         self, mock_factory, mock_doc_hash_transform, litellm_config, mock_llm_adapter, sample_table_multiple_docs
     ):
         """Test full pipeline: generate embeddings and hashes."""
+
         # Mock the embedding adapter to return embeddings for each text
         def mock_batch_embeddings(texts):
             return [[0.1] * 384] * len(texts)
@@ -719,10 +745,7 @@ class TestEmbeddingsOperatorIntegration:
         mock_factory.return_value = mock_llm_adapter
 
         # Mock DocIdHashOperator
-        table_with_hash = sample_table_multiple_docs.append_column(
-            "doc_id_hash",
-            pa.array(["hash1", "hash2", "hash3"])
-        )
+        table_with_hash = sample_table_multiple_docs.append_column("doc_id_hash", pa.array(["hash1", "hash2", "hash3"]))
         mock_doc_hash_transform.return_value = ([table_with_hash], {})
 
         operator = EmbeddingsOperator(litellm_config)
@@ -740,9 +763,7 @@ class TestEmbeddingsOperatorIntegration:
             assert result_table["doc_id_hash"][i].as_py() is not None
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
-    def test_mixed_success_and_failure_documents(
-        self, mock_factory, litellm_config, mock_llm_adapter
-    ):
+    def test_mixed_success_and_failure_documents(self, mock_factory, litellm_config, mock_llm_adapter):
         """Test processing with mix of successful and failed documents."""
         # Make every other document fail
         call_count = [0]

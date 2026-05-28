@@ -133,6 +133,9 @@ class LLMEntityAdapter(EntityExtractionPort):
             provider_config=provider_config,
         )
 
+        # Validate adapter configuration
+        self._validate_adapter()
+
         logger.info(
             "Initialized LLMEntityAdapter with provider=%s, model=%s, temperature=%s, max_tokens=%s",
             self.provider,
@@ -140,6 +143,29 @@ class LLMEntityAdapter(EntityExtractionPort):
             self.temperature,
             self.max_tokens,
         )
+
+    def _validate_adapter(self) -> None:
+        """Validate LLM adapter configuration on initialization.
+
+        Raises:
+            DatasiftException: If adapter validation fails
+        """
+        from datasift.exceptions.datasift_exceptions import DatasiftException
+
+        result = self.llm_adapter.validate()
+
+        # Log warnings
+        if result.get("warnings"):
+            for warning in result["warnings"]:
+                logger.warning(f"LLM adapter validation warning: {warning}")
+
+        # Raise error if validation failed
+        if not result.get("valid", True):
+            errors = result.get("errors", ["Unknown validation error"])
+            raise DatasiftException(
+                message=f"LLM adapter validation failed: {'; '.join(errors)}",
+                status_code=400,
+            )
 
     def transform(self, *, table: pa.Table, metadata: dict[str, Any]) -> tuple[list[pa.Table], dict[str, Any]]:
         """Transform documents by extracting entities using LLM.

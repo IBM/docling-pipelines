@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from datasift.core.constants.constants import LLMConstants
 from datasift.core.operators.quality.classification.classification_service import ClassificationService
 from datasift.core.operators.quality.classification.domain.models import ClassificationRequest
 from datasift.exceptions.datasift_exceptions import DatasiftException
@@ -86,6 +87,12 @@ class TestClassificationService:
                 "reasoning": "Contains invoice details",
             }
         )
+        mock_llm_adapter.validate.return_value = {
+            LLMConstants.ValidationKeys.VALID: True,
+            LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.INFERENCE,
+            LLMConstants.ValidationKeys.ERRORS: [],
+            LLMConstants.ValidationKeys.WARNINGS: [],
+        }
         mock_create_adapter.return_value = mock_llm_adapter
 
         # Create service and request
@@ -129,6 +136,12 @@ class TestClassificationService:
                 "reasoning": "Legal agreement terms",
             }
         )
+        mock_llm_adapter.validate.return_value = {
+            LLMConstants.ValidationKeys.VALID: True,
+            LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.INFERENCE,
+            LLMConstants.ValidationKeys.ERRORS: [],
+            LLMConstants.ValidationKeys.WARNINGS: [],
+        }
         mock_create_adapter.return_value = mock_llm_adapter
 
         # Create service and request
@@ -161,6 +174,12 @@ class TestClassificationService:
         # Setup mock to return invalid JSON
         mock_llm_adapter = Mock()
         mock_llm_adapter.chat.return_value = "Not valid JSON"
+        mock_llm_adapter.validate.return_value = {
+            LLMConstants.ValidationKeys.VALID: True,
+            LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.INFERENCE,
+            LLMConstants.ValidationKeys.ERRORS: [],
+            LLMConstants.ValidationKeys.WARNINGS: [],
+        }
         mock_create_adapter.return_value = mock_llm_adapter
 
         service = ClassificationService(
@@ -192,6 +211,12 @@ class TestClassificationService:
         # Setup mock to return JSON without required fields
         mock_llm_adapter = Mock()
         mock_llm_adapter.chat.return_value = json.dumps({"some_field": "value"})
+        mock_llm_adapter.validate.return_value = {
+            LLMConstants.ValidationKeys.VALID: True,
+            LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.INFERENCE,
+            LLMConstants.ValidationKeys.ERRORS: [],
+            LLMConstants.ValidationKeys.WARNINGS: [],
+        }
         mock_create_adapter.return_value = mock_llm_adapter
 
         service = ClassificationService(
@@ -223,6 +248,12 @@ class TestClassificationService:
         mock_llm_adapter.chat.return_value = (
             'Here is the result: {"document_type": "report", "confidence": 7, "reasoning": "test"}'
         )
+        mock_llm_adapter.validate.return_value = {
+            LLMConstants.ValidationKeys.VALID: True,
+            LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.INFERENCE,
+            LLMConstants.ValidationKeys.ERRORS: [],
+            LLMConstants.ValidationKeys.WARNINGS: [],
+        }
         mock_create_adapter.return_value = mock_llm_adapter
 
         service = ClassificationService(
@@ -297,6 +328,87 @@ class TestClassificationService:
             },
         )
         service.cleanup()  # Should not raise
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    def test_adapter_validation_called_on_init(self, mock_create_adapter):
+        """Test that adapter validation is called during service initialization."""
+        # Setup mock adapter with validate method
+        mock_llm_adapter = Mock()
+        mock_llm_adapter.validate.return_value = {
+            "valid": True,
+            "context": "inference",
+            "provider": "ollama",
+            "errors": [],
+            "warnings": [],
+        }
+        mock_create_adapter.return_value = mock_llm_adapter
+
+        # Create service
+        service = ClassificationService(
+            model_id="openai/llama3",
+            provider_name="litellm",
+            provider_config={
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "ollama",  # pragma: allowlist secret
+            },
+        )
+
+        # Verify validate was called
+        mock_llm_adapter.validate.assert_called_once()
+        assert service.model_id == "openai/llama3"
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    def test_adapter_validation_failure_raises_error(self, mock_create_adapter):
+        """Test that adapter validation failure raises DatasiftException."""
+        # Setup mock adapter with failing validation
+        mock_llm_adapter = Mock()
+        mock_llm_adapter.validate.return_value = {
+            "valid": False,
+            "context": "inference",
+            "provider": "ollama",
+            "errors": ["API key validation failed: Missing API key"],
+            "warnings": [],
+        }
+        mock_create_adapter.return_value = mock_llm_adapter
+
+        # Attempt to create service should raise exception
+        with pytest.raises(DatasiftException, match="Adapter validation failed"):
+            ClassificationService(
+                model_id="openai/llama3",
+                provider_name="litellm",
+                provider_config={
+                    "api_base": "http://localhost:11434/v1",
+                },
+            )
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_inference_adapter")
+    def test_adapter_validation_with_warnings(self, mock_create_adapter):
+        """Test that adapter validation with warnings still succeeds."""
+        # Setup mock adapter with warnings
+        mock_llm_adapter = Mock()
+        mock_llm_adapter.validate.return_value = {
+            "valid": True,
+            "context": "inference",
+            "provider": "ollama",
+            "errors": [],
+            "warnings": [
+                "Ollama typically requires api_base. If you encounter connection issues, ensure api_base is configured."
+            ],
+        }
+        mock_create_adapter.return_value = mock_llm_adapter
+
+        # Create service - should succeed despite warnings
+        service = ClassificationService(
+            model_id="openai/llama3",
+            provider_name="litellm",
+            provider_config={
+                "api_key": "ollama",  # pragma: allowlist secret
+            },
+        )
+
+        # Verify validate was called and service was created successfully
+        mock_llm_adapter.validate.assert_called_once()
+        assert service.model_id == "openai/llama3"
 
 
 if __name__ == "__main__":

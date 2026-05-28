@@ -12,6 +12,7 @@ import logging
 from typing import Any
 from urllib.parse import urljoin
 
+from datasift.core.constants.constants import LLMConstants
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.ports.llm_embedding_port import LLMEmbeddingPort
 from datasift.core.ports.llm_inference_port import LLMInferencePort
@@ -459,3 +460,93 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
                 message=f"Failed to call WatsonX detection API: {exc!s}",
                 status_code=exc.status_code or 500,
             ) from exc
+
+    # ==================== Validation Methods ====================
+
+    def _validate_config(self, context: str) -> dict[str, Any]:
+        """Validate WatsonX configuration for any context.
+
+        Args:
+            context: Validation context ("inference", "embedding", or "detection")
+
+        Returns:
+            Dictionary with validation result:
+                - valid: True if all validations pass
+                - context: The validation context
+                - errors: List of validation error messages (empty if valid)
+                - warnings: List of validation warnings
+        """
+        errors = []
+        warnings = []
+
+        # Validate api_key
+        if not self.client.api_key or not self.client.api_key.strip():
+            errors.append("api_key is missing or empty")
+
+        # Validate api_base
+        if not self.client.api_base or not self.client.api_base.strip():
+            errors.append("api_base is missing or empty")
+
+        # Validate container_id
+        if not self.client.container_id or not self.client.container_id.strip():
+            errors.append("container_id is missing or empty")
+
+        # Validate container_kind
+        valid_kinds = ["project", "space"]
+        if not self.client.container_kind:
+            errors.append("container_kind is missing")
+        elif self.client.container_kind not in valid_kinds:
+            errors.append(f"container_kind must be one of {valid_kinds}, got: {self.client.container_kind}")
+
+        # Warn if model_name is not set (optional but recommended)
+        if not self.model_name:
+            warnings.append("model_name is not set - will need to be provided per method call")
+
+        return {
+            LLMConstants.ValidationKeys.VALID: len(errors) == 0,
+            LLMConstants.ValidationKeys.CONTEXT: context,
+            LLMConstants.ValidationKeys.ERRORS: errors,
+            LLMConstants.ValidationKeys.WARNINGS: warnings,
+        }
+
+    def validate_inference(self) -> dict[str, Any]:
+        """Hook method override for inference validation.
+
+        Validates WatsonX configuration for inference operations.
+
+        Returns:
+            Dictionary with validation result:
+                - valid: True if all validations pass
+                - context: "inference"
+                - errors: List of validation error messages (empty if valid)
+                - warnings: List of validation warnings
+        """
+        return self._validate_config(LLMConstants.ValidationContexts.INFERENCE)
+
+    def validate_embedding(self) -> dict[str, Any]:
+        """Hook method override for embedding validation.
+
+        Validates WatsonX configuration for embedding operations.
+
+        Returns:
+            Dictionary with validation result:
+                - valid: True if all validations pass
+                - context: "embedding"
+                - errors: List of validation error messages (empty if valid)
+                - warnings: List of validation warnings
+        """
+        return self._validate_config(LLMConstants.ValidationContexts.EMBEDDING)
+
+    def validate_detection(self) -> dict[str, Any]:
+        """Hook method override for detection validation.
+
+        Validates WatsonX configuration for text detection operations.
+
+        Returns:
+            Dictionary with validation result:
+                - valid: True if all validations pass
+                - context: "detection"
+                - errors: List of validation error messages (empty if valid)
+                - warnings: List of validation warnings
+        """
+        return self._validate_config(LLMConstants.ValidationContexts.DETECTION)

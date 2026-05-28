@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from datasift.core.constants.constants import LLMConstants
 from datasift.core.operators.quality.pii_and_hap.domain.models import (
     DetectionResult,
     PIIHAPDetectionResponse,
@@ -52,6 +53,12 @@ class TestPIIHAPService:
                 }
             ],
         }
+        mock_adapter.validate.return_value = {
+            LLMConstants.ValidationKeys.VALID: True,
+            LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.DETECTION,
+            LLMConstants.ValidationKeys.ERRORS: [],
+            LLMConstants.ValidationKeys.WARNINGS: [],
+        }
         return mock_adapter
 
     @pytest.fixture
@@ -59,6 +66,12 @@ class TestPIIHAPService:
         """Create a mock LLMInferencePort adapter."""
         mock_adapter = Mock(spec=LLMInferencePort)
         mock_adapter.generate.return_value = '{"detections": []}'
+        mock_adapter.validate.return_value = {
+            LLMConstants.ValidationKeys.VALID: True,
+            LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.INFERENCE,
+            LLMConstants.ValidationKeys.ERRORS: [],
+            LLMConstants.ValidationKeys.WARNINGS: [],
+        }
         return mock_adapter
 
     @pytest.fixture
@@ -92,7 +105,14 @@ class TestPIIHAPService:
         with patch(
             "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_text_detection_adapter"
         ) as mock_factory:
-            mock_factory.return_value = Mock(spec=TextDetectionPort)
+            mock_adapter = Mock(spec=TextDetectionPort)
+            mock_adapter.validate.return_value = {
+                LLMConstants.ValidationKeys.VALID: True,
+                LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.DETECTION,
+                LLMConstants.ValidationKeys.ERRORS: [],
+                LLMConstants.ValidationKeys.WARNINGS: [],
+            }
+            mock_factory.return_value = mock_adapter
 
             service = PIIHAPService(
                 provider="watsonx",
@@ -114,7 +134,14 @@ class TestPIIHAPService:
         with patch(
             "datasift.core.operators.quality.pii_and_hap.services.pii_hap_service.LLMAdapterFactory.create_inference_adapter"
         ) as mock_factory:
-            mock_factory.return_value = Mock(spec=LLMInferencePort)
+            mock_adapter = Mock(spec=LLMInferencePort)
+            mock_adapter.validate.return_value = {
+                LLMConstants.ValidationKeys.VALID: True,
+                LLMConstants.ValidationKeys.CONTEXT: LLMConstants.ValidationContexts.INFERENCE,
+                LLMConstants.ValidationKeys.ERRORS: [],
+                LLMConstants.ValidationKeys.WARNINGS: [],
+            }
+            mock_factory.return_value = mock_adapter
 
             service = PIIHAPService(
                 provider="litellm",

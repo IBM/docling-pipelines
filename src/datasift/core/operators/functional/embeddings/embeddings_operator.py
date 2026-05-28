@@ -155,9 +155,36 @@ class EmbeddingsOperator(AbstractOperator):
                 provider_config=self.provider_config,
             )
 
+            # Validate adapter configuration
+            self._validate_adapter(adapter)
+
             return adapter
         except Exception as e:
             raise DatasiftException(f"Failed to initialize embedding adapter '{self.provider}': {e!s}") from e
+
+    def _validate_adapter(self, adapter: LLMEmbeddingPort) -> None:
+        """Validate embedding adapter configuration on initialization.
+
+        Args:
+            adapter: The embedding adapter to validate
+
+        Raises:
+            DatasiftException: If adapter validation fails
+        """
+        result = adapter.validate()
+
+        # Log warnings
+        if result.get("warnings"):
+            for warning in result["warnings"]:
+                logger.warning(f"Embedding adapter validation warning: {warning}")
+
+        # Raise error if validation failed
+        if not result.get("valid", True):
+            errors = result.get("errors", ["Unknown validation error"])
+            raise DatasiftException(
+                message=f"Embedding adapter validation failed: {'; '.join(errors)}",
+                status_code=400,
+            )
 
     @staticmethod
     def get_required_features() -> list[str]:
@@ -182,9 +209,7 @@ class EmbeddingsOperator(AbstractOperator):
             else:
                 supported_providers = LLMAdapterFactory.get_supported_providers(capability="embedding")
                 if self.provider not in supported_providers:
-                    errors.append(
-                        f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'"
-                    )
+                    errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
 
         # Validate overlap ratio
         if self.should_validate_field(field_value=self.overlap_ratio):

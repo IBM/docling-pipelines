@@ -13,6 +13,7 @@ import re
 from typing import Any
 
 from datasift.core.adapters.llm_adapter_factory import LLMAdapterFactory
+from datasift.core.constants.constants import LLMConstants
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.quality.pii_and_hap.domain.models import (
     PIIHAPDetectionResponse,
@@ -89,6 +90,30 @@ class PIIHAPService:
 
         else:
             raise ValueError(f"Unsupported provider: {self.provider}. Supported providers: watsonx, litellm")
+
+        # Validate adapter configuration
+        self._validate_adapter()
+
+    def _validate_adapter(self) -> None:
+        """Validate adapter configuration on initialization.
+
+        Raises:
+            DatasiftException: If adapter validation fails
+        """
+        result = self.adapter.validate()
+
+        # Log warnings
+        if result.get(LLMConstants.ValidationKeys.WARNINGS):
+            for warning in result[LLMConstants.ValidationKeys.WARNINGS]:
+                logger.warning(f"Adapter validation warning: {warning}")
+
+        # Raise error if validation failed
+        if not result.get(LLMConstants.ValidationKeys.VALID, True):
+            errors = result.get(LLMConstants.ValidationKeys.ERRORS, ["Unknown validation error"])
+            raise DatasiftException(
+                message=f"Adapter validation failed: {'; '.join(errors)}",
+                status_code=400,
+            )
 
     def detect_pii_hap(self, *, payload: dict[str, Any]) -> PIIHAPDetectionResponse:
         """Detect PII and HAP in the given text.

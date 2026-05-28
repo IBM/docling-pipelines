@@ -46,6 +46,32 @@ class SummarizationService:
         self.summary_sentences = summary_sentences
         self.summary_max_words = summary_max_words
 
+        # Validate adapter configuration
+        self._validate_adapter()
+
+    def _validate_adapter(self) -> None:
+        """Validate LLM adapter configuration on initialization.
+
+        Raises:
+            DatasiftException: If adapter validation fails
+        """
+        from datasift.exceptions.datasift_exceptions import DatasiftException
+
+        result = self.llm_adapter.validate()
+
+        # Log warnings
+        if result.get("warnings"):
+            for warning in result["warnings"]:
+                logger.warning(f"LLM adapter validation warning: {warning}")
+
+        # Raise error if validation failed
+        if not result.get("valid", True):
+            errors = result.get("errors", ["Unknown validation error"])
+            raise DatasiftException(
+                message=f"LLM adapter validation failed: {'; '.join(errors)}",
+                status_code=400,
+            )
+
     def generate_summary_for_chunked_content(self, *, chunked_content: list[dict[str, Any]]) -> None:
         """
         Expected format of chunked_content:

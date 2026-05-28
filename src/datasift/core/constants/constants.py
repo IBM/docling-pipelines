@@ -556,6 +556,22 @@ class LLMConstants:
         JDBC = "jdbc"
         NESSIE = "nessie"
 
+    class ValidationKeys:
+        """Keys used in validation result dictionaries"""
+
+        VALID = "valid"
+        CONTEXT = "context"
+        PROVIDER = "provider"
+        ERRORS = "errors"
+        WARNINGS = "warnings"
+
+    class ValidationContexts:
+        """Validation context identifiers"""
+
+        INFERENCE = "inference"
+        EMBEDDING = "embedding"
+        DETECTION = "detection"
+
 
 class ProcessingConstants:
     """
