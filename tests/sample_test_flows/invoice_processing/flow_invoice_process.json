@@ -39,7 +39,7 @@
         "use_docling_serve": true,
         "doc_column": "content",
         "max_workers": 4,
-        "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501",
+        "docling_serve_base_url": "http://localhost:30501",
         "docling_serve_ocr_preset": "tesseract",
         "docling_serve_ocr_lang": [
           "eng"
@@ -94,10 +94,10 @@
         "create_index": true,
         "batch_size": 100,
         "provider_config": {
-          "host": "datasift-worker1.fyre.ibm.com",
+          "host": "localhost",
           "port": 9200,
           "username": "admin",
-          "password": "MyStrongPass123!",
+          "password": "MyStrongPass123!",  # pragma: allowlist secret
           "use_ssl": false,
           "verify_certs": false,
           "engine": "faiss",

@@ -45,15 +45,13 @@ class IAMTokenManager:
     IAM Endpoints:
     - IBM Cloud: https://iam.cloud.ibm.com/identity/token
     - MCSP Production: https://account-iam.platform.saas.ibm.com/api/2.0/apikeys/token
-    - MCSP Test: https://account-iam.platform.test.saas.ibm.com/api/2.0/apikeys/token
     """
 
     # IBM Cloud IAM endpoint
     IBM_CLOUD_IAM_BASE_URL = "https://iam.cloud.ibm.com"
 
-    # MCSP IAM endpoints
+    # MCSP IAM endpoint
     MCSP_PROD_IAM_BASE_URL = "https://account-iam.platform.saas.ibm.com"
-    MCSP_TEST_IAM_BASE_URL = "https://account-iam.platform.test.saas.ibm.com"
 
     REFRESH_BUFFER_SECONDS = 600  # Refresh 10 minutes before expiry
     CACHE_TTL_SECONDS = 3600  # 1 hour TTL for cache entries
@@ -105,8 +103,6 @@ class IAMTokenManager:
 
         env = IAMTokenManager._detect_environment(watsonx_url=watsonx_url)
         if env == "MCSP":
-            if ".test." in watsonx_url:
-                return IAMTokenManager.MCSP_TEST_IAM_BASE_URL
             return IAMTokenManager.MCSP_PROD_IAM_BASE_URL
         return IAMTokenManager.IBM_CLOUD_IAM_BASE_URL
 

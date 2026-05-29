@@ -24,7 +24,7 @@
       "config": {
         "provider": "watsonx",
         "provider_config": {
-          "api_base": "https://wxai-qa.ml.cloud.ibm.com",
+          "api_base": "https://us-south.ml.cloud.ibm.com",
           "container_kind": "project",
           "request_timeout": 120
         },
@@ -53,7 +53,7 @@
         "extract_images": false,
         "entity_model_name": "ibm/granite-3-8b-instruct",
         "entity_provider_config": {
-          "api_base": "https://wxai-qa.ml.cloud.ibm.com",
+          "api_base": "https://us-south.ml.cloud.ibm.com",
           "container_kind": "project",
           "request_timeout": 120
         },

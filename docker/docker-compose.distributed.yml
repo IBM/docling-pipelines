@@ -31,7 +31,7 @@ services:
       PREFECT_API_DATABASE_CONNECTION_URL: postgresql+asyncpg://prefect:prefect_password@prefect-postgres:5432/prefect  # pragma: allowlist secret
       PREFECT_SERVER_ANALYTICS_ENABLED: "false"
       PREFECT_API_URL: http://prefect-server:4200/api
-      PREFECT_UI_API_URL: http://datasift-worker1.fyre.ibm.com:4200/api
+      PREFECT_UI_API_URL: http://localhost:4200/api
     ports:
       - "4200:4200"
     depends_on:

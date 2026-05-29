@@ -4284,7 +4284,6 @@ The IAM Token Manager handles IBM Cloud and MCSP (Multi-Cloud Service Platform) 
 | Environment | URL Pattern | IAM Endpoint |
 |-------------|-------------|--------------|
 | MCSP Production | Contains `.aws.` or `platform.saas.ibm.com` | `https://account-iam.platform.saas.ibm.com/api/2.0/apikeys/token` |
-| MCSP Test | Contains `.test.` and `platform.saas.ibm.com` | `https://account-iam.platform.test.saas.ibm.com/api/2.0/apikeys/token` |
 | IBM Cloud | All other URLs (default) | `https://iam.cloud.ibm.com/identity/token` |
 
 **Architecture**:

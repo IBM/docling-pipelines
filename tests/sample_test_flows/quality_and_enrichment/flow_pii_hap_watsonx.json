@@ -36,7 +36,7 @@
         "provider": "watsonx",
         "provider_config": {
           "api_key": "<your api key>",
-          "url": "https://wxai-qa.ml.cloud.ibm.com",
+          "url": "https://us-south.ml.cloud.ibm.com",
           "container_kind": "project",
           "container_id": "<your project id>"
         },
