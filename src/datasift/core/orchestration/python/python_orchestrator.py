@@ -16,12 +16,14 @@ class PythonOrchestrator(AbstractOrchestrator):
         job_run_manager: JobRunManager | None = None,
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
+        execution_reporter=None,
     ):
         super().__init__(
             job_stats_service=job_stats_service,
             job_run_manager=job_run_manager,
             enable_custom_operators=enable_custom_operators,
             custom_operator_packages=custom_operator_packages,
+            execution_reporter=execution_reporter,
         )
 
     def create_executor_impl(

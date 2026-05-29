@@ -24,6 +24,7 @@ class OrchestratorFactory:
         job_run_manager: JobRunManager | None = None,
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
+        execution_reporter=None,
     ) -> AbstractOrchestrator:  # pragma: no cover
         """
         Create an instance of the orchestrator with injected dependencies.
@@ -34,6 +35,7 @@ class OrchestratorFactory:
             job_run_manager: Optional job run manager for framework status updates
             enable_custom_operators: Whether to enable custom operators (passed to operator factory)
             custom_operator_packages: List of custom operator packages (passed to operator factory)
+            execution_reporter: Optional output formatter for user-friendly console output
 
         Returns:
             Configured orchestrator instance
@@ -48,6 +50,7 @@ class OrchestratorFactory:
             job_run_manager=job_run_manager,
             enable_custom_operators=enable_custom_operators,
             custom_operator_packages=custom_operator_packages,
+            execution_reporter=execution_reporter,
         )
 
         return orchestrator

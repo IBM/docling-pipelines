@@ -8,7 +8,7 @@ class AbstractFlowExecutionEventHandler(ABC):
     """
 
     @abstractmethod
-    def before_flow_execution_start(self, *, orchestrtor):
+    def before_flow_execution_start(self, *, orchestrator, flow_def: dict | None = None):
         pass
 
     @abstractmethod
@@ -21,7 +21,17 @@ class AbstractFlowExecutionEventHandler(ABC):
 
     @abstractmethod
     def after_step_execution_complete(
-        self, *, node_id, node_name, operator_category, operator, global_config, is_last_step, metadata, start_time
+        self,
+        *,
+        node_id,
+        node_name,
+        operator_category,
+        operator,
+        global_config,
+        is_last_step,
+        metadata,
+        start_time,
+        tables=None,
     ):
         pass
 

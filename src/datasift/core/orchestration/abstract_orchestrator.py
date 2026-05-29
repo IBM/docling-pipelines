@@ -45,6 +45,7 @@ class AbstractOrchestrator(ABC):
         job_run_manager: JobRunManager | None = None,
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
+        execution_reporter=None,
     ) -> None:
         """
         Initialize orchestrator with optional job services.
@@ -54,6 +55,7 @@ class AbstractOrchestrator(ABC):
             job_run_manager: Optional framework job run manager for external status updates
             enable_custom_operators: Whether to enable custom operators (passed to operator factory)
             custom_operator_packages: List of custom operator packages (passed to operator factory)
+            execution_reporter: Optional output formatter for user-friendly console output
         """
         self.enable_custom_operators = enable_custom_operators
         self.custom_operator_packages = custom_operator_packages
@@ -71,6 +73,7 @@ class AbstractOrchestrator(ABC):
         self.flow_execution_event_handler = FlowExecutionEventHandler(
             job_stats_service=job_stats_service,
             job_run_manager=job_run_manager,
+            execution_reporter=execution_reporter,
         )
         self.batch_manager = BatchManager()
         self.flow_engine: AbstractFlowEngine | None = None
@@ -142,7 +145,7 @@ class AbstractOrchestrator(ABC):
 
         op_flow = flow_def.get(DatasiftConstants.DAG, [])
 
-        self.flow_execution_event_handler.before_flow_execution_start(orchestrtor=self)
+        self.flow_execution_event_handler.before_flow_execution_start(orchestrator=self, flow_def=flow_def)
         self.context_id = params.get(DatasiftConstants.CONTEXT_ID, self.job_id)
         try:
             self.execute_flow(op_flow=op_flow, global_config=global_config)
@@ -290,6 +293,7 @@ class AbstractOrchestrator(ABC):
             is_last_step=not op_def.get(DatasiftConstants.OUTPUT_EDGES),
             metadata=metadata,
             start_time=start,
+            tables=tables,
         )
 
         # Update job status from job stats service

@@ -8,6 +8,7 @@ from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.core.orchestration.abstract_flow_execution_event_handler import AbstractFlowExecutionEventHandler
 from datasift.core.orchestration.batch_manager import BatchInfo
 from datasift.utils.infrastructure.filesystem import get_data_path
+from datasift.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
 from datasift.utils.infrastructure.logging import get_logger
 from datasift.utils.infrastructure.performance import log_elapsed_time
 
@@ -26,6 +27,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         self,
         job_stats_service: JobStatsService | None = None,
         job_run_manager: JobRunManager | None = None,
+        execution_reporter: FlowExecutionReporter | None = None,
     ):
         """
         Initialize event handler with job services.
@@ -33,9 +35,11 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         Args:
             job_stats_service: Optional job statistics service for tracking
             job_run_manager: Optional framework job run manager for external status updates
+            execution_reporter: Optional output formatter for user-friendly console output
         """
         self.job_stats_service = job_stats_service
         self.job_run_manager = job_run_manager
+        self.execution_reporter = execution_reporter
         # These will be set during initialize()
         self.flow_id: str | None = None
         self.job_id: str | None = None
@@ -58,7 +62,13 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         self.job_log_path = self._create_log_folders(job_id=self.job_id, type_="job")
         self.common_log_arguments = common_log_arguments
 
-    def before_flow_execution_start(self, *, orchestrtor):
+    def before_flow_execution_start(self, *, orchestrator, flow_def: dict | None = None):
+        # Print flow header if output formatter is available
+        if self.execution_reporter and flow_def:
+            flow_name = flow_def.get(DatasiftConstants.NAME, self.flow_id or "Unknown Flow")
+            operator_count = len(flow_def.get(DatasiftConstants.DAG, []))
+            self.execution_reporter.print_flow_header(flow_name=flow_name, operator_count=operator_count)
+
         if self.job_stats_service:
             # Check if job is being canceled
             if self.job_stats_service.cancel_job_run_if_cancelling(
@@ -88,7 +98,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                     job_stats=job_stats, dag_nodes=op_flow
                 )
                 # Debug: Log node stats before determining status
-                logger.info(
+                logger.debug(
                     f"Node stats count: {len(job_stats.node_stats) if job_stats.node_stats else 0}",
                     extra=self.common_log_arguments,
                 )
@@ -99,7 +109,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                             if hasattr(node_stat, "node_status")
                             else node_stat.get("node_status", "Unknown")
                         )
-                        logger.info(f"Node {node_id}: status={node_status_val}", extra=self.common_log_arguments)
+                        logger.debug(f"Node {node_id}: status={node_status_val}", extra=self.common_log_arguments)
                 else:
                     logger.warning(
                         "No node stats found when determining final job status", extra=self.common_log_arguments
@@ -107,7 +117,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
                 # Ensure node_stats is not None before passing to determine_final_job_status
                 node_stats_for_status = job_stats.node_stats if job_stats.node_stats else {}
-                logger.info(
+                logger.debug(
                     f"About to determine status. node_stats_for_status type: {type(node_stats_for_status)}, len: {len(node_stats_for_status) if node_stats_for_status else 0}",
                     extra=self.common_log_arguments,
                 )
@@ -133,8 +143,22 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
         logger.info(f"Job status is {job_status.value}.", extra=self.common_log_arguments)
 
+        # Print flow summary if output formatter is available
+        if self.execution_reporter and job_stats:
+            self.execution_reporter.print_flow_summary(job_stats=job_stats, dag_nodes=op_flow)
+
     def before_step_execution_start(self, *, node_id, node_name, global_config, job_status, prev_results):
         log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
+
+        # Print operator start if output formatter is available and step is not being skipped
+        if (
+            self.execution_reporter
+            and prev_results is not None
+            and job_status not in (ExecutionStatus.CANCELING, ExecutionStatus.FAILING)
+        ):
+            # Get operator type from global_config if available
+            operator_type = global_config.get("operator_type", "unknown") if global_config else "unknown"
+            self.execution_reporter.print_operator_start(step_name=node_name, operator_type=operator_type)
 
         if prev_results is None:
             logger.info(f"Error detected in previous step - node {node_name} skipped.", extra=log_extra)
@@ -145,7 +169,17 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             logger.info(f"Aborting the branch execution at node name: {node_name}", extra=log_extra)
 
     def after_step_execution_complete(
-        self, *, node_id, node_name, operator_category, operator, global_config, is_last_step, metadata, start_time
+        self,
+        *,
+        node_id,
+        node_name,
+        operator_category,
+        operator,
+        global_config,
+        is_last_step,
+        metadata,
+        start_time,
+        tables=None,
     ):
         """
         Update internal step statistics and push periodic RUNNING updates to the framework.
@@ -161,6 +195,16 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
         )
 
         log_elapsed_time(start_time=start_time, operator=operator)
+
+        # Print operator summary if output formatter is available
+        if self.execution_reporter and self.job_stats_service and self.job_run_id:
+            # Get the complete job stats to access node stats
+            job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=True)
+            if job_stats and job_stats.node_stats and node_id in job_stats.node_stats:
+                node_stats = job_stats.node_stats[node_id]
+                self.execution_reporter.print_operator_summary(
+                    step_name=node_name, node_stats=node_stats, tables=tables
+                )
 
         if is_last_step:
             log_extra = {**self.common_log_arguments, "node_id": node_id, "node_name": node_name}

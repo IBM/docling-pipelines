@@ -1347,6 +1347,117 @@ The repository includes a complete, ready-to-run pipeline in [`sample_flows/comp
    ```bash
    # From project root (datasift-opensource/)
    datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+
+### Understanding Pipeline Output
+
+DataSift provides clean, user-friendly console output that shows your pipeline's progress in real-time. The output is controlled by the `DS_LOG_LEVEL` environment variable.
+
+#### Output Levels
+
+**INFO Level (Default - Recommended for most users):**
+```bash
+# Clean, formatted output with operator summaries
+datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+```
+
+Shows:
+- Flow execution header with operator count
+- Per-operator progress with document counts and duration
+- Schema changes (new columns added by each operator)
+- Operator-specific metrics and metadata
+- Final flow summary with per-operator statistics
+
+**Example INFO output:**
+```
+================================================================================
+ FLOW: complete-document-pipeline
+ Operators: 5
+ Started: 2024-01-15 10:30:00
+================================================================================
+
+[ingest] Starting ingest_local...
+
+================================================================================
+ ingest (COMPLETED)
+================================================================================
+ Duration: 2.50s | Documents: 10 processed, 0 failed, 0 skipped
+
+ Data Columns: 8 total (8 added by this operator)
+   Added (8):
+     id, name, path, size, created_time, modified_time, content, extension
+
+ Operator Metrics:
+   Files Processed: 10
+   Total Size: 2.5 MB
+================================================================================
+
+[extract] Starting extract_operator...
+...
+```
+
+**DEBUG Level (For troubleshooting):**
+```bash
+# Detailed logs with schema information and internal state
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
+```
+
+Shows everything from INFO level plus:
+- Detailed PyArrow schema information
+- Internal operator metadata
+- Node status transitions
+- Batch processing details
+
+#### Controlling Log Verbosity
+
+Set the `DS_LOG_LEVEL` environment variable to control output detail:
+
+```bash
+# Clean summaries (recommended)
+DS_LOG_LEVEL=INFO datasift-orchestrator --flow-file your_flow.json
+
+# Detailed debugging information
+DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file your_flow.json
+
+# Minimal output (warnings and errors only)
+DS_LOG_LEVEL=WARNING datasift-orchestrator --flow-file your_flow.json
+```
+
+**When to use each level:**
+- **INFO**: Normal pipeline execution, monitoring progress
+- **DEBUG**: Troubleshooting issues, understanding data transformations
+- **WARNING**: Production environments, only show problems
+
+#### Output Features
+
+The formatted output includes:
+
+1. **Flow Header**: Shows flow name, operator count, and start time
+2. **Operator Progress**: Real-time updates as each operator executes
+3. **Schema Tracking**: Automatically detects and displays new columns added by each operator
+4. **Smart Column Grouping**: Groups related columns (e.g., "ML Features", "Language Features") for readability
+5. **Document Tracking**: Shows processed, failed, and skipped document counts
+6. **Operator Metrics**: Displays operator-specific statistics (chunk counts, embedding dimensions, etc.)
+7. **Flow Summary**: Final table showing all operators with their status, duration, and document counts
+
+#### Programmatic Usage (Python API)
+
+When using `DatasiftFlowManager` in Python, the output formatter is enabled by default:
+
+```python
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+
+# Output formatter enabled by default
+manager = DatasiftFlowManager(flow_file="your_flow.json")
+result = manager.execute()
+
+# Disable output formatter if needed
+manager = DatasiftFlowManager(
+    flow_file="your_flow.json",
+    enable_execution_reporter=False  # Disable formatted output
+)
+result = manager.execute()
+```
+
    ```
 
 **Additional sample flows for testing:**

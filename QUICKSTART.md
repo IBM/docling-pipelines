@@ -109,18 +109,54 @@ datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 
 ### Expected Output
 
-You should see output like this:
+DataSift provides clean, formatted console output showing pipeline progress in real-time:
 
 ```
-[INFO] Starting flow execution: complete-document-pipeline
-[INFO] Operator: ingest_local_folder - Processing documents...
-[INFO] Operator: extract_operator - Extracting content...
-[INFO] Operator: semantic_chunker - Chunking documents...
-[INFO] Operator: ollama_embeddings - Generating embeddings...
-[INFO] Operator: opensearch_vector_store - Storing vectors...
-[SUCCESS] Pipeline completed successfully!
-[INFO] Processed 1 documents, created 3 chunks, stored 3 vectors
+================================================================================
+ FLOW: complete-document-pipeline
+ Operators: 5
+ Started: 2024-01-15 10:30:00
+================================================================================
+
+[ingest] Starting ingest_local...
+
+================================================================================
+ ingest (COMPLETED)
+================================================================================
+ Duration: 0.50s | Documents: 1 processed, 0 failed, 0 skipped
+
+ Data Columns: 8 total (8 added by this operator)
+   Added (8): id, name, path, size, created_time, modified_time, content, extension
+================================================================================
+
+[extract] Starting extract_operator...
+[chunk] Starting chunker...
+[embeddings] Starting embeddings...
+[vectordb] Starting vectordb...
+
+================================================================================
+ FLOW EXECUTION SUMMARY
+================================================================================
+ Status: COMPLETED
+ Total Duration: 15.30s
+ Documents: 1 completed, 0 failed, 0 skipped (of 1 total)
+
+ Operator Summary:
+ Operator                       Status               Duration     Docs
+ ------------------------------------------------------------------------------
+ ingest                         COMPLETED            0.50s        1/1
+ extract                        COMPLETED            3.20s        1/1
+ chunk                          COMPLETED            1.10s        1/1
+ embeddings                     COMPLETED            8.50s        1/1
+ vectordb                       COMPLETED            2.00s        1/1
+================================================================================
 ```
+
+**Output Features:**
+- Real-time operator progress with document counts
+- Schema changes showing new columns added by each operator
+- Operator-specific metrics (chunk counts, embedding dimensions, etc.)
+- Final summary table with per-operator statistics
 
 ### Step 4: Verify Success
 

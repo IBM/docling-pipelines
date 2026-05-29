@@ -485,11 +485,27 @@ Execute a flow definition from a JSON file:
 datasift-orchestrator --flow-file path/to/flow.json
 ```
 
-With custom log level:
+**Controlling Output Verbosity:**
+
+Use the `DS_LOG_LEVEL` environment variable to control console output detail:
 
 ```bash
+# Clean summaries with operator progress (recommended)
+DS_LOG_LEVEL=INFO datasift-orchestrator --flow-file flow.json
+
+# Detailed debugging information
 DS_LOG_LEVEL=DEBUG datasift-orchestrator --flow-file flow.json
+
+# Minimal output (warnings and errors only)
+DS_LOG_LEVEL=WARNING datasift-orchestrator --flow-file flow.json
 ```
+
+The default INFO level provides formatted output showing:
+- Flow execution header with operator count
+- Per-operator progress with document counts and duration
+- Schema changes (new columns added by each operator)
+- Operator-specific metrics and metadata
+- Final flow summary with per-operator statistics
 
 #### Validating Flows
 

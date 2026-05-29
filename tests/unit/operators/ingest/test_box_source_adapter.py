@@ -115,6 +115,3 @@ class TestBoxSourceAdapter:
         adapter = BoxSourceAdapter()
         schema = adapter.get_config_schema()
         assert schema == BoxSourceConfig
-
-
-# Made with Bob

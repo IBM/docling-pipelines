@@ -256,9 +256,10 @@ class AbstractOperatorExecutor:
         )
 
     def _log_completion(self, *, op_logger, name, time_taken, result, metadata, common_log_arguments):
+        # Schema and metadata moved to DEBUG - they're shown in formatted output
         if result[0] and result[0][0]:
-            op_logger.info("Schema:%s", str(result[0][0].schema), extra=common_log_arguments)
-        op_logger.info("Operator Metadata:\n%s", pprint.pformat(metadata, indent=2))
+            op_logger.debug("Schema:%s", str(result[0][0].schema), extra=common_log_arguments)
+        op_logger.debug("Operator Metadata:\n%s", pprint.pformat(metadata, indent=2))
         op_logger.info(
             "Completed execution: %s, time= %.2f seconds",
             name,

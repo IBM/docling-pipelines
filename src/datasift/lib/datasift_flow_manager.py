@@ -19,6 +19,7 @@ from datasift.core.orchestration.flow_executor import FlowExecutor
 from datasift.core.orchestration.flow_validator import FlowValidator
 from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
 from datasift.exceptions.datasift_exceptions import DatasiftException, FlowInvalidDataException
+from datasift.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
 from datasift.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
 from datasift.utils.operators.display import list_operators as _list_operators
 
@@ -63,6 +64,7 @@ class DatasiftFlowManager:
         job_run_id: str | None = None,
         flow_id: str | None = None,
         enable_custom_operators: bool | None = None,
+        enable_execution_reporter: bool = True,
     ):
         """
         Initialize DatasiftFlowManager.
@@ -74,6 +76,7 @@ class DatasiftFlowManager:
             job_run_id: Unique job run identifier (defaults to job_id if not provided)
             flow_id: Flow identifier (priority: parameter > flow_def > job_id)
             enable_custom_operators: Whether to enable custom operators (default: from env or True)
+            enable_execution_reporter: Whether to enable user-friendly console output (default: True)
 
         Raises:
             DatasiftException: If neither flow_file nor flow_def is provided
@@ -122,6 +125,12 @@ class DatasiftFlowManager:
         # Custom operator support
         self.custom_operator_packages: list[str] = []
         self.enable_custom_operators = enable_custom_operators
+
+        # Execution reporter support
+        self.enable_execution_reporter = enable_execution_reporter
+        self.execution_reporter: FlowExecutionReporter | None = None
+        if self.enable_execution_reporter:
+            self.execution_reporter = FlowExecutionReporter()
 
         # Execution state (initialized during execute())
         self.orchestrator: Any | None = None
@@ -232,6 +241,7 @@ class DatasiftFlowManager:
         self.orchestrator = OrchestratorFactory.create_orchestrator(
             enable_custom_operators=enable_custom,
             custom_operator_packages=self.custom_operator_packages if self.custom_operator_packages else None,
+            execution_reporter=self.execution_reporter,
         )
 
         # Validate flow definition is initialized

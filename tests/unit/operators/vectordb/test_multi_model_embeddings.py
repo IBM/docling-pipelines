@@ -350,6 +350,3 @@ class TestMilvusMultiModelInterface:
         dimension_mapping = adapter.detect_all_vector_dimensions(table=table, vector_columns=["embeddings"])
 
         assert dimension_mapping == {"embeddings": 3}
-
-
-# Made with Bob

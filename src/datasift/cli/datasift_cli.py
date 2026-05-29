@@ -5,6 +5,7 @@ import sys
 import uuid
 from typing import Any
 
+from datasift.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
 from datasift.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
 
 logger = get_logger()
@@ -15,8 +16,11 @@ def run_command_line_executor(flow_def: dict) -> None:
     from datasift.core.orchestration.flow_executor import FlowExecutor
     from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
 
+    # Create execution reporter for user-friendly console output
+    execution_reporter = FlowExecutionReporter()
+
     logger.info(">>> Creating the orchestrator")
-    orchestrator = OrchestratorFactory.create_orchestrator()
+    orchestrator = OrchestratorFactory.create_orchestrator(execution_reporter=execution_reporter)
     logger.info(">>> Creating the flow executor")
     executor = FlowExecutor(flow_def=flow_def, orchestrator=orchestrator)
     logger.info(">>> Setting up execution parameters")

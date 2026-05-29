@@ -456,6 +456,7 @@ class TestExecutionEnvironment:
         executor.logger = get_logger()
         executor.enable_custom_operators = True
         executor.custom_operator_packages = []
+        executor.execution_reporter = None
 
         with pytest.raises(DatasiftException):
             executor._initialize_execution_environment()
