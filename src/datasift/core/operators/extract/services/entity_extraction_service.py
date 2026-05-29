@@ -152,7 +152,9 @@ class EntityExtractionService:
         self._process_documents_parallel(doc_tasks, schema_templates, entities_list, metadata, content_list)
 
         # Add entities to table and finalize
-        table = self._finalize_table(table=table, entities_list=entities_list, content_list=content_list)
+        table = self._finalize_table(
+            table=table, entities_list=entities_list, content_list=content_list, metadata=metadata
+        )
         metadata = self._set_execution_status(metadata=metadata)
 
         return [table], metadata
@@ -410,7 +412,12 @@ class EntityExtractionService:
             self._record_extraction_failure(task=task, error=str(e), metadata=metadata)
 
     def _finalize_table(
-        self, *, table: pa.Table, entities_list: list[dict[str, Any]], content_list: dict[str, Any] | None = None
+        self,
+        *,
+        table: pa.Table,
+        entities_list: list[dict[str, Any]],
+        content_list: dict[str, Any] | None = None,
+        metadata: dict[str, Any],
     ) -> pa.Table:
         """Add entities column and hash IDs to table.
 
@@ -418,37 +425,47 @@ class EntityExtractionService:
             table: PyArrow table to finalize
             entities_list: List of extracted entities
             content_list: Dictionary of extracted content
+            metadata: Metadata dictionary containing processing stats
 
         Returns:
             Finalized PyArrow table with entities and hash columns
         """
-        # Optionally expand entities into individual columns
-        if self.expand_extracted_data and entities_list:
-            table = self._expand_entities_columns(table=table, entities_list=entities_list)
+        # Check if any documents were successfully processed using metadata
+        processed_count = metadata.get(Metrics.External.PROCESSED_DOCS, 0)
 
-        # check table doesn't already have content column then add it
-        if self.doc_column not in table.column_names:
-            content_col_list: list[str] = [""] * table.num_rows
-            if content_list:
-                for idx_key, content in content_list.items():
-                    content_col_list[int(idx_key)] = content
-            table = TransformUtils.add_column(table=table, name=self.doc_column, content=content_col_list)
+        if processed_count > 0:
+            # Optionally expand entities into individual columns
+            if self.expand_extracted_data and entities_list:
+                table = self._expand_entities_columns(table=table, entities_list=entities_list)
 
-        # Add entities column - convert to JSON strings for PyArrow compatibility
-        entities_json_list: list[str] = [json.dumps(entity) if entity else "{}" for entity in entities_list]
-        table = TransformUtils.add_column(table=table, name=self.output_column, content=entities_json_list)
+            # check table doesn't already have content column then add it
+            if self.doc_column not in table.column_names:
+                content_col_list: list[str] = [""] * table.num_rows
+                if content_list:
+                    for idx_key, content in content_list.items():
+                        content_col_list[int(idx_key)] = content
+                table = TransformUtils.add_column(table=table, name=self.doc_column, content=content_col_list)
 
-        # Ensure doc_id_hash column exists
-        if self.doc_id_hash_column not in table.column_names:
-            logger.info("Generating hash id and adding it to table")
-            hash_operator = DocIdHashOperator(
-                {
-                    OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
-                    OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
-                }
+            # Add entities column - convert to JSON strings for PyArrow compatibility
+            entities_json_list: list[str] = [json.dumps(entity) if entity else "{}" for entity in entities_list]
+            table = TransformUtils.add_column(table=table, name=self.output_column, content=entities_json_list)
+
+            # Ensure doc_id_hash column exists
+            if self.doc_id_hash_column not in table.column_names:
+                logger.info("Generating hash id and adding it to table")
+                hash_operator = DocIdHashOperator(
+                    {
+                        OperatorConstants.Columns.DOC_COLUMN: self.doc_column,
+                        OperatorConstants.Columns.DOC_ID_HASH: self.doc_id_hash_column,
+                    }
+                )
+                table_list, _ = hash_operator.transform(table)
+                table = table_list[0]
+        else:
+            logger.warning(
+                "No successful entity extractions - entities column not added. All documents failed extraction.",
+                extra=self.common_log_arguments,
             )
-            table_list, _ = hash_operator.transform(table)
-            table = table_list[0]
 
         return table
 

@@ -358,43 +358,53 @@ class TextExtractionPort(ABC):
             doc_images_list = [data for idx, data in enumerate(doc_images_list) if idx not in remove_row_idx]
             # Remove rows from format lists
             for fmt in format_lists:
-                format_lists[fmt] = [content for idx, content in enumerate(format_lists[fmt]) if idx not in remove_row_idx]
+                format_lists[fmt] = [
+                    content for idx, content in enumerate(format_lists[fmt]) if idx not in remove_row_idx
+                ]
             doc_pages_processed = [pages for idx, pages in enumerate(doc_pages_processed) if idx not in remove_row_idx]
 
-        # Add extracted content to table
-        if doc_contents:
-            table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
+        # Add content column only if at least one document was successfully extracted
+        if completed_count > 0:
+            # Add extracted content to table
+            if doc_contents:
+                table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
 
-        # Add additional format columns dynamically based on requested formats
-        for fmt, content_list in format_lists.items():
-            if fmt in self.FORMAT_COLUMN_MAPPING:
-                column_name = self.FORMAT_COLUMN_MAPPING[fmt]
-                # Only add column if it contains at least one non-None value
-                if any(content is not None for content in content_list):
-                    table = TransformUtils.add_column(table=table, name=column_name, content=content_list)
+            # Add additional format columns dynamically based on requested formats
+            for fmt, content_list in format_lists.items():
+                if fmt in self.FORMAT_COLUMN_MAPPING:
+                    column_name = self.FORMAT_COLUMN_MAPPING[fmt]
+                    # Only add column if it contains at least one non-None value
+                    if any(content is not None for content in content_list):
+                        table = TransformUtils.add_column(table=table, name=column_name, content=content_list)
 
-        if self.extract_tables:
-            doc_tables_serialized = [json.dumps(data) if data else None for data in doc_tables_list]
-            table = TransformUtils.add_column(
-                table=table, name=OperatorConstants.Columns.TABLES, content=doc_tables_serialized
+            if self.extract_tables:
+                doc_tables_serialized = [json.dumps(data) if data else None for data in doc_tables_list]
+                table = TransformUtils.add_column(
+                    table=table, name=OperatorConstants.Columns.TABLES, content=doc_tables_serialized
+                )
+
+            if self.extract_images:
+                doc_images_serialized = [json.dumps(data) if data else None for data in doc_images_list]
+                table = TransformUtils.add_column(
+                    table=table, name=OperatorConstants.Columns.IMAGES, content=doc_images_serialized
+                )
+
+            # Add pages_processed column
+            if doc_pages_processed:
+                table = TransformUtils.add_column(
+                    table=table, name=OperatorConstants.Columns.PAGES_PROCESSED, content=doc_pages_processed
+                )
+            # Generate document hash IDs
+            logger.info("Generating hash id and adding it to table")
+            hash_operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: self.doc_column})
+            table_list, _ = hash_operator.transform(table)
+            table = table_list[0]
+        else:
+            logger.warning(
+                "No successful extractions - content column not added. All %d documents failed extraction.",
+                total_files,
+                extra=self.common_log_arguments,
             )
-
-        if self.extract_images:
-            doc_images_serialized = [json.dumps(data) if data else None for data in doc_images_list]
-            table = TransformUtils.add_column(
-                table=table, name=OperatorConstants.Columns.IMAGES, content=doc_images_serialized
-            )
-
-        # Add pages_processed column
-        if doc_pages_processed:
-            table = TransformUtils.add_column(
-                table=table, name=OperatorConstants.Columns.PAGES_PROCESSED, content=doc_pages_processed
-            )
-        # Generate document hash IDs
-        logger.info("Generating hash id and adding it to table")
-        hash_operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: self.doc_column})
-        table_list, _ = hash_operator.transform(table)
-        table = table_list[0]
 
         # Set final status
         metadata[Metrics.External.NODE_STATUS] = (
