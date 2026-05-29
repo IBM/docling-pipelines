@@ -157,6 +157,26 @@ Update metadata of an existing document set:
 }
 ```
 
+### Example 6: Custom Database Path
+
+Specify a custom database path for document storage:
+
+```json
+{
+  "type": "document_set",
+  "name": "store_in_document_set",
+  "config": {
+    "document_set_name": "embeddings_dataset",
+    "description": "Document set with embeddings",
+    "data_backend": "duckdb",
+    "database_path": "./data/document_sets/embeddings_dataset.duckdb"
+  },
+  "depends_on": [
+    "generate_embeddings"
+  ]
+}
+```
+
 ## Pipeline Placement
 
 Place DocumentSetOperator strategically:
@@ -236,3 +256,8 @@ Error: Cannot evolve schema: incompatible types
 ```
 
 **Solution:** Ensure new data types are compatible with existing schema
+
+
+## Complete Flow Example
+
+See [`tests/sample_test_flows/document_set/document_set_flow.json`](tests/sample_test_flows/document_set/document_set_flow.json) for a complete pipeline example.

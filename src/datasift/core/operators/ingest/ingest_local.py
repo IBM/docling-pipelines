@@ -414,6 +414,12 @@ class IngestLocalOperator(AbstractOperator):
                         OperatorConstants.Misc.PRIMARY,
                     ],
                 },
+                OperatorConstants.Columns.ID: {
+                    OperatorConstants.Columns.NAME: "Document ID",
+                    OperatorConstants.Config.DESCRIPTION: "Document ID (alternative hash column name)",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                    OperatorConstants.Misc.TYPE: OperatorConstants.Types.TYPE_STRING,
+                },
             },
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestLocalOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
