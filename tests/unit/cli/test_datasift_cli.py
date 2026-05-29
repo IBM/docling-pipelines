@@ -399,14 +399,14 @@ class TestValidateFlowDefinitionRealValidator:
     def test_validate_valid_flow_success(self, valid_flow_file):
         """Test validation succeeds with valid flow using real FlowValidator.
 
-        Note: This flow may have warnings (e.g., missing output operator) but should
+        Note: This flow may have warnings (e.g., missing VectorDB operator) but should
         still pass validation as warnings don't cause validation failure.
         """
         result = validate_flow_definition(flow_file=valid_flow_file)
 
         # Flow has warnings but no errors, so validation returns True
         # This is correct behavior - only errors cause validation to fail, not warnings
-        assert result is False
+        assert result is True
 
     def test_validate_flow_with_invalid_operator(self, tmp_path):
         """Test validation fails with invalid operator configuration."""

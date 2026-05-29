@@ -346,7 +346,9 @@ class FlowValidator:
 
         self.validate_last_operator(dag=dag, global_config=global_config, validate_results=validate_results)
 
-        if validate_results.errors or validate_results.warnings:
+        if validate_results.warnings:
+            self.logger.warning(f"Validation warnings: {validate_results.warnings}")
+        if validate_results.errors:
             self.logger.error(f"Validation errors: {validate_results.errors}")
             raise FlowValidationException(errors=validate_results.errors, warnings=validate_results.warnings)
 

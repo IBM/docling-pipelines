@@ -161,8 +161,8 @@ def validate_flow_definition(flow_file: str) -> bool:
         for i, warn in enumerate(warnings, 1):
             logger.warning("Warning %d: %s", i, getattr(warn, "message", str(warn)))
 
-        # Fail on both errors and warnings
-        return not (errors or warnings)
+        # Only fail on errors, not warnings
+        return not errors
 
     except Exception:
         logger.exception("Validation failed with unexpected error")
