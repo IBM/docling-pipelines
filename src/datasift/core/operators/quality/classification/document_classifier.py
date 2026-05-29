@@ -6,6 +6,7 @@ Supports multiple LLM providers through hexagonal architecture.
 """
 
 import logging
+import pathlib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
@@ -374,6 +375,50 @@ class DocumentClassifierOperator(AbstractOperator):
                 "reasoning": "",
             }
 
+    def _validate_extensions_for_existing_content(
+        self, *, table: pa.Table, doc_contents: list, metadata: dict[str, Any]
+    ) -> set[int]:
+        """
+        Validate file extensions for documents with existing content.
+
+        Args:
+            table: Input PyArrow table with document metadata
+            doc_contents: List of document contents (will be modified in-place)
+            metadata: Metadata dictionary to record skipped documents
+
+        Returns:
+            Set of indices that were skipped due to unsupported extensions
+        """
+        skipped_indices: set[int] = set()
+
+        if OperatorConstants.Columns.NAME not in table.column_names:
+            return skipped_indices
+
+        for idx in range(table.num_rows):
+            doc_name = table[OperatorConstants.Columns.NAME][idx].as_py()
+            file_ext = pathlib.Path(doc_name).suffix.lower()
+
+            if file_ext not in OperatorConstants.Extraction.CLASSIFICATION_FILE_EXTENSIONS:
+                doc_id = (
+                    table[OperatorConstants.Columns.ID][idx].as_py()
+                    if OperatorConstants.Columns.ID in table.column_names
+                    else f"doc_{idx}"
+                )
+                error_msg = f"Unsupported file extension: {file_ext}"
+                logger.info(f"Skipping document {doc_name}: {error_msg}")
+
+                self.record_skipped_document(
+                    metadata=metadata,
+                    doc_id=str(doc_id),
+                    doc_name=doc_name,
+                    reason=error_msg,
+                )
+                skipped_indices.add(idx)
+                # Clear content for this index so it's skipped in classification
+                doc_contents[idx] = None
+
+        return skipped_indices
+
     def transform(self, table: pa.Table, file_name: str = "") -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Classify documents in the input table.
@@ -402,17 +447,27 @@ class DocumentClassifierOperator(AbstractOperator):
         content_was_fetched = False
         # Process documents in parallel
         doc_contents = []
+        skipped_indices = set()  # Track indices skipped due to unsupported extensions
 
         if doc_column_exists:
             # Use existing content column
             doc_contents = table.column(self.doc_column).to_pylist()
             logger.info(f"Using existing '{self.doc_column}' column for classification")
+
+            # Validate file extensions for existing content
+            skipped_indices = self._validate_extensions_for_existing_content(
+                table=table, doc_contents=doc_contents, metadata=metadata
+            )
         else:
-            # Fetch content using utility function
+            # Fetch content using utility function with extension validation
             logger.info(f"'{self.doc_column}' column not found, fetching content from documents")
             content_was_fetched = True
-            # Prepare document data for parallel processing
-            doc_tasks = OperatorUtils.prepare_document_content_fetch(table=table, global_config=self.global_config)
+            # Prepare document data for parallel processing with extension validation
+            doc_tasks = OperatorUtils.prepare_document_content_fetch(
+                table=table,
+                global_config=self.global_config,
+                supported_extensions=set(OperatorConstants.Extraction.CLASSIFICATION_FILE_EXTENSIONS),
+            )
 
             logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
             # Process documents in parallel using ThreadPoolExecutor
@@ -422,13 +477,23 @@ class DocumentClassifierOperator(AbstractOperator):
                 future_to_task = {}
                 for task in doc_tasks:
                     if "error" in task:
-                        # Skip tasks that had errors during preparation
-                        self.record_failed_document(
-                            metadata=metadata,
-                            doc_id=str(task["doc_id"]),
-                            doc_name=task["doc_name"],
-                            reason=task["error"],
-                        )
+                        # Check if this is an unsupported extension (should be skipped, not failed)
+                        if task.get("skip_reason") == "unsupported_extension":
+                            self.record_skipped_document(
+                                metadata=metadata,
+                                doc_id=str(task["doc_id"]),
+                                doc_name=task["doc_name"],
+                                reason=task["error"],
+                            )
+                            skipped_indices.add(task["idx"])
+                        else:
+                            # Other errors are failures
+                            self.record_failed_document(
+                                metadata=metadata,
+                                doc_id=str(task["doc_id"]),
+                                doc_name=task["doc_name"],
+                                reason=task["error"],
+                            )
                         continue
 
                     future = executor.submit(
@@ -491,12 +556,17 @@ class DocumentClassifierOperator(AbstractOperator):
                 )
 
                 if not content or (isinstance(content, str) and not content.strip()):
-                    logger.warning(f"Empty content for document {doc_name}, skipping classification")
-                    self.record_skipped_document(
-                        metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason="Empty content"
-                    )
+                    # Only record if NOT already skipped during validation
+                    if idx not in skipped_indices:
+                        logger.warning(f"Empty content for document {doc_name}, skipping classification")
+                        self.record_skipped_document(
+                            metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason="Empty content"
+                        )
+                        reasonings[idx] = "Empty content"
+                    else:
+                        # Already recorded as skipped due to unsupported extension
+                        reasonings[idx] = "Unsupported file extension"
                     classifications[idx] = None
-                    reasonings[idx] = "Empty content"
                     continue
 
                 future = executor.submit(self._classify_document, content=content, doc_name=doc_name)

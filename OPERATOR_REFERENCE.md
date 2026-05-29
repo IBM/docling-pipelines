@@ -380,6 +380,8 @@ Supported LiteLLM providers:
 
 - PyArrow Table with document content (text column or binary content for extraction)
 - Optional `content` column (if not present, will be fetched from binary content)
+- **File Extension Validation**: Only documents with supported file extensions are processed: `.pdf`, `.docx`, `.pptx`, `.doc`, `.ppt`
+  - Unsupported file types are **skipped** (not classified) but remain in the output table with `None` classification values
 
 **Output Schema**
 
@@ -389,6 +391,15 @@ Adds the following columns:
 - `document_type_confidence` (float): Confidence score 1-10 (if `include_confidence=true`)
 - `document_type_reasoning` (string): Classification explanation (if `include_reasoning=true`)
 - `content` (string): Document content (if fetched and not already present)
+
+**Metadata**
+
+The operator tracks document processing statistics in metadata:
+- `processed_docs`: Number of successfully classified documents
+- `failed_docs`: List of failed document paths with reasons (errors during processing)
+- `failed_docs_count`: Total number of failed documents
+- `skipped_docs`: List of skipped document paths with reasons (includes unsupported file extensions)
+- `skipped_docs_count`: Total number of skipped documents
 
 **Document Types Configuration**
 

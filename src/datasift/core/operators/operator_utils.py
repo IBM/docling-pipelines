@@ -733,7 +733,9 @@ class OperatorUtils:
         return False
 
     @staticmethod
-    def prepare_document_content_fetch(*, table: pa.Table, global_config: dict[str, Any] | None = None) -> list:
+    def prepare_document_content_fetch(
+        *, table: pa.Table, global_config: dict[str, Any] | None = None, supported_extensions: set[str] | None = None
+    ) -> list:
         """
         Prepare to fetch document content from a PyArrow table row using on-demand fetching.
 
@@ -754,9 +756,14 @@ class OperatorUtils:
                 - name: Document name (optional)
             global_config: Global configuration that may contain ingest_source parameters
                 for cloud provider access (optional)
+            supported_extensions: Optional set of supported file extensions (e.g., {'.pdf', '.docx'}).
+                If provided, documents with unsupported extensions will be marked with error and skip_reason.
 
         Returns:
             List of dicts with keys: idx, doc_id, doc_name, binary_content or error
+            If supported_extensions is provided and extension is unsupported, dict will contain:
+                - error: Error message describing unsupported extension
+                - skip_reason: "unsupported_extension" flag
 
         Raises:
             ValueError: If binary content cannot be fetched from any source
@@ -779,6 +786,21 @@ class OperatorUtils:
                     if OperatorConstants.Columns.NAME in table.column_names
                     else f"document_{row_idx}"
                 )
+
+                # Check file extension if validation is requested
+                if supported_extensions:
+                    file_ext = Path(doc_name).suffix.lower()
+                    if file_ext not in supported_extensions:
+                        doc_tasks.append(
+                            {
+                                "idx": row_idx,
+                                "doc_id": doc_id,
+                                "doc_name": doc_name,
+                                "error": f"Unsupported file extension: {file_ext}",
+                                "skip_reason": "unsupported_extension",
+                            }
+                        )
+                        continue  # Skip binary content fetch for unsupported files
 
                 # Get binary content using on-demand fetching strategy
                 if OperatorConstants.Columns.BINARY_CONTENT in table.column_names:

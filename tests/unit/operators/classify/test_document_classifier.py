@@ -19,21 +19,21 @@ from datasift.core.operators.quality.classification.document_classifier import D
 def test_document_classifier_basic_litellm():
     """Test the DocumentClassifierOperator with basic classification using LiteLLM."""
 
-    # Create sample documents with content
+    # Create sample documents with content (using supported file extensions)
     sample_docs = [
         {
             "id": "doc1",
-            "name": "invoice.txt",
+            "name": "invoice.pdf",
             "content": "INVOICE\nInvoice Number: INV-001\nDate: 2024-01-15\nBill To: John Doe\nItem: Widget\nQuantity: 10\nPrice: $100\nTotal: $1000",
         },
         {
             "id": "doc2",
-            "name": "contract.txt",
+            "name": "contract.docx",
             "content": "CONTRACT AGREEMENT\nThis agreement is made between Party A and Party B.\nTerms and Conditions:\n1. Payment terms\n2. Delivery schedule\n3. Warranty provisions",
         },
         {
             "id": "doc3",
-            "name": "receipt.txt",
+            "name": "receipt.pdf",
             "content": "RECEIPT\nStore: ABC Store\nDate: 2024-01-20\nTransaction ID: TXN-12345\nItems purchased:\n- Coffee: $5.00\n- Sandwich: $8.00\nTotal: $13.00\nPayment Method: Credit Card",
         },
     ]
@@ -136,10 +136,10 @@ def test_document_classifier_without_content_column():
 
     # Get test files
     fixtures_dir = Path(__file__).parent.parent.parent.parent / "fixtures" / "customer_support_docs"
-    test_files = list(fixtures_dir.glob("*.txt"))[:2]
+    test_files = list(fixtures_dir.glob("*.pdf"))[:2]
 
     if len(test_files) < 2:
-        pytest.skip("Need at least 2 txt files for this test")
+        pytest.skip("Need at least 2 pdf files for this test")
 
     # Prepare data without content column
     file_data = {"id": [], "name": [], "path": [], "binary_content": []}
@@ -356,7 +356,7 @@ def test_document_classifier_list_document_types():
     table = pa.table(
         {
             "id": ["doc1"],
-            "name": ["invoice.txt"],
+            "name": ["invoice.pdf"],
             "content": ["INVOICE\nInvoice Number: INV-001\nTotal: $1000"],
         }
     )
@@ -426,7 +426,7 @@ def test_document_classifier_progress_tracking_litellm():
     table = pa.table(
         {
             "id": ["doc1", "doc2", "doc3"],
-            "name": ["test1.txt", "test2.txt", "test3.txt"],
+            "name": ["test1.pdf", "test2.pdf", "test3.pdf"],
             "content": ["Invoice content", "Receipt content", "Contract content"],
         }
     )
@@ -465,6 +465,225 @@ def test_document_classifier_progress_tracking_litellm():
         assert Metrics.External.PROCESSED_DOCS in metadata
         assert metadata[Metrics.External.TOTAL_DOCS] == 3
         assert metadata[Metrics.External.PROCESSED_DOCS] == 3
+
+
+@pytest.mark.unit
+def test_document_classifier_file_extension_validation():
+    """Test that document classifier validates and skips unsupported file extensions."""
+
+    # Create sample documents with mixed file extensions
+    sample_docs = [
+        {
+            "id": "doc1",
+            "name": "invoice.pdf",  # Supported
+            "content": "INVOICE\nInvoice Number: INV-001\nTotal: $1000",
+        },
+        {
+            "id": "doc2",
+            "name": "contract.txt",  # Unsupported
+            "content": "CONTRACT AGREEMENT\nThis agreement is made between Party A and Party B.",
+        },
+        {
+            "id": "doc3",
+            "name": "receipt.docx",  # Supported
+            "content": "RECEIPT\nStore: ABC Store\nTotal: $13.00",
+        },
+        {
+            "id": "doc4",
+            "name": "memo.md",  # Unsupported
+            "content": "# Memo\nThis is a memo document.",
+        },
+    ]
+
+    # Create PyArrow table
+    table = pa.table(
+        {
+            "id": [doc["id"] for doc in sample_docs],
+            "name": [doc["name"] for doc in sample_docs],
+            "content": [doc["content"] for doc in sample_docs],
+        }
+    )
+
+    # Initialize operator with litellm provider
+    config = {
+        "provider": "litellm",
+        "provider_config": {
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "ollama",
+        },
+        "model_id": "openai/granite3.1-dense:8b",
+        "document_types": ["invoice", "contract", "receipt"],
+        "confidence_threshold": 7.0,
+        "doc_column": "content",
+        "output_column": "document_type",
+    }
+
+    # Mock the classification service to avoid actual LLM calls
+    with patch(
+        "datasift.core.operators.quality.classification.document_classifier.ClassificationService"
+    ) as mock_service:
+        mock_instance = mock_service.return_value
+        mock_instance.classify_document.return_value = type(
+            "Response",
+            (),
+            {
+                "success": True,
+                "document_type": "invoice",
+                "confidence": 9,
+                "reasoning": "Test classification",
+            },
+        )()
+
+        operator = DocumentClassifierOperator(config)
+        output_tables, metadata = operator.transform(table)
+
+        # Verify that unsupported files were skipped (not failed)
+        assert metadata["skipped_docs_count"] == 2, "Should have 2 skipped documents (.txt and .md)"
+        assert len(metadata["skipped_docs"]) == 2, "Should have 2 skipped document records"
+
+        # Verify skipped documents are the .txt and .md files
+        skipped_names = {doc["name"] for doc in metadata["skipped_docs"]}
+        assert "contract.txt" in skipped_names, ".txt file should be skipped"
+        assert "memo.md" in skipped_names, ".md file should be skipped"
+
+        # Verify error messages mention unsupported file extension
+        for skipped_doc in metadata["skipped_docs"]:
+            assert "Unsupported file extension" in skipped_doc["reason"]
+
+        # Verify output table contains ALL files (skipped files remain in table)
+        output_table = output_tables[0]
+        assert output_table.num_rows == 4, "Should have 4 rows (all files remain)"
+
+        # Verify all documents are present
+        output_names = output_table.column("name").to_pylist()
+        assert "invoice.pdf" in output_names, ".pdf file should remain"
+        assert "receipt.docx" in output_names, ".docx file should remain"
+        assert "contract.txt" in output_names, ".txt file should remain (marked as skipped)"
+        assert "memo.md" in output_names, ".md file should remain (marked as skipped)"
+
+        # Verify skipped files have None classification
+        doc_types = output_table.column("document_type").to_pylist()
+        name_to_type = dict(zip(output_names, doc_types, strict=False))
+        assert name_to_type["contract.txt"] is None, ".txt file should have None classification"
+        assert name_to_type["memo.md"] is None, ".md file should have None classification"
+
+
+@pytest.mark.unit
+def test_document_classifier_all_files_skipped():
+    """Test that document classifier handles case where all files are skipped due to unsupported extensions."""
+
+    # Create sample documents with only unsupported extensions
+    sample_docs = [
+        {
+            "id": "doc1",
+            "name": "file1.txt",
+            "content": "Content 1",
+        },
+        {
+            "id": "doc2",
+            "name": "file2.md",
+            "content": "Content 2",
+        },
+    ]
+
+    # Create PyArrow table
+    table = pa.table(
+        {
+            "id": [doc["id"] for doc in sample_docs],
+            "name": [doc["name"] for doc in sample_docs],
+            "content": [doc["content"] for doc in sample_docs],
+        }
+    )
+
+    # Initialize operator
+    config = {
+        "provider": "litellm",
+        "provider_config": {
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "ollama",
+        },
+        "model_id": "openai/granite3.1-dense:8b",
+        "document_types": ["invoice", "contract"],
+        "doc_column": "content",
+    }
+
+    operator = DocumentClassifierOperator(config)
+    output_tables, metadata = operator.transform(table)
+
+    # Verify all files were skipped (not failed)
+    assert metadata["skipped_docs_count"] == 2, "All files should be skipped"
+    assert metadata["failed_docs_count"] == 0, "No files should be failed"
+    assert metadata["processed_docs"] == 0, "No files should be processed"
+
+    # Verify output table contains all rows (skipped files remain)
+    output_table = output_tables[0]
+    assert output_table.num_rows == 2, "Output table should contain all rows"
+
+    # Verify all documents have None classification
+    doc_types = output_table.column("document_type").to_pylist()
+    assert all(dt is None for dt in doc_types), "All documents should have None classification"
+
+
+@pytest.mark.unit
+def test_document_classifier_supported_extensions_only():
+    """Test that document classifier accepts all supported file extensions."""
+
+    # Create sample documents with all supported extensions
+    sample_docs = [
+        {"id": "doc1", "name": "file.pdf", "content": "PDF content"},
+        {"id": "doc2", "name": "file.docx", "content": "DOCX content"},
+        {"id": "doc3", "name": "file.pptx", "content": "PPTX content"},
+        {"id": "doc4", "name": "file.doc", "content": "DOC content"},
+        {"id": "doc5", "name": "file.ppt", "content": "PPT content"},
+    ]
+
+    # Create PyArrow table
+    table = pa.table(
+        {
+            "id": [doc["id"] for doc in sample_docs],
+            "name": [doc["name"] for doc in sample_docs],
+            "content": [doc["content"] for doc in sample_docs],
+        }
+    )
+
+    # Initialize operator
+    config = {
+        "provider": "litellm",
+        "provider_config": {
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "ollama",
+        },
+        "model_id": "openai/granite3.1-dense:8b",
+        "document_types": ["document"],
+        "doc_column": "content",
+    }
+
+    # Mock the classification service
+    with patch(
+        "datasift.core.operators.quality.classification.document_classifier.ClassificationService"
+    ) as mock_service:
+        mock_instance = mock_service.return_value
+        mock_instance.classify_document.return_value = type(
+            "Response",
+            (),
+            {
+                "success": True,
+                "document_type": "document",
+                "confidence": 9,
+                "reasoning": "Test",
+            },
+        )()
+
+        operator = DocumentClassifierOperator(config)
+        output_tables, metadata = operator.transform(table)
+
+        # Verify no files were rejected
+        assert metadata["failed_docs_count"] == 0, "No files should be rejected"
+        assert metadata["processed_docs"] == 5, "All 5 files should be processed"
+
+        # Verify output table contains all files
+        output_table = output_tables[0]
+        assert output_table.num_rows == 5, "All files should remain in output"
 
 
 @pytest.mark.unit

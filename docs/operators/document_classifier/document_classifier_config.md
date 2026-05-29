@@ -5,8 +5,17 @@
 The Document Classifier operator uses LLM-based classification to identify document types with confidence scores and reasoning. It supports multiple LLM providers (LiteLLM and watsonx) and can classify documents into predefined categories.
 
 - **Operator Name:** `document_classifier`
-- **Category**: Functional
+- **Category**: Quality
 - **Short Name**: `document_classifier`
+
+### Supported File Extensions
+
+The operator validates file extensions and only processes documents with the following formats:
+- **PDF**: `.pdf`
+- **Microsoft Word**: `.docx`, `.doc`
+- **Microsoft PowerPoint**: `.pptx`, `.ppt`
+
+**Unsupported formats** are automatically **skipped** (not classified) but remain in the output table with `None` classification values. These documents are tracked as skipped documents in the operator metadata with the reason "Unsupported file extension".
 
 ## Configuration Parameters
 

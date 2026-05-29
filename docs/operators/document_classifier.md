@@ -16,6 +16,7 @@ The Document Classification operator classifies documents into predefined types 
 - **Flexible Document Types**: Support for both simple lists and detailed descriptions
 - **Parallel Processing**: Efficient batch processing with configurable workers
 - **Shared Infrastructure**: Leverages common LLM adapter factory for consistency
+- **File Extension Validation**: Automatically filters documents to supported formats (PDF, DOCX, PPTX, DOC, PPT)
 
 ### Operator Category
 
@@ -288,6 +289,23 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 
 ---
 
+## Input Requirements
+
+### Supported File Extensions
+
+The operator validates file extensions and only processes documents with the following formats:
+- **PDF**: `.pdf`
+- **Microsoft Word**: `.docx`, `.doc`
+- **Microsoft PowerPoint**: `.pptx`, `.ppt`
+
+**Unsupported formats** are automatically **skipped** (not classified) but remain in the output table with `None` classification values. These documents are tracked as skipped documents in the operator metadata.
+
+### Input Schema
+
+- PyArrow Table with document content
+- Required: `name` column containing filename (used for extension validation)
+- Optional: `content` column (if not present, will be fetched from binary content)
+
 ## Output Schema
 
 The operator adds the following columns to the output table:
@@ -298,6 +316,20 @@ The operator adds the following columns to the output table:
 | `document_type_confidence` | float | Confidence score (1-10) | If `include_confidence=true` |
 | `document_type_reasoning` | string | Classification explanation | If `include_reasoning=true` |
 | `content` | string | Document content (if fetched) | If not already present |
+
+### Metadata
+
+The operator provides detailed processing statistics in metadata:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `processed_docs` | integer | Number of successfully classified documents |
+| `failed_docs` | list | List of failed document paths with failure reasons |
+| `failed_docs_count` | integer | Total number of failed documents |
+| `skipped_docs` | list | List of skipped document paths with skip reasons |
+| `skipped_docs_count` | integer | Total number of skipped documents |
+
+**Note**: Documents with unsupported file extensions are included in `skipped_docs` (not `failed_docs`) with the reason "Unsupported file extension". These documents remain in the output table with `None` classification values.
 
 ### Example Output
 
