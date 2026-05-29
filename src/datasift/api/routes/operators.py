@@ -101,6 +101,20 @@ OperatorMetadataServiceDep = Annotated[OperatorMetadataService, Depends(get_oper
                                 },
                             },
                             "required_features": [],
+                            "attributes": {
+                                "text_extraction_mode": {
+                                    "type": "string",
+                                    "description": "Text extraction strategy (docling_library or docling_serve)",
+                                    "required": True,
+                                    "default": "docling_library",
+                                },
+                                "entity_extraction_mode": {
+                                    "type": "string",
+                                    "description": "Entity extraction strategy (litellm, watsonx, docling, or none)",
+                                    "required": False,
+                                    "default": "none",
+                                },
+                            },
                         },
                         "chunker": {
                             "label": "Chunker",
@@ -121,6 +135,7 @@ OperatorMetadataServiceDep = Annotated[OperatorMetadataService, Depends(get_oper
                                 },
                             },
                             "required_features": ["content"],
+                            "attributes": {},
                         },
                     }
                 }
@@ -154,6 +169,7 @@ def get_operator_metadata(service: OperatorMetadataServiceDep) -> dict[str, Oper
         - description: What the operator does
         - features: Dict of output features with types and descriptions
         - required_features: List of required input features
+        - attributes: Dict of configuration attributes/parameters with types and descriptions
 
     Raises:
         DatasiftException: If metadata retrieval fails. The error_handler middleware
@@ -172,7 +188,15 @@ def get_operator_metadata(service: OperatorMetadataServiceDep) -> dict[str, Oper
                         "required": true
                     }
                 },
-                "required_features": []
+                "required_features": [],
+                "attributes": {
+                    "text_extraction_mode": {
+                        "type": "string",
+                        "description": "Text extraction strategy",
+                        "required": true,
+                        "default": "docling_library"
+                    }
+                }
             },
             "chunker": {
                 "label": "Chunker",
@@ -184,7 +208,8 @@ def get_operator_metadata(service: OperatorMetadataServiceDep) -> dict[str, Oper
                         "description": "Chunk content"
                     }
                 },
-                "required_features": ["content"]
+                "required_features": ["content"],
+                "attributes": {}
             }
         }
     """
@@ -201,6 +226,7 @@ def get_operator_metadata(service: OperatorMetadataServiceDep) -> dict[str, Oper
             description=meta.get("description"),
             features=meta.get("features", {}),
             required_features=meta.get("required_features", []),
+            attributes=meta.get("attributes", {}),
         )
 
     return operators_dict

@@ -386,6 +386,8 @@ OPERATOR_FEATURES_MIN = 0  # Some operators have no features
 OPERATOR_FEATURES_MAX = 100  # Maximum features per operator
 OPERATOR_REQUIRED_FEATURES_MIN = 0  # Most operators have no required features
 OPERATOR_REQUIRED_FEATURES_MAX = 50  # Maximum required features
+OPERATOR_ATTRIBUTES_MIN = 0  # Some operators have no attributes
+OPERATOR_ATTRIBUTES_MAX = 100  # Maximum attributes per operator
 
 # Job Parameters and Configuration
 PARAM_NAME_MIN_LENGTH = 1
@@ -540,6 +542,7 @@ OPERATOR_CATEGORY_DESC = "Category of the operator"
 OPERATOR_DESCRIPTION_DESC = "Detailed description of the operator's functionality"
 OPERATOR_FEATURES_DESC = "Dictionary of features provided by this operator"
 OPERATOR_REQUIRED_FEATURES_DESC = "List of feature names required by this operator"
+OPERATOR_ATTRIBUTES_DESC = "Dictionary of configuration attributes/parameters for this operator"
 
 # ============================================================================
 # FIELD FACTORY FUNCTIONS

@@ -75,13 +75,13 @@ class MergeOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Merge configuration specified by the user (Rows or Columns)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Config.DEFAULT: OperatorConstants.Merge.ROWS,
-                    OperatorConstants.Types.TYPE_STRING: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
                 OperatorConstants.Merge.COLUMN_OPTION: {
                     OperatorConstants.Misc.NAME: "Column Option",
                     OperatorConstants.Config.DESCRIPTION: "Column configuration specified by the user (inner_join or full_outer)",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Types.TYPE_STRING: AttributeDataTypes.STRING,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
             },
         }
@@ -199,7 +199,7 @@ class MergeOperator(AbstractOperator):
             )
 
         # Get tables from kwargs (orchestrator provides this for multi-input operators)
-        tables: dict[str, pa.Table] | None = kwargs.get('tables')
+        tables: dict[str, pa.Table] | None = kwargs.get("tables")
 
         # If no multi-table dict provided, this is validation-only call
         if not tables:
@@ -287,7 +287,7 @@ class MergeOperator(AbstractOperator):
         if total_count != unique_count:
             # Only convert to Python list for error reporting when duplicates are found
             err_msg: str = (
-                'The Merging operator received the same documents from multiple branches. '
+                "The Merging operator received the same documents from multiple branches. "
                 'In this case, the merge option "Merge rows from all tables, one after another" cannot be used.'
             )
             logger.error(msg=err_msg, extra=self.common_log_arguments)
@@ -388,7 +388,6 @@ class MergeOperator(AbstractOperator):
             # Build mapping: table-specific ID → index
             id_index_map: dict[str, int] = build_id_index(arr_id=arr_id)
 
-
             # Convert merged_ids to list only once for lookup
             merged_ids_list: list[str] = merged_ids_array.to_pylist()
             py_array: list = arr.to_pylist()
@@ -463,6 +462,3 @@ def build_id_index(*, arr_id: pa.Array) -> dict[str, int]:
     """
     id_list: list = arr_id.to_pylist()
     return {id_value: idx for idx, id_value in enumerate(id_list)}
-
-
-

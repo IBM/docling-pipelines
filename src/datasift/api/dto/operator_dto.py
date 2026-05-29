@@ -37,6 +37,9 @@ from pydantic import BaseModel, Field
 
 from datasift.api.dto.field_definitions import (
     DESCRIPTION_PATTERN,
+    OPERATOR_ATTRIBUTES_DESC,
+    OPERATOR_ATTRIBUTES_MAX,
+    OPERATOR_ATTRIBUTES_MIN,
     OPERATOR_CATEGORY_DESC,
     OPERATOR_CATEGORY_MAX_LENGTH,
     OPERATOR_CATEGORY_MIN_LENGTH,
@@ -139,13 +142,14 @@ class OperatorMetadataItem(BaseModel):
     """Complete metadata for a single operator.
 
     Contains all information needed to understand and use an operator,
-    including its category, features, and requirements.
+    including its category, features, requirements, and configuration attributes.
 
     This model is used in the API response to provide the UI with:
     - Display information (label, description)
     - Categorization (category)
     - Available features (features dict)
     - Input requirements (required_features list)
+    - Configuration attributes (attributes dict)
 
     Attributes:
         label: Human-readable operator name (e.g., "Extract Docling", "Chunker")
@@ -153,6 +157,7 @@ class OperatorMetadataItem(BaseModel):
         description: Detailed description of what the operator does
         features: Dictionary mapping feature names to OperatorFeature definitions
         required_features: List of feature names that must be provided as input
+        attributes: Dictionary mapping attribute names to OperatorFeature definitions (configuration parameters)
 
     Example:
         >>> metadata = OperatorMetadataItem(
@@ -165,7 +170,15 @@ class OperatorMetadataItem(BaseModel):
         ...             description="Extracted markdown content"
         ...         )
         ...     },
-        ...     required_features=[]
+        ...     required_features=[],
+        ...     attributes={
+        ...         "text_extraction_mode": OperatorFeature(
+        ...             type="string",
+        ...             description="Text extraction strategy",
+        ...             required=True,
+        ...             default="docling_library"
+        ...         )
+        ...     }
         ... )
 
     Note:
@@ -174,6 +187,7 @@ class OperatorMetadataItem(BaseModel):
         - description is optional (None if not provided)
         - features defaults to empty dict
         - required_features defaults to empty list
+        - attributes defaults to empty dict
     """
 
     label: str = Field(
@@ -218,6 +232,11 @@ class OperatorMetadataItem(BaseModel):
             },
         },
     )
+    attributes: dict[str, OperatorFeature] = Field(
+        default_factory=dict,
+        description=OPERATOR_ATTRIBUTES_DESC,
+        json_schema_extra={"minProperties": OPERATOR_ATTRIBUTES_MIN, "maxProperties": OPERATOR_ATTRIBUTES_MAX},
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -245,6 +264,24 @@ class OperatorMetadataItem(BaseModel):
                         },
                     },
                     "required_features": [],
+                    "attributes": {
+                        "text_extraction_mode": {
+                            "type": "string",
+                            "description": "Text extraction strategy (docling_library or docling_serve)",
+                            "required": True,
+                            "default": "docling_library",
+                            "available_for_filter": None,
+                            "available_for_vector_db": None,
+                        },
+                        "entity_extraction_mode": {
+                            "type": "string",
+                            "description": "Entity extraction strategy (litellm, watsonx, docling, or none)",
+                            "required": False,
+                            "default": "none",
+                            "available_for_filter": None,
+                            "available_for_vector_db": None,
+                        },
+                    },
                 }
             ]
         }
