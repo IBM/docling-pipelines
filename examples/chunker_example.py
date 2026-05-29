@@ -66,8 +66,8 @@ def main_semantic(runtime: str = "python") -> None:  # pragma: no cover
     # 2. Extract text content from binary
     extract_operator: ExtractOperator = ExtractOperator(
         {
-            "text_extraction_mode": "basic",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "basic",
+            "entity_extraction_provider": "none",
             "doc_column": "content",
         }
     )
@@ -179,8 +179,8 @@ def main_hybrid(runtime: str = "python") -> None:  # pragma: no cover
     # 2. Extract text content from binary
     extract_operator: ExtractOperator = ExtractOperator(
         {
-            "text_extraction_mode": "basic",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "basic",
+            "entity_extraction_provider": "none",
             "doc_column": "content",
         }
     )

@@ -193,8 +193,8 @@ class TestExtractOperatorIntegration:
             mock_create.return_value = mock_adapter
 
             config = {
-                "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": "none",
+                "text_extraction_provider": "docling_library",
+                "entity_extraction_provider": "none",
                 "doc_column": "doc_content",
                 "max_workers": 4,
             }
@@ -241,8 +241,8 @@ class TestExtractOperatorIntegration:
             mock_create.return_value = mock_adapter
 
             config = {
-                "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": "none",
+                "text_extraction_provider": "docling_library",
+                "entity_extraction_provider": "none",
                 "doc_column": "doc_content",
             }
 
@@ -277,8 +277,8 @@ class TestExtractOperatorIntegration:
             mock_create.return_value = mock_adapter
 
             config = {
-                "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": "none",
+                "text_extraction_provider": "docling_library",
+                "entity_extraction_provider": "none",
             }
             operator = ExtractOperator(config=config)
 
@@ -447,8 +447,8 @@ class TestExtractOperatorRealWorld:
 
             # Create operator with expand_extracted_data enabled
             config = {
-                "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": "docling",
+                "text_extraction_provider": "docling_library",
+                "entity_extraction_provider": "docling",
                 "custom_schema": {
                     "type": "object",
                     "properties": {

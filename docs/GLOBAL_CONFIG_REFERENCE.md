@@ -43,7 +43,7 @@ Global configuration is specified in the `global_config` section of your flow de
       "type": "extract_operator",
       "name": "extract",
       "config": {
-        "text_extraction_mode": "docling_library"
+        "text_extraction_provider": "docling_library"
       },
       "depends_on": ["ingest"]
     }

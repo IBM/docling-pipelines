@@ -69,8 +69,7 @@ def start_opensearch_container():
         subprocess.run(
             ["docker-compose", "-f", str(compose_file), "up", "-d"],
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            capture_output=True,
             timeout=60,
         )
     except subprocess.CalledProcessError as e:
@@ -149,7 +148,7 @@ def opensearch_container():
         "host": "localhost",
         "port": 9200,
         "username": "admin",
-        "password": "MyStrongPass123!",
+        "password": "MyStrongPass123!",  # pragma: allowlist secret
     }
 
     yield connection_info
@@ -325,7 +324,7 @@ class TestOpenSearchWithDockerCompose:
             }
             table = pa.table(data)
 
-            result_tables, metadata = operator.transform(table)
+            _result_tables, metadata = operator.transform(table)
             assert metadata["processed_docs"] == 5
 
         # Wait for indexing

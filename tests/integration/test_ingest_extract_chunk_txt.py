@@ -53,8 +53,8 @@ class TestIngestExtractChunkTxtIntegration:
         # Step 2: Extract content using unified ExtractOperator (docling_library mode)
         print("\n=== Step 2: Extracting content from .txt files ===")
         extract_config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
             "doc_column": "doc_content",
             "extract_tables": False,  # No tables in .txt files
             "extract_images": False,  # No images in .txt files
@@ -164,8 +164,8 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Step 2: Extract content using unified ExtractOperator
         extract_config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
             "doc_column": "doc_content",
             "extract_tables": True,
             "extract_images": True,
@@ -220,8 +220,8 @@ def test_basic_txt_integration():
     ingest_tables, _ = ingest_op.transform(None)
 
     extract_config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "doc_content",
     }
 

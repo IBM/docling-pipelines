@@ -49,20 +49,24 @@ class DocumentClassifierOperator(AbstractOperator):
       * classification_reasoning (optional): Explanation
 
     Example Configuration:
-        # LiteLLM provider with Ollama (default configuration)
+        # LiteLLM provider (default configuration)
         {
             "provider": "litellm",
+            "provider_config": {
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "${OLLAMA_API_KEY}" # pragma: allowlist secret
+            },
             "model_id": "openai/granite3.1-dense:8b",
             "document_types": ["invoice", "receipt", "contract"]
         }
-        # Note: Default provider_config uses Ollama at http://localhost:11434/v1
+        # Note: Default examples use LiteLLM with Ollama's OpenAI-compatible endpoint
 
         # LiteLLM provider with custom Ollama model
         {
             "provider": "litellm",
             "provider_config": {
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama" # pragma: allowlist secret
+                "api_key": "${OLLAMA_API_KEY}" # pragma: allowlist secret
             },
             "model_id": "openai/llama3.2:latest",
             "document_types": {...}
@@ -102,11 +106,11 @@ class DocumentClassifierOperator(AbstractOperator):
                         - request_timeout: Request timeout in seconds (default: 120)
                         Note: api_key and container_id MUST be set via environment variables:
                               WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config for security)
-                    For litellm (default, configured for Ollama):
-                        - api_base: API endpoint URL (default: "http://localhost:11434/v1")
-                        - api_key: API key for authentication (default: "ollama")
+                    For litellm (default examples, configured for Ollama-compatible endpoints):
+                        - api_base: API endpoint URL (example: "http://localhost:11434/v1")
+                        - api_key: API key for authentication (example: "ollama")
                         - request_timeout: Request timeout in seconds (default: 120)
-                - model_id: Model identifier in <provider>/<model_id> format (default: "openai/granite3.1-dense:8b" for Ollama via OpenAI-compatible API)
+                - model_id: Model identifier in <provider>/<model_id> format (default: "openai/granite3.1-dense:8b")
                 - document_types: List of document types or dict with descriptions
                 - confidence_threshold: Minimum confidence for classification (default: 7.0)
                 - doc_column: Column containing document text (default: "content")

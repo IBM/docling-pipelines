@@ -504,8 +504,8 @@ This simplified design removes the port/adapter overhead while maintaining clean
 
 | Parameter                                                 | Type   | Required | Default                   | Description                                                                                        |
 |-----------------------------------------------------------|--------|---------:|---------------------------|----------------------------------------------------------------------------------------------------|
-| `text_extraction_mode`                                    | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
-| `entity_extraction_mode`                                  | string |       No | `none`                    | Entity extraction mode: `litellm` (includes Ollama via openai/ prefix), `watsonx`, `docling`, or `none`. **Note:** When using any entity extraction mode (not `none`), either `custom_schema` must be provided in the operator configuration OR a `document_type` column must be present from an upstream classification operator (e.g., DocumentClassifierOperator). If neither is provided, a `ConfigurationError` will be thrown. |
+| `text_extraction_provider`                                    | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
+| `entity_extraction_provider`                                  | string |       No | `none`                    | Entity extraction mode: `litellm` (includes Ollama via openai/ prefix), `watsonx`, `docling`, or `none`. **Note:** When using any entity extraction mode (not `none`), either `custom_schema` must be provided in the operator configuration OR a `document_type` column must be present from an upstream classification operator (e.g., DocumentClassifierOperator). If neither is provided, a `ConfigurationError` will be thrown. |
 | `doc_column`                                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
 | `output_column`                                           | string |       No | `entities`                | Column name for storing extracted entities                                                         |
 | `additional_formats`                                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`                       |
@@ -531,12 +531,12 @@ This simplified design removes the port/adapter overhead while maintaining clean
 | `docling_serve_ocr_engine`                                | string |       No | `easyocr`                 | OCR engine: `easyocr` or `tesseract`                                                               |
 | `docling_serve_pdf_backend`                               | string |       No | `dlparse_v2`              | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                                               |
 | **LiteLLM Entity Parameters (litellm mode)**              |
-| `entity_model_name`                                       | string |    Yes\* | `gpt-3.5-turbo`           | LLM model identifier. For Ollama, use `openai/` prefix (e.g., `openai/llama3.2`) (\*required for litellm mode) |
+| `entity_model_id`                                       | string |    Yes\* | `gpt-3.5-turbo`           | LLM model identifier. For Ollama, use `openai/` prefix (e.g., `openai/llama3.2`) (\*required for litellm mode) |
 | `entity_temperature`                                      | float  |       No | `0.0`                     | Sampling temperature                                                                               |
 | `entity_max_tokens`                                       | int    |       No | `2000`                    | Maximum response tokens                                                                            |
 | `entity_provider_config`                                  | object |       No | `{}`                      | Provider config with `api_key`, `api_base`. For Ollama, set `api_base` to `http://localhost:11434/v1` |
 | **WatsonX Entity Parameters (watsonx mode)**              |
-| `entity_model_name`                                       | string |    Yes\* | `ibm/granite-13b-chat-v2` | WatsonX model identifier (\*required for watsonx mode)                                             |
+| `entity_model_id`                                       | string |    Yes\* | `ibm/granite-13b-chat-v2` | WatsonX model identifier (\*required for watsonx mode)                                             |
 | `entity_temperature`                                      | float  |       No | `0.0`                     | Sampling temperature                                                                               |
 | `entity_max_tokens`                                       | int    |       No | `2000`                    | Maximum response tokens                                                                            |
 | `entity_provider_config`                                  | object |    Yes\* | `{}`                      | Provider config with `api_key`, `container_id`, `api_base` (optional), `container_kind` (optional) |
@@ -582,8 +582,8 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "none",
     "doc_column": "content",
     "extract_tables": true,
     "extract_images": true
@@ -599,8 +599,8 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "none",
     "use_vlm_pipeline": true,
     "vlm_preset": "granite_docling",
     "vlm_engine_type": "transformers",
@@ -617,8 +617,8 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_serve",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_serve",
+    "entity_extraction_provider": "none",
     "docling_serve_base_url": "http://localhost:5001",
     "docling_serve_do_ocr": true,
     "docling_serve_ocr_engine": "easyocr",
@@ -635,9 +635,9 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "litellm",
-    "entity_model_name": "openai/granite4:latest",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "litellm",
+    "entity_model_id": "openai/granite4:latest",
     "entity_temperature": 0.0,
     "entity_max_tokens": 4096,
     "entity_provider_config": {
@@ -660,9 +660,9 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "litellm",
-    "entity_model_name": "gpt-3.5-turbo",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "litellm",
+    "entity_model_id": "gpt-3.5-turbo",
     "entity_temperature": 0.0,
     "entity_max_tokens": 2000,
     "entity_provider_config": {
@@ -681,7 +681,7 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
+    "text_extraction_provider": "docling_library",
     "additional_formats": ["html", "json", "text"],
     "extract_tables": true,
     "extract_images": true
@@ -697,9 +697,9 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "watsonx",
-    "entity_model_name": "ibm/granite-13b-chat-v2",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "watsonx",
+    "entity_model_id": "ibm/granite-13b-chat-v2",
     "entity_temperature": 0.0,
     "entity_max_tokens": 2000,
     "entity_provider_config": {
@@ -724,8 +724,8 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "docling",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "docling",
     "custom_schema": {
       "type": "object",
       "properties": {
@@ -745,8 +745,8 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "docling",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "docling",
     "entity_config": {
       "model_type": "inline",
       "inline_model": {
@@ -774,7 +774,7 @@ The operator provides the following metadata after execution:
 
 The `entity_config` parameter enables custom inline model configuration for the Docling entity extraction adapter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.
 
-**Note:** For API-based entity extraction, use `entity_extraction_mode: "litellm"` or `"watsonx"` instead of Docling.
+**Note:** For API-based entity extraction, use `entity_extraction_provider: "litellm"` or `"watsonx"` instead of Docling.
 
 **Configuration Structure:**
 
@@ -796,7 +796,7 @@ The `entity_config` parameter enables custom inline model configuration for the 
 **Usage Notes:**
 
 - **Inline Models Only**: Only HuggingFace models loaded directly into memory are supported. DocumentExtractor does not support remote API endpoints.
-- **API-Based Extraction**: For API-based entity extraction (Ollama via LiteLLM, OpenAI, etc.), use `entity_extraction_mode: "litellm"` or `"watsonx"` instead.
+- **API-Based Extraction**: For API-based entity extraction (Ollama via LiteLLM, OpenAI, etc.), use `entity_extraction_provider: "litellm"` or `"watsonx"` instead.
 - **Default Behavior**: If `entity_config` is not provided, Docling uses its default model configuration.
 - **Performance**: Inline models require sufficient GPU memory and are suitable for local deployment with GPU resources.
 - **Compatibility**: Ensure the chosen model supports the inference framework and hardware configuration.
@@ -913,7 +913,7 @@ Becomes:
   "summarization_model_id": "openai/llama3.2:3b",
   "summarization_provider_config": {
     "api_base": "http://localhost:11434/v1",
-    "api_key": "ollama"
+    "api_key": "<value>"
   }
 }
 ```
@@ -970,7 +970,7 @@ Chunking with LiteLLM summarization (Ollama):
     "summarization_model_id": "llama3.2:3b",
     "summarization_provider_config": {
       "api_base": "http://localhost:11434/v1",
-      "api_key": "ollama"
+      "api_key": "<ollama>"
     },
     "summary_sentences": 2,
     "summary_max_words": 20
@@ -1427,8 +1427,8 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `provider` | string | No | `ollama` | LLM provider (`ollama`, `watsonx`, `litellm`) |
-| `provider_config` | object | No | `{}` | Provider-specific configuration |
+| `provider` | string | No | `litellm` | LLM provider (`ollama`, `watsonx`, `litellm`) |
+| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"${OLLAMA_API_KEY}"}` | Provider-specific configuration |
 | `model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
 | `doc_column` | string | No | `content` | Input text column |
 | `pii_types` | list[string] | No | all types | PII types to detect |
@@ -1573,8 +1573,8 @@ The VectorDBOperator supports multiple embedding columns with different dimensio
       "port": 9200,
       "engine": "nmslib",
       "space_type": "cosinesimil",
-      "username": "admin",
-      "password": "admin"
+      "username": "<value>",
+      "password": "<value>"
     }
   }
 }
@@ -2003,8 +2003,8 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
       "name": "extract_documents",
       "operator": "extract_operator",
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "content"
       }
     },

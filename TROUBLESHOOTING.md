@@ -507,7 +507,7 @@ Check WatsonX.ai console for available models in your project/space.
 
 ```json
 {
-  "entity_model_name": "ibm/granite-13b-chat-v2",
+  "entity_model_id": "ibm/granite-13b-chat-v2",
   "entity_provider_config": {
     "api_key": "${WATSONX_API_KEY}",
     "container_id": "${WATSONX_CONTAINER_ID}"
@@ -575,7 +575,7 @@ Error: Rate limit exceeded (429 Too Many Requests)
 ```json
 {
   "max_workers": 1,
-  "entity_extraction_mode": "watsonx"
+  "entity_extraction_provider": "watsonx"
 }
 ```
 
@@ -2169,8 +2169,8 @@ uv sync --extra dev
 {
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "none",
     "timeout": 300  // Increase from default 60 seconds
   }
 }

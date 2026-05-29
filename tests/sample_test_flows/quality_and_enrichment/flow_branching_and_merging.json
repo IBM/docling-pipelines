@@ -23,8 +23,8 @@
       "type": "extract_operator",
       "config": {
         "doc_column": "content",
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       },
       "depends_on": [
         "ingest"
@@ -203,11 +203,15 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "granite4:latest",
+        "embeddings_type": "litellm",
+        "embeddings_model_id": "openai/granite4:latest",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
-        "doc_column": "content"
+        "doc_column": "content",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
       },
       "depends_on": [
         "merge_all_branches"
@@ -227,7 +231,7 @@
           "host": "localhost",
           "port": 9200,
           "username": "admin",
-          "password": "MyStrongPass123!",
+          "password": "MyStrongPass123!", # pragma: allowlist secret
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

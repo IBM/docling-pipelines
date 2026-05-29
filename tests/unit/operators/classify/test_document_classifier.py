@@ -406,6 +406,9 @@ def test_ollama_provider_rejected():
     config = {
         "provider": "ollama",
         "model_id": "granite4:latest",
+        "provider_config": {
+            "api_base": "http://localhost:11434",
+        },
         "document_types": ["invoice", "receipt"],
     }
 

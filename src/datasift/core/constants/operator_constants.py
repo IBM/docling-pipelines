@@ -546,8 +546,8 @@ class OperatorConstants:
         """Extraction mode constants for ExtractOperator."""
 
         # Configuration Parameter Names
-        TEXT_EXTRACTION_MODE: Final[str] = "text_extraction_mode"
-        ENTITY_EXTRACTION_MODE: Final[str] = "entity_extraction_mode"
+        TEXT_EXTRACTION_MODE: Final[str] = "text_extraction_provider"
+        ENTITY_EXTRACTION_MODE: Final[str] = "entity_extraction_provider"
 
         # Text Extraction Mode Values
         TEXT_MODE_DOCLING_LIBRARY: Final[str] = "docling_library"
@@ -560,7 +560,7 @@ class OperatorConstants:
         ENTITY_MODE_NONE: Final[str] = "none"
 
         # Entity Extraction Configuration
-        ENTITY_MODEL_NAME: Final[str] = "entity_model_name"
+        ENTITY_MODEL_NAME: Final[str] = "entity_model_id"
         ENTITY_TEMPERATURE: Final[str] = "entity_temperature"
         ENTITY_MAX_TOKENS: Final[str] = "entity_max_tokens"
         ENTITY_MAX_DOC_CHARS: Final[str] = "entity_max_doc_chars"

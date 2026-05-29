@@ -231,7 +231,8 @@ module = [
     "babel.core",
     "babel.numbers",
     "datefinder",
-    "datefinder.*"
+    "datefinder.*",
+    "retrieval_main"
 ]
 ignore_missing_imports = true
 follow_imports = "silent"

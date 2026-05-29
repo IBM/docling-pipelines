@@ -261,14 +261,17 @@ When `display_pii` is enabled, additional columns are added with the actual dete
 
 ## Complete Configuration Examples
 
-### Example 1: Basic Ollama Configuration with PII Detection Only
+### Example 1: Basic LiteLLM Configuration with PII Detection Only
 ```json
 {
   "operator": "pii_and_hap",
   "config": {
-    "provider": "ollama",
-    "model_name": "granite4",
-    "provider_config": {},
+    "provider": "litellm",
+    "model_name": "openai/granite4",
+    "provider_config": {
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama>"
+    },
     "expected_redactions": ["pii"],
     "pii_list": ["EmailAddress", "PhoneNumber", "SocialSecurityNumber"],
     "redaction": true,
@@ -325,9 +328,12 @@ When `display_pii` is enabled, additional columns are added with the actual dete
 {
   "operator": "pii_and_hap",
   "config": {
-    "provider": "ollama",
-    "model_name": "llama3.2:3b",
-    "provider_config": {},
+    "provider": "litellm",
+    "model_name": "openai/llama3.2:3b",
+    "provider_config": {
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama>"
+    },
     "expected_redactions": ["pii"],
     "pii_list": ["EmailAddress", "PhoneNumber"],
     "redaction": false,

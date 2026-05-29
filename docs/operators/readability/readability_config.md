@@ -199,8 +199,8 @@ All selected readability scores are added as columns to the output table. Each s
       "type": "extract_operator",
       "depends_on": ["ingest_documents"],
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       }
     },
     {

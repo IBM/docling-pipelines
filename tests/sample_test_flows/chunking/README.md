@@ -74,7 +74,7 @@ Both flows use the following summarization setup:
   "summarization_model_id": "llama3.2",
   "summarization_provider_config": {
     "api_base": "http://localhost:11434/v1",
-    "api_key": "ollama"
+    "api_key": "<ollama>"
   }
 }
 ```

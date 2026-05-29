@@ -35,7 +35,7 @@ for _p in (_HERE, _SRC):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from retrieval_main import CompleteQuerySystem  # noqa: E402
+from retrieval_main import CompleteQuerySystem  # noqa: E402  # type: ignore[import-not-found]
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +203,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--host", default="localhost", help="OpenSearch host")
     p.add_argument("--port", type=int, default=9200, help="OpenSearch port")
     p.add_argument("--username", default="admin", help="OpenSearch username")
-    p.add_argument("--password", default="MyStrongPass123!", help="OpenSearch password")
+    p.add_argument("--password", default="MyStrongPass123!", help="OpenSearch password")  # pragma: allowlist secret
     p.add_argument("--index", default="invoices_entities_test", help="OpenSearch index name")
     p.add_argument("--model", default="granite4", help="Ollama model name")
     p.add_argument("--ollama-host", default="http://localhost:11434", help="Ollama host URL")

@@ -24,8 +24,8 @@
       "type": "extract_operator",
       "name": "extract_with_docling",
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "content"
       },
       "depends_on": [
@@ -49,10 +49,14 @@
       "type": "embeddings",
       "name": "ollama_embeddings",
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "nomic-embed-text",
+        "embeddings_type": "litellm",
+        "embeddings_model_id": "openai/nomic-embed-text",
         "embeddings_column": "embeddings",
-        "overlap_ratio": 0.1
+        "overlap_ratio": 0.1,
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
       },
       "depends_on": [
         "simple_chunker"

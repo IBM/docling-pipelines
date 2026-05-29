@@ -74,8 +74,8 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
 
     # Initialize operator with docling_library text extraction configuration
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "doc_content",
         "extract_tables": True,
         "extract_images": True,
@@ -145,8 +145,8 @@ def test_extract_operator_multi_format_output(sample_pdf_files):
 
     # Initialize operator with additional output formats (markdown is always generated)
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "doc_content",
         "additional_formats": ["html", "json"],
         "extract_tables": True,
@@ -217,8 +217,8 @@ def test_extract_operator_default_format(sample_pdf_files):
 
     # Initialize operator without additional_formats (should generate markdown only by default)
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "doc_content",
         "extract_tables": True,
         "extract_images": True,
@@ -270,8 +270,8 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
 
     # Initialize operator with docling_serve configuration
     config = {
-        "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_serve",
+        "entity_extraction_provider": "none",
         "doc_column": "doc_content",
         "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
         "docling_serve_timeout": 300,
@@ -312,8 +312,8 @@ def test_extract_operator_docling_serve_config_validation():
 
     # Test with minimal docling_serve configuration
     config = {
-        "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_serve",
+        "entity_extraction_provider": "none",
         "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
     }
 
@@ -330,8 +330,8 @@ def test_extract_operator_docling_serve_with_api_key():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_serve",
+        "entity_extraction_provider": "none",
         "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
         "docling_serve_api_key": "test-api-key-12345",  # pragma: allowlist secret
         "docling_serve_timeout": 600,
@@ -349,8 +349,8 @@ def test_extract_operator_docling_serve_with_ocr_languages():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_serve",
+        "entity_extraction_provider": "none",
         "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
         "docling_serve_do_ocr": True,
         "docling_serve_ocr_engine": "easyocr",
@@ -397,9 +397,9 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
 
     # Initialize operator with both text and entity extraction
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "litellm",
-        "entity_model_name": "openai/llama3.2",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "litellm",
+        "entity_model_id": "openai/llama3.2",
         "entity_temperature": 0.0,
         "entity_max_tokens": 4096,
         "doc_column": "doc_content",
@@ -452,9 +452,9 @@ def test_extract_operator_docling_serve_with_entity_extraction():
 
         # Test configuration combining docling_serve and entity extraction
         config = {
-            "text_extraction_mode": "docling_serve",
-            "entity_extraction_mode": "litellm",
-            "entity_model_name": "gpt-3.5-turbo",
+            "text_extraction_provider": "docling_serve",
+            "entity_extraction_provider": "litellm",
+            "entity_model_id": "gpt-3.5-turbo",
             "entity_temperature": 0.0,
             "entity_max_tokens": 2000,
             "entity_provider_config": {
@@ -482,14 +482,14 @@ def test_extract_operator_invalid_text_mode():
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
-        "text_extraction_mode": "invalid_mode",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "invalid_mode",
+        "entity_extraction_provider": "none",
     }
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
 
-    assert "Invalid text_extraction_mode" in str(exc_info.value)
+    assert "Invalid text_extraction_provider" in str(exc_info.value)
 
 
 @pytest.mark.unit
@@ -499,14 +499,14 @@ def test_extract_operator_invalid_entity_mode():
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "invalid_mode",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "invalid_mode",
     }
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
 
-    assert "Invalid entity_extraction_mode" in str(exc_info.value)
+    assert "Invalid entity_extraction_provider" in str(exc_info.value)
 
 
 @pytest.mark.unit
@@ -515,9 +515,9 @@ def test_extract_operator_docling_library_vlm_mode_config():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
+        "text_extraction_provider": "docling_library",
         "use_vlm_pipeline": True,
-        "entity_extraction_mode": "none",
+        "entity_extraction_provider": "none",
         "vlm_preset": "granite_docling",
         "vlm_engine_type": "transformers",
         "doc_column": "doc_content",
@@ -537,8 +537,8 @@ def test_extract_operator_get_metadata():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
     }
 
     operator = ExtractOperator(config=config)
@@ -552,10 +552,10 @@ def test_extract_operator_get_metadata():
 
     # Verify key attributes are present
     attributes = metadata["attributes"]
-    assert "text_extraction_mode" in attributes
-    assert "entity_extraction_mode" in attributes
+    assert "text_extraction_provider" in attributes
+    assert "entity_extraction_provider" in attributes
     assert "docling_serve_base_url" in attributes
-    assert "entity_model_name" in attributes
+    assert "entity_model_id" in attributes
     assert "max_workers" in attributes
 
     # Verify docling_serve parameters
@@ -581,8 +581,8 @@ def test_extract_operator_asr_config_validation():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "use_asr_pipeline": True,
         "asr_model_name": "whisper_turbo",
         "doc_column": "doc_content",
@@ -611,8 +611,8 @@ def test_extract_operator_asr_model_names():
 
     for model_name in valid_models:
         config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
             "use_asr_pipeline": True,
             "asr_model_name": model_name,
             "doc_column": "doc_content",
@@ -628,8 +628,8 @@ def test_extract_operator_asr_without_model_name():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "use_asr_pipeline": True,
         "doc_column": "doc_content",
     }
@@ -663,8 +663,8 @@ def test_extract_operator_asr_with_audio_file():
     table = pa.table(file_data)
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "use_asr_pipeline": True,
         "asr_model_name": "whisper_turbo",
         "doc_column": "doc_content",
@@ -696,11 +696,11 @@ def test_extract_operator_asr_with_entity_extraction():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "litellm",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "litellm",
             "use_asr_pipeline": True,
             "asr_model_name": "whisper_turbo",
-            "entity_model_name": "gpt-3.5-turbo",
+            "entity_model_id": "gpt-3.5-turbo",
             "entity_temperature": 0.0,
             "entity_max_tokens": 2000,
             "entity_provider_config": {
@@ -734,9 +734,9 @@ def test_extract_operator_expand_extracted_data():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "litellm",
-            "entity_model_name": "gpt-3.5-turbo",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "litellm",
+            "entity_model_id": "gpt-3.5-turbo",
             "entity_temperature": 0.0,
             "entity_max_tokens": 2000,
             "entity_provider_config": {
@@ -778,8 +778,8 @@ def test_extract_operator_docling_serve_all_parameters():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_serve",
+        "entity_extraction_provider": "none",
         "doc_column": "content",
         "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
         "docling_serve_api_key": "secret-key",  # pragma: allowlist secret
@@ -829,9 +829,9 @@ def test_extract_operator_mode_combinations():
 
         for text_mode in text_modes:
             for entity_mode in entity_modes:
-                config: dict[str, Any] = {
-                    "text_extraction_mode": text_mode,
-                    "entity_extraction_mode": entity_mode,
+                config = {
+                    "text_extraction_provider": text_mode,
+                    "entity_extraction_provider": entity_mode,
                 }
 
                 # Add mode-specific required parameters
@@ -839,7 +839,7 @@ def test_extract_operator_mode_combinations():
                     config["docling_serve_base_url"] = "http://localhost:5001"
 
                 if entity_mode == "litellm":
-                    config["entity_model_name"] = "llama3.2"
+                    config["entity_model_id"] = "llama3.2"
                     config["entity_provider_config"] = {
                         "api_key": "test-api-key",  # pragma: allowlist secret
                         "api_base": "https://api.test.local/v1",
@@ -869,8 +869,8 @@ def test_extract_operator_empty_table():
     table = pa.table({"id": [], "name": [], "path": [], "binary_content": []}, schema=schema)
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
     }
 
     operator = ExtractOperator(config=config)
@@ -912,9 +912,9 @@ def test_extract_operator_litellm_entity_mode():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "litellm",
-        "entity_model_name": "gpt-3.5-turbo",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "litellm",
+        "entity_model_id": "gpt-3.5-turbo",
         "entity_temperature": 0.0,
         "entity_max_tokens": 2000,
         "entity_provider_config": {
@@ -946,9 +946,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "litellm",
-        "entity_model_name": "gpt-3.5-turbo",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "litellm",
+        "entity_model_id": "gpt-3.5-turbo",
         "entity_temperature": 0.0,
         "entity_max_tokens": 2000,
         "doc_column": "doc_content",
@@ -1023,9 +1023,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "litellm",
-        "entity_model_name": "gpt-3.5-turbo",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "litellm",
+        "entity_model_id": "gpt-3.5-turbo",
         "entity_temperature": 0.0,
         "entity_max_tokens": 1500,
         "doc_column": "doc_content",
@@ -1091,9 +1091,9 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "litellm",
-        "entity_model_name": "gpt-3.5-turbo",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "litellm",
+        "entity_model_id": "gpt-3.5-turbo",
         "entity_temperature": 0.0,
         "entity_max_tokens": 2000,
         "doc_column": "doc_content",
@@ -1151,8 +1151,8 @@ def test_extract_operator_docling_entity_mode():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "docling",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "docling",
         "custom_schema": {"invoice_number": "string", "total": "number"},
     }
 
@@ -1164,20 +1164,20 @@ def test_extract_operator_docling_entity_mode():
 
 
 @pytest.mark.unit
-def test_extract_operator_invalid_text_extraction_mode_error():
-    """Test ExtractOperator with completely invalid text extraction mode."""
+def test_extract_operator_invalid_text_extraction_provider_error():
+    """Test ExtractOperator with completely invalid text extraction provider."""
     from datasift.core.operators.extract.extract_operator import ExtractOperator
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
-        "text_extraction_mode": "nonexistent_mode",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "nonexistent_mode",
+        "entity_extraction_provider": "none",
     }
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
 
-    assert "Invalid text_extraction_mode" in str(exc_info.value)
+    assert "Invalid text_extraction_provider" in str(exc_info.value)
     assert "nonexistent_mode" in str(exc_info.value)
 
 
@@ -1188,14 +1188,14 @@ def test_extract_operator_invalid_entity_extraction_mode_error():
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "nonexistent_entity_mode",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "nonexistent_entity_mode",
     }
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
 
-    assert "Invalid entity_extraction_mode" in str(exc_info.value)
+    assert "Invalid entity_extraction_provider" in str(exc_info.value)
     assert "nonexistent_entity_mode" in str(exc_info.value)
 
 
@@ -1214,8 +1214,8 @@ def test_extract_operator_missing_required_columns(sample_pdf_files):
     )
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
     }
 
     operator = ExtractOperator(config=config)
@@ -1231,8 +1231,8 @@ def test_extract_operator_custom_doc_column():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "custom_content_column",
     }
 
@@ -1254,9 +1254,9 @@ def test_extract_operator_custom_output_columns():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "litellm",
-            "entity_model_name": "gpt-3.5-turbo",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "litellm",
+            "entity_model_id": "gpt-3.5-turbo",
             "entity_temperature": 0.0,
             "entity_max_tokens": 2000,
             "entity_provider_config": {
@@ -1286,9 +1286,9 @@ def test_extract_operator_expand_extracted_data_flag():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "litellm",
-            "entity_model_name": "gpt-3.5-turbo",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "litellm",
+            "entity_model_id": "gpt-3.5-turbo",
             "entity_temperature": 0.0,
             "entity_max_tokens": 2000,
             "entity_provider_config": {
@@ -1311,8 +1311,8 @@ def test_extract_operator_max_workers_configuration():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "max_workers": 8,
     }
 
@@ -1328,8 +1328,8 @@ def test_extract_operator_use_processes_flag():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "use_processes": True,
     }
 
@@ -1348,8 +1348,8 @@ def test_extract_operator_all_text_modes():
 
     for mode in text_modes:
         config = {
-            "text_extraction_mode": mode,
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": mode,
+            "entity_extraction_provider": "none",
         }
 
         # Add mode-specific required parameters
@@ -1377,13 +1377,13 @@ def test_extract_operator_all_entity_modes():
 
         for mode in entity_modes:
             config = {
-                "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": mode,
+                "text_extraction_provider": "docling_library",
+                "entity_extraction_provider": mode,
             }
 
             # Add mode-specific required parameters
             if mode == "litellm":
-                config["entity_model_name"] = "openai/test-model"
+                config["entity_model_id"] = "openai/test-model"
                 config["entity_provider_config"] = {
                     "api_base": "http://localhost:11434/v1",
                     "api_key": "test-key",  # pragma: allowlist secret
@@ -1418,9 +1418,9 @@ def test_extract_operator_custom_schema_validation():
         }
 
         config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "litellm",
-            "entity_model_name": "gpt-3.5-turbo",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "litellm",
+            "entity_model_id": "gpt-3.5-turbo",
             "entity_temperature": 0.0,
             "entity_max_tokens": 2000,
             "entity_provider_config": {
@@ -1448,9 +1448,9 @@ def test_extract_operator_temperature_and_max_tokens():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "litellm",
-            "entity_model_name": "gpt-3.5-turbo",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "litellm",
+            "entity_model_id": "gpt-3.5-turbo",
             "entity_temperature": 0.7,
             "entity_max_tokens": 2048,
             "entity_provider_config": {
@@ -1470,8 +1470,8 @@ def test_extract_operator_docling_serve_comprehensive():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_serve",
+        "entity_extraction_provider": "none",
         "docling_serve_base_url": "http://test-server:8080",
         "docling_serve_api_key": "test-key-123",  # pragma: allowlist secret
         "docling_serve_timeout": 600,
@@ -1497,9 +1497,9 @@ def test_extract_operator_docling_library_vlm_all_parameters():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
+        "text_extraction_provider": "docling_library",
         "use_vlm_pipeline": True,
-        "entity_extraction_mode": "none",
+        "entity_extraction_provider": "none",
         "vlm_preset": "granite_docling",
         "vlm_engine_type": "transformers",
         "vlm_provider_config": {
@@ -1520,8 +1520,8 @@ def test_extract_operator_metadata_structure():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
     }
 
     operator = ExtractOperator(config=config)
@@ -1540,8 +1540,8 @@ def test_extract_operator_metadata_structure():
 
     # Verify key attributes
     attributes = metadata["attributes"]
-    assert "text_extraction_mode" in attributes
-    assert "entity_extraction_mode" in attributes
+    assert "text_extraction_provider" in attributes
+    assert "entity_extraction_provider" in attributes
     assert "max_workers" in attributes
 
 
@@ -1552,8 +1552,8 @@ def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_ch
 
     operator = ExtractOperator(
         config={
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
         }
     )
 
@@ -1626,8 +1626,8 @@ def test_consolidate_metadata_uses_default_reasons_and_doc_id_column():
 
     operator = ExtractOperator(
         config={
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
         }
     )
 
@@ -1676,8 +1676,8 @@ def test_consolidate_metadata_returns_text_metadata_when_entity_metadata_missing
 
     operator = ExtractOperator(
         config={
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
         }
     )
 
@@ -1743,8 +1743,8 @@ def test_extract_operator_prefers_path_only_input_without_binary_content(
 
     operator = ExtractOperator(
         config={
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
             "doc_column": "doc_content",
             "extract_tables": False,
             "extract_images": False,
@@ -1773,9 +1773,9 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
 
         operator = ExtractOperator(
             config={
-                "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": "litellm",
-                "entity_model_name": "gpt-3.5-turbo",
+                "text_extraction_provider": "docling_library",
+                "entity_extraction_provider": "litellm",
+                "entity_model_id": "gpt-3.5-turbo",
                 "entity_temperature": 0.0,
                 "entity_max_tokens": 2000,
                 "entity_provider_config": {
@@ -1841,9 +1841,9 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
 
         operator = ExtractOperator(
             config={
-                "text_extraction_mode": "docling_library",
-                "entity_extraction_mode": "litellm",
-                "entity_model_name": "gpt-3.5-turbo",
+                "text_extraction_provider": "docling_library",
+                "entity_extraction_provider": "litellm",
+                "entity_model_id": "gpt-3.5-turbo",
                 "entity_temperature": 0.0,
                 "entity_max_tokens": 2000,
                 "entity_provider_config": {
@@ -1932,8 +1932,8 @@ def test_extract_operator_stage_progress_metadata(mock_text_transform):
 
     # Configure operator with text extraction only
     config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "job_id": "test-job",
         "job_run_id": "test-run",
         "node_id": "test-node",

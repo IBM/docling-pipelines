@@ -21,8 +21,12 @@ The Embeddings Operator generates vector embeddings from text using various AI p
 {
   "operator_type": "EmbeddingsOperator",
   "operator_params": {
-    "provider": "ollama",
-    "model_name": "nomic-embed-text"
+    "provider": "litellm",
+    "model_name": "openai/nomic-embed-text",
+    "provider_config": {
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "${OLLAMA_API_KEY}"
+    }
   }
 }
 ```
@@ -55,8 +59,12 @@ The Embeddings Operator generates vector embeddings from text using various AI p
       "id": "embed",
       "operator_type": "EmbeddingsOperator",
       "operator_params": {
-        "provider": "ollama",
-        "model_name": "nomic-embed-text"
+        "provider": "litellm",
+        "model_name": "openai/nomic-embed-text",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
       }
     },
     {
@@ -100,8 +108,12 @@ curl http://localhost:11434/api/tags
 ```json
 {
   "operator_params": {
-    "provider": "ollama",
-    "model_name": "nomic-embed-text"
+    "provider": "litellm",
+    "model_name": "openai/nomic-embed-text",
+    "provider_config": {
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "${OLLAMA_API_KEY}"
+    }
   }
 }
 ```

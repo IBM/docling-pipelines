@@ -22,9 +22,12 @@
       "name": "classify",
       "type": "document_classifier",
       "config": {
-        "provider": "ollama",
-        "provider_config": {},
-        "model_id": "granite4:latest",
+        "provider": "litellm",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        },
+        "model_id": "openai/granite4:latest",
         "confidence_threshold": 7.0,
         "doc_column": "content",
         "output_column": "document_type",
@@ -42,8 +45,8 @@
       "name": "extract",
       "type": "extract_operator",
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "docling",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "docling",
         "entity_config": {
           "model_type": "inline",
           "inline_model": {
@@ -82,9 +85,12 @@
       "name": "embed",
       "type": "embeddings",
       "config": {
-        "model_name": "nomic-embed-text",
-        "embedding_provider": "ollama",
-        "ollama_base_url": "http://localhost:11434"
+        "provider": "litellm",
+        "model_id": "openai/nomic-embed-text",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
       },
       "depends_on": [
         "chunk"

@@ -32,8 +32,8 @@
       "type": "extract_operator",
       "config": {
         "doc_column": "content",
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       },
       "depends_on": [
         "ingest_s3"
@@ -55,10 +55,14 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "nomic-embed-text",
+        "embeddings_type": "litellm",
+        "embeddings_model_id": "openai/nomic-embed-text",
         "doc_column": "content",
-        "embeddings_column": "embeddings"
+        "embeddings_column": "embeddings",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
       },
       "depends_on": [
         "chunk"
@@ -78,7 +82,7 @@
           "host": "9.30.97.49",
           "port": 9200,
           "username": "admin",
-          "password": "insert_opensearch_password",
+          "password": "<insert_opensearch_password>",
           "use_ssl": true,
           "verify_certs": false,
           "batch_size": 100,

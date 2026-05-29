@@ -246,7 +246,7 @@ Optional (when display_pii=true):
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_mode": "docling_library"
+        "text_extraction_provider": "docling_library"
       }
     },
     {
@@ -294,7 +294,7 @@ Optional (when display_pii=true):
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_mode": "docling_library"
+        "text_extraction_provider": "docling_library"
       }
     },
     {

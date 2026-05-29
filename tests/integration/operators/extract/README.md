@@ -172,8 +172,8 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **1. Docling Library (Default)**
 ```json
 {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "none",
     "doc_column": "document",
     "extract_tables": true,
     "extract_images": false,
@@ -184,8 +184,8 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **2. Docling Library with VLM Pipeline**
 ```json
 {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "none",
     "use_vlm_pipeline": true,
     "vlm_preset": "granite_docling",
     "vlm_engine_type": "transformers",
@@ -197,8 +197,8 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **3. Docling Serve**
 ```json
 {
-    "text_extraction_mode": "docling_serve",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_serve",
+    "entity_extraction_provider": "none",
     "docling_serve_base_url": "http://localhost:5001",
     "docling_serve_timeout": 300,
     "docling_serve_do_ocr": true,
@@ -211,17 +211,17 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **1. None (Default)**
 ```json
 {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "none"
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "none"
 }
 ```
 
 **2. LiteLLM (with Ollama via OpenAI-compatible API)**
 ```json
 {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "litellm",
-    "entity_model_name": "openai/llama3.2",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "litellm",
+    "entity_model_id": "openai/llama3.2",
     "entity_temperature": 0.0,
     "entity_provider_config": {
         "api_base": "http://localhost:11434/v1",
@@ -237,8 +237,8 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **3. Docling (Template-Based)**
 ```json
 {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "docling",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "docling",
     "custom_schema": {
         "type": "object",
         "properties": {

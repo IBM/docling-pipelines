@@ -32,8 +32,8 @@
         "operator": "extract_operator",
         "config": {
           "doc_column": "content",
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "none"
+          "text_extraction_provider": "docling_library",
+          "entity_extraction_provider": "none"
         },
         "input_edges": [
           {

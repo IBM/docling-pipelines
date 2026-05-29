@@ -28,8 +28,8 @@ Example Usage:
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
             "doc_column": "document",
             "extract_tables": true,
             "extract_images": false,
@@ -41,9 +41,9 @@ Example Usage:
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "litellm",
-            "entity_model_name": "openai/granite4:latest",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "litellm",
+            "entity_model_id": "openai/granite4:latest",
             "entity_provider_config": {
                 "api_base": "http://localhost:11434/v1",
                 "api_key": "<ollama_key>"
@@ -57,8 +57,8 @@ Example Usage:
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
             "use_vlm_pipeline": true,
             "vlm_preset": "granite_docling",
             "vlm_engine_type": "transformers",
@@ -71,8 +71,8 @@ Example Usage:
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
-            "text_extraction_mode": "docling_serve",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_serve",
+            "entity_extraction_provider": "none",
             "docling_serve_base_url": "http://localhost:5001",
             "docling_serve_timeout": 300,
             "doc_column": "document"
@@ -119,8 +119,8 @@ class ExtractOperator(AbstractOperator):
     Attributes:
         short_name: Operator identifier ("extract_operator")
         category: Operator category (OperatorCategory.EXTRACT)
-        text_extraction_mode: Selected text extraction mode (basic, vlm, docling_serve)
-        entity_extraction_mode: Selected entity extraction mode (litellm, watsonx, docling, none)
+        text_extraction_mode: Selected text extraction provider (basic, vlm, docling_serve)
+        entity_extraction_mode: Selected entity extraction provider (litellm, watsonx, docling, none)
         text_adapter: Text extraction adapter instance
         entity_adapter: Entity extraction adapter instance (None if mode is "none")
         doc_column: Column name for storing extracted content
@@ -142,8 +142,8 @@ class ExtractOperator(AbstractOperator):
                 Common extraction parameters:
                 - max_workers: Number of parallel workers (default: 4)
                 - use_processes: Use processes vs threads (default: False)
-                - text_extraction_mode: Text mode selection ("docling_library", "docling_serve")
-                - entity_extraction_mode: Entity mode selection ("litellm", "watsonx", "docling", "none")
+                - text_extraction_provider: Text provider selection ("docling_library", "docling_serve")
+                - entity_extraction_provider: Entity provider selection ("litellm", "watsonx", "docling", "none")
 
                 Common Text extraction parameters:
                 - doc_column: Column name for extracted content (default: "doc_content")
@@ -174,14 +174,14 @@ class ExtractOperator(AbstractOperator):
                 - docling_serve_image_export_mode: Image export mode (default: "placeholder")
 
                 LiteLLM entity extraction parameters:
-                - entity_model_name: LLM model identifier (e.g., "openai/granite4:latest")
+                - entity_model_id: LLM model identifier (e.g., "openai/granite4:latest")
                 - entity_temperature: Sampling temperature 0.0-1.0 (default: 0.0)
                 - entity_max_tokens: Maximum response tokens (default: 4096)
                 - entity_max_doc_chars: Maximum document characters to send to LLM (default: 8000)
                 - entity_provider_config: Provider-specific configuration (api_base, api_key, etc.)
 
                 Watsonx entity extraction parameters:
-                - entity_model_name: Watsonx model identifier
+                - entity_model_id: Watsonx model identifier
                 - entity_temperature: Sampling temperature (default: 0.0)
                 - entity_max_tokens: Maximum tokens in response (default: 4096)
                 - entity_max_doc_chars: Maximum document characters (default: 8000)
@@ -205,7 +205,7 @@ class ExtractOperator(AbstractOperator):
         except ValueError as e:
             supported_modes = [mode.value for mode in TextExtractionMode]
             raise FlowExecutionFailedException(
-                f"Invalid text_extraction_mode '{text_mode_str}'. Supported modes: {supported_modes}"
+                f"Invalid text_extraction_provider '{text_mode_str}'. Supported providers: {supported_modes}"
             ) from e
 
         # Parse entity extraction mode
@@ -217,7 +217,7 @@ class ExtractOperator(AbstractOperator):
         except ValueError as e:
             supported_modes = [mode.value for mode in EntityExtractionMode]
             raise FlowExecutionFailedException(
-                f"Invalid entity_extraction_mode '{entity_mode_str}'. Supported modes: {supported_modes}"
+                f"Invalid entity_extraction_provider '{entity_mode_str}'. Supported providers: {supported_modes}"
             ) from e
 
         # Common parameters
@@ -249,7 +249,7 @@ class ExtractOperator(AbstractOperator):
         except Exception as e:
             logger.error("Failed to create text extraction adapter: %s", e)
             raise FlowExecutionFailedException(
-                f"Failed to initialize text extraction adapter for mode '{self.text_extraction_mode.value}': {e}"
+                f"Failed to initialize text extraction adapter for provider '{self.text_extraction_mode.value}': {e}"
             ) from e
 
         # Create entity extraction adapter if enabled
@@ -268,7 +268,7 @@ class ExtractOperator(AbstractOperator):
             except Exception as e:
                 logger.error("Failed to create entity extraction adapter: %s", e)
                 raise FlowExecutionFailedException(
-                    f"Failed to initialize entity extraction adapter for mode '{self.entity_extraction_mode.value}': {e}"
+                    f"Failed to initialize entity extraction adapter for provider '{self.entity_extraction_mode.value}': {e}"
                 ) from e
 
     def _extract_doc_ids(self, *, doc_list: list[dict[str, Any]]) -> set[str]:
@@ -738,8 +738,8 @@ class ExtractOperator(AbstractOperator):
         except Exception as e:
             logger.error("Extraction failed: %s", e)
             raise FlowExecutionFailedException(
-                f"Extraction failed (text_mode='{self.text_extraction_mode.value}', "
-                f"entity_mode='{self.entity_extraction_mode.value}'): {e}"
+                f"Extraction failed (text_provider='{self.text_extraction_mode.value}', "
+                f"entity_provider='{self.entity_extraction_mode.value}'): {e}"
             ) from e
 
     @staticmethod

@@ -127,8 +127,8 @@ Complete flow showing IngestSourceOperator → ACLOperator → ExtractOperator:
       "type": "extract_operator",
       "name": "extract_document_content",
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       },
       "depends_on": ["extract_acl_permissions"]
     }

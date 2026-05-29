@@ -223,8 +223,8 @@ Result: `WHERE (language = 'en') AND (word_count > 100)`
       "type": "extract_operator",
       "depends_on": ["ingest_documents"],
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       }
     },
     {

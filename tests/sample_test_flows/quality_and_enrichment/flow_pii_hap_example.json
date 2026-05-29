@@ -1,6 +1,6 @@
 {
-  "flow_name": "PII and HAP Detection Flow with Ollama",
-  "description": "Flow to detect PII and HAP in documents using Ollama LLM",
+  "flow_name": "PII and HAP Detection Flow with LiteLLM",
+  "description": "Flow to detect PII and HAP in documents using LiteLLM with Ollama's OpenAI-compatible endpoint",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
@@ -24,8 +24,8 @@
       "type": "extract_operator",
       "config": {
         "doc_column": "content",
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       },
       "depends_on": [
         "ingest"
@@ -35,8 +35,12 @@
       "name": "pii_and_hap_detection",
       "type": "pii_and_hap",
       "config": {
-        "provider": "ollama",
-        "model_name": "llama3.2:3b",
+        "provider": "litellm",
+        "model_name": "openai/llama3.2:3b",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        },
         "pii_threshold": 0.5,
         "hap_threshold": 0.75,
         "expected_redactions": [

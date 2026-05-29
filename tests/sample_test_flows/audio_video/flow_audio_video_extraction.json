@@ -21,8 +21,8 @@
       "name": "extract_transcription",
       "type": "extract_operator",
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "use_asr_pipeline": true,
         "asr_model_name": "whisper_turbo",
         "doc_column": "content",

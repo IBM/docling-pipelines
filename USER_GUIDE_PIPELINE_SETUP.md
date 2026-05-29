@@ -1041,15 +1041,15 @@ The `extract_operator` handles both text extraction and entity extraction.
   "type": "extract_operator",
   "depends_on": ["ingest"],
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "none",
     "doc_column": "content"
   }
 }
 ```
 
 **Optional: Advanced Template-Based Extraction**
-For structured data extraction with predefined schemas, use `entity_extraction_mode: "docling"`
+For structured data extraction with predefined schemas, use `entity_extraction_provider: "docling"`
 
 **Important:** When using any entity extraction mode (not `none`), you must provide either:
 - A `custom_schema` in the operator configuration (as shown below), OR
@@ -1063,8 +1063,8 @@ If neither is provided, the operator will throw a `ConfigurationError`.
   "type": "extract_operator",
   "depends_on": ["ingest"],
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "docling",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "docling",
     "doc_column": "content",
     "expand_extracted_data": true,
     "custom_schema": {
@@ -1266,7 +1266,7 @@ Schema templates provide reusable index configurations with consistent settings 
       "host": "localhost",
       "port": 9200,
       "username": "admin",
-      "password": "MyStrongPass123!",  # pragma: allowlist secret
+      "password": "MyStrongPass123!", # pragma: allowlist secret
       "use_ssl": false,
       "verify_certs": false,
       "engine": "faiss",
@@ -1418,8 +1418,8 @@ cat > my-first-flow.json << 'EOF'
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       }
     },
     {
@@ -1456,7 +1456,7 @@ cat > my-first-flow.json << 'EOF'
           "host": "localhost",
           "port": 9200,
           "username": "admin",
-          "password": "MyStrongPass123!",  # pragma: allowlist secret
+          "password": "MyStrongPass123!", # pragma: allowlist secret
           "use_ssl": false,
           "verify_certs": false,
           "engine": "faiss",
@@ -1912,8 +1912,8 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "type": "extract_operator",
                 "depends_on": ["ingest_local_folder"],
                 "config": {
-                    "text_extraction_mode": "docling_library",
-                    "entity_extraction_mode": "none"
+                    "text_extraction_provider": "docling_library",
+                    "entity_extraction_provider": "none"
                 }
             },
             {
@@ -1951,7 +1951,7 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                         "host": "localhost",
                         "port": 9200,
                         "username": "admin",
-                        "password": "MyStrongPass123!",  # pragma: allowlist secret
+                        "password": "MyStrongPass123!", # pragma: allowlist secret
                         "use_ssl": False,
                         "verify_certs": False,
                         "engine": "faiss",

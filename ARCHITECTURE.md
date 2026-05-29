@@ -600,8 +600,8 @@ DataSift uses two distinct representations:
       "type": "extract_operator",
       "depends_on": ["ingest_local_folder"],
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       }
     }
   ],
@@ -1575,7 +1575,7 @@ graph TB
 {
   "operator_type": "ExtractOperator",
   "operator_params": {
-    "entity_extraction_mode": "watsonx",
+    "entity_extraction_provider": "watsonx",
     "model_name": "ibm/granite-13b-chat-v2",
     "provider_config": {
       "api_base": "https://us-south.ml.cloud.ibm.com",
@@ -2407,9 +2407,9 @@ graph TB
 {
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "litellm",
-    "entity_model_name": "openai/llama3.2",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "litellm",
+    "entity_model_id": "openai/llama3.2",
     "entity_provider_config": {
       "api_base": "http://localhost:11434/v1"
     },
@@ -2463,10 +2463,10 @@ graph TB
 **Supported Providers:**
 
 - **Docling Library (Local)**: Local document processing and chunking using the Docling library
-  - Used by ExtractOperator with `text_extraction_mode: "docling_library"` for document parsing
+  - Used by ExtractOperator with `text_extraction_provider: "docling_library"` for document parsing
   - Used by Chunker operator with `provider: "docling_library"` for local Hybrid chunking
 - **Docling-serve (Remote)**: Remote extraction and chunking via docling-serve API
-  - Used by ExtractOperator with `text_extraction_mode: "docling_serve"` for distributed extraction
+  - Used by ExtractOperator with `text_extraction_provider: "docling_serve"` for distributed extraction
   - Used by Chunker operator with `provider: "docling_serve"` for distributed Hybrid chunking
   - Enables offloading computation to dedicated service
   - Only supports Hybrid chunking strategy for Chunker

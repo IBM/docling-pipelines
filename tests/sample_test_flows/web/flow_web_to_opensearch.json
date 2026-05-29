@@ -60,11 +60,15 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "nomic-embed-text",
+        "embeddings_type": "litellm",
+        "embeddings_model_id": "openai/nomic-embed-text",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
-        "doc_column": "content"
+        "doc_column": "content",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
       },
       "depends_on": [
         "chunk"
@@ -84,7 +88,7 @@
           "host": "localhost",
           "port": 9200,
           "username": "admin",
-          "password": "admin",
+          "password": "<admin>",
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

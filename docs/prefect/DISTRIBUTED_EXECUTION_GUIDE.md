@@ -457,7 +457,7 @@ Private registries require authentication configured on the worker host machine.
         "OPENSEARCH_HOST": "opensearch",
         "OPENSEARCH_PORT": "9200",
         "OPENSEARCH_USERNAME": "admin",
-        "OPENSEARCH_PASSWORD": "MyStrongPass123!",  <!-- pragma: allowlist secret -->
+        "OPENSEARCH_PASSWORD": "MyStrongPass123!", # pragma: allowlist secret  <!-- pragma: allowlist secret -->
         "OPENSEARCH_USE_SSL": "false",
         "OPENSEARCH_VERIFY_CERTS": "false",
         "PREFECT_API_URL": "http://prefect-server:4200/api",
@@ -669,7 +669,7 @@ All pods in that namespace will inherit the secret.
         "OPENSEARCH_HOST": "opensearch-service",
         "OPENSEARCH_PORT": "9200",
         "OPENSEARCH_USERNAME": "admin",
-        "OPENSEARCH_PASSWORD": "MyStrongPass123!",  <!-- pragma: allowlist secret -->
+        "OPENSEARCH_PASSWORD": "MyStrongPass123!", # pragma: allowlist secret  <!-- pragma: allowlist secret -->
         "OPENSEARCH_USE_SSL": "false",
         "OPENSEARCH_VERIFY_CERTS": "false",
         "PREFECT_API_URL": "http://prefect-server:4200/api",
@@ -821,7 +821,7 @@ volumes:
           "OPENSEARCH_HOST": "opensearch",
           "OPENSEARCH_PORT": "9200",
           "OPENSEARCH_USERNAME": "admin",
-          "OPENSEARCH_PASSWORD": "MyStrongPass123!",  <!-- pragma: allowlist secret -->
+          "OPENSEARCH_PASSWORD": "MyStrongPass123!", # pragma: allowlist secret  <!-- pragma: allowlist secret -->
           "OPENSEARCH_USE_SSL": "false",
           "OPENSEARCH_VERIFY_CERTS": "false",
           "PREFECT_API_URL": "http://prefect-server:4200/api",
@@ -848,8 +848,8 @@ volumes:
       "type": "extract_operator",
       "depends_on": ["ingest_documents"],
       "config": {
-        "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_serve",
+        "entity_extraction_provider": "none",
         "docling_serve_url": "http://docling:5000"
       }
     }
@@ -888,7 +888,7 @@ volumes:
           "OPENSEARCH_HOST": "opensearch-service",
           "OPENSEARCH_PORT": "9200",
           "OPENSEARCH_USERNAME": "admin",
-          "OPENSEARCH_PASSWORD": "MyStrongPass123!",
+          "OPENSEARCH_PASSWORD": "MyStrongPass123!", # pragma: allowlist secret
           "OPENSEARCH_USE_SSL": "false",
           "OPENSEARCH_VERIFY_CERTS": "false",
           "PREFECT_API_URL": "http://prefect-server:4200/api",
@@ -899,7 +899,7 @@ volumes:
           "bucket": "datasift-production-batches",
           "prefix": "tmp/batches/",
           "access_key": "your-access-key-id",
-          "secret_key": "your-secret-access-key",  <!-- pragma: allowlist secret -->
+          "secret_key": "<your-secret-access-key>",  <!-- pragma: allowlist secret -->
           "region": "us-east-1"
         }
       }
@@ -920,8 +920,8 @@ volumes:
       "type": "extract_operator",
       "depends_on": ["ingest_from_s3"],
       "config": {
-        "text_extraction_mode": "docling_serve",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_serve",
+        "entity_extraction_provider": "none",
         "docling_serve_url": "http://docling-service:5000"
       }
     },
@@ -1444,7 +1444,7 @@ ValueError: S3 credentials are required when batch_storage.type is 's3'
     "type": "s3",
     "bucket": "my-bucket",
     "access_key": "your-access-key-id",
-    "secret_key": "your-secret-access-key"  <!-- pragma: allowlist secret -->
+    "secret_key": "<your-secret-access-key>"  <!-- pragma: allowlist secret -->
   }
 }
 ```
@@ -1934,7 +1934,7 @@ ValueError: batch_storage.path is required when batch_storage.type is 'local'
 
     "bucket": "my-bucket",
     "access_key": "your-access-key-id",
-    "secret_key": "your-secret-access-key"
+    "secret_key": "<your-secret-access-key>"
   }
 }
 ```

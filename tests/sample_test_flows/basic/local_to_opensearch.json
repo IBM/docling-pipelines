@@ -26,8 +26,8 @@
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "content"
       }
     },
@@ -65,11 +65,15 @@
       "type": "embeddings",
       "depends_on": ["chunk"],
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "granite4",
+        "embeddings_type": "litellm",
+        "embeddings_model_id": "openai/granite4",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
-        "doc_column": "content"
+        "doc_column": "content",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
       }
     },
     {
@@ -87,7 +91,7 @@
           "host": "localhost",
           "port": 9200,
           "username": "admin",
-          "password": "admin",
+          "password": "<admin>",
           "use_ssl": false,
           "verify_certs": false,
           "batch_size": 100,

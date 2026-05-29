@@ -26,8 +26,8 @@
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "content"
       }
     },
@@ -63,7 +63,7 @@
         "summarization_model_id": "llama3.2",
         "summarization_provider_config": {
           "api_base": "http://localhost:11434/v1",
-          "api_key": "ollama"
+          "api_key": "<value>"
         }
       }
     }

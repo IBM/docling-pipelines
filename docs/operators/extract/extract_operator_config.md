@@ -30,40 +30,40 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 ### Core Parameters
 
-#### 1. `text_extraction_mode` (String)
-**Type:** String  
-**Required:** Yes  
-**Default:** `"docling_library"`  
+#### 1. `text_extraction_provider` (String)
+**Type:** String
+**Required:** Yes
+**Default:** `"docling_library"`
 **Description:** Text extraction strategy to use.
 
 **Valid Values:** `docling_library`, `docling_serve`
 
 **Examples:**
 ```json
-"text_extraction_mode": "docling_library"
+"text_extraction_provider": "docling_library"
 ```
 
 ```json
-"text_extraction_mode": "docling_serve"
+"text_extraction_provider": "docling_serve"
 ```
 
-#### 2. `entity_extraction_mode` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"none"`  
+#### 2. `entity_extraction_provider` (String)
+**Type:** String
+**Required:** No
+**Default:** `"none"`
 **Description:** Entity extraction strategy. Set to enable structured data extraction from documents.
 
 **Valid Values:** `litellm`, `watsonx`, `docling`, `none`
 
-**Note:** To use Ollama models, set `entity_extraction_mode` to `"litellm"` and use the `openai/` prefix in `entity_model_name` (e.g., `"openai/llama3.2"`). Configure `entity_provider_config` with `"api_base": "http://localhost:11434/v1"`.
+**Note:** To use Ollama models, set `entity_extraction_provider` to `"litellm"` and use the `openai/` prefix in `entity_model_id` (e.g., `"openai/llama3.2"`). Configure `entity_provider_config` with `"api_base": "http://localhost:11434/v1"`.
 
 **Examples:**
 ```json
-"entity_extraction_mode": "litellm"
+"entity_extraction_provider": "litellm"
 ```
 
 ```json
-"entity_extraction_mode": "none"
+"entity_extraction_provider": "none"
 ```
 
 #### 3. `doc_column` (String)
@@ -158,19 +158,19 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 ### Entity Extraction Parameters
 
-#### 8. `entity_model_name` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"llama3.2"`  
-**Description:** LLM model name for entity extraction (ollama: 'llama3.2', litellm: 'gpt-3.5-turbo').
+#### 8. `entity_model_id` (String)
+**Type:** String
+**Required:** No
+**Default:** `"gpt-3.5-turbo"`
+**Description:** LLM model identifier for entity extraction. For LiteLLM with Ollama, use the `openai/` prefix (e.g., 'openai/llama3.2'). For other providers, use standard model names (e.g., 'gpt-4', 'claude-3-opus').
 
 **Examples:**
 ```json
-"entity_model_name": "llama3.2"
+"entity_model_id": "openai/llama3.2"
 ```
 
 ```json
-"entity_model_name": "gpt-4"
+"entity_model_id": "gpt-4"
 ```
 
 #### 9. `entity_temperature` (Float)
@@ -519,8 +519,8 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "none",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "none",
     "extract_tables": true,
     "extract_images": false,
     "max_workers": 4
@@ -534,9 +534,9 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "litellm",
-    "entity_model_name": "openai/llama3.2",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "litellm",
+    "entity_model_id": "openai/llama3.2",
     "entity_provider_config": {
       "api_base": "http://localhost:11434/v1"
     },
@@ -557,7 +557,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
+    "text_extraction_provider": "docling_library",
     "use_vlm_pipeline": true,
     "vlm_preset": "granite_docling",
     "vlm_engine_type": "transformers",
@@ -574,7 +574,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_serve",
+    "text_extraction_provider": "docling_serve",
     "docling_serve_base_url": "http://docling-serve:5001",
     "docling_serve_timeout": 300,
     "docling_serve_do_ocr": true,
@@ -590,7 +590,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
+    "text_extraction_provider": "docling_library",
     "additional_formats": ["html", "json", "text"],
     "extract_tables": true,
     "extract_images": true
@@ -605,9 +605,9 @@ The Extract Operator is a unified extraction operator that provides text and ent
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_mode": "docling_library",
-    "entity_extraction_mode": "litellm",
-    "entity_model_name": "gpt-4",
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "litellm",
+    "entity_model_id": "gpt-4",
     "entity_provider_config": {
       "api_key": "sk-...", # pragma: allowlist secret
       "api_base": "https://api.openai.com/v1"

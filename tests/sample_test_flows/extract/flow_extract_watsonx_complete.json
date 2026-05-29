@@ -46,12 +46,12 @@
       "name": "extract",
       "type": "extract_operator",
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "watsonx",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "watsonx",
         "doc_column": "content",
         "extract_tables": false,
         "extract_images": false,
-        "entity_model_name": "ibm/granite-3-8b-instruct",
+        "entity_model_id": "ibm/granite-3-8b-instruct",
         "entity_provider_config": {
           "api_base": "https://us-south.ml.cloud.ibm.com",
           "container_kind": "project",

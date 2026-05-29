@@ -16,7 +16,7 @@
         "provider": "s3",
         "credentials": {
           "access_key": "enter_access_key",
-          "secret_key": "enter_secret_key"
+          "secret_key": "<enter_secret_key>"
         },
         "connection_params": {
           "bucket": "tm-wkc-storage-1",
@@ -37,8 +37,8 @@
       "type": "extract_operator",
       "config": {
         "doc_column": "content",
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       },
       "depends_on": [
         "ingest_s3_adapter"

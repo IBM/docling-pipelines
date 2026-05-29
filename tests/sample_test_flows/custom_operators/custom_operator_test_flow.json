@@ -27,7 +27,7 @@
       "operator": "extract_operator",
       "config": {
         "doc_column": "content",
-        "text_extraction_mode": "docling_library"
+        "text_extraction_provider": "docling_library"
       },
       "input_edges": [{"node_id_ref": "11111111-2222-3333-4444-555555555555"}],
       "output_edges": [{"node_id_ref": "66666666-7777-8888-9999-000000000000"}]

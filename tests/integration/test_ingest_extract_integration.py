@@ -52,8 +52,8 @@ class TestIngestExtractIntegration:
         assert ingest_metadata.get("processed_docs", 0) == ingest_table.num_rows
 
         extract_config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
             "doc_column": "doc_content",
             "extract_tables": True,
             "extract_images": True,
@@ -98,8 +98,8 @@ class TestIngestExtractIntegration:
         assert "binary_content" not in ingest_table.column_names
 
         extract_config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "docling",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "docling",
             "doc_column": "doc_content",
             "extract_tables": False,
             "extract_images": False,
@@ -134,8 +134,8 @@ class TestIngestExtractIntegration:
         assert original_columns == EXPECTED_INGEST_COLUMNS
 
         extract_config = {
-            "text_extraction_mode": "docling_library",
-            "entity_extraction_mode": "none",
+            "text_extraction_provider": "docling_library",
+            "entity_extraction_provider": "none",
             "doc_column": "doc_content",
             "extract_tables": False,
             "extract_images": False,
@@ -172,8 +172,8 @@ def test_basic_integration():
     assert set(ingest_tables[0].column_names) == EXPECTED_INGEST_COLUMNS
 
     extract_config = {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none",
         "doc_column": "doc_content",
     }
 

@@ -133,8 +133,8 @@ The Language Detection operator automatically detects the language of document c
         "type": "extract_operator",
         "depends_on": ["ingest"],
         "config": {
-          "text_extraction_mode": "docling_library",
-          "entity_extraction_mode": "none"
+          "text_extraction_provider": "docling_library",
+          "entity_extraction_provider": "none"
         }
       },
       {

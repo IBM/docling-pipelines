@@ -80,9 +80,9 @@ Here's a complete working example:
       "type": "extract_operator",
       "depends_on": ["classify"],
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "litellm",
-        "entity_model_name": "openai/granite4:latest",
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "litellm",
+        "entity_model_id": "openai/granite4:latest",
         "entity_temperature": 0.0,
         "entity_max_tokens": 4096,
         "entity_provider_config": {

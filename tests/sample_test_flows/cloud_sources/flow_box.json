@@ -42,8 +42,8 @@
       "type": "extract_operator",
       "config": {
         "doc_column": "${OperatorConstants.Columns.DOC_COLUMN_DEFAULT}",
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none"
+        "text_extraction_provider": "docling_library",
+        "entity_extraction_provider": "none"
       },
       "depends_on": [
         "ingest"
@@ -67,11 +67,15 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "ollama",
-        "embeddings_model_id": "nomic-embed-text",
+        "embeddings_type": "litellm",
+        "embeddings_model_id": "openai/nomic-embed-text",
         "embeddings_column": "${OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT}",
         "overlap_ratio": 0.2,
-        "doc_column": "${OperatorConstants.Columns.DOC_COLUMN_DEFAULT}"
+        "doc_column": "${OperatorConstants.Columns.DOC_COLUMN_DEFAULT}",
+        "provider_config": {
+          "api_base": "http://localhost:11434/v1",
+          "api_key": "${OLLAMA_API_KEY}"
+        }
       },
       "depends_on": [
         "chunk"

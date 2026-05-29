@@ -74,7 +74,7 @@ class FeaturePropagator:
         result = propagator.propagate_features(
             node_id="extract-1",
             operator_short_name="extract_operator",
-            operator_config={"entity_extraction_mode": "ollama"},
+            operator_config={"entity_extraction_provider": "litellm"},
             input_features={"id": {...}, "content": {...}},
             global_config={},
             parent_results=[]
@@ -143,7 +143,7 @@ class FeaturePropagator:
             - Availability flags (for_filter, for_vector_db) can be overridden
 
         Special Case Operators:
-            - Extract: Adds/removes entity features based on entity_extraction_mode
+            - Extract: Adds/removes entity features based on entity_extraction_provider
             - SQLFilter: Removes features not in SELECT clause
             - Merge: Combines features from multiple parent nodes
             - VectorDB: Produces no output features (terminal operator)
@@ -154,7 +154,7 @@ class FeaturePropagator:
             operator_short_name: Operator short name (e.g., 'extract_operator',
                 'chunker', 'vectordb'). Must match registered operator name.
             operator_config: Operator-specific configuration dict. Used for:
-                - Extract: entity_extraction_mode
+                - Extract: entity_extraction_provider
                 - SQLFilter: sql_query
                 - Merge: merge_type, column_option, features_to_drop
                 - Embeddings: model_id
@@ -186,8 +186,8 @@ class FeaturePropagator:
                 node_id="extract-1",
                 operator_short_name="extract_operator",
                 operator_config={
-                    "entity_extraction_mode": "ollama",
-                    "model_name": "llama3.2"
+                    "entity_extraction_provider": "litellm",
+                    "entity_model_id": "llama3.2"
                 },
                 input_features={
                     "id": {
@@ -327,7 +327,7 @@ class FeaturePropagator:
         """Apply operator-specific feature propagation logic.
 
         Only three operators need special handling:
-        1. Extract: Adds/removes entity features based on entity_extraction_mode
+        1. Extract: Adds/removes entity features based on entity_extraction_provider
         2. SQLFilter: Removes features based on SELECT clause
         3. Merge: Combines features from multiple inputs
 
