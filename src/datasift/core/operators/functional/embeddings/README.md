@@ -2,16 +2,71 @@
 
 ## Overview
 
-The Embeddings Operator generates vector embeddings from text using various AI providers. It supports multiple embedding models through a hexagonal architecture with pluggable adapters.
+The Embeddings Operator generates vector embeddings from text using various AI providers through a unified adapter architecture. It uses the centralized `LLMAdapterFactory` for consistent provider integration across the DataSift framework.
 
 ## Supported Providers
 
-| Provider        | Description                    | Best For                             |
-| --------------- | ------------------------------ | ------------------------------------ |
-| **Ollama**      | Local LLM server               | Privacy, offline usage, no API costs |
-| **HuggingFace** | Local or API models            | Open-source models, customization    |
-| **LiteLLM**     | Unified API for 100+ providers | OpenAI, Azure, Cohere, AWS, GCP      |
-| **Watsonx**     | IBM watsonx.ai cloud service   | Enterprise AI, IBM Cloud integration |
+| Provider        | Description                           | Best For                             |
+| --------------- | ------------------------------------- | ------------------------------------ |
+| **HuggingFace** | Native local or API models            | Open-source models, high-concurrency local inference, offline usage |
+| **LiteLLM**     | Unified API for 100+ providers        | OpenAI, Azure, Cohere, AWS, GCP, Ollama |
+| **Watsonx**     | IBM watsonx.ai cloud service          | Enterprise AI, IBM Cloud integration |
+
+## Architecture
+
+The operator uses the centralized `LLMAdapterFactory` from `src/datasift/core/adapters/llm_adapter_factory.py`:
+
+```
+┌─────────────────────────────────────────┐
+│     EmbeddingsOperator (Core Logic)     │
+│                                         │
+│  - Batch processing                     │
+│  - Error handling                       │
+│  - PyArrow table management             │
+│  - Automatic chunking for long text     │
+└──────────────┬──────────────────────────┘
+               │
+               │ Uses
+               ▼
+┌─────────────────────────────────────────┐
+│      LLMAdapterFactory (Centralized)    │
+│                                         │
+│  - create_embedding_adapter()           │
+│  - Provider validation                  │
+│  - Unified configuration                │
+└──────────────┬──────────────────────────┘
+               │
+               │ Creates
+               ▼
+┌─────────────────────────────────────────┐
+│      LLMEmbeddingPort (Interface)       │
+│                                         │
+│  - generate_embeddings()                │
+│  - generate_embeddings_batch()          │
+│  - get_embedding_dimension()            │
+│  - validate_embedding()                 │
+└──────────────┬──────────────────────────┘
+               │
+               │ Implemented by
+               ▼
+┌─────────────────────────────────────────┐
+│           Adapters                      │
+│                                         │
+│  - HuggingFaceAdapter                   │
+│  - LiteLLMAdapter                       │
+│  - WatsonXAdapter                       │
+└──────────────┬──────────────────────────┘
+               │
+               │ Uses
+               ▼
+┌─────────────────────────────────────────┐
+│         LLM Clients                     │
+│                                         │
+│  - HuggingFaceLLMClient                 │
+│  - LiteLLMLLMClient                     │
+│  - WatsonxRestEmbeddingClient           │
+└─────────────────────────────────────────┘
+```
 
 ## Quick Start
 
@@ -19,135 +74,36 @@ The Embeddings Operator generates vector embeddings from text using various AI p
 
 ```json
 {
-  "operator_type": "EmbeddingsOperator",
-  "operator_params": {
+  "type": "embeddings",
+  "name": "embed",
+  "config": {
     "provider": "litellm",
-    "model_name": "openai/nomic-embed-text",
+    "model_id": "openai/nomic-embed-text",
     "provider_config": {
-      "api_base": "http://localhost:11434/v1",
-      "api_key": "${OLLAMA_API_KEY}"
+      "api_base": "http://localhost:11434"
     }
   }
-}
-```
-
-### Complete Pipeline Example
-
-```json
-{
-  "nodes": [
-    {
-      "id": "ingest",
-      "operator_type": "IngestLocalFolder",
-      "operator_params": {
-        "folder_path": "data/documents"
-      }
-    },
-    {
-      "id": "extract",
-      "operator_type": "ExtractOperator",
-      "operator_params": {}
-    },
-    {
-      "id": "chunk",
-      "operator_type": "DoclingChunker",
-      "operator_params": {
-        "chunk_size": 512
-      }
-    },
-    {
-      "id": "embed",
-      "operator_type": "EmbeddingsOperator",
-      "operator_params": {
-        "provider": "litellm",
-        "model_name": "openai/nomic-embed-text",
-        "provider_config": {
-          "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}"
-        }
-      }
-    },
-    {
-      "id": "store",
-      "operator_type": "VectorDBOperator",
-      "operator_params": {
-        "provider": "opensearch",
-        "index_name": "documents",
-        "dimension": 768
-      }
-    }
-  ],
-  "edges": [
-    { "from": "ingest", "to": "extract" },
-    { "from": "extract", "to": "chunk" },
-    { "from": "chunk", "to": "embed" },
-    { "from": "embed", "to": "store" }
-  ]
 }
 ```
 
 ## Provider-Specific Guides
 
-### Ollama (Local)
+### HuggingFace (Native Local or API)
 
-**Requirements**: Ollama server running on `http://localhost:11434`
-
-```bash
-# Install Ollama
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull embedding model
-ollama pull nomic-embed-text
-
-# Verify server is running
-curl http://localhost:11434/api/tags
-```
-
-**Configuration**:
+**Local Mode** (Recommended for production and high-concurrency):
 
 ```json
 {
-  "operator_params": {
-    "provider": "litellm",
-    "model_name": "openai/nomic-embed-text",
-    "provider_config": {
-      "api_base": "http://localhost:11434/v1",
-      "api_key": "${OLLAMA_API_KEY}"
-    }
-  }
-}
-```
-
-**Popular Models**:
-
-- `nomic-embed-text` (768 dimensions) - Recommended for general use
-- `mxbai-embed-large` (1024 dimensions) - Higher quality
-- `all-minilm` (384 dimensions) - Faster, smaller
-
-**Pros**:
-
-- ✅ Free, no API costs
-- ✅ Privacy (data stays local)
-- ✅ Works offline
-- ✅ Fast for local processing
-
-**Cons**:
-
-- ❌ Requires local setup
-- ❌ Limited to available models
-- ❌ Requires GPU for best performance
-
-### HuggingFace (Local or API)
-
-**Local Mode** (Recommended for development):
-
-```json
-{
-  "operator_params": {
+  "type": "embeddings",
+  "name": "embed",
+  "config": {
     "provider": "huggingface",
-    "model_name": "sentence-transformers/all-MiniLM-L6-v2",
-    "use_local": true,
-    "device": "cpu"
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "provider_config": {
+      "use_local": true,
+      "device": "cpu",
+      "batch_size": 16
+    }
   }
 }
 ```
@@ -160,11 +116,15 @@ export HUGGINGFACE_API_KEY=hf_...
 
 ```json
 {
-  "operator_params": {
+  "type": "embeddings",
+  "name": "embed",
+  "config": {
     "provider": "huggingface",
-    "model_name": "sentence-transformers/all-MiniLM-L6-v2",
-    "use_local": false,
-    "api_token": "${HUGGINGFACE_API_KEY}"
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "provider_config": {
+      "use_local": false,
+      "api_token": "${HUGGINGFACE_API_KEY}"
+    }
   }
 }
 ```
@@ -177,20 +137,44 @@ export HUGGINGFACE_API_KEY=hf_...
 
 **Pros**:
 
-- ✅ Large model selection
+- ✅ Large model selection (1000+ models)
 - ✅ Open-source models
-- ✅ Local or API options
+- ✅ Native local inference (no API costs)
+- ✅ High-concurrency support (600+ parallel processes tested)
+- ✅ Offline capable with pre-downloaded models
 - ✅ Active community
 
 **Cons**:
 
-- ❌ Local mode requires dependencies
-- ❌ API mode has rate limits
-- ❌ Model downloads can be large
+- ❌ Local mode requires dependencies (sentence-transformers, torch)
+- ❌ API mode has rate limits (use native provider for local)
+- ❌ Model downloads can be large (cache in `/models` volume)
 
 ### LiteLLM (Multi-Provider API)
 
-**For detailed LiteLLM documentation, see [README_LITELLM.md](adapters/outbound/README_LITELLM.md)**
+**Quick Start with Ollama**:
+
+```bash
+# Start Ollama
+ollama serve
+
+# Pull model
+ollama pull nomic-embed-text
+```
+
+```json
+{
+  "type": "embeddings",
+  "name": "embed",
+  "config": {
+    "provider": "litellm",
+    "model_id": "openai/nomic-embed-text",
+    "provider_config": {
+      "api_base": "http://localhost:11434"
+    }
+  }
+}
+```
 
 **Quick Start with OpenAI**:
 
@@ -200,9 +184,11 @@ export OPENAI_API_KEY=sk-proj-...
 
 ```json
 {
-  "operator_params": {
+  "type": "embeddings",
+  "name": "embed",
+  "config": {
     "provider": "litellm",
-    "model_name": "text-embedding-3-small"
+    "model_id": "text-embedding-3-small"
   }
 }
 ```
@@ -212,10 +198,11 @@ export OPENAI_API_KEY=sk-proj-...
 - OpenAI (`text-embedding-3-small`, `text-embedding-3-large`)
 - Azure OpenAI (`azure/deployment-name`)
 - Cohere (`embed-english-v3.0`, `embed-multilingual-v3.0`)
-- IBM watsonx.ai (`watsonx/ibm/slate-30m-english-rtrvr`, `watsonx/ibm/slate-125m-english-rtrvr`)
 - AWS Bedrock (`bedrock/amazon.titan-embed-text-v1`)
 - Google Vertex AI (`vertex_ai/textembedding-gecko@001`)
-- And 100+ more...
+- Ollama (via OpenAI-compatible API with `openai/` prefix)
+- HuggingFace API (with `huggingface/` prefix)
+- And 90+ more...
 
 **Pros**:
 
@@ -226,7 +213,7 @@ export OPENAI_API_KEY=sk-proj-...
 
 **Cons**:
 
-- ❌ Requires API keys
+- ❌ Requires API keys (except Ollama)
 - ❌ API costs
 - ❌ Network dependency
 - ❌ Rate limits
@@ -245,9 +232,11 @@ export WATSONX_CONTAINER_ID=your-project-or-space-id
 
 ```json
 {
-  "operator_params": {
+  "type": "embeddings",
+  "name": "embed",
+  "config": {
     "provider": "watsonx",
-    "model_name": "ibm/slate-125m-english-rtrvr",
+    "model_id": "ibm/slate-125m-english-rtrvr",
     "provider_config": {
       "api_key": "${WATSONX_API_KEY}",
       "api_base": "${WATSONX_API_BASE}",
@@ -275,121 +264,29 @@ export WATSONX_CONTAINER_ID=your-project-or-space-id
 - ❌ API costs
 - ❌ Network dependency
 
-**Note**: Embedding dimensions are retrieved dynamically. For troubleshooting, see [TROUBLESHOOTING.md](../../../../../TROUBLESHOOTING.md#watsonx-troubleshooting).
-
-## Architecture
-
-### Hexagonal Architecture
-
-The embeddings operator follows hexagonal architecture (ports and adapters pattern):
-
-```
-┌─────────────────────────────────────────┐
-│     EmbeddingsOperator (Core Logic)     │
-│                                         │
-│  - Batch processing                     │
-│  - Error handling                       │
-│  - PyArrow table management             │
-└──────────────┬──────────────────────────┘
-               │
-               │ Uses
-               ▼
-┌─────────────────────────────────────────┐
-│      LLMServicePort (Interface)         │
-│                                         │
-│  - generate_embeddings()                │
-│  - get_model_token_limit()              │
-│  - get_embedding_dimension()            │
-└──────────────┬──────────────────────────┘
-               │
-               │ Implemented by
-               ▼
-┌─────────────────────────────────────────┐
-│           Adapters                      │
-│                                         │
-│  - OllamaLLMAdapter                     │
-│  - HuggingFaceLLMAdapter                │
-│  - LiteLLMLLMAdapter                    │
-│  - WatsonxLLMAdapter                    │
-└──────────────┬──────────────────────────┘
-               │
-               │ Uses
-               ▼
-┌─────────────────────────────────────────┐
-│         LLM Clients                     │
-│                                         │
-│  - OllamaClient                         │
-│  - HuggingFaceLLMClient                 │
-│  - LiteLLMLLMClient                     │
-│  - WatsonxRestEmbeddingClient           │
-└─────────────────────────────────────────┘
-```
-
-### Adding a New Provider
-
-1. **Create Client** (in `common/clients/`):
-
-```python
-from common.clients.base_llm_client import BaseLLMClient
-
-class MyProviderClient(BaseLLMClient):
-    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
-        # Implementation
-        pass
-```
-
-2. **Create Adapter** (in `adapters/outbound/`):
-
-```python
-from ports.outbound.llm_service import LLMServicePort
-from adapters.outbound.factories.llm_adapter_factory import register_llm_adapter
-
-@register_llm_adapter
-class MyProviderAdapter(LLMServicePort):
-    ADAPTER_NAME = "myprovider"
-    ADAPTER_DISPLAY_NAME = "My Provider"
-
-    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
-        return self.client.generate_embeddings(texts)
-```
-
-3. **Use in Flow**:
-
-```json
-{
-  "operator_params": {
-    "provider": "myprovider",
-    "model_name": "my-model"
-  }
-}
-```
-
 ## Configuration Reference
 
 ### Common Parameters
 
-| Parameter          | Type   | Required | Description                                                  |
-| ------------------ | ------ | -------- | ------------------------------------------------------------ |
-| `provider`         | string | Yes      | Provider name: `ollama`, `huggingface`, `litellm`, `watsonx` |
-| `model_name`       | string | Yes      | Model identifier                                             |
-| `text_column`      | string | No       | Column containing text (default: `text`)                     |
-| `embedding_column` | string | No       | Output column name (default: `embeddings`)                   |
+| Parameter          | Type   | Required | Default      | Description                                                  |
+| ------------------ | ------ | -------- | ------------ | ------------------------------------------------------------ |
+| `provider`         | string | Yes      | `litellm`    | Provider name: `huggingface`, `litellm`, `watsonx`           |
+| `model_id`         | string | Yes      | -            | Model identifier                                             |
+| `embeddings_column`| string | No       | `embeddings` | Output column name                                           |
+| `doc_column`       | string | No       | `content`    | Input content column                                         |
+| `overlap_ratio`    | float  | No       | `0.2`        | Overlap ratio for chunking long text (0.0-0.5)               |
+| `token_limit`      | integer| No       | `8192`       | Maximum token limit for chunking                             |
 
 ### Provider-Specific Parameters
 
-#### Ollama
-
-| Parameter  | Type   | Default                  | Description       |
-| ---------- | ------ | ------------------------ | ----------------- |
-| `base_url` | string | `http://localhost:11434` | Ollama server URL |
-
 #### HuggingFace
 
-| Parameter   | Type    | Default | Description                  |
-| ----------- | ------- | ------- | ---------------------------- |
-| `use_local` | boolean | `true`  | Use local model vs API       |
-| `device`    | string  | `cpu`   | Device: `cpu`, `cuda`, `mps` |
-| `api_token` | string  | None    | HuggingFace API token        |
+| Parameter    | Type    | Default | Description                                      |
+| ------------ | ------- | ------- | ------------------------------------------------ |
+| `use_local`  | boolean | `true`  | Use local model inference vs HuggingFace API     |
+| `device`     | string  | `cpu`   | Device for local inference: `cpu`, `cuda`, `mps` |
+| `api_token`  | string  | None    | HuggingFace API token (required for API mode)    |
+| `batch_size` | int     | `32`    | Number of texts to process in each batch         |
 
 #### LiteLLM
 
@@ -403,43 +300,32 @@ class MyProviderAdapter(LLMServicePort):
 | Parameter              | Type    | Default   | Description                                                  |
 | ---------------------- | ------- | --------- | ------------------------------------------------------------ |
 | `api_key`              | string  | None      | Watsonx.ai API key (required)                                |
-| `api_base`             | string  | None      | Watsonx.ai API endpoint URL for the native adapter (required) |
+| `api_base`             | string  | None      | Watsonx.ai API endpoint URL (required)                       |
 | `container_kind`       | string  | `project` | Container type: `project` or `space`                         |
-| `container_id`         | string  | None      | Project ID or Space ID for the native adapter (required)     |
-| `batch_size`           | int     | 800       | Number of texts to process per batch                         |
+| `container_id`         | string  | None      | Project ID or Space ID (required)                            |
+| `batch_size`           | int     | `800`     | Number of texts to process per batch                         |
 | `enable_rate_limiting` | boolean | False     | Enable rate limiting (7 req/s) for WatsonX API calls         |
 
 ## Performance Optimization
 
 ### Choosing the Right Provider
 
-| Use Case             | Recommended Provider | Model                   |
-| -------------------- | -------------------- | ----------------------- |
-| Development/Testing  | HuggingFace (local)  | all-MiniLM-L6-v2        |
-| Privacy-Sensitive    | Ollama               | nomic-embed-text        |
-| Production (Quality) | LiteLLM (OpenAI)     | text-embedding-3-large  |
-| Production (Cost)    | LiteLLM (OpenAI)     | text-embedding-3-small  |
-| Multilingual         | LiteLLM (Cohere)     | embed-multilingual-v3.0 |
+| Use Case                  | Recommended Provider | Model                   |
+| ------------------------- | -------------------- | ----------------------- |
+| Development/Testing       | HuggingFace (local)  | all-MiniLM-L6-v2        |
+| Privacy-Sensitive         | HuggingFace (local)  | all-MiniLM-L6-v2        |
+| High-Concurrency (600+)   | HuggingFace (local)  | all-MiniLM-L6-v2        |
+| Production (Quality)      | LiteLLM (OpenAI)     | text-embedding-3-large  |
+| Production (Cost)         | LiteLLM (OpenAI)     | text-embedding-3-small  |
+| Multilingual              | LiteLLM (Cohere)     | embed-multilingual-v3.0 |
 
 ### Performance Tips
 
-1. **Batch Processing**: Process documents in batches (coming soon)
+1. **Batch Processing**: Operator handles batching automatically
 2. **Model Selection**: Smaller models = faster processing
 3. **Local vs API**: Local is faster for small datasets, API scales better
 4. **Caching**: Cache embeddings for frequently accessed documents
-5. **GPU Acceleration**: Use GPU for local models (HuggingFace, Ollama)
-
-### Benchmark Results
-
-Based on 24 chunks from 3 PDF documents:
-
-| Provider    | Model                  | Time    | Dimension | Throughput    |
-| ----------- | ---------------------- | ------- | --------- | ------------- |
-| Ollama      | nomic-embed-text       | 1.35s   | 768       | 17.8 chunks/s |
-| HuggingFace | all-MiniLM-L6-v2       | 1.70s   | 384       | 14.1 chunks/s |
-| LiteLLM     | text-embedding-3-small | ~2.0s\* | 1536      | ~12 chunks/s  |
-
-\*Estimated based on network latency
+5. **GPU Acceleration**: Use GPU for local models (HuggingFace with `device: "cuda"`)
 
 ## Error Handling
 
@@ -449,10 +335,10 @@ Based on 24 chunks from 3 PDF documents:
 
 ```
 ConfigurationError: Unknown provider 'invalid'
-Available providers: ollama, huggingface, litellm
+Available providers: huggingface, litellm, watsonx
 ```
 
-**Solution**: Check provider name spelling
+**Solution**: Check provider name spelling.
 
 #### Model Not Found
 
@@ -462,21 +348,13 @@ ExternalServiceError: Model 'invalid-model' not found
 
 **Solution**: Verify model name with provider documentation
 
-#### Server Not Running (Ollama)
-
-```
-ExternalServiceError: Failed to connect to Ollama server at http://localhost:11434
-```
-
-**Solution**: Start Ollama server: `ollama serve`
-
-#### Missing API Key (LiteLLM)
+#### Missing API Key (LiteLLM/HuggingFace API)
 
 ```
 ExternalServiceError: The api_key client option must be set
 ```
 
-**Solution**: Set environment variable: `export OPENAI_API_KEY=sk-...`
+**Solution**: Set environment variable: `export OPENAI_API_KEY=sk-...` or `export HUGGINGFACE_API_KEY=hf_...`
 
 ### Retry Logic
 
@@ -505,13 +383,6 @@ source .venv/bin/activate
 uv run pytest tests/integration/test_embeddings_ollama_integration.py -v
 ```
 
-### Flow Testing
-
-```bash
-# From project root
-datasift-orchestrator --flow-file tests/sample_test_flows/basic/opensearch_integration.json
-```
-
 ## Troubleshooting
 
 ### Enable Debug Logging
@@ -523,13 +394,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 ### Verify Provider Setup
 
-**Ollama**:
-
-```bash
-curl http://localhost:11434/api/tags
-```
-
-**HuggingFace**:
+**HuggingFace (Local)**:
 
 ```python
 from sentence_transformers import SentenceTransformer
@@ -537,7 +402,7 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 print(model.encode(["test"]))
 ```
 
-**LiteLLM**:
+**LiteLLM (OpenAI)**:
 
 ```bash
 curl https://api.openai.com/v1/embeddings \
@@ -548,11 +413,12 @@ curl https://api.openai.com/v1/embeddings \
 
 ## Additional Resources
 
-- [LiteLLM Detailed Documentation](adapters/outbound/README_LITELLM.md)
-- [Ollama Documentation](https://ollama.com/docs)
+- [Operator Reference](../../../../../OPERATOR_REFERENCE.md#embeddingsoperator)
+- [Architecture Guide](../../../../../ARCHITECTURE.md#6-embeddings-operator-integration-architecture)
 - [HuggingFace Sentence Transformers](https://www.sbert.net/)
 - [IBM watsonx.ai Documentation](https://www.ibm.com/watsonx/developer/)
 - [OpenAI Embeddings Guide](https://platform.openai.com/docs/guides/embeddings)
+- [LiteLLM Documentation](https://docs.litellm.ai/)
 
 ## Support
 

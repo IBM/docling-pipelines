@@ -2,13 +2,14 @@
 
 ## Overview
 
-The Embeddings Operator generates vector embeddings for text content using LiteLLM and Watsonx providers. It leverages the unified adapter architecture for consistent integration and handles chunking of long text, batch processing, and error handling per document.
+The Embeddings Operator generates vector embeddings for text content using HuggingFace, LiteLLM, and Watsonx providers. It leverages the unified adapter architecture for consistent integration and handles chunking of long text, batch processing, and error handling per document.
 
 **Supported Providers:**
-- **LiteLLM**: Access to 100+ providers including OpenAI, Azure, Anthropic, Cohere, AWS Bedrock, and more
+- **HuggingFace**: Native local or API-based inference with sentence-transformers models
+- **LiteLLM**: Access to 100+ providers including OpenAI, Azure, Anthropic, Cohere, AWS Bedrock, Ollama, HuggingFace API, and more
 - **Watsonx**: Native IBM watsonx.ai integration for enterprise deployments
 
-**Note:** For Ollama and HuggingFace models, use LiteLLM with the appropriate model prefix (e.g., `openai/nomic-embed-text` for Ollama, `huggingface/sentence-transformers/all-MiniLM-L6-v2` for HuggingFace).
+**Note:** For Ollama models, use LiteLLM with `openai/` prefix (e.g., `openai/nomic-embed-text`). For HuggingFace, you can use either native provider (`provider: "huggingface"`) for local inference or LiteLLM (`provider: "litellm"` with `huggingface/` prefix) for API access.
 
 - **Operator Name:** `embeddings`
 - **Category**: Functional
@@ -23,11 +24,13 @@ The Embeddings Operator generates vector embeddings for text content using LiteL
 **Description:** Embedding provider type. Uses unified adapter architecture.
 
 **Valid Values:**
-- `"litellm"` - 100+ providers via LiteLLM (OpenAI, Azure, Anthropic, Cohere, Ollama, HuggingFace, etc.)
+- `"huggingface"` - Native HuggingFace local or API embeddings
+- `"litellm"` - 100+ providers via LiteLLM (OpenAI, Azure, Anthropic, Cohere, Ollama, HuggingFace API, etc.)
 - `"watsonx"` - Native IBM watsonx.ai integration
 
 **Examples:**
 ```json
+"provider": "huggingface"
 "provider": "litellm"
 "provider": "watsonx"
 ```
@@ -48,11 +51,11 @@ The Embeddings Operator generates vector embeddings for text content using LiteL
   - `"openai/llama3.2"` - Meta Llama 3.2
   - Any Ollama-compatible model with `openai/` prefix
 
-- **HuggingFace** (prefix: `huggingface/`):
+- **HuggingFace API via LiteLLM** (prefix: `huggingface/`):
   - `"huggingface/sentence-transformers/all-MiniLM-L6-v2"` - Fast, 384-dim
   - `"huggingface/sentence-transformers/all-mpnet-base-v2"` - High quality, 768-dim
   - `"huggingface/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"` - Multilingual
-  - Any HuggingFace embedding model with `huggingface/` prefix
+  - Any HuggingFace embedding model with `huggingface/` prefix (requires API token)
 
 - **OpenAI**:
   - `"openai/text-embedding-3-small"` - OpenAI (1536-dim)
@@ -79,12 +82,20 @@ The Embeddings Operator generates vector embeddings for text content using LiteL
 - `"ibm/slate-30m-english-rtrvr"` - IBM watsonx.ai (384-dim)
 - Any watsonx.ai embedding model
 
+**HuggingFace Models (Native Provider):**
+- `"sentence-transformers/all-MiniLM-L6-v2"` - Fast, 384-dim (recommended for high-concurrency)
+- `"sentence-transformers/all-mpnet-base-v2"` - High quality, 768-dim
+- `"sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"` - Multilingual
+- `"BAAI/bge-small-en-v1.5"` - Good for English, 384-dim
+- Any sentence-transformers compatible model (no prefix needed)
+
 **Examples:**
 ```json
-"model_id": "openai/nomic-embed-text"
-"model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2"
-"model_id": "text-embedding-3-small"
-"model_id": "ibm/slate-125m-english-rtrvr"
+"model_id": "openai/nomic-embed-text"                              // Ollama via LiteLLM
+"model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2"   // HuggingFace API via LiteLLM
+"model_id": "sentence-transformers/all-MiniLM-L6-v2"               // Native HuggingFace local
+"model_id": "text-embedding-3-small"                               // OpenAI via LiteLLM
+"model_id": "ibm/slate-125m-english-rtrvr"                         // Native Watsonx
 ```
 
 **Migration Note:** The old `embeddings_model_id` parameter is deprecated. Use `model_id` instead.

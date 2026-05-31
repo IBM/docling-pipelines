@@ -60,7 +60,7 @@ This architectural diversity is a deliberate design choice that supports the fra
 | **Data Processing**     | PyArrow                                                                                                                                               |
 | **Storage**             | DuckDB (metadata and tables), Filesystem (metadata only)                                                                                              |
 | **Document Processing** | Docling (with ASR support for audio/video via ffmpeg)                                                                                                 |
-| **LLM Integration**     | Ollama, Watsonx.ai, LiteLLM (unified interface supporting 100+ LLM providers including OpenAI, Anthropic, Google, AWS Bedrock, and more), HuggingFace |
+| **LLM Integration**     | Ollama, Watsonx.ai, LiteLLM (unified interface supporting 100+ LLM providers including OpenAI, Anthropic, Google, AWS Bedrock, and more), HuggingFace (native local/API support) |
 | **Vector Storage**      | OpenSearch, Milvus, NMSLIB, Faiss                                                                                                                     |
 | **Language Detection**  | FastText, langdetect                                                                                                                                  |
 | **Web Framework**       | FastAPI (optional)                                                                                                                                    |
@@ -2195,11 +2195,12 @@ graph TB
 
 ### 6. Embeddings Operator Integration Architecture
 
-The Embeddings Operator uses a unified hexagonal architecture with centralized LLM adapters, supporting two primary providers:
+The Embeddings Operator uses a unified hexagonal architecture with centralized LLM adapters, supporting three primary providers:
 
 **Supported Providers:**
-- **LiteLLM** - Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, Ollama, HuggingFace, etc.)
+- **LiteLLM** - Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, Ollama, HuggingFace API, etc.)
 - **Watsonx** - IBM watsonx.ai cloud service with IAM authentication
+- **HuggingFace** - Native local or API-based inference with sentence-transformers models
 
 **Architecture Pattern:**
 
@@ -2216,6 +2217,7 @@ graph TB
     subgraph "Unified Adapter Layer"
         LLA[LiteLLMAdapter]
         WXA[WatsonxAdapter]
+        HFA[HuggingFaceAdapter]
     end
 
     subgraph "Port Interface"
@@ -2225,20 +2227,24 @@ graph TB
     subgraph "Client Layer"
         LLC[LiteLLMClient]
         WRC[WatsonxRestClient]
+        HFC[HuggingFaceLLMClient]
     end
 
     subgraph "External Services"
-        LLS[LiteLLM Providers:<br/>OpenAI, Azure, Cohere,<br/>Ollama, HuggingFace, etc.]
+        LLS[LiteLLM Providers:<br/>OpenAI, Azure, Cohere,<br/>Ollama, HuggingFace API, etc.]
         WXS[Watsonx.ai API]
+        HFS[HuggingFace:<br/>Local Models or API]
     end
 
     EMB --> FAC
     FAC --> PORT
     PORT --> LLA
     PORT --> WXA
+    PORT --> HFA
 
     LLA --> LLC --> LLS
     WXA --> WRC --> WXS
+    HFA --> HFC --> HFS
 ```
 
 **Configuration Examples:**
@@ -2267,7 +2273,7 @@ LiteLLM with Ollama (via openai/ prefix):
 }
 ```
 
-LiteLLM with HuggingFace (via huggingface/ prefix):
+LiteLLM with HuggingFace API (via huggingface/ prefix):
 ```json
 {
   "provider": "litellm",
@@ -2275,6 +2281,20 @@ LiteLLM with HuggingFace (via huggingface/ prefix):
   "embeddings_column": "embeddings",
   "provider_config": {
     "api_key": "${HUGGINGFACE_API_KEY}"
+  }
+}
+```
+
+Native HuggingFace (local inference):
+```json
+{
+  "provider": "huggingface",
+  "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+  "embeddings_column": "embeddings",
+  "provider_config": {
+    "use_local": true,
+    "device": "cpu",
+    "batch_size": 16
   }
 }
 ```
@@ -2298,6 +2318,7 @@ Watsonx (IBM Cloud):
 - Unified hexagonal architecture with centralized LLMAdapterFactory
 - Consistent interface across all LLM-based operators (embeddings, classification, PII/HAP)
 - LiteLLM provides access to 100+ providers through a single interface
+- Native HuggingFace support for local model inference (no API costs, offline capable)
 - Automatic retry logic and error handling
 - Batch processing support with keyword arguments
 - Provider-specific optimizations

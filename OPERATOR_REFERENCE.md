@@ -1090,7 +1090,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 | Parameter             | Type   | Required | Default       | Description                                                    |
 | --------------------- | ------ | -------: | ------------- | -------------------------------------------------------------- |
-| `provider`            | string |      Yes | `litellm`     | Provider type: `litellm`, `watsonx`                            |
+| `provider`            | string |      Yes | `litellm`     | Provider type: `litellm`, `watsonx`, `huggingface`             |
 | `model_id`            | string |      Yes | `openai/nomic-embed-text` | Model identifier in `<provider>/<model_id>` format for litellm (e.g., `openai/nomic-embed-text`, `huggingface/sentence-transformers/all-MiniLM-L6-v2`) |
 | `embeddings_column`   | string |       No | `embeddings`  | Output vector column                                           |
 | `doc_column`          | string |       No | `content`     | Input content column                                           |
@@ -1101,25 +1101,30 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Supported Providers:**
 
-- **LiteLLM**: Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, GCP, Ollama, HuggingFace)
+- **LiteLLM**: Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, GCP, Ollama, HuggingFace API)
 - **Watsonx**: IBM watsonx.ai cloud service (enterprise AI)
+- **HuggingFace**: Native local or API-based inference with sentence-transformers models
 
 **Provider-Specific Configuration (`provider_config`):**
 
-| Provider     | Parameter          | Type                      | Default | Description                                           |
-| ------------ | ------------------ |---------------------------| ------- | ----------------------------------------------------- |
-| **LiteLLM**  | `api_base`         | string                    | -       | Custom API endpoint URL (e.g., `http://localhost:11434` for Ollama) |
-|              | `api_key`          | string                    | -       | Provider API key (required for most providers, not needed for Ollama) |
-|              | `batch_size`       | int                       | `32`    | Number of texts to process in each batch              |
-|              | `timeout`          | int                       | `120`   | Request timeout in seconds                            |
-| **Watsonx**  | `api_key`          | string                    | Yes     | IBM Cloud API key (required)                          |
-|              | `project_id`       | string                    | Yes     | WatsonX project ID (required)                         |
-|              | `url`              | string                    | `https://us-south.ml.cloud.ibm.com` | WatsonX API URL |
-|              | `batch_size`       | int                       | `800`   | Number of texts to process in each batch              |
-|              | `timeout`          | int                       | `120`   | Request timeout in seconds                            |
-|              | `enable_rate_limiting` | bool                  | `false` | Enable rate limiting for API calls                    |
+| Provider         | Parameter          | Type                      | Default | Description                                           |
+| ---------------- | ------------------ |---------------------------| ------- | ----------------------------------------------------- |
+| **LiteLLM**      | `api_base`         | string                    | -       | Custom API endpoint URL (e.g., `http://localhost:11434` for Ollama) |
+|                  | `api_key`          | string                    | -       | Provider API key (required for most providers, not needed for Ollama) |
+|                  | `batch_size`       | int                       | `32`    | Number of texts to process in each batch              |
+|                  | `timeout`          | int                       | `120`   | Request timeout in seconds                            |
+| **Watsonx**      | `api_key`          | string                    | Yes     | IBM Cloud API key (required)                          |
+|                  | `project_id`       | string                    | Yes     | WatsonX project ID (required)                         |
+|                  | `url`              | string                    | `https://us-south.ml.cloud.ibm.com` | WatsonX API URL |
+|                  | `batch_size`       | int                       | `800`   | Number of texts to process in each batch              |
+|                  | `timeout`          | int                       | `120`   | Request timeout in seconds                            |
+|                  | `enable_rate_limiting` | bool                  | `false` | Enable rate limiting for API calls                    |
+| **HuggingFace**  | `use_local`        | bool                      | `true`  | Use local model inference (true) or HuggingFace API (false) |
+|                  | `device`           | string                    | `cpu`   | Device for local inference: `cpu`, `cuda`, `mps`      |
+|                  | `api_token`        | string                    | -       | HuggingFace API token (required for API mode)         |
+|                  | `batch_size`       | int                       | `32`    | Number of texts to process in each batch              |
 
-**Note:** For Ollama models via LiteLLM, use `openai/` prefix (e.g., `openai/nomic-embed-text`). For HuggingFace models via LiteLLM, use `huggingface/` prefix (e.g., `huggingface/sentence-transformers/all-MiniLM-L6-v2`).
+**Note:** For Ollama models via LiteLLM, use `openai/` prefix (e.g., `openai/nomic-embed-text`). For HuggingFace API via LiteLLM, use `huggingface/` prefix (e.g., `huggingface/sentence-transformers/all-MiniLM-L6-v2`). For native HuggingFace local inference, use `provider: "huggingface"` with the model name directly.
 
 **Input Schema**
 
@@ -1156,7 +1161,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 }
 ```
 
-**Example 2: LiteLLM with HuggingFace**
+**Example 2: LiteLLM with HuggingFace API**
 
 ```json
 {
@@ -1171,6 +1176,27 @@ Schemas are defined with `target_tables` specifying field mappings and transform
     "batch_size": 16,
     "provider_config": {
       "api_key": "${HUGGINGFACE_API_KEY}"
+    }
+  }
+}
+```
+
+**Example 2b: Native HuggingFace (Local Inference)**
+
+```json
+{
+  "id": "embedding-node",
+  "name": "embeddings",
+  "operator": "embeddings",
+  "config": {
+    "provider": "huggingface",
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "embeddings_column": "embeddings",
+    "text_column": "content",
+    "batch_size": 16,
+    "provider_config": {
+      "use_local": true,
+      "device": "cpu"
     }
   }
 }

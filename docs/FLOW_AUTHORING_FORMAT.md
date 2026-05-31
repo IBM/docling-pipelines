@@ -430,7 +430,10 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "depends_on": ["chunk"],
       "config": {
         "provider": "litellm",
-        "model_id": "openai/nomic-embed-text"
+        "model_id": "openai/nomic-embed-text",
+        "provider_config": {
+          "api_base": "http://localhost:11434"
+        }
       }
     },
     {
@@ -513,6 +516,73 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "config": {}
     }
   ]
+}
+```
+
+### Example 4: High-Concurrency Pipeline with HuggingFace
+
+```json
+{
+  "flow_name": "Scalability Test - HuggingFace Local",
+  "description": "High-concurrency pipeline using native HuggingFace local inference",
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_local",
+      "config": {
+        "paths": "/data/documents",
+        "include_filter": "txt,pdf",
+        "max_files": 10000
+      }
+    },
+    {
+      "name": "extract",
+      "type": "extract_operator",
+      "depends_on": ["ingest"],
+      "config": {
+        "text_extraction_mode": "docling_library"
+      }
+    },
+    {
+      "name": "chunk",
+      "type": "chunker",
+      "depends_on": ["extract"],
+      "config": {
+        "chunk_type": "simple",
+        "chunk_size": 4000,
+        "chunk_overlap": 300
+      }
+    },
+    {
+      "name": "embed",
+      "type": "embeddings",
+      "depends_on": ["chunk"],
+      "config": {
+        "provider": "huggingface",
+        "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+        "provider_config": {
+          "use_local": true,
+          "device": "cpu",
+          "batch_size": 16
+        }
+      }
+    },
+    {
+      "name": "store",
+      "type": "vectordb",
+      "depends_on": ["embed"],
+      "config": {
+        "provider": "opensearch",
+        "index_name": "documents",
+        "vector_dimension": 384
+      }
+    }
+  ],
+  "global_config": {
+    "enable_micro_batching": true,
+    "micro_batch_size": 10,
+    "max_concurrent_batches": 600
+  }
 }
 ```
 

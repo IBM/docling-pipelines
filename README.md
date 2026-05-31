@@ -1329,11 +1329,11 @@ DATASIFT_POSTGRES_PASSWORD=your_password  # Required for postgresql backend
 
 ### Embeddings Operator Setup
 
-The [`EmbeddingsOperator`](src/datasift/core/operators/functional/embeddings/embeddings_operator.py) supports multiple embeddings providers: **Ollama** (local), **HuggingFace**, **LiteLLM** (multi-provider), and **Watsonx** (IBM watsonx.ai).
+The [`EmbeddingsOperator`](src/datasift/core/operators/functional/embeddings/embeddings_operator.py) supports multiple embeddings providers: **HuggingFace** (native local/API), **LiteLLM** (100+ providers including Ollama), and **Watsonx** (IBM watsonx.ai).
 
 > **Provider Options**: For detailed configuration of HuggingFace, LiteLLM, or Watsonx providers, see the [Embeddings README](src/datasift/core/operators/functional/embeddings/README.md).
 
-The following steps show Ollama setup as the recommended local option:
+The following steps show Ollama setup via LiteLLM as a recommended local option:
 
 #### Step 1 — Install Ollama
 

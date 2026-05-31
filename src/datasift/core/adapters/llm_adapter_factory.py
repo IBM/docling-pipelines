@@ -13,6 +13,7 @@ Supports two providers:
 import logging
 from typing import Any, ClassVar
 
+from datasift.core.adapters.huggingface import HuggingFaceAdapter
 from datasift.core.adapters.litellm import LiteLLMAdapter
 from datasift.core.adapters.watsonx import WatsonXAdapter
 from datasift.core.ports.llm_embedding_port import LLMEmbeddingPort
@@ -25,12 +26,13 @@ logger = logging.getLogger(__name__)
 class LLMAdapterFactory:
     """Factory for creating LLM adapters across all capabilities.
 
-    This factory supports two providers:
+    This factory supports three providers:
     - WatsonX: IBM watsonx.ai models for inference, embeddings, and text detection
     - LiteLLM: Unified interface for 100+ LLM providers including:
       * Ollama (via OpenAI-compatible API with model prefix 'openai/')
-      * HuggingFace (via API with model prefix 'huggingface/')
+      * HuggingFace API (via API with model prefix 'huggingface/')
       * OpenAI, Anthropic, Cohere, AWS Bedrock, Google Vertex AI, and 90+ more
+    - HuggingFace: Direct HuggingFace support with local model inference or API
 
     Each provider has a single consolidated adapter that provides all capabilities.
     """
@@ -39,7 +41,7 @@ class LLMAdapterFactory:
     INFERENCE_PROVIDERS: ClassVar[set[str]] = {"watsonx", "litellm"}
 
     # Supported providers for embeddings
-    EMBEDDING_PROVIDERS: ClassVar[set[str]] = {"watsonx", "litellm"}
+    EMBEDDING_PROVIDERS: ClassVar[set[str]] = {"watsonx", "litellm", "huggingface"}
 
     # Supported providers for text detection
     TEXT_DETECTION_PROVIDERS: ClassVar[set[str]] = {"watsonx"}
@@ -146,11 +148,18 @@ class LLMAdapterFactory:
                 }
             )
 
-            # LiteLLM with HuggingFace
+            # LiteLLM with HuggingFace API
             adapter = LLMAdapterFactory.create_embedding_adapter(
                 provider="litellm",
                 model_id="huggingface/sentence-transformers/all-MiniLM-L6-v2",
                 provider_config={"api_key": "your-hf-api-key"}  # pragma: allowlist secret
+            )
+
+            # HuggingFace with local models
+            adapter = LLMAdapterFactory.create_embedding_adapter(
+                provider="huggingface",
+                model_id="sentence-transformers/all-MiniLM-L6-v2",
+                provider_config={"use_local": True, "device": "cpu"}
             )
 
             # LiteLLM with Ollama
@@ -187,6 +196,14 @@ class LLMAdapterFactory:
                 model_name=model_id,
                 api_key=provider_config.get("api_key"),
                 api_base=provider_config.get("api_base"),
+            )
+        elif provider == "huggingface":
+            return HuggingFaceAdapter(
+                model_name=model_id,
+                use_local=provider_config.get("use_local", True),
+                api_token=provider_config.get("api_token") or provider_config.get("api_key"),
+                device=provider_config.get("device"),
+                batch_size=provider_config.get("batch_size", 32),
             )
         else:
             raise ValueError(f"Provider '{provider}' not yet implemented for embeddings")

@@ -1416,10 +1416,9 @@ Message code: EMBEDDINGS_INVALID_TYPE
 
 **Valid embeddings types:**
 
-- `ollama`: Use Ollama for embeddings
-- `huggingface`: Use HuggingFace embedding models
-- `litellm`: Use LiteLLM-managed embedding providers
-- `watsonx`: Use the native IBM watsonx adapter
+- `huggingface`: Native HuggingFace local or API embeddings
+- `litellm`: LiteLLM-managed embedding providers (100+ including Ollama, HuggingFace API, OpenAI, etc.)
+- `watsonx`: Native IBM watsonx.ai adapter
 
 **Solution:**
 
