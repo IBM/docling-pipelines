@@ -68,7 +68,7 @@ Before creating custom operators, ensure you have:
 - ✅ **PyArrow familiarity**: Understanding of PyArrow tables (basic level)
 - ✅ **datasift experience**: Successfully run at least one datasift flow
 
-**New to datasift?** Complete the [USER_GUIDE_PIPELINE_SETUP.md](USER_GUIDE_PIPELINE_SETUP.md) first to understand the basics of flows and operators.
+**New to datasift?** Complete the [USER_GUIDE_PIPELINE_SETUP.md](../USER_GUIDE_PIPELINE_SETUP.md) first to understand the basics of flows and operators.
 
 ---
 
