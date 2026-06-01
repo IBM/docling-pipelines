@@ -823,11 +823,11 @@ def test_determine_execution_status_mixed_failures_and_skips(basic_litellm_confi
 def test_transform_sets_correct_status_on_all_failures(basic_litellm_config):
     """Test that transform method sets FAILED status when all documents fail."""
 
-    # Create test table
+    # Create test table with supported file extensions
     table = pa.table(
         {
             "id": ["doc1", "doc2"],
-            "name": ["test1.txt", "test2.txt"],
+            "name": ["test1.pdf", "test2.pdf"],
             "content": ["Test content 1", "Test content 2"],
         }
     )
@@ -852,7 +852,7 @@ def test_transform_sets_correct_status_on_all_failures(basic_litellm_config):
 def test_transform_sets_correct_status_on_partial_failures(basic_litellm_config):
     """Test that transform method sets COMPLETED_WITH_ERRORS status when some documents fail."""
 
-    # Create test table
+    # Create test table with supported file extensions
     table = pa.table(
         {
             "id": ["doc1", "doc2"],
@@ -886,7 +886,7 @@ def test_transform_sets_correct_status_on_partial_failures(basic_litellm_config)
 def test_transform_sets_correct_status_on_success(basic_litellm_config):
     """Test that transform method sets COMPLETED status when all documents succeed."""
 
-    # Create test table
+    # Create test table with supported file extensions
     table = pa.table(
         {
             "id": ["doc1", "doc2"],

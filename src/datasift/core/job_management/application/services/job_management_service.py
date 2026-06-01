@@ -4,7 +4,7 @@ JobManagementService - High-level API for job management operations.
 This service provides API-level operations for managing job runs,
 coordinating between JobStatsService and JobRunManager.
 """
-
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -310,14 +310,12 @@ class JobManagementService:
             flow_executor.execute(orchestrator=orchestrator, params=params)
             logger.info(f"Completed async flow execution for job_run_id={job_run_id}")
         except Exception as exc:
-            # Log detailed error information
-            error_details = str(exc)
-            if hasattr(exc, "errors") and getattr(exc, "errors", None):
-                error_details = f"{exc}\nValidation Errors: {exc.errors}"
-            if hasattr(exc, "warnings") and getattr(exc, "warnings", None):
-                error_details = f"{error_details}\nWarnings: {exc.warnings}"
+            tb_lines = traceback.format_exception(type(exc), exc, exc.__traceback__)
+            full_traceback = "".join(tb_lines)
 
-            logger.error(f"Async flow execution failed for job_run_id={job_run_id}: {error_details}", exc_info=True)
+            # Logging traceback as prefect consumes stacktrace
+
+            logger.error(f"Async flow execution failed for job_run_id={job_run_id}: {full_traceback}", exc_info=True)
             try:
                 # Update status to Failed
                 logger.info(f"Updating job run status to Failed: job_run_id={job_run_id}")

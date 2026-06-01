@@ -7,26 +7,33 @@ from typing import ClassVar, TypedDict
 
 
 def _find_project_root() -> Path:
-    """Find project root by searching upward for marker files.
+    """Find project root by searching upward for datasift package structure.
 
-    Prioritizes .git directory as the most reliable indicator of project root,
-    since pyproject.toml may exist in subdirectories (like backend/).
+    Looks for directories containing integrations/, storage/, and core/
+    which indicates the datasift package root, then returns two levels up
+    to get the actual project root.
+
+    Returns:
+        Path: Project root directory containing datasift-config.yaml
+
+    Examples:
+        Container: /opt/app-root/src/datasift -> /opt/app-root
+        Local: /path/to/project/src/datasift -> /path/to/project
     """
     current = Path(__file__).resolve()
-
-    # Search upward for marker files - prioritize .git as it's at true project root
+    # Search upward for datasift package structure
     for parent in [current, *list(current.parents)]:
-        # .git is the most reliable indicator of project root
-        if (parent / ".git").exists():
-            return parent
-
-    # Fallback: look for README.md or other root-level files
-    for parent in [current, *list(current.parents)]:
-        if (parent / "README.md").exists() and (parent / "src").exists():
-            return parent
+        # Check if this directory has the datasift package structure
+        if (
+            (parent / "integrations").exists()
+            and (parent / "storage").exists()
+            and (parent / "core").exists()
+        ):
+            # Return two levels up: datasift -> src -> project_root
+            return parent.parent.parent
 
     # Last resort: use fixed parent count
-    # constants.py -> common -> backend -> datasift_opensource -> src -> project_root
+    # constants.py -> constants -> core -> datasift -> src -> project_root
     return Path(__file__).resolve().parents[5]
 
 
