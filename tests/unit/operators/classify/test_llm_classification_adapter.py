@@ -26,7 +26,7 @@ class TestClassificationService:
             provider_name="litellm",
             provider_config={
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         )
         assert service.model_id == "openai/llama3.2:latest"
@@ -101,7 +101,7 @@ class TestClassificationService:
             provider_name="litellm",
             provider_config={
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         )
         request = ClassificationRequest(
@@ -187,7 +187,7 @@ class TestClassificationService:
             provider_name="litellm",
             provider_config={
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         )
         request = ClassificationRequest(
@@ -224,7 +224,7 @@ class TestClassificationService:
             provider_name="litellm",
             provider_config={
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         )
         request = ClassificationRequest(
@@ -261,7 +261,7 @@ class TestClassificationService:
             provider_name="litellm",
             provider_config={
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         )
         request = ClassificationRequest(
@@ -284,7 +284,7 @@ class TestClassificationService:
             provider_name="litellm",
             provider_config={
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
             temperature=0.5,
             max_tokens=1000,
@@ -324,7 +324,7 @@ class TestClassificationService:
             provider_name="litellm",
             provider_config={
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         )
         service.cleanup()  # Should not raise
@@ -349,7 +349,7 @@ class TestClassificationService:
             provider_name="litellm",
             provider_config={
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         )
 
@@ -402,7 +402,7 @@ class TestClassificationService:
             model_id="openai/llama3",
             provider_name="litellm",
             provider_config={
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         )
 

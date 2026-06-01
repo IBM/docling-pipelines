@@ -49,6 +49,21 @@ class DocumentClassifierOperator(AbstractOperator):
       * classification_confidence (optional): Confidence score (1-10)
       * classification_reasoning (optional): Explanation
 
+    Attributes:
+        provider (str): LLM provider (litellm or watsonx)
+        provider_config (dict): Provider-specific configuration
+            - model_id (str): Model identifier for the provider
+            - api_base (str): API endpoint URL
+            - api_key (str): Authentication key
+            - temperature (float): Sampling temperature (optional)
+            - max_tokens (int): Maximum tokens for response (optional)
+        document_types (list or dict): Document types to classify into
+        confidence_threshold (float): Minimum confidence score (1-10)
+        doc_column (str): Column containing document content
+        output_column (str): Column name for classification result
+        include_confidence (bool): Include confidence score in output
+        include_reasoning (bool): Include reasoning explanation in output
+
     Example Configuration:
         # LiteLLM provider (default configuration)
         {
@@ -140,12 +155,13 @@ class DocumentClassifierOperator(AbstractOperator):
                 "Example: provider='litellm', provider_config={'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'}"  # pragma: allowlist secret
             )
 
-        self.model_id: str | None = config.get(
-            OperatorConstants.Config.MODEL_ID, OperatorConstants.Classification.DEFAULT_MODEL
-        )
-
         # Get provider config - required for litellm provider
         self.provider_config: dict[str, Any] = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        # Get model_id from provider_config (new nested structure)
+        self.model_id: str | None = self.provider_config.get(
+            OperatorConstants.Config.MODEL_ID, OperatorConstants.Classification.DEFAULT_MODEL
+        )
 
         # Validate provider_config is provided for litellm
         if self.provider == OperatorConstants.Classification.PROVIDER_LITELLM and not self.provider_config:
@@ -205,7 +221,7 @@ class DocumentClassifierOperator(AbstractOperator):
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
-        Validate operator configuration and dependencies.
+        Validate operator configuration and dependencies using generic metadata introspection.
 
         Args:
             errors: List to append error messages to
@@ -213,6 +229,15 @@ class DocumentClassifierOperator(AbstractOperator):
             available_features: List of features available from previous operators
         """
         super().validate(errors, warnings, available_features)
+
+        # Import validation helper
+        from datasift.utils.operators.config_validation import validate_config_from_metadata
+
+        # Get the ATTRIBUTES metadata for this operator
+        attributes = self.get_metadata().get(OperatorConstants.Config.ATTRIBUTES, {})
+
+        # Use generic validation helper
+        validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
         # Validate provider using LLMAdapterFactory
         if self.should_validate_field(field_value=self.provider):
@@ -225,9 +250,6 @@ class DocumentClassifierOperator(AbstractOperator):
                 supported_providers = LLMAdapterFactory.get_supported_providers(capability="inference")
                 if self.provider not in supported_providers:
                     errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
-
-        # Note: Provider-specific parameter validation (model_id, api_base, etc.) is handled
-        # by the adapters themselves during initialization, following hexagonal architecture
 
         # Validate document types
         if self.should_validate_field(field_value=self.document_types):
@@ -717,21 +739,29 @@ class DocumentClassifierOperator(AbstractOperator):
                 },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "Provider-specific configuration dictionary. "
-                        "Default for litellm: {'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'} (Ollama via OpenAI-compatible API). "  # pragma: allowlist secret
-                        "For watsonx: {'api_base': 'https://...', 'container_kind': 'project', 'request_timeout': 120}. "
-                        "Security: api_key and container_id MUST be set via environment variables WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config)."
-                    ),
-                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                    OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                },
-                OperatorConstants.Config.MODEL_ID: {
-                    OperatorConstants.Misc.NAME: "Model ID",
-                    OperatorConstants.Config.DESCRIPTION: "Model identifier in <provider>/<model_id> format for the selected provider. Default: 'openai/granite3.1-dense:8b' for Ollama via OpenAI-compatible API",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: OperatorConstants.Classification.DEFAULT_MODEL,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                    OperatorConstants.Config.PROPERTIES: {
+                        OperatorConstants.Config.MODEL_ID: {
+                            OperatorConstants.Misc.NAME: "Model ID",
+                            OperatorConstants.Config.DESCRIPTION: "Model identifier for the provider",
+                            OperatorConstants.Config.REQUIRED: True,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.API_BASE: {
+                            OperatorConstants.Misc.NAME: "API Base URL",
+                            OperatorConstants.Config.DESCRIPTION: "API endpoint URL",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.API_KEY: {
+                            OperatorConstants.Misc.NAME: "API Key",
+                            OperatorConstants.Config.DESCRIPTION: "Authentication key",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                    },
                 },
                 OperatorConstants.Config.DOCUMENT_TYPES: {
                     OperatorConstants.Misc.NAME: "Document Types",

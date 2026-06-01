@@ -223,7 +223,7 @@ The job stats implementation follows a ports-and-adapters design:
   - [`JobTrackerService`](src/datasift/core/job_management/adapters/services/job_tracker_service.py) is the production implementation of [`JobStatsService`](src/datasift/core/job_management/domain/ports/job_stats_service.py).
   - Storage adapters include JSON, in-memory, DuckDB, and PostgreSQL implementations created by [`JobManagementFactory`](src/datasift/core/job_management/adapters/config/job_management_factory.py).
 
-This runtime path does **not** depend on legacy job tracking utilities. The active job stats path uses the new `core/job_management` module.
+The active job stats path uses the new `core/job_management` module.
 
 ### Persistence and Aggregation Split
 
@@ -627,8 +627,12 @@ DataSift uses two distinct representations:
       "type": "extract_operator",
       "depends_on": ["ingest_local_folder"],
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none"
+        "text_extraction": {
+          "provider": "docling_library"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
       }
     }
   ],
@@ -1602,14 +1606,15 @@ graph TB
 {
   "operator_type": "ExtractOperator",
   "operator_params": {
-    "entity_extraction_provider": "watsonx",
-    "model_name": "ibm/granite-13b-chat-v2",
-    "provider_config": {
-      "api_base": "https://us-south.ml.cloud.ibm.com",
-      "container_kind": "project",
-      "request_timeout": 60
-    },
-    "custom_schema": {
+    "entity_extraction": {
+      "provider": "watsonx",
+      "provider_config": {
+        "model_id": "ibm/granite-13b-chat-v2",
+        "api_base": "https://us-south.ml.cloud.ibm.com",
+        "container_kind": "project",
+        "request_timeout": 60
+      },
+      "custom_schema": {
       "invoice_number": "string",
       "total_amount": "float"
     }
@@ -1697,7 +1702,7 @@ The OpenSearch adapter supports a flexible schema template system that enables r
 
 #### Schema Template System
 
-**Purpose**: Provide consistent, reusable OpenSearch index schemas across different pipelines while maintaining backward compatibility with dynamic schema generation.
+**Purpose**: Provide consistent, reusable OpenSearch index schemas across different pipelines.
 
 **Key Features**:
 
@@ -2280,11 +2285,11 @@ LiteLLM with OpenAI:
 ```json
 {
   "provider": "litellm",
-  "model_id": "openai/text-embedding-3-small",
-  "embeddings_column": "embeddings",
   "provider_config": {
+    "model_id": "openai/text-embedding-3-small",
     "api_key": "${OPENAI_API_KEY}"
-  }
+  },
+  "embeddings_column": "embeddings"
 }
 ```
 
@@ -2292,11 +2297,11 @@ LiteLLM with Ollama (via openai/ prefix):
 ```json
 {
   "provider": "litellm",
-  "model_id": "openai/nomic-embed-text",
-  "embeddings_column": "embeddings",
   "provider_config": {
+    "model_id": "openai/nomic-embed-text",
     "api_base": "http://localhost:11434"
-  }
+  },
+  "embeddings_column": "embeddings"
 }
 ```
 
@@ -2304,11 +2309,11 @@ LiteLLM with HuggingFace API (via huggingface/ prefix):
 ```json
 {
   "provider": "litellm",
-  "model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2",
-  "embeddings_column": "embeddings",
   "provider_config": {
+    "model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2",
     "api_key": "${HUGGINGFACE_API_KEY}"
-  }
+  },
+  "embeddings_column": "embeddings"
 }
 ```
 
@@ -2330,14 +2335,14 @@ Watsonx (IBM Cloud):
 ```json
 {
   "provider": "watsonx",
-  "model_id": "ibm/slate-125m-english-rtrvr",
-  "embeddings_column": "embeddings",
   "provider_config": {
+    "model_id": "ibm/slate-125m-english-rtrvr",
     "api_key": "${WATSONX_API_KEY}",
     "api_base": "${WATSONX_API_BASE}",
-    "container_id": "${WATSONX_CONTAINER_ID}",
+    "container_id": "${WATSONX_PROJECT_ID}",
     "container_kind": "project"
-  }
+  },
+  "embeddings_column": "embeddings"
 }
 ```
 
@@ -2444,7 +2449,7 @@ graph TB
 - `docling_serve`: Remote extraction via Docling Serve API with OCR support
 
 **Entity Extraction:**
-- `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, Ollama via openai/ prefix, etc.)
+- `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, Ollama via openai/ prefix, etc.). **Note:** `model_id` must include provider prefix (e.g., `openai/llama3.2`, `anthropic/claude-3-opus`)
 - `watsonx`: IBM WatsonX.ai extraction (uses same LLMEntityAdapter as litellm)
 - `docling`: Template-based extraction using Docling templates
 - `none`: No entity extraction (default)
@@ -2455,15 +2460,21 @@ graph TB
 {
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "entity_model_id": "openai/llama3.2",
-    "entity_provider_config": {
-      "api_base": "http://localhost:11434/v1"
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "extract_tables": true,
+        "extract_images": false
+      }
     },
-    "doc_column": "content",
-    "extract_tables": true,
-    "extract_images": false
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1"
+      }
+    }
   }
 }
 ```
@@ -2511,10 +2522,10 @@ graph TB
 **Supported Providers:**
 
 - **Docling Library (Local)**: Local document processing and chunking using the Docling library
-  - Used by ExtractOperator with `text_extraction_provider: "docling_library"` for document parsing
+  - Used by ExtractOperator with `text_extraction.provider: "docling_library"` for document parsing
   - Used by Chunker operator with `provider: "docling_library"` for local Hybrid chunking
 - **Docling-serve (Remote)**: Remote extraction and chunking via docling-serve API
-  - Used by ExtractOperator with `text_extraction_provider: "docling_serve"` for distributed extraction
+  - Used by ExtractOperator with `text_extraction.provider: "docling_serve"` for distributed extraction
   - Used by Chunker operator with `provider: "docling_serve"` for distributed Hybrid chunking
   - Enables offloading computation to dedicated service
   - Only supports Hybrid chunking strategy for Chunker
@@ -2597,8 +2608,8 @@ graph LR
   "operator_type": "DocumentClassifier",
   "operator_params": {
     "provider": "litellm",
-    "model_id": "openai/gpt-4o-mini",
     "provider_config": {
+      "model_id": "openai/gpt-4o-mini",
       "api_key": "${OPENAI_API_KEY}"
     },
     "document_types": {
@@ -2742,8 +2753,9 @@ graph TB
   "config": {
     "provider": "watsonx",
     "provider_config": {
+      "model_id": "ibm/granite-13b-chat-v2",
       "api_key": "your-ibm-cloud-api-key",  # pragma: allowlist secret
-      "url": "https://us-south.ml.cloud.ibm.com",
+      "api_base": "https://us-south.ml.cloud.ibm.com",
       "container_id": "your-project-id",
       "container_kind": "project",
       "timeout": 300
@@ -2759,8 +2771,8 @@ graph TB
   "operator": "core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator",
   "config": {
     "provider": "litellm",
-    "model_name": "gpt-4",
     "provider_config": {
+      "model_id": "openai/gpt-4",
       "api_key": "sk-..."  # pragma: allowlist secret
     }
   }
@@ -3329,7 +3341,6 @@ The Document Set operator follows hexagonal architecture (ports and adapters pat
 }
 ```
 
-**Note**: The `metadata_backend` parameter is deprecated. Metadata storage is now controlled by `storage_type` in `global_config`.
 
 #### Entry Points
 
@@ -4502,7 +4513,6 @@ Operators are organized by category (defined in `OperatorCategory` enum):
     - **SummarizationService**: Dedicated service encapsulating summarization business logic (prompt engineering, response parsing, sliding window processing)
     - **Multi-Provider Support**: Uses shared LLM infrastructure (LiteLLM, Watsonx.ai) via `LLMInferencePort`
     - **Hexagonal Architecture**: Service depends on `LLMInferencePort` interface, implemented by `LiteLLMInferenceAdapter` and `WatsonXInferenceAdapter`
-    - **Backward Compatibility**: Maintains support for legacy Ollama-only configurations (auto-converted to LiteLLM)
     - **Lazy Initialization**: Service created during `transform()` for optimal resource usage
 - **DocIdHash**: Document ID generation (internal operator)
 - **EntityCurationOperator**: Schema-based entity transformation with 9 built-in transformations (currency, date, number parsing)

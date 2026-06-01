@@ -134,7 +134,7 @@ The authoring format is a simplified JSON structure for defining DataSift flows 
       "type": "extract_operator",
       "depends_on": ["ingest_docs"],
       "config": {
-        "text_extraction_provider": "docling_library"
+        "text_extraction": {"provider": "docling_library"}
       }
     }
   ],
@@ -375,11 +375,15 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "extract_operator",
       "depends_on": ["ingest_pdfs"],
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "entity_model_id": "openai/llama3.2",
-        "entity_provider_config": {
-          "api_base": "http://localhost:11434/v1"
+        "text_extraction": {
+          "provider": "docling_library"
+        },
+        "entity_extraction": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/llama3.2",
+            "api_base": "http://localhost:11434/v1"
+          }
         }
       }
     }
@@ -411,7 +415,7 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_provider": "docling_library"
+        "text_extraction": {"provider": "docling_library"}
       }
     },
     {
@@ -486,13 +490,17 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "extract_operator",
       "depends_on": ["classify.invoices"],
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "entity_model_id": "openai/llama3.2",
-        "entity_provider_config": {
-          "api_base": "http://localhost:11434/v1"
+        "text_extraction": {
+          "provider": "docling_library"
         },
-        "extraction_template": "invoice_template"
+        "entity_extraction": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/llama3.2",
+            "api_base": "http://localhost:11434/v1"
+          },
+          "custom_schema": "invoice_template"
+        }
       }
     },
     {
@@ -500,13 +508,17 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "extract_operator",
       "depends_on": ["classify.contracts"],
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "entity_model_id": "openai/llama3.2",
-        "entity_provider_config": {
-          "api_base": "http://localhost:11434/v1"
+        "text_extraction": {
+          "provider": "docling_library"
         },
-        "extraction_template": "contract_template"
+        "entity_extraction": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/llama3.2",
+            "api_base": "http://localhost:11434/v1"
+          },
+          "custom_schema": "contract_template"
+        }
       }
     },
     {
@@ -540,7 +552,9 @@ curl -X POST "http://localhost:8000/api/v1/flows?is_elyra=true" \
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_mode": "docling_library"
+        "text_extraction": {
+          "provider": "docling_library"
+        }
       }
     },
     {

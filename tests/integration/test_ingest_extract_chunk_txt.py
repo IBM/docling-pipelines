@@ -53,11 +53,13 @@ class TestIngestExtractChunkTxtIntegration:
         # Step 2: Extract content using unified ExtractOperator (docling_library mode)
         print("\n=== Step 2: Extracting content from .txt files ===")
         extract_config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
-            "doc_column": "doc_content",
-            "extract_tables": False,  # No tables in .txt files
-            "extract_images": False,  # No images in .txt files
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "doc_content",
+                "extract_tables": False,  # No tables in .txt files
+                "extract_images": False,  # No images in .txt files
+            },
+            "entity_extraction": {"provider": "none"},
         }
 
         extract_operator = ExtractOperator(config=extract_config)
@@ -164,11 +166,13 @@ class TestIngestExtractChunkTxtIntegration:
 
         # Step 2: Extract content using unified ExtractOperator
         extract_config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
-            "doc_column": "doc_content",
-            "extract_tables": True,
-            "extract_images": True,
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "doc_content",
+                "extract_tables": True,
+                "extract_images": True,
+            },
+            "entity_extraction": {"provider": "none"},
         }
 
         extract_operator = ExtractOperator(config=extract_config)
@@ -220,9 +224,8 @@ def test_basic_txt_integration():
     ingest_tables, _ = ingest_op.transform(None)
 
     extract_config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "doc_content",
+        "text_extraction": {"provider": "docling_library", "doc_column": "doc_content"},
+        "entity_extraction": {"provider": "none"},
     }
 
     extract_op = ExtractOperator(config=extract_config)

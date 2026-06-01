@@ -142,7 +142,6 @@ class DatasiftConstants:
     LANGUAGE_CODE = "language_code"
     SCRIPT_CODE = "script_code"
     SCRIPT_LABEL = "script_label"
-    ENABLE_SUMMARIZATION_KEY = "enable_summarization"
     SUMMARY_MODEL_ID_KEY = "summarization_model_id"
     MAX_INPUT_TOKENS_DEFAULT = 8000
     OVERLAP_RATIO_DEFAULT = 0.2

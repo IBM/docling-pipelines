@@ -23,20 +23,28 @@
       "name": "extract",
       "type": "extract_operator",
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "doc_column": "content",
-        "entity_model_id": "granite4",
-        "max_doc_chars": 8000,
-        "entity_temperature": 0.0,
-        "expand_extracted_data": true,
-        "custom_schema": {
-          "columns": {
-            "vendor_name": "string",
-            "invoice_date": "string",
-            "invoice_number": "string",
-            "total_amount": "float",
-            "grand_total": "float"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/granite4",
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "<ollama_key>",
+            "temperature": 0.0
+          },
+          "max_doc_chars": 8000,
+          "expand_extracted_data": true,
+          "custom_schema": {
+            "columns": {
+              "vendor_name": "string",
+              "invoice_date": "string",
+              "invoice_number": "string",
+              "total_amount": "float",
+              "grand_total": "float"
+            }
           }
         }
       },
@@ -90,7 +98,7 @@
           "host": "localhost",
           "port": 9200,
           "username": "admin",
-          "password": "MyStrongPass123!", # pragma: allowlist secret
+          "password": "<MyStrongPass123!>",
           "use_ssl": false,
           "verify_certs": false,
           "engine": "faiss",

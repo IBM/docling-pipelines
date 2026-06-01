@@ -65,6 +65,23 @@ class PIIAndHAPAnnotator(AbstractOperator):
 
     This operator uses local LLM models (via Ollama/WatsonX/LiteLLM APIs)
     for both PII and HAP detection.
+
+    Attributes:
+        provider (str): Detection provider (watsonx or litellm)
+        provider_config (dict): Provider-specific configuration
+            - model_id (str): Model identifier for the provider
+            - api_base (str): API endpoint URL (for litellm)
+            - api_key (str): Authentication key
+        doc_column_name (str): Column containing document content
+        redaction (bool): Enable PII redaction
+        redaction_character (str): Character used to mask PII
+        hap_redaction (bool): Enable HAP redaction
+        hap_redaction_character (str): Character used to mask HAP
+        pii_threshold (float): Confidence threshold for PII detection (0.0-1.0)
+        hap_threshold (float): Confidence threshold for HAP detection (0.0-1.0)
+        display_pii (bool): Include actual PII values in output for debugging
+        pii_list (list): List of PII types to detect/redact
+        expected_redactions (set): Set of redactions to perform
     """
 
     short_name: str = "pii_and_hap"
@@ -106,7 +123,6 @@ class PIIAndHAPAnnotator(AbstractOperator):
             ),
             # Detection configuration
             ("provider", PROVIDER, PROVIDER_DEFAULT),
-            ("model_name", OperatorConstants.Config.MODEL_NAME, "granite4"),
             # Redaction configuration
             (
                 "redaction",
@@ -160,6 +176,11 @@ class PIIAndHAPAnnotator(AbstractOperator):
         # Apply all configurations
         for attr_name, config_key, default_value in config_mappings:
             setattr(self, attr_name, config.get(config_key, default_value))
+
+        # Read model_name directly from provider_config
+        self.model_name = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}).get(
+            OperatorConstants.Config.MODEL_ID, "granite4"
+        )
 
         # Normalize expected_redactions to lowercase set for O(1) lookups
         self.expected_redactions = {r.lower() for r in self.expected_redactions}
@@ -381,23 +402,32 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     OperatorConstants.Config.VALID_VALUES: [PROVIDER_WATSONX, PROVIDER_LITELLM],
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.Config.MODEL_NAME: {
-                    OperatorConstants.Misc.NAME: "Model Name",
-                    OperatorConstants.Config.DESCRIPTION: "Model name used by the selected provider",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "granite4",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
                 OperatorConstants.Config.PROVIDER_CONFIG: {
                     OperatorConstants.Misc.NAME: "Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "Provider-specific configuration dictionary. "
-                        "For WatsonX: {'api_key': '...', 'url': '...', 'container_kind': '...', 'container_id': '...'}. "
-                        "For LiteLLM: {'base_url': '...', 'api_key': '...'}."
-                    ),
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: {},
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROPERTIES: {
+                        OperatorConstants.Config.MODEL_ID: {
+                            OperatorConstants.Misc.NAME: "Model ID",
+                            OperatorConstants.Config.DESCRIPTION: "Model identifier for the provider",
+                            OperatorConstants.Config.REQUIRED: True,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.API_BASE: {
+                            OperatorConstants.Misc.NAME: "API Base URL",
+                            OperatorConstants.Config.DESCRIPTION: "API endpoint URL",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.API_KEY: {
+                            OperatorConstants.Misc.NAME: "API Key",
+                            OperatorConstants.Config.DESCRIPTION: "Authentication key",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                    },
                 },
             },
         }
@@ -673,6 +703,8 @@ class PIIAndHAPAnnotator(AbstractOperator):
         return [table], metadata
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        from datasift.utils.operators.config_validation import validate_config_from_metadata
+
         super().validate(errors, warnings, available_features)
 
         if self.should_validate_field(field_value=self.expected_redactions):
@@ -690,6 +722,11 @@ class PIIAndHAPAnnotator(AbstractOperator):
                     f"'{self.pii_list}' have values which are not supported. "
                     f"Please use values from {DEFAULT_PII_TYPES_OF_CONCERN}."
                 )
+
+        # Use generic validation for provider_config
+        metadata = self.get_metadata()
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
+        validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
         # Validate provider-specific requirements from provider_config
         if self.should_validate_field(field_value=self.provider_config):

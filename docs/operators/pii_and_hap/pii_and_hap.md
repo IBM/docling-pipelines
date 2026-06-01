@@ -128,7 +128,7 @@ The operator implements a service-based architecture that wraps common infrastru
     "provider": "watsonx",
     "provider_config": {
       "api_key": "${WATSONX_API_KEY}",
-      "url": "https://us-south.ml.cloud.ibm.com",
+      "api_base": "https://us-south.ml.cloud.ibm.com",
       "container_id": "your-project-id",
       "container_kind": "project"
     }
@@ -215,7 +215,7 @@ Optional (when display_pii=true):
 
 #### WatsonX
 - `api_key`: IBM Cloud API key (required)
-- `url`: WatsonX.ai service URL (required)
+- `api_base`: WatsonX.ai service URL (required)
 - `container_id`: Project/Space/Catalog ID (required)
 - `container_kind`: "project", "space", or "catalog" (required)
 - `timeout`: Request timeout in seconds (optional, default: 300)
@@ -246,7 +246,9 @@ Optional (when display_pii=true):
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_provider": "docling_library"
+        "text_extraction": {
+          "provider": "docling_library"
+        }
       }
     },
     {
@@ -294,7 +296,9 @@ Optional (when display_pii=true):
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_provider": "docling_library"
+        "text_extraction": {
+          "provider": "docling_library"
+        }
       }
     },
     {
@@ -305,7 +309,7 @@ Optional (when display_pii=true):
         "provider": "watsonx",
         "provider_config": {
           "api_key": "${WATSONX_API_KEY}",
-          "url": "https://us-south.ml.cloud.ibm.com",
+          "api_base": "https://us-south.ml.cloud.ibm.com",
           "container_id": "${WATSONX_PROJECT_ID}",
           "container_kind": "project"
         }

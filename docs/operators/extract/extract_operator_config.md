@@ -30,43 +30,68 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 ### Core Parameters
 
-#### 1. `text_extraction_provider` (String)
-**Type:** String
-**Required:** Yes
-**Default:** `"docling_library"`
-**Description:** Text extraction strategy to use.
-
-**Valid Values:** `docling_library`, `docling_serve`
-
-**Examples:**
-```json
-"text_extraction_provider": "docling_library"
-```
-
-```json
-"text_extraction_provider": "docling_serve"
-```
-
-#### 2. `entity_extraction_provider` (String)
-**Type:** String
+#### 1. `text_extraction` (Object)
+**Type:** JSON Object
 **Required:** No
-**Default:** `"none"`
-**Description:** Entity extraction strategy. Set to enable structured data extraction from documents.
+**Default:** `{}`
+**Description:** Text extraction configuration object containing all text extraction parameters.
 
-**Valid Values:** `litellm`, `watsonx`, `docling`, `none`
-
-**Note:** To use Ollama models, set `entity_extraction_provider` to `"litellm"` and use the `openai/` prefix in `entity_model_id` (e.g., `"openai/llama3.2"`). Configure `entity_provider_config` with `"api_base": "http://localhost:11434/v1"`.
+**Sub-parameters:**
+- `provider` (String): Text extraction strategy (`docling_library`, `docling_serve`)
+- `doc_column` (String): Column name for extracted content
+- `additional_formats` (Array): Additional output formats
+- `extract_tables` (Boolean): Extract tables from documents
+- `extract_images` (Boolean): Extract images from documents
+- `provider_config` (Object): Provider-specific configuration only
+- VLM parameters in `text_extraction.provider_config.vlm_pipeline` (for docling_library mode)
+- Docling Serve parameters in `text_extraction.provider_config` (for docling_serve mode)
 
 **Examples:**
 ```json
-"entity_extraction_provider": "litellm"
+"text_extraction": {
+  "provider": "docling_library",
+  "doc_column": "content",
+  "provider_config": {
+    "extract_tables": true,
+    "extract_images": true
+  }
+}
 ```
 
+#### 2. `entity_extraction` (Object)
+**Type:** JSON Object
+**Required:** No
+**Default:** `{}`
+**Description:** Entity extraction configuration object containing all entity extraction parameters.
+
+**Sub-parameters:**
+- `provider` (String): Entity extraction strategy (`litellm`, `watsonx`, `docling`, `none`)
+- `output_column` (String): Column name for extracted entities
+- `max_doc_chars` (Integer): Maximum document characters passed to entity extraction
+- `custom_schema` (Object): Schema for structured extraction
+- `expand_extracted_data` (Boolean): Expand entities into individual columns
+- `provider_config` (Object): Provider-specific configuration only, including `model_id`
+
+**Note:** To use Ollama models, set `provider` to `"litellm"` and use the `openai/` prefix in `provider_config.model_id` (e.g., `"openai/llama3.2"`). Configure `provider_config.api_base` with `"http://localhost:11434/v1"`.
+
+**Examples:**
 ```json
-"entity_extraction_provider": "none"
+"entity_extraction": {
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/llama3.2",
+    "api_base": "http://localhost:11434/v1"
+  },
+  "output_column": "entities",
+  "max_doc_chars": 8000,
+  "custom_schema": {
+    "invoice_number": "string"
+  },
+  "expand_extracted_data": true
+}
 ```
 
-#### 3. `doc_column` (String)
+#### 3. `text_extraction.doc_column` (String)
 **Type:** String
 **Required:** No
 **Default:** `"content"`
@@ -74,43 +99,55 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 **Examples:**
 ```json
-"doc_column": "content"
+"text_extraction": {
+  "doc_column": "content"
+}
 ```
 
-#### 4. `output_column` (String)
+#### 4. `entity_extraction.output_column` (String)
 **Type:** String
 **Required:** No
 **Default:** `"entities"`
-**Description:** Name of the column to store extracted entities (entity extraction only).
+**Description:** Name of the column to store extracted entities.
 
 **Examples:**
 ```json
-"output_column": "entities"
+"entity_extraction": {
+  "output_column": "entities"
+}
 ```
 
-#### 5. `extract_tables` (Boolean)
-**Type:** Boolean  
-**Required:** No  
-**Default:** `true`  
+#### 5. `text_extraction.provider_config.extract_tables` (Boolean)
+**Type:** Boolean
+**Required:** No
+**Default:** `true`
 **Description:** Whether to extract tables from documents.
 
 **Examples:**
 ```json
-"extract_tables": true
+"text_extraction": {
+  "provider_config": {
+    "extract_tables": true
+  }
+}
 ```
 
-#### 5. `extract_images` (Boolean)
-**Type:** Boolean  
-**Required:** No  
-**Default:** `true`  
+#### 6. `text_extraction.provider_config.extract_images` (Boolean)
+**Type:** Boolean
+**Required:** No
+**Default:** `true`
 **Description:** Whether to extract images from documents.
 
 **Examples:**
 ```json
-"extract_images": false
+"text_extraction": {
+  "provider_config": {
+    "extract_images": false
+  }
+}
 ```
 
-#### 6. `additional_formats` (Array)
+#### 7. `text_extraction.provider_config.additional_formats` (Array)
 **Type:** Array of strings
 **Required:** No
 **Default:** `[]` (empty array - markdown only)
@@ -120,11 +157,19 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 **Examples:**
 ```json
-"additional_formats": ["html", "json"]
+"text_extraction": {
+  "provider_config": {
+    "additional_formats": ["html", "json"]
+  }
+}
 ```
 
 ```json
-"additional_formats": ["html", "json", "text", "doctags"]
+"text_extraction": {
+  "provider_config": {
+    "additional_formats": ["html", "json", "text", "doctags"]
+  }
+}
 ```
 
 **Important Notes:**
@@ -134,7 +179,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 - **Additional formats are only generated for documents processed through Docling** (docling_library or docling_serve modes). Plain text files (.txt, .md) are read directly and will not generate these additional format columns.
 - Only request formats you actually need to minimize memory usage and storage
 
-#### 7. `max_workers` (Integer)
+#### 8. `max_workers` (Integer)
 **Type:** Integer  
 **Required:** No  
 **Default:** Auto (CPU-based)  
@@ -145,7 +190,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 "max_workers": 4
 ```
 
-#### 7. `use_processes` (Boolean)
+#### 9. `use_processes` (Boolean)
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
@@ -158,97 +203,31 @@ The Extract Operator is a unified extraction operator that provides text and ent
 
 ### Entity Extraction Parameters
 
-#### 8. `entity_model_id` (String)
-**Type:** String
-**Required:** No
-**Default:** `"gpt-3.5-turbo"`
-**Description:** LLM model identifier for entity extraction. For LiteLLM with Ollama, use the `openai/` prefix (e.g., 'openai/llama3.2'). For other providers, use standard model names (e.g., 'gpt-4', 'claude-3-opus').
-
-**Examples:**
-```json
-"entity_model_id": "openai/llama3.2"
-```
-
-```json
-"entity_model_id": "gpt-4"
-```
-
-#### 9. `entity_temperature` (Float)
-**Type:** Float  
-**Required:** No  
-**Default:** `0.0`  
-**Description:** Sampling temperature for entity extraction LLM (0.0-1.0). Lower values are more deterministic.
-
-**Examples:**
-```json
-"entity_temperature": 0.0
-```
-
-#### 10. `entity_max_tokens` (Integer)
-**Type:** Integer  
-**Required:** No  
-**Default:** `4096`  
-**Description:** Maximum tokens for entity extraction LLM response.
-
-**Examples:**
-```json
-"entity_max_tokens": 8192
-```
-
-#### 11. `entity_max_doc_chars` (Integer)
-**Type:** Integer  
-**Required:** No  
-**Default:** `8000`  
-**Description:** Maximum characters to pass for entity extraction. Documents longer than this will be truncated.
-
-**Examples:**
-```json
-"entity_max_doc_chars": 10000
-```
-
-#### 12. `entity_provider_config` (JSON)
+#### 10. `entity_extraction.provider_config` (Object)
 **Type:** JSON Object
 **Required:** No
-**Default:** `null`
-**Description:** Provider-specific configuration for entity extraction (e.g., API keys, base URLs).
+**Default:** `{}`
+**Description:** Provider-specific configuration for entity extraction only, including model_id and authentication. Operator-level keys such as `output_column`, `max_doc_chars`, `custom_schema`, and `expand_extracted_data` must be defined directly under `entity_extraction`, not inside `provider_config`.
 
 **For LiteLLM:**
-- `api_key` (String, Required for most providers): API key for authentication
-- `api_base` (String, Optional): Custom API endpoint (e.g., for Ollama or remote vLLM)
-- `stream` (Boolean, Optional): Enable HTTP chunked transfer encoding to keep connections alive during long-running requests (default: false). Recommended for remote vLLM clusters processing large documents.
-- `timeout` (Integer, Optional): HTTP client read timeout in seconds (default: 60). Set to 1800 (30 minutes) for large documents requiring extended generation time.
+- `model_id` (String, Required): Model identifier. **Must include provider prefix when using LiteLLM** (e.g., `"openai/gpt-4"`, `"openai/llama3.2"` for Ollama, `"anthropic/claude-3-opus"`)
+- `api_key` (String, Optional): API key for authentication
+- `api_base` (String, Optional): Custom API endpoint (e.g., `"http://localhost:11434/v1"` for Ollama)
+- `temperature` (Float, Optional): Sampling temperature (default: 0.0)
+- `max_tokens` (Integer, Optional): Maximum response tokens (default: 4096)
+- `stream` (Boolean, Optional): Enable HTTP chunked transfer encoding for streaming responses (default: false). Recommended for remote vLLM clusters processing large documents to prevent connection drops.
+- `timeout` (Integer, Optional): HTTP client read timeout in seconds (default: 300). Set to 1800 (30 minutes) for large documents requiring extended generation time.
 
-**Examples:**
+**For WatsonX:**
+- `model_id` (String, Required): WatsonX model identifier
+- `api_key` (String, Required): IBM Cloud API key
+- `api_base` (String, Optional): WatsonX API endpoint
+- `container_id` (String, Required): Project or space ID
+- `container_kind` (String, Optional): Container type (default: "project")
+- `temperature` (Float, Optional): Sampling temperature (default: 0.0)
+- `max_tokens` (Integer, Optional): Maximum response tokens (default: 2000)
 
-LiteLLM with OpenAI:
-```json
-"entity_provider_config": {
-  "api_key": "sk-...", # pragma: allowlist secret
-  "api_base": "https://api.openai.com/v1"
-}
-```
-
-LiteLLM with Ollama:
-```json
-"entity_provider_config": {
-  "api_base": "http://localhost:11434/v1"
-}
-```
-
-LiteLLM with Remote vLLM (with streaming and extended timeout for large documents):
-```json
-"entity_provider_config": {
-  "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
-  "api_base": "https://your-vllm-route/v1",
-  "stream": true,
-  "timeout": 1800
-}
-```
-
-**Note on Streaming & Extended Timeout:**
-For high-concurrency scenarios with remote vLLM clusters processing large documents, use `stream: true` and `timeout: 1800` to prevent connection drops. This combination ensures continuous packet flow (preventing idle timeout detection) and allows completion of large document processing that may take longer than the default 60-second timeout.
-
-#### 13. `custom_schema` (JSON)
+#### 11. `entity_extraction.custom_schema` (JSON)
 **Type:** JSON Object  
 **Required:** No  
 **Default:** None
@@ -256,14 +235,16 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
 
 **Examples:**
 ```json
-"custom_schema": {
-  "invoice_number": "string",
-  "date": "string",
-  "total_amount": "number"
+"entity_extraction": {
+  "custom_schema": {
+    "invoice_number": "string",
+    "date": "string",
+    "total_amount": "number"
+  }
 }
 ```
 
-#### 14. `expand_extracted_data` (Boolean)
+#### 12. `entity_extraction.expand_extracted_data` (Boolean)
 **Type:** Boolean  
 **Required:** No  
 **Default:** `false`  
@@ -271,200 +252,242 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
 
 **Examples:**
 ```json
-"expand_extracted_data": true
+"entity_extraction": {
+  "expand_extracted_data": true
+}
 ```
 
 ### VLM (Vision-Language Model) Parameters
 
-#### 15. `use_vlm_pipeline` (Boolean)
-**Type:** Boolean  
-**Required:** No  
-**Default:** `false`  
-**Description:** Enable Vision-Language Model for enhanced extraction (docling_library mode only).
+#### 13. `text_extraction.provider_config.vlm_pipeline` (Object)
+**Type:** JSON Object
+**Required:** No
+**Default:** `null`
+**Description:** Provider-specific VLM pipeline configuration for enhanced extraction (docling_library mode only). When provided, enables Vision-Language Model processing.
+
+**Sub-parameters:**
+- `preset` (String): VLM preset name (`fast`, `accurate`, or custom)
+- `engine` (String): VLM engine (`ollama`, `transformers`, `mlx`, `openai`, etc.)
+- `engine_options` (Object): Engine-specific configuration
 
 **Examples:**
 ```json
-"use_vlm_pipeline": true
-```
-
-#### 16. `vlm_preset` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"granite_docling"`  
-**Description:** VLM preset name for document processing (when use_vlm_pipeline=true).
-
-**Examples:**
-```json
-"vlm_preset": "granite_docling"
-```
-
-#### 17. `vlm_engine_type` (String)
-**Type:** String  
-**Required:** No  
-**Default:** None
-**Description:** VLM engine type: 'transformers' (local, default), 'mlx' (macOS optimized), or 'api' (remote API).
-
-**Valid Values:** `transformers`, `mlx`, `api`
-
-**Examples:**
-```json
-"vlm_engine_type": "transformers"
-```
-
-#### 18. `vlm_provider_config` (JSON)
-**Type:** JSON Object  
-**Required:** No  
-**Default:** `null`  
-**Description:** Provider-specific configuration for VLM. Required keys vary by engine type.
-
-**Watsonx Example:**
-```json
-"vlm_provider_config": {
-  "api_key": "...", # pragma: allowlist secret
-  "container_id": "...",
-  "model_id": "...",
-  "api_base_url": "https://..."
+"text_extraction": {
+  "vlm_pipeline": {
+    "preset": "fast",
+    "engine": "ollama",
+    "engine_options": {
+      "api_base": "http://localhost:11434",
+      "model_id": "llama3.2-vision"
+    }
+  }
 }
 ```
 
-**Ollama/LMStudio Example:**
+**Transformers Example:**
 ```json
-"vlm_provider_config": {
-  "api_base_url": "http://localhost:11434"
+"vlm_pipeline": {
+  "preset": "accurate",
+  "engine": "transformers",
+  "engine_options": {
+    "model_id": "microsoft/Florence-2-large"
+  }
 }
 ```
 
 **OpenAI Example:**
 ```json
-"vlm_provider_config": {
-  "api_key": "sk-...", # pragma: allowlist secret
-  "api_base_url": "https://api.openai.com/v1"
+"vlm_pipeline": {
+  "preset": "fast",
+  "engine": "openai",
+  "engine_options": {
+    "api_key": "sk-...", # pragma: allowlist secret
+    "api_base": "https://api.openai.com/v1",
+    "model_id": "gpt-4-vision-preview"
+  }
 }
 ```
 
 ### Docling Serve Parameters
 
-#### 19. `docling_serve_base_url` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"http://localhost:5001"`  
+All Docling Serve parameters should be nested under `text_extraction.provider_config` when using `provider: "docling_serve"`.
+
+#### 14. `text_extraction.provider_config.base_url` (String)
+**Type:** String
+**Required:** No
+**Default:** `"http://localhost:5001"`
 **Description:** Base URL for the docling-serve service (docling_serve mode only).
 
 **Examples:**
 ```json
-"docling_serve_base_url": "http://docling-serve:5001"
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "base_url": "http://docling-serve:5001"
+  }
+}
 ```
 
-#### 20. `docling_serve_api_key` (String)
-**Type:** String  
-**Required:** No  
+#### 15. `text_extraction.provider_config.api_key` (String)
+**Type:** String
+**Required:** No
 **Default:** None
 **Description:** Optional API key sent as X-API-KEY when calling docling-serve.
 
 **Examples:**
 ```json
-"docling_serve_api_key": "your-api-key" # pragma: allowlist secret
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "api_key": "your-api-key" # pragma: allowlist secret
+  }
+}
 ```
 
-#### 21. `docling_serve_timeout` (Integer)
-**Type:** Integer  
-**Required:** No  
-**Default:** `300`  
+#### 16. `text_extraction.provider_config.timeout` (Integer)
+**Type:** Integer
+**Required:** No
+**Default:** `300`
 **Description:** Request timeout in seconds for docling-serve operations.
 
 **Examples:**
 ```json
-"docling_serve_timeout": 600
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "timeout": 600
+  }
+}
 ```
 
-#### 22. `docling_serve_poll_interval` (Integer)
-**Type:** Integer  
-**Required:** No  
-**Default:** `2`  
+#### 17. `text_extraction.provider_config.poll_interval` (Integer)
+**Type:** Integer
+**Required:** No
+**Default:** `2`
 **Description:** Polling interval in seconds when waiting for docling-serve task completion.
 
 **Examples:**
 ```json
-"docling_serve_poll_interval": 5
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "poll_interval": 5
+  }
+}
 ```
 
-#### 23. `docling_serve_max_retries` (Integer)
-**Type:** Integer  
-**Required:** No  
-**Default:** `3`  
+#### 18. `text_extraction.provider_config.max_retries` (Integer)
+**Type:** Integer
+**Required:** No
+**Default:** `3`
 **Description:** Maximum retry attempts for docling-serve status polling.
 
 **Examples:**
 ```json
-"docling_serve_max_retries": 5
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "max_retries": 5
+  }
+}
 ```
 
-#### 24. `docling_serve_do_ocr` (Boolean)
-**Type:** Boolean  
-**Required:** No  
-**Default:** `true`  
+#### 19. `text_extraction.provider_config.do_ocr` (Boolean)
+**Type:** Boolean
+**Required:** No
+**Default:** `true`
 **Description:** Whether OCR should be enabled when processing documents with docling-serve.
 
 **Examples:**
 ```json
-"docling_serve_do_ocr": true
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "do_ocr": true
+  }
+}
 ```
 
-#### 25. `docling_serve_ocr_engine` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"easyocr"`  
+#### 25. `text_extraction.provider_config.ocr_engine` (String)
+**Type:** String
+**Required:** No
+**Default:** `"easyocr"`
 **Description:** OCR engine name passed to docling-serve.
 
 **Examples:**
 ```json
-"docling_serve_ocr_engine": "tesseract"
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "ocr_engine": "tesseract"
+  }
+}
 ```
 
-#### 26. `docling_serve_ocr_languages` (JSON)
-**Type:** JSON Array  
-**Required:** No  
+#### 26. `text_extraction.provider_config.ocr_languages` (JSON)
+**Type:** JSON Array
+**Required:** No
 **Default:** None
 **Description:** List of OCR languages passed to docling-serve.
 
 **Examples:**
 ```json
-"docling_serve_ocr_languages": ["en", "es", "fr"]
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "ocr_languages": ["en", "es", "fr"]
+  }
+}
 ```
 
-#### 27. `docling_serve_pdf_backend` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"dlparse_v2"`  
+#### 27. `text_extraction.provider_config.pdf_backend` (String)
+**Type:** String
+**Required:** No
+**Default:** `"dlparse_v2"`
 **Description:** PDF backend to use in docling-serve.
 
 **Examples:**
 ```json
-"docling_serve_pdf_backend": "dlparse_v2"
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "pdf_backend": "dlparse_v2"
+  }
+}
 ```
 
-#### 28. `docling_serve_table_mode` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"fast"`  
+#### 28. `text_extraction.provider_config.table_mode` (String)
+**Type:** String
+**Required:** No
+**Default:** `"fast"`
 **Description:** Table structure extraction mode for docling-serve.
 
 **Valid Values:** `fast`, `accurate`
 
 **Examples:**
 ```json
-"docling_serve_table_mode": "accurate"
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "table_mode": "accurate"
+  }
+}
 ```
 
-#### 29. `docling_serve_image_export_mode` (String)
-**Type:** String  
-**Required:** No  
-**Default:** `"placeholder"`  
+#### 29. `text_extraction.provider_config.image_export_mode` (String)
+**Type:** String
+**Required:** No
+**Default:** `"placeholder"`
 **Description:** Image export mode passed to docling-serve.
 
 **Examples:**
 ```json
-"docling_serve_image_export_mode": "embedded"
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "image_export_mode": "embedded"
+  }
+}
 ```
 
 ## Output Features
@@ -547,10 +570,16 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "extract_tables": true,
-    "extract_images": false,
+    "text_extraction": {
+      "provider": "docling_library",
+      "provider_config": {
+        "extract_tables": true,
+        "extract_images": false
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    },
     "max_workers": 4
   }
 }
@@ -562,19 +591,23 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "entity_model_id": "openai/llama3.2",
-    "entity_provider_config": {
-      "api_base": "http://localhost:11434/v1"
+    "text_extraction": {
+      "provider": "docling_library"
     },
-    "entity_temperature": 0.0,
-    "custom_schema": {
-      "person_name": "string",
-      "organization": "string",
-      "date": "string"
-    },
-    "expand_extracted_data": true
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "temperature": 0.0
+      },
+      "custom_schema": {
+        "person_name": "string",
+        "organization": "string",
+        "date": "string"
+      },
+      "expand_extracted_data": true
+    }
   }
 }
 ```
@@ -585,12 +618,24 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "use_vlm_pipeline": true,
-    "vlm_preset": "granite_docling",
-    "vlm_engine_type": "transformers",
-    "extract_tables": true,
-    "extract_images": true,
+    "text_extraction": {
+      "provider": "docling_library",
+      "provider_config": {
+        "vlm_pipeline": {
+          "preset": "fast",
+          "engine": "ollama",
+          "engine_options": {
+            "api_base": "http://localhost:11434",
+            "model_id": "llama3.2-vision"
+          }
+        },
+        "extract_tables": true,
+        "extract_images": true
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    },
     "max_workers": 2
   }
 }
@@ -602,12 +647,19 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_serve",
-    "docling_serve_base_url": "http://docling-serve:5001",
-    "docling_serve_timeout": 300,
-    "docling_serve_do_ocr": true,
-    "docling_serve_ocr_engine": "easyocr",
-    "docling_serve_table_mode": "accurate"
+    "text_extraction": {
+      "provider": "docling_serve",
+      "provider_config": {
+        "base_url": "http://docling-serve:5001",
+        "timeout": 300,
+        "do_ocr": true,
+        "ocr_engine": "easyocr",
+        "table_mode": "accurate"
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -618,10 +670,17 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "additional_formats": ["html", "json", "text"],
-    "extract_tables": true,
-    "extract_images": true
+    "text_extraction": {
+      "provider": "docling_library",
+      "provider_config": {
+        "additional_formats": ["html", "json", "text"],
+        "extract_tables": true,
+        "extract_images": true
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -633,17 +692,21 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "entity_model_id": "gpt-4",
-    "entity_provider_config": {
-      "api_key": "sk-...", # pragma: allowlist secret
-      "api_base": "https://api.openai.com/v1"
+    "text_extraction": {
+      "provider": "docling_library"
     },
-    "custom_schema": {
-      "invoice_number": "string",
-      "total_amount": "number",
-      "vendor_name": "string"
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/gpt-4",
+        "api_key": "sk-...", # pragma: allowlist secret
+        "api_base": "https://api.openai.com/v1"
+      },
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "number",
+        "vendor_name": "string"
+      }
     }
   }
 }
@@ -655,22 +718,26 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "entity_model_id": "meta-llama/Llama-3.1-70B-Instruct",
-    "entity_provider_config": {
-      "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
-      "api_base": "https://your-vllm-route/v1",
-      "stream": true,
-      "timeout": 1800
+    "text_extraction": {
+      "provider": "docling_library"
     },
-    "custom_schema": {
-      "invoice_number": "string",
-      "total_amount": "number",
-      "vendor_name": "string",
-      "invoice_date": "string"
-    },
-    "expand_extracted_data": true
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "huggingface/meta-llama/Llama-3.1-70B-Instruct",
+        "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
+        "api_base": "https://your-vllm-route/v1",
+        "stream": true,
+        "timeout": 1800
+      },
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "number",
+        "vendor_name": "string",
+        "invoice_date": "string"
+      },
+      "expand_extracted_data": true
+    }
   }
 }
 ```

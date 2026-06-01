@@ -27,9 +27,9 @@ def litellm_config():
     """Configuration for LiteLLM provider."""
     return {
         "provider": "litellm",
-        "model_id": "text-embedding-3-small",
         "embeddings_column": "embeddings",
         "provider_config": {
+            "model_id": "openai/text-embedding-3-small",
             "api_key": "<test-api-key>",
         },
     }
@@ -40,9 +40,9 @@ def watsonx_config():
     """Configuration for Watsonx provider."""
     return {
         "provider": "watsonx",
-        "model_id": "ibm/slate-125m-english-rtrvr",
         "embeddings_column": "embeddings",
         "provider_config": {
+            "model_id": "ibm/slate-125m-english-rtrvr",
             "api_key": "<test-api-key>",
             "api_base": "https://us-south.ml.cloud.ibm.com",
             "container_id": "test-project-id",
@@ -110,12 +110,12 @@ class TestEmbeddingsOperatorInitialization:
         operator = EmbeddingsOperator(litellm_config)
 
         assert operator.provider == "litellm"
-        assert operator.model_id == "text-embedding-3-small"
+        assert operator.model_id == "openai/text-embedding-3-small"
         assert operator.embeddings_column == "embeddings"
         mock_factory.assert_called_once_with(
             provider="litellm",
-            model_id="text-embedding-3-small",
-            provider_config={"api_key": "<test-api-key>"},
+            model_id="openai/text-embedding-3-small",
+            provider_config={"model_id": "openai/text-embedding-3-small", "api_key": "<test-api-key>"},
         )
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
@@ -131,6 +131,7 @@ class TestEmbeddingsOperatorInitialization:
             provider="watsonx",
             model_id="ibm/slate-125m-english-rtrvr",
             provider_config={
+                "model_id": "ibm/slate-125m-english-rtrvr",
                 "api_key": "<test-api-key>",
                 "api_base": "https://us-south.ml.cloud.ibm.com",
                 "container_id": "test-project-id",
@@ -143,7 +144,7 @@ class TestEmbeddingsOperatorInitialization:
         """Test initialization with default values."""
         mock_factory.return_value = mock_llm_adapter
 
-        config = {"model_id": "text-embedding-3-small"}
+        config = {"provider_config": {"model_id": "text-embedding-3-small"}}
         operator = EmbeddingsOperator(config)
 
         assert operator.provider == "litellm"  # Default provider
@@ -252,7 +253,7 @@ class TestEmbeddingsOperatorMetadata:
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
     def test_metadata_includes_new_parameters(self, mock_factory, litellm_config, mock_llm_adapter):
-        """Test metadata includes new parameter names (provider, model_id)."""
+        """Test metadata includes new parameter names (provider, model_id in provider_config)."""
         mock_factory.return_value = mock_llm_adapter
 
         operator = EmbeddingsOperator(litellm_config)
@@ -262,7 +263,10 @@ class TestEmbeddingsOperatorMetadata:
 
         # Check new parameter names are present
         assert "provider" in attributes
-        assert "model_id" in attributes
+        # model_id is now nested in provider_config.properties
+        assert "provider_config" in attributes
+        assert "properties" in attributes["provider_config"]
+        assert "model_id" in attributes["provider_config"]["properties"]
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory.create_embedding_adapter")
     def test_metadata_label_is_generic(self, mock_factory, litellm_config, mock_llm_adapter):
@@ -318,7 +322,9 @@ class TestEmbeddingsOperatorValidation:
         for provider in ["litellm", "watsonx"]:
             config = {
                 "provider": provider,
-                "model_id": "test-model",
+                "provider_config": {
+                    "model_id": "test-model",
+                },
             }
             operator = EmbeddingsOperator(config)
             errors = []

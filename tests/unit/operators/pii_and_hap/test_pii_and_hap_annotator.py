@@ -168,9 +168,9 @@ def test_both_pii_and_hap_redactions(mock_pii_hap_service):
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
-                "api_key": "ollama",  # pragma: allowlist secret
+                "model_id": "openai/granite4",
+                "api_key": "<ollama>",  # pragma: allowlist secret
                 "api_base": "http://localhost:11434/v1",
             },
             "redaction": True,
@@ -256,9 +256,9 @@ def test_pii_extraction_without_redaction_and_displaying_pii(mock_pii_hap_servic
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
-                "api_key": "ollama",  # pragma: allowlist secret
+                "model_id": "openai/granite4",
+                "api_key": "<ollama>",  # pragma: allowlist secret
                 "api_base": "http://localhost:11434/v1",
             },
             "redaction": False,
@@ -396,9 +396,9 @@ def test_pii_extraction_with_redaction(mock_pii_hap_service):
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
-                "api_key": "ollama",  # pragma: allowlist secret
+                "model_id": "openai/granite4",
+                "api_key": "<ollama>",  # pragma: allowlist secret
                 "api_base": "http://localhost:11434/v1",
             },
             "redaction": True,
@@ -440,8 +440,8 @@ def test_hap_extraction_with_redaction(mock_pii_hap_service):
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
+                "model_id": "openai/granite4",
                 "api_key": "api-key",  # pragma: allowlist secret
                 "api_base": "http://localhost:11434/v1",
             },
@@ -486,8 +486,8 @@ def test_hap_extraction_without_redaction(mock_pii_hap_service):
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
+                "model_id": "openai/granite4",
                 "api_key": "api-key",  # pragma: allowlist secret
                 "api_base": "http://localhost:11434/v1",
             },
@@ -533,8 +533,8 @@ def test_empty_input_table(mock_pii_hap_service):
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
+                "model_id": "openai/granite4",
                 "api_key": "api-key",  # pragma: allowlist secret
                 "api_base": "http://localhost:11434/v1",
             },
@@ -564,8 +564,8 @@ def test_configuration_validation():
         operator = PIIAndHAPAnnotator(
             {
                 "provider": "litellm",
-                "model_name": "openai/granite4",
                 "provider_config": {
+                    "model_id": "openai/granite4",
                     "api_key": "api-key",  # pragma: allowlist secret
                     "api_base": "http://localhost:11434/v1",
                 },
@@ -581,8 +581,8 @@ def test_configuration_validation():
             {
                 "doc_column": "text",
                 "provider": "litellm",
-                "model_name": "gpt-3.5-turbo",
                 "provider_config": {
+                    "model_id": "gpt-3.5-turbo",
                     "base_url": "http://localhost:8000/v1",
                     "api_key": "test-key",  # pragma: allowlist secret
                 },
@@ -699,8 +699,8 @@ def test_config_validation_valid_edge_cases(config_override, expected_attr, expe
     base_config = {
         "doc_column": "content",
         "provider": "litellm",
-        "model_name": "openai/granite4",
         "provider_config": {
+            "model_id": "openai/granite4",
             "api_key": "api-key",  # pragma: allowlist secret
             "api_base": "http://localhost:11434/v1",
         },

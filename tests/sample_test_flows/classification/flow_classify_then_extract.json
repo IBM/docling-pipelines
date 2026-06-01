@@ -26,10 +26,10 @@
       "config": {
         "provider": "litellm",
         "provider_config": {
+          "model_id": "openai/granite4:latest",
           "api_base": "http://localhost:11434/v1",
           "api_key": "<api-key>"
         },
-        "model_id": "openai/granite4:latest",
         "document_types": {
           "invoice": "Business invoice with line items, totals, and payment terms",
           "receipt": "Payment receipt or transaction confirmation",
@@ -58,10 +58,10 @@
       "name": "extract",
       "type": "extract_operator",
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "content",
-        "expand_extracted_data": true
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       },
       "depends_on": [
         "classify"

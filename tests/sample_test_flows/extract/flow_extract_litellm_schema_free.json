@@ -24,10 +24,10 @@
       "config": {
         "provider": "litellm",
         "provider_config": {
+          "model_id": "openai/granite4:latest",
           "api_base": "http://localhost:11434/v1",
           "api_key": "<ollama_key>"
         },
-        "model_id": "openai/granite4:latest",
         "confidence_threshold": 7.0,
         "doc_column": "content",
         "output_column": "document_type",
@@ -43,18 +43,22 @@
       "name": "extract",
       "type": "extract_operator",
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "doc_column": "content",
-        "entity_model_id": "openai/granite4:latest",
-        "entity_provider_config": {
-          "api_base": "http://localhost:11434/v1",
-          "api_key": "<ollama_key>"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
         },
-        "entity_temperature": 0.0,
-        "entity_max_tokens": 2000,
-        "max_doc_chars": 8000,
-        "expand_extracted_data": false,
+        "entity_extraction": {
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/granite4:latest",
+            "temperature": 0.0,
+            "max_tokens": 2000,
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "<ollama_key>"
+          },
+          "max_doc_chars": 8000,
+          "expand_extracted_data": false
+        },
         "max_workers": 2
       },
       "depends_on": [

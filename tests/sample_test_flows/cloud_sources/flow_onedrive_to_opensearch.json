@@ -16,8 +16,7 @@
         "provider": "onedrive",
         "connection_params": {
           "drive_id": "${ONEDRIVE_DRIVE_ID}",
-            "recursive": true
-          },
+          "recursive": true,
           "credentials": {
             "client_id": "${ONEDRIVE_CLIENT_ID}",
             "client_secret": "${ONEDRIVE_CLIENT_SECRET}",
@@ -33,12 +32,18 @@
       "name": "extract_text",
       "type": "extract_operator",
       "config": {
-        "doc_column": "content",
-        "extract_tables": true,
-        "extract_images": true,
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content",
+          "provider_config": {
+            "extract_tables": true,
+            "extract_images": true
+          }
+        },
         "max_workers": 4,
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none"
+        "entity_extraction": {
+          "provider": "none"
+        }
       },
       "depends_on": [
         "ingest_onedrive"

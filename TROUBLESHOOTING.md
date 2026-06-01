@@ -507,10 +507,13 @@ Check WatsonX.ai console for available models in your project/space.
 
 ```json
 {
-  "entity_model_id": "ibm/granite-13b-chat-v2",
-  "entity_provider_config": {
-    "api_key": "${WATSONX_API_KEY}",
-    "container_id": "${WATSONX_CONTAINER_ID}"
+  "entity_extraction": {
+    "provider": "watsonx",
+    "provider_config": {
+      "model_id": "ibm/granite-13b-chat-v2",
+      "api_key": "${WATSONX_API_KEY}",
+      "container_id": "${WATSONX_CONTAINER_ID}"
+    }
   }
 }
 ```
@@ -535,10 +538,13 @@ TimeoutError: Request to WatsonX timed out after 120 seconds
 
 ```json
 {
-  "entity_provider_config": {
-    "api_key": "${WATSONX_API_KEY}",
-    "container_id": "${WATSONX_CONTAINER_ID}",
-    "request_timeout": 300
+  "entity_extraction": {
+    "provider": "watsonx",
+    "provider_config": {
+      "api_key": "${WATSONX_API_KEY}",
+      "container_id": "${WATSONX_CONTAINER_ID}",
+      "request_timeout": 300
+    }
   }
 }
 ```
@@ -575,7 +581,7 @@ Error: Rate limit exceeded (429 Too Many Requests)
 ```json
 {
   "max_workers": 1,
-  "entity_extraction_provider": "watsonx"
+  "entity_extraction": {"provider": "watsonx"}
 }
 ```
 
@@ -583,9 +589,12 @@ Error: Rate limit exceeded (429 Too Many Requests)
 
 ```json
 {
-  "entity_provider_config": {
-    "max_retries": 3,
-    "retry_delay": 2
+  "entity_extraction": {
+    "provider": "watsonx",
+    "provider_config": {
+      "max_retries": 3,
+      "retry_delay": 2
+    }
   }
 }
 ```
@@ -2168,8 +2177,8 @@ uv sync --extra dev
 {
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
+    "text_extraction": {"provider": "docling_library"},
+    "entity_extraction": {"provider": "none"},
     "timeout": 300  // Increase from default 60 seconds
   }
 }

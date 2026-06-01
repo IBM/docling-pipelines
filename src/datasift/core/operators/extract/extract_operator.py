@@ -28,11 +28,12 @@ Example Usage:
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
-            "doc_column": "document",
-            "extract_tables": true,
-            "extract_images": false,
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "document",
+                "extract_tables": true,
+                "extract_images": false
+            },
             "max_workers": 4
         }
     }
@@ -41,29 +42,48 @@ Example Usage:
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "litellm",
-            "entity_model_id": "openai/granite4:latest",
-            "entity_provider_config": {
-                "api_base": "http://localhost:11434/v1",
-                "api_key": "<ollama_key>"
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "document",
+                "extract_tables": true
             },
-            "doc_column": "document",
+            "entity_extraction": {
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "openai/granite4:latest",
+                    "api_base": "http://localhost:11434/v1",
+                    "api_key": "<ollama_key>",
+                    "temperature": 0.0,
+                    "max_tokens": 4096
+                },
+                "output_column": "entities",
+                "max_doc_chars": 8000
+            },
             "max_workers": 4
         }
     }
 
-    # VLM-enhanced text extraction (VLM is now a configuration option within docling_library)
+    # VLM-enhanced text extraction
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
-            "use_vlm_pipeline": true,
-            "vlm_preset": "granite_docling",
-            "vlm_engine_type": "transformers",
-            "doc_column": "document",
-            "max_workers": 2
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "document",
+                "extract_tables": true,
+                "extract_images": true,
+                "max_workers": 2,
+                "provider_config": {
+                    "vlm_pipeline": {
+                        "preset": "fast",
+                        "engine": "ollama",
+                        "engine_options": {
+                            "api_base": "http://localhost:11434",
+                            "model_id": "llama3.2-vision"
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -71,11 +91,15 @@ Example Usage:
     {
         "operator_type": "datasift.core.operators.extract.extract_operator.ExtractOperator",
         "operator_params": {
-            "text_extraction_provider": "docling_serve",
-            "entity_extraction_provider": "none",
-            "docling_serve_base_url": "http://localhost:5001",
-            "docling_serve_timeout": 300,
-            "doc_column": "document"
+            "text_extraction": {
+                "provider": "docling_serve",
+                "doc_column": "document",
+                "provider_config": {
+                    "base_url": "http://localhost:5001",
+                    "timeout": 300,
+                    "do_ocr": true
+                }
+            }
         }
     }
 """
@@ -86,7 +110,12 @@ from typing import Any
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants, Metrics
+from datasift.core.constants.constants import (
+    AttributeDataTypes,
+    DatasiftConstants,
+    DoclingClientConfigConstants,
+    Metrics,
+)
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
@@ -104,6 +133,7 @@ from datasift.core.operators.extract.ports.outbound.text_extraction import TextE
 from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.operators.config_validation import validate_config_from_metadata
 
 logger: logging.Logger = get_logger()
 
@@ -119,12 +149,14 @@ class ExtractOperator(AbstractOperator):
     Attributes:
         short_name: Operator identifier ("extract_operator")
         category: Operator category (OperatorCategory.EXTRACT)
-        text_extraction_mode: Selected text extraction provider (basic, vlm, docling_serve)
-        entity_extraction_mode: Selected entity extraction provider (litellm, watsonx, docling, none)
-        text_adapter: Text extraction adapter instance
-        entity_adapter: Entity extraction adapter instance (None if mode is "none")
-        doc_column: Column name for storing extracted content
-        expand_extracted_data: Whether to expand entity data into columns (entity extraction only)
+        text_extraction (dict): Text extraction configuration
+            - provider (str): Provider for text extraction (docling_library, docling_serve)
+            - provider_config (dict): Provider-specific configuration
+        entity_extraction (dict): Entity extraction configuration
+            - provider (str): Provider for entity extraction (litellm, watsonx, docling, none)
+            - provider_config (dict): Provider-specific configuration
+        doc_column (str): Column name for storing extracted content
+        expand_extracted_data (bool): Whether to expand entity data into columns (entity extraction only)
     """
 
     short_name = OperatorConstants.Operators.EXTRACT_OPERATOR
@@ -138,66 +170,39 @@ class ExtractOperator(AbstractOperator):
         and creates the appropriate adapter using the factory.
 
         Args:
-            config: Configuration dictionary containing:
-                Common extraction parameters:
-                - max_workers: Number of parallel workers (default: 4)
+            config: Configuration dictionary with nested structure:
+                - text_extraction: Nested object containing:
+                    - provider: Text provider ("docling_library", "docling_serve")
+                    - provider_config: Provider-specific configuration
+                    - doc_column: Column name for extracted content
+                    - extract_tables: Extract tables flag
+                    - extract_images: Extract images flag
+                    - additional_formats: List of additional output formats
+                - entity_extraction: Optional nested object containing:
+                    - provider: Entity provider ("litellm", "watsonx", "docling")
+                    - provider_config: Provider-specific configuration (model_id, api_base, etc.)
+                    - output_column: Column name for extracted entities
+                    - max_doc_chars: Maximum document characters
+                    - custom_schema: Schema dictionary for structured extraction
+                    - expand_extracted_data: Expand entity data flag
+                - max_workers: Number of parallel workers (default: auto-detect)
                 - use_processes: Use processes vs threads (default: False)
-                - text_extraction_provider: Text provider selection ("docling_library", "docling_serve")
-                - entity_extraction_provider: Entity provider selection ("litellm", "watsonx", "docling", "none")
-
-                Common Text extraction parameters:
-                - doc_column: Column name for extracted content (default: "doc_content")
-                - extract_tables: Extract tables flag (default: True)
-                - extract_images: Extract images flag (default: True)
-
-                Common Entity extraction parameters:
-                - output_column: Column name for extracted content (default: "extracted_content")
-                - custom_schema: Schema dictionary for structured extraction
-                - expand_extracted_data: Expand entity data flag for entity extraction only (default: False)
-
-                VLM mode parameters:
-                - vlm_preset: VLM preset name (default: "granite_docling")
-                - vlm_engine_type: VLM engine type (default: None)
-                - vlm_provider_config: Provider-specific configuration (default: None)
-
-                Docling Serve mode parameters:
-                - docling_serve_base_url: Docling Serve API URL (default: "http://localhost:5001")
-                - docling_serve_api_key: Optional API key
-                - docling_serve_timeout: Request timeout in seconds (default: 300)
-                - docling_serve_poll_interval: Polling interval in seconds (default: 2)
-                - docling_serve_max_retries: Maximum retry attempts (default: 3)
-                - docling_serve_do_ocr: Enable OCR (default: True)
-                - docling_serve_ocr_engine: OCR engine name (default: "easyocr")
-                - docling_serve_ocr_languages: List of OCR languages (default: None)
-                - docling_serve_pdf_backend: PDF backend (default: "dlparse_v2")
-                - docling_serve_table_mode: Table extraction mode (default: "accurate")
-                - docling_serve_image_export_mode: Image export mode (default: "placeholder")
-
-                LiteLLM entity extraction parameters:
-                - entity_model_id: LLM model identifier (e.g., "openai/granite4:latest")
-                - entity_temperature: Sampling temperature 0.0-1.0 (default: 0.0)
-                - entity_max_tokens: Maximum response tokens (default: 4096)
-                - entity_max_doc_chars: Maximum document characters to send to LLM (default: 8000)
-                - entity_provider_config: Provider-specific configuration (api_base, api_key, etc.)
-
-                Watsonx entity extraction parameters:
-                - entity_model_id: Watsonx model identifier
-                - entity_temperature: Sampling temperature (default: 0.0)
-                - entity_max_tokens: Maximum tokens in response (default: 4096)
-                - entity_max_doc_chars: Maximum document characters (default: 8000)
-                - entity_provider_config: Watsonx-specific configuration (container_kind, container_id, etc.)
-
-                Docling entity extraction parameters:
-                - No additional parameters required (uses template-based extraction)
 
         Raises:
             FlowExecutionFailedException: If extraction_mode is invalid or configuration is incomplete
         """
         super().__init__(config)
 
-        # Parse text extraction mode (with backward compatibility)
-        text_mode_str = config.get(
-            OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE,
+        # Extract text_extraction nested config
+        text_extraction_config = config.get(OperatorConstants.Config.TEXT_EXTRACTION, {})
+        if not text_extraction_config:
+            raise FlowExecutionFailedException(
+                f"Missing required '{OperatorConstants.Config.TEXT_EXTRACTION}' configuration object"
+            )
+
+        # Parse text extraction mode
+        text_mode_str = text_extraction_config.get(
+            OperatorConstants.Config.PROVIDER,
             OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
         )
         try:
@@ -205,27 +210,51 @@ class ExtractOperator(AbstractOperator):
         except ValueError as e:
             supported_modes = [mode.value for mode in TextExtractionMode]
             raise FlowExecutionFailedException(
-                f"Invalid text_extraction_provider '{text_mode_str}'. Supported providers: {supported_modes}"
+                f"Invalid text_extraction.provider '{text_mode_str}'. Supported providers: {supported_modes}"
             ) from e
+
+        # Extract entity_extraction nested config (optional)
+        entity_extraction_config = config.get(OperatorConstants.Config.ENTITY_EXTRACTION)
 
         # Parse entity extraction mode
-        entity_mode_str = config.get(
-            OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE, OperatorConstants.ExtractionModes.ENTITY_MODE_NONE
-        )
-        try:
-            self.entity_extraction_mode = EntityExtractionMode(entity_mode_str)
-        except ValueError as e:
-            supported_modes = [mode.value for mode in EntityExtractionMode]
-            raise FlowExecutionFailedException(
-                f"Invalid entity_extraction_provider '{entity_mode_str}'. Supported providers: {supported_modes}"
-            ) from e
+        if entity_extraction_config:
+            entity_mode_str = entity_extraction_config.get(OperatorConstants.Config.PROVIDER)
+            if not entity_mode_str:
+                raise FlowExecutionFailedException(
+                    "entity_extraction.provider is required when entity_extraction is present"
+                )
+            try:
+                self.entity_extraction_mode = EntityExtractionMode(entity_mode_str)
+            except ValueError as e:
+                supported_modes = [mode.value for mode in EntityExtractionMode]
+                raise FlowExecutionFailedException(
+                    f"Invalid entity_extraction.provider '{entity_mode_str}'. Supported providers: {supported_modes}"
+                ) from e
+        else:
+            self.entity_extraction_mode = EntityExtractionMode.NONE
 
-        # Common parameters
-        self.doc_column = config.get(OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT)
-        self.output_column = config.get(OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Misc.ENTITIES)
-        self.expand_extracted_data = config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False)
-        self.extract_tables = config.get(OperatorConstants.Config.EXTRACT_TABLES, False)
-        self.extract_images = config.get(OperatorConstants.Config.EXTRACT_IMAGES, False)
+        # Extract common parameters from text_extraction
+        self.doc_column = text_extraction_config.get(
+            OperatorConstants.Columns.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+        )
+
+        # Extract provider_config for provider-specific parameters
+        provider_config = text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        self.extract_tables = provider_config.get(OperatorConstants.Config.EXTRACT_TABLES, False)
+        self.extract_images = provider_config.get(OperatorConstants.Config.EXTRACT_IMAGES, False)
+
+        # Extract entity extraction parameters
+        if entity_extraction_config:
+            self.output_column = entity_extraction_config.get(
+                OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Misc.ENTITIES
+            )
+            self.expand_extracted_data = entity_extraction_config.get(
+                OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False
+            )
+        else:
+            self.output_column = OperatorConstants.Misc.ENTITIES
+            self.expand_extracted_data = False
+
         # Auto-detect optimal workers based on CPU count
         default_text_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
         default_entity_workers = OperatorUtils.get_optimal_workers(is_cpu_intensive=True)
@@ -233,11 +262,23 @@ class ExtractOperator(AbstractOperator):
         entity_max_workers = config.get(OperatorConstants.Config.MAX_WORKERS, default_entity_workers)
         use_processes = config.get(OperatorConstants.Config.USE_PROCESSES, False)
 
-        # Create text extraction adapter
+        # Prepare global config for job tracking and other global settings
+        global_config = {
+            OperatorConstants.Config.COMMON_LOG_ARGUMENTS: config.get(
+                OperatorConstants.Config.COMMON_LOG_ARGUMENTS, {}
+            ),
+            DatasiftConstants.JOB_RUN_ID: config.get(DatasiftConstants.JOB_RUN_ID),
+            DatasiftConstants.NODE_ID: config.get(DatasiftConstants.NODE_ID),
+            DatasiftConstants.NODE_NAME: config.get(DatasiftConstants.NODE_NAME),
+            DatasiftConstants.BATCH_ID: config.get(DatasiftConstants.BATCH_ID),
+        }
+
+        # Create text extraction adapter - pass nested config directly
         try:
             self.text_adapter: TextExtractionPort = TextExtractionAdapterFactory.create_adapter(
                 mode=self.text_extraction_mode,
-                operator_config=config,
+                text_extraction_config=text_extraction_config,
+                global_config=global_config,
                 max_workers=text_max_workers,
                 use_processes=use_processes,
             )
@@ -252,12 +293,16 @@ class ExtractOperator(AbstractOperator):
                 f"Failed to initialize text extraction adapter for provider '{self.text_extraction_mode.value}': {e}"
             ) from e
 
-        # Create entity extraction adapter if enabled
+        # Create entity extraction adapter if enabled - pass nested config directly
         self.entity_adapter: EntityExtractionPort | None = None
-        if self.entity_extraction_mode != EntityExtractionMode.NONE:
+        if self.entity_extraction_mode != EntityExtractionMode.NONE and entity_extraction_config:
             try:
                 self.entity_adapter = EntityExtractionAdapterFactory.create_adapter(
-                    mode=self.entity_extraction_mode, operator_config=config, max_workers=entity_max_workers
+                    mode=self.entity_extraction_mode,
+                    entity_extraction_config=entity_extraction_config,
+                    global_config=global_config,
+                    doc_column=self.doc_column,
+                    max_workers=entity_max_workers,
                 )
                 if self.entity_adapter:
                     logger.info(
@@ -715,6 +760,23 @@ class ExtractOperator(AbstractOperator):
                 f"entity_provider='{self.entity_extraction_mode.value}'): {e}"
             ) from e
 
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
+        """Validate operator configuration against metadata.
+
+        Args:
+            errors: List to append validation errors
+            warnings: List to append validation warnings
+            available_features: List of available input features
+        """
+        super().validate(errors, warnings, available_features)
+
+        # Get metadata and extract ATTRIBUTES for validation
+        metadata = self.get_metadata()
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
+
+        # Validate configuration against metadata
+        validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
+
     @staticmethod
     def get_metadata() -> dict[str, Any]:
         """Get metadata about the operator including features and attributes.
@@ -819,120 +881,230 @@ class ExtractOperator(AbstractOperator):
             OperatorConstants.Config.FEATURES: metadata_features,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: ExtractOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
-                OperatorConstants.ExtractionModes.TEXT_EXTRACTION_MODE: {
-                    OperatorConstants.Misc.NAME: "Text Extraction Mode",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        f"Text extraction strategy: '{OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY}' (local Docling with optional VLM), "
-                        f"or '{OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE}' (remote API)"
-                    ),
+                # Text extraction configuration (nested)
+                OperatorConstants.Config.TEXT_EXTRACTION: {
+                    OperatorConstants.Misc.NAME: "Text Extraction Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Configuration for text extraction from documents",
                     OperatorConstants.Config.REQUIRED: True,
-                    OperatorConstants.Config.DEFAULT: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.ExtractionModes.ENTITY_EXTRACTION_MODE: {
-                    OperatorConstants.Misc.NAME: "Entity Extraction Mode",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        f"Entity extraction strategy: '{OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM}' (LiteLLM multi-provider), "
-                        f"'{OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX}' (IBM watsonx), "
-                        f"'{OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING}' (template-based), "
-                        f"or '{OperatorConstants.ExtractionModes.ENTITY_MODE_NONE}' (no entity extraction)"
-                    ),
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME: {
-                    OperatorConstants.Misc.NAME: "Model Name",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "LLM model name for entity extraction (litellm: 'openai/granite4:latest', watsonx: model identifier)"
-                    ),
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "llama3.2",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE: {
-                    OperatorConstants.Misc.NAME: "Temperature",
-                    OperatorConstants.Config.DESCRIPTION: "Sampling temperature for entity extraction LLM (0.0-1.0)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: 0.0,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
-                },
-                OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS: {
-                    OperatorConstants.Misc.NAME: "Max Tokens",
-                    OperatorConstants.Config.DESCRIPTION: "Maximum tokens for entity extraction LLM response",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: 4096,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS: {
-                    OperatorConstants.Misc.NAME: "Max doc chars",
-                    OperatorConstants.Config.DESCRIPTION: "Maximum chars to pass for entity extraction",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: 8000,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                "entity_provider_config": {
-                    OperatorConstants.Misc.NAME: "Entity Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction (e.g., {'api_key': 'xxx', 'api_base': 'http://...'})",  # pragma: allowlist secret
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: None,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROPERTIES: {
+                        OperatorConstants.Config.PROVIDER: {
+                            OperatorConstants.Misc.NAME: "Text Extraction Provider",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                f"Text extraction strategy: '{OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY}' (local Docling with optional VLM), "
+                                f"or '{OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE}' (remote API)"
+                            ),
+                            OperatorConstants.Config.REQUIRED: True,
+                            OperatorConstants.Config.DEFAULT: OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_LIBRARY,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.PROVIDER_CONFIG: {
+                            OperatorConstants.Misc.NAME: "Provider Configuration",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for text extraction (docling_serve: base_url, api_key, timeout, etc.)",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                            OperatorConstants.Config.PROPERTIES: {
+                                OperatorConstants.Config.VLM_PIPELINE: {
+                                    OperatorConstants.Misc.NAME: "VLM Pipeline Configuration",
+                                    OperatorConstants.Config.DESCRIPTION: "Vision-Language Model pipeline configuration for enhanced extraction (docling_library mode only)",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                                    OperatorConstants.Config.PROPERTIES: {
+                                        OperatorConstants.Config.PRESET: {
+                                            OperatorConstants.Misc.NAME: "VLM Preset",
+                                            OperatorConstants.Config.DESCRIPTION: "VLM preset name (e.g., 'fast', 'granite_docling')",
+                                            OperatorConstants.Config.REQUIRED: False,
+                                            OperatorConstants.Config.DEFAULT: "fast",
+                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                        },
+                                        OperatorConstants.Config.ENGINE: {
+                                            OperatorConstants.Misc.NAME: "VLM Engine",
+                                            OperatorConstants.Config.DESCRIPTION: "VLM engine: 'transformers' (local), 'mlx' (macOS), 'ollama', or other API providers",
+                                            OperatorConstants.Config.REQUIRED: False,
+                                            OperatorConstants.Config.DEFAULT: "transformers",
+                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                        },
+                                        OperatorConstants.Config.ENGINE_OPTIONS: {
+                                            OperatorConstants.Misc.NAME: "Engine Options",
+                                            OperatorConstants.Config.DESCRIPTION: "Engine-specific configuration (api_base, model_id, api_key, etc.)",
+                                            OperatorConstants.Config.REQUIRED: False,
+                                            OperatorConstants.Config.DEFAULT: None,
+                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                                        },
+                                    },
+                                },
+                                OperatorConstants.Config.ASR_PIPELINE: {
+                                    OperatorConstants.Misc.NAME: "ASR Pipeline Configuration",
+                                    OperatorConstants.Config.DESCRIPTION: "Automatic Speech Recognition pipeline configuration for audio/video extraction (docling_library mode only)",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                                    OperatorConstants.Config.PROPERTIES: {
+                                        OperatorConstants.Misc.ENABLED: {
+                                            OperatorConstants.Misc.NAME: "Enable ASR",
+                                            OperatorConstants.Config.DESCRIPTION: "Enable Automatic Speech Recognition for audio/video extraction",
+                                            OperatorConstants.Config.REQUIRED: False,
+                                            OperatorConstants.Config.DEFAULT: False,
+                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                                        },
+                                        OperatorConstants.Config.MODEL_NAME: {
+                                            OperatorConstants.Misc.NAME: "ASR Model Name",
+                                            OperatorConstants.Config.DESCRIPTION: (
+                                                "ASR model name (e.g., whisper_turbo, whisper_small, whisper_medium). "
+                                                "Valid values: whisper_tiny, whisper_small, whisper_medium, whisper_base, "
+                                                "whisper_large, whisper_turbo, and their _mlx/_native variants"
+                                            ),
+                                            OperatorConstants.Config.REQUIRED: False,
+                                            OperatorConstants.Config.DEFAULT: OperatorConstants.Config.ASR_MODEL_DEFAULT,
+                                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                        },
+                                    },
+                                },
+                                OperatorConstants.Config.EXTRACT_TABLES: {
+                                    OperatorConstants.Misc.NAME: "Extract Tables",
+                                    OperatorConstants.Config.DESCRIPTION: "Whether to extract tables from documents",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: False,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                                },
+                                OperatorConstants.Config.EXTRACT_IMAGES: {
+                                    OperatorConstants.Misc.NAME: "Extract Images",
+                                    OperatorConstants.Config.DESCRIPTION: "Whether to extract images from documents",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: False,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                                },
+                                OperatorConstants.Extraction.ADDITIONAL_FORMATS: {
+                                    OperatorConstants.Misc.NAME: "Additional Output Formats",
+                                    OperatorConstants.Config.DESCRIPTION: (
+                                        "List of additional output formats to generate beyond the mandatory markdown format. "
+                                        "Markdown format is ALWAYS generated (creates doc_content column). "
+                                        "Additional options: "
+                                        "'html' (creates content_html column), "
+                                        "'json' (creates content_json column), "
+                                        "'text' (creates content_text column), "
+                                        "'doctags' (creates content_doctags column). "
+                                        "Example: ['html', 'json'] will generate markdown + HTML + JSON formats"
+                                    ),
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: [],
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                                    OperatorConstants.Config.VALID_VALUES: OperatorConstants.Extraction.VALID_OUTPUT_FORMATS,
+                                },
+                            },
+                        },
+                        OperatorConstants.Columns.DOC_COLUMN: {
+                            OperatorConstants.Misc.NAME: "Document Column",
+                            OperatorConstants.Config.DESCRIPTION: "Name of the column to store extracted document content",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                    },
                 },
-                OperatorConstants.Columns.DOC_COLUMN: {
-                    OperatorConstants.Misc.NAME: "Document Column",
-                    OperatorConstants.Config.DESCRIPTION: "Name of the column to store document content",
+                # Entity extraction configuration (nested)
+                OperatorConstants.Config.ENTITY_EXTRACTION: {
+                    OperatorConstants.Misc.NAME: "Entity Extraction Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Configuration for entity extraction from documents (optional)",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.Columns.OUTPUT_COLUMN: {
-                    OperatorConstants.Misc.NAME: "Output Column",
-                    OperatorConstants.Config.DESCRIPTION: "Name of the column to store extracted entities (entity extraction only)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: OperatorConstants.Misc.ENTITIES,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.Config.EXTRACT_TABLES: {
-                    OperatorConstants.Misc.NAME: "Extract Tables",
-                    OperatorConstants.Config.DESCRIPTION: "Whether to extract tables from documents",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
-                OperatorConstants.Config.EXTRACT_IMAGES: {
-                    OperatorConstants.Misc.NAME: "Extract Images",
-                    OperatorConstants.Config.DESCRIPTION: "Whether to extract images from documents",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
-                OperatorConstants.Extraction.ADDITIONAL_FORMATS: {
-                    OperatorConstants.Misc.NAME: "Additional Output Formats",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "List of additional output formats to generate beyond the mandatory markdown format. "
-                        "Markdown format is ALWAYS generated (creates doc_content column). "
-                        "Additional options: "
-                        "'html' (creates content_html column), "
-                        "'json' (creates content_json column), "
-                        "'text' (creates content_text column), "
-                        "'doctags' (creates content_doctags column). "
-                        "Example: ['html', 'json'] will generate markdown + HTML + JSON formats"
-                    ),
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: [],
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                    OperatorConstants.Config.VALID_VALUES: OperatorConstants.Extraction.VALID_OUTPUT_FORMATS,
+                    OperatorConstants.Config.PROPERTIES: {
+                        OperatorConstants.Config.PROVIDER: {
+                            OperatorConstants.Misc.NAME: "Entity Extraction Provider",
+                            OperatorConstants.Config.DESCRIPTION: (
+                                f"Entity extraction strategy: '{OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM}' (LiteLLM multi-provider), "
+                                f"'{OperatorConstants.ExtractionModes.ENTITY_MODE_WATSONX}' (IBM watsonx), "
+                                f"'{OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING}' (template-based), "
+                                f"or '{OperatorConstants.ExtractionModes.ENTITY_MODE_NONE}' (no entity extraction)"
+                            ),
+                            OperatorConstants.Config.REQUIRED: True,
+                            OperatorConstants.Config.DEFAULT: OperatorConstants.ExtractionModes.ENTITY_MODE_NONE,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.PROVIDER_CONFIG: {
+                            OperatorConstants.Misc.NAME: "Provider Configuration",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for entity extraction (model_id, api_base, api_key, temperature, max_tokens, etc.)",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                            OperatorConstants.Config.PROPERTIES: {
+                                OperatorConstants.Config.MODEL_ID: {
+                                    OperatorConstants.Misc.NAME: "Model ID",
+                                    OperatorConstants.Config.DESCRIPTION: "LLM model identifier for entity extraction (e.g., 'ollama/llama3.2', 'openai/gpt-4')",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: "llama3.2",
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                },
+                                OperatorConstants.Config.API_BASE: {
+                                    OperatorConstants.Misc.NAME: "API Base URL",
+                                    OperatorConstants.Config.DESCRIPTION: "Base URL for the LLM API endpoint",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                },
+                                OperatorConstants.Config.API_KEY: {
+                                    OperatorConstants.Misc.NAME: "API Key",
+                                    OperatorConstants.Config.DESCRIPTION: "API key for authentication (if required by provider)",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                },
+                                OperatorConstants.LLM.TEMPERATURE: {
+                                    OperatorConstants.Misc.NAME: "Temperature",
+                                    OperatorConstants.Config.DESCRIPTION: "Sampling temperature for entity extraction LLM (0.0-1.0)",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: 0.0,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
+                                },
+                                OperatorConstants.LLM.MAX_TOKENS: {
+                                    OperatorConstants.Misc.NAME: "Max Tokens",
+                                    OperatorConstants.Config.DESCRIPTION: "Maximum tokens for entity extraction LLM response",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: 4096,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                                },
+                                DoclingClientConfigConstants.ENTITY_CONFIG: {
+                                    OperatorConstants.Misc.NAME: "Entity Config",
+                                    OperatorConstants.Config.DESCRIPTION: (
+                                        "Custom inline model configuration for Docling entity extraction (docling provider only). "
+                                        "Requires model_type='inline' and inline_model with repo_id (HuggingFace model). "
+                                        "Note: Only inline models supported; API models not supported by DocumentExtractor."
+                                    ),
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                                },
+                            },
+                        },
+                        OperatorConstants.Columns.OUTPUT_COLUMN: {
+                            OperatorConstants.Misc.NAME: "Output Column",
+                            OperatorConstants.Config.DESCRIPTION: "Name of the column to store extracted entities",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: OperatorConstants.Misc.ENTITIES,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS: {
+                            OperatorConstants.Misc.NAME: "Max Document Characters",
+                            OperatorConstants.Config.DESCRIPTION: "Maximum characters to pass for entity extraction",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: 8000,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                        },
+                        OperatorConstants.Config.CUSTOM_SCHEMA: {
+                            OperatorConstants.Misc.NAME: "Custom Extraction Schema",
+                            OperatorConstants.Config.DESCRIPTION: "Schema dictionary for structured entity extraction",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: None,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                        },
+                        OperatorConstants.Config.EXPAND_EXTRACTED_DATA: {
+                            OperatorConstants.Misc.NAME: "Expand Extracted Data",
+                            OperatorConstants.Config.DESCRIPTION: "Whether to expand entity data JSON into individual columns",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                        },
+                    },
                 },
-                OperatorConstants.Config.EXPAND_EXTRACTED_DATA: {
-                    OperatorConstants.Misc.NAME: "Expand Extracted Data",
-                    OperatorConstants.Config.DESCRIPTION: "Whether to expand entity data JSON into individual columns (applies to entity extraction only)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
+                # Performance configuration
                 OperatorConstants.Config.MAX_WORKERS: {
                     OperatorConstants.Misc.NAME: "Max Workers",
-                    OperatorConstants.Config.DESCRIPTION: "Maximum number of parallel workers for extraction",
+                    OperatorConstants.Config.DESCRIPTION: "Maximum number of parallel workers for extraction (auto-detects based on CPU count if not specified)",
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: "auto (CPU-based)",
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
@@ -943,126 +1115,6 @@ class ExtractOperator(AbstractOperator):
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
-                OperatorConstants.Config.CUSTOM_SCHEMA: {
-                    OperatorConstants.Misc.NAME: "Extraction Schema",
-                    OperatorConstants.Config.DESCRIPTION: "Schema dictionary for structured extraction",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: None,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                },
-                # VLM configuration (now part of docling_library mode)
-                OperatorConstants.Config.USE_VLM_PIPELINE: {
-                    OperatorConstants.Misc.NAME: "Use VLM Pipeline",
-                    OperatorConstants.Config.DESCRIPTION: "Enable Vision-Language Model for enhanced extraction (docling_library mode only)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
-                OperatorConstants.Config.VLM_PRESET: {
-                    OperatorConstants.Misc.NAME: "VLM Preset",
-                    OperatorConstants.Config.DESCRIPTION: "VLM preset name for document processing (when use_vlm_pipeline=true, e.g., 'granite_docling')",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "granite_docling",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.Config.VLM_ENGINE_TYPE: {
-                    OperatorConstants.Misc.NAME: "VLM Engine Type",
-                    OperatorConstants.Config.DESCRIPTION: "VLM engine: 'transformers' (local, default), 'mlx' (macOS optimized), or 'api' (remote API)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: None,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.Config.VLM_PROVIDER_CONFIG: {
-                    OperatorConstants.Misc.NAME: "VLM Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "Provider-specific configuration dict (when use_vlm_pipeline=true). "
-                        "Required keys vary by engine type. "
-                        "Watsonx: {'api_key', 'container_id', 'model_id', 'api_base_url'}. "
-                        "Ollama/LMStudio: {'api_base_url'}. "
-                        "OpenAI: {'api_key', 'api_base_url'}"
-                    ),
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: None,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                },
-                # Docling Serve mode parameters
-                "docling_serve_base_url": {
-                    OperatorConstants.Misc.NAME: "Docling Serve Base URL",
-                    OperatorConstants.Config.DESCRIPTION: "Base URL for the docling-serve service (docling_serve mode only)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "http://localhost:5001",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                "docling_serve_api_key": {
-                    OperatorConstants.Misc.NAME: "Docling Serve API Key",
-                    OperatorConstants.Config.DESCRIPTION: "Optional API key sent as X-API-KEY when calling docling-serve",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: None,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                "docling_serve_timeout": {
-                    OperatorConstants.Misc.NAME: "Docling Serve Timeout",
-                    OperatorConstants.Config.DESCRIPTION: "Request timeout in seconds for docling-serve operations",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: 300,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                "docling_serve_poll_interval": {
-                    OperatorConstants.Misc.NAME: "Docling Serve Poll Interval",
-                    OperatorConstants.Config.DESCRIPTION: "Polling interval in seconds when waiting for docling-serve task completion",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: 2,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                "docling_serve_max_retries": {
-                    OperatorConstants.Misc.NAME: "Docling Serve Max Retries",
-                    OperatorConstants.Config.DESCRIPTION: "Maximum retry attempts for docling-serve status polling",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: 3,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                "docling_serve_do_ocr": {
-                    OperatorConstants.Misc.NAME: "Docling Serve OCR Enabled",
-                    OperatorConstants.Config.DESCRIPTION: "Whether OCR should be enabled when processing documents with docling-serve",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: True,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
-                "docling_serve_ocr_engine": {
-                    OperatorConstants.Misc.NAME: "Docling Serve OCR Engine",
-                    OperatorConstants.Config.DESCRIPTION: "OCR engine name passed to docling-serve",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "easyocr",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                "docling_serve_ocr_languages": {
-                    OperatorConstants.Misc.NAME: "Docling Serve OCR Languages",
-                    OperatorConstants.Config.DESCRIPTION: "List of OCR languages passed to docling-serve",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: None,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                },
-                "docling_serve_pdf_backend": {
-                    OperatorConstants.Misc.NAME: "Docling Serve PDF Backend",
-                    OperatorConstants.Config.DESCRIPTION: "PDF backend to use in docling-serve",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "dlparse_v2",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                "docling_serve_table_mode": {
-                    OperatorConstants.Misc.NAME: "Docling Serve Table Mode",
-                    OperatorConstants.Config.DESCRIPTION: "Table structure extraction mode for docling-serve",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "fast",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                "docling_serve_image_export_mode": {
-                    OperatorConstants.Misc.NAME: "Docling Serve Image Export Mode",
-                    OperatorConstants.Config.DESCRIPTION: "Image export mode passed to docling-serve",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: "placeholder",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
             },
         }

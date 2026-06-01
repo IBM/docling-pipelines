@@ -325,8 +325,9 @@ adapter = LLMAdapterFactory.create_inference_adapter(
     model_id="ibm/granite-13b-chat-v2",
     provider_config={
         "api_key": "<your-watsonx-api-key>",
-        "project_id": "<your-project-id>",
-        "url": "https://us-south.ml.cloud.ibm.com"
+        "api_base": "https://us-south.ml.cloud.ibm.com",
+        "container_id": "<your-project-id>",
+        "container_kind": "project"
     }
 )
 
@@ -346,8 +347,9 @@ adapter = LLMAdapterFactory.create_text_detection_adapter(
     model_id="ibm/granite-13b-chat-v2",
     provider_config={
         "api_key": "<your-watsonx-api-key>",
-        "project_id": "<your-project-id>",
-        "url": "https://us-south.ml.cloud.ibm.com"
+        "api_base": "https://us-south.ml.cloud.ibm.com",
+        "container_id": "<your-project-id>",
+        "container_kind": "project"
     }
 )
 ```
@@ -367,7 +369,6 @@ LiteLLM provides unified access to multiple providers via model ID prefixes:
 1. **Single factory file** instead of two separate factories
 2. **Returns consolidated adapters** (one per provider, not one per capability)
 3. **Unified import**: `from datasift.core.adapters import LLMAdapterFactory`
-4. **No backward compatibility aliases** (clean break from old architecture)
 
 ---
 

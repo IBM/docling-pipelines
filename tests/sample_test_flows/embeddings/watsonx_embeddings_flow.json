@@ -24,18 +24,22 @@
     {
       "name": "extract_documents",
       "type": "extract_operator",
-      "depends_on": ["ingest_documents"],
+      "depends_on": [
+        "ingest_documents"
+      ],
       "config": {
-        "doc_column": "content",
-        "use_template": false,
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       }
     },
     {
       "name": "generate_doc_id",
       "type": "doc_id_hash",
-      "depends_on": ["extract_documents"],
+      "depends_on": [
+        "extract_documents"
+      ],
       "config": {
         "doc_column": "content",
         "doc_id_column": "id"
@@ -44,7 +48,9 @@
     {
       "name": "chunk_documents",
       "type": "chunker",
-      "depends_on": ["generate_doc_id"],
+      "depends_on": [
+        "generate_doc_id"
+      ],
       "config": {
         "doc_column": "content",
         "chunk_size": 512,
@@ -54,25 +60,29 @@
     {
       "name": "generate_embeddings_watsonx",
       "type": "embeddings",
-      "depends_on": ["chunk_documents"],
+      "depends_on": [
+        "chunk_documents"
+      ],
       "config": {
         "provider": "watsonx",
-        "model_id": "ibm/slate-125m-english-rtrvr-v2",
-        "doc_column": "content",
-        "embeddings_column": "embeddings",
         "provider_config": {
+          "model_id": "ibm/slate-125m-english-rtrvr-v2",
           "api_key": "${WATSONX_API_KEY",
           "api_base": "${WATSONX_API_BASE}",
           "container_kind": "project",
           "container_id": "${WATSONX_CONTAINER_ID}",
           "batch_size": 800
-        }
+        },
+        "doc_column": "content",
+        "embeddings_column": "embeddings"
       }
     },
     {
       "name": "store_in_opensearch",
       "type": "vectordb",
-      "depends_on": ["generate_embeddings_watsonx"],
+      "depends_on": [
+        "generate_embeddings_watsonx"
+      ],
       "config": {
         "provider": "opensearch",
         "index_name": "datasift_watsonx_embeddings",

@@ -38,7 +38,7 @@ def _build_classifier_config() -> dict:
         OperatorConstants.Config.PROVIDER: "litellm",
         OperatorConstants.Config.PROVIDER_CONFIG: {
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
         OperatorConstants.Config.MODEL_ID: "openai/granite4:latest",
         OperatorConstants.Config.DOCUMENT_TYPES: ["invoice", "receipt", "contract"],
@@ -62,7 +62,7 @@ def _build_extract_config(*, text_extraction_mode: str) -> dict:
         OperatorConstants.Config.USE_PROCESSES: False,
     }
     if text_extraction_mode == OperatorConstants.ExtractionModes.TEXT_MODE_DOCLING_SERVE:
-        config[OperatorConstants.Config.DOCLING_SERVE_BASE_URL] = "http://localhost:5001"
+        config[OperatorConstants.Config.BASE_URL] = "http://localhost:5001"
     return config
 
 

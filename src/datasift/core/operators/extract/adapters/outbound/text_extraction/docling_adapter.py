@@ -78,14 +78,16 @@ class DoclingAdapter(TextExtractionPort):
                 - use_asr_pipeline: Enable ASR extraction for audio/video (default: False)
                 - asr_model_name: ASR model name (optional)
         """
-        self.use_vlm_pipeline = config.get("use_vlm_pipeline", False)
-        self.vlm_preset = config.get("vlm_preset", "granite_docling")
-        self.vlm_engine_type = config.get("vlm_engine_type")
-        self.vlm_provider_config = config.get("vlm_provider_config")
-        self.additional_formats = config.get("additional_formats", [])
-        self.use_asr_pipeline = config.get("use_asr_pipeline", False) and _ASR_AVAILABLE
+        self.use_vlm_pipeline = config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False)
+        self.vlm_preset = config.get(OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT)
+        self.vlm_engine_type = config.get(OperatorConstants.Config.VLM_ENGINE_TYPE)
+        self.vlm_provider_config = config.get(OperatorConstants.Config.VLM_PROVIDER_CONFIG)
+        self.additional_formats = config.get(OperatorConstants.Extraction.ADDITIONAL_FORMATS, [])
+        self.use_asr_pipeline = config.get(OperatorConstants.Config.USE_ASR_PIPELINE, False) and _ASR_AVAILABLE
         # Always use string default for ASR model name
-        self.asr_model_name = config.get("asr_model_name", "whisper_turbo")
+        self.asr_model_name = config.get(
+            OperatorConstants.Config.ASR_MODEL_NAME, OperatorConstants.Config.ASR_MODEL_DEFAULT
+        )
 
         if self.use_vlm_pipeline:
             logger.info(
@@ -99,12 +101,14 @@ class DoclingAdapter(TextExtractionPort):
                 "Initialized DoclingAdapter with ASR enabled - model: %s",
                 self.asr_model_name or "default",
             )
-        elif config.get("use_asr_pipeline", False) and not _ASR_AVAILABLE:
+        elif config.get(OperatorConstants.Config.USE_ASR_PIPELINE, False) and not _ASR_AVAILABLE:
             logger.warning(
                 "ASR pipeline requested but dependencies not available. Install with: uv pip install -e '.[asr]'"
             )
         if not self.use_vlm_pipeline and not self.use_asr_pipeline:
-            logger.info("Initialized DoclingAdapter with standard extraction, additional formats: %s", self.additional_formats)
+            logger.info(
+                "Initialized DoclingAdapter with standard extraction, additional formats: %s", self.additional_formats
+            )
 
     def _configure_vlm_engine(self) -> Any:
         """Configure VLM pipeline options based on engine type.
@@ -235,8 +239,8 @@ class DoclingAdapter(TextExtractionPort):
                 )
 
                 # Only set converter_config if we have format options
-            if format_options:
-                converter_config = {"format_options": format_options}
+                if format_options:
+                    converter_config = {OperatorConstants.Config.FORMAT_OPTIONS: format_options}
 
             # Use common extraction method with output_formats
             result = OperatorUtils.extract_content(
@@ -250,13 +254,13 @@ class DoclingAdapter(TextExtractionPort):
 
             # Add VLM-specific metadata if extraction succeeded and VLM was used
             if self.use_vlm_pipeline and result.get(OperatorConstants.Extraction.SUCCESS):
-                result[OperatorConstants.Metadata.METADATA]["vlm_preset"] = self.vlm_preset
-                result[OperatorConstants.Metadata.METADATA]["vlm_engine_type"] = (
+                result[OperatorConstants.Metadata.METADATA][OperatorConstants.Config.VLM_PRESET] = self.vlm_preset
+                result[OperatorConstants.Metadata.METADATA][OperatorConstants.Config.VLM_ENGINE_TYPE] = (
                     self.vlm_engine_type or OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
                 )
             # Add ASR-specific metadata if extraction succeeded and ASR was used
             if self.use_asr_pipeline and result.get(OperatorConstants.Extraction.SUCCESS):
-                result[OperatorConstants.Metadata.METADATA]["asr_model_name"] = (
+                result[OperatorConstants.Metadata.METADATA][OperatorConstants.Config.ASR_MODEL_NAME] = (
                     self.asr_model_name or OperatorConstants.Config.ASR_MODEL_DEFAULT
                 )
             return result

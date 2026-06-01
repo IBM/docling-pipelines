@@ -39,9 +39,10 @@ The operator validates file extensions and only processes documents with the fol
 **Type:** JSON Object
 **Required:** No (Yes for watsonx and most litellm providers)
 **Default:** `{}`
-**Description:** Provider-specific configuration parameters.
+**Description:** Provider-specific configuration parameters including model_id.
 
 **For LiteLLM:**
+- `model_id` (String, Required): Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"`, `"openai/gpt-4o-mini"`)
 - `api_key` (String, Required for most providers): API key for authentication
 - `api_base` (String, Optional): Custom API endpoint (e.g., for Ollama OpenAI-compatible endpoint)
 - `request_timeout` (Integer, Optional): Request timeout in seconds (default: 120)
@@ -49,6 +50,7 @@ The operator validates file extensions and only processes documents with the fol
 - `timeout` (Integer, Optional): HTTP client read timeout in seconds (default: 60). Set to 1800 (30 minutes) for large documents requiring extended generation time.
 
 **For watsonx:**
+- `model_id` (String, Required): Model identifier (e.g., `"ibm/granite-3-8b-instruct"`)
 - `api_base` (String, Required): API endpoint URL
 - `api_key` (String, Required): API key for authentication
 - `container_kind` (String, Required): Container type (`"project"` or `"space"` or `"catalog"`)
@@ -60,6 +62,7 @@ The operator validates file extensions and only processes documents with the fol
 LiteLLM with OpenAI:
 ```json
 "provider_config": {
+  "model_id": "openai/gpt-4o-mini",
   "api_key": "${OPENAI_API_KEY}",
   "request_timeout": 120
 }
@@ -68,7 +71,8 @@ LiteLLM with OpenAI:
 LiteLLM with Ollama (OpenAI-compatible endpoint):
 ```json
 "provider_config": {
-  "api_key": "ollama",  # pragma: allowlist secret
+  "model_id": "openai/granite3.1-dense:8b",
+  "api_key": "<ollama>",  # pragma: allowlist secret
   "api_base": "http://localhost:11434/v1",
   "request_timeout": 120
 }
@@ -91,45 +95,13 @@ For high-concurrency scenarios with remote vLLM clusters processing large docume
 watsonx:
 ```json
 "provider_config": {
+  "model_id": "ibm/granite-3-8b-instruct",
   "api_base": "https://us-south.ml.cloud.ibm.com",
   "api_key": "your-watsonx-api-key", # pragma: allowlist secret
   "container_kind": "project",
   "container_id": "12345678-1234-1234-1234-123456789abc",
   "request_timeout": 120
 }
-```
-
-#### 4. `model_id` (String)
-**Type:** String
-**Required:** No (Yes for watsonx)
-**Default:** `"openai/granite3.1-dense:8b"` (Default is for LiteLLM with Ollama; no default model_id for watsonx)
-**Description:** Model identifier in `<provider>/<model_id>` format for the selected provider.
-
-**Valid Values:**
-
-**LiteLLM Models (100+ providers):**
-- OpenAI: `"openai/gpt-4o-mini"`, `"openai/gpt-4"`, `"openai/gpt-3.5-turbo"`
-- Anthropic: `"anthropic/claude-3-opus"`, `"anthropic/claude-3-sonnet"`, `"anthropic/claude-3-haiku"`
-- Azure OpenAI: `"azure/gpt-4"`
-- AWS Bedrock: `"bedrock/anthropic.claude-3-sonnet"`
-- Google Vertex AI: `"vertex_ai/gemini-pro"`
-- HuggingFace: `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`, `"huggingface/mistralai/Mistral-7B-Instruct-v0.2"`
-- Ollama (via OpenAI-compatible API): `"openai/llama3.2:latest"`, `"openai/granite3.1-dense:8b"`, `"openai/mistral:latest"`
-
-**watsonx Models:**
-- `"ibm/granite-3-8b-instruct"` - IBM Granite 3 8B
-- `"ibm/granite-3-2b-instruct"` - IBM Granite 3 2B
-- `"meta-llama/llama-3-70b-instruct"` - Meta Llama 3 70B
-- `"meta-llama/llama-3-8b-instruct"` - Meta Llama 3 8B
-- `"mistralai/mixtral-8x7b-instruct-v01"` - Mixtral 8x7B
-
-**Examples:**
-```json
-"model_id": "openai/gpt-4o-mini"
-"model_id": "openai/llama3.2:latest"
-"model_id": "openai/granite3.1-dense:8b"
-"model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct"
-"model_id": "ibm/granite-3-8b-instruct"
 ```
 
 #### 6. `document_types` (List or Dictionary)
@@ -345,8 +317,8 @@ If not specified, the operator loads 30+ predefined document types from `common/
   "operator": "document_classifier",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/gpt-4o-mini",
     "provider_config": {
+      "model_id": "openai/gpt-4o-mini",
       "api_key": "${OPENAI_API_KEY}"
     },
     "document_types": ["invoice", "receipt", "contract", "report"],
@@ -363,9 +335,9 @@ If not specified, the operator loads 30+ predefined document types from `common/
   "operator": "document_classifier",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/llama3.2:latest",
     "provider_config": {
-      "api_key": "ollama",  # pragma: allowlist secret
+      "model_id": "openai/llama3.2:latest",
+      "api_key": "<ollama>",  # pragma: allowlist secret
       "api_base": "http://localhost:11434/v1"
     },
     "document_types": {
@@ -389,13 +361,13 @@ If not specified, the operator loads 30+ predefined document types from `common/
   "config": {
     "provider": "watsonx",
     "provider_config": {
+      "model_id": "ibm/granite-3-8b-instruct",
       "api_base": "https://us-south.ml.cloud.ibm.com",
       "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
       "container_kind": "project",
       "container_id": "${WATSONX_PROJECT_ID}",
       "request_timeout": 120
     },
-    "model_id": "ibm/granite-3-8b-instruct",
     "document_types": {
       "invoice": "Commercial invoice requesting payment",
       "purchase_order": "Order document from buyer to seller",

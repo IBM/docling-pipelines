@@ -119,7 +119,9 @@ This operator is **internal** and typically not used directly in flows. It's aut
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library"
+    "text_extraction": {
+      "provider": "docling_library"
+    }
   }
 }
 // Automatically generates doc_id_hash for extracted content
@@ -132,7 +134,9 @@ This operator is **internal** and typically not used directly in flows. It's aut
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/nomic-embed-text"
+    "provider_config": {
+      "model_id": "openai/nomic-embed-text"
+    }
   }
 }
 // Automatically generates doc_id_hash if not present

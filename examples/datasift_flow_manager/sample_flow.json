@@ -23,9 +23,13 @@
         "ingest"
       ],
       "config": {
-        "doc_column": "content",
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
       }
     },
     {

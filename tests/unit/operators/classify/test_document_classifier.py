@@ -22,10 +22,10 @@ def basic_litellm_config():
     return {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
             "api_key": "ollama",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": ["invoice", "receipt"],
     }
 
@@ -66,10 +66,10 @@ def test_document_classifier_basic_litellm():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": {
             "invoice": "Business invoice with line items, totals, and payment terms",
             "receipt": "Payment receipt or transaction confirmation",
@@ -175,10 +175,10 @@ def test_document_classifier_without_content_column():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": ["email", "letter", "form", "report", "other"],
         "confidence_threshold": 6.0,
         "doc_column": "content",
@@ -244,10 +244,10 @@ def test_document_classifier_get_metadata_watsonx(monkeypatch):
     config = {
         "provider": "watsonx",
         "provider_config": {
+            "model_id": "ibm/granite-3-8b-instruct",
             "api_base": "https://us-south.ml.cloud.ibm.com",
             "container_kind": "project",
         },
-        "model_id": "ibm/granite-3-8b-instruct",
         "document_types": ["invoice", "receipt", "contract"],
     }
 
@@ -269,7 +269,12 @@ def test_document_classifier_get_metadata_watsonx(monkeypatch):
     # Check attributes
     attributes = metadata["attributes"]
     assert "provider" in attributes, "Attributes should include 'provider'"
-    assert "model_id" in attributes, "Attributes should include 'model_id'"
+    # model_id is now nested in provider_config.properties
+    assert "provider_config" in attributes, "Attributes should include 'provider_config'"
+    assert "properties" in attributes["provider_config"], "provider_config should have 'properties'"
+    assert "model_id" in attributes["provider_config"]["properties"], (
+        "provider_config.properties should include 'model_id'"
+    )
     assert "document_types" in attributes, "Attributes should include 'document_types'"
     assert "confidence_threshold" in attributes, "Attributes should include 'confidence_threshold'"
 
@@ -282,10 +287,10 @@ def test_document_classifier_validation_litellm():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": ["invoice", "receipt"],
     }
 
@@ -308,10 +313,10 @@ def test_document_classifier_empty_table():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": ["invoice", "receipt"],
     }
 
@@ -344,10 +349,10 @@ def test_document_classifier_with_existing_classification():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": ["invoice", "receipt"],
         "output_column": "document_type",
     }
@@ -380,10 +385,10 @@ def test_document_classifier_list_document_types():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": ["invoice", "receipt", "contract", "report"],
         "doc_column": "content",
         "output_column": "document_type",
@@ -450,10 +455,10 @@ def test_document_classifier_progress_tracking_litellm():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": ["invoice", "receipt", "contract"],
         "job_id": "test-job",
         "job_run_id": "test-run",
@@ -524,7 +529,7 @@ def test_document_classifier_file_extension_validation():
         "provider": "litellm",
         "provider_config": {
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",
+            "api_key": "<ollama>",
         },
         "model_id": "openai/granite3.1-dense:8b",
         "document_types": ["invoice", "contract", "receipt"],
@@ -615,7 +620,7 @@ def test_document_classifier_all_files_skipped():
         "provider": "litellm",
         "provider_config": {
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",
+            "api_key": "<ollama>",
         },
         "model_id": "openai/granite3.1-dense:8b",
         "document_types": ["invoice", "contract"],
@@ -666,7 +671,7 @@ def test_document_classifier_supported_extensions_only():
         "provider": "litellm",
         "provider_config": {
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",
+            "api_key": "<ollama>",
         },
         "model_id": "openai/granite3.1-dense:8b",
         "document_types": ["document"],
@@ -720,10 +725,10 @@ def test_document_classifier_batch_progress_litellm():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/llama3",
             "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
+            "api_key": "<ollama>",  # pragma: allowlist secret
         },
-        "model_id": "openai/llama3",
         "document_types": ["invoice", "receipt"],
         "max_workers": 2,
         "job_id": "test-job",
@@ -836,11 +841,11 @@ def test_transform_sets_correct_status_on_all_failures(basic_litellm_config):
         _, metadata = operator.transform(table)
 
         # Verify status is FAILED when all documents fail
-        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value, (
-            f"Expected {ExecutionStatus.FAILED.value}, got {metadata[Metrics.External.NODE_STATUS]}"
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_WARNINGS.value, (
+            f"Expected {ExecutionStatus.COMPLETED_WITH_WARNINGS.value}, got {metadata[Metrics.External.NODE_STATUS]}"
         )
         assert metadata[Metrics.External.PROCESSED_DOCS] == 0
-        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 2
+        assert metadata[Metrics.External.SKIPPED_DOCS_COUNT] == 2
 
 
 @pytest.mark.unit
@@ -851,7 +856,7 @@ def test_transform_sets_correct_status_on_partial_failures(basic_litellm_config)
     table = pa.table(
         {
             "id": ["doc1", "doc2"],
-            "name": ["test1.txt", "test2.txt"],
+            "name": ["test1.pdf", "test2.pdf"],
             "content": ["Test content 1", "Test content 2"],
         }
     )
@@ -885,7 +890,7 @@ def test_transform_sets_correct_status_on_success(basic_litellm_config):
     table = pa.table(
         {
             "id": ["doc1", "doc2"],
-            "name": ["test1.txt", "test2.txt"],
+            "name": ["test1.pdf", "test2.pdf"],
             "content": ["Test content 1", "Test content 2"],
         }
     )

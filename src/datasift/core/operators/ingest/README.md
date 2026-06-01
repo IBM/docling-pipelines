@@ -93,9 +93,13 @@ ingest_tables, _ = ingest_op.transform(None)
 
 # Step 2: Extract content with Docling
 extract_config = {
-    "doc_column": "content",
-    "extract_tables": True,
-    "extract_images": True
+    "text_extraction": {
+        "doc_column": "content",
+        "provider_config": {
+            "extract_tables": True,
+            "extract_images": True
+        }
+    }
 }
 
 extract_op = ExtractOperator(extract_config)

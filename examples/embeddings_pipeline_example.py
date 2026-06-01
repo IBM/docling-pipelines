@@ -263,9 +263,13 @@ def main() -> int:
     print("=" * 80)
 
     extract_config: dict[str, Any] = {
-        "doc_column": "content",
-        "extract_tables": True,
-        "extract_images": False,
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "content",
+            "extract_tables": True,
+            "extract_images": False,
+        },
+        "entity_extraction": {"provider": "none"},
     }
 
     try:
@@ -308,7 +312,7 @@ def main() -> int:
         "chunk_overlap": 128,
         "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
         "retain_original_content": False,
-        "enable_summarization": True,
+        "summarization": {"enabled": True},
     }
 
     try:

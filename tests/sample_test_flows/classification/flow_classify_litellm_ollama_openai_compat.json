@@ -25,8 +25,8 @@
       "type": "document_classifier",
       "config": {
         "provider": "litellm",
-        "model_id": "openai/llama3.2",
         "provider_config": {
+          "model_id": "openai/llama3.2",
           "api_key": "${api_key}",
           "api_base": "http://localhost:11434/v1",
           "temperature": 0.0,

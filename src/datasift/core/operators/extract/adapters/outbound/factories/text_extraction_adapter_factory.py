@@ -45,16 +45,24 @@ class TextExtractionAdapterFactory:
 
         # Create Docling adapter with VLM enabled
         vlm_config = {
-            "use_vlm_pipeline": True,
-            "vlm_preset": "granite_docling",
-            "vlm_engine_type": "transformers",
             "extract_tables": True,
             "extract_images": True,
-            "doc_column": "document"
+            "doc_column": "document",
+            "provider_config": {
+                "vlm_pipeline": {
+                    "preset": "fast",
+                    "engine": "ollama",
+                    "engine_options": {
+                        "api_base": "http://localhost:11434",
+                        "model_id": "llama3.2-vision"
+                    }
+                }
+            }
         }
         vlm_adapter = TextExtractionAdapterFactory.create_adapter(
             mode=TextExtractionMode.DOCLING_LIBRARY,
-            config=vlm_config,
+            text_extraction_config=vlm_config,
+            global_config={},
             max_workers=2
         )
 
@@ -74,15 +82,15 @@ class TextExtractionAdapterFactory:
     """
 
     @staticmethod
-    def build_adapter_config(*, mode: TextExtractionMode, operator_config: dict[str, Any]) -> dict[str, Any]:
-        """Build adapter-specific configuration from operator config.
+    def build_adapter_config(*, mode: TextExtractionMode, text_extraction_config: dict[str, Any]) -> dict[str, Any]:
+        """Build adapter-specific configuration from nested text_extraction config.
 
-        This method extracts and transforms operator-level configuration into
+        This method extracts and transforms the nested text_extraction configuration into
         adapter-specific configuration, handling mode-specific requirements.
 
         Args:
             mode: Text extraction mode (DOCLING_LIBRARY, DOCLING_SERVE)
-            operator_config: Full operator configuration dictionary
+            text_extraction_config: Nested text_extraction configuration dictionary
 
         Returns:
             Adapter-specific configuration dictionary
@@ -90,77 +98,112 @@ class TextExtractionAdapterFactory:
         Raises:
             ValueError: If mode is unsupported or configuration is invalid
         """
+        # Extract provider_config from nested structure
+        provider_config = text_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
         # Common configuration for all text modes
         adapter_config: dict[str, Any] = {
-            "doc_column": operator_config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT),
-            OperatorConstants.Config.EXTRACT_TABLES: operator_config.get(
+            OperatorConstants.Config.DOC_COLUMN: text_extraction_config.get(
+                OperatorConstants.Config.DOC_COLUMN, OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+            ),
+            # These are now read from provider_config as they are provider-specific
+            OperatorConstants.Config.EXTRACT_TABLES: provider_config.get(
                 OperatorConstants.Config.EXTRACT_TABLES, False
             ),
-            OperatorConstants.Config.EXTRACT_IMAGES: operator_config.get(
+            OperatorConstants.Config.EXTRACT_IMAGES: provider_config.get(
                 OperatorConstants.Config.EXTRACT_IMAGES, False
             ),
-            OperatorConstants.Extraction.ADDITIONAL_FORMATS: operator_config.get(
+            OperatorConstants.Extraction.ADDITIONAL_FORMATS: provider_config.get(
                 OperatorConstants.Extraction.ADDITIONAL_FORMATS, []
             ),
-            "common_log_arguments": operator_config.get("common_log_arguments", {}),
+            OperatorConstants.Config.COMMON_LOG_ARGUMENTS: text_extraction_config.get(
+                OperatorConstants.Config.COMMON_LOG_ARGUMENTS, {}
+            ),
             # Job tracking context for progress updates
-            DatasiftConstants.JOB_RUN_ID: operator_config.get(DatasiftConstants.JOB_RUN_ID),
-            DatasiftConstants.NODE_ID: operator_config.get(DatasiftConstants.NODE_ID),
-            DatasiftConstants.NODE_NAME: operator_config.get(DatasiftConstants.NODE_NAME),
-            DatasiftConstants.BATCH_ID: operator_config.get(DatasiftConstants.BATCH_ID),
+            DatasiftConstants.JOB_RUN_ID: text_extraction_config.get(DatasiftConstants.JOB_RUN_ID),
+            DatasiftConstants.NODE_ID: text_extraction_config.get(DatasiftConstants.NODE_ID),
+            DatasiftConstants.NODE_NAME: text_extraction_config.get(DatasiftConstants.NODE_NAME),
+            DatasiftConstants.BATCH_ID: text_extraction_config.get(DatasiftConstants.BATCH_ID),
         }
 
-        # Add mode-specific configuration
+        # Add mode-specific configuration from provider_config
         if mode == TextExtractionMode.DOCLING_LIBRARY:
-            # VLM configuration is now part of docling_library mode
+            # VLM configuration comes from provider_config.vlm_pipeline
+            vlm_pipeline = provider_config.get(OperatorConstants.Config.VLM_PIPELINE, {})
+
+            use_vlm = vlm_pipeline.get(OperatorConstants.Misc.ENABLED, False)
+
             adapter_config.update(
                 {
-                    OperatorConstants.Config.USE_VLM_PIPELINE: operator_config.get(
-                        OperatorConstants.Config.USE_VLM_PIPELINE, False
+                    OperatorConstants.Config.USE_VLM_PIPELINE: use_vlm,
+                    OperatorConstants.Config.VLM_PRESET: vlm_pipeline.get(
+                        OperatorConstants.Config.PRESET, OperatorConstants.Config.DEFAULT
                     ),
-                    OperatorConstants.Config.VLM_PRESET: operator_config.get(
-                        OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
+                    OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_pipeline.get(
+                        OperatorConstants.Config.ENGINE, OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
                     ),
-                    OperatorConstants.Config.VLM_ENGINE_TYPE: operator_config.get(
-                        OperatorConstants.Config.VLM_ENGINE_TYPE
+                    OperatorConstants.Config.VLM_PROVIDER_CONFIG: vlm_pipeline.get(
+                        OperatorConstants.Config.ENGINE_OPTIONS
                     ),
-                    OperatorConstants.Config.VLM_PROVIDER_CONFIG: operator_config.get(
-                        OperatorConstants.Config.VLM_PROVIDER_CONFIG
+                }
+            )
+
+            # ASR configuration comes from provider_config.asr_pipeline
+            asr_pipeline = provider_config.get(OperatorConstants.Config.ASR_PIPELINE, {})
+
+            adapter_config.update(
+                {
+                    OperatorConstants.Config.USE_ASR_PIPELINE: asr_pipeline.get(
+                        OperatorConstants.Config.ENABLED, False
+                    ),
+                    OperatorConstants.Config.ASR_MODEL_NAME: asr_pipeline.get(
+                        OperatorConstants.Config.MODEL_NAME,
+                        asr_pipeline.get(OperatorConstants.Config.MODEL_ID, OperatorConstants.Config.ASR_MODEL_DEFAULT),
                     ),
                 }
             )
 
         elif mode == TextExtractionMode.DOCLING_SERVE:
-            # Build docling_serve_config dictionary
+            # Build docling_serve_config dictionary from provider_config
             docling_serve_config = {
-                "base_url": operator_config.get(
-                    OperatorConstants.Config.DOCLING_SERVE_BASE_URL, "http://localhost:5001"
+                OperatorConstants.Config.BASE_URL: provider_config.get(
+                    OperatorConstants.Config.BASE_URL, "http://localhost:5001"
                 ),
-                "timeout": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_TIMEOUT, 300),
-                "poll_interval": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_POLL_INTERVAL, 2),
-                "max_retries": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_MAX_RETRIES, 3),
-                "verify_ssl": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_VERIFY_SSL, True),
-                "do_ocr": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_DO_OCR, True),
-                "ocr_engine": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE, "easyocr"),
-                "pdf_backend": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND, "dlparse_v2"),
-                "table_mode": operator_config.get(OperatorConstants.Config.DOCLING_SERVE_TABLE_MODE, "fast"),
-                "image_export_mode": operator_config.get(
-                    OperatorConstants.Config.DOCLING_SERVE_IMAGE_EXPORT_MODE, "placeholder"
+                OperatorConstants.Processing.TIMEOUT: provider_config.get(OperatorConstants.Processing.TIMEOUT, 300),
+                OperatorConstants.Processing.POLL_INTERVAL: provider_config.get(
+                    OperatorConstants.Processing.POLL_INTERVAL, 2
+                ),
+                OperatorConstants.Processing.MAX_RETRIES: provider_config.get(
+                    OperatorConstants.Processing.MAX_RETRIES, 3
+                ),
+                OperatorConstants.Processing.VERIFY_SSL: provider_config.get(
+                    OperatorConstants.Processing.VERIFY_SSL, True
+                ),
+                OperatorConstants.Config.DO_OCR: provider_config.get(OperatorConstants.Config.DO_OCR, True),
+                OperatorConstants.Config.OCR_ENGINE: provider_config.get(
+                    OperatorConstants.Config.OCR_ENGINE, "easyocr"
+                ),
+                OperatorConstants.Config.PDF_BACKEND: provider_config.get(
+                    OperatorConstants.Config.PDF_BACKEND, "dlparse_v2"
+                ),
+                OperatorConstants.Config.TABLE_MODE: provider_config.get(OperatorConstants.Config.TABLE_MODE, "fast"),
+                OperatorConstants.Config.IMAGE_EXPORT_MODE: provider_config.get(
+                    OperatorConstants.Config.IMAGE_EXPORT_MODE, "placeholder"
                 ),
             }
 
             # Add optional parameters if provided
-            if operator_config.get(OperatorConstants.Config.DOCLING_SERVE_API_KEY):
-                docling_serve_config[OperatorConstants.Config.API_KEY] = operator_config[
-                    OperatorConstants.Config.DOCLING_SERVE_API_KEY
+            if provider_config.get(OperatorConstants.Config.API_KEY):
+                docling_serve_config[OperatorConstants.Config.API_KEY] = provider_config[
+                    OperatorConstants.Config.API_KEY
                 ]
 
-            if operator_config.get(OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES):
-                docling_serve_config["ocr_languages"] = operator_config[
-                    OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES
+            if provider_config.get(OperatorConstants.Config.OCR_LANGUAGES):
+                docling_serve_config[OperatorConstants.Config.OCR_LANGUAGES] = provider_config[
+                    OperatorConstants.Config.OCR_LANGUAGES
                 ]
 
-            adapter_config["docling_serve_config"] = docling_serve_config
+            adapter_config[OperatorConstants.Config.DOCLING_SERVE_CONFIG] = docling_serve_config
 
         else:
             raise ValueError(
@@ -171,13 +214,19 @@ class TextExtractionAdapterFactory:
 
     @staticmethod
     def create_adapter(
-        *, mode: TextExtractionMode, operator_config: dict[str, Any], max_workers: int = 4, use_processes: bool = False
+        *,
+        mode: TextExtractionMode,
+        text_extraction_config: dict[str, Any],
+        global_config: dict[str, Any],
+        max_workers: int = 4,
+        use_processes: bool = False,
     ) -> TextExtractionPort:
         """Create appropriate text extraction adapter based on mode.
 
         Args:
             mode: Extraction mode (DOCLING_LIBRARY, DOCLING_SERVE)
-            operator_config: Full operator configuration dictionary
+            text_extraction_config: Nested text_extraction configuration dictionary
+            global_config: Global operator configuration (for job tracking, etc.)
             max_workers: Number of parallel workers (default: 4)
             use_processes: Use ProcessPoolExecutor instead of ThreadPoolExecutor (default: False)
 
@@ -187,22 +236,26 @@ class TextExtractionAdapterFactory:
         Raises:
             ValueError: If mode is unsupported or config is invalid
         """
-        # Build adapter-specific configuration
-        adapter_config = TextExtractionAdapterFactory.build_adapter_config(mode=mode, operator_config=operator_config)
+        # Build adapter-specific configuration from nested text_extraction config
+        adapter_config = TextExtractionAdapterFactory.build_adapter_config(
+            mode=mode, text_extraction_config=text_extraction_config
+        )
 
-        # Add common configuration
-        # IMPORTANT: Merge operator_config first to preserve global_config keys like ingest_source
-        full_config = {**operator_config, **adapter_config, "max_workers": max_workers, "use_processes": use_processes}
+        # Merge with global config for job tracking and other global settings
+        # IMPORTANT: Merge global_config first to preserve keys like ingest_source
+        full_config = {**global_config, **adapter_config, "max_workers": max_workers, "use_processes": use_processes}
 
         if mode == TextExtractionMode.DOCLING_LIBRARY:
             # Check if VLM is enabled
-            use_vlm = adapter_config.get("use_vlm_pipeline", False)
+            use_vlm = adapter_config.get(OperatorConstants.Config.USE_VLM_PIPELINE, False)
 
             if use_vlm:
                 TextExtractionAdapterFactory._validate_vlm_config(adapter_config)
                 logger.info(
                     "Creating DoclingAdapter with VLM enabled (preset: %s) and %s workers",
-                    adapter_config.get("vlm_preset", OperatorConstants.Config.VLM_PRESET_DEFAULT),
+                    adapter_config.get(
+                        OperatorConstants.Config.VLM_PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
+                    ),
                     max_workers,
                 )
             else:
@@ -215,7 +268,9 @@ class TextExtractionAdapterFactory:
             TextExtractionAdapterFactory._validate_docling_serve_config(adapter_config)
             logger.info(
                 "Creating DoclingServeAdapter with URL: %s",
-                adapter_config.get("docling_serve_config", {}).get("base_url", "http://0.0.0.0:5001"),
+                adapter_config.get(OperatorConstants.Config.DOCLING_SERVE_CONFIG, {}).get(
+                    OperatorConstants.Config.BASE_URL, "http://0.0.0.0:5001"
+                ),
             )
             return DoclingServeAdapter(config=full_config)
 
@@ -292,7 +347,7 @@ class TextExtractionAdapterFactory:
         Raises:
             ValueError: If required configuration is missing or invalid
         """
-        docling_serve_config = config.get("docling_serve_config")
+        docling_serve_config = config.get(OperatorConstants.Config.DOCLING_SERVE_CONFIG)
 
         if not docling_serve_config:
             raise ValueError("DoclingServeAdapter requires 'docling_serve_config' dictionary")
@@ -301,18 +356,22 @@ class TextExtractionAdapterFactory:
             raise ValueError("DoclingServeAdapter 'docling_serve_config' must be a dictionary")
 
         # Validate base_url if present
-        base_url = docling_serve_config.get("base_url")
+        base_url = docling_serve_config.get(OperatorConstants.Config.BASE_URL)
         if base_url is not None and not isinstance(base_url, str):
             raise ValueError("docling_serve_config 'base_url' must be a string")
 
         # Validate numeric parameters if present
-        for param in ["timeout", "poll_interval", "max_retries"]:
+        for param in [
+            OperatorConstants.Processing.TIMEOUT,
+            OperatorConstants.Processing.POLL_INTERVAL,
+            OperatorConstants.Processing.MAX_RETRIES,
+        ]:
             value = docling_serve_config.get(param)
             if value is not None and not isinstance(value, (int, float)):
                 raise ValueError(f"docling_serve_config '{param}' must be a number")
 
         # Validate boolean flags if present
-        do_ocr = docling_serve_config.get("do_ocr")
+        do_ocr = docling_serve_config.get(OperatorConstants.Config.DO_OCR)
         if do_ocr is not None and not isinstance(do_ocr, bool):
             raise ValueError("docling_serve_config 'do_ocr' must be a boolean")
 
@@ -332,12 +391,12 @@ class TextExtractionAdapterFactory:
         Raises:
             ValueError: If required configuration is missing
         """
-        docling_serve_config = config.get("docling_serve_config", {})
+        docling_serve_config = config.get(OperatorConstants.Config.DOCLING_SERVE_CONFIG, {})
 
         return DoclingServeConfig(
-            url=docling_serve_config.get("base_url", "http://localhost:8080"),
-            timeout=docling_serve_config.get("timeout", 300),
-            max_retries=docling_serve_config.get("max_retries", 3),
+            url=docling_serve_config.get(OperatorConstants.Config.BASE_URL, "http://localhost:8080"),
+            timeout=docling_serve_config.get(OperatorConstants.Processing.TIMEOUT, 300),
+            max_retries=docling_serve_config.get(OperatorConstants.Processing.MAX_RETRIES, 3),
             additional_params=docling_serve_config.get("additional_params", {}),
         )
 

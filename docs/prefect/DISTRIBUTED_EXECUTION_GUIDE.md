@@ -848,9 +848,13 @@ volumes:
       "type": "extract_operator",
       "depends_on": ["ingest_documents"],
       "config": {
-        "text_extraction_provider": "docling_serve",
-        "entity_extraction_provider": "none",
-        "docling_serve_url": "http://docling:5000"
+        "text_extraction": {
+          "provider": "docling_serve",
+          "provider_config": {
+            "base_url": "http://docling:5000"
+          }
+        },
+        "entity_extraction": {"provider": "none"}
       }
     }
   ]
@@ -920,9 +924,13 @@ volumes:
       "type": "extract_operator",
       "depends_on": ["ingest_from_s3"],
       "config": {
-        "text_extraction_provider": "docling_serve",
-        "entity_extraction_provider": "none",
-        "docling_serve_url": "http://docling-service:5000"
+        "text_extraction": {
+          "provider": "docling_serve",
+          "provider_config": {
+            "base_url": "http://docling-service:5000"
+          }
+        },
+        "entity_extraction": {"provider": "none"}
       }
     },
     {

@@ -98,8 +98,8 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 ```json
 {
   "provider": "litellm",
-  "model_id": "openai/gpt-4o-mini",
   "provider_config": {
+    "model_id": "openai/gpt-4o-mini",
     "api_key": "${OPENAI_API_KEY}"
   }
 }
@@ -109,10 +109,10 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 ```json
 {
   "provider": "litellm",
-  "model_id": "openai/granite3.1-dense:8b",
   "provider_config": {
+    "model_id": "openai/granite3.1-dense:8b",
     "api_base": "http://localhost:11434/v1",
-    "api_key": "ollama" # pragma: allowlist secret
+    "api_key": "<ollama>" # pragma: allowlist secret
   }
 }
 ```
@@ -147,8 +147,8 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 ```json
 {
   "provider": "watsonx",
-  "model_id": "ibm/granite-13b-chat-v2",
   "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
     "api_base": "https://us-south.ml.cloud.ibm.com",
     "api_key": "${WATSONX_API_KEY}",
     "container_kind": "project",
@@ -198,8 +198,8 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 ```json
 {
   "provider": "litellm",
-  "model_id": "openai/gpt-4o-mini",
   "provider_config": {
+    "model_id": "openai/gpt-4o-mini",
     "api_key": "${OPENAI_API_KEY}",
     "request_timeout": 120
   }
@@ -209,34 +209,34 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 **Examples for different providers**:
 ```json
 // OpenAI
-{"provider": "litellm", "model_id": "openai/gpt-4o-mini"}
+{"provider": "litellm", "provider_config": {"model_id": "openai/gpt-4o-mini"}}
 
 // Anthropic
-{"provider": "litellm", "model_id": "anthropic/claude-3-sonnet-20240229"}
+{"provider": "litellm", "provider_config": {"model_id": "anthropic/claude-3-sonnet-20240229"}}
 
 // Azure OpenAI
-{"provider": "litellm", "model_id": "azure/gpt-4"}
+{"provider": "litellm", "provider_config": {"model_id": "azure/gpt-4"}}
 
 // AWS Bedrock
-{"provider": "litellm", "model_id": "bedrock/anthropic.claude-3-sonnet"}
+{"provider": "litellm", "provider_config": {"model_id": "bedrock/anthropic.claude-3-sonnet"}}
 
 // Google Vertex AI
-{"provider": "litellm", "model_id": "vertex_ai/gemini-pro"}
+{"provider": "litellm", "provider_config": {"model_id": "vertex_ai/gemini-pro"}}
 
 // Ollama via OpenAI-compatible endpoint
-{"provider": "litellm", "model_id": "openai/llama3.2:latest", "provider_config": {"api_base": "http://localhost:11434/v1"}}
-{"provider": "litellm", "model_id": "openai/granite3.1-dense:8b", "provider_config": {"api_base": "http://localhost:11434/v1"}}
+{"provider": "litellm", "provider_config": {"model_id": "openai/llama3.2:latest", "api_base": "http://localhost:11434/v1"}}
+{"provider": "litellm", "provider_config": {"model_id": "openai/granite3.1-dense:8b", "api_base": "http://localhost:11434/v1"}}
 
 // HuggingFace
-{"provider": "litellm", "model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct"}
+{"provider": "litellm", "provider_config": {"model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct"}}
 ```
 
 #### Watsonx
 ```json
 {
   "provider": "watsonx",
-  "model_id": "ibm/granite-13b-chat-v2",
   "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
     "api_base": "https://us-south.ml.cloud.ibm.com",
     "api_key": "${WATSONX_API_KEY}",
     "container_kind": "project",
@@ -357,10 +357,10 @@ The operator provides detailed processing statistics in metadata:
   "operator": "document_classifier",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/granite3.1-dense:8b",
     "provider_config": {
+      "model_id": "openai/granite3.1-dense:8b",
       "api_base": "http://localhost:11434/v1",
-      "api_key": "ollama" # pragma: allowlist secret
+      "api_key": "<ollama>" # pragma: allowlist secret
     },
     "document_types": ["invoice", "receipt", "contract", "report"],
     "confidence_threshold": 7.0,
@@ -379,8 +379,8 @@ The operator provides detailed processing statistics in metadata:
   "operator": "document_classifier",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/gpt-4o-mini",
     "provider_config": {
+      "model_id": "openai/gpt-4o-mini",
       "api_key": "${OPENAI_API_KEY}"
     },
     "document_types": {
@@ -406,8 +406,8 @@ The operator provides detailed processing statistics in metadata:
   "operator": "document_classifier",
   "config": {
     "provider": "watsonx",
-    "model_id": "ibm/granite-13b-chat-v2",
     "provider_config": {
+      "model_id": "ibm/granite-13b-chat-v2",
       "api_base": "https://us-south.ml.cloud.ibm.com",
       "api_key": "${WATSONX_API_KEY}",
       "container_kind": "project",
@@ -457,10 +457,10 @@ The operator provides detailed processing statistics in metadata:
       "depends_on": ["extract"],
       "config": {
         "provider": "litellm",
-        "model_id": "openai/granite3.1-dense:8b",
         "provider_config": {
+          "model_id": "openai/granite3.1-dense:8b",
           "api_base": "http://localhost:11434/v1",
-          "api_key": "ollama" # pragma: allowlist secret
+          "api_key": "<ollama>" # pragma: allowlist secret
         },
         "document_types": {
           "invoice": "Business invoice with line items",

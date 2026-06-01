@@ -250,7 +250,7 @@ class DuckDBDocumentSetDataStore(DocumentSetDataStore):
             Dictionary containing:
                 - total_documents: Total number of documents
                 - total_size_bytes: Sum of all document sizes
-                - total_pages: Sum of all pages processed
+                - total_pages: Sum of all pages processed (0 if column doesn't exist)
 
         Raises:
             KeyError: If the specified table does not exist
@@ -265,13 +265,36 @@ class DuckDBDocumentSetDataStore(DocumentSetDataStore):
                     error_code=ErrorCode.DOCUMENT_SET_TABLE_NOT_FOUND,
                 )
 
+            # Query to get column names from the table
+            column_query = f"""
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_name = '{table_name}'
+            """
+            column_result = self.storage.execute_query(query=column_query)
+            column_names = [row["column_name"] for row in column_result.to_pylist()]
+
+            # Build SQL query dynamically based on available columns
+            # Always include total_documents count
+            select_clauses = ["COUNT(*) AS total_documents"]
+
+            # Add size aggregation if column exists
+            if "size" in column_names:
+                select_clauses.append("COALESCE(SUM(size), 0) AS total_size_bytes")
+            else:
+                select_clauses.append("0 AS total_size_bytes")
+
+            # Add pages_processed aggregation if column exists
+            if "pages_processed" in column_names:
+                select_clauses.append("COALESCE(SUM(pages_processed), 0) AS total_pages")
+            else:
+                select_clauses.append("0 AS total_pages")
+
             # DuckDB-specific SQL aggregation query
             # This SQL logic stays in the adapter, not in the storage layer
             query = f"""
                 SELECT
-                    COUNT(*) AS total_documents,
-                    COALESCE(SUM(size), 0) AS total_size_bytes,
-                    COALESCE(SUM(pages_processed), 0) AS total_pages
+                    {", ".join(select_clauses)}
                 FROM {table_name}
             """
 

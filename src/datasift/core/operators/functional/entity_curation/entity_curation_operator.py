@@ -54,8 +54,8 @@ class EntityCurationOperator(AbstractOperator):
         Ingest → Extract (with entity extraction) → EntityCuration → Embeddings → VectorDB
 
         Where Extract operator is configured with:
-        - text_extraction_provider: "docling_library" or "docling_serve"
-        - entity_extraction_provider: "ollama", "docling", or "litellm"
+        - text_extraction.provider: "docling_library" or "docling_serve"
+        - entity_extraction.provider: "ollama", "docling", or "litellm"
     """
 
     short_name: str = "entity_curation"

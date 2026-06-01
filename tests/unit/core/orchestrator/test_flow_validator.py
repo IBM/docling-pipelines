@@ -510,7 +510,7 @@ class TestFlowValidatorIntegration:
                     "id": "extract-1",
                     "name": "extract_documents",
                     "operator": "extract_operator",
-                    "config": {"doc_column": "content"},
+                    "config": {"text_extraction": {"provider": "docling_library", "doc_column": "content"}},
                     "input_edges": [{"node_id_ref": "ingest-1"}],
                     "output_edges": [{"node_id_ref": "vectordb-1"}],
                 },

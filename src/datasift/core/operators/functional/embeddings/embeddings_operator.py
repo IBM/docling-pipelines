@@ -30,6 +30,7 @@ from datasift.utils.core.memmap_file_utils import write_content_to_file
 from datasift.utils.data.transform import TransformUtils
 from datasift.utils.infrastructure.filesystem import get_data_path
 from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.operators.config_validation import validate_config_from_metadata
 
 logger = get_logger()
 
@@ -73,6 +74,18 @@ class EmbeddingsOperator(AbstractOperator):
     - Ollama: openai/nomic-embed-text, openai/llama2
     - HuggingFace: huggingface/sentence-transformers/all-MiniLM-L6-v2
     - Azure OpenAI, Cohere, Bedrock, Vertex AI, etc.
+
+    Attributes:
+        provider (str): Embedding provider (watsonx or litellm)
+        provider_config (dict): Provider-specific configuration
+            - model_id (str): Model identifier in <provider>/<model_id> format for litellm
+            - api_base (str): API endpoint URL (optional)
+            - api_key (str): Authentication key (optional)
+        embeddings_column (str): Output column name for embeddings
+        overlap_ratio (float): Overlap ratio for chunking long text (0.0-0.5)
+        token_limit (int): Maximum token limit for text chunking
+        doc_column (str): Input column containing document content
+        doc_id_hash_column (str): Column for document hash
     """
 
     short_name: str = OperatorConstants.Operators.EMBEDDINGS
@@ -86,8 +99,8 @@ class EmbeddingsOperator(AbstractOperator):
         Args:
             config: Configuration dictionary containing:
                 - provider: Provider type ("watsonx" or "litellm", default: "litellm")
-                - model_id: Model identifier in <provider>/<model_id> format for litellm (e.g., "openai/nomic-embed-text")
-                - provider_config: Provider-specific configuration dictionary
+                - provider_config: Provider-specific configuration dictionary containing:
+                    - model_id: Model identifier in <provider>/<model_id> format for litellm (e.g., "openai/nomic-embed-text")
                 - embeddings_column: Output column name for embeddings (default: "embeddings")
                 - overlap_ratio: Overlap ratio for chunking long text (default: 0.2)
                 - token_limit: Maximum token limit for chunking (default: 8192)
@@ -99,11 +112,11 @@ class EmbeddingsOperator(AbstractOperator):
         # Provider configuration
         self.provider: str = config.get(PROVIDER_KEY, PROVIDER_DEFAULT).lower()
 
-        # Model configuration
-        self.model_id: str = config.get(OperatorConstants.Config.MODEL_ID, "openai/nomic-embed-text")
-
         # Provider-specific configuration
         self.provider_config: dict[str, Any] = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        # Model configuration - now from provider_config
+        self.model_id: str = self.provider_config.get(OperatorConstants.Config.MODEL_ID, "openai/nomic-embed-text")
 
         # Column names
         self.embeddings_column: str = config.get(
@@ -202,6 +215,13 @@ class EmbeddingsOperator(AbstractOperator):
         """
         super().validate(errors, warnings, available_features)
 
+        # Get metadata and extract ATTRIBUTES for validation
+        metadata = self.get_metadata()
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
+
+        # Validate configuration against metadata
+        validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
+
         # Validate provider
         if self.should_validate_field(field_value=self.provider):
             if not isinstance(self.provider, str):
@@ -225,32 +245,37 @@ class EmbeddingsOperator(AbstractOperator):
             elif self.token_limit <= 0:
                 errors.append(f"token_limit must be positive, got {self.token_limit}")
 
-        # Validate model ID
-        if self.should_validate_field(field_value=self.model_id):
-            if not self.model_id or not isinstance(self.model_id, str):
-                errors.append("model_id must be a non-empty string")
+        # Validate provider_config and model_id
+        if self.should_validate_field(field_value=self.provider_config):
+            if not isinstance(self.provider_config, dict):
+                errors.append(f"provider_config must be a dictionary, got {type(self.provider_config)}")
+            else:
+                # Validate model_id within provider_config
+                model_id = self.provider_config.get(OperatorConstants.Config.MODEL_ID)
+                if not model_id or not isinstance(model_id, str):
+                    errors.append("provider_config.model_id is required and must be a non-empty string")
 
-        # Validate provider_config parameters
-        if self.should_validate_field(field_value=self.provider_config) and isinstance(self.provider_config, dict):
-            # Validate max_concurrent_requests if present
-            max_concurrent_requests = self.provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
-            if max_concurrent_requests is not None and self.should_validate_field(field_value=max_concurrent_requests):
-                if not isinstance(max_concurrent_requests, int):
-                    errors.append(
-                        f"provider_config.max_concurrent_requests must be an integer, got {type(max_concurrent_requests).__name__}"
-                    )
-                elif max_concurrent_requests <= 0:
-                    errors.append(
-                        f"provider_config.max_concurrent_requests must be positive, got {max_concurrent_requests}"
-                    )
+                # Validate max_concurrent_requests if present
+                max_concurrent_requests = self.provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
+                if max_concurrent_requests is not None and self.should_validate_field(
+                    field_value=max_concurrent_requests
+                ):
+                    if not isinstance(max_concurrent_requests, int):
+                        errors.append(
+                            f"provider_config.max_concurrent_requests must be an integer, got {type(max_concurrent_requests).__name__}"
+                        )
+                    elif max_concurrent_requests <= 0:
+                        errors.append(
+                            f"provider_config.max_concurrent_requests must be positive, got {max_concurrent_requests}"
+                        )
 
-            # Validate batch_size if present
-            batch_size = self.provider_config.get(OperatorConstants.Config.BATCH_SIZE)
-            if batch_size is not None and self.should_validate_field(field_value=batch_size):
-                if not isinstance(batch_size, int):
-                    errors.append(f"provider_config.batch_size must be an integer, got {type(batch_size).__name__}")
-                elif batch_size <= 0:
-                    errors.append(f"provider_config.batch_size must be positive, got {batch_size}")
+                # Validate batch_size if present
+                batch_size = self.provider_config.get(OperatorConstants.Config.BATCH_SIZE)
+                if batch_size is not None and self.should_validate_field(field_value=batch_size):
+                    if not isinstance(batch_size, int):
+                        errors.append(f"provider_config.batch_size must be an integer, got {type(batch_size).__name__}")
+                    elif batch_size <= 0:
+                        errors.append(f"provider_config.batch_size must be positive, got {batch_size}")
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -293,12 +318,32 @@ class EmbeddingsOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: PROVIDER_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                 },
-                OperatorConstants.Config.MODEL_ID: {
-                    OperatorConstants.Misc.NAME: "Model ID",
-                    OperatorConstants.Config.DESCRIPTION: "Model identifier in <provider>/<model_id> format for litellm (e.g., 'openai/nomic-embed-text', 'huggingface/sentence-transformers/all-MiniLM-L6-v2'). For watsonx, use the model name directly.",
-                    OperatorConstants.Config.REQUIRED: True,
-                    OperatorConstants.Config.DEFAULT: "openai/nomic-embed-text",
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                OperatorConstants.Config.PROVIDER_CONFIG: {
+                    OperatorConstants.Misc.NAME: "Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                    OperatorConstants.Config.REQUIRED: False,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROPERTIES: {
+                        OperatorConstants.Config.MODEL_ID: {
+                            OperatorConstants.Misc.NAME: "Model ID",
+                            OperatorConstants.Config.DESCRIPTION: "Model identifier in <provider>/<model_id> format for litellm (e.g., 'openai/nomic-embed-text', 'huggingface/sentence-transformers/all-MiniLM-L6-v2'). For watsonx, use the model name directly.",
+                            OperatorConstants.Config.REQUIRED: True,
+                            OperatorConstants.Config.DEFAULT: "openai/nomic-embed-text",
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.API_BASE: {
+                            OperatorConstants.Misc.NAME: "API Base URL",
+                            OperatorConstants.Config.DESCRIPTION: "API endpoint URL (e.g., 'http://localhost:11434/v1' for Ollama)",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.API_KEY: {
+                            OperatorConstants.Misc.NAME: "API Key",
+                            OperatorConstants.Config.DESCRIPTION: "Authentication key",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                    },
                 },
                 OperatorConstants.Columns.EMBEDDINGS_COLUMN: {
                     OperatorConstants.Misc.NAME: "Embeddings Column",
@@ -322,16 +367,6 @@ class EmbeddingsOperator(AbstractOperator):
                     OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Config.DEFAULT: TOKEN_LIMIT_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                OperatorConstants.Config.PROVIDER_CONFIG: {
-                    OperatorConstants.Misc.NAME: "Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "Provider-specific configuration parameters. "
-                        "LiteLLM: api_key (str), api_base (str, e.g., 'http://localhost:11434/v1' for Ollama). "
-                        "Watsonx: api_key (str), api_base (str), container_kind (str), container_id (str), enable_rate_limiting (bool)."
-                    ),
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                 },
             },
         }

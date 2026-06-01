@@ -74,11 +74,12 @@ def test_extract_operator_docling_library_mode(sample_pdf_files):
 
     # Initialize operator with docling_library text extraction configuration
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "doc_content",
-        "extract_tables": True,
-        "extract_images": True,
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+            "extract_tables": True,
+            "extract_images": True,
+        },
         "max_workers": 2,
     }
 
@@ -145,12 +146,15 @@ def test_extract_operator_multi_format_output(sample_pdf_files):
 
     # Initialize operator with additional output formats (markdown is always generated)
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "doc_content",
-        "additional_formats": ["html", "json"],
-        "extract_tables": True,
-        "extract_images": True,
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+            "provider_config": {
+                "additional_formats": ["html", "json"],
+                "extract_tables": True,
+                "extract_images": True,
+            },
+        },
         "max_workers": 2,
     }
 
@@ -217,11 +221,12 @@ def test_extract_operator_default_format(sample_pdf_files):
 
     # Initialize operator without additional_formats (should generate markdown only by default)
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "doc_content",
-        "extract_tables": True,
-        "extract_images": True,
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+            "extract_tables": True,
+            "extract_images": True,
+        },
         "max_workers": 2,
     }
 
@@ -270,18 +275,21 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
 
     # Initialize operator with docling_serve configuration
     config = {
-        "text_extraction_provider": "docling_serve",
-        "entity_extraction_provider": "none",
-        "doc_column": "doc_content",
-        "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
-        "docling_serve_timeout": 300,
-        "docling_serve_poll_interval": 2,
-        "docling_serve_max_retries": 3,
-        "docling_serve_do_ocr": True,
-        "docling_serve_ocr_engine": "easyocr",
-        "docling_serve_pdf_backend": "dlparse_v2",
-        "docling_serve_table_mode": "fast",
-        "docling_serve_image_export_mode": "placeholder",
+        "text_extraction": {
+            "provider": "docling_serve",
+            "provider_config": {
+                "base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
+                "timeout": 300,
+                "poll_interval": 2,
+                "max_retries": 3,
+                "do_ocr": True,
+                "ocr_engine": "easyocr",
+                "pdf_backend": "dlparse_v2",
+                "table_mode": "fast",
+                "image_export_mode": "placeholder",
+            },
+            "doc_column": "doc_content",
+        },
         "max_workers": 2,
     }
 
@@ -312,9 +320,12 @@ def test_extract_operator_docling_serve_config_validation():
 
     # Test with minimal docling_serve configuration
     config = {
-        "text_extraction_provider": "docling_serve",
-        "entity_extraction_provider": "none",
-        "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
+        "text_extraction": {
+            "provider": "docling_serve",
+            "provider_config": {
+                "base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
+            },
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -330,11 +341,14 @@ def test_extract_operator_docling_serve_with_api_key():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_serve",
-        "entity_extraction_provider": "none",
-        "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
-        "docling_serve_api_key": "test-api-key-12345",  # pragma: allowlist secret
-        "docling_serve_timeout": 600,
+        "text_extraction": {
+            "provider": "docling_serve",
+            "provider_config": {
+                "base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
+                "api_key": "test-api-key-12345",  # pragma: allowlist secret
+                "timeout": 600,
+            },
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -349,12 +363,15 @@ def test_extract_operator_docling_serve_with_ocr_languages():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_serve",
-        "entity_extraction_provider": "none",
-        "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
-        "docling_serve_do_ocr": True,
-        "docling_serve_ocr_engine": "easyocr",
-        "docling_serve_ocr_languages": ["en", "es", "fr"],
+        "text_extraction": {
+            "provider": "docling_serve",
+            "provider_config": {
+                "base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
+                "do_ocr": True,
+                "ocr_engine": "easyocr",
+                "ocr_languages": ["en", "es", "fr"],
+            },
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -397,24 +414,28 @@ def test_extract_operator_docling_library_with_entity_extraction_ollama(
 
     # Initialize operator with both text and entity extraction
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "entity_model_id": "openai/llama3.2",
-        "entity_temperature": 0.0,
-        "entity_max_tokens": 4096,
-        "doc_column": "doc_content",
-        "extract_tables": True,
-        "extract_images": False,
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+            "extract_tables": True,
+            "extract_images": False,
+        },
+        "entity_extraction": {
+            "provider": "litellm",
+            "provider_config": {
+                "model_id": "openai/llama3.2",
+                "temperature": 0.0,
+                "max_tokens": 4096,
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "<ollama>",  # pragma: allowlist secret
+            },
+            "custom_schema": {
+                "invoice_number": "string",
+                "total_amount": "number",
+                "date": "string",
+            },
+        },
         "max_workers": 2,
-        "entity_provider_config": {
-            "api_base": "http://localhost:11434/v1",
-            "api_key": "ollama",  # pragma: allowlist secret
-        },
-        "custom_schema": {
-            "invoice_number": "string",
-            "total_amount": "number",
-            "date": "string",
-        },
     }
 
     # Mock the LiteLLM client to avoid actual API calls
@@ -452,18 +473,24 @@ def test_extract_operator_docling_serve_with_entity_extraction():
 
         # Test configuration combining docling_serve and entity extraction
         config = {
-            "text_extraction_provider": "docling_serve",
-            "entity_extraction_provider": "litellm",
-            "entity_model_id": "gpt-3.5-turbo",
-            "entity_temperature": 0.0,
-            "entity_max_tokens": 2000,
-            "entity_provider_config": {
-                "api_key": "test-api-key",  # pragma: allowlist secret
-                "api_base": "https://api.test.local/v1",
+            "text_extraction": {
+                "provider": "docling_serve",
+                "provider_config": {
+                    "base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
+                    "timeout": 300,
+                },
+                "doc_column": "doc_content",
             },
-            "doc_column": "doc_content",
-            "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
-            "docling_serve_timeout": 300,
+            "entity_extraction": {
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "openai/gpt-3.5-turbo",
+                    "temperature": 0.0,
+                    "max_tokens": 2000,
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
+            },
             "max_workers": 2,
         }
 
@@ -482,14 +509,15 @@ def test_extract_operator_invalid_text_mode():
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
-        "text_extraction_provider": "invalid_mode",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "invalid_mode",
+        },
     }
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
 
-    assert "Invalid text_extraction_provider" in str(exc_info.value)
+    assert "Invalid text_extraction.provider" in str(exc_info.value)
 
 
 @pytest.mark.unit
@@ -499,14 +527,18 @@ def test_extract_operator_invalid_entity_mode():
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "invalid_mode",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
+        "entity_extraction": {
+            "provider": "invalid_mode",
+        },
     }
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
 
-    assert "Invalid entity_extraction_provider" in str(exc_info.value)
+    assert "Invalid entity_extraction.provider" in str(exc_info.value)
 
 
 @pytest.mark.unit
@@ -515,12 +547,17 @@ def test_extract_operator_docling_library_vlm_mode_config():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "use_vlm_pipeline": True,
-        "entity_extraction_provider": "none",
-        "vlm_preset": "granite_docling",
-        "vlm_engine_type": "transformers",
-        "doc_column": "doc_content",
+        "text_extraction": {
+            "provider": "docling_library",
+            "provider_config": {
+                "vlm_pipeline": {
+                    "enabled": True,
+                    "preset": "granite_docling",
+                    "engine": "transformers",
+                },
+            },
+            "doc_column": "doc_content",
+        },
         "max_workers": 2,
     }
 
@@ -537,8 +574,9 @@ def test_extract_operator_get_metadata():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -550,29 +588,44 @@ def test_extract_operator_get_metadata():
     assert "attributes" in metadata
     assert "is_operator_available" in metadata
 
-    # Verify key attributes are present
+    # Verify key attributes are present (now nested)
     attributes = metadata["attributes"]
-    assert "text_extraction_provider" in attributes
-    assert "entity_extraction_provider" in attributes
-    assert "docling_serve_base_url" in attributes
-    assert "entity_model_id" in attributes
+    assert "text_extraction" in attributes
+    assert "entity_extraction" in attributes
     assert "max_workers" in attributes
 
-    # Verify docling_serve parameters
-    assert "docling_serve_timeout" in attributes
-    assert "docling_serve_poll_interval" in attributes
-    assert "docling_serve_max_retries" in attributes
-    assert "docling_serve_do_ocr" in attributes
-    assert "docling_serve_ocr_engine" in attributes
-    assert "docling_serve_ocr_languages" in attributes
-    assert "docling_serve_pdf_backend" in attributes
-    assert "docling_serve_table_mode" in attributes
-    assert "docling_serve_image_export_mode" in attributes
+    # Verify text_extraction nested structure
+    text_extraction = attributes["text_extraction"]
+    assert "properties" in text_extraction
+    text_props = text_extraction["properties"]
+    assert "provider" in text_props
+    assert "provider_config" in text_props
+
+    # Verify entity_extraction nested structure
+    entity_extraction = attributes["entity_extraction"]
+    assert "properties" in entity_extraction
+    entity_props = entity_extraction["properties"]
+    assert "provider" in entity_props
+    assert "provider_config" in entity_props
+
+    # Verify VLM pipeline is nested under provider_config
+    provider_config = text_props["provider_config"]
+    assert "properties" in provider_config
+    provider_config_props = provider_config["properties"]
+    assert "vlm_pipeline" in provider_config_props
+
+    vlm_pipeline = provider_config_props["vlm_pipeline"]
+    assert "properties" in vlm_pipeline
+    vlm_props = vlm_pipeline["properties"]
+    assert "preset" in vlm_props
+    assert "engine" in vlm_props
+    assert "engine_options" in vlm_props
 
     # Verify default values
-    assert attributes["docling_serve_base_url"]["default"] == "http://localhost:5001"
-    assert attributes["docling_serve_timeout"]["default"] == 300
-    assert attributes["docling_serve_do_ocr"]["default"] is True
+    assert text_props["provider"]["default"] == "docling_library"
+    assert entity_props["provider"]["default"] == "none"
+    assert vlm_props["preset"]["default"] == "fast"
+    assert vlm_props["engine"]["default"] == "transformers"
 
 
 @pytest.mark.unit
@@ -581,11 +634,16 @@ def test_extract_operator_asr_config_validation():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "use_asr_pipeline": True,
-        "asr_model_name": "whisper_turbo",
-        "doc_column": "doc_content",
+        "text_extraction": {
+            "provider": "docling_library",
+            "provider_config": {
+                "asr_pipeline": {
+                    "enabled": True,
+                    "model_id": "whisper_turbo",
+                },
+            },
+            "doc_column": "doc_content",
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -611,11 +669,16 @@ def test_extract_operator_asr_model_names():
 
     for model_name in valid_models:
         config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
-            "use_asr_pipeline": True,
-            "asr_model_name": model_name,
-            "doc_column": "doc_content",
+            "text_extraction": {
+                "provider": "docling_library",
+                "provider_config": {
+                    "asr_pipeline": {
+                        "enabled": True,
+                        "model_id": model_name,
+                    },
+                },
+                "doc_column": "doc_content",
+            },
         }
 
         operator = ExtractOperator(config=config)
@@ -628,10 +691,15 @@ def test_extract_operator_asr_without_model_name():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "use_asr_pipeline": True,
-        "doc_column": "doc_content",
+        "text_extraction": {
+            "provider": "docling_library",
+            "provider_config": {
+                "asr_pipeline": {
+                    "enabled": True,
+                },
+            },
+            "doc_column": "doc_content",
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -663,13 +731,18 @@ def test_extract_operator_asr_with_audio_file():
     table = pa.table(file_data)
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "use_asr_pipeline": True,
-        "asr_model_name": "whisper_turbo",
-        "doc_column": "doc_content",
-        "extract_tables": False,
-        "extract_images": False,
+        "text_extraction": {
+            "provider": "docling_library",
+            "provider_config": {
+                "asr_pipeline": {
+                    "enabled": True,
+                    "model_id": "whisper_turbo",
+                },
+            },
+            "doc_column": "doc_content",
+            "extract_tables": False,
+            "extract_images": False,
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -696,22 +769,30 @@ def test_extract_operator_asr_with_entity_extraction():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "litellm",
-            "use_asr_pipeline": True,
-            "asr_model_name": "whisper_turbo",
-            "entity_model_id": "gpt-3.5-turbo",
-            "entity_temperature": 0.0,
-            "entity_max_tokens": 2000,
-            "entity_provider_config": {
-                "api_key": "test-api-key",  # pragma: allowlist secret
-                "api_base": "https://api.test.local/v1",
+            "text_extraction": {
+                "provider": "docling_library",
+                "provider_config": {
+                    "asr_pipeline": {
+                        "enabled": True,
+                        "model_id": "whisper_turbo",
+                    },
+                },
+                "doc_column": "doc_content",
             },
-            "doc_column": "doc_content",
-            "custom_schema": {
-                "speaker": "string",
-                "topic": "string",
-                "key_points": "array",
+            "entity_extraction": {
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "gpt-3.5-turbo",
+                    "temperature": 0.0,
+                    "max_tokens": 2000,
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
+                "custom_schema": {
+                    "speaker": "string",
+                    "topic": "string",
+                    "key_points": "array",
+                },
             },
         }
 
@@ -734,17 +815,21 @@ def test_extract_operator_expand_extracted_data():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "litellm",
-            "entity_model_id": "gpt-3.5-turbo",
-            "entity_temperature": 0.0,
-            "entity_max_tokens": 2000,
-            "entity_provider_config": {
-                "api_key": "test-api-key",  # pragma: allowlist secret
-                "api_base": "https://api.test.local/v1",
+            "text_extraction": {
+                "provider": "docling_library",
             },
-            "expand_extracted_data": True,
-            "custom_schema": {"invoice_number": "string", "amount": "number"},
+            "entity_extraction": {
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "gpt-3.5-turbo",
+                    "temperature": 0.0,
+                    "max_tokens": 2000,
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
+                "expand_extracted_data": True,
+                "custom_schema": {"invoice_number": "string", "amount": "number"},
+            },
         }
 
         operator = ExtractOperator(config=config)
@@ -760,7 +845,11 @@ def test_extract_operator_default_values():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     # Minimal configuration - should use defaults
-    config = {}
+    config = {
+        "text_extraction": {
+            "provider": "docling_library",
+        },
+    }
 
     operator = ExtractOperator(config=config)
 
@@ -778,22 +867,25 @@ def test_extract_operator_docling_serve_all_parameters():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_serve",
-        "entity_extraction_provider": "none",
-        "doc_column": "content",
-        "docling_serve_base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
-        "docling_serve_api_key": "secret-key",  # pragma: allowlist secret
-        "docling_serve_timeout": 600,
-        "docling_serve_poll_interval": 5,
-        "docling_serve_max_retries": 5,
-        "docling_serve_do_ocr": True,
-        "docling_serve_ocr_engine": "tesseract",
-        "docling_serve_ocr_languages": ["en", "de", "fr"],
-        "docling_serve_pdf_backend": "pypdfium2",
-        "docling_serve_table_mode": "accurate",
-        "docling_serve_image_export_mode": "embedded",
-        "extract_tables": True,
-        "extract_images": True,
+        "text_extraction": {
+            "provider": "docling_serve",
+            "provider_config": {
+                "base_url": "http://datasift-worker1.fyre.ibm.com:30501/",
+                "api_key": "secret-key",  # pragma: allowlist secret
+                "timeout": 600,
+                "poll_interval": 5,
+                "max_retries": 5,
+                "do_ocr": True,
+                "ocr_engine": "tesseract",
+                "ocr_languages": ["en", "de", "fr"],
+                "pdf_backend": "pypdfium2",
+                "table_mode": "accurate",
+                "image_export_mode": "embedded",
+            },
+            "doc_column": "content",
+            "extract_tables": True,
+            "extract_images": True,
+        },
         "max_workers": 4,
     }
 
@@ -829,21 +921,28 @@ def test_extract_operator_mode_combinations():
 
         for text_mode in text_modes:
             for entity_mode in entity_modes:
-                config = {
-                    "text_extraction_provider": text_mode,
-                    "entity_extraction_provider": entity_mode,
+                config: dict[str, Any] = {
+                    "text_extraction": {
+                        "provider": text_mode,
+                    },
                 }
 
                 # Add mode-specific required parameters
                 if text_mode == "docling_serve":
-                    config["docling_serve_base_url"] = "http://localhost:5001"
-
-                if entity_mode == "litellm":
-                    config["entity_model_id"] = "llama3.2"
-                    config["entity_provider_config"] = {
-                        "api_key": "test-api-key",  # pragma: allowlist secret
-                        "api_base": "https://api.test.local/v1",
+                    config["text_extraction"]["provider_config"] = {
+                        "base_url": "http://localhost:5001",
                     }
+
+                if entity_mode != "none":
+                    config["entity_extraction"] = {
+                        "provider": entity_mode,
+                    }
+                    if entity_mode == "litellm":
+                        config["entity_extraction"]["provider_config"] = {
+                            "model_id": "openai/llama3.2",
+                            "api_key": "test-api-key",  # pragma: allowlist secret
+                            "api_base": "https://api.test.local/v1",
+                        }
 
                 operator = ExtractOperator(config=config)
                 assert operator.text_extraction_mode.value == text_mode
@@ -869,8 +968,9 @@ def test_extract_operator_empty_table():
     table = pa.table({"id": [], "name": [], "path": [], "binary_content": []}, schema=schema)
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -912,16 +1012,20 @@ def test_extract_operator_litellm_entity_mode():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "entity_model_id": "gpt-3.5-turbo",
-        "entity_temperature": 0.0,
-        "entity_max_tokens": 2000,
-        "entity_provider_config": {
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "api_base": "https://api.test.local/v1",
+        "text_extraction": {
+            "provider": "docling_library",
         },
-        "custom_schema": {"company": "string", "date": "string"},
+        "entity_extraction": {
+            "provider": "litellm",
+            "provider_config": {
+                "model_id": "openai/gpt-3.5-turbo",
+                "temperature": 0.0,
+                "max_tokens": 2000,
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
+            "custom_schema": {"company": "string", "date": "string"},
+        },
     }
 
     with patch("datasift.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as mock_litellm_class:
@@ -946,27 +1050,31 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema(
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "entity_model_id": "gpt-3.5-turbo",
-        "entity_temperature": 0.0,
-        "entity_max_tokens": 2000,
-        "doc_column": "doc_content",
-        "extract_tables": True,
-        "extract_images": False,
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+            "extract_tables": True,
+            "extract_images": False,
+        },
+        "entity_extraction": {
+            "provider": "litellm",
+            "provider_config": {
+                "model_id": "openai/gpt-3.5-turbo",
+                "temperature": 0.0,
+                "max_tokens": 2000,
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
+            "custom_schema": {
+                "document_type": "invoice",
+                "fields": [
+                    {"name": "person_name", "type": "string"},
+                    {"name": "invoice_date", "type": "string"},
+                    {"name": "total_amount", "type": "number"},
+                ],
+            },
+        },
         "max_workers": 2,
-        "entity_provider_config": {
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "api_base": "https://api.test.local/v1",
-        },
-        "custom_schema": {
-            "document_type": "invoice",
-            "fields": [
-                {"name": "person_name", "type": "string"},
-                {"name": "invoice_date", "type": "string"},
-                {"name": "total_amount", "type": "number"},
-            ],
-        },
     }
 
     mocked_entities = {
@@ -1023,28 +1131,32 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_schema_
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "entity_model_id": "gpt-3.5-turbo",
-        "entity_temperature": 0.0,
-        "entity_max_tokens": 1500,
-        "doc_column": "doc_content",
-        "extract_tables": True,
-        "extract_images": False,
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+            "extract_tables": True,
+            "extract_images": False,
+        },
+        "entity_extraction": {
+            "provider": "litellm",
+            "provider_config": {
+                "model_id": "openai/gpt-3.5-turbo",
+                "temperature": 0.0,
+                "max_tokens": 1500,
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
+            "custom_schema": {
+                "document_type": "general",
+                "fields": [
+                    {"name": "person", "type": "string"},
+                    {"name": "date", "type": "string"},
+                    {"name": "amount", "type": "string"},
+                    {"name": "organization", "type": "string"},
+                ],
+            },
+        },
         "max_workers": 2,
-        "entity_provider_config": {
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "api_base": "https://api.test.local/v1",
-        },
-        "custom_schema": {
-            "document_type": "general",
-            "fields": [
-                {"name": "person", "type": "string"},
-                {"name": "date", "type": "string"},
-                {"name": "amount", "type": "string"},
-                {"name": "organization", "type": "string"},
-            ],
-        },
     }
 
     mocked_entities = {
@@ -1091,28 +1203,32 @@ def test_extract_operator_docling_library_with_entity_extraction_litellm_expande
     table = _build_pdf_input_table(sample_pdf_files=sample_pdf_files, max_files=1)
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "litellm",
-        "entity_model_id": "gpt-3.5-turbo",
-        "entity_temperature": 0.0,
-        "entity_max_tokens": 2000,
-        "doc_column": "doc_content",
-        "extract_tables": True,
-        "extract_images": False,
-        "expand_extracted_data": True,
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "doc_content",
+            "extract_tables": True,
+            "extract_images": False,
+        },
+        "entity_extraction": {
+            "provider": "litellm",
+            "provider_config": {
+                "model_id": "openai/gpt-3.5-turbo",
+                "temperature": 0.0,
+                "max_tokens": 2000,
+                "api_key": "test-api-key",  # pragma: allowlist secret
+                "api_base": "https://api.test.local/v1",
+            },
+            "custom_schema": {
+                "document_type": "invoice",
+                "fields": [
+                    {"name": "person_name", "type": "string"},
+                    {"name": "invoice_date", "type": "string"},
+                    {"name": "total_amount", "type": "number"},
+                ],
+            },
+            "expand_extracted_data": True,
+        },
         "max_workers": 2,
-        "entity_provider_config": {
-            "api_key": "test-api-key",  # pragma: allowlist secret
-            "api_base": "https://api.test.local/v1",
-        },
-        "custom_schema": {
-            "document_type": "invoice",
-            "fields": [
-                {"name": "person_name", "type": "string"},
-                {"name": "invoice_date", "type": "string"},
-                {"name": "total_amount", "type": "number"},
-            ],
-        },
     }
 
     mocked_entities = {
@@ -1151,9 +1267,13 @@ def test_extract_operator_docling_entity_mode():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "docling",
-        "custom_schema": {"invoice_number": "string", "total": "number"},
+        "text_extraction": {
+            "provider": "docling_library",
+        },
+        "entity_extraction": {
+            "provider": "docling",
+            "custom_schema": {"invoice_number": "string", "total": "number"},
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -1170,14 +1290,15 @@ def test_extract_operator_invalid_text_extraction_provider_error():
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
-        "text_extraction_provider": "nonexistent_mode",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "nonexistent_mode",
+        },
     }
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
 
-    assert "Invalid text_extraction_provider" in str(exc_info.value)
+    assert "Invalid text_extraction.provider" in str(exc_info.value)
     assert "nonexistent_mode" in str(exc_info.value)
 
 
@@ -1188,14 +1309,18 @@ def test_extract_operator_invalid_entity_extraction_mode_error():
     from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "nonexistent_entity_mode",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
+        "entity_extraction": {
+            "provider": "nonexistent_entity_mode",
+        },
     }
 
     with pytest.raises(FlowExecutionFailedException) as exc_info:
         ExtractOperator(config=config)
 
-    assert "Invalid entity_extraction_provider" in str(exc_info.value)
+    assert "Invalid entity_extraction.provider" in str(exc_info.value)
     assert "nonexistent_entity_mode" in str(exc_info.value)
 
 
@@ -1214,8 +1339,9 @@ def test_extract_operator_missing_required_columns(sample_pdf_files):
     )
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -1231,9 +1357,10 @@ def test_extract_operator_custom_doc_column():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "custom_content_column",
+        "text_extraction": {
+            "provider": "docling_library",
+            "doc_column": "custom_content_column",
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -1254,17 +1381,21 @@ def test_extract_operator_custom_output_columns():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "litellm",
-            "entity_model_id": "gpt-3.5-turbo",
-            "entity_temperature": 0.0,
-            "entity_max_tokens": 2000,
-            "entity_provider_config": {
-                "api_key": "test-api-key",  # pragma: allowlist secret
-                "api_base": "https://api.test.local/v1",
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "my_doc",
             },
-            "doc_column": "my_doc",
-            "output_column": "my_entities",
+            "entity_extraction": {
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "openai/gpt-3.5-turbo",
+                    "temperature": 0.0,
+                    "max_tokens": 2000,
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
+                "output_column": "my_entities",
+            },
         }
 
         operator = ExtractOperator(config=config)
@@ -1286,17 +1417,21 @@ def test_extract_operator_expand_extracted_data_flag():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "litellm",
-            "entity_model_id": "gpt-3.5-turbo",
-            "entity_temperature": 0.0,
-            "entity_max_tokens": 2000,
-            "entity_provider_config": {
-                "api_key": "test-api-key",  # pragma: allowlist secret
-                "api_base": "https://api.test.local/v1",
+            "text_extraction": {
+                "provider": "docling_library",
             },
-            "expand_extracted_data": True,
-            "custom_schema": {"field1": "string", "field2": "number"},
+            "entity_extraction": {
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "openai/gpt-3.5-turbo",
+                    "temperature": 0.0,
+                    "max_tokens": 2000,
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
+                "expand_extracted_data": True,
+                "custom_schema": {"field1": "string", "field2": "number"},
+            },
         }
 
         operator = ExtractOperator(config=config)
@@ -1311,8 +1446,9 @@ def test_extract_operator_max_workers_configuration():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
         "max_workers": 8,
     }
 
@@ -1328,8 +1464,9 @@ def test_extract_operator_use_processes_flag():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
         "use_processes": True,
     }
 
@@ -1347,14 +1484,17 @@ def test_extract_operator_all_text_modes():
     text_modes = ["docling_library", "docling_serve"]
 
     for mode in text_modes:
-        config = {
-            "text_extraction_provider": mode,
-            "entity_extraction_provider": "none",
+        config: dict[str, Any] = {
+            "text_extraction": {
+                "provider": mode,
+            },
         }
 
         # Add mode-specific required parameters
         if mode == "docling_serve":
-            config["docling_serve_base_url"] = "http://localhost:5001"
+            config["text_extraction"]["provider_config"] = {
+                "base_url": "http://localhost:5001",
+            }
 
         operator = ExtractOperator(config=config)
         assert operator.text_extraction_mode.value == mode
@@ -1376,18 +1516,23 @@ def test_extract_operator_all_entity_modes():
         entity_modes = ["none", "docling", "litellm"]
 
         for mode in entity_modes:
-            config = {
-                "text_extraction_provider": "docling_library",
-                "entity_extraction_provider": mode,
+            config: dict[str, Any] = {
+                "text_extraction": {
+                    "provider": "docling_library",
+                },
             }
 
             # Add mode-specific required parameters
-            if mode == "litellm":
-                config["entity_model_id"] = "openai/test-model"
-                config["entity_provider_config"] = {
-                    "api_base": "http://localhost:11434/v1",
-                    "api_key": "test-key",  # pragma: allowlist secret
+            if mode != "none":
+                config["entity_extraction"] = {
+                    "provider": mode,
                 }
+                if mode == "litellm":
+                    config["entity_extraction"]["provider_config"] = {
+                        "model_id": "openai/test-model",
+                        "api_base": "http://localhost:11434/v1",
+                        "api_key": "test-key",  # pragma: allowlist secret
+                    }
 
             operator = ExtractOperator(config=config)
             assert operator.entity_extraction_mode.value == mode
@@ -1418,16 +1563,20 @@ def test_extract_operator_custom_schema_validation():
         }
 
         config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "litellm",
-            "entity_model_id": "gpt-3.5-turbo",
-            "entity_temperature": 0.0,
-            "entity_max_tokens": 2000,
-            "entity_provider_config": {
-                "api_key": "test-api-key",  # pragma: allowlist secret
-                "api_base": "https://api.test.local/v1",
+            "text_extraction": {
+                "provider": "docling_library",
             },
-            "custom_schema": custom_schema,
+            "entity_extraction": {
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "openai/gpt-3.5-turbo",
+                    "temperature": 0.0,
+                    "max_tokens": 2000,
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
+                "custom_schema": custom_schema,
+            },
         }
 
         operator = ExtractOperator(config=config)
@@ -1448,14 +1597,18 @@ def test_extract_operator_temperature_and_max_tokens():
         mock_litellm_class.return_value = mock_instance
 
         config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "litellm",
-            "entity_model_id": "gpt-3.5-turbo",
-            "entity_temperature": 0.7,
-            "entity_max_tokens": 2048,
-            "entity_provider_config": {
-                "api_key": "test-api-key",  # pragma: allowlist secret
-                "api_base": "https://api.test.local/v1",
+            "text_extraction": {
+                "provider": "docling_library",
+            },
+            "entity_extraction": {
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "openai/gpt-3.5-turbo",
+                    "temperature": 0.7,
+                    "max_tokens": 2048,
+                    "api_key": "test-api-key",  # pragma: allowlist secret
+                    "api_base": "https://api.test.local/v1",
+                },
             },
         }
 
@@ -1470,19 +1623,22 @@ def test_extract_operator_docling_serve_comprehensive():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_serve",
-        "entity_extraction_provider": "none",
-        "docling_serve_base_url": "http://test-server:8080",
-        "docling_serve_api_key": "test-key-123",  # pragma: allowlist secret
-        "docling_serve_timeout": 600,
-        "docling_serve_poll_interval": 5,
-        "docling_serve_max_retries": 5,
-        "docling_serve_do_ocr": False,
-        "docling_serve_ocr_engine": "tesseract",
-        "docling_serve_ocr_languages": ["en", "fr", "de"],
-        "docling_serve_pdf_backend": "pypdfium2",
-        "docling_serve_table_mode": "accurate",
-        "docling_serve_image_export_mode": "embedded",
+        "text_extraction": {
+            "provider": "docling_serve",
+            "provider_config": {
+                "base_url": "http://test-server:8080",
+                "api_key": "test-key-123",  # pragma: allowlist secret
+                "timeout": 600,
+                "poll_interval": 5,
+                "max_retries": 5,
+                "do_ocr": False,
+                "ocr_engine": "tesseract",
+                "ocr_languages": ["en", "fr", "de"],
+                "pdf_backend": "pypdfium2",
+                "table_mode": "accurate",
+                "image_export_mode": "embedded",
+            },
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -1497,14 +1653,17 @@ def test_extract_operator_docling_library_vlm_all_parameters():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "use_vlm_pipeline": True,
-        "entity_extraction_provider": "none",
-        "vlm_preset": "granite_docling",
-        "vlm_engine_type": "transformers",
-        "vlm_provider_config": {
-            "api_key": "test-key",  # pragma: allowlist secret
-            "api_base_url": "http://localhost:8000",
+        "text_extraction": {
+            "provider": "docling_library",
+            "provider_config": {
+                "vlm_pipeline": {
+                    "enabled": True,
+                    "preset": "granite_docling",
+                    "engine": "transformers",
+                    "api_key": "test-key",  # pragma: allowlist secret
+                    "api_base_url": "http://localhost:8000",
+                },
+            },
         },
     }
 
@@ -1520,8 +1679,9 @@ def test_extract_operator_metadata_structure():
     from datasift.core.operators.extract.extract_operator import ExtractOperator
 
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
     }
 
     operator = ExtractOperator(config=config)
@@ -1538,11 +1698,15 @@ def test_extract_operator_metadata_structure():
     assert "content" in features or "doc_content" in features
     assert "doc_id_hash" in features
 
-    # Verify key attributes
+    # Verify key attributes (now nested)
     attributes = metadata["attributes"]
-    assert "text_extraction_provider" in attributes
-    assert "entity_extraction_provider" in attributes
+    assert "text_extraction" in attributes
+    assert "entity_extraction" in attributes
     assert "max_workers" in attributes
+
+    # Verify nested structure
+    assert "properties" in attributes["text_extraction"]
+    assert "properties" in attributes["entity_extraction"]
 
 
 @pytest.mark.unit
@@ -1552,8 +1716,9 @@ def test_consolidate_metadata_merges_failed_and_skipped_docs_without_behavior_ch
 
     operator = ExtractOperator(
         config={
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
+            "text_extraction": {
+                "provider": "docling_library",
+            },
         }
     )
 
@@ -1626,8 +1791,9 @@ def test_consolidate_metadata_uses_default_reasons_and_doc_id_column():
 
     operator = ExtractOperator(
         config={
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
+            "text_extraction": {
+                "provider": "docling_library",
+            },
         }
     )
 
@@ -1676,8 +1842,9 @@ def test_consolidate_metadata_returns_text_metadata_when_entity_metadata_missing
 
     operator = ExtractOperator(
         config={
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
+            "text_extraction": {
+                "provider": "docling_library",
+            },
         }
     )
 
@@ -1743,11 +1910,12 @@ def test_extract_operator_prefers_path_only_input_without_binary_content(
 
     operator = ExtractOperator(
         config={
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
-            "doc_column": "doc_content",
-            "extract_tables": False,
-            "extract_images": False,
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "doc_content",
+                "extract_tables": False,
+                "extract_images": False,
+            },
             "max_workers": 1,  # Reduce worker count to minimize memory overhead
         }
     )
@@ -1773,14 +1941,18 @@ def test_consolidate_metadata_merges_document_in_both_failed_lists():
 
         operator = ExtractOperator(
             config={
-                "text_extraction_provider": "docling_library",
-                "entity_extraction_provider": "litellm",
-                "entity_model_id": "gpt-3.5-turbo",
-                "entity_temperature": 0.0,
-                "entity_max_tokens": 2000,
-                "entity_provider_config": {
-                    "api_key": "test-api-key",  # pragma: allowlist secret
-                    "api_base": "https://api.test.local/v1",
+                "text_extraction": {
+                    "provider": "docling_library",
+                },
+                "entity_extraction": {
+                    "provider": "litellm",
+                    "provider_config": {
+                        "model_id": "openai/gpt-3.5-turbo",
+                        "temperature": 0.0,
+                        "max_tokens": 2000,
+                        "api_key": "test-api-key",  # pragma: allowlist secret
+                        "api_base": "https://api.test.local/v1",
+                    },
                 },
             }
         )
@@ -1841,14 +2013,18 @@ def test_consolidate_metadata_merges_document_in_both_skipped_lists():
 
         operator = ExtractOperator(
             config={
-                "text_extraction_provider": "docling_library",
-                "entity_extraction_provider": "litellm",
-                "entity_model_id": "gpt-3.5-turbo",
-                "entity_temperature": 0.0,
-                "entity_max_tokens": 2000,
-                "entity_provider_config": {
-                    "api_key": "test-api-key",  # pragma: allowlist secret
-                    "api_base": "https://api.test.local/v1",
+                "text_extraction": {
+                    "provider": "docling_library",
+                },
+                "entity_extraction": {
+                    "provider": "litellm",
+                    "provider_config": {
+                        "model_id": "openai/gpt-3.5-turbo",
+                        "temperature": 0.0,
+                        "max_tokens": 2000,
+                        "api_key": "test-api-key",  # pragma: allowlist secret
+                        "api_base": "https://api.test.local/v1",
+                    },
                 },
             }
         )
@@ -1932,8 +2108,9 @@ def test_extract_operator_stage_progress_metadata(mock_text_transform):
 
     # Configure operator with text extraction only
     config = {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
+        "text_extraction": {
+            "provider": "docling_library",
+        },
         "job_id": "test-job",
         "job_run_id": "test-run",
         "node_id": "test-node",

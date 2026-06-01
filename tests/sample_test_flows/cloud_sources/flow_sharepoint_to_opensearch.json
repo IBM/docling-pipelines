@@ -16,8 +16,7 @@
         "provider": "sharepoint",
         "connection_params": {
           "document_library_id": "${SHAREPOINT_DOCUMENT_LIBRARY_ID}",
-            "recursive": true
-          },
+          "recursive": true,
           "credentials": {
             "client_id": "${SHAREPOINT_CLIENT_ID}",
             "client_secret": "${SHAREPOINT_CLIENT_SECRET}",
@@ -33,12 +32,18 @@
       "name": "extract_text",
       "type": "extract_operator",
       "config": {
-        "doc_column": "content",
-        "extract_tables": true,
-        "extract_images": true,
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content",
+          "provider_config": {
+            "extract_tables": true,
+            "extract_images": true
+          }
+        },
         "max_workers": 4,
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none"
+        "entity_extraction": {
+          "provider": "none"
+        }
       },
       "depends_on": [
         "ingest_sharepoint"

@@ -21,13 +21,14 @@
       "name": "extract_transcription",
       "type": "extract_operator",
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "use_asr_pipeline": true,
-        "asr_model_name": "whisper_turbo",
-        "doc_column": "content",
-        "extract_tables": false,
-        "extract_images": false
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content",
+          "provider_config": {
+            "extract_tables": false,
+            "extract_images": false
+          }
+        }
       },
       "depends_on": [
         "ingest_audio_video"

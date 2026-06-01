@@ -929,10 +929,15 @@ class TestChunkerSummarization(unittest.TestCase):
             "chunk_type": ChunkType.SIMPLE.value,
             "chunk_size": 1000,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_provider": "litellm",
-            "summarization_model_id": "llama3.2:3b",
-            "summarization_provider_config": {"api_base": "http://localhost:11434/v1", "api_key": "<api-key>"},
+            "summarization": {
+                "enabled": True,
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "llama3.2:3b",
+                    "api_base": "http://localhost:11434/v1",
+                    "api_key": "<api-key>",
+                },
+            },
         }
         operator = ChunkerOperator(config)
 
@@ -942,7 +947,7 @@ class TestChunkerSummarization(unittest.TestCase):
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_initialization_watsonx(self, mock_factory):
-        """Test operator initialization with WatsonX summarization config"""
+        """Test operator initialization with WatsonX summarization config (nested structure)"""
         mock_adapter = MagicMock()
         mock_factory.create_inference_adapter.return_value = mock_adapter
 
@@ -950,10 +955,15 @@ class TestChunkerSummarization(unittest.TestCase):
             "chunk_type": ChunkType.SIMPLE.value,
             "chunk_size": 1000,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_provider": "watsonx",
-            "summarization_model_id": "ibm/granite-13b-chat-v2",
-            "summarization_provider_config": {"api_key": "<api-key>", "project_id": "test_project"},
+            "summarization": {
+                "enabled": True,
+                "provider": "watsonx",
+                "provider_config": {
+                    "model_id": "ibm/granite-13b-chat-v2",
+                    "api_key": "<api-key>",
+                    "project_id": "test_project",
+                },
+            },
         }
         operator = ChunkerOperator(config)
 
@@ -962,27 +972,56 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertEqual(operator.summarization_model, "ibm/granite-13b-chat-v2")
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
-    def test_summarization_backward_compatibility(self, mock_factory):
-        """Test backward compatibility with legacy Ollama-only config"""
+    def test_summarization_initialization_flat_config_backward_compat(self, mock_factory):
+        """Test backward compatibility with flat config structure"""
         mock_adapter = MagicMock()
         mock_factory.create_inference_adapter.return_value = mock_adapter
 
-        # Legacy config without provider or provider_config
+        # Nested structure is now the only supported format
         config = {
             "chunk_type": ChunkType.SIMPLE.value,
             "chunk_size": 1000,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_model_id": "llama3.2:3b",
+            "summarization": {
+                "enabled": True,
+                "provider": "litellm",
+                "provider_config": {
+                    "model_id": "llama3.2:3b",
+                    "api_base": "http://localhost:11434/v1",
+                    "api_key": "<api-key>",
+                },
+            },
         }
         operator = ChunkerOperator(config)
 
-        # Should auto-convert to LiteLLM with Ollama defaults
         self.assertTrue(operator.enable_summarization)
         self.assertEqual(operator.summarization_provider, "litellm")
         self.assertEqual(operator.summarization_model, "openai/llama3.2:3b")
+
+    @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
+    def test_summarization_backward_compatibility(self, mock_factory):
+        """Test auto-configuration when provider_config is empty"""
+        mock_adapter = MagicMock()
+        mock_factory.create_inference_adapter.return_value = mock_adapter
+
+        # Config with enabled but empty provider_config triggers auto-configuration
+        config = {
+            "chunk_type": ChunkType.SIMPLE.value,
+            "chunk_size": 1000,
+            "doc_column": "content",
+            "summarization": {
+                "enabled": True,
+                "provider_config": {},  # Empty dict triggers auto-config
+            },
+        }
+        operator = ChunkerOperator(config)
+
+        # Should auto-configure with Ollama defaults
+        self.assertTrue(operator.enable_summarization)
+        self.assertEqual(operator.summarization_provider, "litellm")
+        self.assertEqual(operator.summarization_model, "openai/granite4")  # Default model with prefix
         self.assertEqual(operator.summarization_provider_config["api_base"], "http://localhost:11434/v1")
-        self.assertEqual(operator.summarization_provider_config["api_key"], "ollama")
+        self.assertEqual(operator.summarization_provider_config["api_key"], "<ollama>")
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_model_auto_prefix(self, mock_factory):
@@ -994,14 +1033,13 @@ class TestChunkerSummarization(unittest.TestCase):
         config = {
             "chunk_type": ChunkType.SIMPLE.value,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_model_id": "granite4",
+            "summarization": {"enabled": True, "model_id": "granite4"},
         }
         operator = ChunkerOperator(config)
         self.assertEqual(operator.summarization_model, "openai/granite4")
 
         # Model already with prefix
-        config["summarization_model_id"] = "openai/granite4"
+        config["summarization"]["model_id"] = "openai/granite4"
         operator = ChunkerOperator(config)
         self.assertEqual(operator.summarization_model, "openai/granite4")
 
@@ -1021,14 +1059,14 @@ class TestChunkerSummarization(unittest.TestCase):
         mock_factory.create_inference_adapter.return_value = mock_adapter
 
         # Summarization disabled - service should not be created
-        config = {"chunk_type": ChunkType.SIMPLE.value, "doc_column": "content", "enable_summarization": False}
+        config = {"chunk_type": ChunkType.SIMPLE.value, "doc_column": "content", "summarization": {"enabled": False}}
         operator = ChunkerOperator(config)
         self.assertIsNone(operator._summarization_service)
         mock_factory.create_inference_adapter.assert_not_called()
 
         # Summarization enabled - service should be lazily created during transform()
-        config["enable_summarization"] = True
-        config["summarization_model_id"] = "granite4"
+        config["summarization"]["enabled"] = True
+        config["summarization"]["model_id"] = "granite4"
         operator = ChunkerOperator(config)
         # Service is NOT created during __init__ - it's lazy
         self.assertIsNone(operator._summarization_service)
@@ -1068,8 +1106,7 @@ class TestChunkerSummarization(unittest.TestCase):
             "chunk_size": 500,
             "chunk_overlap": 100,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_model_id": "granite4",
+            "summarization": {"enabled": True, "model_id": "granite4"},
         }
         operator = ChunkerOperator(config)
 
@@ -1095,12 +1132,14 @@ class TestChunkerSummarization(unittest.TestCase):
             "chunk_type": ChunkType.SIMPLE.value,
             "chunk_size": 1000,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_model_id": "granite4",
-            "max_input_tokens": 4000,
-            "overlap_ratio": 0.3,
-            "summary_sentences": 3,
-            "summary_max_words": 30,
+            "summarization": {
+                "enabled": True,
+                "provider_config": {"model_id": "granite4"},
+                "max_input_tokens": 4000,
+                "overlap_ratio": 0.3,
+                "summary_sentences": 3,
+                "summary_max_words": 30,
+            },
         }
         operator = ChunkerOperator(config)
 
@@ -1115,8 +1154,7 @@ class TestChunkerSummarization(unittest.TestCase):
         config = {
             "chunk_type": ChunkType.SIMPLE.value,
             "doc_column": "content",
-            "enable_summarization": True,
-            "max_input_tokens": 8000,
+            "summarization": {"enabled": True, "max_input_tokens": 8000},
         }
         operator = ChunkerOperator(config)
         errors = []
@@ -1125,7 +1163,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertEqual(len(errors), 0)
 
         # Below minimum
-        config["max_input_tokens"] = 500
+        config["summarization"]["max_input_tokens"] = 500
         operator = ChunkerOperator(config)
         errors = []
         warnings = []
@@ -1133,7 +1171,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertGreater(len(errors), 0)
 
         # Above maximum
-        config["max_input_tokens"] = 40000
+        config["summarization"]["max_input_tokens"] = 40000
         operator = ChunkerOperator(config)
         errors = []
         warnings = []
@@ -1146,8 +1184,7 @@ class TestChunkerSummarization(unittest.TestCase):
         config = {
             "chunk_type": ChunkType.SIMPLE.value,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summary_sentences": 3,
+            "summarization": {"enabled": True, "summary_sentences": 3},
         }
         operator = ChunkerOperator(config)
         errors = []
@@ -1156,7 +1193,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertEqual(len(errors), 0)
 
         # Below minimum
-        config["summary_sentences"] = 0
+        config["summarization"]["summary_sentences"] = 0
         operator = ChunkerOperator(config)
         errors = []
         warnings = []
@@ -1164,7 +1201,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertGreater(len(errors), 0)
 
         # Above maximum
-        config["summary_sentences"] = 10
+        config["summarization"]["summary_sentences"] = 10
         operator = ChunkerOperator(config)
         errors = []
         warnings = []
@@ -1177,8 +1214,7 @@ class TestChunkerSummarization(unittest.TestCase):
         config = {
             "chunk_type": ChunkType.SIMPLE.value,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summary_max_words": 50,
+            "summarization": {"enabled": True, "summary_max_words": 50},
         }
         operator = ChunkerOperator(config)
         errors = []
@@ -1187,7 +1223,7 @@ class TestChunkerSummarization(unittest.TestCase):
         self.assertEqual(len(errors), 0)
 
         # Below minimum
-        config["summary_max_words"] = 5
+        config["summarization"]["summary_max_words"] = 5
         operator = ChunkerOperator(config)
         errors = []
         warnings = []
@@ -1221,8 +1257,7 @@ class TestChunkerSummarization(unittest.TestCase):
             "chunk_type": ChunkType.SIMPLE.value,
             "chunk_size": 1000,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_model_id": "granite4",
+            "summarization": {"enabled": True, "model_id": "granite4"},
         }
         operator = ChunkerOperator(config)
 
@@ -1239,9 +1274,11 @@ class TestChunkerSummarization(unittest.TestCase):
         config = {
             "chunk_type": ChunkType.SIMPLE.value,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_provider": "litellm",
-            "summarization_model_id": "granite4",
+            "summarization": {
+                "enabled": True,
+                "provider": "litellm",
+                "provider_config": {"model_id": "granite4"},
+            },
         }
         operator = ChunkerOperator(config)
         metadata = operator.get_metadata()
@@ -1251,14 +1288,19 @@ class TestChunkerSummarization(unittest.TestCase):
         attributes = metadata["attributes"]
         self.assertIsInstance(attributes, dict)
 
-        # Check that all summarization keys are present
-        self.assertIn("enable_summarization", attributes)
-        self.assertIn("summarization_provider", attributes)
-        self.assertIn("summarization_model_id", attributes)
-        self.assertIn("summarization_provider_config", attributes)
-        self.assertIn("max_input_tokens", attributes)
-        self.assertIn("summary_sentences", attributes)
-        self.assertIn("summary_max_words", attributes)
+        # Check that summarization nested structure is present
+        self.assertIn("summarization", attributes)
+        summarization = attributes["summarization"]
+        self.assertIn("properties", summarization)
+
+        # Check nested properties
+        props = summarization["properties"]
+        self.assertIn("enabled", props)
+        self.assertIn("provider", props)
+        self.assertIn("provider_config", props)
+        self.assertIn("max_input_tokens", props)
+        self.assertIn("summary_sentences", props)
+        self.assertIn("summary_max_words", props)
 
     @patch("datasift.core.adapters.llm_adapter_factory.LLMAdapterFactory")
     def test_summarization_empty_document(self, mock_factory):
@@ -1276,8 +1318,7 @@ class TestChunkerSummarization(unittest.TestCase):
         config = {
             "chunk_type": ChunkType.SIMPLE.value,
             "doc_column": "content",
-            "enable_summarization": True,
-            "summarization_model_id": "granite4",
+            "summarization": {"enabled": True, "model_id": "granite4"},
         }
         operator = ChunkerOperator(config)
 

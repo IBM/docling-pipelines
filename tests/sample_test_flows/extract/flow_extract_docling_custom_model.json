@@ -24,10 +24,10 @@
       "config": {
         "provider": "litellm",
         "provider_config": {
+          "model_id": "openai/granite4:latest",
           "api_base": "http://localhost:11434/v1",
           "api_key": "${OLLAMA_API_KEY}"
         },
-        "model_id": "openai/granite4:latest",
         "confidence_threshold": 7.0,
         "doc_column": "content",
         "output_column": "document_type",
@@ -45,24 +45,32 @@
       "name": "extract",
       "type": "extract_operator",
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "docling",
-        "entity_config": {
-          "model_type": "inline",
-          "inline_model": {
-            "repo_id": "numind/NuExtract-2.0-2B",
-            "inference_framework": "transformers",
-            "scale": 2.0,
-            "temperature": 0.0,
-            "max_new_tokens": 4096,
-            "load_in_8bit": true,
-            "torch_dtype": "bfloat16"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content",
+          "provider_config": {
+            "extract_tables": true,
+            "extract_images": true
           }
         },
-        "doc_column": "content",
-        "extract_tables": true,
-        "extract_images": true,
-        "max_doc_chars": 8000,
+        "entity_extraction": {
+          "provider": "docling",
+          "max_doc_chars": 8000,
+          "provider_config": {
+            "entity_config": {
+              "model_type": "inline",
+              "inline_model": {
+                "repo_id": "numind/NuExtract-2.0-2B",
+                "inference_framework": "transformers",
+                "scale": 2.0,
+                "temperature": 0.0,
+                "max_new_tokens": 4096,
+                "load_in_8bit": true,
+                "torch_dtype": "bfloat16"
+              }
+            }
+          }
+        },
         "max_workers": 2
       },
       "depends_on": [
@@ -86,10 +94,10 @@
       "type": "embeddings",
       "config": {
         "provider": "litellm",
-        "model_id": "openai/nomic-embed-text",
         "provider_config": {
           "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}"
+          "api_key": "${OLLAMA_API_KEY}",
+          "model_id": "openai/nomic-embed-text"
         }
       },
       "depends_on": [

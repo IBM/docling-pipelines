@@ -203,7 +203,7 @@ For detailed configuration and usage of each provider, see the [Ingest Source Op
     - `docling_library`: Local Docling extraction with optional VLM (Vision-Language Model) and ASR (Automatic Speech Recognition) pipelines
     - `docling_serve`: Remote extraction via Docling Serve API with OCR support
   - **Entity Extraction Modes**:
-    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.). For Ollama, use `entity_model_id: "openai/model_name"` with `entity_provider_config.api_base: "http://localhost:11434/v1"`
+    - `litellm`: Multi-provider LLM extraction (OpenAI, Anthropic, Cohere, etc.). For Ollama, use `entity_extraction.provider_config.model_id: "openai/model_name"` with `entity_extraction.provider_config.api_base: "http://localhost:11434/v1"`
     - `watsonx`: IBM watsonx.ai entity extraction using Granite and other hosted models
     - `docling`: Template-based entity extraction using Docling templates
     - `none`: No entity extraction (default)

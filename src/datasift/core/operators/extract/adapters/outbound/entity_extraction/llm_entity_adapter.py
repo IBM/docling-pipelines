@@ -119,9 +119,16 @@ class LLMEntityAdapter(EntityExtractionPort):
         """
         self.provider: str = str(config.get(OperatorConstants.Config.PROVIDER)).lower()
         self.model_name: str = str(config.get(OperatorConstants.Config.MODEL_NAME))
-        self.temperature = float(config.get(OperatorConstants.LLM.TEMPERATURE, 0.0))
-        self.max_tokens = int(config.get(OperatorConstants.LLM.MAX_TOKENS, 2000))
-        self.max_doc_chars = int(config.get(OperatorConstants.LLM.MAX_DOC_CHARS, 8000))
+
+        # Handle None values for numeric parameters
+        temperature = config.get(OperatorConstants.LLM.TEMPERATURE, 0.0)
+        self.temperature = float(temperature) if temperature is not None else 0.0
+
+        max_tokens = config.get(OperatorConstants.LLM.MAX_TOKENS, 2000)
+        self.max_tokens = int(max_tokens) if max_tokens is not None else 2000
+
+        max_doc_chars = config.get(OperatorConstants.LLM.MAX_DOC_CHARS, 8000)
+        self.max_doc_chars = int(max_doc_chars) if max_doc_chars is not None else 8000
 
         # Get provider-specific configuration
         provider_config = config.get("entity_provider_config", {})

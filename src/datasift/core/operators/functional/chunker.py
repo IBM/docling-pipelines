@@ -26,6 +26,7 @@ from datasift.utils.core.memmap_file_utils import write_chunks_to_file
 from datasift.utils.infrastructure import get_pyarrow_table_size_mb
 from datasift.utils.infrastructure.filesystem import get_data_path
 from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.operators.config_validation import validate_config_from_metadata
 
 
 # Chunk Type Constants
@@ -67,11 +68,11 @@ DOCLING_CHUNK_SIZE_MIN: int = 100  # Minimum chunk size in tokens for Docling
 DOCLING_CHUNK_SIZE_MAX: int = 2048  # Maximum chunk size in tokens for Docling
 
 # Summarization Constants
-ENABLE_SUMMARIZATION_DEFAULT = False
-MAX_INPUT_TOKENS_KEY = "max_input_tokens"
-OVERLAP_RATIO_KEY = "overlap_ratio"
-SUMMARY_SENTENCES_KEY = "summary_sentences"
-SUMMARY_MAX_WORDS_KEY = "summary_max_words"
+ENABLE_SUMMARIZATION_DEFAULT: bool = False
+MAX_INPUT_TOKENS_KEY: str = "max_input_tokens"
+OVERLAP_RATIO_KEY: str = "overlap_ratio"
+SUMMARY_SENTENCES_KEY: str = "summary_sentences"
+SUMMARY_MAX_WORDS_KEY: str = "summary_max_words"
 
 
 # Breakpoint Threshold Constants
@@ -171,6 +172,22 @@ class ChunkerOperator(AbstractOperator):
                 "chunk_overlap": 50,
                 "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2"
             }
+
+    Attributes:
+        chunk_type (str): Chunking strategy (simple, semantic, or hybrid)
+        chunk_size (int): Size of each chunk in characters or tokens
+        chunk_overlap (int): Overlap between consecutive chunks
+        semantic_embeddings_model (str): Ollama model for semantic chunking
+        breakpoint_threshold_type (str): Method for detecting semantic boundaries
+        breakpoint_threshold_amount (float): Threshold value for boundary detection
+        docling_tokenizer (str): HuggingFace tokenizer for docling chunking
+        retain_original_content (bool): Whether to keep original content column
+        summarization (dict): Summarization configuration
+            - enabled (bool): Generate summaries for each chunk
+            - provider (str): LLM provider for summarization (litellm or watsonx)
+            - provider_config (dict): Provider-specific configuration
+                - model_id (str): Model identifier for summarization
+        doc_column (str): Column containing document content
     """
 
     short_name: str = OperatorConstants.Operators.CHUNKER
@@ -214,28 +231,34 @@ class ChunkerOperator(AbstractOperator):
         )
         self.docling_tokenizer: str = config.get(DOCLING_TOKENIZER_KEY, DOCLING_TOKENIZER_DEFAULT)
 
-        # Summarization configuration
-        self.enable_summarization: bool = config.get(
-            DatasiftConstants.ENABLE_SUMMARIZATION_KEY, ENABLE_SUMMARIZATION_DEFAULT
+        # Summarization configuration (nested structure only)
+        summarization_config = config.get(OperatorConstants.Config.SUMMARIZATION, {})
+
+        # Read enabled flag from nested config
+        self.enable_summarization: bool = summarization_config.get(
+            OperatorConstants.Misc.ENABLED, ENABLE_SUMMARIZATION_DEFAULT
         )
+
         if self.enable_summarization:
             # Multi-provider support for summarization
-            self.summarization_provider: str = config.get(
-                OperatorConstants.Config.SUMMARIZATION_PROVIDER,
-                OperatorConstants.Config.PROVIDER_LITELLM,  # Default to LiteLLM
-            )
-            self.summarization_model: str = config.get(
-                DatasiftConstants.SUMMARY_MODEL_ID_KEY, DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT
-            )
-            self.summarization_provider_config: dict = config.get(
-                OperatorConstants.Config.SUMMARIZATION_PROVIDER_CONFIG, {}
+            self.summarization_provider: str = summarization_config.get(
+                OperatorConstants.Config.PROVIDER, OperatorConstants.Config.PROVIDER_LITELLM
             )
 
-            # Backward compatibility: auto-configure Ollama via LiteLLM if no provider config
+            self.summarization_provider_config: dict = summarization_config.get(
+                OperatorConstants.Config.PROVIDER_CONFIG, {}
+            )
+
+            # Get model_id from provider_config
+            self.summarization_model: str = self.summarization_provider_config.get(
+                OperatorConstants.Config.MODEL_ID, DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT
+            )
+
+            # Auto-configure Ollama via LiteLLM if no provider config
             if not self.summarization_provider_config:
                 self.summarization_provider_config = {
-                    "api_base": "http://localhost:11434/v1",
-                    "api_key": "ollama",  # pragma: allowlist secret
+                    OperatorConstants.Config.API_BASE: "http://localhost:11434/v1",
+                    OperatorConstants.Config.API_KEY: "<ollama>",  # pragma: allowlist secret
                 }
             # Auto-prefix model with "openai/" for Ollama via LiteLLM if not already prefixed
             # Models starting with provider prefixes (openai/, huggingface/, anthropic/) are passed through as-is
@@ -245,10 +268,19 @@ class ChunkerOperator(AbstractOperator):
                 if not self.summarization_model.startswith(("openai/", "huggingface/", "anthropic/", "gpt-")):
                     self.summarization_model = f"openai/{self.summarization_model}"
 
-            self.max_length: int = config.get(MAX_INPUT_TOKENS_KEY, DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT)
-            self.overlap_ratio: float = config.get(OVERLAP_RATIO_KEY, DatasiftConstants.OVERLAP_RATIO_DEFAULT)
-            self.summary_sentences: int = config.get(SUMMARY_SENTENCES_KEY, DatasiftConstants.SUMMARY_SENTENCES_DEFAULT)
-            self.summary_max_words: int = config.get(SUMMARY_MAX_WORDS_KEY, DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT)
+            # Read summarization parameters from nested config
+            self.max_length: int = summarization_config.get(
+                MAX_INPUT_TOKENS_KEY, DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT
+            )
+            self.overlap_ratio: float = summarization_config.get(
+                OVERLAP_RATIO_KEY, DatasiftConstants.OVERLAP_RATIO_DEFAULT
+            )
+            self.summary_sentences: int = summarization_config.get(
+                SUMMARY_SENTENCES_KEY, DatasiftConstants.SUMMARY_SENTENCES_DEFAULT
+            )
+            self.summary_max_words: int = summarization_config.get(
+                SUMMARY_MAX_WORDS_KEY, DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT
+            )
 
         self.common_log_arguments: dict[str, Any] = {
             DatasiftConstants.JOB_ID: self.job_id,
@@ -372,64 +404,97 @@ class ChunkerOperator(AbstractOperator):
                     OperatorConstants.Config.DEFAULT: RETAIN_ORIGINAL_CONTENT_DEFAULT,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
                 },
-                DatasiftConstants.ENABLE_SUMMARIZATION_KEY: {
-                    OperatorConstants.Misc.NAME: "Enable Summarization",
-                    OperatorConstants.Config.DESCRIPTION: "Generate summaries for each chunk",
+                OperatorConstants.Config.SUMMARIZATION: {
+                    OperatorConstants.Misc.NAME: "Summarization Configuration",
+                    OperatorConstants.Config.DESCRIPTION: "Configuration for chunk summarization",
                     OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: ENABLE_SUMMARIZATION_DEFAULT,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
-                },
-                DatasiftConstants.SUMMARY_MODEL_ID_KEY: {
-                    OperatorConstants.Misc.NAME: "Summarization Model",
-                    OperatorConstants.Config.DESCRIPTION: "Model ID for summarization (auto-prefixed with 'openai/' for LiteLLM)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                SUMMARY_SENTENCES_KEY: {
-                    OperatorConstants.Misc.NAME: "Summary Sentences",
-                    OperatorConstants.Config.DESCRIPTION: "Number of sentences in each summary",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_SENTENCES_DEFAULT,
-                    OperatorConstants.Filtering.MIN_VALUE: 1,
-                    OperatorConstants.Filtering.MAX_VALUE: 5,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                SUMMARY_MAX_WORDS_KEY: {
-                    OperatorConstants.Misc.NAME: "Summary Max Words",
-                    OperatorConstants.Config.DESCRIPTION: "Maximum words per summary",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT,
-                    OperatorConstants.Filtering.MIN_VALUE: 10,
-                    OperatorConstants.Filtering.MAX_VALUE: 100,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                MAX_INPUT_TOKENS_KEY: {
-                    OperatorConstants.Misc.NAME: "Max Input Tokens",
-                    OperatorConstants.Config.DESCRIPTION: "Maximum input tokens per summarization request",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT,
-                    OperatorConstants.Filtering.MIN_VALUE: 1000,
-                    OperatorConstants.Filtering.MAX_VALUE: 32000,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
-                },
-                OperatorConstants.Config.SUMMARIZATION_PROVIDER: {
-                    OperatorConstants.Misc.NAME: "Summarization Provider",
-                    OperatorConstants.Config.DESCRIPTION: "LLM provider for summarization: 'litellm' (default, supports 100+ providers) or 'watsonx'",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: OperatorConstants.Config.PROVIDER_LITELLM,
-                    OperatorConstants.Config.VALID_VALUES: [
-                        OperatorConstants.Config.PROVIDER_LITELLM,
-                        "watsonx",
-                    ],
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
-                },
-                OperatorConstants.Config.SUMMARIZATION_PROVIDER_CONFIG: {
-                    OperatorConstants.Misc.NAME: "Summarization Provider Configuration",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration for summarization (e.g., api_base, api_key for LiteLLM)",
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Config.DEFAULT: {},
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROPERTIES: {
+                        OperatorConstants.Misc.ENABLED: {
+                            OperatorConstants.Misc.NAME: "Enable Summarization",
+                            OperatorConstants.Config.DESCRIPTION: "Generate summaries for each chunk",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: ENABLE_SUMMARIZATION_DEFAULT,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+                        },
+                        OperatorConstants.Config.PROVIDER: {
+                            OperatorConstants.Misc.NAME: "Summarization Provider",
+                            OperatorConstants.Config.DESCRIPTION: "LLM provider for summarization: 'litellm' (default, supports 100+ providers) or 'watsonx'",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: OperatorConstants.Config.PROVIDER_LITELLM,
+                            OperatorConstants.Config.VALID_VALUES: [
+                                OperatorConstants.Config.PROVIDER_LITELLM,
+                                "watsonx",
+                            ],
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                        },
+                        OperatorConstants.Config.PROVIDER_CONFIG: {
+                            OperatorConstants.Misc.NAME: "Provider Configuration",
+                            OperatorConstants.Config.DESCRIPTION: "Provider-specific configuration",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: {},
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                            OperatorConstants.Config.PROPERTIES: {
+                                OperatorConstants.Config.MODEL_ID: {
+                                    OperatorConstants.Misc.NAME: "Model ID",
+                                    OperatorConstants.Config.DESCRIPTION: "Model identifier for summarization (auto-prefixed with 'openai/' for LiteLLM if needed)",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MODEL_ID_DEFAULT,
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                },
+                                OperatorConstants.Config.API_BASE: {
+                                    OperatorConstants.Misc.NAME: "API Base URL",
+                                    OperatorConstants.Config.DESCRIPTION: "Base URL for the LLM API endpoint",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: "http://localhost:11434/v1",
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                },
+                                OperatorConstants.Config.API_KEY: {
+                                    OperatorConstants.Misc.NAME: "API Key",
+                                    OperatorConstants.Config.DESCRIPTION: "API key for authentication (if required by provider)",
+                                    OperatorConstants.Config.REQUIRED: False,
+                                    OperatorConstants.Config.DEFAULT: "<ollama>",
+                                    OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+                                },
+                            },
+                        },
+                        SUMMARY_SENTENCES_KEY: {
+                            OperatorConstants.Misc.NAME: "Summary Sentences",
+                            OperatorConstants.Config.DESCRIPTION: "Number of sentences in each summary",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_SENTENCES_DEFAULT,
+                            OperatorConstants.Filtering.MIN_VALUE: 1,
+                            OperatorConstants.Filtering.MAX_VALUE: 5,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                        },
+                        SUMMARY_MAX_WORDS_KEY: {
+                            OperatorConstants.Misc.NAME: "Summary Max Words",
+                            OperatorConstants.Config.DESCRIPTION: "Maximum words per summary",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: DatasiftConstants.SUMMARY_MAX_WORDS_DEFAULT,
+                            OperatorConstants.Filtering.MIN_VALUE: 10,
+                            OperatorConstants.Filtering.MAX_VALUE: 100,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                        },
+                        MAX_INPUT_TOKENS_KEY: {
+                            OperatorConstants.Misc.NAME: "Max Input Tokens",
+                            OperatorConstants.Config.DESCRIPTION: "Maximum input tokens per summarization request",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: DatasiftConstants.MAX_INPUT_TOKENS_DEFAULT,
+                            OperatorConstants.Filtering.MIN_VALUE: 1000,
+                            OperatorConstants.Filtering.MAX_VALUE: 32000,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                        },
+                        OVERLAP_RATIO_KEY: {
+                            OperatorConstants.Misc.NAME: "Overlap Ratio",
+                            OperatorConstants.Config.DESCRIPTION: "Ratio of overlap between consecutive text segments during summarization",
+                            OperatorConstants.Config.REQUIRED: False,
+                            OperatorConstants.Config.DEFAULT: DatasiftConstants.OVERLAP_RATIO_DEFAULT,
+                            OperatorConstants.Filtering.MIN_VALUE: 0.0,
+                            OperatorConstants.Filtering.MAX_VALUE: 1.0,
+                            OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
+                        },
+                    },
                 },
                 # New provider-based configuration (recommended)
                 OperatorConstants.Config.PROVIDER: {
@@ -463,6 +528,14 @@ class ChunkerOperator(AbstractOperator):
 
     def validate(self, errors: list[Any], warnings: list[Any], available_features: list[str]) -> None:
         super().validate(errors, warnings, available_features)
+
+        # Get metadata and extract ATTRIBUTES for validation
+        metadata = self.get_metadata()
+        attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
+
+        # Validate configuration against metadata
+        validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
+
         if OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT in available_features:
             errors.append(
                 ValidationMessage.create(

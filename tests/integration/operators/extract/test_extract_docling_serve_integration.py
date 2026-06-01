@@ -132,10 +132,10 @@ def docling_serve_config() -> dict[str, Any]:
         OperatorConstants.Columns.DOC_COLUMN: "doc_content",
         OperatorConstants.Config.EXTRACT_TABLES: True,
         OperatorConstants.Config.EXTRACT_IMAGES: True,
-        OperatorConstants.Config.DOCLING_SERVE_BASE_URL: DOCLING_SERVE_URL,
-        OperatorConstants.Config.DOCLING_SERVE_TIMEOUT: 300,
-        OperatorConstants.Config.DOCLING_SERVE_POLL_INTERVAL: 2,
-        OperatorConstants.Config.DOCLING_SERVE_MAX_RETRIES: 3,
+        OperatorConstants.Config.BASE_URL: DOCLING_SERVE_URL,
+        OperatorConstants.Processing.TIMEOUT: 300,
+        OperatorConstants.Processing.POLL_INTERVAL: 2,
+        OperatorConstants.Processing.MAX_RETRIES: 3,
     }
 
 
@@ -238,9 +238,9 @@ class TestDoclingServeOCR:
         """
         # Enable OCR in config
         config = docling_serve_config.copy()
-        config[OperatorConstants.Config.DOCLING_SERVE_DO_OCR] = True
-        config[OperatorConstants.Config.DOCLING_SERVE_OCR_ENGINE] = "easyocr"
-        config[OperatorConstants.Config.DOCLING_SERVE_OCR_LANGUAGES] = ["en"]
+        config[OperatorConstants.Config.DO_OCR] = True
+        config[OperatorConstants.Config.OCR_ENGINE] = "easyocr"
+        config[OperatorConstants.Config.OCR_LANGUAGES] = ["en"]
 
         # Create input table
         input_table = create_input_table(file_paths=[sample_pdf_path])
@@ -274,7 +274,7 @@ class TestDoclingServeOCR:
         """
         # Disable OCR in config
         config = docling_serve_config.copy()
-        config[OperatorConstants.Config.DOCLING_SERVE_DO_OCR] = False
+        config[OperatorConstants.Config.DO_OCR] = False
 
         # Create input table
         input_table = create_input_table(file_paths=[sample_pdf_path])
@@ -312,7 +312,7 @@ class TestDoclingServeTableExtraction:
         """
         # Configure fast table mode
         config = docling_serve_config.copy()
-        config[OperatorConstants.Config.DOCLING_SERVE_TABLE_MODE] = "fast"
+        config[OperatorConstants.Config.TABLE_MODE] = "fast"
 
         # Create input table
         input_table = create_input_table(file_paths=[sample_pdf_path])
@@ -341,7 +341,7 @@ class TestDoclingServeTableExtraction:
         """
         # Configure accurate table mode
         config = docling_serve_config.copy()
-        config[OperatorConstants.Config.DOCLING_SERVE_TABLE_MODE] = "accurate"
+        config[OperatorConstants.Config.TABLE_MODE] = "accurate"
 
         # Create input table
         input_table = create_input_table(file_paths=[sample_pdf_path])
@@ -448,7 +448,7 @@ class TestDoclingServeConfiguration:
     def test_docling_serve_pdf_backend_dlparse_v4(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """Test with dlparse_v4 PDF backend."""
         config = docling_serve_config.copy()
-        config[OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND] = "dlparse_v4"
+        config[OperatorConstants.Config.PDF_BACKEND] = "dlparse_v4"
 
         input_table = create_input_table(file_paths=[sample_pdf_path])
         operator = ExtractOperator(config=config)
@@ -460,7 +460,7 @@ class TestDoclingServeConfiguration:
     def test_docling_serve_pdf_backend_dlparse_v3(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """Test with dlparse_v3 PDF backend."""
         config = docling_serve_config.copy()
-        config[OperatorConstants.Config.DOCLING_SERVE_PDF_BACKEND] = "dlparse_v3"
+        config[OperatorConstants.Config.PDF_BACKEND] = "dlparse_v3"
 
         input_table = create_input_table(file_paths=[sample_pdf_path])
         operator = ExtractOperator(config=config)
@@ -473,7 +473,7 @@ class TestDoclingServeConfiguration:
         """Test different image export modes."""
         for mode in ["embedded", "referenced", "none"]:
             config = docling_serve_config.copy()
-            config[OperatorConstants.Config.DOCLING_SERVE_IMAGE_EXPORT_MODE] = mode
+            config[OperatorConstants.Config.IMAGE_EXPORT_MODE] = mode
 
             input_table = create_input_table(file_paths=[sample_pdf_path])
             operator = ExtractOperator(config=config)
@@ -485,7 +485,7 @@ class TestDoclingServeConfiguration:
     def test_docling_serve_custom_timeout(self, sample_pdf_path: Path, docling_serve_config: dict[str, Any]):
         """Test with custom timeout value."""
         config = docling_serve_config.copy()
-        config[OperatorConstants.Config.DOCLING_SERVE_TIMEOUT] = 600  # 10 minutes
+        config[OperatorConstants.Processing.TIMEOUT] = 600  # 10 minutes
 
         input_table = create_input_table(file_paths=[sample_pdf_path])
         operator = ExtractOperator(config=config)

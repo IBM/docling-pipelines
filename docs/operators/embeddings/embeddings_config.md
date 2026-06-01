@@ -17,6 +17,9 @@ The Embeddings Operator generates vector embeddings for text content using Huggi
 
 ## Configuration Parameters
 
+**Configuration Structure:**
+The EmbeddingsOperator uses a nested configuration structure where provider-specific parameters (like `model_id`, `api_key`, `api_base`, etc.) are grouped under the `provider_config` object. This ensures clean separation between operator-level parameters and provider-specific settings.
+
 ### 1. `provider` (String)
 **Type:** String
 **Required:** Yes
@@ -35,14 +38,27 @@ The Embeddings Operator generates vector embeddings for text content using Huggi
 "provider": "watsonx"
 ```
 
-**Migration Note:** The old `embeddings_type` parameter is deprecated. Use `provider` instead.
+### 2. `provider_config` (Object)
+**Type:** JSON Object
+**Required:** Varies by provider
+**Description:** Provider-specific configuration parameters including model_id.
 
-### 2. `model_id` (String)
-**Type:** String
-**Required:** Yes
-**Description:** Model identifier for the selected provider.
+**For LiteLLM:**
+- `model_id` (String, Required): Model identifier with provider prefix
+  - Ollama: `"openai/nomic-embed-text"`, `"openai/granite4"`, `"openai/llama3.2"`
+  - HuggingFace: `"huggingface/sentence-transformers/all-MiniLM-L6-v2"`
+  - OpenAI: `"text-embedding-3-small"`, `"text-embedding-3-large"`
+  - Cohere: `"embed-english-v3.0"`, `"embed-multilingual-v3.0"`
+  - AWS Bedrock: `"bedrock/amazon.titan-embed-text-v1"`
+  - Azure: `"azure/text-embedding-ada-002"`
+- `api_key` (String, Optional): API key for authentication
+- `api_base` (String, Optional): Custom API endpoint (e.g., `"http://localhost:11434"` for Ollama)
+- `batch_size` (Integer, Optional): Batch size for processing (default: 32)
+- `timeout` (Integer, Optional): Request timeout in seconds (default: 120)
 
 **Valid Values:**
+
+**Note:** All model IDs listed below are values for `provider_config.model_id`, not standalone parameters.
 
 **LiteLLM Models (100+ providers):**
 - **Ollama** (prefix: `openai/`):
@@ -90,15 +106,46 @@ The Embeddings Operator generates vector embeddings for text content using Huggi
 - Any sentence-transformers compatible model (no prefix needed)
 
 **Examples:**
+
+LiteLLM with various providers:
 ```json
-"model_id": "openai/nomic-embed-text"                              // Ollama via LiteLLM
-"model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2"   // HuggingFace API via LiteLLM
-"model_id": "sentence-transformers/all-MiniLM-L6-v2"               // Native HuggingFace local
-"model_id": "text-embedding-3-small"                               // OpenAI via LiteLLM
-"model_id": "ibm/slate-125m-english-rtrvr"                         // Native Watsonx
+"provider_config": {
+  "model_id": "openai/nomic-embed-text"                              // Ollama via LiteLLM
+}
+"provider_config": {
+  "model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2"   // HuggingFace API via LiteLLM
+}
+"provider_config": {
+  "model_id": "sentence-transformers/all-MiniLM-L6-v2"               // Native HuggingFace local
+}
+"provider_config": {
+  "model_id": "openai/text-embedding-3-small"                        // OpenAI via LiteLLM
+}
+"provider_config": {
+  "model_id": "watsonx/ibm/slate-125m-english-rtrvr"                 // Watsonx via LiteLLM
+}
 ```
 
-**Migration Note:** The old `embeddings_model_id` parameter is deprecated. Use `model_id` instead.
+LiteLLM with OpenAI:
+```json
+"provider_config": {
+  "model_id": "openai/text-embedding-3-small",
+  "api_key": "${OPENAI_API_KEY}"
+}
+```
+
+Watsonx:
+```json
+"provider_config": {
+  "model_id": "ibm/slate-125m-english-rtrvr",
+  "api_key": "${WATSONX_API_KEY}",
+  "api_base": "https://us-south.ml.cloud.ibm.com",
+  "container_id": "${WATSONX_PROJECT_ID}",
+  "container_kind": "project",
+  "batch_size": 800,
+  "enable_rate_limiting": true
+}
+```
 
 ### 3. `embeddings_column` (String)
 **Type:** String
@@ -126,81 +173,6 @@ The Embeddings Operator generates vector embeddings for text content using Huggi
 ```json
 "overlap_ratio": 0.2
 "overlap_ratio": 0.3
-```
-
-### 5. `provider_config` (JSON)
-**Type:** JSON Object
-**Required:** Varies by provider
-**Description:** Provider-specific configuration parameters for the embedding provider.
-
-**For LiteLLM:**
-- `api_key` (String, Required for most providers): API key for the provider
-- `api_base` (String, Optional): Custom API endpoint
-- `api_version` (String, Optional): API version (for Azure)
-- `project_id` (String, Optional): Project ID (for watsonx via LiteLLM)
-- `timeout` (Float, Optional): Timeout in seconds for API calls
-- Additional provider-specific parameters as needed
-
-**For Watsonx (Native):**
-- `api_base` (String, Required): watsonx.ai service URL
-- `api_key` (String, Required): IBM Cloud API key
-- `container_id` (String, Required): Project or space ID
-- `container_kind` (String, Optional): "project" or "space" (default: "project")
-- `enable_rate_limiting` (Boolean, Optional): Enable rate limiting (7 req/s) for WatsonX API calls (default: false)
-
-**For Ollama via LiteLLM:**
-- `api_base` (String, Optional): Ollama server URL (default: "http://localhost:11434")
-- No API key required for local Ollama
-
-**For HuggingFace via LiteLLM:**
-- `api_key` (String, Optional): HuggingFace API token (or use HF_TOKEN env var)
-- `api_base` (String, Optional): Custom HuggingFace endpoint
-
-**Examples:**
-
-LiteLLM (IBM watsonx.ai):
-```json
-"provider_config": {
-  "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
-  "api_base": "https://us-south.ml.cloud.ibm.com",
-  "project_id": "${WATSONX_PROJECT_ID}"
-}
-```
-
-Watsonx:
-```json
-"provider_config": {
-  "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
-  "api_base": "${WATSONX_API_BASE}",
-  "container_id": "${WATSONX_CONTAINER_ID}",
-  "container_kind": "project",
-  "enable_rate_limiting": true
-}
-```
-
-HuggingFace:
-```json
-"provider_config": {
-  "device": "cuda",
-  "normalize_embeddings": true
-}
-```
-
-LiteLLM (OpenAI):
-```json
-"provider_config": {
-  "api_key": "${OPENAI_API_KEY}", # pragma: allowlist secret
-  "api_base": "https://api.openai.com/v1"
-}
-```
-
-LiteLLM (Azure):
-```json
-"provider_config": {
-  "api_key": "${AZURE_API_KEY}", # pragma: allowlist secret
-  "api_base": "https://your-resource.openai.azure.com",
-  "api_version": "2023-05-15"
-}
 ```
 
 ## Output Features
@@ -233,13 +205,14 @@ LiteLLM (Azure):
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "watsonx/ibm/slate-125m-english-rtrvr",
-    "embeddings_column": "embeddings",
     "provider_config": {
+      "model_id": "watsonx/ibm/slate-125m-english-rtrvr",
       "api_base": "https://us-south.ml.cloud.ibm.com",
       "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
-      "project_id": "${WATSONX_PROJECT_ID}"
-    }
+      "container_id": "${WATSONX_PROJECT_ID}",
+      "container_kind": "project"
+    },
+    "embeddings_column": "embeddings"
   }
 }
 ```
@@ -251,15 +224,16 @@ LiteLLM (Azure):
   "operator": "embeddings",
   "config": {
     "provider": "watsonx",
-    "model_id": "ibm/slate-125m-english-rtrvr",
-    "embeddings_column": "embeddings",
     "provider_config": {
-      "api_base": "${WATSONX_API_BASE}",
+      "model_id": "ibm/slate-125m-english-rtrvr",
       "api_key": "${WATSONX_API_KEY}", # pragma: allowlist secret
-      "container_id": "${WATSONX_CONTAINER_ID}",
+      "api_base": "${WATSONX_API_BASE}",
+      "container_id": "${WATSONX_PROJECT_ID}",
       "container_kind": "project",
+      "batch_size": 800,
       "enable_rate_limiting": true
-    }
+    },
+    "embeddings_column": "embeddings"
   }
 }
 ```
@@ -271,12 +245,13 @@ LiteLLM (Azure):
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/nomic-embed-text",
-    "embeddings_column": "embeddings",
-    "overlap_ratio": 0.2,
     "provider_config": {
-      "api_base": "http://localhost:11434"
-    }
+      "model_id": "openai/nomic-embed-text",
+      "api_base": "http://localhost:11434",
+      "batch_size": 32
+    },
+    "embeddings_column": "embeddings",
+    "overlap_ratio": 0.2
   }
 }
 ```
@@ -288,11 +263,11 @@ LiteLLM (Azure):
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "huggingface/sentence-transformers/all-mpnet-base-v2",
-    "embeddings_column": "embeddings",
     "provider_config": {
+      "model_id": "huggingface/sentence-transformers/all-mpnet-base-v2",
       "api_key": "${HUGGINGFACE_API_KEY}" # pragma: allowlist secret
-    }
+    },
+    "embeddings_column": "embeddings"
   }
 }
 ```
@@ -304,11 +279,11 @@ LiteLLM (Azure):
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "text-embedding-3-small",
-    "embeddings_column": "embeddings",
     "provider_config": {
+      "model_id": "openai/text-embedding-3-small",
       "api_key": "${OPENAI_API_KEY}" # pragma: allowlist secret
-    }
+    },
+    "embeddings_column": "embeddings"
   }
 }
 ```
@@ -320,11 +295,11 @@ LiteLLM (Azure):
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "embed-english-v3.0",
-    "embeddings_column": "embeddings",
     "provider_config": {
+      "model_id": "cohere/embed-english-v3.0",
       "api_key": "${COHERE_API_KEY}" # pragma: allowlist secret
-    }
+    },
+    "embeddings_column": "embeddings"
   }
 }
 ```
@@ -365,12 +340,12 @@ LiteLLM (Azure):
 
 ## Validation Rules
 
-- `provider` must be one of: litellm, watsonx
-- `model_id` must be a non-empty string
+- `provider` must be one of: huggingface, litellm, watsonx
+- `provider_config.model_id` must be a non-empty string
 - `overlap_ratio` must be between 0.0 and 0.5
 - Input data must have `content` column or `chunked_content` column
-- For LiteLLM, `provider_config.api_key` is required
-- For Watsonx, `provider_config.api_key`, `provider_config.api_base`, and `provider_config.container_id` are required
+- For LiteLLM, `provider_config.model_id` is required; `provider_config.api_key` required for most providers
+- For Watsonx, `provider_config.model_id`, `provider_config.api_key`, `provider_config.api_base`, `provider_config.container_id`, and `provider_config.container_kind` are required
 
 ## Complete Flow Example
 

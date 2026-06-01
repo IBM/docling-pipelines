@@ -23,11 +23,14 @@
       "type": "extract_operator",
       "name": "extract_text",
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "content"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       },
-      "depends_on": ["ingest_documents"]
+      "depends_on": [
+        "ingest_documents"
+      ]
     },
     {
       "type": "chunker",
@@ -37,17 +40,21 @@
         "chunk_size": 500,
         "chunk_overlap": 50,
         "retain_original_content": false,
-        "enable_summarization": true,
-        "summarization_provider": "litellm",
-        "summarization_model_id": "llama3.2",
-        "summarization_provider_config": {
-          "api_base": "http://localhost:11434/v1",
-          "api_key": "<value>"
-        },
-        "summary_sentences": 3,
-        "summary_max_words": 50
+        "summarization": {
+          "enabled": true,
+          "provider": "litellm",
+          "provider_config": {
+            "model_id": "openai/llama3.2",
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "<value>"
+          },
+          "summary_sentences": 3,
+          "summary_max_words": 50
+        }
       },
-      "depends_on": ["extract_text"]
+      "depends_on": [
+        "extract_text"
+      ]
     }
   ]
 }

@@ -189,12 +189,17 @@ class OperatorConstants:
         CUSTOM_SCHEMA: Final[str] = "custom_schema"
         DEFAULT: Final[str] = "default"
         DESCRIPTION: Final[str] = "description"
+        DOC_COLUMN: Final[str] = "doc_column"
+        ENABLED: Final[str] = "enabled"
+        ENGINE: Final[str] = "engine"
+        ENGINE_OPTIONS: Final[str] = "engine_options"
         FAIL_ON_ERROR: Final[str] = "fail_on_error"
         GLOBAL_CONFIG: Final[str] = "global_config"
         INGEST_SOURCE: Final[str] = "ingest_source"
         MAX_CONCURRENT_REQUESTS: Final[str] = "max_concurrent_requests"
         OUTPUT_COLUMN: Final[str] = "output_column"
         PARAMETERS: Final[str] = "parameters"
+        PRESET: Final[str] = "preset"
         PROPERTIES: Final[str] = "properties"
         PROVIDER: Final[str] = "provider"
         PROVIDER_CONFIG: Final[str] = "provider_config"
@@ -202,9 +207,19 @@ class OperatorConstants:
         REQUIRED: Final[str] = "required"
         USERNAME: Final[str] = "username"
 
+        # Logging Configuration
+        COMMON_LOG_ARGUMENTS: Final[str] = "common_log_arguments"
+
         # Summarization Configuration
-        SUMMARIZATION_PROVIDER: Final[str] = "summarization_provider"
-        SUMMARIZATION_PROVIDER_CONFIG: Final[str] = "summarization_provider_config"
+        SUMMARIZATION: Final[str] = "summarization"  # Nested config object
+        SUMMARIZATION_PROVIDER: Final[str] = "summarization_provider"  # Backward compatibility
+        SUMMARIZATION_PROVIDER_CONFIG: Final[str] = "summarization_provider_config"  # Backward compatibility
+
+        # Extraction Configuration (nested objects)
+        TEXT_EXTRACTION: Final[str] = "text_extraction"  # Nested config for text extraction
+        ENTITY_EXTRACTION: Final[str] = "entity_extraction"  # Nested config for entity extraction
+        VLM_PIPELINE: Final[str] = "vlm_pipeline"  # Nested config for VLM pipeline
+        ASR_PIPELINE: Final[str] = "asr_pipeline"  # Nested config for ASR pipeline
 
         # Feature and Schema Configuration
         ALL_SCHEMA_DETAILS: Final[str] = "all_schema_details"
@@ -260,23 +275,18 @@ class OperatorConstants:
 
         # Docling-Serve Configuration (used by ExtractOperator)
         USE_DOCLING_SERVE: Final[str] = "use_docling_serve"
-        DOCLING_SERVE_BASE_URL: Final[str] = "docling_serve_base_url"
-        DOCLING_SERVE_API_KEY: Final[str] = "docling_serve_api_key"
-        DOCLING_SERVE_TIMEOUT: Final[str] = "docling_serve_timeout"
-        DOCLING_SERVE_POLL_INTERVAL: Final[str] = "docling_serve_poll_interval"
-        DOCLING_SERVE_MAX_RETRIES: Final[str] = "docling_serve_max_retries"
-        DOCLING_SERVE_VERIFY_SSL: Final[str] = "docling_serve_verify_ssl"
-        DOCLING_SERVE_DO_OCR: Final[str] = "docling_serve_do_ocr"  # Deprecated: use DOCLING_SERVE_OCR_PRESET
-        DOCLING_SERVE_OCR_ENGINE: Final[str] = "docling_serve_ocr_engine"  # Deprecated: use DOCLING_SERVE_OCR_PRESET
-        DOCLING_SERVE_OCR_LANGUAGES: Final[str] = (
-            "docling_serve_ocr_languages"  # Deprecated: use DOCLING_SERVE_OCR_LANG
-        )
-        DOCLING_SERVE_OCR_PRESET: Final[str] = "docling_serve_ocr_preset"
-        DOCLING_SERVE_OCR_LANG: Final[str] = "docling_serve_ocr_lang"
-        DOCLING_SERVE_PDF_BACKEND: Final[str] = "docling_serve_pdf_backend"
-        DOCLING_SERVE_TABLE_MODE: Final[str] = "docling_serve_table_mode"
-        DOCLING_SERVE_IMAGE_EXPORT_MODE: Final[str] = "docling_serve_image_export_mode"
-        DOCLING_SERVE_OUTPUT_FORMATS: Final[str] = "docling_serve_output_formats"
+        DOCLING_SERVE_CONFIG: Final[str] = "docling_serve_config"
+        BASE_URL: Final[str] = "base_url"
+        DO_OCR: Final[str] = "do_ocr"  # Deprecated: use OCR_PRESET
+        OCR_ENGINE: Final[str] = "ocr_engine"  # Deprecated: use OCR_PRESET
+        OCR_LANGUAGES: Final[str] = "ocr_languages"  # Deprecated: use OCR_LANG
+        OCR_PRESET: Final[str] = "ocr_preset"
+        OCR_LANG: Final[str] = "ocr_lang"
+        PDF_BACKEND: Final[str] = "pdf_backend"
+        TABLE_MODE: Final[str] = "table_mode"
+        IMAGE_EXPORT_MODE: Final[str] = "image_export_mode"
+        OUTPUT_FORMATS: Final[str] = "output_formats"
+        FORMAT_OPTIONS: Final[str] = "format_options"
 
         # Processing Configuration
         ALWAYS_RETRIEVE_DOCUMENT: Final[str] = "always_retrieve_document"
@@ -547,8 +557,8 @@ class OperatorConstants:
         """Extraction mode constants for ExtractOperator."""
 
         # Configuration Parameter Names
-        TEXT_EXTRACTION_MODE: Final[str] = "text_extraction_provider"
-        ENTITY_EXTRACTION_MODE: Final[str] = "entity_extraction_provider"
+        TEXT_EXTRACTION_MODE: Final[str] = "provider"
+        ENTITY_EXTRACTION_MODE: Final[str] = "provider"
 
         # Text Extraction Mode Values
         TEXT_MODE_DOCLING_LIBRARY: Final[str] = "docling_library"

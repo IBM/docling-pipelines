@@ -39,16 +39,16 @@
         "use_docling_serve": true,
         "doc_column": "content",
         "max_workers": 4,
-        "docling_serve_base_url": "http://localhost:30501",
-        "docling_serve_ocr_preset": "tesseract",
-        "docling_serve_ocr_lang": [
+        "base_url": "http://localhost:30501",
+        "ocr_preset": "tesseract",
+        "ocr_lang": [
           "eng"
         ],
-        "docling_serve_pdf_backend": "dlparse_v2",
-        "docling_serve_table_mode": "accurate",
-        "docling_serve_image_export_mode": "embedded",
-        "docling_serve_timeout": 300,
-        "docling_serve_poll_interval": 2
+        "pdf_backend": "dlparse_v2",
+        "table_mode": "accurate",
+        "image_export_mode": "embedded",
+        "timeout": 300,
+        "poll_interval": 2
       },
       "depends_on": [
         "ingest"
@@ -72,15 +72,15 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "litellm",
-        "embeddings_model_id": "openai/granite4",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
         "doc_column": "content",
         "provider_config": {
           "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}"
-        }
+          "api_key": "${OLLAMA_API_KEY}",
+          "model_id": "openai/granite4"
+        },
+        "provider": "litellm"
       },
       "depends_on": [
         "chunk"

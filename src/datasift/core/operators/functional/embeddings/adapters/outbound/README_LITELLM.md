@@ -86,7 +86,7 @@ export OPENAI_API_KEY=sk-proj-...
 
 - `text-embedding-3-small` (1536 dimensions, $0.02/1M tokens)
 - `text-embedding-3-large` (3072 dimensions, $0.13/1M tokens)
-- `text-embedding-ada-002` (1536 dimensions, legacy)
+- `text-embedding-ada-002` (1536 dimensions)
 
 ### Azure OpenAI
 

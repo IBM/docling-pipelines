@@ -10,8 +10,8 @@ pii_and_hap/
 │   └── models.py       # DetectionResult, PIIHAPDetectionResponse
 ├── services/           # Business logic layer
 │   └── pii_hap_service.py  # PIIHAPService (wraps common ports)
-└── adapters/           # Provider implementations (deprecated - use common adapters)
-    └── outbound/       # Legacy adapters (removed)
+└── adapters/           # Provider implementations
+    └── outbound/       # Adapters (removed)
 ```
 
 ## New Architecture (Phase 2)
@@ -110,7 +110,7 @@ The PII/HAP operator now uses the **common infrastructure** located in `src/data
     "provider": "watsonx",
     "provider_config": {
       "api_key": "${WATSONX_API_KEY}",
-      "url": "https://us-south.ml.cloud.ibm.com",
+      "api_base": "https://us-south.ml.cloud.ibm.com",
       "container_kind": "project",
       "container_id": "your-project-id"
     }

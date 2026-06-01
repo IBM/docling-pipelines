@@ -25,12 +25,21 @@
         "ingest"
       ],
       "config": {
-        "doc_column": "content",
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "additional_formats": ["html", "json"],
-        "extract_tables": true,
-        "extract_images": false
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content",
+          "provider_config": {
+            "additional_formats": [
+              "html",
+              "json"
+            ],
+            "extract_tables": true,
+            "extract_images": false
+          }
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
       }
     }
   ]

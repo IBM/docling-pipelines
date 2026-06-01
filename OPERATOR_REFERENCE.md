@@ -323,8 +323,8 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 | Parameter              | Type      | Required | Default                  | Description                                                                               |
 | ---------------------- | --------- | -------- | ------------------------ | ----------------------------------------------------------------------------------------- |
 | `provider`             | string    | No       | `"litellm"`              | LLM provider: `"litellm"` or `"watsonx"`                                                  |
-| `model_id`             | string    | No       | `"openai/granite3.1-dense:8b"`   | Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"` for Ollama, `"openai/gpt-4o-mini"`, `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`)  |
-| `provider_config`      | object    | No       | `{}`                | Provider-specific configuration (api_key, api_base, etc.)                                 |
+| `provider_config`      | object    | No       | `{}`                | Provider-specific configuration including `model_id` (see below)                          |
+| `provider_config.model_id` | string | No   | `"openai/granite3.1-dense:8b"`   | Model identifier in `<provider>/<model_id>` format (e.g., `"openai/granite3.1-dense:8b"` for Ollama, `"openai/gpt-4o-mini"`, `"huggingface/meta-llama/Llama-3.3-70B-Instruct"`)  |
 | `document_types`       | list/dict | No       | Auto-loaded         | Document types to classify into (list or dict with descriptions)                          |
 | `confidence_threshold` | float     | No       | `7.0`               | Minimum confidence for classification (1-10 scale)                                        |
 | `doc_column`           | string    | No       | `"content"`         | Column containing document text                                                           |
@@ -342,8 +342,8 @@ See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:97) 
 ```json
 {
   "provider": "litellm",
-  "model_id": "openai/gpt-4o-mini",
   "provider_config": {
+    "model_id": "openai/gpt-4o-mini",
     "api_key": "${OPENAI_API_KEY}",
     "request_timeout": 120
   }
@@ -365,8 +365,8 @@ Supported LiteLLM providers:
 ```json
 {
   "provider": "watsonx",
-  "model_id": "ibm/granite-13b-chat-v2",
   "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
     "api_base": "https://us-south.ml.cloud.ibm.com",
     "api_key": "${WATSONX_API_KEY}",
     "container_kind": "project",
@@ -440,8 +440,8 @@ Detailed dictionary format (recommended):
   "operator": "classification_operator",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/gpt-4o-mini",
     "provider_config": {
+      "model_id": "openai/gpt-4o-mini",
       "api_key": "${OPENAI_API_KEY}"
     },
     "document_types": {
@@ -467,8 +467,8 @@ Detailed dictionary format (recommended):
   "operator": "document_classifier",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/llama3.2:latest",
     "provider_config": {
+      "model_id": "openai/llama3.2:latest",
       "api_key": "${api-key}",
       "api_base": "http://localhost:11434/v1"
     },
@@ -515,42 +515,43 @@ This simplified design removes the port/adapter overhead while maintaining clean
 
 | Parameter                                                 | Type   | Required | Default                   | Description                                                                                        |
 |-----------------------------------------------------------|--------|---------:|---------------------------|----------------------------------------------------------------------------------------------------|
-| `text_extraction_provider`                                    | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
-| `entity_extraction_provider`                                  | string |       No | `none`                    | Entity extraction mode: `litellm` (includes Ollama via openai/ prefix), `watsonx`, `docling`, or `none`. **Note:** When using any entity extraction mode (not `none`), either `custom_schema` must be provided in the operator configuration OR a `document_type` column must be present from an upstream classification operator (e.g., DocumentClassifierOperator). If neither is provided, a `ConfigurationError` will be thrown. |
-| `doc_column`                                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
-| `output_column`                                           | string |       No | `entities`                | Column name for storing extracted entities                                                         |
-| `additional_formats`                                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`                       |
-| `extract_tables`                                          | bool   |       No | `false`                   | Extract tables from documents (text extraction)                                                    |
-| `extract_images`                                          | bool   |       No | `false`                   | Extract images from documents (text extraction)                                                    |
+| `text_extraction`                                         | object |       No | `{}`                      | Text extraction configuration (see below)                                                          |
+| `text_extraction.provider`                                | string |       No | `docling_library`         | Text extraction mode: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
+| `text_extraction.doc_column`                              | string |       No | `doc_content`             | Column name for storing extracted text content                                                     |
+| `text_extraction.additional_formats`                      | array  |       No | `[]`                      | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`                       |
+| `text_extraction.extract_tables`                          | bool   |       No | `false`                   | Extract tables from documents                                                                      |
+| `text_extraction.extract_images`                          | bool   |       No | `false`                   | Extract images from documents                                                                      |
+| `text_extraction.vlm_pipeline`                            | object |       No | `null`                    | VLM (Vision-Language Model) pipeline configuration (docling_library mode)                          |
+| `text_extraction.vlm_pipeline.preset`                     | string |       No | `fast`                    | VLM preset name: `fast`, `accurate`, or custom preset                                              |
+| `text_extraction.vlm_pipeline.engine`                     | string |       No | `ollama`                  | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.                                        |
+| `text_extraction.vlm_pipeline.engine_options`             | object |       No | `{}`                      | Engine-specific options (api_base, model_id, etc.)                                                 |
+| `text_extraction.asr_pipeline`                            | object |       No | `null`                    | ASR (Automatic Speech Recognition) pipeline configuration (docling_library mode)                   |
+| `text_extraction.asr_pipeline.preset`                     | string |       No | `fast`                    | ASR preset name: `fast`, `accurate`, or custom preset                                              |
+| `text_extraction.asr_pipeline.engine`                     | string |       No | `whisper`                 | ASR engine: `whisper` or other supported engines                                                   |
+| `text_extraction.asr_pipeline.engine_options`             | object |       No | `{}`                      | Engine-specific options (model_id, etc.)                                                           |
+| `text_extraction.provider_config`                         | object |       No | `{}`                      | Provider-specific configuration (docling_serve mode)                                               |
+| `text_extraction.provider_config.base_url`                | string |       No | `http://localhost:5001`   | Docling Serve API endpoint (docling_serve mode)                                                    |
+| `text_extraction.provider_config.api_key`                 | string |       No | `null`                    | Optional API key for authentication (docling_serve mode)                                           |
+| `text_extraction.provider_config.timeout`                 | int    |       No | `300`                     | Request timeout in seconds (docling_serve mode)                                                    |
+| `text_extraction.provider_config.do_ocr`                  | bool   |       No | `true`                    | Enable OCR processing (docling_serve mode)                                                         |
+| `text_extraction.provider_config.ocr_engine`              | string |       No | `easyocr`                 | OCR engine: `easyocr` or `tesseract` (docling_serve mode)                                          |
+| `text_extraction.provider_config.pdf_backend`             | string |       No | `dlparse_v2`              | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2` (docling_serve mode)                          |
+| `entity_extraction`                                       | object |       No | `{}`                      | Entity extraction configuration (see below)                                                        |
+| `entity_extraction.provider`                              | string |       No | `none`                    | Entity extraction mode: `litellm` (includes Ollama via openai/ prefix), `watsonx`, `docling`, or `none`. **Note:** When using any entity extraction mode (not `none`), either `custom_schema` must be provided OR a `document_type` column must be present from an upstream classification operator. |
+| `entity_extraction.output_column`                         | string |       No | `entities`                | Column name for storing extracted entities                                                         |
+| `entity_extraction.expand_extracted_data`                 | bool   |       No | `false`                   | Expand entity JSON into individual columns                                                         |
+| `entity_extraction.custom_schema`                         | object |       No | `{}`                      | Schema dictionary for structured extraction. **Required** when using entity extraction modes (`litellm`, `watsonx`, `docling`) unless a `document_type` column is present. |
+| `entity_extraction.provider_config`                       | object |       No | `{}`                      | Provider-specific configuration including `model_id` (see below)                                   |
+| `entity_extraction.provider_config.model_id`              | string | Conditional | varies by provider    | LLM model identifier (required for litellm/watsonx modes). **Must include provider prefix when using LiteLLM** (e.g., `openai/gpt-4`, `openai/llama3.2` for Ollama, `anthropic/claude-3-opus`) |
+| `entity_extraction.provider_config.temperature`           | float  |       No | `0.0`                     | Sampling temperature                                                                               |
+| `entity_extraction.provider_config.max_tokens`            | int    |       No | `2000`                    | Maximum response tokens                                                                            |
+| `entity_extraction.provider_config.api_key`               | string | Conditional | -                     | Provider API key (required for most providers)                                                     |
+| `entity_extraction.provider_config.api_base`              | string |       No | -                         | API endpoint URL (e.g., `http://localhost:11434/v1` for Ollama)                                    |
+| `entity_extraction.provider_config.container_id`          | string | Conditional | -                     | WatsonX container ID (required for watsonx mode)                                                   |
+| `entity_extraction.provider_config.container_kind`        | string |       No | `project`                 | WatsonX container kind (watsonx mode)                                                              |
+| `entity_extraction.entity_config`                         | object |       No | `{}`                      | Custom inline model configuration for Docling entity extraction (docling mode only)                |
 | `max_workers`                                             | int    |       No | auto                      | Maximum parallel workers (auto-detected based on CPU)                                              |
 | `use_processes`                                           | bool   |       No | `false`                   | Use ProcessPoolExecutor vs ThreadPoolExecutor                                                      |
-| `expand_extracted_data`                                   | bool   |       No | `false`                   | Expand entity JSON into individual columns (entity extraction only)                                |
-| `custom_schema`                                           | object |       No | `{}`                      | Schema dictionary for structured extraction. **Required** when using entity extraction modes (`litellm`, `watsonx`, `docling`) unless a `document_type` column is present from an upstream classification operator. |
-| **VLM Parameters (docling_library mode)**                 |
-| `use_vlm_pipeline`                                        | bool   |       No | `false`                   | Enable VLM (Vision-Language Model) pipeline                                                        |
-| `vlm_preset`                                              | string |       No | `granite_docling`         | VLM preset name when VLM enabled                                                                   |
-| `vlm_engine_type`                                         | string |       No | `transformers`            | VLM engine: `transformers`, `mlx`, `api_*` variants                                                |
-| `vlm_provider_config`                                     | object |       No | `null`                    | Provider-specific VLM configuration                                                                |
-| **ASR Parameters (docling_library mode for audio/video)** |
-| `use_asr_pipeline`                                        | bool   |       No | `false`                   | Enable ASR (Automatic Speech Recognition) for audio/video files                                    |
-| `asr_model_name`                                          | string |       No | `whisper_turbo`           | ASR model name (e.g., `whisper_turbo`, `whisper_large`)                                            |
-| **Docling Serve Parameters (docling_serve mode)**         |
-| `docling_serve_base_url`                                  | string |       No | `http://localhost:5001`   | Docling Serve API endpoint                                                                         |
-| `docling_serve_api_key`                                   | string |       No | `null`                    | Optional API key for authentication                                                                |
-| `docling_serve_timeout`                                   | int    |       No | `300`                     | Request timeout in seconds                                                                         |
-| `docling_serve_do_ocr`                                    | bool   |       No | `true`                    | Enable OCR processing                                                                              |
-| `docling_serve_ocr_engine`                                | string |       No | `easyocr`                 | OCR engine: `easyocr` or `tesseract`                                                               |
-| `docling_serve_pdf_backend`                               | string |       No | `dlparse_v2`              | PDF backend: `dlparse_v4`, `dlparse_v3`, `pypdfium2`                                               |
-| **LiteLLM Entity Parameters (litellm mode)**              |
-| `entity_model_id`                                       | string |    Yes\* | `gpt-3.5-turbo`           | LLM model identifier. For Ollama, use `openai/` prefix (e.g., `openai/llama3.2`) (\*required for litellm mode) |
-| `entity_temperature`                                      | float  |       No | `0.0`                     | Sampling temperature                                                                               |
-| `entity_max_tokens`                                       | int    |       No | `2000`                    | Maximum response tokens                                                                            |
-| `entity_provider_config`                                  | object |       No | `{}`                      | Provider config with `api_key`, `api_base`. For Ollama, set `api_base` to `http://localhost:11434/v1` |
-| **WatsonX Entity Parameters (watsonx mode)**              |
-| `entity_model_id`                                       | string |    Yes\* | `ibm/granite-13b-chat-v2` | WatsonX model identifier (\*required for watsonx mode)                                             |
-| `entity_temperature`                                      | float  |       No | `0.0`                     | Sampling temperature                                                                               |
-| `entity_max_tokens`                                       | int    |       No | `2000`                    | Maximum response tokens                                                                            |
-| `entity_provider_config`                                  | object |    Yes\* | `{}`                      | Provider config with `api_key`, `container_id`, `api_base` (optional), `container_kind` (optional) |
 
 **Input Schema**
 
@@ -593,11 +594,17 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "doc_column": "content",
-    "extract_tables": true,
-    "extract_images": true
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "extract_tables": true,
+        "extract_images": true
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -610,11 +617,20 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "use_vlm_pipeline": true,
-    "vlm_preset": "granite_docling",
-    "vlm_engine_type": "transformers",
+    "text_extraction": {
+      "provider": "docling_library",
+      "vlm_pipeline": {
+        "preset": "fast",
+        "engine": "ollama",
+        "engine_options": {
+          "api_base": "http://localhost:11434",
+          "model_id": "llama3.2-vision"
+        }
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    },
     "max_workers": 1
   }
 }
@@ -628,12 +644,18 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_serve",
-    "entity_extraction_provider": "none",
-    "docling_serve_base_url": "http://localhost:5001",
-    "docling_serve_do_ocr": true,
-    "docling_serve_ocr_engine": "easyocr",
-    "docling_serve_pdf_backend": "dlparse_v4"
+    "text_extraction": {
+      "provider": "docling_serve",
+      "provider_config": {
+        "base_url": "http://localhost:5001",
+        "do_ocr": true,
+        "ocr_engine": "easyocr",
+        "pdf_backend": "dlparse_v4"
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -646,18 +668,22 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "entity_model_id": "openai/granite4:latest",
-    "entity_temperature": 0.0,
-    "entity_max_tokens": 4096,
-    "entity_provider_config": {
-      "api_base": "http://localhost:11434/v1",
-      "api_key": "<ollama_key>"
+    "text_extraction": {
+      "provider": "docling_library"
     },
-    "custom_schema": {
-      "invoice_number": "string",
-      "total_amount": "float"
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/granite4:latest",
+        "temperature": 0.0,
+        "max_tokens": 4096,
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama_key>"
+      },
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "float"
+      }
     }
   }
 }
@@ -671,14 +697,18 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "entity_model_id": "gpt-3.5-turbo",
-    "entity_temperature": 0.0,
-    "entity_max_tokens": 2000,
-    "entity_provider_config": {
-      "api_key": "${OPENAI_API_KEY}",
-      "api_base": "https://api.openai.com/v1"
+    "text_extraction": {
+      "provider": "docling_library"
+    },
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/gpt-3.5-turbo",
+        "temperature": 0.0,
+        "max_tokens": 2000,
+        "api_key": "${OPENAI_API_KEY}",
+        "api_base": "https://api.openai.com/v1"
+      }
     }
   }
 }
@@ -692,10 +722,17 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "additional_formats": ["html", "json", "text"],
-    "extract_tables": true,
-    "extract_images": true
+    "text_extraction": {
+      "provider": "docling_library",
+      "provider_config": {
+        "additional_formats": ["html", "json", "text"],
+        "extract_tables": true,
+        "extract_images": true
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -708,20 +745,24 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "watsonx",
-    "entity_model_id": "ibm/granite-13b-chat-v2",
-    "entity_temperature": 0.0,
-    "entity_max_tokens": 2000,
-    "entity_provider_config": {
-      "api_key": "${WATSONX_API_KEY}",
-      "container_id": "${WATSONX_CONTAINER_ID}",
-      "api_base": "https://us-south.ml.cloud.ibm.com",
-      "container_kind": "project"
+    "text_extraction": {
+      "provider": "docling_library"
     },
-    "custom_schema": {
-      "invoice_number": "string",
-      "total_amount": "float"
+    "entity_extraction": {
+      "provider": "watsonx",
+      "provider_config": {
+        "model_id": "ibm/granite-13b-chat-v2",
+        "temperature": 0.0,
+        "max_tokens": 2000,
+        "api_key": "${WATSONX_API_KEY}",
+        "container_id": "${WATSONX_CONTAINER_ID}",
+        "api_base": "https://us-south.ml.cloud.ibm.com",
+        "container_kind": "project"
+      },
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "float"
+      }
     }
   }
 }
@@ -735,13 +776,17 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "docling",
-    "custom_schema": {
-      "type": "object",
-      "properties": {
-        "invoice_number": { "type": "string" },
-        "total_amount": { "type": "number" }
+    "text_extraction": {
+      "provider": "docling_library"
+    },
+    "entity_extraction": {
+      "provider": "docling",
+      "custom_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_number": { "type": "string" },
+          "total_amount": { "type": "number" }
+        }
       }
     }
   }
@@ -756,25 +801,29 @@ The operator provides the following metadata after execution:
   "name": "extract",
   "operator": "extract_operator",
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "docling",
-    "entity_config": {
-      "model_type": "inline",
-      "inline_model": {
-        "repo_id": "numind/NuExtract-2.0-2B",
-        "inference_framework": "transformers",
-        "scale": 2.0,
-        "temperature": 0.0,
-        "max_new_tokens": 4096,
-        "load_in_8bit": true,
-        "torch_dtype": "bfloat16"
-      }
+    "text_extraction": {
+      "provider": "docling_library"
     },
-    "custom_schema": {
-      "type": "object",
-      "properties": {
-        "invoice_number": { "type": "string" },
-        "total_amount": { "type": "number" }
+    "entity_extraction": {
+      "provider": "docling",
+      "entity_config": {
+        "model_type": "inline",
+        "inline_model": {
+          "repo_id": "numind/NuExtract-2.0-2B",
+          "inference_framework": "transformers",
+          "scale": 2.0,
+          "temperature": 0.0,
+          "max_new_tokens": 4096,
+          "load_in_8bit": true,
+          "torch_dtype": "bfloat16"
+        }
+      },
+      "custom_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_number": { "type": "string" },
+          "total_amount": { "type": "number" }
+        }
       }
     }
   }
@@ -785,7 +834,7 @@ The operator provides the following metadata after execution:
 
 The `entity_config` parameter enables custom inline model configuration for the Docling entity extraction adapter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.
 
-**Note:** For API-based entity extraction, use `entity_extraction_provider: "litellm"` or `"watsonx"` instead of Docling.
+**Note:** For API-based entity extraction, use `entity_extraction.provider: "litellm"` or `"watsonx"` instead of Docling.
 
 **Configuration Structure:**
 
@@ -807,7 +856,7 @@ The `entity_config` parameter enables custom inline model configuration for the 
 **Usage Notes:**
 
 - **Inline Models Only**: Only HuggingFace models loaded directly into memory are supported. DocumentExtractor does not support remote API endpoints.
-- **API-Based Extraction**: For API-based entity extraction (Ollama via LiteLLM, OpenAI, etc.), use `entity_extraction_provider: "litellm"` or `"watsonx"` instead.
+- **API-Based Extraction**: For API-based entity extraction (Ollama via LiteLLM, OpenAI, etc.), use `entity_extraction.provider: "litellm"` or `"watsonx"` instead.
 - **Default Behavior**: If `entity_config` is not provided, Docling uses its default model configuration.
 - **Performance**: Inline models require sufficient GPU memory and are suitable for local deployment with GPU resources.
 - **Compatibility**: Ensure the chosen model supports the inference framework and hardware configuration.
@@ -842,17 +891,18 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 **Usage Notes**
 
 - Dual-mode operation: text and entity extraction in single operator
-- Text modes: `docling_library` (local, optional VLM) or `docling_serve` (remote API with OCR)
+- Text modes: `docling_library` (local, optional VLM/ASR) or `docling_serve` (remote API with OCR)
 - Entity modes: `litellm` (100+ providers including Ollama via openai/ prefix), `watsonx` (IBM WatsonX.ai), `docling` (template-based), `none` (default)
 - **Entity Extraction Validation**: When using any entity extraction mode (not `none`), you must provide either:
   - A `custom_schema` in the operator configuration, OR
   - A `document_type` column from an upstream classification operator (e.g., DocumentClassifierOperator)
   - If neither is provided, a `ConfigurationError` will be thrown with message: "Entity extraction requires either a custom_schema in operator config OR a document_type column from upstream classification operator"
-- VLM pipeline (docling_library mode) enhances extraction for complex documents
+- **VLM Pipeline**: Configure via nested `vlm_pipeline` object with `preset`, `engine`, and `engine_options` for enhanced extraction of complex documents
+- **ASR Pipeline**: Configure via nested `asr_pipeline` object with `preset`, `engine`, and `engine_options` for audio/video transcription
 - Docling Serve mode supports OCR for scanned documents and multi-language processing
 - **Text File Handling**: `.txt` files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when `docling_serve` mode is configured
 - **Extension Detection**: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)
-- Audio/Video Support Processes audio (WAV, MP3, M4A, AAC, OGG, FLAC) and video (MP4, AVI, MOV) files using ASR (Automatic Speech Recognition) via Docling. Requires ffmpeg for M4A, AAC, OGG, FLAC, and all video formats
+- Audio/Video Support: Processes audio (WAV, MP3, M4A, AAC, OGG, FLAC) and video (MP4, AVI, MOV) files using ASR. Requires ffmpeg for M4A, AAC, OGG, FLAC, and all video formats
 - See [ExtractOperator README](src/datasift/core/operators/extract/README.md) for complete documentation
 
 ---
@@ -878,54 +928,73 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `breakpoint_threshold_amount`   | float  |       No | `null`                                   | Threshold amount                                               |
 | `docling_tokenizer`             | string |       No | `sentence-transformers/all-MiniLM-L6-v2` | Hybrid chunking tokenizer                                      |
 | `retain_original_content`       | bool   |       No | `false`                                  | Keep original content                                          |
-| `enable_summarization`          | bool   |       No | `false`                                  | Enable chunk summarization using LLM                           |
-| `summarization_provider`        | string |       No | `litellm`                                | LLM provider: `litellm` or `watsonx`                           |
-| `summarization_model_id`        | string |       No | `granite4`                               | Model ID (auto-prefixed with `openai/` for LiteLLM)           |
-| `summarization_provider_config` | object |       No | `{}`                                     | Provider-specific configuration (see below)                    |
-| `max_input_tokens`              | int    |       No | `8000`                                   | Maximum tokens per LLM request (range: 1000-32000)             |
-| `overlap_ratio`                 | float  |       No | `0.2`                                    | Overlap ratio for sliding window summarization                 |
-| `summary_sentences`             | int    |       No | `2`                                      | Target sentences per summary (range: 1-5)                      |
-| `summary_max_words`             | int    |       No | `20`                                     | Maximum words per summary (range: 10-100)                      |
+| `summarization`                 | object |       No | `{}`                                     | **Nested config object** for all summarization settings        |
+| `summarization.enabled`          | bool   |       No | `false`                                  | Enable chunk summarization using LLM                           |
+| `summarization.provider`        | string |       No | `litellm`                                | LLM provider: `litellm` or `watsonx`                           |
+| `summarization.provider_config` | object |       No | `{}`                                     | Provider-specific configuration including `model_id`           |
+| `summarization.provider_config.model_id` | string | No | `granite4`                      | Model ID (auto-prefixed with `openai/` for LiteLLM)           |
+| `summarization.max_input_tokens` | int   |       No | `8000`                                   | Maximum tokens per LLM request (range: 1000-32000)             |
+| `summarization.overlap_ratio`   | float  |       No | `0.2`                                    | Overlap ratio for sliding window summarization                 |
+| `summarization.summary_sentences` | int  |       No | `2`                                      | Target sentences per summary (range: 1-5)                      |
+| `summarization.summary_max_words` | int  |       No | `20`                                     | Maximum words per summary (range: 10-100)                      |
+
+**Note:** Flat configuration (top-level `summarization_provider`, `summarization_provider_config`, etc.) is still supported for backward compatibility but the nested `summarization` object is recommended.
 
 **Summarization Providers:**
 
-When `enable_summarization` is `true`, the operator uses the common LLM infrastructure to generate summaries for each chunk:
+When `summarization.enabled` is `true`, the operator uses the common LLM infrastructure to generate summaries for each chunk:
 
 - **LiteLLM** (default): Unified API for 100+ providers (OpenAI, Azure, Anthropic, Cohere, AWS Bedrock, GCP Vertex AI, etc.)
 - **Watsonx**: IBM watsonx.ai cloud service (enterprise AI)
 
-**Provider-Specific Configuration (`summarization_provider_config`):**
+**Provider-Specific Configuration (`summarization.provider_config`):**
 
 | Provider     | Parameter  | Type   | Default                          | Description                                     |
 | ------------ | ---------- | ------ | -------------------------------- | ----------------------------------------------- |
 | **LiteLLM**  | `api_base` | string | `http://localhost:11434/v1`      | API endpoint URL (defaults to Ollama)           |
 |              | `api_key`  | string | `ollama`                         | Provider API key                                |
 | **Watsonx**  | `api_key`  | string | -                                | IBM Cloud API key                               |
-|              | `project_id` | string | -                              | watsonx.ai project ID                           |
-|              | `url`      | string | `https://us-south.ml.cloud.ibm.com` | watsonx.ai service URL                       |
+|              | `container_id` | string | -                            | watsonx.ai project/space ID                     |
+|              | `container_kind` | string | -                          | Container type (`project` or `space`)           |
+|              | `api_base` | string | `https://us-south.ml.cloud.ibm.com` | watsonx.ai service URL                       |
 
-**Backward Compatibility:**
+**Configuration Structure:**
 
-Legacy configurations using only `summarization_model_id` without provider settings are automatically converted to LiteLLM with Ollama defaults:
+The **recommended approach** is to use the nested `summarization` object:
 
 ```json
 {
-  "enable_summarization": true,
-  "summarization_model_id": "llama3.2:3b"
+  "summarization": {
+    "enabled": true,
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/llama3.2:3b",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama>"
+    },
+    "summary_sentences": 3,
+    "summary_max_words": 50
+  }
 }
 ```
 
-Becomes:
+**Backward Compatibility:**
+
+The flat configuration structure is still supported:
 
 ```json
 {
-  "enable_summarization": true,
-  "summarization_provider": "litellm",
-  "summarization_model_id": "openai/llama3.2:3b",
-  "summarization_provider_config": {
-    "api_base": "http://localhost:11434/v1",
-    "api_key": "<value>"
-  }
+  "summarization": {
+    "enabled": true,
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/llama3.2:3b",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama>"
+    },
+    "summary_sentences": 3
+  },
+  "summary_max_words": 50
 }
 ```
 
@@ -937,7 +1006,7 @@ Becomes:
 
 - `chunk_sequence_number`
 - `start_index`
-- `chunked_content` (array of objects with `chunk`, `start_index`, and optional `summary` fields when `enable_summarization` is `true`)
+- `chunked_content` (array of objects with `chunk`, `start_index`, and optional `summary` fields when `summarization.enabled` is `true`)
 
 **Exceptions**
 
@@ -964,7 +1033,7 @@ Basic chunking without summarization:
 }
 ```
 
-Chunking with LiteLLM summarization (Ollama):
+Chunking with LiteLLM summarization (Ollama) - Nested Structure:
 
 ```json
 {
@@ -976,20 +1045,22 @@ Chunking with LiteLLM summarization (Ollama):
     "doc_column": "content",
     "chunk_size": 1000,
     "chunk_overlap": 200,
-    "enable_summarization": true,
-    "summarization_provider": "litellm",
-    "summarization_model_id": "llama3.2:3b",
-    "summarization_provider_config": {
-      "api_base": "http://localhost:11434/v1",
-      "api_key": "<ollama>"
-    },
-    "summary_sentences": 2,
-    "summary_max_words": 20
+    "summarization": {
+      "enabled": true,
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2:3b",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama>"
+      },
+      "summary_sentences": 2,
+      "summary_max_words": 20
+    }
   }
 }
 ```
 
-Chunking with Watsonx summarization:
+Chunking with Watsonx summarization - Nested Structure:
 
 ```json
 {
@@ -1000,12 +1071,16 @@ Chunking with Watsonx summarization:
     "chunk_type": "simple",
     "doc_column": "content",
     "chunk_size": 1000,
-    "enable_summarization": true,
-    "summarization_provider": "watsonx",
-    "summarization_model_id": "ibm/granite-13b-chat-v2",
-    "summarization_provider_config": {
-      "api_key": "${WATSONX_API_KEY}",
-      "project_id": "${WATSONX_PROJECT_ID}"
+    "summarization": {
+      "enabled": true,
+      "provider": "watsonx",
+      "provider_config": {
+        "model_id": "ibm/granite-13b-chat-v2",
+        "api_key": "${WATSONX_API_KEY}",
+        "api_base": "${WATSONX_API_BASE}",
+        "container_id": "${WATSONX_PROJECT_ID}",
+        "container_kind": "project"
+      }
     }
   }
 }
@@ -1091,13 +1166,12 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | Parameter             | Type   | Required | Default       | Description                                                    |
 | --------------------- | ------ | -------: | ------------- | -------------------------------------------------------------- |
 | `provider`            | string |      Yes | `litellm`     | Provider type: `litellm`, `watsonx`, `huggingface`             |
-| `model_id`            | string |      Yes | `openai/nomic-embed-text` | Model identifier in `<provider>/<model_id>` format for litellm (e.g., `openai/nomic-embed-text`, `huggingface/sentence-transformers/all-MiniLM-L6-v2`) |
+| `provider_config`     | object |      Yes | -             | Provider-specific configuration (see table below)              |
 | `embeddings_column`   | string |       No | `embeddings`  | Output vector column                                           |
 | `doc_column`          | string |       No | `content`     | Input content column                                           |
 | `doc_id_hash`         | string |       No | `doc_id_hash` | Hash column name                                               |
 | `overlap_ratio`       | float  |       No | `0.2`         | Long-text chunk overlap ratio                                  |
 | `token_limit`         | integer |      No | `8192`        | Maximum token limit for text chunking. Adjust based on model's context window (512-8192 tokens). |
-| `provider_config`     | object |       No | `{}`          | Provider-specific configuration (see below)                    |
 
 **Supported Providers:**
 
@@ -1107,22 +1181,26 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Provider-Specific Configuration (`provider_config`):**
 
-| Provider         | Parameter          | Type                      | Default | Description                                           |
-| ---------------- | ------------------ |---------------------------| ------- | ----------------------------------------------------- |
-| **LiteLLM**      | `api_base`         | string                    | -       | Custom API endpoint URL (e.g., `http://localhost:11434` for Ollama) |
-|                  | `api_key`          | string                    | -       | Provider API key (required for most providers, not needed for Ollama) |
-|                  | `batch_size`       | int                       | `32`    | Number of texts to process in each batch              |
-|                  | `timeout`          | int                       | `120`   | Request timeout in seconds                            |
-| **Watsonx**      | `api_key`          | string                    | Yes     | IBM Cloud API key (required)                          |
-|                  | `project_id`       | string                    | Yes     | WatsonX project ID (required)                         |
-|                  | `url`              | string                    | `https://us-south.ml.cloud.ibm.com` | WatsonX API URL |
-|                  | `batch_size`       | int                       | `800`   | Number of texts to process in each batch              |
-|                  | `timeout`          | int                       | `120`   | Request timeout in seconds                            |
-|                  | `enable_rate_limiting` | bool                  | `false` | Enable rate limiting for API calls                    |
-| **HuggingFace**  | `use_local`        | bool                      | `true`  | Use local model inference (true) or HuggingFace API (false) |
-|                  | `device`           | string                    | `cpu`   | Device for local inference: `cpu`, `cuda`, `mps`      |
-|                  | `api_token`        | string                    | -       | HuggingFace API token (required for API mode)         |
-|                  | `batch_size`       | int                       | `32`    | Number of texts to process in each batch              |
+| Provider         | Parameter          | Type                      | Required | Default | Description                                           |
+| ---------------- | ------------------ |---------------------------| -------- | ------- | ----------------------------------------------------- |
+| **LiteLLM**      | `model_id`         | string                    | Yes      | -       | Model identifier with provider prefix (e.g., `openai/nomic-embed-text`, `huggingface/sentence-transformers/all-MiniLM-L6-v2`) |
+|                  | `api_base`         | string                    | No       | -       | Custom API endpoint URL (e.g., `http://localhost:11434` for Ollama) |
+|                  | `api_key`          | string                    | No       | -       | Provider API key (required for most providers, not needed for Ollama) |
+|                  | `batch_size`       | int                       | No       | `32`    | Number of texts to process in each batch              |
+|                  | `timeout`          | int                       | No       | `120`   | Request timeout in seconds                            |
+| **Watsonx**      | `model_id`         | string                    | Yes      | -       | Model identifier (e.g., `ibm/slate-125m-english-rtrvr`) |
+|                  | `api_key`          | string                    | Yes      | -       | IBM Cloud API key                                     |
+|                  | `api_base`         | string                    | Yes      | -       | WatsonX API URL (e.g., `https://us-south.ml.cloud.ibm.com`) |
+|                  | `container_id`     | string                    | Yes      | -       | WatsonX project or space ID                           |
+|                  | `container_kind`   | string                    | Yes      | -       | Container type: `project` or `space`                  |
+|                  | `batch_size`       | int                       | No       | `800`   | Number of texts to process in each batch              |
+|                  | `timeout`          | int                       | No       | `120`   | Request timeout in seconds                            |
+|                  | `enable_rate_limiting` | bool                  | No       | `false` | Enable rate limiting for API calls                    |
+| **HuggingFace**  | `model_id`         | string                    | Yes      | -       | Model identifier (e.g., `sentence-transformers/all-MiniLM-L6-v2`) |
+|                  | `use_local`        | bool                      | No       | `true`  | Use local model inference (true) or HuggingFace API (false) |
+|                  | `device`           | string                    | No       | `cpu`   | Device for local inference: `cpu`, `cuda`, `mps`      |
+|                  | `api_token`        | string                    | No       | -       | HuggingFace API token (required for API mode)         |
+|                  | `batch_size`       | int                       | No       | `32`    | Number of texts to process in each batch              |
 
 **Note:** For Ollama models via LiteLLM, use `openai/` prefix (e.g., `openai/nomic-embed-text`). For HuggingFace API via LiteLLM, use `huggingface/` prefix (e.g., `huggingface/sentence-transformers/all-MiniLM-L6-v2`). For native HuggingFace local inference, use `provider: "huggingface"` with the model name directly.
 
@@ -1149,14 +1227,14 @@ Schemas are defined with `target_tables` specifying field mappings and transform
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/nomic-embed-text",
-    "embeddings_column": "embeddings",
-    "text_column": "content",
-    "batch_size": 32,
     "provider_config": {
+      "model_id": "openai/nomic-embed-text",
       "api_base": "http://localhost:11434",
+      "batch_size": 32,
       "timeout": 120
-    }
+    },
+    "embeddings_column": "embeddings",
+    "text_column": "content"
   }
 }
 ```
@@ -1170,13 +1248,13 @@ Schemas are defined with `target_tables` specifying field mappings and transform
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2",
-    "embeddings_column": "embeddings",
-    "text_column": "content",
-    "batch_size": 16,
     "provider_config": {
-      "api_key": "${HUGGINGFACE_API_KEY}"
-    }
+      "model_id": "huggingface/sentence-transformers/all-MiniLM-L6-v2",
+      "api_key": "${HUGGINGFACE_API_KEY}",
+      "batch_size": 16
+    },
+    "embeddings_column": "embeddings",
+    "text_column": "content"
   }
 }
 ```
@@ -1190,14 +1268,14 @@ Schemas are defined with `target_tables` specifying field mappings and transform
   "operator": "embeddings",
   "config": {
     "provider": "huggingface",
-    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
-    "embeddings_column": "embeddings",
-    "text_column": "content",
-    "batch_size": 16,
     "provider_config": {
+      "model_id": "sentence-transformers/all-MiniLM-L6-v2",
       "use_local": true,
-      "device": "cpu"
-    }
+      "device": "cpu",
+      "batch_size": 16
+    },
+    "embeddings_column": "embeddings",
+    "text_column": "content"
   }
 }
 ```
@@ -1211,15 +1289,16 @@ Schemas are defined with `target_tables` specifying field mappings and transform
   "operator": "embeddings",
   "config": {
     "provider": "watsonx",
-    "model_id": "ibm/slate-125m-english-rtrvr",
-    "embeddings_column": "embeddings",
-    "text_column": "content",
-    "batch_size": 32,
     "provider_config": {
+      "model_id": "ibm/slate-125m-english-rtrvr",
       "api_key": "${WATSONX_API_KEY}",
-      "project_id": "${WATSONX_PROJECT_ID}",
-      "url": "https://us-south.ml.cloud.ibm.com"
-    }
+      "api_base": "https://us-south.ml.cloud.ibm.com",
+      "container_id": "${WATSONX_PROJECT_ID}",
+      "container_kind": "project",
+      "batch_size": 32
+    },
+    "embeddings_column": "embeddings",
+    "text_column": "content"
   }
 }
 ```
@@ -1233,13 +1312,13 @@ Schemas are defined with `target_tables` specifying field mappings and transform
   "operator": "embeddings",
   "config": {
     "provider": "litellm",
-    "model_id": "openai/text-embedding-3-small",
-    "embeddings_column": "embeddings",
-    "text_column": "content",
-    "batch_size": 32,
     "provider_config": {
-      "api_key": "${OPENAI_API_KEY}"
-    }
+      "model_id": "openai/text-embedding-3-small",
+      "api_key": "${OPENAI_API_KEY}",
+      "batch_size": 32
+    },
+    "embeddings_column": "embeddings",
+    "text_column": "content"
   }
 }
 ```
@@ -1465,8 +1544,8 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `provider` | string | No | `litellm` | LLM provider (`ollama`, `watsonx`, `litellm`) |
-| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"${OLLAMA_API_KEY}"}` | Provider-specific configuration |
-| `model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
+| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"${OLLAMA_API_KEY}"}` | Provider-specific configuration including `model_id` |
+| `provider_config.model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
 | `doc_column` | string | No | `content` | Input text column |
 | `pii_types` | list[string] | No | all types | PII types to detect |
 | `hap_types` | list[string] | No | all types | HAP types to detect |
@@ -2040,9 +2119,8 @@ IngestLocalOperator -> ExtractOperator -> DocumentSetOperator
       "name": "extract_documents",
       "operator": "extract_operator",
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "content"
+        "text_extraction": {"provider": "docling_library", "doc_column": "content"},
+        "entity_extraction": {"provider": "none"}
       }
     },
     {

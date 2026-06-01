@@ -30,9 +30,10 @@
       "name": "extract",
       "type": "extract_operator",
       "config": {
-        "doc_column": "content",
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       },
       "depends_on": [
         "ingest"
@@ -56,15 +57,15 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "litellm",
-        "embeddings_model_id": "openai/granite4",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
         "doc_column": "content",
         "provider_config": {
           "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}"
-        }
+          "api_key": "${OLLAMA_API_KEY}",
+          "model_id": "openai/granite4"
+        },
+        "provider": "litellm"
       },
       "depends_on": [
         "chunk"

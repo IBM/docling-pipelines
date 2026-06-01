@@ -23,11 +23,14 @@
       "type": "extract_operator",
       "name": "extract_content",
       "config": {
-        "text_extraction_mode": "docling_library",
-        "entity_extraction_mode": "none",
-        "doc_column": "content"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       },
-      "depends_on": ["ingest_documents"]
+      "depends_on": [
+        "ingest_documents"
+      ]
     },
     {
       "type": "document_set",
@@ -46,7 +49,9 @@
           "purpose": "demonstration_flow"
         }
       },
-      "depends_on": ["extract_content"]
+      "depends_on": [
+        "extract_content"
+      ]
     }
   ]
 }

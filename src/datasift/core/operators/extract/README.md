@@ -33,12 +33,18 @@ This architecture enables:
 {
   
   "operator_params": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "doc_column": "content",
-    "extract_tables": true,
-    "extract_images": true,
-    "max_workers": 4
+    "max_workers": 4,
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "extract_tables": true,
+        "extract_images": true
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -52,12 +58,18 @@ Standard document extraction using the Docling library locally. Supports optiona
 **Basic Configuration:**
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "none",
-  "doc_column": "content",
-  "extract_tables": true,
-  "extract_images": true,
-  "max_workers": 4
+  "max_workers": 4,
+  "text_extraction": {
+    "provider": "docling_library",
+    "doc_column": "content",
+    "provider_config": {
+      "extract_tables": true,
+      "extract_images": true
+    }
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
 }
 ```
 
@@ -67,36 +79,50 @@ Enable VLM pipeline for enhanced extraction with vision-language models:
 
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "none",
-  "doc_column": "content",
-  "use_vlm_pipeline": true,
-  "vlm_preset": "granite_docling",
-  "vlm_engine_type": "transformers",
-  "max_workers": 1
+  "max_workers": 1,
+  "text_extraction": {
+    "provider": "docling_library",
+    "doc_column": "content",
+    "provider_config": {
+      "vlm_pipeline": {
+        "preset": "fast",
+        "engine": "transformers",
+        "engine_options": {
+          "model_id": "microsoft/Florence-2-large"
+        }
+      }
+    }
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
 }
 ```
 
 **Supported VLM Engines:**
-- `transformers`: Local inference using Transformers library (default)
+- `transformers`: Local inference using Transformers library
 - `mlx`: Local inference optimized for macOS (Apple Silicon)
-- `api`: Generic API endpoint
-- `api_lmstudio`: LM Studio API
-- `api_ollama`: Ollama API
-- `api_openai`: OpenAI API
-- `api_watsonx`: IBM watsonx.ai API
+- `ollama`: Ollama API
+- `openai`: OpenAI API
+- `watsonx`: IBM watsonx.ai API
 
-**VLM Provider Configuration Examples:**
+**VLM Pipeline Configuration Examples:**
 
 Ollama:
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "use_vlm_pipeline": true,
-  "vlm_engine_type": "api_ollama",
-  "vlm_provider_config": {
-    "api_base_url": "http://localhost:11434/v1/chat/completions",
-    "vlm_model_name": "llama3.2-vision"
+  "text_extraction": {
+    "provider": "docling_library",
+    "provider_config": {
+      "vlm_pipeline": {
+        "preset": "fast",
+        "engine": "ollama",
+        "engine_options": {
+          "api_base": "http://localhost:11434",
+          "model_id": "openai/llama3.2-vision"
+        }
+      }
+    }
   }
 }
 ```
@@ -104,27 +130,46 @@ Ollama:
 OpenAI:
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "use_vlm_pipeline": true,
-  "vlm_engine_type": "api_openai",
-  "vlm_provider_config": {
-    "vlm_api_key": "your-api-key",  # pragma: allowlist secret
-    "vlm_model_name": "gpt-4-vision-preview"
+  "text_extraction": {
+    "provider": "docling_library",
+    "provider_config": {
+      "vlm_pipeline": {
+        "preset": "accurate",
+        "engine": "openai",
+        "engine_options": {
+          "api_key": "your-api-key",  # pragma: allowlist secret
+          "api_base": "https://api.openai.com/v1",
+          "model_id": "gpt-4-vision-preview"
+        }
+      }
+    }
   }
 }
 ```
+
 **ASR Pipeline Configuration:**
 
 Enable ASR pipeline for audio and video file transcription:
 
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "none",
-  "doc_column": "content",
-  "use_asr_pipeline": true,
-  "asr_model_name": "whisper_turbo",
-  "max_workers": 2
+  "max_workers": 2,
+  "text_extraction": {
+    "provider": "docling_library",
+    "doc_column": "content",
+    "provider_config": {
+      "asr_pipeline": {
+        "preset": "fast",
+        "engine": "whisper",
+        "engine_options": {
+          "model_id": "whisper_turbo"
+        }
+      }
+    }
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
 }
 ```
 
@@ -149,19 +194,24 @@ REST API-based extraction using the Docling-Serve service for scalable, producti
 **Configuration:**
 ```json
 {
-  "text_extraction_provider": "docling_serve",
-  "entity_extraction_provider": "none",
-  "doc_column": "content",
-  "docling_serve_base_url": "http://localhost:5001",
-  "docling_serve_timeout": 300,
-  "docling_serve_poll_interval": 2,
-  "docling_serve_max_retries": 3,
-  "docling_serve_do_ocr": true,
-  "docling_serve_ocr_engine": "easyocr",
-  "docling_serve_ocr_languages": ["en"],
-  "docling_serve_pdf_backend": "dlparse_v4",
-  "docling_serve_table_mode": "accurate",
-  "docling_serve_image_export_mode": "embedded"
+  "text_extraction": {
+    "provider": "docling_serve",
+    "provider_config": {
+      "base_url": "http://localhost:5001",
+      "timeout": 300,
+      "poll_interval": 2,
+      "max_retries": 3,
+      "do_ocr": true,
+      "ocr_engine": "easyocr",
+      "ocr_languages": ["en"],
+      "pdf_backend": "dlparse_v4",
+      "table_mode": "accurate",
+      "image_export_mode": "embedded"
+    }
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
 }
 ```
 
@@ -232,8 +282,12 @@ No entity extraction is performed. Only text extraction is executed.
 **Configuration:**
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "none"
+  "text_extraction": {
+    "provider": "docling_library"
+  },
+  "entity_extraction": {
+    "provider": "none"
+  }
 }
 ```
 
@@ -244,22 +298,28 @@ Vision-Language Model (VLM) based entity extraction using Docling's VLM pipeline
 **Basic Configuration:**
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "docling",
-  "custom_schema": {
-    "type": "object",
-    "properties": {
-      "invoice_number": { "type": "string" },
-      "invoice_date": { "type": "string" },
-      "total_amount": { "type": "number" },
-      "line_items": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "description": { "type": "string" },
-            "quantity": { "type": "number" },
-            "unit_price": { "type": "number" }
+  "text_extraction": {
+    "provider": "docling_library"
+  },
+  "entity_extraction": {
+    "provider": "docling",
+    "provider_config": {
+      "custom_schema": {
+        "type": "object",
+        "properties": {
+          "invoice_number": { "type": "string" },
+          "invoice_date": { "type": "string" },
+          "total_amount": { "type": "number" },
+          "line_items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": { "type": "string" },
+                "quantity": { "type": "number" },
+                "unit_price": { "type": "number" }
+              }
+            }
           }
         }
       }
@@ -275,28 +335,34 @@ Users can configure custom inline VLM models for entity extraction using the `en
 **Inline Model (HuggingFace with Transformers):**
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "docling",
-  "entity_config": {
-    "model_type": "inline",
-    "inline_model": {
-      "repo_id": "numind/NuExtract-2.0-2B",
-      "inference_framework": "transformers",
-      "scale": 2.0,
-      "temperature": 0.0,
-      "max_new_tokens": 4096,
-      "load_in_8bit": true,
-      "torch_dtype": "bfloat16"
-    }
+  "text_extraction": {
+    "provider": "docling_library"
   },
-  "custom_schema": {
-    "invoice_number": "string",
-    "total_amount": "float"
+  "entity_extraction": {
+    "provider": "docling",
+    "provider_config": {
+      "entity_config": {
+        "model_type": "inline",
+        "inline_model": {
+          "repo_id": "numind/NuExtract-2.0-2B",
+          "inference_framework": "transformers",
+          "scale": 2.0,
+          "temperature": 0.0,
+          "max_new_tokens": 4096,
+          "load_in_8bit": true,
+          "torch_dtype": "bfloat16"
+        }
+      },
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "float"
+      }
+    }
   }
 }
 ```
 
-**Note:** API model configuration is not supported. For API-based entity extraction, use `entity_extraction_provider: "litellm"` instead.
+**Note:** API model configuration is not supported. For API-based entity extraction, use `entity_extraction.provider: "litellm"` instead.
 
 **Supported Model Types:**
 - **Inline Models**: HuggingFace models with Transformers, vLLM, or MLX backends
@@ -325,14 +391,22 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 **Configuration (OpenAI):**
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "litellm",
-  "entity_model_id": "gpt-3.5-turbo",
-  "entity_temperature": 0.0,
-  "entity_max_tokens": 2000,
-  "entity_provider_config": {
-    "api_key": "your-api-key",  # pragma: allowlist secret
-    "api_base": "https://api.openai.com/v1"
+  "text_extraction": {
+    "provider": "docling_library"
+  },
+  "entity_extraction": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/gpt-3.5-turbo",
+      "api_key": "your-api-key",  # pragma: allowlist secret
+      "api_base": "https://api.openai.com/v1",
+      "temperature": 0.0,
+      "max_tokens": 2000,
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "float"
+      }
+    }
   }
 }
 ```
@@ -340,18 +414,22 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 **Configuration (Ollama via LiteLLM):**
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "litellm",
-  "entity_model_id": "openai/llama3.2",
-  "entity_temperature": 0.0,
-  "entity_max_tokens": 4096,
-  "entity_provider_config": {
-    "api_base": "http://localhost:11434/v1",
-    "api_key": "<ollama_key>"
+  "text_extraction": {
+    "provider": "docling_library"
   },
-  "custom_schema": {
-    "invoice_number": "string",
-    "total_amount": "float"
+  "entity_extraction": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/llama3.2",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama_key>",
+      "temperature": 0.0,
+      "max_tokens": 4096,
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "float"
+      }
+    }
   }
 }
 ```
@@ -426,20 +504,24 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 **Configuration:**
 ```json
 {
-  "text_extraction_provider": "docling_library",
-  "entity_extraction_provider": "watsonx",
-  "entity_model_id": "ibm/granite-13b-chat-v2",
-  "entity_temperature": 0.0,
-  "entity_max_tokens": 2000,
-  "entity_provider_config": {
-    "api_key": "${WATSONX_API_KEY}",
-    "container_id": "${WATSONX_CONTAINER_ID}",
-    "api_base": "https://us-south.ml.cloud.ibm.com",
-    "container_kind": "project"
+  "text_extraction": {
+    "provider": "docling_library"
   },
-  "custom_schema": {
-    "invoice_number": "string",
-    "total_amount": "float"
+  "entity_extraction": {
+    "provider": "watsonx",
+    "provider_config": {
+      "model_id": "ibm/granite-13b-chat-v2",
+      "api_key": "${WATSONX_API_KEY}",
+      "container_id": "${WATSONX_CONTAINER_ID}",
+      "api_base": "https://us-south.ml.cloud.ibm.com",
+      "container_kind": "project",
+      "temperature": 0.0,
+      "max_tokens": 2000,
+      "custom_schema": {
+        "invoice_number": "string",
+        "total_amount": "float"
+      }
+    }
   }
 }
 ```
@@ -464,46 +546,51 @@ IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `text_extraction_provider` | string | `"docling_library"` | Text extraction strategy: `"docling_library"` or `"docling_serve"` |
-| `entity_extraction_provider` | string | `"none"` | Entity extraction strategy: `"litellm"` (includes Ollama via openai/ prefix), `"docling"`, `"watsonx"`, or `"none"` |
-| `doc_column` | string | `"doc_content"` | Column name for storing extracted content |
-| `extract_tables` | boolean | `true` | Whether to extract tables from documents |
-| `extract_images` | boolean | `true` | Whether to extract images from documents |
+| `text_extraction.provider` | string | `"docling_library"` | Text extraction strategy: `"docling_library"` or `"docling_serve"` |
+| `text_extraction.doc_column` | string | `"doc_content"` | Column name for storing extracted content |
+| `text_extraction.provider_config.extract_tables` | boolean | `true` | Whether to extract tables from documents |
+| `text_extraction.provider_config.extract_images` | boolean | `true` | Whether to extract images from documents |
+| `text_extraction.provider_config.additional_formats` | array | `[]` | Additional output formats (e.g., `["html", "markdown"]`) |
 | `max_workers` | integer | auto | Maximum number of parallel workers (auto-detected based on CPU) |
-| `use_processes` | boolean | `false` | Use ProcessPoolExecutor instead of ThreadPoolExecutor |
-| `expand_extracted_data` | boolean | `false` | Expand entity data JSON into individual columns (entity extraction only) |
-| `custom_schema` | object | `{}` | Schema dictionary for structured extraction |
+| `text_extraction.provider_config.use_processes` | boolean | `false` | Use ProcessPoolExecutor instead of ThreadPoolExecutor |
+| `entity_extraction.provider` | string | `"none"` | Entity extraction strategy: `"litellm"` (includes Ollama via openai/ prefix), `"docling"`, `"watsonx"`, or `"none"` |
+| `entity_extraction.provider_config.expand_extracted_data` | boolean | `false` | Expand entity data JSON into individual columns (entity extraction only) |
+| `entity_extraction.provider_config.custom_schema` | object | `{}` | Schema dictionary for structured extraction |
 
 ### Docling Library Mode Parameters
 
 | Parameter             | Type    | Default             | Description                                                         |
 |-----------------------|---------|---------------------|---------------------------------------------------------------------|
-| `use_vlm_pipeline`    | boolean | `false`             | Enable VLM (Vision-Language Model) pipeline for enhanced extraction |
-| `vlm_preset`          | string  | `"granite_docling"` | VLM preset configuration name (when VLM enabled)                    |
-| `vlm_engine_type`     | string  | `"transformers"`    | VLM engine type (when VLM enabled)                                  |
-| `vlm_provider_config` | object  | `null`              | Provider-specific configuration dictionary (when VLM enabled)       |
+| `text_extraction.provider_config.vlm_pipeline`        | object  | `null`              | VLM (Vision-Language Model) pipeline configuration object           |
+| `text_extraction.provider_config.vlm_pipeline.preset` | string  | `"fast"`            | VLM preset: `fast`, `accurate`, or custom                           |
+| `text_extraction.provider_config.vlm_pipeline.engine` | string  | `"ollama"`          | VLM engine: `ollama`, `transformers`, `mlx`, `openai`, etc.         |
+| `text_extraction.provider_config.vlm_pipeline.engine_options` | object | `{}`        | Engine-specific options (api_base, model_id, etc.)                  |
+| `text_extraction.provider_config.asr_pipeline`        | object  | `null`              | ASR (Automatic Speech Recognition) pipeline configuration object    |
+| `text_extraction.provider_config.asr_pipeline.preset` | string  | `"fast"`            | ASR preset: `fast`, `accurate`, or custom                           |
+| `text_extraction.provider_config.asr_pipeline.engine` | string  | `"whisper"`         | ASR engine: `whisper` or other supported engines                    |
+| `text_extraction.provider_config.asr_pipeline.engine_options` | object | `{}`        | Engine-specific options (model_id, etc.)                            |
 
 ### Docling Serve Mode Parameters
 
-| Parameter                         | Type     | Default                   | Description                                                   |
-|-----------------------------------|----------|---------------------------|---------------------------------------------------------------|
-| `docling_serve_base_url`          | string   | `"http://localhost:5001"` | Docling Serve API endpoint URL                                |
-| `docling_serve_api_key`           | string   | `null`                    | Optional API key for authentication                           |
-| `docling_serve_timeout`           | integer  | `300`                     | Request timeout in seconds                                    |
-| `docling_serve_poll_interval`     | integer  | `2`                       | Polling interval in seconds                                   |
-| `docling_serve_max_retries`       | integer  | `3`                       | Maximum retry attempts                                        |
-| `docling_serve_do_ocr`            | boolean  | `true`                    | Enable OCR processing                                         |
-| `docling_serve_ocr_engine`        | string   | `"easyocr"`               | OCR engine: `"easyocr"` or `"tesseract"`                      |
-| `docling_serve_ocr_languages`     | array    | `null`                    | List of OCR languages (e.g., `["en", "es"]`)                  |
-| `docling_serve_pdf_backend`       | string   | `"dlparse_v2"`            | PDF backend: `"dlparse_v4"`, `"dlparse_v3"`, or `"pypdfium2"` |
-| `docling_serve_table_mode`        | string   | `"fast"`                  | Table extraction mode: `"accurate"` or `"fast"`               |
-| `docling_serve_image_export_mode` | string   | `"placeholder"`           | Image export mode: `"embedded"`, `"referenced"`, or `"none"`  |
+| Parameter              | Type     | Default                   | Description                                                   |
+|------------------------|----------|---------------------------|---------------------------------------------------------------|
+| `text_extraction.provider_config.base_url`             | string   | `"http://localhost:5001"` | Docling Serve API endpoint URL                                |
+| `text_extraction.provider_config.api_key`              | string   | `null`                    | Optional API key for authentication                           |
+| `text_extraction.provider_config.timeout`              | integer  | `300`                     | Request timeout in seconds                                    |
+| `text_extraction.provider_config.poll_interval`        | integer  | `2`                       | Polling interval in seconds                                   |
+| `text_extraction.provider_config.max_retries`          | integer  | `3`                       | Maximum retry attempts                                        |
+| `text_extraction.provider_config.do_ocr`               | boolean  | `true`                    | Enable OCR processing                                         |
+| `text_extraction.provider_config.ocr_engine`           | string   | `"easyocr"`               | OCR engine: `"easyocr"` or `"tesseract"`                      |
+| `text_extraction.provider_config.ocr_languages`        | array    | `null`                    | List of OCR languages (e.g., `["en", "es"]`)                  |
+| `text_extraction.provider_config.pdf_backend`          | string   | `"dlparse_v2"`            | PDF backend: `"dlparse_v4"`, `"dlparse_v3"`, or `"pypdfium2"` |
+| `text_extraction.provider_config.table_mode`           | string   | `"fast"`                  | Table extraction mode: `"accurate"` or `"fast"`               |
+| `text_extraction.provider_config.image_export_mode`    | string   | `"placeholder"`           | Image export mode: `"embedded"`, `"referenced"`, or `"none"`  |
 
 ### Docling Entity Extraction Parameters
 
 | Parameter               | Type   | Default | Description                                                                                     |
 |-------------------------|--------|---------|-------------------------------------------------------------------------------------------------|
-| `entity_config` | object | `null`  | Custom VLM model configuration (see Custom Model Configuration section above for full details) |
+| `entity_extraction.provider_config.entity_config` | object | `null`  | Custom VLM model configuration (see Custom Model Configuration section above for full details) |
 
 **entity_config Structure:**
 
@@ -534,21 +621,31 @@ For API models (Ollama, vLLM, OpenAI-compatible):
 
 ### LiteLLM Entity Extraction Parameters
 
+All parameters are nested under `entity_extraction.provider_config`:
+
 | Parameter                | Type    | Default           | Description                                                                                        |
 |--------------------------|---------|-------------------|----------------------------------------------------------------------------------------------------|
-| `entity_model_id`      | string  | `"gpt-3.5-turbo"` | LLM model identifier. For Ollama, use `openai/` prefix (e.g., `openai/llama3.2`)                  |
-| `entity_temperature`     | float   | `0.0`             | Sampling temperature                                                                               |
-| `entity_max_tokens`      | integer | `2000`            | Maximum response tokens                                                                            |
-| `entity_provider_config` | object  | `{}`              | Provider config with `api_key`, `api_base`, `stream` (boolean), `timeout` (integer in seconds). For Ollama, set `api_base` to `http://localhost:11434/v1`. For remote vLLM with large documents, use `stream: true` and `timeout: 1800` |
+| `model_id`      | string  | `"gpt-3.5-turbo"` | LLM model identifier. **Must include provider prefix** when using LiteLLM (e.g., `openai/gpt-4`, `openai/llama3.2` for Ollama, `anthropic/claude-3-opus`)                  |
+| `temperature`     | float   | `0.0`             | Sampling temperature                                                                               |
+| `max_tokens`      | integer | `2000`            | Maximum response tokens                                                                            |
+| `api_key` | string  | `null`              | API key for the provider. For Ollama, can be any value |
+| `api_base` | string  | `null`              | API base URL. For Ollama, set to `http://localhost:11434/v1` |
+| `stream` | boolean  | `false`              | Enable HTTP chunked transfer encoding. For remote vLLM with large documents, use `stream: true` and `timeout: 1800` |
+| `timeout` | integer  | `60`              | HTTP client read timeout in seconds. For remote vLLM with large documents, use `stream: true` and `timeout: 1800` |
 
 ### WatsonX Entity Extraction Parameters
 
+All parameters are nested under `entity_extraction.provider_config`:
+
 | Parameter                | Type    | Default                     | Description                                                                                        |
 |--------------------------|---------|-----------------------------|----------------------------------------------------------------------------------------------------|
-| `entity_model_id`      | string  | `"ibm/granite-13b-chat-v2"` | WatsonX model identifier                                                                           |
-| `entity_temperature`     | float   | `0.0`                       | Sampling temperature                                                                               |
-| `entity_max_tokens`      | integer | `2000`                      | Maximum response tokens                                                                            |
-| `entity_provider_config` | object  | `{}`                        | Provider config with `api_key`, `container_id`, `api_base` (optional), `container_kind` (optional) |
+| `model_id`      | string  | `"ibm/granite-13b-chat-v2"` | WatsonX model identifier                                                                           |
+| `temperature`     | float   | `0.0`                       | Sampling temperature                                                                               |
+| `max_tokens`      | integer | `2000`                      | Maximum response tokens                                                                            |
+| `api_key` | string  | required                        | WatsonX API key |
+| `container_id` | string  | required                        | WatsonX project or space ID |
+| `api_base` | string  | `"https://us-south.ml.cloud.ibm.com"` | WatsonX API base URL (optional) |
+| `container_kind` | string  | `"project"` | Container type: "project" or "space" (optional) |
 
 ## Input/Output Data Formats
 
@@ -589,12 +686,17 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 {
   
   "operator_params": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "doc_column": "content",
-    "extract_tables": true,
-    "extract_images": true,
-    "max_workers": 4
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "extract_tables": true,
+        "extract_images": true
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -605,22 +707,26 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 {
   
   "operator_params": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "doc_column": "content",
-    "entity_model_id": "openai/llama3.2",
-    "entity_temperature": 0.0,
-    "entity_max_tokens": 4096,
-    "entity_provider_config": {
-      "api_base": "http://localhost:11434/v1",
-      "api_key": "<ollama_key>"
+    "max_workers": 2,
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content"
     },
-    "custom_schema": {
-      "invoice_number": "string",
-      "vendor_name": "string",
-      "total_amount": "float"
-    },
-    "max_workers": 2
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama_key>",
+        "temperature": 0.0,
+        "max_tokens": 4096,
+        "custom_schema": {
+          "invoice_number": "string",
+          "vendor_name": "string",
+          "total_amount": "float"
+        }
+      }
+    }
   }
 }
 ```
@@ -631,13 +737,23 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 {
   
   "operator_params": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "doc_column": "content",
-    "use_vlm_pipeline": true,
-    "vlm_preset": "granite_docling",
-    "vlm_engine_type": "transformers",
-    "max_workers": 1
+    "max_workers": 1,
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "vlm_pipeline": {
+          "preset": "fast",
+          "engine": "transformers",
+          "engine_options": {
+            "model_id": "microsoft/Florence-2-large"
+          }
+        }
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -646,18 +762,23 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 
 ```json
 {
-  
   "operator_params": {
-    "text_extraction_provider": "docling_serve",
-    "entity_extraction_provider": "none",
-    "doc_column": "content",
-    "docling_serve_base_url": "http://localhost:5001",
-    "docling_serve_do_ocr": true,
-    "docling_serve_ocr_engine": "easyocr",
-    "docling_serve_ocr_languages": ["en", "es"],
-    "docling_serve_pdf_backend": "dlparse_v4",
-    "docling_serve_table_mode": "accurate",
-    "max_workers": 4
+    "max_workers": 4,
+    "text_extraction": {
+      "provider": "docling_serve",
+      "doc_column": "content",
+      "provider_config": {
+        "base_url": "http://localhost:5001",
+        "do_ocr": true,
+        "ocr_engine": "easyocr",
+        "ocr_languages": ["en", "es"],
+        "pdf_backend": "dlparse_v4",
+        "table_mode": "accurate"
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -668,18 +789,24 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 {
   
   "operator_params": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "docling",
-    "doc_column": "content",
-    "custom_schema": {
-      "type": "object",
-      "properties": {
-        "invoice_number": { "type": "string" },
-        "invoice_date": { "type": "string" },
-        "total_amount": { "type": "number" }
-      }
+    "max_workers": 2,
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content"
     },
-    "max_workers": 2
+    "entity_extraction": {
+      "provider": "docling",
+      "provider_config": {
+        "custom_schema": {
+          "type": "object",
+          "properties": {
+            "invoice_number": { "type": "string" },
+            "invoice_date": { "type": "string" },
+            "total_amount": { "type": "number" }
+          }
+        }
+      }
+    }
   }
 }
 ```
@@ -690,34 +817,56 @@ When `expand_extracted_data=true` is set for entity extraction, entity fields ar
 {
   
   "operator_params": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "doc_column": "content",
-    "use_vlm_pipeline": true,
-    "vlm_preset": "granite_docling",
-    "vlm_engine_type": "transformers",
-    "entity_model_id": "openai/llama3.2",
-    "entity_temperature": 0.0,
-    "entity_provider_config": {
-      "api_base": "http://localhost:11434/v1",
-      "api_key": "<ollama_key>"
+    "max_workers": 1,
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "vlm_pipeline": {
+          "preset": "fast",
+          "engine": "transformers",
+          "engine_options": {
+            "model_id": "microsoft/Florence-2-large"
+          }
+        }
+      }
     },
-    "max_workers": 1
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama_key>",
+        "temperature": 0.0
+      }
+    }
   }
 }
 ```
+
 ### Example 7: ASR Pipeline for Audio/Video Transcription
 
 ```json
 {
-
+  
   "operator_params": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "doc_column": "content",
-    "use_asr_pipeline": true,
-    "asr_model_name": "whisper_turbo",
-    "max_workers": 2
+    "max_workers": 2,
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content",
+      "provider_config": {
+        "asr_pipeline": {
+          "preset": "fast",
+          "engine": "whisper",
+          "engine_options": {
+            "model_id": "whisper_turbo"
+          }
+        }
+      }
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
@@ -796,7 +945,7 @@ ollama pull llama3.2
 curl http://localhost:11434/api/tags
 ```
 
-**Used By:** Entity extraction when `entity_extraction_provider="litellm"` with `entity_model_id="openai/llama3.2"` and `api_base="http://localhost:11434/v1"`
+**Used By:** Entity extraction when `entity_extraction.provider="litellm"` with `entity_extraction.provider_config.model_id="openai/llama3.2"` and `entity_extraction.provider_config.api_base="http://localhost:11434/v1"`
 
 ### Docling Serve Integration (for docling_serve text extraction)
 
@@ -814,7 +963,7 @@ docker-compose -f docker-compose.docling-serve.yml up -d
 curl http://localhost:5001/health
 ```
 
-**Used By:** Text extraction when `text_extraction_provider="docling_serve"`
+**Used By:** Text extraction when `text_extraction.provider="docling_serve"`
 
 ## Mode Comparison
 
@@ -927,12 +1076,12 @@ Complete sample flows are available in [`tests/sample_test_flows/extract/`](../.
 ### Common Issues
 
 **Issue: "Failed to initialize text extraction adapter"**
-- Verify the `text_extraction_provider` value is valid: `"docling_library"` or `"docling_serve"`
-- For VLM pipeline (`use_vlm_pipeline=true`), ensure required model files are available
+- Verify the `text_extraction.provider` value is valid: `"docling_library"` or `"docling_serve"`
+- For VLM pipeline (when `vlm_pipeline` is configured), ensure required model files are available
 - For Docling Serve mode, verify the service is running and accessible
 
 **Issue: "Failed to initialize entity extraction adapter"**
-- Verify the `entity_extraction_provider` value is valid: `"litellm"`, `"docling"`, `"watsonx"`, or `"none"`
+- Verify the `entity_extraction.provider` value is valid: `"litellm"`, `"docling"`, `"watsonx"`, or `"none"`
 - For LiteLLM mode with Ollama, ensure Ollama server is running and the model is pulled, and use `openai/` model prefix
 - For WatsonX mode, ensure environment variables `WATSONX_API_KEY` and `WATSONX_CONTAINER_ID` are set
 - Check that required parameters (model_name, etc.) are provided
@@ -943,7 +1092,7 @@ Complete sample flows are available in [`tests/sample_test_flows/extract/`](../.
 - Ensure no firewall is blocking port 11434
 
 **Issue: "Docling Serve timeout"**
-- Increase `docling_serve_timeout` value
+- Increase `timeout` value
 - Check Docling Serve service health: `curl http://localhost:5001/health`
 - Verify network connectivity to the Docling Serve endpoint
 

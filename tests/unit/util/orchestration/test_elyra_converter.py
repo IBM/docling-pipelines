@@ -61,8 +61,8 @@ class TestElyraConverter:
                                 },
                             },
                             "parameters": {
-                                "text_extraction_provider": "docling_library",
-                                "entity_extraction_provider": "litellm",
+                                "text_extraction": {"provider": "docling_library"},
+                                "entity_extraction": {"provider": "litellm"},
                             },
                             "inputs": [
                                 {
@@ -479,8 +479,8 @@ class TestElyraConverter:
 
         # Check extract node config
         extract_node = dag[1]
-        assert extract_node["config"]["text_extraction_provider"] == "docling_library"
-        assert extract_node["config"]["entity_extraction_provider"] == "litellm"
+        assert extract_node["config"]["text_extraction"]["provider"] == "docling_library"
+        assert extract_node["config"]["entity_extraction"]["provider"] == "litellm"
 
     def test_topological_sort_order(self, *, converter):
         """Test that nodes are correctly sorted in topological order."""

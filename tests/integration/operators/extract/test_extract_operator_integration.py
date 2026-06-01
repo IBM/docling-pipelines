@@ -54,14 +54,17 @@ class TestExtractOperatorIntegration:
     def test_basic_extraction_integration(self, sample_documents_table):
         """Test basic extraction with real PyArrow table"""
         config = {
-            "extraction_mode": "basic",
-            "doc_column": "document",
-            "extract_tables": True,
-            "extract_images": False,
-            "max_workers": 2,
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "document",
+                "extract_tables": True,
+                "extract_images": False,
+                "provider_config": {"max_workers": 2},
+            },
+            "entity_extraction": {"provider": "none"},
         }
 
-        operator = ExtractOperator(config)
+        operator = ExtractOperator(config=config)
         result_tables, metadata = operator.transform(sample_documents_table)
 
         # Verify results
@@ -96,18 +99,24 @@ class TestExtractOperatorIntegration:
         )
 
         config = {
-            "extraction_mode": "template",
-            "use_template": True,
-            "template": {
-                "invoice_number": "string",
-                "date": "string",
-                "total": "float",
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "document",
+                "provider_config": {
+                    "extraction_mode": "template",
+                    "use_template": True,
+                    "template": {
+                        "invoice_number": "string",
+                        "date": "string",
+                        "total": "float",
+                    },
+                    "max_workers": 1,
+                },
             },
-            "doc_column": "document",
-            "max_workers": 1,
+            "entity_extraction": {"provider": "none"},
         }
 
-        operator = ExtractOperator(config)
+        operator = ExtractOperator(config=config)
         result_tables, metadata = operator.transform(table)
 
         # Verify structured data extraction
@@ -121,16 +130,20 @@ class TestExtractOperatorIntegration:
     def test_vlm_extraction_integration(self, sample_documents_table):
         """Test VLM extraction with complex documents"""
         config = {
-            "extraction_mode": "vlm",
-            "vlm_preset": "granite_docling",
-            "vlm_engine_type": "transformers",
-            "doc_column": "document",
-            "extract_tables": True,
-            "extract_images": True,
-            "max_workers": 1,  # VLM is resource-intensive
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "document",
+                "extract_tables": True,
+                "extract_images": True,
+                "provider_config": {
+                    "vlm_pipeline": {"enabled": True, "preset": "granite_docling", "engine": "transformers"},
+                    "max_workers": 1,  # VLM is resource-intensive
+                },
+            },
+            "entity_extraction": {"provider": "none"},
         }
 
-        operator = ExtractOperator(config)
+        operator = ExtractOperator(config=config)
         result_tables, metadata = operator.transform(sample_documents_table)
 
         # Verify results
@@ -145,16 +158,21 @@ class TestExtractOperatorIntegration:
     def test_docling_serve_extraction_integration(self, sample_documents_table):
         """Test Docling Serve extraction with remote API"""
         config = {
-            "extraction_mode": "docling_serve",
-            "docling_serve_base_url": "http://localhost:5001",
-            "docling_serve_timeout": 300,
-            "docling_serve_do_ocr": True,
-            "docling_serve_ocr_engine": "easyocr",
-            "docling_serve_pdf_backend": "dlparse_v4",
-            "doc_column": "document",
+            "text_extraction": {
+                "provider": "docling_serve",
+                "doc_column": "document",
+                "provider_config": {
+                    "base_url": "http://localhost:5001",
+                    "timeout": 300,
+                    "do_ocr": True,
+                    "ocr_engine": "easyocr",
+                    "pdf_backend": "dlparse_v4",
+                },
+            },
+            "entity_extraction": {"provider": "none"},
         }
 
-        operator = ExtractOperator(config)
+        operator = ExtractOperator(config=config)
         result_tables, metadata = operator.transform(sample_documents_table)
 
         # Verify results
@@ -193,9 +211,8 @@ class TestExtractOperatorIntegration:
             mock_create.return_value = mock_adapter
 
             config = {
-                "text_extraction_provider": "docling_library",
-                "entity_extraction_provider": "none",
-                "doc_column": "doc_content",
+                "text_extraction": {"doc_column": "doc_content", "provider": "docling_library"},
+                "entity_extraction": {"provider": "none"},
                 "max_workers": 4,
             }
 
@@ -241,9 +258,8 @@ class TestExtractOperatorIntegration:
             mock_create.return_value = mock_adapter
 
             config = {
-                "text_extraction_provider": "docling_library",
-                "entity_extraction_provider": "none",
-                "doc_column": "doc_content",
+                "text_extraction": {"doc_column": "doc_content", "provider": "docling_library"},
+                "entity_extraction": {"provider": "none"},
             }
 
             operator = ExtractOperator(config=config)
@@ -276,10 +292,7 @@ class TestExtractOperatorIntegration:
             mock_adapter.transform.return_value = ([mock_result_table], mock_metadata)
             mock_create.return_value = mock_adapter
 
-            config = {
-                "text_extraction_provider": "docling_library",
-                "entity_extraction_provider": "none",
-            }
+            config = {"text_extraction": {"provider": "docling_library"}, "entity_extraction": {"provider": "none"}}
             operator = ExtractOperator(config=config)
 
             # Pass initial metadata
@@ -332,14 +345,17 @@ class TestExtractOperatorRealWorld:
         )
 
         config = {
-            "extraction_mode": "basic",
-            "doc_column": "document",
-            "extract_tables": True,
-            "extract_images": False,
-            "max_workers": 2,
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "document",
+                "extract_tables": True,
+                "extract_images": False,
+                "provider_config": {"max_workers": 2},
+            },
+            "entity_extraction": {"provider": "none"},
         }
 
-        operator = ExtractOperator(config)
+        operator = ExtractOperator(config=config)
         result_tables, metadata = operator.transform(table)
 
         # Verify extraction succeeded
@@ -447,8 +463,8 @@ class TestExtractOperatorRealWorld:
 
             # Create operator with expand_extracted_data enabled
             config = {
-                "text_extraction_provider": "docling_library",
-                "entity_extraction_provider": "docling",
+                "text_extraction": {"provider": "docling_library"},
+                "entity_extraction": {"provider": "docling"},
                 "custom_schema": {
                     "type": "object",
                     "properties": {

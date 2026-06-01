@@ -7,7 +7,6 @@
     "storage": "local",
     "execute_type": "local",
     "data_storage_type": "local"
-
   },
   "flow": [
     {
@@ -24,7 +23,10 @@
       "name": "extract_with_docling",
       "type": "extract_operator",
       "config": {
-        "doc_column": "content"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       },
       "depends_on": [
         "ingest_pii_test_document"
@@ -35,8 +37,8 @@
       "type": "pii_and_hap",
       "config": {
         "provider": "litellm",
-        "model_name": "huggingface/meta-llama/Llama-3.3-70B-Instruct",
         "provider_config": {
+          "model_id": "huggingface/meta-llama/Llama-3.3-70B-Instruct",
           "api_key": "<api key>"
         },
         "pii_threshold": 0.5,

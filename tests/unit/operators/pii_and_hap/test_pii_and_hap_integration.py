@@ -42,10 +42,10 @@ def test_real_pii_detection_with_ollama():
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
+                "model_id": "openai/granite4",
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
             "redaction": True,
             "redaction_character": "*",
@@ -81,10 +81,10 @@ def test_real_hap_detection_with_ollama():
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
+                "model_id": "openai/granite4",
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
             "hap_redaction": True,
             "hap_redaction_character": "*",
@@ -122,8 +122,8 @@ def test_real_combined_pii_and_hap_with_ollama():
         {
             "doc_column": "content",
             "provider": "litellm",
-            "model_name": "openai/granite4",
             "provider_config": {
+                "model_id": "openai/granite4",
                 "api_base": "http://localhost:11434/v1",
                 "api_key": "<api-key>",  # pragma: allowlist secret
             },
@@ -184,8 +184,8 @@ def test_real_openai_compatible_api():
         {
             "doc_column": "content",
             "provider": "openai",
-            "model_name": "llama-3-8b",
             "provider_config": {
+                "model_id": "llama-3-8b",
                 "base_url": "http://localhost:8000/v1",
                 "api_key": "not-needed",  # pragma: allowlist secret
             },

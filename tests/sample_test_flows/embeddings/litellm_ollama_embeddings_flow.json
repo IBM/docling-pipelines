@@ -23,18 +23,22 @@
     {
       "name": "extract_documents",
       "type": "extract_operator",
-      "depends_on": ["ingest_documents"],
+      "depends_on": [
+        "ingest_documents"
+      ],
       "config": {
-        "doc_column": "content",
-        "use_template": false,
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       }
     },
     {
       "name": "generate_doc_id",
       "type": "doc_id_hash",
-      "depends_on": ["extract_documents"],
+      "depends_on": [
+        "extract_documents"
+      ],
       "config": {
         "doc_column": "content",
         "doc_id_column": "id"
@@ -43,7 +47,9 @@
     {
       "name": "chunk_documents",
       "type": "chunker",
-      "depends_on": ["generate_doc_id"],
+      "depends_on": [
+        "generate_doc_id"
+      ],
       "config": {
         "doc_column": "content",
         "chunk_size": 512,
@@ -53,22 +59,26 @@
     {
       "name": "generate_embeddings_litellm",
       "type": "embeddings",
-      "depends_on": ["chunk_documents"],
+      "depends_on": [
+        "chunk_documents"
+      ],
       "config": {
         "provider": "litellm",
-        "model_id": "openai/nomic-embed-text",
-        "doc_column": "content",
-        "embeddings_column": "embeddings",
         "provider_config": {
+          "model_id": "openai/nomic-embed-text",
           "api_base": "http://localhost:11434/v1",
           "api_key": "<api-key>"
-        }
+        },
+        "doc_column": "content",
+        "embeddings_column": "embeddings"
       }
     },
     {
       "name": "store_in_opensearch",
       "type": "vectordb",
-      "depends_on": ["generate_embeddings_litellm"],
+      "depends_on": [
+        "generate_embeddings_litellm"
+      ],
       "config": {
         "provider": "opensearch",
         "index_name": "datasift_litellm_embeddings",

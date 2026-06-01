@@ -20,8 +20,14 @@
         "connection_params": {
           "root_path": "./tests/fixtures/customer_support_docs",
           "recursive": true,
-          "file_extensions": [".txt", ".pdf"],
-          "exclude_patterns": ["*.tmp", "__pycache__/*"],
+          "file_extensions": [
+            ".txt",
+            ".pdf"
+          ],
+          "exclude_patterns": [
+            "*.tmp",
+            "__pycache__/*"
+          ],
           "max_file_size_mb": 100,
           "follow_symlinks": false
         }
@@ -30,17 +36,22 @@
     {
       "name": "extract",
       "type": "extract_operator",
-      "depends_on": ["ingest"],
+      "depends_on": [
+        "ingest"
+      ],
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "content"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       }
     },
     {
       "name": "sql_filter",
       "type": "sql_filter",
-      "depends_on": ["extract"],
+      "depends_on": [
+        "extract"
+      ],
       "config": {
         "criteria_json": {
           "criteria_list": [
@@ -51,13 +62,17 @@
           ],
           "logical_operator": "AND"
         },
-        "features_to_drop": ["path"]
+        "features_to_drop": [
+          "path"
+        ]
       }
     },
     {
       "name": "chunk",
       "type": "chunker",
-      "depends_on": ["sql_filter"],
+      "depends_on": [
+        "sql_filter"
+      ],
       "config": {
         "chunk_type": "hybrid",
         "doc_column": "content",
@@ -69,23 +84,27 @@
     {
       "name": "embeddings",
       "type": "embeddings",
-      "depends_on": ["chunk"],
+      "depends_on": [
+        "chunk"
+      ],
       "config": {
-        "embeddings_type": "litellm",
-        "embeddings_model_id": "openai/granite4",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
         "doc_column": "content",
         "provider_config": {
           "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}"
-        }
+          "api_key": "${OLLAMA_API_KEY}",
+          "model_id": "openai/granite4"
+        },
+        "provider": "litellm"
       }
     },
     {
       "name": "vectordb",
       "type": "vectordb",
-      "depends_on": ["embeddings"],
+      "depends_on": [
+        "embeddings"
+      ],
       "config": {
         "provider": "opensearch",
         "index_name": "datasift_documents",

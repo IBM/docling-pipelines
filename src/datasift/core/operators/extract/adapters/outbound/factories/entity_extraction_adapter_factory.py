@@ -70,15 +70,18 @@ class EntityExtractionAdapterFactory:
     """
 
     @staticmethod
-    def build_adapter_config(*, mode: EntityExtractionMode, operator_config: dict[str, Any]) -> dict[str, Any]:
-        """Build adapter-specific configuration from operator config.
+    def build_adapter_config(
+        *, mode: EntityExtractionMode, entity_extraction_config: dict[str, Any], doc_column: str
+    ) -> dict[str, Any]:
+        """Build adapter-specific configuration from nested entity_extraction config.
 
-        This method extracts and transforms operator-level configuration into
+        This method extracts and transforms the nested entity_extraction configuration into
         adapter-specific configuration, handling mode-specific requirements.
 
         Args:
             mode: Entity extraction mode (LITELLM, WATSONX, DOCLING, NONE)
-            operator_config: Full operator configuration dictionary
+            entity_extraction_config: Nested entity_extraction configuration dictionary
+            doc_column: Document column name from text_extraction config
 
         Returns:
             Adapter-specific configuration dictionary
@@ -89,26 +92,29 @@ class EntityExtractionAdapterFactory:
         # Common configuration for all entity modes
         from datasift.core.constants.constants import DatasiftConstants
 
+        # Extract provider_config from nested structure
+        provider_config = entity_extraction_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
         adapter_config = {
-            "doc_column": operator_config.get("doc_column", OperatorConstants.Columns.DOC_COLUMN_DEFAULT),
-            OperatorConstants.Columns.OUTPUT_COLUMN: operator_config.get(
+            "doc_column": doc_column,  # Use doc_column from text_extraction
+            OperatorConstants.Columns.OUTPUT_COLUMN: entity_extraction_config.get(
                 OperatorConstants.Columns.OUTPUT_COLUMN, OperatorConstants.Misc.ENTITIES
             ),
-            "expand_extracted_data": operator_config.get(OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False),
-            "custom_schema": operator_config.get(OperatorConstants.Config.CUSTOM_SCHEMA, {}),
-            "common_log_arguments": operator_config.get("common_log_arguments", {}),
+            "expand_extracted_data": entity_extraction_config.get(
+                OperatorConstants.Config.EXPAND_EXTRACTED_DATA, False
+            ),
+            "custom_schema": entity_extraction_config.get(OperatorConstants.Config.CUSTOM_SCHEMA, {}),
+            "common_log_arguments": entity_extraction_config.get("common_log_arguments", {}),
             # Job tracking context for progress updates
-            DatasiftConstants.JOB_RUN_ID: operator_config.get(DatasiftConstants.JOB_RUN_ID),
-            DatasiftConstants.NODE_ID: operator_config.get(DatasiftConstants.NODE_ID),
-            DatasiftConstants.NODE_NAME: operator_config.get(DatasiftConstants.NODE_NAME),
-            DatasiftConstants.BATCH_ID: operator_config.get(DatasiftConstants.BATCH_ID),
+            DatasiftConstants.JOB_RUN_ID: entity_extraction_config.get(DatasiftConstants.JOB_RUN_ID),
+            DatasiftConstants.NODE_ID: entity_extraction_config.get(DatasiftConstants.NODE_ID),
+            DatasiftConstants.NODE_NAME: entity_extraction_config.get(DatasiftConstants.NODE_NAME),
+            DatasiftConstants.BATCH_ID: entity_extraction_config.get(DatasiftConstants.BATCH_ID),
         }
 
-        # Add mode-specific configuration
+        # Add mode-specific configuration from provider_config
         if mode in (EntityExtractionMode.LITELLM, EntityExtractionMode.WATSONX):
             # Both LITELLM and WATSONX modes use LLM adapter with provider-specific config
-            entity_provider_config = operator_config.get("entity_provider_config", {})
-
             # Set provider based on mode (use entity mode constants as provider names)
             provider = (
                 OperatorConstants.ExtractionModes.ENTITY_MODE_LITELLM
@@ -119,25 +125,17 @@ class EntityExtractionAdapterFactory:
             adapter_config.update(
                 {
                     OperatorConstants.Config.PROVIDER: provider,
-                    OperatorConstants.Config.MODEL_NAME: operator_config.get(
-                        OperatorConstants.ExtractionModes.ENTITY_MODEL_NAME
-                    ),
-                    OperatorConstants.LLM.TEMPERATURE: operator_config.get(
-                        OperatorConstants.ExtractionModes.ENTITY_TEMPERATURE, 0.0
-                    ),
-                    OperatorConstants.LLM.MAX_TOKENS: operator_config.get(
-                        OperatorConstants.ExtractionModes.ENTITY_MAX_TOKENS, 4096
-                    ),
-                    OperatorConstants.LLM.MAX_DOC_CHARS: operator_config.get(
-                        OperatorConstants.ExtractionModes.ENTITY_MAX_DOC_CHARS, 8000
-                    ),
-                    "entity_provider_config": entity_provider_config,
+                    OperatorConstants.Config.MODEL_NAME: provider_config.get(OperatorConstants.Config.MODEL_ID),
+                    OperatorConstants.LLM.TEMPERATURE: provider_config.get(OperatorConstants.LLM.TEMPERATURE, 0.0),
+                    OperatorConstants.LLM.MAX_TOKENS: provider_config.get("max_tokens", 4096),
+                    OperatorConstants.LLM.MAX_DOC_CHARS: entity_extraction_config.get("max_doc_chars", 8000),
+                    "entity_provider_config": provider_config,
                 }
             )
 
         elif mode == EntityExtractionMode.DOCLING:
-            # Pass through entity_config for custom model configuration
-            entity_config = operator_config.get(DoclingClientConfigConstants.ENTITY_CONFIG)
+            # Pass through entity_config from provider_config for custom model configuration
+            entity_config = provider_config.get(DoclingClientConfigConstants.ENTITY_CONFIG)
             if entity_config:
                 adapter_config[DoclingClientConfigConstants.ENTITY_CONFIG] = entity_config
 
@@ -154,13 +152,20 @@ class EntityExtractionAdapterFactory:
 
     @staticmethod
     def create_adapter(
-        *, mode: EntityExtractionMode, operator_config: dict[str, Any], max_workers: int = 4
+        *,
+        mode: EntityExtractionMode,
+        entity_extraction_config: dict[str, Any],
+        global_config: dict[str, Any],
+        doc_column: str,
+        max_workers: int = 4,
     ) -> EntityExtractionPort | None:
         """Create appropriate entity extraction adapter based on mode.
 
         Args:
             mode: Extraction mode ("litellm", "watsonx", "docling", or "none")
-            operator_config: Full operator configuration dictionary
+            entity_extraction_config: Nested entity_extraction configuration dictionary
+            global_config: Global operator configuration (for job tracking, etc.)
+            doc_column: Document column name from text_extraction config
             max_workers: Number of parallel workers (default: 4)
 
         Returns:
@@ -169,12 +174,14 @@ class EntityExtractionAdapterFactory:
         Raises:
             ValueError: If mode is unsupported or config is invalid
         """
-        # Build adapter-specific configuration
-        adapter_config = EntityExtractionAdapterFactory.build_adapter_config(mode=mode, operator_config=operator_config)
+        # Build adapter-specific configuration from nested entity_extraction config
+        adapter_config = EntityExtractionAdapterFactory.build_adapter_config(
+            mode=mode, entity_extraction_config=entity_extraction_config, doc_column=doc_column
+        )
 
-        # Add common configuration
-        # IMPORTANT: Merge operator_config first to preserve global_config keys like ingest_source
-        full_config = {**operator_config, **adapter_config, "max_workers": max_workers}
+        # Merge with global config for job tracking and other global settings
+        # IMPORTANT: Merge global_config first to preserve keys like ingest_source
+        full_config = {**global_config, **adapter_config, "max_workers": max_workers}
 
         # LITELLM and WATSONX modes use LLM adapter
         if mode in (EntityExtractionMode.LITELLM, EntityExtractionMode.WATSONX):

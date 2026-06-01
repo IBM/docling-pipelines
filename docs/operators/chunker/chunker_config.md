@@ -149,40 +149,66 @@ The Chunker Operator provides intelligent text chunking with support for three s
 "retain_original_content": false
 ```
 
-### 9. `enable_summarization` (Boolean)
-**Type:** Boolean
+### 9. `summarization` (Object)
+**Type:** JSON Object
 **Required:** No
-**Default:** `false`
-**Description:** Generate summaries for each chunk using LLM.
+**Default:** `{}`
+**Description:** Nested configuration object for all summarization-related settings. This structure groups enabled flag, provider, provider_config, and summarization parameters together.
 
-**Valid Values:**
-- `true` - Generate summaries
-- `false` - No summarization
+**Sub-parameters:**
+- `enabled` (Boolean): Enable/disable chunk summarization using LLM (default: `false`)
+- `provider` (String): LLM provider (`litellm` or `watsonx`)
+- `provider_config` (Object): Provider-specific configuration
+- `max_input_tokens` (Integer): Maximum tokens per LLM request
+- `overlap_ratio` (Float): Overlap ratio for sliding window
+- `summary_sentences` (Integer): Target sentences per summary
+- `summary_max_words` (Integer): Maximum words per summary
 
-**Examples:**
+**Structure:**
 ```json
-"enable_summarization": false
-"enable_summarization": true
+"summarization": {
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/granite4",
+    "api_base": "http://localhost:11434/v1",
+    "api_key": "<ollama>"
+  },
+  "summary_sentences": 3,
+  "summary_max_words": 50,
+  "max_input_tokens": 8000
+}
 ```
 
-### 10. `summarization_model_id` (String)
+**Sub-parameters:**
+
+#### 10.1 `provider` (String)
 **Type:** String
-**Required:** Yes (if enable_summarization is true)
-**Default:** `"granite4"`
-**Description:** Ollama model used for summarization.
+**Required:** No
+**Default:** `"litellm"`
+**Description:** LLM provider for summarization.
 
 **Valid Values:**
-- `"granite4"` - IBM Granite 4
-- `"llama3.2"` - Meta Llama 3.2
-- Any Ollama-compatible model
+- `"litellm"` - LiteLLM (supports 100+ providers including Ollama, OpenAI, Anthropic, HuggingFace)
+- `"watsonx"` - IBM WatsonX
 
-**Examples:**
-```json
-"summarization_model_id": "granite4"
-"summarization_model_id": "llama3.2"
-```
+#### 10.2 `provider_config` (Object)
+**Type:** JSON Object
+**Required:** Yes (when summarization is enabled)
+**Description:** Provider-specific configuration including model_id.
 
-### 11. `summary_sentences` (Integer)
+**For LiteLLM:**
+- `model_id` (String, Required): Model identifier (auto-prefixed with `openai/` for Ollama models)
+- `api_base` (String, Optional): API endpoint URL (default: `http://localhost:11434/v1` for Ollama)
+- `api_key` (String, Optional): API key for authentication
+
+**For Watsonx:**
+- `model_id` (String, Required): WatsonX model identifier
+- `api_key` (String, Required): IBM Cloud API key
+- `api_base` (String, Required): WatsonX API URL (default: `https://us-south.ml.cloud.ibm.com`)
+- `container_id` (String, Required): WatsonX project/space ID
+- `container_kind` (String, Required): Container type (`"project"` or `"space"`)
+
+#### 10.3 `summary_sentences` (Integer)
 **Type:** Integer
 **Required:** No
 **Default:** `2`
@@ -192,13 +218,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
 - Minimum: `1`
 - Maximum: `5`
 
-**Examples:**
-```json
-"summary_sentences": 2
-"summary_sentences": 3
-```
-
-### 12. `summary_max_words` (Integer)
+#### 10.4 `summary_max_words` (Integer)
 **Type:** Integer
 **Required:** No
 **Default:** `20`
@@ -208,13 +228,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
 - Minimum: `10`
 - Maximum: `100`
 
-**Examples:**
-```json
-"summary_max_words": 20
-"summary_max_words": 50
-```
-
-### 13. `max_input_tokens` (Integer)
+#### 10.5 `max_input_tokens` (Integer)
 **Type:** Integer
 **Required:** No
 **Default:** `8000`
@@ -224,13 +238,41 @@ The Chunker Operator provides intelligent text chunking with support for three s
 - Minimum: `1000`
 - Maximum: `32000`
 
-**Examples:**
+**Complete Examples:**
+
+**LiteLLM with Ollama:**
 ```json
-"max_input_tokens": 8000
-"max_input_tokens": 16000
+"summarization": {
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/granite4",
+    "api_base": "http://localhost:11434/v1",
+    "api_key": "<ollama>"
+  },
+  "summary_sentences": 3,
+  "summary_max_words": 50
+}
 ```
 
-### 14. `provider` (String)
+**WatsonX:**
+```json
+"summarization": {
+  "provider": "watsonx",
+  "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "${WATSONX_API_BASE}",
+    "container_id": "${WATSONX_PROJECT_ID}",
+    "container_kind": "project"
+  },
+  "summary_sentences": 2,
+  "summary_max_words": 30
+}
+```
+
+**Backward Compatibility Note:** The flat configuration structure (using `summarization_provider`, `summarization_provider_config`, `summary_sentences`, etc. at the top level) is still supported but deprecated. The nested `summarization` object is the recommended approach.
+
+### 11. `provider` (String)
 **Type:** String
 **Required:** No
 **Default:** `None`
@@ -247,7 +289,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
 "provider": null
 ```
 
-### 15. `provider_config` (Object)
+### 12. `provider_config` (Object)
 **Type:** Object (JSON)
 **Required:** No (Yes if provider is "docling_serve")
 **Default:** `{}`
@@ -329,7 +371,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
 }
 ```
 
-### Example 3: Hybrid Chunking with Summarization
+### Example 3: Hybrid Chunking with Summarization (Nested Structure)
 ```json
 {
   "id": "30953cfb-a3a2-4688-9aea-ff9fff10f7bd",
@@ -339,10 +381,17 @@ The Chunker Operator provides intelligent text chunking with support for three s
     "chunk_size": 512,
     "chunk_overlap": 50,
     "docling_tokenizer": "sentence-transformers/all-MiniLM-L6-v2",
-    "enable_summarization": true,
-    "summarization_model_id": "granite4",
-    "summary_sentences": 2,
-    "summary_max_words": 30,
+    "summarization": {
+      "enabled": true,
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/granite4",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama>"
+      },
+      "summary_sentences": 2,
+      "summary_max_words": 30
+    },
     "retain_original_content": false
   }
 }
@@ -410,7 +459,7 @@ The Chunker Operator provides intelligent text chunking with support for three s
 - `chunk_overlap` must be less than `chunk_size`
 - Semantic chunking requires Ollama server running
 - Hybrid chunking requires Docling library
-- Summarization requires `enable_summarization: true` and valid `summarization_model_id`
+- Summarization requires `summarization.enabled: true` and valid model configuration
 
 ## Complete Flow Example
 

@@ -69,12 +69,14 @@ Both flows use the following summarization setup:
 
 ```json
 {
-  "enable_summarization": true,
-  "summarization_provider": "litellm",
-  "summarization_model_id": "llama3.2",
-  "summarization_provider_config": {
-    "api_base": "http://localhost:11434/v1",
-    "api_key": "<ollama>"
+  "summarization": {
+    "enabled": true,
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/llama3.2",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama>"
+    }
   }
 }
 ```
@@ -84,7 +86,7 @@ Both flows use the following summarization setup:
 You can customize summarization behavior by modifying:
 - `summary_sentences`: Number of sentences in summary (default: 2)
 - `summary_max_words`: Maximum words per summary (default: 100)
-- `summarization_model_id`: Different LLM model
+- `summarization_provider_config.model_id`: Different LLM model
 - `summarization_provider`: Switch to `watsonx` or other providers
 
 ## Output Schema

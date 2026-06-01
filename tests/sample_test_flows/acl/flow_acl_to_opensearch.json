@@ -34,17 +34,22 @@
       "config": {
         "fail_on_error": true
       },
-      "depends_on": ["ingest_sharepoint_documents"]
+      "depends_on": [
+        "ingest_sharepoint_documents"
+      ]
     },
     {
       "type": "extract_operator",
       "name": "extract_document_content",
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none",
-        "doc_column": "content"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       },
-      "depends_on": ["extract_acl_permissions"]
+      "depends_on": [
+        "extract_acl_permissions"
+      ]
     },
     {
       "name": "chunk",
@@ -64,15 +69,15 @@
       "name": "embeddings",
       "type": "embeddings",
       "config": {
-        "embeddings_type": "litellm",
-        "embeddings_model_id": "openai/nomic-embed-text",
         "embeddings_column": "embeddings",
         "overlap_ratio": 0.2,
         "doc_column": "content",
         "provider_config": {
           "api_base": "http://localhost:11434/v1",
-          "api_key": "${OLLAMA_API_KEY}"
-        }
+          "api_key": "${OLLAMA_API_KEY}",
+          "model_id": "openai/nomic-embed-text"
+        },
+        "provider": "litellm"
       },
       "depends_on": [
         "chunk"

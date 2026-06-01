@@ -21,7 +21,10 @@
       "name": "extract_with_docling",
       "type": "extract_operator",
       "config": {
-        "doc_column": "content"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       },
       "depends_on": [
         "ingest_pii_test_document"
@@ -32,8 +35,8 @@
       "type": "pii_and_hap",
       "config": {
         "provider": "litellm",
-        "model_name": "<model name>",
         "provider_config": {
+          "model_id": "<model name>",
           "api_key": "<api key>",
           "api_base": "http://localhost:11434/v1"
         },

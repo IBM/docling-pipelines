@@ -70,7 +70,7 @@ curl http://localhost:5001/health
 
 **LiteLLM Mode (including Ollama):**
 - For Ollama via LiteLLM: Ollama server running on `http://localhost:11434`
-- For other providers: API keys configured in `entity_provider_config`
+- For other providers: API keys configured in `entity_extraction.provider_config`
 
 ```bash
 # For Ollama setup
@@ -172,11 +172,17 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **1. Docling Library (Default)**
 ```json
 {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "doc_column": "document",
-    "extract_tables": true,
-    "extract_images": false,
+    "text_extraction": {
+        "provider": "docling_library",
+        "doc_column": "document",
+        "provider_config": {
+            "extract_tables": true,
+            "extract_images": false
+        }
+    },
+    "entity_extraction": {
+        "provider": "none"
+    },
     "max_workers": 4
 }
 ```
@@ -184,12 +190,23 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **2. Docling Library with VLM Pipeline**
 ```json
 {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "use_vlm_pipeline": true,
-    "vlm_preset": "granite_docling",
-    "vlm_engine_type": "transformers",
-    "doc_column": "document",
+    "text_extraction": {
+        "provider": "docling_library",
+        "doc_column": "document",
+        "provider_config": {
+            "vlm_pipeline": {
+                "enabled": true,
+                "preset": "fast",
+                "engine": "transformers",
+                "engine_options": {
+                    "model_id": "microsoft/Florence-2-large"
+                }
+            }
+        }
+    },
+    "entity_extraction": {
+        "provider": "none"
+    },
     "max_workers": 1
 }
 ```
@@ -197,12 +214,18 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **3. Docling Serve**
 ```json
 {
-    "text_extraction_provider": "docling_serve",
-    "entity_extraction_provider": "none",
-    "docling_serve_base_url": "http://localhost:5001",
-    "docling_serve_timeout": 300,
-    "docling_serve_do_ocr": true,
-    "doc_column": "document"
+    "text_extraction": {
+        "provider": "docling_serve",
+        "doc_column": "document",
+        "provider_config": {
+            "base_url": "http://localhost:5001",
+            "timeout": 300,
+            "do_ocr": true
+        }
+    },
+    "entity_extraction": {
+        "provider": "none"
+    }
 }
 ```
 
@@ -211,39 +234,56 @@ To run skipped tests, ensure prerequisites are met and remove the `@pytest.mark.
 **1. None (Default)**
 ```json
 {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none"
+    "text_extraction": {
+        "provider": "docling_library"
+    },
+    "entity_extraction": {
+        "provider": "none"
+    }
 }
 ```
 
 **2. LiteLLM (with Ollama via OpenAI-compatible API)**
 ```json
 {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "litellm",
-    "entity_model_id": "openai/llama3.2",
-    "entity_temperature": 0.0,
-    "entity_provider_config": {
-        "api_base": "http://localhost:11434/v1",
-        "api_key": "<ollama_key>"
+    "text_extraction": {
+        "provider": "docling_library",
+        "doc_column": "content"
     },
-    "custom_schema": {
-        "invoice_number": "string",
-        "total_amount": "float"
+    "entity_extraction": {
+        "provider": "litellm",
+        "max_doc_chars": 50000,
+        "provider_config": {
+            "model_id": "openai/llama3.2",
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "<ollama_key>",
+            "temperature": 0.0
+        },
+        "custom_schema": {
+            "invoice_number": "string",
+            "total_amount": "float"
+        }
     }
 }
 ```
 
+**Note:** When using LiteLLM, `model_id` **must include provider prefix** (e.g., `openai/llama3.2` for Ollama, `openai/gpt-4`, `anthropic/claude-3-opus`).
+
 **3. Docling (Template-Based)**
 ```json
 {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "docling",
-    "custom_schema": {
-        "type": "object",
-        "properties": {
-            "invoice_number": {"type": "string"},
-            "total_amount": {"type": "number"}
+    "text_extraction": {
+        "provider": "docling_library",
+        "doc_column": "content"
+    },
+    "entity_extraction": {
+        "provider": "docling",
+        "custom_schema": {
+            "type": "object",
+            "properties": {
+                "invoice_number": {"type": "string"},
+                "total_amount": {"type": "number"}
+            }
         }
     }
 }

@@ -188,7 +188,7 @@ export OPENAI_API_KEY=sk-proj-...
   "name": "embed",
   "config": {
     "provider": "litellm",
-    "model_id": "text-embedding-3-small"
+    "model_id": "openai/text-embedding-3-small"
   }
 }
 ```

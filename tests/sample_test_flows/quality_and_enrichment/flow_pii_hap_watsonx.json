@@ -23,7 +23,10 @@
       "name": "extract",
       "type": "extract_operator",
       "config": {
-        "doc_column": "content"
+        "text_extraction": {
+          "provider": "docling_library",
+          "doc_column": "content"
+        }
       },
       "depends_on": [
         "ingest"
@@ -35,6 +38,7 @@
       "config": {
         "provider": "watsonx",
         "provider_config": {
+          "model_id": "ibm/granite-13b-chat-v2",
           "api_key": "<your api key>",
           "url": "https://us-south.ml.cloud.ibm.com",
           "container_kind": "project",

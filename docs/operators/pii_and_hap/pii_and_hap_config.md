@@ -12,48 +12,44 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 ## Configuration Parameters
 
 #### 1. `provider_config` (JSON/Dictionary)
-**Type:** JSON Object  
+**Type:** JSON Object
 **Required:** No
-**Default:** `{}`  
-**Description:** Provider-specific configuration dictionary containing authentication and connection details.
+**Default:** `{}`
+**Description:** Provider-specific configuration dictionary containing authentication, connection details, and model_id.
 
 **Provider-Specific Requirements:**
 
 ##### For WatsonX Provider:
 ```json
 {
+  "model_id": "ibm/granite-13b-chat-v2",
   "api_key": "your-watsonx-api-key", # pragma: allowlist secret
-  "url": "https://your-watsonx-instance.com",
+  "api_base": "https://your-watsonx-instance.com",
   "container_kind": "project",
   "container_id": "your-project-id",
   "timeout": 300
 }
 ```
+- `model_id`: WatsonX model identifier (required)
 - `api_key`: WatsonX API authentication key (required)
-- `url`: WatsonX API endpoint URL (required)
+- `api_base`: WatsonX API endpoint URL (required)
 - `container_kind`: Type of container ("project/space/catalog") (required)
 - `container_id`: Project or space ID (required)
 - `timeout`: Request timeout in seconds (optional, default: 300)
 
-##### For Ollama Provider:
-```json
-{
-  "model_name": "granite4"
-}
-```
-- `model_name`: Name of the Ollama model to use (optional, uses operator-level model_name if not specified)
-
 ##### For LiteLLM Provider:
 ```json
 {
-  "api_base": "http://localhost:8000",
-  "api_key": "your-api-key" # pragma: allowlist secret
+  "model_id": "openai/granite3.1-dense:8b",
+  "api_base": "http://localhost:11434/v1",
+  "api_key": "<ollama>"
 }
 ```
+- `model_id`: Model identifier in `<provider>/<model_id>` format (required). For Ollama, use `openai/` prefix (e.g., `"openai/granite3.1-dense:8b"`)
 - `api_base`: OpenAI-compatible API endpoint (optional, provider-specific)
 - `api_key`: API key for authentication (optional, provider-specific)
 
-**Note:** For LiteLLM, `model_name` is specified at the operator level (not in `provider_config`). LiteLLM supports 100+ providers including OpenAI, Anthropic, Azure OpenAI, Cohere, AWS Bedrock, Google Vertex AI, and more. The `api_key` and `api_base` requirements depend on the specific provider being used.
+**Note:** LiteLLM supports 100+ providers including OpenAI, Anthropic, Azure OpenAI, Cohere, AWS Bedrock, Google Vertex AI, and more. The `api_key` and `api_base` requirements depend on the specific provider being used.
 
 **Examples:**
 - OpenAI: Requires `api_key` (uses default OpenAI endpoint)
@@ -89,19 +85,6 @@ The PII and HAP (Personally Identifiable Information and Hate, Abuse, and Profan
 ```json
 "provider": "watsonx"
 "provider": "litellm"
-```
-
-#### 5. `model_name` (String)
-**Type:** String
-**Required:** No
-**Default:** `"granite4"`
-**Description:** Name of the model to use for detection. Required for [`"litellm"`](docs/operators/pii_and_hap/pii_and_hap_config.md) flows and ignored by native WatsonX text detection.
-
-**Examples:**
-```json
-"model_name": "granite4"
-"model_name": "llama3.2"
-"model_name": "mistral"
 ```
 
 #### 6. `expected_redactions` (List)
@@ -267,8 +250,8 @@ When `display_pii` is enabled, additional columns are added with the actual dete
   "operator": "pii_and_hap",
   "config": {
     "provider": "litellm",
-    "model_name": "openai/granite4",
     "provider_config": {
+      "model_id": "openai/granite4",
       "api_base": "http://localhost:11434/v1",
       "api_key": "<ollama>"
     },
@@ -288,8 +271,9 @@ When `display_pii` is enabled, additional columns are added with the actual dete
   "config": {
     "provider": "watsonx",
     "provider_config": {
+      "model_id": "ibm/granite-13b-chat-v2",
       "api_key": "your-watsonx-api-key", # pragma: allowlist secret
-      "url": "https://us-south.ml.cloud.ibm.com",
+      "api_base": "https://us-south.ml.cloud.ibm.com",
       "container_kind": "project",
       "container_id": "your-project-id"
     },
@@ -311,8 +295,8 @@ When `display_pii` is enabled, additional columns are added with the actual dete
   "operator": "pii_and_hap",
   "config": {
     "provider": "litellm",
-    "model_name": "gpt-4",
     "provider_config": {
+      "model_id": "openai/gpt-4",
       "api_key": "your-openai-api-key" # pragma: allowlist secret
     },
     "expected_redactions": ["pii"],
@@ -329,8 +313,8 @@ When `display_pii` is enabled, additional columns are added with the actual dete
   "operator": "pii_and_hap",
   "config": {
     "provider": "litellm",
-    "model_name": "openai/llama3.2:3b",
     "provider_config": {
+      "model_id": "openai/llama3.2:3b",
       "api_base": "http://localhost:11434/v1",
       "api_key": "<ollama>"
     },
@@ -349,7 +333,7 @@ When `display_pii` is enabled, additional columns are added with the actual dete
 ### Configuration Validation
 
 1. **Provider Config Validation:**
-   - WatsonX requires: `api_key`, `url`, `container_kind`, `container_id`
+   - WatsonX requires: `api_key`, `api_base`, `container_kind`, `container_id`
    - Missing required keys will cause validation error
 
 2. **Threshold Validation:**

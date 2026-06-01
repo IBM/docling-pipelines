@@ -202,12 +202,14 @@ class TestS3IngestExtractPipeline:
         # Step 2: Extract
         # Include ingest_source in config so ExtractOperator can fetch binary content on-demand
         extract_config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
-            "doc_column": "content",
-            "extract_tables": False,
-            "extract_images": False,
-            "max_workers": 2,
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "content",
+                "extract_tables": False,
+                "extract_images": False,
+                "provider_config": {"max_workers": 2},
+            },
+            "entity_extraction": {"provider": "none"},
             "ingest_source": {
                 "provider": "s3",
                 "connection_params": {
@@ -311,12 +313,14 @@ class TestS3IngestExtractPipeline:
         }
 
         extract_config = {
-            "text_extraction_provider": "docling_library",
-            "entity_extraction_provider": "none",
-            "doc_column": "content",
-            "extract_tables": False,
-            "extract_images": False,
-            "max_workers": 2,
+            "text_extraction": {
+                "provider": "docling_library",
+                "doc_column": "content",
+                "extract_tables": False,
+                "extract_images": False,
+                "max_workers": 2,
+            },
+            "entity_extraction": {"provider": "none"},
             "ingest_source": {
                 "provider": "s3",
                 "connection_params": {

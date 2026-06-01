@@ -168,6 +168,52 @@ class WatsonXAdapter(LLMInferencePort, LLMEmbeddingPort, TextDetectionPort):
 
     # ==================== Embedding Methods ====================
 
+    @property
+    def embedding_client(self) -> WatsonxRestEmbeddingClient:
+        """Lazy initialization of WatsonX embedding client.
+
+        Returns:
+            Initialized WatsonxRestEmbeddingClient instance
+
+        Raises:
+            DatasiftException: If required parameters are missing
+        """
+        if self._embedding_client is None:
+            # Validate required parameters
+            if not self._embedding_client_params.get("api_key"):
+                raise DatasiftException(
+                    "WatsonX embedding client requires api_key. "
+                    "Ensure api_key is provided during adapter initialization."
+                )
+            if not self._embedding_client_params.get("api_base"):
+                raise DatasiftException(
+                    "WatsonX embedding client requires api_base. "
+                    "Ensure api_base is provided during adapter initialization."
+                )
+            if not self._embedding_client_params.get("container_id"):
+                raise DatasiftException(
+                    "WatsonX embedding client requires container_id. "
+                    "Ensure container_id is provided during adapter initialization."
+                )
+            if not self._embedding_client_params.get("container_kind"):
+                raise DatasiftException(
+                    "WatsonX embedding client requires container_kind. "
+                    "Ensure container_kind is provided during adapter initialization."
+                )
+
+            # Initialize the embedding client with stored parameters
+            self._embedding_client = WatsonxRestEmbeddingClient(
+                api_key=self._embedding_client_params["api_key"],
+                url=self._embedding_client_params["api_base"],
+                container_id=self._embedding_client_params["container_id"],
+                container_kind=self._embedding_client_params["container_kind"],
+                model_name=self.model_name or "",
+                timeout=self._embedding_client_params.get("timeout", 120),
+            )
+            logger.info(f"Initialized WatsonX embedding client for model '{self.model_name}'")
+
+        return self._embedding_client
+
     def generate_embeddings(
         self,
         *,

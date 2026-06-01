@@ -1015,7 +1015,7 @@ Reads files from a local directory:
 }
 ```
 
-**Note:** Extension names should include the dot prefix and be comma-separated (e.g., `".pdf,.txt,.docx"` not `"*.pdf,*.txt"` or `"pdf,txt"`). The operator will also accept extensions without dots for backward compatibility.
+**Note:** Extension names should include the dot prefix and be comma-separated (e.g., `".pdf,.txt,.docx"` not `"*.pdf,*.txt"` or `"pdf,txt"`).
 
 #### Operator 2: extract_operator
 
@@ -1041,15 +1041,19 @@ The `extract_operator` handles both text extraction and entity extraction.
   "type": "extract_operator",
   "depends_on": ["ingest"],
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "none",
-    "doc_column": "content"
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content"
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
   }
 }
 ```
 
 **Optional: Advanced Template-Based Extraction**
-For structured data extraction with predefined schemas, use `entity_extraction_provider: "docling"`
+For structured data extraction with predefined schemas, use `entity_extraction.provider: "docling"`
 
 **Important:** When using any entity extraction mode (not `none`), you must provide either:
 - A `custom_schema` in the operator configuration (as shown below), OR
@@ -1063,19 +1067,56 @@ If neither is provided, the operator will throw a `ConfigurationError`.
   "type": "extract_operator",
   "depends_on": ["ingest"],
   "config": {
-    "text_extraction_provider": "docling_library",
-    "entity_extraction_provider": "docling",
-    "doc_column": "content",
-    "expand_extracted_data": true,
-    "custom_schema": {
-      "invoice_number": "string",
-      "invoice_date": "string",
-      "vendor_name": "string",
-      "total": "float"
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content"
+    },
+    "entity_extraction": {
+      "provider": "docling",
+      "expand_extracted_data": true,
+      "custom_schema": {
+        "invoice_number": "string",
+        "invoice_date": "string",
+        "vendor_name": "string",
+        "total": "float"
+      }
     }
   }
 }
 ```
+
+**Optional: LLM-Based Entity Extraction with Ollama**
+For LLM-powered entity extraction using Ollama models, use `entity_extraction.provider: "litellm"` with the `openai/` prefix:
+
+```json
+{
+  "name": "extract",
+  "type": "extract_operator",
+  "depends_on": ["ingest"],
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "doc_column": "content"
+    },
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.1:latest",
+        "api_base": "http://localhost:11434/v1"
+      },
+      "expand_extracted_data": true,
+      "custom_schema": {
+        "invoice_number": "string",
+        "invoice_date": "string",
+        "vendor_name": "string",
+        "total": "float"
+      }
+    }
+  }
+}
+```
+
+This approach uses LiteLLM to access Ollama models for flexible, LLM-powered entity extraction.
 
 This advanced approach is useful when you need to extract specific fields from structured documents like invoices, forms, or receipts.
 
@@ -1109,7 +1150,10 @@ Generates vector embeddings:
   "depends_on": ["chunk"],
   "config": {
     "provider": "litellm",
-    "model_id": "openai/granite4:latest",
+    "provider_config": {
+      "model_id": "openai/granite4:latest",
+      "api_base": "http://localhost:11434"
+    },
     "embeddings_column": "embeddings",
     "overlap_ratio": 0.2,
     "doc_column": "content"
@@ -1529,8 +1573,12 @@ cat > my-first-flow.json << 'EOF'
       "type": "extract_operator",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction_provider": "docling_library",
-        "entity_extraction_provider": "none"
+        "text_extraction": {
+          "provider": "docling_library"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
       }
     },
     {
@@ -1549,7 +1597,10 @@ cat > my-first-flow.json << 'EOF'
       "depends_on": ["chunk"],
       "config": {
         "provider": "litellm",
-        "model_id": "openai/granite4:latest"
+        "provider_config": {
+          "model_id": "openai/granite4:latest",
+          "api_base": "http://localhost:11434"
+        }
       }
     },
     {
@@ -2023,8 +2074,12 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "type": "extract_operator",
                 "depends_on": ["ingest_local_folder"],
                 "config": {
-                    "text_extraction_provider": "docling_library",
-                    "entity_extraction_provider": "none"
+                    "text_extraction": {
+                        "provider": "docling_library"
+                    },
+                    "entity_extraction": {
+                        "provider": "none"
+                    }
                 }
             },
             {
@@ -2043,7 +2098,10 @@ def build_flow_definition(input_folder: str, index_name: str) -> dict:
                 "depends_on": ["chunk_documents"],
                 "config": {
                     "provider": "litellm",
-                    "model_id": "openai/nomic-embed-text",
+                    "provider_config": {
+                        "model_id": "openai/nomic-embed-text",
+                        "api_base": "http://localhost:11434"
+                    },
                     "embeddings_column": "content"
                 }
             },

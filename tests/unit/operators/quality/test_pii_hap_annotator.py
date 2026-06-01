@@ -35,10 +35,10 @@ class TestPIIHAPAnnotatorValidation:
         # Create operator config
         config = {
             "provider": "litellm",
-            "model_name": "openai/llama3.2:latest",
             "provider_config": {
+                "model_id": "openai/llama3.2:latest",
                 "api_base": "http://localhost:11434/v1",
-                "api_key": "ollama",  # pragma: allowlist secret
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         }
 
@@ -62,8 +62,8 @@ class TestPIIHAPAnnotatorValidation:
         # Create operator config
         config = {
             "provider": "litellm",
-            "model_name": "openai/llama3.2:latest",
             "provider_config": {
+                "model_id": "openai/llama3.2:latest",
                 "api_base": "http://localhost:11434/v1",
             },
         }
@@ -91,9 +91,9 @@ class TestPIIHAPAnnotatorValidation:
         # Create operator config
         config = {
             "provider": "litellm",
-            "model_name": "openai/llama3.2:latest",
             "provider_config": {
-                "api_key": "ollama",  # pragma: allowlist secret
+                "model_id": "openai/llama3.2:latest",
+                "api_key": "<ollama>",  # pragma: allowlist secret
             },
         }
 
