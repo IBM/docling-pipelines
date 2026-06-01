@@ -379,12 +379,29 @@ class MyCustomOperator(AbstractOperator):
         # Custom implementation
 ```
 
-**Environment Variable Validation:**
+**Custom Operator Loading:**
 
-The `DATASIFT_CUSTOM_OPERATORS` environment variable must be a comma-separated string of package paths. Non-string values will be logged as warnings and ignored to prevent operator factory failures.
+Custom operators can be loaded from three sources:
+
+1. **Filesystem Paths**: Local directories or files containing operator Python files
+2. **Python Packages**: Pip-installed packages with operators (recommended for distribution)
+3. **S3 URIs**: Remote storage for enterprise deployments (requires boto3)
+
+**Environment Variable Configuration:**
+
+The `DATASIFT_CUSTOM_OPERATORS` environment variable must be a comma-separated string of package paths. Non-string values will be logged as warnings and ignored to prevent operator factory failures.:
 
 ```bash
-# Valid
+# Filesystem path
+export DATASIFT_CUSTOM_OPERATORS="/path/to/operators"
+
+# Python package name (must be installed via pip)
+export DATASIFT_CUSTOM_OPERATORS="my_custom_operators"
+
+# S3 URI
+export DATASIFT_CUSTOM_OPERATORS="s3://bucket/operators"
+
+# Multiple sources
 export DATASIFT_CUSTOM_OPERATORS="my_company.operators,another_package.ops"
 
 # Invalid (non-string values are ignored with warning)
@@ -392,6 +409,16 @@ export DATASIFT_CUSTOM_OPERATORS=123  # Will be ignored
 ```
 
 See [`OperatorFactory`](src/datasift/core/orchestration/operator_factory.py:35) for implementation details.
+
+**Package Adapter:**
+
+The [`PackageAdapter`](src/datasift/core/orchestration/operator_loader/adapters/package_adapter.py) enables loading operators from pip-installed Python packages using standard Python packaging:
+
+- **Entry Point Discovery**: Operators registered via `pyproject.toml` entry points under `datasift.operators` group
+- **Module Inspection**: Automatic discovery of operators in the package's operator module
+- **Standard Packaging**: Uses `importlib.metadata` for package discovery
+
+See [`CustomOperatorLoader`](src/datasift/core/orchestration/operator_loader/loader_service.py) for implementation details and [CUSTOM_OPERATORS_GUIDE.md](docs/CUSTOM_OPERATORS_GUIDE.md) for complete usage documentation.
 
 ````
 

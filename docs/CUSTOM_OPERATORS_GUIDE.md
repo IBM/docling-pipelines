@@ -28,6 +28,7 @@
   - [get_metadata() - Advanced Configuration](#get_metadata---advanced-configuration)
   - [validate() - Runtime Validation](#validate---runtime-validation)
   - [Understanding Features vs Attributes](#understanding-features-vs-attributes)
+  - [Package-Based Operators for Distribution](#package-based-operators-for-distribution)
   - [S3 Configuration for Enterprise Deployments](#s3-configuration-for-enterprise-deployments)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
@@ -39,14 +40,20 @@
 
 This guide covers creating, registering, and using custom operators in datasift. Custom operators extend datasift's functionality by allowing you to add your own data processing logic to pipelines.
 
-**Custom operators can be provided in two ways:**
+**Custom operators can be provided in three ways:**
 
-1. **Filesystem Paths (Recommended)**: Python files in a local directory
-   - Most common approach for development and deployments
+1. **Filesystem Paths (Recommended for Development)**: Python files in a local directory
+   - Most common approach for development
    - No packaging or installation required
    - Just place `.py` files in a directory and register the path
 
-2. **S3 URIs (Optional)**: Remote storage for enterprise deployments
+2. **Python Packages (Recommended for Distribution)**: Pip-installable packages
+   - Best for sharing operators across teams or projects
+   - Standard Python packaging with entry points
+   - Install once with `pip install`, use everywhere
+   - Covered in [Advanced Topics](#package-based-operators-for-distribution)
+
+3. **S3 URIs (Optional)**: Remote storage for enterprise deployments
    - For centralized operator management in cloud environments
    - Covered in [Advanced Topics](#s3-configuration-for-enterprise-deployments)
 
@@ -413,12 +420,14 @@ Choose based on your use case:
 
 | Scenario | Recommended Method |
 |----------|-------------------|
-| 🏠 Local development | Environment variable |
+| 🏠 Local development | Environment variable (filesystem) |
+| 📦 Sharing across projects/teams | Python package (pip install) |
 | 🔧 Programmatic control needed | Python API |
-| 👥 Team sharing operators | Environment variable + version control |
+| 👥 Team sharing operators | Python package or environment variable + version control |
 | ☁️ Enterprise cloud deployment | S3 URIs (see Advanced Topics) |
+| 🚀 Public distribution | Python package published to PyPI |
 
-**For most users:** Use the environment variable method.
+**For most users:** Use environment variable for development, Python packages for distribution.
 
 ### Method 1: Environment Variable (Recommended)
 
@@ -463,7 +472,7 @@ manager.register_custom_operators(paths=["/path/to/custom_operators"])
 result = manager.execute()
 ```
 
-**Note:** Only filesystem paths and S3 URIs are supported. Python package names are NOT currently supported.
+**Note:** Supports filesystem paths, S3 URIs, and installed Python package names.
 
 ### Verifying Registration
 
@@ -777,6 +786,438 @@ if self.should_validate_field(field_value=self.api_endpoint):
 - ✅ Provide clear, actionable error messages
 - ✅ Use errors for blocking issues, warnings for non-critical ones
 - ✅ Check feature availability before assuming columns exist
+
+### Package-Based Operators for Distribution
+
+Package-based operators allow you to distribute custom operators as standard Python packages that can be installed via pip. This is the **recommended approach** for sharing operators across teams or projects.
+
+#### When to Use Package-Based Operators
+
+- 📦 Distributing operators to multiple teams or projects
+- 🔄 Version-controlled operator releases
+- 🚀 Publishing operators to PyPI or private package repositories
+- 👥 Sharing operators without requiring file system access
+- ✅ Standard Python packaging workflow
+
+#### Package Structure
+
+A custom operator package follows standard Python package structure:
+
+```
+my_custom_operators/
+├── pyproject.toml          # Package configuration with entry points
+├── README.md               # Package documentation
+└── my_custom_operators/    # Package source
+    ├── __init__.py
+    └── operators/          # Operators module
+        ├── __init__.py
+        ├── operator1.py
+        └── operator2.py
+```
+
+**Complete example available at:** `examples/custom_operators/package_example/`
+
+#### Creating a Package
+
+**Step 1: Create pyproject.toml**
+
+```toml
+[project]
+name = "my-custom-operators"
+version = "0.1.0"
+description = "Custom operators for Datasift"
+requires-python = ">=3.12"
+dependencies = [
+    "datasift>=0.1.0",
+]
+
+# Register operators via entry points
+[project.entry-points."datasift.operators"]
+my_operator = "my_custom_operators.operators.my_operator:MyOperator"
+another_operator = "my_custom_operators.operators.another:AnotherOperator"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["my_custom_operators"]
+```
+
+**Key Points:**
+- Entry points under `"datasift.operators"` group enable automatic discovery
+- Format: `operator_name = "package.module:ClassName"`
+- Entry points are optional; operators can also be discovered by module inspection
+
+**Step 2: Create Operator Files**
+
+Place your operators in the `operators/` subdirectory:
+
+```python
+# my_custom_operators/operators/my_operator.py
+from typing import Any
+import pyarrow as pa
+from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from datasift.core.constants.constants import DatasiftConstants
+
+class MyOperator(AbstractOperator):
+    short_name: str = "my_operator"
+    category: OperatorCategory = OperatorCategory.Functional
+    owner: str | None = DatasiftConstants.OWNER_CUSTOM
+    
+    def __init__(self, config: dict[str, Any]):
+        super().__init__(config)
+        # Your initialization
+    
+    def transform(self, table: pa.Table, file_name: str | None = None):
+        # Your transformation logic
+        return [table], self.create_base_metadata(total_docs_count=table.num_rows)
+    
+    @staticmethod
+    def get_metadata() -> dict[str, Any]:
+        return {
+            "short_name": MyOperator.short_name,
+            "category": MyOperator.category.value,
+            "description": "My custom operator",
+        }
+```
+
+**Step 3: Build and Install**
+
+```bash
+# Install in development mode (editable)
+pip install -e .
+
+# Or build and install
+pip install .
+
+# Or build for distribution
+pip install build
+python -m build
+# Creates dist/my_custom_operators-0.1.0.tar.gz and .whl
+```
+
+#### Using Package-Based Operators
+
+**Method 1: Automatic Discovery (Recommended)**
+
+Once installed, operators are automatically discovered:
+
+```bash
+# Install the package
+pip install my-custom-operators
+
+# Operators are automatically available
+datasift-orchestrator --list-operators | grep "my_operator"
+
+# Use in flows without any registration
+datasift-orchestrator --flow-file flow.json
+```
+
+**Method 2: Explicit Registration in Flow**
+
+You can also explicitly register packages in flow configuration:
+
+```json
+{
+  "flow_name": "My Flow",
+  "custom_operators": {
+    "adapters": [
+      {
+        "type": "package",
+        "package_name": "my_custom_operators",
+        "operator_module": "operators"
+      }
+    ]
+  },
+  "flow": [...]
+}
+```
+
+**Method 3: Programmatic Registration**
+
+```python
+from datasift.lib.datasift_flow_manager import DatasiftFlowManager
+
+manager = DatasiftFlowManager(flow_file="flow.json")
+manager.register_custom_operators(paths=["my_custom_operators"])
+result = manager.execute()
+```
+
+#### Entry Points vs Module Inspection
+
+The package adapter discovers operators through two methods:
+
+1. **Entry Points** (Recommended): Explicitly registered in `pyproject.toml`
+   - Faster discovery
+   - Clear operator registration
+   - Better for packages with many files
+
+2. **Module Inspection**: Automatic scanning of operator module
+   - No entry points needed
+   - Discovers all operators in the module
+   - Fallback if entry points not configured
+
+**Both methods work together** - operators found via either method are loaded.
+
+#### Publishing to PyPI
+
+To share your operators publicly:
+
+```bash
+# Install twine
+pip install twine
+
+# Build the package
+python -m build
+
+# Upload to PyPI
+twine upload dist/*
+
+# Others can now install
+pip install my-custom-operators
+
+---
+
+### Common Issues and Solutions
+
+This section documents key learnings and gotchas discovered during package adapter implementation.
+
+#### 1. Adapter Registration
+
+**Issue**: PackageAdapter not discovering operators even though entry points are configured correctly.
+
+**Root Cause**: The `PackageAdapter` class must be imported in `src/datasift/core/orchestration/operator_loader/adapters/__init__.py` for the `@register_operator_source` decorator to work.
+
+**Solution**: Ensure the adapter is imported in the adapters module:
+
+```python
+# src/datasift/core/orchestration/operator_loader/adapters/__init__.py
+from .package_adapter import PackageAdapter  # Required for registration
+from .filesystem_adapter import FilesystemAdapter
+```
+
+Without this import, the decorator won't execute during module initialization, and the adapter won't be registered with the loader service.
+
+#### 2. Operator Metadata Requirements
+
+**Issue**: Custom operators not appearing in `datasift-orchestrator --list-operators` output, or appearing without proper identification.
+
+**Root Cause**: Custom operators must include the `"owner"` field in their metadata to distinguish them from built-in datasift operators.
+
+**Solution**: Always include the `owner` field in your operator's `get_metadata()` method:
+
+```python
+@classmethod
+def get_metadata(cls) -> dict:
+    return {
+        "operator_id": "my_custom_operator",
+        "name": "My Custom Operator",
+        "owner": "my_company",  # Required for custom operators
+        "version": "1.0.0",
+        "description": "Does something useful",
+        # ... other metadata
+    }
+```
+
+The operator listing uses this field to categorize operators by owner in the output.
+
+#### 3. Entry Points Group Name
+
+**Issue**: Entry points configured but operators not discovered by PackageAdapter.
+
+**Root Cause**: The entry points must use the exact group name `"datasift.operators"` in `pyproject.toml`.
+
+**Solution**: Use the correct group name in your package configuration:
+
+```toml
+[project.entry-points."datasift.operators"]
+uppercase_operator = "my_custom_operators.operators.uppercase_operator:UppercaseOperator"
+reverse_operator = "my_custom_operators.operators.reverse_operator:ReverseOperator"
+```
+
+**Incorrect examples that won't work:**
+- `[project.entry-points."datasift.operator"]` (missing 's')
+- `[project.entry-points."datasift_operators"]` (underscore instead of dot)
+- `[project.entry-points."custom.operators"]` (wrong prefix)
+
+#### 4. Package Name Filtering
+
+**Issue**: Entry points registered but not discovered for a specific package.
+
+**Root Cause**: PackageAdapter filters entry points by checking if `entry_point.value.startswith(package_name)`. The entry point value must start with the package name to be discovered.
+
+**Example**:
+```toml
+# Package name: my_custom_operators
+[project.entry-points."datasift.operators"]
+# ✅ Correct - value starts with package name
+uppercase_operator = "my_custom_operators.operators.uppercase_operator:UppercaseOperator"
+
+# ❌ Wrong - value doesn't start with package name
+uppercase_operator = "operators.uppercase_operator:UppercaseOperator"
+```
+
+**Solution**: Ensure entry point values use the full module path starting with your package name:
+
+```python
+# When registering with DatasiftFlowManager
+manager.register_custom_operators(packages=["my_custom_operators"])
+
+# Entry point value must start with "my_custom_operators"
+```
+
+#### 5. Python 3.12 Compatibility
+
+**Issue**: `TypeError: 'EntryPoints' object is not subscriptable` when running on Python 3.12+.
+
+**Root Cause**: The older `entry_points()["group_name"]` syntax is deprecated in Python 3.12+.
+
+**Solution**: Use the `group` parameter instead:
+
+```python
+# ❌ Old syntax (Python < 3.12)
+from importlib.metadata import entry_points
+eps = entry_points()["datasift.operators"]
+
+# ✅ New syntax (Python 3.12+)
+from importlib.metadata import entry_points
+eps = entry_points(group="datasift.operators")
+```
+
+The PackageAdapter implementation uses the new syntax for compatibility.
+
+#### 6. Module Import Errors
+
+**Issue**: `ModuleNotFoundError` when loading operators from installed package.
+
+**Common Causes**:
+- Package not installed in the current environment
+- Package installed in editable mode but source moved
+- PYTHONPATH not including package location
+
+**Solutions**:
+
+```bash
+# Verify package is installed
+pip list | grep my-custom-operators
+
+# Install in editable mode for development
+pip install -e /path/to/package
+
+# Or install from PyPI
+pip install my-custom-operators
+
+# Check if operators are discoverable
+datasift-orchestrator --list-operators
+```
+
+#### 7. Operator Discovery Debugging
+
+**Issue**: Operators not appearing in listing or not being loaded.
+
+**Debugging Steps**:
+
+1. **Verify entry points are registered**:
+   ```python
+   from importlib.metadata import entry_points
+   eps = entry_points(group="datasift.operators")
+   for ep in eps:
+       print(f"{ep.name}: {ep.value}")
+   ```
+
+2. **Check operator metadata**:
+   ```python
+   from my_custom_operators.operators.my_operator import MyOperator
+   print(MyOperator.get_metadata())
+   # Should include "owner" field
+   ```
+
+3. **Test operator loading directly**:
+   ```python
+   from datasift.core.orchestration.operator_factory import OperatorFactory
+   factory = OperatorFactory()
+   factory.register_custom_operators(packages=["my_custom_operators"])
+   
+   # Try to get your operator
+   operator = factory.get_operator("my_operator_id")
+   ```
+
+4. **Enable debug logging**:
+   ```bash
+   DS_LOG_LEVEL=DEBUG datasift-orchestrator --list-operators
+   ```
+
+#### Best Practices Summary
+
+1. **Always import adapters** in `__init__.py` for decorator registration
+2. **Include owner field** in all custom operator metadata
+3. **Use exact group name** `"datasift.operators"` in entry points
+4. **Match package names** between entry point values and registration calls
+5. **Use Python 3.12+ syntax** for entry points API
+6. **Test operator discovery** before publishing packages
+7. **Provide clear metadata** including version, description, and parameters
+
+```
+
+**For private repositories:**
+```bash
+# Upload to private PyPI server
+twine upload --repository-url https://your-pypi-server.com dist/*
+
+# Install from private repository
+pip install my-custom-operators --index-url https://your-pypi-server.com
+```
+
+#### Version Management
+
+Use semantic versioning in `pyproject.toml`:
+
+```toml
+[project]
+version = "1.2.3"  # MAJOR.MINOR.PATCH
+```
+
+Users can install specific versions:
+```bash
+pip install my-custom-operators==1.2.3
+pip install my-custom-operators>=1.0.0,<2.0.0
+```
+
+#### Best Practices for Packages
+
+1. **Clear Documentation**: Include comprehensive README with usage examples
+2. **Version Dependencies**: Specify compatible datasift versions in dependencies
+3. **Entry Points**: Register operators via entry points for better discovery
+4. **Testing**: Include tests in your package
+5. **Changelog**: Maintain a CHANGELOG.md for version history
+6. **Semantic Versioning**: Follow semver for version numbers
+7. **Type Hints**: Use proper type hints for better IDE support
+
+#### Troubleshooting Package-Based Operators
+
+**Package not found:**
+```bash
+# Verify package is installed
+pip show my-custom-operators
+
+# Check installed location
+pip show -f my-custom-operators
+```
+
+**Operators not discovered:**
+```bash
+# Verify entry points are registered
+python -c "import importlib.metadata; print(list(importlib.metadata.entry_points(group='datasift.operators')))"
+
+# Check operator module can be imported
+python -c "from my_custom_operators.operators import MyOperator; print(MyOperator.short_name)"
+```
+
+**Import errors:**
+- Ensure datasift is installed in the same environment
+- Check that all dependencies are listed in `pyproject.toml`
+- Verify Python version compatibility
 
 ### S3 Configuration for Enterprise Deployments
 

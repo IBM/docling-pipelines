@@ -1,0 +1,23 @@
+{
+  "flow_name": "Hello Custom Operator Flow",
+  "description": "Example flow using custom hello operator",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false
+  },
+  "flow": [
+    {
+      "name": "ingest_1",
+      "type": "ingest_local",
+      "config": {
+        "paths": ["./sample_documents/hello.txt"]
+      }
+    },
+    {
+      "name": "hello_1",
+      "type": "hello",
+      "config": {},
+      "depends_on": ["ingest_1"]
+    }
+  ]
+}

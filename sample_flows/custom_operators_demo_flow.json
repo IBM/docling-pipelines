@@ -1,0 +1,47 @@
+{
+  "flow_name": "Custom Operators Demo Flow",
+  "description": "Demonstrates custom package operators (UppercaseOperator and ReverseOperator)",
+  "global_config": {
+    "doc_column": "content",
+    "disable_validation": false
+  },
+  "flow": [
+    {
+      "name": "ingest_1",
+      "type": "ingest_local",
+      "config": {
+        "paths": ["./sample_documents/hello.txt"]
+      }
+    },
+    {
+      "name": "extract_1",
+      "type": "extract_operator",
+      "config": {
+        "mode": "text"
+      },
+      "depends_on": ["ingest_1"]
+    },
+    {
+      "name": "uppercase_1",
+      "type": "uppercase_text",
+      "config": {
+        "text_column": "content"
+      },
+      "depends_on": ["extract_1"]
+    },
+    {
+      "name": "reverse_1",
+      "type": "reverse_text",
+      "config": {
+        "text_column": "content"
+      },
+      "depends_on": ["uppercase_1"]
+    },
+    {
+      "name": "noop_1",
+      "type": "noop",
+      "config": {},
+      "depends_on": ["reverse_1"]
+    }
+  ]
+}

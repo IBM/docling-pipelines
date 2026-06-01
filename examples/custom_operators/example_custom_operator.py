@@ -48,6 +48,12 @@ class ExampleCustomOperator(AbstractOperator):
         Returns:
             Tuple of (list of transformed tables, metadata dictionary)
         """
+        # Remove columns with dots in their names (e.g., 'doc_id_hash.original')
+        # These cause issues with document_set storage
+        columns_to_keep = [name for name in table.column_names if '.' not in name]
+        if len(columns_to_keep) < len(table.column_names):
+            table = table.select(columns_to_keep)
+
         # Add custom field to the table
         custom_column = pa.array([self.custom_field_value] * len(table))
         table = table.append_column(self.custom_field_name, custom_column)
