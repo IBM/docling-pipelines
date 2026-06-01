@@ -207,18 +207,46 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ```
 
 #### 12. `entity_provider_config` (JSON)
-**Type:** JSON Object  
-**Required:** No  
-**Default:** `null`  
+**Type:** JSON Object
+**Required:** No
+**Default:** `null`
 **Description:** Provider-specific configuration for entity extraction (e.g., API keys, base URLs).
 
+**For LiteLLM:**
+- `api_key` (String, Required for most providers): API key for authentication
+- `api_base` (String, Optional): Custom API endpoint (e.g., for Ollama or remote vLLM)
+- `stream` (Boolean, Optional): Enable HTTP chunked transfer encoding to keep connections alive during long-running requests (default: false). Recommended for remote vLLM clusters processing large documents.
+- `timeout` (Integer, Optional): HTTP client read timeout in seconds (default: 60). Set to 1800 (30 minutes) for large documents requiring extended generation time.
+
 **Examples:**
+
+LiteLLM with OpenAI:
 ```json
 "entity_provider_config": {
   "api_key": "sk-...", # pragma: allowlist secret
   "api_base": "https://api.openai.com/v1"
 }
 ```
+
+LiteLLM with Ollama:
+```json
+"entity_provider_config": {
+  "api_base": "http://localhost:11434/v1"
+}
+```
+
+LiteLLM with Remote vLLM (with streaming and extended timeout for large documents):
+```json
+"entity_provider_config": {
+  "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
+  "api_base": "https://your-vllm-route/v1",
+  "stream": true,
+  "timeout": 1800
+}
+```
+
+**Note on Streaming & Extended Timeout:**
+For high-concurrency scenarios with remote vLLM clusters processing large documents, use `stream: true` and `timeout: 1800` to prevent connection drops. This combination ensures continuous packet flow (preventing idle timeout detection) and allows completion of large document processing that may take longer than the default 60-second timeout.
 
 #### 13. `custom_schema` (JSON)
 **Type:** JSON Object  
@@ -599,7 +627,7 @@ The Extract Operator is a unified extraction operator that provides text and ent
 ```
 **Output columns**: `content` (markdown), `content_html`, `content_json`, `content_text`, `tables`, `images`
 
-### Example 6: LiteLLM Entity Extraction
+### Example 6: LiteLLM Entity Extraction with OpenAI
 ```json
 {
   "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
@@ -617,6 +645,32 @@ The Extract Operator is a unified extraction operator that provides text and ent
       "total_amount": "number",
       "vendor_name": "string"
     }
+  }
+}
+```
+
+### Example 7: LiteLLM Entity Extraction with Remote vLLM (Streaming)
+```json
+{
+  "id": "3e9b7c2a-6f41-4d8e-9a5c-2b7d1e6f8c0a",
+  "operator": "extract_operator",
+  "config": {
+    "text_extraction_provider": "docling_library",
+    "entity_extraction_provider": "litellm",
+    "entity_model_id": "meta-llama/Llama-3.1-70B-Instruct",
+    "entity_provider_config": {
+      "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
+      "api_base": "https://your-vllm-route/v1",
+      "stream": true,
+      "timeout": 1800
+    },
+    "custom_schema": {
+      "invoice_number": "string",
+      "total_amount": "number",
+      "vendor_name": "string",
+      "invoice_date": "string"
+    },
+    "expand_extracted_data": true
   }
 }
 ```

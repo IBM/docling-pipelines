@@ -109,6 +109,20 @@ class DefaultJobRunManager(JobRunManager):
             logger.warning(f"Job run not found for status update: {job_run_id}")
             return
 
+        # Protect terminal states from being overwritten by delayed subflow updates
+        from datasift.core.constants.constants import TERMINAL_JOB_STATUSES
+
+        # Convert to string just in case, though StrEnum handles this
+        current_status = str(job_stats.status) if job_stats.status else ""
+        new_status = str(status)
+
+        if current_status in TERMINAL_JOB_STATUSES and new_status not in TERMINAL_JOB_STATUSES:
+            logger.info(
+                f"Ignoring status update to {new_status} because job run {job_run_id} "
+                f"is already in terminal state {current_status}"
+            )
+            return
+
         # Update status
         job_stats.status = status
         job_stats.heartbeat_timestamp = int(datetime.utcnow().timestamp())

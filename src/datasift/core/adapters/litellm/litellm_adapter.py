@@ -79,6 +79,7 @@ class LiteLLMAdapter(LLMInferencePort, LLMEmbeddingPort):
             model_name=model_name,
             api_key=api_key,
             api_base=api_base,
+            **kwargs,
         )
         self.model_name = model_name
         self._dimension: int | None = None

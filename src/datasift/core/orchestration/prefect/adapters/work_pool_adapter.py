@@ -25,6 +25,7 @@ from typing import Any
 import pyarrow as pa
 import pyarrow.parquet as pq
 from prefect import get_client
+from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterId
 from prefect.client.schemas.objects import FlowRun
 from prefect.deployments import run_deployment
 from prefect.flow_runs import wait_for_flow_run
@@ -223,6 +224,10 @@ class WorkPoolAdapter(BatchExecutionPort):
         max_concurrent = global_config.get(DatasiftConstants.MAX_CONCURRENT_BATCHES, 10)
         semaphore = asyncio.Semaphore(max_concurrent)
 
+        # Add submission semaphore to prevent "Thundering Herd" on the Prefect API
+        # Only 5 batches can be actively submitted at the exact same millisecond
+        submission_semaphore = asyncio.Semaphore(5)
+
         self.prefect_engine.logger.info(
             f"Using submission semaphore with {max_concurrent} slots", extra={"job_run_id": job_run_id}
         )
@@ -230,6 +235,37 @@ class WorkPoolAdapter(BatchExecutionPort):
         completed_count = 0
         failed_info = []
         submitted_runs: list[FlowRun] = []
+
+        pending_runs: dict[str, asyncio.Future] = {}
+
+        # 4. Centralized Bulk Poller Task
+        async def _bulk_poll_runs():
+            async with get_client() as client:
+                while True:
+                    await asyncio.sleep(5)
+
+                    if not pending_runs:
+                        continue
+
+                    # Get all IDs we are waiting on
+                    ids_to_check = list(pending_runs.keys())
+
+                    try:
+                        flow_runs = await client.read_flow_runs(
+                            flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=ids_to_check))
+                        )
+
+                        for fr in flow_runs:
+                            if fr.state and fr.state.is_final():
+                                str_id = str(fr.id)
+                                if str_id in pending_runs and not pending_runs[str_id].done():
+                                    pending_runs[str_id].set_result(fr)
+                    except Exception as e:
+                        self.prefect_engine.logger.warning(
+                            f"Bulk poller encountered an error: {e}", extra={"job_run_id": job_run_id}
+                        )
+
+        poller_task = asyncio.create_task(_bulk_poll_runs())
 
         async def run_single_batch(batch_info: BatchInfo):
             nonlocal completed_count
@@ -240,7 +276,7 @@ class WorkPoolAdapter(BatchExecutionPort):
                         batch_table=batch_info.table, batch_num=batch_info.batch_num, job_run_id=job_run_id
                     )
 
-                    # 2. Submit flow run
+                    # 2. Submit flow run (throttled to prevent API 500 errors)
                     deployment_full_name = f"{BatchStrategyConstants.BATCH_SUBFLOW_NAME}/{self.deployment_name}"
 
                     flow_def = global_config.get(DatasiftConstants.FLOW_DEFINITION, {})
@@ -249,65 +285,48 @@ class WorkPoolAdapter(BatchExecutionPort):
                     )
                     run_name = f"{flow_name}_batch_{batch_info.batch_num}"
 
-                    # run_deployment is non-blocking with timeout=0
-                    flow_run_result = await run_deployment(  # type: ignore[misc]
-                        name=deployment_full_name,
-                        parameters={
-                            "batch_id": batch_info.batch_id,
-                            "batch_num": batch_info.batch_num,
-                            "batch_transfer": batch_transfer,
-                            "op_flow": op_flow,
-                            "global_config": global_config,
-                            "job_run_id": job_run_id,
-                        },
-                        flow_run_name=run_name,
-                        timeout=0,
-                        as_subflow=False,
-                    )
-
-                    if not flow_run_result or not isinstance(flow_run_result, FlowRun):
-                        raise FlowExecutionFailedException(f"Failed to submit batch {batch_info.batch_num}")
-
-                    # Type-safe: flow_run_result is now confirmed to be FlowRun
-                    submitted_runs.append(flow_run_result)
-                    current_flow_run_id = flow_run_result.id  # type: ignore[attr-defined]
-                    self.prefect_engine.logger.info(
-                        f"Batch {batch_info.batch_num} submitted: flow_run_id={current_flow_run_id}",
-                        extra={"job_run_id": job_run_id},
-                    )
-
-                    # 3. Wait for completion (with safety loop for premature returns)
-                    final_flow_run: FlowRun | None = None
-                    while True:
-                        wait_result = await wait_for_flow_run(
-                            flow_run_id=current_flow_run_id,
-                            timeout=10800,  # 3 hours timeout per batch
-                            log_states=True,
+                    async with submission_semaphore:
+                        # run_deployment is non-blocking with timeout=0
+                        flow_run_result = await run_deployment(  # type: ignore[misc]
+                            name=deployment_full_name,
+                            parameters={
+                                "batch_id": batch_info.batch_id,
+                                "batch_num": batch_info.batch_num,
+                                "batch_transfer": batch_transfer,
+                                "op_flow": op_flow,
+                                "global_config": global_config,
+                                "job_run_id": job_run_id,
+                            },
+                            flow_run_name=run_name,
+                            timeout=0,
+                            as_subflow=False,
                         )
 
-                        if not wait_result or not isinstance(wait_result, FlowRun):
-                            await asyncio.sleep(2)
-                            continue
+                        if not flow_run_result or not isinstance(flow_run_result, FlowRun):
+                            raise FlowExecutionFailedException(f"Failed to submit batch {batch_info.batch_num}")
 
-                        # Type-safe: wait_result is confirmed to be FlowRun
-                        state = wait_result.state  # type: ignore[attr-defined]
-                        if state:
-                            # Primary check
-                            if state.is_final():
-                                final_flow_run = wait_result
-                                break
-                            # Fallback check for manual state transitions
-                            state_name = str(state.name).lower()
-                            if state_name in ["completed", "failed", "cancelled", "crashed"]:
-                                self.prefect_engine.logger.warning(
-                                    f"Batch {batch_info.batch_num}: State '{state_name}' detected via fallback. Breaking wait loop.",
-                                    extra={"job_run_id": job_run_id},
-                                )
-                                final_flow_run = wait_result
-                                break
+                        # Type-safe: flow_run_result is now confirmed to be FlowRun
+                        submitted_runs.append(flow_run_result)
+                        current_flow_run_id = str(flow_run_result.id)
+                        self.prefect_engine.logger.info(
+                            f"Batch {batch_info.batch_num} submitted: flow_run_id={current_flow_run_id}",
+                            extra={"job_run_id": job_run_id},
+                        )
 
-                        # If not final, small sleep and re-check
-                        await asyncio.sleep(2)
+                    # 3. Wait for completion (via Centralized Bulk Poller)
+                    loop = asyncio.get_running_loop()
+                    completion_future = loop.create_future()
+                    pending_runs[current_flow_run_id] = completion_future
+
+                    try:
+                        # 3 hours timeout per batch (10800 seconds)
+                        final_flow_run = await asyncio.wait_for(completion_future, timeout=10800)
+                    except TimeoutError as e:
+                        raise FlowExecutionFailedException(
+                            f"Batch {batch_info.batch_num} timed out after 3 hours."
+                        ) from e
+                    finally:
+                        pending_runs.pop(current_flow_run_id, None)
 
                     # 4. Process result
                     is_completed = False
@@ -365,6 +384,13 @@ class WorkPoolAdapter(BatchExecutionPort):
                     # First failure detected, break the monitoring loop
                     break
         finally:
+            # Cancel poller and wait for clean shutdown
+            poller_task.cancel()
+            try:
+                await poller_task  # Wait for cancellation to complete
+            except asyncio.CancelledError:
+                pass  # Expected when cancelling
+
             # CRITICAL: If we break due to failure (or an exception occurs),
             # we must cancel ALL background tasks that haven't finished yet.
             # This prevents "ghost submissions" of remaining batches.
@@ -667,12 +693,16 @@ class WorkPoolAdapter(BatchExecutionPort):
     async def _cancel_remaining_runs_async(self, *, flow_runs: list[FlowRun], job_run_id: str) -> None:
         """
         Cancel all flow runs (async version for use within async context).
+        Waits for runs to reach a terminal state to prevent late updates from workers.
 
         Args:
             flow_runs: List of flow runs to cancel
             job_run_id: Parent job run ID for logging context
         """
+        from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterId
+
         async with get_client() as client:
+            pending_runs = []
             for flow_run in flow_runs:
                 try:
                     # Fetch current state to avoid cancelling finished runs
@@ -684,6 +714,7 @@ class WorkPoolAdapter(BatchExecutionPort):
                         flow_run_id=flow_run.id,
                         state=Cancelling(message="Cancelled due to batch failure (fail-fast)"),
                     )
+                    pending_runs.append(flow_run.id)
                     self.prefect_engine.logger.info(
                         f"Cancelled flow_run={flow_run.id}", extra={"job_run_id": job_run_id}
                     )
@@ -692,6 +723,40 @@ class WorkPoolAdapter(BatchExecutionPort):
                         f"Failed to cancel flow_run={flow_run.id}: {e}",
                         extra={"job_run_id": job_run_id},
                     )
+
+            # Wait for all cancelling runs to reach a terminal state
+            # This prevents lagging workers from updating job stats after we mark it as FAILED
+            if pending_runs:
+                self.prefect_engine.logger.info(
+                    f"Waiting for {len(pending_runs)} flow runs to reach terminal state...",
+                    extra={"job_run_id": job_run_id},
+                )
+
+                # Wait up to 60 seconds for runs to terminate
+                start_wait = asyncio.get_event_loop().time()
+                while pending_runs:
+                    if asyncio.get_event_loop().time() - start_wait > 60:
+                        self.prefect_engine.logger.warning(
+                            f"Timeout waiting for {len(pending_runs)} flow runs to terminate",
+                            extra={"job_run_id": job_run_id},
+                        )
+                        break
+
+                    await asyncio.sleep(2.0)
+
+                    try:
+                        runs = await client.read_flow_runs(
+                            flow_run_filter=FlowRunFilter(id=FlowRunFilterId(any_=pending_runs))
+                        )
+                        still_pending = []
+                        for run in runs:
+                            if run.state and not run.state.is_final():
+                                still_pending.append(run.id)
+                        pending_runs = still_pending
+                    except Exception as e:
+                        self.prefect_engine.logger.warning(
+                            f"Error while polling cancelled runs: {e}", extra={"job_run_id": job_run_id}
+                        )
 
     def _cancel_remaining_runs(self, *, flow_runs: list[FlowRun], failed_run_id: str, job_run_id: str) -> None:
         """

@@ -108,10 +108,16 @@ class LLMAdapterFactory:
                 timeout=provider_config.get("timeout", 120),
             )
         elif provider == "litellm":
+            # Extract connection-level config (stream, timeout) for the HTTP client
+            extra_kwargs = {}
+            for key in ("stream", "timeout"):
+                if key in provider_config:
+                    extra_kwargs[key] = provider_config[key]
             return LiteLLMAdapter(
                 model_name=model_id,
                 api_key=provider_config.get("api_key"),
                 api_base=provider_config.get("api_base"),
+                **extra_kwargs,
             )
         else:
             raise ValueError(f"Provider '{provider}' not yet implemented for inference")

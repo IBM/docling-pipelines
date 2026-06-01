@@ -27,8 +27,27 @@ from datasift.core.incremental_metadata.domain import (
 from datasift.exceptions.datasift_exceptions import FlowExecutionFailedException
 from datasift.utils.infrastructure.filesystem import get_data_path
 from datasift.utils.infrastructure.logging import get_logger
+from datasift.utils.infrastructure.retry import retry_with_exponential_backoff
 
 logger = get_logger("INCREMENTAL_METADATA_FILESYSTEM")
+
+
+def _should_retry_on_lock_timeout(result, exception):
+    """
+    Retry logic for file lock timeout errors.
+
+    Args:
+        result: The result from the function call
+        exception: Any exception that occurred
+
+    Returns:
+        Tuple of (should_retry: bool, error_message: str)
+    """
+    if isinstance(exception, Timeout):
+        return True, f"File lock timeout: {exception!s}"
+    if isinstance(exception, FlowExecutionFailedException) and "Failed to acquire write lock" in str(exception):
+        return True, f"Failed to acquire write lock: {exception!s}"
+    return False, ""
 
 
 class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
@@ -63,7 +82,7 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
         self,
         *,
         base_dir: Path | str | None = None,
-        lock_timeout: float = 30.0,
+        lock_timeout: float = 120.0,
         config: dict[str, Any] | None = None,
     ):
         """
@@ -91,7 +110,9 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
         # Resolve lock_timeout: direct parameter > config dict > default
         self._lock_timeout = self.config.get("lock_timeout", lock_timeout)
 
-        logger.info(f"FilesystemIncrementalMetadataStore initialized: base_dir={self._base_dir}, config_keys={list(self.config.keys())}")
+        logger.info(
+            f"FilesystemIncrementalMetadataStore initialized: base_dir={self._base_dir}, config_keys={list(self.config.keys())}"
+        )
 
     def _get_job_dir(self, *, job_id: str) -> Path:
         """Get directory path for job's incremental metadata."""
@@ -202,8 +223,11 @@ class FilesystemIncrementalMetadataStore(IncrementalMetadataStore):
         except Timeout as exc:
             raise FlowExecutionFailedException(f"Failed to acquire read lock for job_id={job_id}") from exc
 
+    @retry_with_exponential_backoff(
+        max_retries=5, initial_delay=1, max_delay=30, retry_logic=_should_retry_on_lock_timeout
+    )
     def upsert_records(self, *, job_id: str, job_run_id: str, records: list[IncrementalMetadataRecord]) -> None:
-        """Insert or update incremental metadata records."""
+        """Insert or update incremental metadata records with retry on lock timeout."""
         if not records:
             return
 

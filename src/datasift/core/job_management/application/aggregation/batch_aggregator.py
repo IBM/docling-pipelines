@@ -397,6 +397,8 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
     """
     stage_aggregates: dict[str, dict[str, Any]] = {}
 
+    # PASS 1: Process RUNNING batches first to discover all active stages
+    # This ensures we know which stages exist before processing completed batches
     for record in batch_records:
         metadata = _get_nested_metadata(record=record)
         if not metadata:
@@ -404,7 +406,7 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
 
         stage_progress = metadata.get(OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS, {})
 
-        # Handle running batches with stage progress
+        # Only process running batches with stage progress in Pass 1
         if isinstance(stage_progress, dict) and stage_progress:
             for stage_name, stage_data in stage_progress.items():
                 if stage_name not in stage_aggregates:
@@ -429,9 +431,15 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
                         OperatorConstants.Extraction.STAGE_STATUS, OperatorConstants.Extraction.STAGE_STATUS_PENDING
                     )
                 )
+
+    # PASS 2: Process COMPLETED/FAILED batches now that all stages are discovered
+    for record in batch_records:
+        metadata = _get_nested_metadata(record=record)
+        if not metadata:
+            continue
+
         # Handle completed and failed batches (no stage progress, use persistent metadata)
-        # Include COMPLETED, COMPLETED_WITH_ERRORS, COMPLETED_WITH_WARNINGS, and FAILED
-        elif record.node_status in (
+        if record.node_status in (
             ExecutionStatus.COMPLETED.value,
             ExecutionStatus.COMPLETED_WITH_ERRORS.value,
             ExecutionStatus.COMPLETED_WITH_WARNINGS.value,
@@ -442,27 +450,48 @@ def _aggregate_extraction_stage_progress(*, batch_records: list[NodeStats]) -> d
             processed_docs = metadata.get(Metrics.External.PROCESSED_DOCS, 0)
 
             if total_docs > 0:
-                # Only add to text_extraction stage for completed/failed batches without stage_progress
-                # Entity extraction stage should only be added if it was actually performed
-                stage_name = "text_extraction"
-                if stage_name not in stage_aggregates:
-                    stage_aggregates[stage_name] = {
-                        OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
-                        OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
-                        OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
-                        "statuses": [],
-                    }
+                # Determine which stages to update based on what's already in stage_aggregates
+                # If entity_extraction exists (populated by running batches), entity extraction is enabled
+                stages_to_update = ["text_extraction"]
+                if "entity_extraction" in stage_aggregates:
+                    stages_to_update.append("entity_extraction")
 
-                stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += total_docs
-                stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED] += processed_docs
+                # Add completed batch counts to all active stages
+                for stage_name in stages_to_update:
+                    if stage_name not in stage_aggregates:
+                        stage_aggregates[stage_name] = {
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL: 0,
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED: 0,
+                            OperatorConstants.Extraction.STAGE_DOCUMENTS_FAILED: 0,
+                            "statuses": [],
+                        }
 
-                # Set status based on batch status
-                if record.node_status == ExecutionStatus.FAILED.value:
-                    stage_aggregates[stage_name]["statuses"].append(OperatorConstants.Extraction.STAGE_STATUS_FAILED)
-                else:
-                    stage_aggregates[stage_name]["statuses"].append(OperatorConstants.Extraction.STAGE_STATUS_COMPLETED)
-        # FALLBACK: Handle running batches WITHOUT stage_progress but WITH total_docs
-        elif record.node_status == ExecutionStatus.RUNNING.value:
+                    stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_TOTAL] += total_docs
+                    stage_aggregates[stage_name][OperatorConstants.Extraction.STAGE_DOCUMENTS_COMPLETED] += (
+                        processed_docs
+                    )
+
+                    # Set status based on batch status
+                    if record.node_status == ExecutionStatus.FAILED.value:
+                        stage_aggregates[stage_name]["statuses"].append(
+                            OperatorConstants.Extraction.STAGE_STATUS_FAILED
+                        )
+                    else:
+                        stage_aggregates[stage_name]["statuses"].append(
+                            OperatorConstants.Extraction.STAGE_STATUS_COMPLETED
+                        )
+    # PASS 1 FALLBACK: Handle running batches WITHOUT stage_progress but WITH total_docs
+    for record in batch_records:
+        metadata = _get_nested_metadata(record=record)
+        if not metadata:
+            continue
+
+        # Skip if already processed (has stage_progress)
+        stage_progress = metadata.get(OperatorConstants.Metadata.EXTRACTION_STAGE_PROGRESS, {})
+        if isinstance(stage_progress, dict) and stage_progress:
+            continue
+
+        if record.node_status == ExecutionStatus.RUNNING.value:
             # Check for total_docs field (not total_docs_count which is for completed)
             total_docs = metadata.get("total_docs", 0)
 

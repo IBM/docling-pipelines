@@ -319,23 +319,39 @@ class LiteLLMLLMClient(BaseLLMClient):
             # Merge constructor config with call-time parameters
             combined_kwargs = {**self.config, **kwargs}
 
+            # Dynamically read configurations from the Flow JSON (via provider_config)
+            requested_timeout = float(combined_kwargs.pop("timeout", 600.0))
+            should_stream = combined_kwargs.pop("stream", False)
+
             response = self.litellm.completion(
                 model=self.model_name,
                 messages=messages,
                 api_key=self.api_key,
                 api_base=self.api_base,
+                timeout=requested_timeout,
+                stream=should_stream,
                 **combined_kwargs,
             )
 
-            # Extract content from response
-            if hasattr(response, "choices") and response.choices:
-                content = response.choices[0].message.content
-            elif isinstance(response, dict) and "choices" in response:
-                content = response["choices"][0]["message"]["content"]
+            if should_stream:
+                # Accumulate streamed chunks
+                accumulated_content = ""
+                for chunk in response:
+                    if hasattr(chunk, "choices") and chunk.choices:
+                        delta = chunk.choices[0].delta
+                        if hasattr(delta, "content") and delta.content:
+                            accumulated_content += delta.content
+                content = accumulated_content
             else:
-                raise ExternalServiceError(f"Unexpected response format from LiteLLM: {type(response)}")
+                # Extract content from normal response
+                if hasattr(response, "choices") and response.choices:
+                    content = response.choices[0].message.content
+                elif isinstance(response, dict) and "choices" in response:
+                    content = response["choices"][0]["message"]["content"]
+                else:
+                    raise ExternalServiceError(f"Unexpected response format from LiteLLM: {type(response)}")
 
-            if content is None:
+            if not content:
                 raise ExternalServiceError("Empty response from LiteLLM chat API")
 
             return content

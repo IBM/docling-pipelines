@@ -45,6 +45,8 @@ The operator validates file extensions and only processes documents with the fol
 - `api_key` (String, Required for most providers): API key for authentication
 - `api_base` (String, Optional): Custom API endpoint (e.g., for Ollama OpenAI-compatible endpoint)
 - `request_timeout` (Integer, Optional): Request timeout in seconds (default: 120)
+- `stream` (Boolean, Optional): Enable HTTP chunked transfer encoding to keep connections alive during long-running requests (default: false). Recommended for remote vLLM clusters processing large documents.
+- `timeout` (Integer, Optional): HTTP client read timeout in seconds (default: 60). Set to 1800 (30 minutes) for large documents requiring extended generation time.
 
 **For watsonx:**
 - `api_base` (String, Required): API endpoint URL
@@ -71,6 +73,20 @@ LiteLLM with Ollama (OpenAI-compatible endpoint):
   "request_timeout": 120
 }
 ```
+
+LiteLLM with Remote vLLM (with streaming and extended timeout for large documents):
+```json
+"provider_config": {
+  "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
+  "api_base": "https://your-vllm-route/v1",
+  "stream": true,
+  "timeout": 1800,
+  "request_timeout": 1800
+}
+```
+
+**Note on Streaming & Extended Timeout:**
+For high-concurrency scenarios with remote vLLM clusters processing large documents, use `stream: true` and `timeout: 1800` to prevent connection drops. This combination ensures continuous packet flow (preventing idle timeout detection) and allows completion of large document processing that may take longer than the default 60-second timeout.
 
 watsonx:
 ```json

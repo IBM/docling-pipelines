@@ -356,6 +356,45 @@ Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (Op
 }
 ```
 
+**Configuration (Remote vLLM with Streaming & Extended Timeout):**
+
+For high-concurrency scenarios with remote vLLM clusters processing large documents, use streaming and extended timeouts to prevent connection drops:
+
+```json
+{
+  "text_extraction_mode": "docling_library",
+  "entity_extraction_mode": "litellm",
+  "entity_model_name": "openai/granite4:latest",
+  "entity_temperature": 0.0,
+  "entity_max_tokens": 5000,
+  "entity_provider_config": {
+    "api_base": "https://your-vllm-route/v1",
+    "api_key": "YOUR_API_KEY",  # pragma: allowlist secret
+    "stream": true,
+    "timeout": 1800
+  },
+  "custom_schema": {
+    "invoice_number": "string",
+    "total_amount": "float"
+  }
+}
+```
+
+**Advanced Provider Configuration Parameters:**
+- `stream` (boolean, default: `false`): Enable HTTP chunked transfer encoding to keep connections alive during long-running requests. Recommended for remote vLLM clusters processing large documents.
+- `timeout` (integer, default: `60`): HTTP client read timeout in seconds. Set to 1800 (30 minutes) for large documents that require extended generation time.
+
+**Why Streaming & Extended Timeout?**
+
+During high-concurrency scalability testing with remote vLLM clusters, connection issues were identified:
+1. **Infrastructure Idle Timeout**: Load balancers (IBM Cloud Edge, HAProxy) reset idle connections after ~100 seconds without data transmission. With `stream=false`, vLLM waits until entire generation completes (150+ seconds for large documents) before sending response, causing connections to be dropped mid-generation.
+2. **Extended Processing Time**: Large documents requiring 5000+ tokens at ~88 tokens/sec take 150+ seconds to generate, exceeding typical load balancer idle timeouts.
+
+**Solution**: Combining `stream=true` with `timeout=1800` ensures:
+- Continuous packet flow (streaming chunks) prevents idle timeout detection by load balancers
+- Extended timeout (30 minutes) allows completion of large document processing
+- Connections remain stable under high concurrency (10,000+ documents)
+
 **Supported Providers:**
 - OpenAI (GPT-3.5, GPT-4, GPT-4o)
 - Anthropic (Claude 3 Opus, Sonnet, Haiku)
@@ -500,7 +539,7 @@ For API models (Ollama, vLLM, OpenAI-compatible):
 | `entity_model_id`      | string  | `"gpt-3.5-turbo"` | LLM model identifier. For Ollama, use `openai/` prefix (e.g., `openai/llama3.2`)                  |
 | `entity_temperature`     | float   | `0.0`             | Sampling temperature                                                                               |
 | `entity_max_tokens`      | integer | `2000`            | Maximum response tokens                                                                            |
-| `entity_provider_config` | object  | `{}`              | Provider config with `api_key`, `api_base`. For Ollama, set `api_base` to `http://localhost:11434/v1` |
+| `entity_provider_config` | object  | `{}`              | Provider config with `api_key`, `api_base`, `stream` (boolean), `timeout` (integer in seconds). For Ollama, set `api_base` to `http://localhost:11434/v1`. For remote vLLM with large documents, use `stream: true` and `timeout: 1800` |
 
 ### WatsonX Entity Extraction Parameters
 
