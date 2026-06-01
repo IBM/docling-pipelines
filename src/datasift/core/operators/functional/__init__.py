@@ -3,6 +3,7 @@
 from datasift.core.operators.functional.branching_operator import BranchingOperator
 from datasift.core.operators.functional.chunker import ChunkerOperator
 from datasift.core.operators.functional.doc_id_hash import DocIdHashOperator
+from datasift.core.operators.functional.entity_curation.entity_curation_operator import EntityCurationOperator
 from datasift.core.operators.functional.merge import MergeOperator
 from datasift.core.operators.functional.noop import NOOPOperator
 
@@ -10,7 +11,7 @@ __all__ = [
     "BranchingOperator",
     "ChunkerOperator",
     "DocIdHashOperator",
+    "EntityCurationOperator",
     "MergeOperator",
     "NOOPOperator",
 ]
-

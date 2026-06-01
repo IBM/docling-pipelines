@@ -145,6 +145,7 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
 | **Functional**| Chunker                 | [Configuration Guide](docs/operators/chunker/chunker_config.md)                         |
 | **Functional**| Doc ID Hash             | [Configuration Guide](docs/operators/doc_id_hash/doc_id_hash_config.md)                 |
 | **Functional**| Embeddings              | [Configuration Guide](docs/operators/embeddings/embeddings_config.md)                   |
+| **Functional**| Entity Curation         | [Configuration Guide](docs/operators/entity_curation/entity_curation_config.md)         |
 | **Functional**| Merge                   | [Configuration Guide](docs/operators/merge/merge_operator_config.md)                    |
 | **Functional**| NOOP                    | [Configuration Guide](docs/operators/noop/noop_config.md)                               |
 | **Quality**   | PII & HAP Detection     | [Configuration Guide](docs/operators/pii_and_hap/pii_and_hap_config.md)                 |
