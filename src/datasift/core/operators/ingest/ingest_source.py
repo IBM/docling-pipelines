@@ -13,7 +13,6 @@ from langchain_core.documents import Document
 from datasift.core.constants.constants import (
     AttributeDataTypes,
     DatasiftConstants,
-    ExecutionStatus,
     Metrics,
 )
 from datasift.core.constants.operator_constants import OperatorConstants
@@ -25,6 +24,7 @@ from datasift.core.operators.ingest.ingest_utils import (
     get_filter_extensions,
     is_doc_previously_processed,
 )
+from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.integrations.rest_client import RestClient, RestClientConfig, RestMethod
 from datasift.utils.infrastructure.logging import get_logger
 
@@ -428,13 +428,12 @@ class IngestSourceOperator(AbstractOperator):
         )
         metadata[Metrics.External.PROCESSED_DOCS] = len(doc_data)
 
-        # Determine node status
-        node_status: str = ExecutionStatus.COMPLETED.value
-        if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
-            node_status = ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        elif metadata[Metrics.External.SKIPPED_DOCS_COUNT] > 0:
-            node_status = ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-        metadata[Metrics.External.NODE_STATUS] = node_status
+        # Determine node status using common utility
+        metadata[Metrics.External.NODE_STATUS] = OperatorUtils.determine_execution_status(
+            processed_count=metadata[Metrics.External.PROCESSED_DOCS],
+            failed_count=metadata[Metrics.External.FAILED_DOCS_COUNT],
+            skipped_count=metadata[Metrics.External.SKIPPED_DOCS_COUNT],
+        )
 
         return [output_table], metadata
 

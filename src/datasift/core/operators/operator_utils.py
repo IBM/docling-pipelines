@@ -135,6 +135,40 @@ def resolve_env_var(value):
 
 class OperatorUtils:
     @staticmethod
+    def determine_execution_status(*, processed_count: int, failed_count: int, skipped_count: int) -> str:
+        """Determine final execution status based on processing results.
+
+        This is a common utility function used by operators to determine the appropriate
+        execution status based on document processing outcomes.
+
+        Args:
+            processed_count: Number of successfully processed documents
+            failed_count: Number of failed documents
+            skipped_count: Number of skipped documents
+
+        Returns:
+            Execution status string (FAILED, COMPLETED_WITH_ERRORS, COMPLETED_WITH_WARNINGS, or COMPLETED)
+
+        Examples:
+            >>> OperatorUtils.determine_execution_status(processed_count=0, failed_count=2, skipped_count=0)
+            'Failed'
+            >>> OperatorUtils.determine_execution_status(processed_count=1, failed_count=1, skipped_count=0)
+            'CompletedWithErrors'
+            >>> OperatorUtils.determine_execution_status(processed_count=2, failed_count=0, skipped_count=0)
+            'Completed'
+        """
+        if failed_count > 0 and processed_count == 0:
+            return ExecutionStatus.FAILED.value
+        elif failed_count > 0:
+            return ExecutionStatus.COMPLETED_WITH_ERRORS.value
+        elif skipped_count > 0 and processed_count == 0:
+            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+        elif skipped_count > 0:
+            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
+        else:
+            return ExecutionStatus.COMPLETED.value
+
+    @staticmethod
     def validate_columns(
         table: pa.Table | list,
         required: list[str],
@@ -1081,8 +1115,7 @@ class OperatorUtils:
 
         # Filter out 'markdown' if user mistakenly included it (it's always generated)
         additional_formats = [
-            fmt for fmt in additional_formats
-            if fmt.lower() != OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
+            fmt for fmt in additional_formats if fmt.lower() != OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
         ]
 
         # Build complete format list for logging (markdown + additional)
@@ -1150,7 +1183,10 @@ class OperatorUtils:
                         logger.info(f"Generated HTML format for {file_path}")
                     elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_JSON:
                         import json
-                        content_dict[OperatorConstants.Columns.CONTENT_JSON] = json.dumps(result.document.export_to_dict(), indent=2)
+
+                        content_dict[OperatorConstants.Columns.CONTENT_JSON] = json.dumps(
+                            result.document.export_to_dict(), indent=2
+                        )
                         formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_JSON)
                         logger.info(f"Generated JSON format for {file_path}")
                     elif fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT:
@@ -1166,7 +1202,11 @@ class OperatorUtils:
                         formats_failed.append(fmt)
                 except Exception as e:
                     logger.error(f"Failed to generate {fmt} format for {file_path}: {e}")
-                    content_dict[f"content_{fmt}" if fmt != OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN else OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = None
+                    content_dict[
+                        f"content_{fmt}"
+                        if fmt != OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
+                        else OperatorConstants.Columns.DOC_COLUMN_DEFAULT
+                    ] = None
                     formats_failed.append(fmt)
 
             # Extract tables and images using helper methods

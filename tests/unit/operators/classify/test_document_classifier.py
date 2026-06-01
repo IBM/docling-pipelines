@@ -11,8 +11,23 @@ from unittest.mock import patch
 import pyarrow as pa
 import pytest
 
-from datasift.core.constants import DatasiftConstants
+from datasift.core.constants import DatasiftConstants, ExecutionStatus, Metrics
+from datasift.core.operators.operator_utils import OperatorUtils
 from datasift.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
+
+
+@pytest.fixture
+def basic_litellm_config():
+    """Fixture providing basic LiteLLM configuration for tests."""
+    return {
+        "provider": "litellm",
+        "provider_config": {
+            "api_base": "http://localhost:11434/v1",
+            "api_key": "ollama",  # pragma: allowlist secret
+        },
+        "model_id": "openai/llama3",
+        "document_types": ["invoice", "receipt"],
+    }
 
 
 @pytest.mark.unit
@@ -734,6 +749,166 @@ def test_document_classifier_batch_progress_litellm():
 
         # Check that failed docs are tracked
         assert Metrics.External.FAILED_DOCS_COUNT in metadata
+
+
+@pytest.mark.unit
+def test_determine_execution_status_all_failed(basic_litellm_config):
+    """Test determine_execution_status when all documents fail."""
+    # Test case: All documents failed (processed=0, failed=2)
+    status = OperatorUtils.determine_execution_status(processed_count=0, failed_count=2, skipped_count=0)
+
+    assert status == ExecutionStatus.FAILED.value, f"Expected {ExecutionStatus.FAILED.value}, got {status}"
+
+
+@pytest.mark.unit
+def test_determine_execution_status_some_failed(basic_litellm_config):
+    """Test determine_execution_status when some documents fail."""
+    # Test case: Some documents failed (processed=1, failed=1)
+    status = OperatorUtils.determine_execution_status(processed_count=1, failed_count=1, skipped_count=0)
+
+    assert status == ExecutionStatus.COMPLETED_WITH_ERRORS.value, (
+        f"Expected {ExecutionStatus.COMPLETED_WITH_ERRORS.value}, got {status}"
+    )
+
+
+@pytest.mark.unit
+def test_determine_execution_status_all_succeeded(basic_litellm_config):
+    """Test determine_execution_status when all documents succeed."""
+    # Test case: All documents succeeded (processed=2, failed=0)
+    status = OperatorUtils.determine_execution_status(processed_count=2, failed_count=0, skipped_count=0)
+
+    assert status == ExecutionStatus.COMPLETED.value, f"Expected {ExecutionStatus.COMPLETED.value}, got {status}"
+
+
+@pytest.mark.unit
+def test_determine_execution_status_some_skipped(basic_litellm_config):
+    """Test determine_execution_status when some documents are skipped."""
+    # Test case: Some documents skipped (processed=1, skipped=1)
+    status = OperatorUtils.determine_execution_status(processed_count=1, failed_count=0, skipped_count=1)
+
+    assert status == ExecutionStatus.COMPLETED_WITH_WARNINGS.value, (
+        f"Expected {ExecutionStatus.COMPLETED_WITH_WARNINGS.value}, got {status}"
+    )
+
+
+@pytest.mark.unit
+def test_determine_execution_status_all_skipped(basic_litellm_config):
+    """Test determine_execution_status when all documents are skipped."""
+    # Test case: All documents skipped (processed=0, skipped=2)
+    status = OperatorUtils.determine_execution_status(processed_count=0, failed_count=0, skipped_count=2)
+
+    assert status == ExecutionStatus.COMPLETED_WITH_WARNINGS.value, (
+        f"Expected {ExecutionStatus.COMPLETED_WITH_WARNINGS.value}, got {status}"
+    )
+
+
+@pytest.mark.unit
+def test_determine_execution_status_mixed_failures_and_skips(basic_litellm_config):
+    """Test determine_execution_status with mixed failures and skips."""
+    # Test case: Mixed - some processed, some failed, some skipped
+    # Failures take precedence over skips
+    status = OperatorUtils.determine_execution_status(processed_count=1, failed_count=1, skipped_count=1)
+
+    assert status == ExecutionStatus.COMPLETED_WITH_ERRORS.value, (
+        f"Expected {ExecutionStatus.COMPLETED_WITH_ERRORS.value} (failures take precedence), got {status}"
+    )
+
+
+@pytest.mark.unit
+def test_transform_sets_correct_status_on_all_failures(basic_litellm_config):
+    """Test that transform method sets FAILED status when all documents fail."""
+
+    # Create test table
+    table = pa.table(
+        {
+            "id": ["doc1", "doc2"],
+            "name": ["test1.txt", "test2.txt"],
+            "content": ["Test content 1", "Test content 2"],
+        }
+    )
+
+    # Mock classification to fail for all documents
+    with patch(
+        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        side_effect=Exception("API Error"),
+    ):
+        operator = DocumentClassifierOperator(basic_litellm_config)
+        _, metadata = operator.transform(table)
+
+        # Verify status is FAILED when all documents fail
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value, (
+            f"Expected {ExecutionStatus.FAILED.value}, got {metadata[Metrics.External.NODE_STATUS]}"
+        )
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 0
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 2
+
+
+@pytest.mark.unit
+def test_transform_sets_correct_status_on_partial_failures(basic_litellm_config):
+    """Test that transform method sets COMPLETED_WITH_ERRORS status when some documents fail."""
+
+    # Create test table
+    table = pa.table(
+        {
+            "id": ["doc1", "doc2"],
+            "name": ["test1.txt", "test2.txt"],
+            "content": ["Test content 1", "Test content 2"],
+        }
+    )
+
+    # Mock classification: first succeeds, second fails
+    mock_responses = [
+        json.dumps({"document_type": "invoice", "confidence": 9}),
+        Exception("API Error"),
+    ]
+
+    with patch(
+        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        side_effect=mock_responses,
+    ):
+        operator = DocumentClassifierOperator(basic_litellm_config)
+        _, metadata = operator.transform(table)
+
+        # Verify status is COMPLETED_WITH_ERRORS when some documents fail
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value, (
+            f"Expected {ExecutionStatus.COMPLETED_WITH_ERRORS.value}, got {metadata[Metrics.External.NODE_STATUS]}"
+        )
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 1
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
+
+
+@pytest.mark.unit
+def test_transform_sets_correct_status_on_success(basic_litellm_config):
+    """Test that transform method sets COMPLETED status when all documents succeed."""
+
+    # Create test table
+    table = pa.table(
+        {
+            "id": ["doc1", "doc2"],
+            "name": ["test1.txt", "test2.txt"],
+            "content": ["Test content 1", "Test content 2"],
+        }
+    )
+
+    # Mock successful classification for all documents
+    mock_responses = [
+        json.dumps({"document_type": "invoice", "confidence": 9}),
+        json.dumps({"document_type": "receipt", "confidence": 8}),
+    ]
+
+    with patch(
+        "datasift.integrations.litellm.client.LiteLLMLLMClient.chat",
+        side_effect=mock_responses,
+    ):
+        operator = DocumentClassifierOperator(basic_litellm_config)
+        _, metadata = operator.transform(table)
+
+        # Verify status is COMPLETED when all documents succeed
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED.value, (
+            f"Expected {ExecutionStatus.COMPLETED.value}, got {metadata[Metrics.External.NODE_STATUS]}"
+        )
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 2
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
 
 
 if __name__ == "__main__":

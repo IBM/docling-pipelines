@@ -654,8 +654,20 @@ class DocumentClassifierOperator(AbstractOperator):
         if self.include_reasoning:
             output_table = TransformUtils.add_column(output_table, f"{self.output_column}_reasoning", reasonings)
 
+        # Determine and set final execution status
+        processed_count = metadata[Metrics.External.PROCESSED_DOCS]
+        failed_count = metadata[Metrics.External.FAILED_DOCS_COUNT]
+        skipped_count = metadata[Metrics.External.SKIPPED_DOCS_COUNT]
+
+        metadata[Metrics.External.NODE_STATUS] = OperatorUtils.determine_execution_status(
+            processed_count=processed_count,
+            failed_count=failed_count,
+            skipped_count=skipped_count,
+        )
+
         logger.info(
-            f"Classification complete: {metadata[Metrics.External.PROCESSED_DOCS]}/{total_docs} documents classified"
+            f"Classification complete: {processed_count}/{total_docs} documents classified, "
+            f"{failed_count} failed, {skipped_count} skipped, status={metadata[Metrics.External.NODE_STATUS]}"
         )
 
         return [output_table], metadata

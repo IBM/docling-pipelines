@@ -86,7 +86,7 @@ from typing import Any
 
 import pyarrow as pa
 
-from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants, ExecutionStatus, Metrics
+from datasift.core.constants.constants import AttributeDataTypes, DatasiftConstants, Metrics
 from datasift.core.constants.operator_constants import OperatorConstants
 from datasift.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from datasift.core.operators.extract.adapters.outbound.factories.entity_extraction_adapter_factory import (
@@ -415,11 +415,10 @@ class ExtractOperator(AbstractOperator):
         processed_count = total_docs - failed_or_skipped_count
 
         # Determine final execution status
-        final_status = self._determine_final_status(
+        final_status = OperatorUtils.determine_execution_status(
             processed_count=processed_count,
             failed_count=len(merged_failed_map),
             skipped_count=len(merged_skipped_map),
-            total_count=total_docs,
         )
 
         # Return consolidated metadata
@@ -525,32 +524,6 @@ class ExtractOperator(AbstractOperator):
                 result_tables.append(table)
 
         return result_tables
-
-    @staticmethod
-    def _determine_final_status(
-        *, processed_count: int, failed_count: int, skipped_count: int, total_count: int
-    ) -> str:
-        """Determine final execution status based on processing results.
-
-        Args:
-            processed_count: Number of successfully processed documents
-            failed_count: Number of failed documents
-            skipped_count: Number of skipped documents
-            total_count: Total number of documents
-
-        Returns:
-            Execution status string
-        """
-        if failed_count > 0 and processed_count == 0:
-            return ExecutionStatus.FAILED.value
-        elif failed_count > 0:
-            return ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        elif skipped_count > 0 and processed_count == 0:
-            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-        elif skipped_count > 0:
-            return ExecutionStatus.COMPLETED_WITH_WARNINGS.value
-        else:
-            return ExecutionStatus.COMPLETED.value
 
     def transform(
         self, table: pa.Table, file_name: str | None = None, metadata: dict[str, Any] | None = None

@@ -530,7 +530,8 @@ class TestTransform:
         result_table = result_tables[0]
 
         assert result_table.num_rows == 0
-        assert metadata["node_status"] == "CompletedWithErrors"
+        # When all documents fail (processed=0, failed>0), status should be "Failed"
+        assert metadata["node_status"] == "Failed"
         assert metadata["failed_docs_count"] == 1
 
     @patch("datasift.core.incremental_metadata.IncrementalUpdateService")
