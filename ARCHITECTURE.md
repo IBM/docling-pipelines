@@ -31,7 +31,7 @@ Datasift-open is a modular, operator-based data processing framework designed fo
 - **Operator-Based Architecture**: 20+ specialized operators organized into 5 categories (Extract, Ingest, Functional, Quality, VectorDB)
 - **PyArrow Data Format**: All data flows through the pipeline as PyArrow tables, ensuring efficient memory usage and interoperability
 - **DAG-Based Workflow Execution**: Flows are defined as JSON configurations representing directed acyclic graphs (DAGs) of operator nodes
-- **Prefect Orchestration**: Workflow execution managed by Prefect with support for both ephemeral (local) and distributed execution via work pools (Docker, Kubernetes / OpenShift)
+- **Prefect Orchestration**: Workflow execution managed by Prefect with support for both ephemeral (local) and distributed execution via work pools (Docker)
 - **Modern AI/ML Integrations**: Native support for Ollama (LLM operations), Docling (document processing), OpenSearch (vector and scalar storage) and Milvus (vector storage)
 
 ### Architectural Patterns
@@ -760,7 +760,7 @@ The `WorkPoolConfig` model defines configuration for distributed execution modes
 @dataclass
 class WorkPoolConfig:
     enabled: bool = False
-    type: str = "process"  # "process", "docker", "kubernetes"
+    type: str = "process"  # "process", "docker"
     name: str = "default-pool"
     max_workers: Optional[int] = None
     image: Optional[str] = None
@@ -773,12 +773,11 @@ class WorkPoolConfig:
 | Parameter       | Type   | Description                                       | Required   |
 | --------------- | ------ | ------------------------------------------------- | ---------- |
 | `enabled`       | bool   | Enable work pool execution                        | Yes        |
-| `type`          | str    | Execution type: "process", "docker", "kubernetes" | Yes        |
+| `type`          | str    | Execution type: "process", "docker"               | Yes        |
 | `name`          | str    | Work pool name in Prefect                         | Yes        |
 | `max_workers`   | int    | Maximum concurrent workers (process pool only)    | No         |
-| `image`         | str    | Docker/Kubernetes / OpenShift image name          | Docker/K8s |
-| `namespace`     | str    | Kubernetes / OpenShift namespace                  | K8s only   |
-| `batch_storage` | object | Batch storage configuration                       | Docker/K8s |
+| `image`         | str    | Docker image name                                 | Docker     |
+| `batch_storage` | object | Batch storage configuration                       | Docker     |
 
 **Batch Storage Configuration:**
 
@@ -821,24 +820,6 @@ class BatchStorageConfig:
 }
 ```
 
-**Kubernetes / OpenShift:**
-
-```json
-{
-  "work_pool": {
-    "enabled": true,
-    "type": "kubernetes",
-    "name": "datasift-k8s-pool",
-    "namespace": "datasift-production",
-    "image": "myregistry.io/datasift:v1.0.0",
-    "batch_storage": {
-      "type": "local",
-      "base_path": "/shared/batches"
-    }
-  }
-}
-```
-
 **Work Pool Setup:**
 
 Before using distributed execution, create the corresponding Prefect work pool:
@@ -849,9 +830,6 @@ Before using distributed execution, create the corresponding Prefect work pool:
 
 # Docker pool
 prefect work-pool create datasift-docker-pool --type docker
-
-# Kubernetes / OpenShift pool
-prefect work-pool create datasift-k8s-pool --type kubernetes
 ```
 
 **Worker Deployment:**
@@ -861,9 +839,6 @@ Start workers to process tasks from the work pool:
 ```bash
 # Docker worker
 prefect worker start --pool datasift-docker-pool
-
-# Kubernetes / OpenShift worker (deployed as K8s Deployment)
-kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
 ```
 
 - Tracks deleted rows and metadata
@@ -1084,7 +1059,6 @@ The framework supports four execution modes:
 1. **Thread Pool (Local Development)**: Uses Python's ThreadPoolExecutor for lightweight parallelism within a single process
 2. **Process Pool (Single-Node Production)**: Uses Python's ProcessPoolExecutor for CPU-bound workloads on a single machine
 3. **Docker (Distributed)**: Deploys batch processing tasks as Docker containers via Prefect work pools
-4. **Kubernetes / OpenShift (Distributed)**: Orchestrates batch processing across Kubernetes / OpenShift pods for enterprise-scale deployments
 
 ### Hexagonal Architecture Pattern
 
@@ -1110,7 +1084,6 @@ graph TB
         TP[ThreadPoolExecutor]
         PP[ProcessPoolExecutor]
         DW[Docker Work Pool]
-        KW[Kubernetes / OpenShift Work Pool]
     end
 
     PE --> BEP
@@ -1120,7 +1093,6 @@ graph TB
     TPA --> TP
     WPA --> PP
     WPA --> DW
-    WPA --> KW
 
     style PE fill:#fff4e1
     style BEP fill:#e1f5ff
@@ -1146,7 +1118,7 @@ graph TB
 #### WorkPoolAdapter
 
 - Implements BatchExecutionPort for distributed execution
-- Supports process pool, Docker, and Kubernetes / OpenShift work pools
+- Supports process pool and Docker work pools
 - Configurable via WorkPoolConfig
 - Handles batch serialization and result aggregation
 
@@ -1155,7 +1127,7 @@ graph TB
 Distributed execution requires serializing batches for cross-process/container communication:
 
 1. **Inline Storage**: Batches passed directly in memory (thread pool only)
-2. **Local Filesystem**: Batches written to Parquet files on shared storage (process pool, Docker with volumes, Kubernetes / OpenShift with PVCs)
+2. **Local Filesystem**: Batches written to Parquet files on shared storage (process pool, Docker with volumes)
 
 **Note:** S3 and other cloud storage backends are not currently supported.
 
@@ -1227,24 +1199,6 @@ Execution mode is configured via the `work_pool` section in flow JSON:
     "enabled": true,
     "type": "docker",
     "name": "my-docker-pool",
-    "image": "datasift:latest",
-    "batch_storage": {
-      "type": "local",
-      "base_path": "/shared/batches"
-    }
-  }
-}
-```
-
-**Kubernetes / OpenShift:**
-
-```json
-{
-  "work_pool": {
-    "enabled": true,
-    "type": "kubernetes",
-    "name": "my-k8s-pool",
-    "namespace": "datasift",
     "image": "datasift:latest",
     "batch_storage": {
       "type": "local",
@@ -3740,142 +3694,13 @@ volumes:
 
 ---
 
-### 4. Production Distributed Kubernetes / OpenShift (WorkPoolAdapter + Kubernetes / OpenShift)
-
-**Use Case:** Enterprise-scale deployments with auto-scaling and high availability
-
-**Architecture:**
-
-```mermaid
-graph TB
-    subgraph "Control Plane"
-        FE[FlowExecutor]
-        PE[PrefectEngine]
-        WPA[WorkPoolAdapter]
-        PS[Prefect Server]
-    end
-
-    subgraph "Kubernetes / OpenShift Cluster"
-        subgraph "Shared Storage"
-            PVC[PersistentVolumeClaim<br/>Batch Storage]
-        end
-
-        subgraph "Worker Pods"
-            POD1[Worker Pod 1]
-            POD2[Worker Pod 2]
-            POD3[Worker Pod 3]
-            PODN[Worker Pod N]
-        end
-
-        HPA[HorizontalPodAutoscaler]
-    end
-
-    FE --> PE
-    PE --> WPA
-    WPA --> PS
-    PS --> POD1
-    PS --> POD2
-    PS --> POD3
-    PS --> PODN
-
-    HPA -.->|Scale| Worker Pods
-
-    WPA -.->|Write Batches| PVC
-    POD1 -.->|Read/Write| PVC
-    POD2 -.->|Read/Write| PVC
-    POD3 -.->|Read/Write| PVC
-    PODN -.->|Read/Write| PVC
-
-    style FE fill:#e1f5ff
-    style WPA fill:#e1ffe1
-    style PS fill:#fff4e1
-    style PVC fill:#ffe1e1
-```
-
-**Configuration:**
-
-```json
-{
-  "work_pool": {
-    "enabled": true,
-    "type": "kubernetes",
-    "name": "datasift-k8s-pool",
-    "namespace": "datasift-production",
-    "image": "myregistry.io/datasift:v1.0.0",
-    "batch_storage": {
-      "type": "local",
-      "base_path": "/shared/batches"
-    }
-  }
-}
-```
-
-**Characteristics:**
-
-- Enterprise-grade orchestration
-- Auto-scaling based on workload
-- High availability and fault tolerance
-- Resource isolation and limits
-- Multi-tenant support
-- Rolling updates and rollbacks
-
-**Setup:**
-
-1. **Create Namespace:**
-
-```bash
-kubectl create namespace datasift-production
-```
-
-2. **Deploy Persistent Volume:**
-
-```bash
-kubectl apply -f k8s-deployment-examples/persistent-volume.yaml
-```
-
-3. **Create Work Pool:**
-
-```bash
-prefect work-pool create datasift-k8s-pool --type kubernetes
-```
-
-4. **Deploy Workers:**
-
-```bash
-kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
-```
-
-5. **Execute Flow:**
-
-```bash
-datasift-orchestrator --flow-file my-flow.json
-```
-
-**Kubernetes / OpenShift Manifests:**
-
-See `k8s-deployment-examples/` directory for complete manifests:
-
-- `persistent-volume.yaml`: Shared storage for batches
-- `prefect-worker.yaml`: Worker deployment with auto-scaling
-- `configmap.yaml`: Configuration management
-- `secrets.yaml`: Credentials management
-
-**Resource Requirements:**
-
-- **CPU**: 2-4 cores per worker pod
-- **Memory**: 4-8 GB per worker pod
-- **Storage**: 50-100 GB shared PVC for batch storage
-
----
-
 ### Deployment Pattern Comparison
 
-| Pattern                    | Complexity | Scalability    | Cost    | Use Case               |
-| -------------------------- | ---------- | -------------- | ------- | ---------------------- |
-| **Thread Pool**            | Low        | Single machine | Minimal | Development, testing   |
-| **Process Pool**           | Low        | Single machine | Low     | Single-node production |
-| **Docker**                 | Medium     | Horizontal     | Medium  | Multi-host deployments |
-| **Kubernetes / OpenShift** | High       | Auto-scaling   | Higher  | Enterprise production  |
+| Pattern          | Complexity | Scalability    | Cost    | Use Case               |
+| ---------------- | ---------- | -------------- | ------- | ---------------------- |
+| **Thread Pool**  | Low        | Single machine | Minimal | Development, testing   |
+| **Process Pool** | Low        | Single machine | Low     | Single-node production |
+| **Docker**       | Medium     | Horizontal     | Medium  | Multi-host deployments |
 
 ### Choosing a Deployment Pattern
 
@@ -3899,14 +3724,6 @@ See `k8s-deployment-examples/` directory for complete manifests:
 - Scaling across multiple hosts
 - Consistent runtime environment required
 - Docker infrastructure already available
-
-**Use Kubernetes / OpenShift when:**
-
-- Enterprise-scale deployments
-- Auto-scaling required
-- High availability needed
-- Multi-tenant environments
-- Advanced orchestration features required
 
 ---
 
@@ -4405,7 +4222,7 @@ token = token_manager.get_token()
 - **BatchExecutionPort**: Port interface for batch execution strategies
 - **ThreadPoolAdapter**: Local thread-based batch execution
 - **WorkPoolAdapter**: Distributed batch execution via Prefect work pools
-- **WorkPoolConfig**: Configuration for Docker and Kubernetes / OpenShift work pools
+- **WorkPoolConfig**: Configuration for Docker work pools
 - **Domain Models**: Batch execution domain models and constants
 
 #### Operators (`core/operators/`)
@@ -4560,7 +4377,7 @@ Operators are organized by category (defined in `OperatorCategory` enum):
 3. **Plugin System**: Extensible with custom operators
 4. **Flow Configuration**: JSON-based flow definitions
 5. **Local Data Processing**: File system and local storage support
-6. **Distributed Execution**: Support for scaling across multiple workers using Prefect work pools (Docker, Kubernetes / OpenShift)
+6. **Distributed Execution**: Support for scaling across multiple workers using Prefect work pools (Docker)
 
 ## Operator Pattern
 

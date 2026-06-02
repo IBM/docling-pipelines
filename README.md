@@ -52,15 +52,6 @@ This repository contains the datasift operators with FastAPI server, CLI orchest
     - [Local Development](#local-development)
     - [Distributed Execution with Docker](#distributed-execution-with-docker)
     - [Build Wheel](#build-wheel)
-  - [Kubernetes Deployment](#kubernetes-deployment)
-    - [Prerequisites](#prerequisites-1)
-    - [Quick Start](#quick-start-1)
-    - [Kubernetes Manifests](#kubernetes-manifests)
-    - [Resource Requirements](#resource-requirements)
-    - [Monitoring and Scaling](#monitoring-and-scaling)
-    - [Storage Configuration](#storage-configuration)
-    - [Security](#security)
-    - [Troubleshooting](#troubleshooting)
   - [Development](#development)
     - [Adding Dependencies](#adding-dependencies)
     - [Testing](#testing)
@@ -584,7 +575,6 @@ Datasift-opensource supports multiple execution modes for scaling from local dev
 | **Thread Pool**  | Development, testing   | Single machine        | Limited      |
 | **Process Pool** | Single-node production | Single machine        | CPU cores    |
 | **Docker**       | Multi-host deployments | Docker infrastructure | Horizontal   |
-| **Kubernetes**   | Enterprise production  | Kubernetes cluster    | Auto-scaling |
 
 ### Quick Start
 
@@ -625,30 +615,12 @@ datasift-orchestrator --flow-file my-flow.json
 }
 ```
 
-**Kubernetes:**
-
-```json
-{
-  "work_pool": {
-    "enabled": true,
-    "type": "kubernetes",
-    "name": "datasift-k8s-pool",
-    "namespace": "datasift-production",
-    "image": "myregistry.io/datasift-opensource:v1.0.0",
-    "batch_storage": {
-      "type": "local",
-      "base_path": "/shared/batches"
-    }
-  }
-}
-```
-
 ### Batch Storage
 
 Distributed execution requires serializing batches for cross-process/container communication:
 
 - **Inline Storage**: In-memory (thread pool only)
-- **Local Filesystem**: Parquet files on shared storage (process pool, Docker, Kubernetes)
+- **Local Filesystem**: Parquet files on shared storage (process pool, Docker)
 
 **Note:** Cloud storage backends (S3, etc.) are not currently supported.
 
@@ -664,22 +636,11 @@ prefect work-pool create datasift-docker-pool --type docker
 docker-compose -f docker/docker-compose.worker.yml up -d
 ```
 
-**Kubernetes:**
-
-```bash
-# Create work pool
-prefect work-pool create datasift-k8s-pool --type kubernetes
-
-# Deploy workers
-kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
-```
-
 **See also:**
 
 - [Architecture Documentation](ARCHITECTURE.md#distributed-execution-architecture) - Detailed architecture and design
 - [Deployment Patterns](ARCHITECTURE.md#deployment-patterns) - Complete deployment guides
 - [Docker Deployment](#docker-deployment) - Docker setup and configuration
-- [Kubernetes Deployment](#kubernetes-deployment) - Kubernetes setup and configuration
 
 ---
 
@@ -776,263 +737,12 @@ Build a wheel distribution:
 uv build --wheel
 ```
 
----
-
-## Kubernetes Deployment
-
-Deploy datasift-opensource on Kubernetes for enterprise-scale production workloads with auto-scaling and high availability.
-
-### Prerequisites
-
-- Kubernetes cluster (1.19+)
-- kubectl configured
-- Prefect server accessible from cluster
-- Container registry access
-
-### Quick Start
-
-**1. Create Namespace:**
-
-```bash
-kubectl create namespace datasift-production
-```
-
-**2. Deploy Persistent Volume:**
-
-Create shared storage for batch processing:
-
-```bash
-kubectl apply -f k8s-deployment-examples/persistent-volume.yaml
-```
-
-**3. Create Work Pool:**
-
-```bash
-prefect work-pool create datasift-k8s-pool --type kubernetes
-```
-
-**4. Deploy Workers:**
-
-```bash
-kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
-```
-
-**5. Configure Flow:**
-
-Add work pool configuration to your flow JSON:
-
-```json
-{
-  "work_pool": {
-    "enabled": true,
-    "type": "kubernetes",
-    "name": "datasift-k8s-pool",
-    "namespace": "datasift-production",
-    "image": "myregistry.io/datasift-opensource:v1.0.0",
-    "batch_storage": {
-      "type": "local",
-      "base_path": "/shared/batches"
-    }
-  }
-}
-```
-
-**6. Execute Flow:**
-
-```bash
-datasift-orchestrator --flow-file my-flow.json
-```
-
-### Kubernetes Manifests
-
-The `k8s-deployment-examples/` directory contains complete Kubernetes manifests:
-
-**Core Components:**
-
-- `persistent-volume.yaml` - Shared storage for batch data
-- `prefect-worker.yaml` - Worker deployment with auto-scaling
-- `configmap.yaml` - Configuration management
-- `secrets.yaml` - Credentials management
-
-**Example Deployment:**
-
-```yaml
-# prefect-worker.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: datasift-worker
-  namespace: datasift-production
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: datasift-worker
-  template:
-    metadata:
-      labels:
-        app: datasift-worker
-    spec:
-      containers:
-        - name: worker
-          image: myregistry.io/datasift-opensource:v1.0.0
-          command: ["prefect", "worker", "start", "--pool", "datasift-k8s-pool"]
-          volumeMounts:
-            - name: batch-storage
-              mountPath: /shared/batches
-          resources:
-            requests:
-              memory: "4Gi"
-              cpu: "2"
-            limits:
-              memory: "8Gi"
-              cpu: "4"
-      volumes:
-        - name: batch-storage
-          persistentVolumeClaim:
-            claimName: datasift-batches-pvc
----
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: datasift-worker-hpa
-  namespace: datasift-production
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: datasift-worker
-  minReplicas: 3
-  maxReplicas: 10
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 70
-```
-
-### Resource Requirements
-
-**Per Worker Pod:**
-
-- **CPU**: 2-4 cores
-- **Memory**: 4-8 GB
-- **Storage**: 50-100 GB shared PVC
-
-**Cluster Recommendations:**
-
-- **Development**: 3 nodes, 8 GB RAM each
-- **Production**: 5+ nodes, 16 GB RAM each
-- **High-scale**: 10+ nodes with auto-scaling
-
-### Monitoring and Scaling
-
-**View Worker Status:**
-
-```bash
-kubectl get pods -n datasift-production -l app=datasift-worker
-```
-
-**View Logs:**
-
-```bash
-kubectl logs -n datasift-production -l app=datasift-worker --tail=100 -f
-```
-
-**Scale Workers Manually:**
-
-```bash
-kubectl scale deployment datasift-worker -n datasift-production --replicas=5
-```
-
-**Check Auto-scaling:**
-
-```bash
-kubectl get hpa -n datasift-production
-```
-
-### Storage Configuration
-
-**Persistent Volume Options:**
-
-1. **NFS**: Shared network filesystem
-2. **Cloud Provider**: EBS (AWS), Persistent Disk (GCP), Azure Disk
-3. **Distributed Storage**: Ceph, GlusterFS
-
-**Example NFS Configuration:**
-
-```yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: datasift-batches-pv
-spec:
-  capacity:
-    storage: 100Gi
-  accessModes:
-    - ReadWriteMany
-  nfs:
-    server: nfs-server.example.com
-    path: /exports/datasift-batches
-```
-
-### Security
-
-**Create Secrets:**
-
-```bash
-kubectl create secret generic datasift-secrets \
-  --from-literal=prefect-api-key=your-api-key \
-  -n datasift-production
-```
-
-**Use in Deployment:**
-
-```yaml
-env:
-  - name: PREFECT_API_KEY
-    valueFrom:
-      secretKeyRef:
-        name: datasift-secrets
-        key: prefect-api-key
-```
-
-### Troubleshooting
-
-**Worker Not Starting:**
-
-```bash
-kubectl describe pod -n datasift-production -l app=datasift-worker
-```
-
-**Storage Issues:**
-
-```bash
-kubectl get pvc -n datasift-production
-kubectl describe pvc datasift-batches-pvc -n datasift-production
-```
-
-**Network Issues:**
-
-```bash
-kubectl exec -it -n datasift-production <pod-name> -- curl http://prefect-server:4200/api/health
-```
-
-**See also:**
-
-- [Distributed Execution](#distributed-execution) - Overview of execution modes
-- [Docker Deployment](#docker-deployment) - Docker setup
-- [Architecture Documentation](ARCHITECTURE.md#deployment-patterns) - Detailed deployment patterns
-- [Troubleshooting Guide](TROUBLESHOOTING.md) - Common issues and solutions
-
 The wheel file will be created in the `dist/` directory.
 
 **See also:**
 
 - [Distributed Execution](#distributed-execution) - Overview of execution modes
-- [Kubernetes Deployment](#kubernetes-deployment) - Kubernetes setup
+- [Docker Deployment](#docker-deployment) - Docker setup
 - [Architecture Documentation](ARCHITECTURE.md#deployment-patterns) - Detailed deployment patterns
 - [Development](#development) - Development workflow and tools
 - [Testing](#testing) - Running tests and coverage

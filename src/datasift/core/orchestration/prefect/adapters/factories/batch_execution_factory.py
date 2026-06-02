@@ -8,7 +8,7 @@ Features:
 - Configuration-based strategy selection from flow JSON
 - Auto-fallback: If distributed execution is requested but Prefect Server
   is unavailable, gracefully degrades to local ThreadPoolAdapter with a warning
-- Supports all Prefect work pool types (process, docker, kubernetes, ECS, etc.)
+- Supports Prefect work pool types (process, docker)
 """
 
 from typing import Any

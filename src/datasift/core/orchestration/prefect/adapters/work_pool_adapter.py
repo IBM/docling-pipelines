@@ -36,8 +36,6 @@ from datasift.core.job_management.adapters.config.job_management_factory import 
 from datasift.core.orchestration.batch_manager import BatchInfo
 from datasift.core.orchestration.prefect.config.work_pool_config import (
     DockerWorkPoolConfig,
-    ECSWorkPoolConfig,
-    KubernetesWorkPoolConfig,
     ProcessWorkPoolConfig,
     create_work_pool_config,
 )
@@ -92,7 +90,7 @@ class WorkPoolAdapter(BatchExecutionPort):
         Args:
             work_pool_config: Configuration for work pool
                 {
-                    "type": "process|docker|kubernetes|ecs",
+                    "type": "process|docker",
                     "work_pool_name": "datasift-pool",
                     "deployment_name": "datasift-batch-subflow",
                     "batch_storage": {
@@ -891,59 +889,6 @@ class WorkPoolAdapter(BatchExecutionPort):
 
         return env
 
-    def _build_kubernetes_customizations(self, *, config: KubernetesWorkPoolConfig) -> list[dict[str, Any]]:
-        """
-        Build JSON Patch customizations for Kubernetes jobs.
-        Prefect expects infrastructure overrides to be passed as JSON Patches.
-        """
-        customizations: list[dict[str, Any]] = []
-
-        if config.volumes:
-            customizations.append({"op": "add", "path": "/spec/template/spec/volumes", "value": config.volumes})
-
-        if config.init_containers:
-            customizations.append(
-                {"op": "add", "path": "/spec/template/spec/initContainers", "value": config.init_containers}
-            )
-
-        if config.volume_mounts:
-            customizations.append(
-                {"op": "add", "path": "/spec/template/spec/containers/0/volumeMounts", "value": config.volume_mounts}
-            )
-
-        if config.working_dir:
-            customizations.append(
-                {"op": "add", "path": "/spec/template/spec/containers/0/workingDir", "value": config.working_dir}
-            )
-
-        if config.image_pull_secrets:
-            customizations.append(
-                {
-                    "op": "add",
-                    "path": "/spec/template/spec/imagePullSecrets",
-                    "value": [{"name": secret_name} for secret_name in config.image_pull_secrets],
-                }
-            )
-
-        customizations.append(
-            {
-                "op": "add",
-                "path": "/spec/template/spec/containers/0/resources",
-                "value": {
-                    "requests": {
-                        "cpu": config.cpu_request,
-                        "memory": config.memory_request,
-                    },
-                    "limits": {
-                        "cpu": config.cpu_limit,
-                        "memory": config.memory_limit,
-                    },
-                },
-            }
-        )
-
-        return customizations
-
     def _build_job_variables(self) -> dict[str, Any] | None:
         """Build deployment job variables from typed work pool config."""
         config = self.work_pool_runtime_config
@@ -960,28 +905,6 @@ class WorkPoolAdapter(BatchExecutionPort):
             if config.networks:
                 job_vars["networks"] = config.networks
             return job_vars
-
-        if isinstance(config, KubernetesWorkPoolConfig):
-            return {
-                "image": config.image,
-                "image_pull_policy": config.image_pull_policy,
-                "namespace": config.namespace,
-                "service_account_name": config.service_account_name,
-                "finished_job_ttl": config.finished_job_ttl,
-                "pod_watch_timeout_seconds": config.pod_watch_timeout_seconds,
-                "stream_output": config.stream_output,
-                "cpu_request": config.cpu_request,
-                "cpu_limit": config.cpu_limit,
-                "memory_request": config.memory_request,
-                "memory_limit": config.memory_limit,
-                "env": self._build_container_env(
-                    base_env=config.env,
-                    deployment_path=config.deployment_path,
-                ),
-            }
-
-        if isinstance(config, ECSWorkPoolConfig):
-            return {"image": config.image}
 
         if isinstance(config, ProcessWorkPoolConfig):
             # Process workers need environment variables passed via job_variables.
@@ -1006,7 +929,7 @@ class WorkPoolAdapter(BatchExecutionPort):
         For process work pools:
             No Docker image needed — workers use the local Python environment.
 
-        For docker/kubernetes work pools:
+        For docker work pools:
             Users provide their image via work_pool_config["image"].
             The image must have datasift and all dependencies installed.
 
@@ -1023,67 +946,6 @@ class WorkPoolAdapter(BatchExecutionPort):
 
         try:
             client = get_client(sync_client=True)
-
-            # Inject volumes/initContainers/volumeMounts directly into the
-            # work pool's base_job_template.  The KubernetesWorkerJobConfiguration
-            # model does NOT have a 'customizations' field, so JSON-Patch style
-            # overrides passed as job_variables are silently dropped.  The only
-            # reliable approach is to embed these resources into the job_manifest
-            # that lives inside the template itself.
-            if isinstance(self.work_pool_runtime_config, KubernetesWorkPoolConfig):
-                config = self.work_pool_runtime_config
-                try:
-                    if not self.work_pool_name:
-                        raise ValueError("work_pool_name is required for KubernetesWorkPoolConfig")
-                    pool = client.read_work_pool(self.work_pool_name)
-                    base_template = pool.base_job_template
-                    job_manifest = base_template.get("job_configuration", {}).get("job_manifest", {})
-                    pod_spec = job_manifest.get("spec", {}).get("template", {}).get("spec", {})
-                    needs_update = False
-
-                    # Inject volumes
-                    if config.volumes and pod_spec.get("volumes") != config.volumes:
-                        pod_spec["volumes"] = config.volumes
-                        needs_update = True
-
-                    # Inject initContainers
-                    if config.init_containers and pod_spec.get("initContainers") != config.init_containers:
-                        pod_spec["initContainers"] = config.init_containers
-                        needs_update = True
-
-                    # Inject volumeMounts into the first container
-                    if config.volume_mounts and pod_spec.get("containers"):
-                        container = pod_spec["containers"][0]
-                        if container.get("volumeMounts") != config.volume_mounts:
-                            container["volumeMounts"] = config.volume_mounts
-                            needs_update = True
-
-                    # Inject workingDir into the first container
-                    if config.working_dir and pod_spec.get("containers"):
-                        container = pod_spec["containers"][0]
-                        if container.get("workingDir") != config.working_dir:
-                            container["workingDir"] = config.working_dir
-                            needs_update = True
-
-                    if needs_update:
-                        from prefect.client.schemas.actions import WorkPoolUpdate
-
-                        self.prefect_engine.logger.info(
-                            f"Injecting infrastructure (volumes/initContainers/volumeMounts/workingDir) "
-                            f"into work pool '{self.work_pool_name}' base_job_template."
-                        )
-                        client.update_work_pool(
-                            work_pool_name=self.work_pool_name,
-                            work_pool=WorkPoolUpdate(base_job_template=base_template),
-                        )
-                    else:
-                        self.prefect_engine.logger.info(
-                            f"Work pool '{self.work_pool_name}' base_job_template already has required infrastructure."
-                        )
-                except Exception as e:
-                    self.prefect_engine.logger.warning(
-                        f"Could not update work pool template for {self.work_pool_name}: {e}"
-                    )
 
             # Check if deployment already exists
             try:
@@ -1173,18 +1035,6 @@ class WorkPoolAdapter(BatchExecutionPort):
                 self.prefect_engine.logger.info(
                     f"Configured Docker work pool with image: {self.work_pool_runtime_config.image}, "
                     f"networks: {self.work_pool_runtime_config.networks}, env vars: {len(docker_job_vars.get('env', {}))}"
-                )
-            elif isinstance(self.work_pool_runtime_config, KubernetesWorkPoolConfig):
-                self.prefect_engine.logger.info(
-                    f"Configured Kubernetes work pool with image: {self.work_pool_runtime_config.image}, "
-                    f"namespace: {self.work_pool_runtime_config.namespace}, "
-                    f"service_account: {self.work_pool_runtime_config.service_account_name}, "
-                    f"resources: {self.work_pool_runtime_config.cpu_request}/{self.work_pool_runtime_config.cpu_limit} CPU, "
-                    f"{self.work_pool_runtime_config.memory_request}/{self.work_pool_runtime_config.memory_limit} memory"
-                )
-            elif isinstance(self.work_pool_runtime_config, ECSWorkPoolConfig):
-                self.prefect_engine.logger.info(
-                    f"Configured ECS work pool with image: {self.work_pool_runtime_config.image}"
                 )
 
             # Create deployment

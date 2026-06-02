@@ -66,7 +66,6 @@ class BatchExecutionPort(ABC):
             - "ThreadPool"
             - "WorkPool-process"
             - "WorkPool-docker"
-            - "WorkPool-kubernetes"
 
         Returns:
             Strategy name string

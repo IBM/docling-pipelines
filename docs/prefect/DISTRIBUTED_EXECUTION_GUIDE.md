@@ -28,7 +28,7 @@ Distributed execution allows DataSift pipelines to process data across multiple 
 - Requiring horizontal scalability
 - Needing fault tolerance and retry mechanisms
 - Running production workloads
-- Deploying on Docker or Kubernetes
+- Deploying on Docker
 
 **Use default local execution when:**
 - Developing and testing
@@ -113,7 +113,7 @@ datasift-orchestrator --flow-file sample_flows/complete_pipeline_flow.json
 
 ### 2.2 Local POC Setup (Single-Machine Distributed)
 
-Run distributed execution on a single machine to understand work pools before moving to Docker/Kubernetes.
+Run distributed execution on a single machine to understand work pools before moving to Docker.
 
 **When to use:**
 - Testing distributed execution locally 
@@ -164,7 +164,7 @@ export PREFECT_API_URL=http://localhost:4200/api
 - Requirement: the submitter and worker must share the same filesystem and the same absolute path namespace for the job stats directory
 - Relative filesystem `base_dir` paths depend on where the submitter and worker processes are started
 - If filesystem storage is effective for the submitter, `DATASIFT_JOB_STATS_BASE_DIR` is propagated to workers as a resolved absolute path so workers do not reinterpret relative `base_dir` values differently
-- For reliable distributed execution across different containers, pods, or machines, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
+- For reliable distributed execution across different containers or machines, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
 - If PostgreSQL storage is effective for the submitter, the worker inherits `DATASIFT_POSTGRES_HOST`, `DATASIFT_POSTGRES_PORT`, `DATASIFT_POSTGRES_DB`, `DATASIFT_POSTGRES_USER`, and `DATASIFT_POSTGRES_PASSWORD` unless explicitly overridden in work-pool env
 
 #### Step 5: Configure Flow
@@ -331,7 +331,6 @@ This matches:
 - Example shared path choices:
   - local machine process pool: `DATASIFT_JOB_STATS_BASE_DIR=/absolute/path/to/data/job_stats`
   - Docker shared volume/process pool: `DATASIFT_JOB_STATS_BASE_DIR=/app/data/job_stats`
-  - Kubernetes shared volume/process pool: `DATASIFT_JOB_STATS_BASE_DIR=/app/data/job_stats`
 - If workers run on different machines or in isolated runtimes, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
 - For PostgreSQL-backed job stats, workers must resolve the same database connection, typically via inherited or explicit `DATASIFT_POSTGRES_HOST`, `DATASIFT_POSTGRES_PORT`, `DATASIFT_POSTGRES_DB`, `DATASIFT_POSTGRES_USER`, and `DATASIFT_POSTGRES_PASSWORD` environment variables
 
@@ -483,220 +482,6 @@ Private registries require authentication configured on the worker host machine.
 - Requirement: submitter and worker containers must share the same filesystem mount and must use the same in-container absolute path for job stats
 - If you switch Docker worker infrastructure to Prefect `process` execution on a shared volume, set `DATASIFT_JOB_STATS_BASE_DIR` to the mounted absolute path seen inside that runtime, for example `/app/data/job_stats`
 - For actual distributed Docker execution, use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py)
-
-#### Kubernetes Work Pool (`work-pool-kubernetes`)
-
-**Description**: Executes batches as Kubernetes Jobs.
-
-**Job stats store guidance:**
-- Kubernetes workers should use [`PostgresJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py) for job statistics persistence
-- Do not rely on [`JsonJobStatsStore`](../../src/datasift/core/job_management/adapters/stores/json/json_job_stats_store.py) unless you have explicitly provisioned and mounted the same shared filesystem path into all relevant pods, including any component that reads those stats
-- Requirement: all relevant pods must share the same mounted filesystem and the same in-container absolute path for job stats
-- If Kubernetes worker infrastructure is changed to Prefect `process` execution and all participants share a mounted volume, set `DATASIFT_JOB_STATS_BASE_DIR` to that in-container absolute path, for example `/app/data/job_stats`
-- If that shared mounted path does not exist, filesystem job stats storage is not a valid option
-
-**Use cases:**
-- Production deployments on Kubernetes
-- Cloud-native architectures (EKS, GKE, AKS)
-- High-availability requirements
-
-##### Understanding Container Images
-
-**Worker Image vs Batch Execution Image:**
-- **Worker image**: Runs the Prefect worker process (configured in Kubernetes Deployment manifest)
-- **Batch execution image**: Executes individual batch subflows (configured in flow JSON `image` field)
-- These can be the same image but serve different purposes
-- Worker Deployment pulls worker image; batch Jobs pull batch execution image
-
-**Configuration options:**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `image` | string | `"datasift-opensource:latest"` | Container image (can include registry) |
-| `image_pull_policy` | string | `"IfNotPresent"` | Image pull policy: `"IfNotPresent"`, `"Always"`, `"Never"` |
-| `image_pull_secrets` | list[string] | `null` | Secret names for pulling private images |
-| `namespace` | string | `"default"` | Kubernetes namespace |
-| `service_account_name` | string | `null` | Service account for RBAC |
-| `finished_job_ttl` | int | `null` | Seconds to keep completed jobs |
-| `pod_watch_timeout_seconds` | int | `60` | Timeout for pod startup |
-| `stream_output` | bool | `true` | Stream logs to Prefect UI |
-| `cpu_request` | string | `null` | CPU request (e.g., `"1000m"`) |
-| `cpu_limit` | string | `null` | CPU limit (e.g., `"2000m"`) |
-| `memory_request` | string | `null` | Memory request (e.g., `"2Gi"`) |
-| `memory_limit` | string | `null` | Memory limit (e.g., `"4Gi"`) |
-| `env` | dict | `{}` | Environment variables |
-
-##### Using Container Registries
-
-**Public Registries:**
-
-Public registries work by embedding the registry URL in the image name. No authentication required.
-
-**Example with Docker Hub:**
-```json
-{
-  "prefect": {
-    "batch_execution": {
-      "strategy": "work-pool-kubernetes",
-      "image": "your-username/datasift-opensource:v1.0.0",
-      "image_pull_policy": "IfNotPresent"
-    }
-  }
-}
-```
-
-**Example with GHCR:**
-```json
-{
-  "prefect": {
-    "batch_execution": {
-      "strategy": "work-pool-kubernetes",
-      "image": "ghcr.io/your-org/datasift-opensource:v1.0.0",
-      "image_pull_policy": "Always"
-    }
-  }
-}
-```
-
-##### Private Registry Support
-
-DataSift now supports `imagePullSecrets` for pulling images from private Kubernetes registries. Configure this in your flow JSON to authenticate with private container registries.
-
-**Prerequisites:**
-
-1. Create a Kubernetes secret with registry credentials:
-
-```bash
-kubectl create secret docker-registry regcred \
-  --docker-server=registry.example.com \
-  --docker-username=your-username \
-  --docker-password=your-password \
-  --docker-email=your-email@example.com \
-  --namespace=datasift
-```
-
-2. Configure `image_pull_secrets` in your flow JSON:
-
-```json
-{
-  "prefect": {
-    "batch_execution": {
-      "strategy": "work-pool-kubernetes",
-      "work_pool_name": "datasift-k8s-pool",
-      "image": "registry.example.com/datasift/runtime:v1.0.0",
-      "image_pull_policy": "IfNotPresent",
-      "image_pull_secrets": ["regcred"],
-      "namespace": "datasift",
-      "batch_storage": {
-        "type": "s3",
-        "bucket": "my-datasift-batches"
-      }
-    }
-  }
-}
-```
-
-**Multiple Secrets:**
-
-You can specify multiple secrets if your images come from different registries:
-
-```json
-{
-  "prefect": {
-    "batch_execution": {
-      "image_pull_secrets": ["regcred-ecr", "regcred-gcr", "regcred-acr"]
-    }
-  }
-}
-```
-
-**Note:** Flow JSON configuration takes precedence over work pool configuration.
-
-**Alternative Approaches:**
-
-**Option 1: Configure at Work Pool Level**
-
-Configure `imagePullSecrets` when creating the Prefect work pool, which applies to all batch jobs:
-
-```bash
-prefect work-pool create datasift-k8s-pool \
-  --type kubernetes \
-  --set-config job_variables.image_pull_secrets='[{"name": "regcred"}]'
-```
-
-**Option 2: Use Public Registry**
-
-Push images to a public registry (Docker Hub, GHCR) for development/testing:
-
-```bash
-# Tag and push to GHCR (replace with your org and image name)
-docker tag datasift-opensource:latest ghcr.io/your-org/datasift:v1.0.0
-docker push ghcr.io/your-org/datasift:v1.0.0
-```
-
-**Option 3: Configure Default Service Account**
-
-Add `imagePullSecrets` to the default service account in your namespace:
-
-```bash
-kubectl patch serviceaccount default -n datasift-production \
-  -p '{"imagePullSecrets": [{"name": "regcred"}]}'
-```
-
-All pods in that namespace will inherit the secret.
-
-**Example with S3 storage:**
-
-```json
-{
-  "prefect": {
-    "batch_execution": {
-      "strategy": "work-pool-kubernetes",
-      "work_pool_name": "datasift-k8s-pool",
-      "image": "your-registry.io/datasift-opensource:v1.0.0",
-      "image_pull_policy": "Always",
-      "namespace": "datasift-production",
-      "service_account_name": "datasift-worker",
-      "finished_job_ttl": 300,
-      "cpu_request": "1000m",
-      "cpu_limit": "2000m",
-      "memory_request": "2Gi",
-      "memory_limit": "4Gi",
-      "env": {
-        "PYTHONPATH": "/app/src",
-        "LOG_LEVEL": "INFO",
-        "OLLAMA_HOST": "http://ollama-service:11434",
-        "OPENSEARCH_HOST": "opensearch-service",
-        "OPENSEARCH_PORT": "9200",
-        "OPENSEARCH_USERNAME": "admin",
-        "OPENSEARCH_PASSWORD": "MyStrongPass123!", # pragma: allowlist secret  <!-- pragma: allowlist secret -->
-        "OPENSEARCH_USE_SSL": "false",
-        "OPENSEARCH_VERIFY_CERTS": "false",
-        "PREFECT_API_URL": "http://prefect-server:4200/api",
-        "PREFECT_MODE": "server"
-      },
-      "batch_storage": {
-        "type": "s3",
-        "bucket": "datasift-production-batches",
-        "region": "us-east-1"
-      }
-    }
-  }
-}
-```
-
-**Requirements:**
-- Kubernetes cluster with kubectl access
-- Container image in accessible registry
-- Service account with RBAC permissions
-- S3-compatible storage (recommended)
-- For private registries: `imagePullSecrets` configured at work pool or namespace level
-
-**Resource limits best practices:**
-- Set `cpu_request` and `memory_request` based on typical batch size
-- Set limits 1.5-2x higher than requests
-- Monitor actual usage and adjust
-- Use `finished_job_ttl` to prevent job accumulation
 
 ### 3.3 Batch Storage Configuration
 
@@ -855,125 +640,6 @@ volumes:
           }
         },
         "entity_extraction": {"provider": "none"}
-      }
-    }
-  ]
-}
-```
-
-#### Example 2: Kubernetes Work Pool with Local Shared Storage
-
-```json
-{
-  "name": "kubernetes-production-pipeline",
-  "flow_id": "k8s-prod-001",
-  "description": "Production pipeline using Kubernetes with shared local storage",
-  "storage": "in-memory",
-  "execute_type": "local",
-  "global_config": {
-    "doc_column": "content",
-    "prefect": {
-      "batch_execution": {
-        "strategy": "work-pool-kubernetes",
-        "work_pool_name": "datasift-k8s-pool",
-        "image": "myregistry.io/datasift-opensource:v1.0.0",
-        "image_pull_policy": "Always",
-        "namespace": "datasift-production",
-        "service_account_name": "datasift-worker",
-        "finished_job_ttl": 300,
-        "cpu_request": "1000m",
-        "cpu_limit": "2000m",
-        "memory_request": "2Gi",
-        "memory_limit": "4Gi",
-        "env": {
-          "PYTHONPATH": "/app/src",
-          "LOG_LEVEL": "INFO",
-          "OLLAMA_HOST": "http://ollama-service:11434",
-          "OPENSEARCH_HOST": "opensearch-service",
-          "OPENSEARCH_PORT": "9200",
-          "OPENSEARCH_USERNAME": "admin",
-          "OPENSEARCH_PASSWORD": "MyStrongPass123!", # pragma: allowlist secret
-          "OPENSEARCH_USE_SSL": "false",
-          "OPENSEARCH_VERIFY_CERTS": "false",
-          "PREFECT_API_URL": "http://prefect-server:4200/api",
-          "PREFECT_MODE": "server"
-        },
-        "batch_storage": {
-          "type": "s3",
-          "bucket": "datasift-production-batches",
-          "prefix": "tmp/batches/",
-          "access_key": "your-access-key-id",
-          "secret_key": "<your-secret-access-key>",  <!-- pragma: allowlist secret -->
-          "region": "us-east-1"
-        }
-      }
-    }
-  },
-  "flow": [
-    {
-      "name": "ingest_from_s3",
-      "type": "ingest_source",
-      "config": {
-        "provider": "s3",
-        "bucket_name": "datasift-input-data",
-        "prefix": "documents/"
-      }
-    },
-    {
-      "name": "extract_content",
-      "type": "extract_operator",
-      "depends_on": ["ingest_from_s3"],
-      "config": {
-        "text_extraction": {
-          "provider": "docling_serve",
-          "provider_config": {
-            "base_url": "http://docling-service:5000"
-          }
-        },
-        "entity_extraction": {"provider": "none"}
-      }
-    },
-    {
-      "name": "semantic_chunker",
-      "type": "chunker",
-      "depends_on": ["extract_content"],
-      "config": {
-        "chunking_type": "semantic",
-        "chunk_size": 512,
-        "chunk_overlap": 50
-      }
-    },
-    {
-      "name": "generate_embeddings",
-      "type": "embeddings",
-      "depends_on": ["semantic_chunker"],
-      "config": {
-        "provider": "litellm",
-        "model_id": "openai/nomic-embed-text",
-        "embeddings_column": "embeddings",
-        "provider_config": {
-            "api_base": "http://localhost:11434"
-        }    
-      }
-    },
-    {
-      "name": "store_in_opensearch",
-      "type": "vectordb",
-      "depends_on": ["generate_embeddings"],
-      "config": {
-        "provider": "opensearch",
-        "index_name": "datasift-documents",
-        "doc_id_column": "doc_id_hash",
-        "embeddings_column": "embeddings",
-        "vector_dimension": 768,
-        "create_index": true,
-        "provider_config": {
-          "host": "opensearch-service",
-          "port": 9200,
-          "use_ssl": true,
-          "verify_certs": false,
-          "engine": "faiss"
-        }
       }
     }
   ]
@@ -1164,156 +830,6 @@ docker-compose -f docker/docker-compose.distributed.yml down
 docker-compose -f docker/docker-compose.distributed.yml down -v
 ```
 
-### 4.2 Kubernetes Deployment
-
-#### Overview
-
-Kubernetes deployment provides production-grade distributed execution with horizontal scaling, resource limits, and high availability.
-
-#### Prerequisites
-
-1. Kubernetes cluster (any conformant distribution or local environment like minikube)
-2. `kubectl` configured to access cluster
-3. Container registry
-4. Shared storage available through a PersistentVolumeClaim or equivalent filesystem
-
-#### Step-by-Step Setup
-
-**1. Build and Push Container Image**
-
-```bash
-# Build image
-docker build -t your-registry.io/datasift-opensource:v1.0.0 .
-
-# Push to registry
-docker push your-registry.io/datasift-opensource:v1.0.0
-```
-
-**2. Deploy Kubernetes Manifests**
-
-Use the simplified deployment examples from `k8s-deployment-examples/` directory:
-
-```bash
-# Create namespace
-kubectl apply -f k8s-deployment-examples/namespace.yaml
-
-# Deploy RBAC (required for workers to create jobs)
-kubectl apply -f k8s-deployment-examples/rbac.yaml
-
-# Deploy PostgreSQL database
-kubectl apply -f k8s-deployment-examples/postgres.yaml
-kubectl wait --for=condition=ready pod -l app=postgres -n datasift --timeout=300s
-
-# Deploy Prefect Server
-kubectl apply -f k8s-deployment-examples/prefect-server.yaml
-kubectl wait --for=condition=ready pod -l app=prefect-server -n datasift --timeout=300s
-
-# Deploy Prefect Workers (includes work pool setup)
-kubectl apply -f k8s-deployment-examples/prefect-worker.yaml
-kubectl get pods -l app=prefect-worker -n datasift
-```
-
-**3. (Optional) Deploy Additional Services**
-
-Deploy optional services based on your pipeline requirements:
-
-```bash
-# MinIO - For distributed batch processing with S3 storage
-kubectl apply -f k8s-deployment-examples/minio.yaml
-
-# Ollama - For LLM operations (ExtractEntitiesOllama, EmbeddingsOperator)
-kubectl apply -f k8s-deployment-examples/ollama.yaml
-
-# OpenSearch - For vector storage (VectorDBOperator)
-kubectl apply -f k8s-deployment-examples/opensearch.yaml
-
-# Redis - Required if using Docling Serve (task queue for document processing)
-kubectl apply -f k8s-deployment-examples/redis.yaml
-
-# Docling Serve - For document extraction (ExtractDocling)
-# Note: Requires Redis to be deployed first
-kubectl apply -f k8s-deployment-examples/docling-serve.yaml
-
-# Docling RQ Workers - Processes document extraction tasks
-kubectl apply -f k8s-deployment-examples/docling-serve-rq-worker.yaml
-```
-
-> **Note**: For detailed deployment instructions, customization options, and troubleshooting, see [k8s-deployment-examples/README.md](../../k8s-deployment-examples/README.md).
-
-**4. Verify Deployment**
-
-```bash
-# Check all pods are running
-kubectl get pods -n datasift
-
-# View Prefect Server logs
-kubectl logs -n datasift -l app=prefect-server --tail=50
-
-# Access Prefect UI (port-forward)
-kubectl port-forward -n datasift svc/prefect-server 4200:4200
-# Then open: http://localhost:4200
-```
-
-**8. Configure Flow**
-
-See [Example 2: Kubernetes Work Pool with Local Shared Storage](#example-2-kubernetes-work-pool-with-local-shared-storage) above.
-
-**9. Run Flow**
-
-```bash
-export PREFECT_MODE=server
-export PREFECT_API_URL=http://localhost:4200/api
-datasift-orchestrator --flow-file your-k8s-flow.json
-```
-
-#### Storage Options
-
-**Option 1: PersistentVolumeClaim (PVC)**
-
-For shared filesystem storage within cluster:
-
-```yaml
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: datasift-batch-storage
-spec:
-  accessModes:
-    - ReadWriteMany
-  resources:
-    requests:
-      storage: 100Gi
-```
-
-**Option 2: Shared Filesystem Storage**
-
-Use shared filesystem storage for distributed deployments. Configure the shared path in flow JSON and back it with a suitable PVC or network filesystem.
-
-#### Resource Management
-
-Set resource requests and limits in flow configuration:
-
-```json
-{
-  "cpu_request": "1000m",
-  "cpu_limit": "2000m",
-  "memory_request": "2Gi",
-  "memory_limit": "4Gi"
-}
-```
-
-**Best practices:**
-- Set requests at 50-70% of expected usage
-- Set limits at 150-200% of requests
-- Monitor with `kubectl top pods`
-- Adjust based on actual usage
-
-#### Cleanup
-
-```bash
-kubectl delete namespace datasift
-```
-
 ---
 
 ## 5. Troubleshooting
@@ -1373,15 +889,6 @@ docker network inspect datasift-net
 docker-compose exec prefect-worker ping -c 1 ollama
 ```
 
-**Kubernetes:**
-```bash
-# Verify services exist
-kubectl get svc -n datasift
-
-# Test DNS resolution
-kubectl run -it --rm debug --image=busybox --restart=Never -n datasift -- nslookup ollama-service
-```
-
 ### 5.2 Configuration Errors
 
 #### Missing Work Pool Name
@@ -1416,9 +923,6 @@ prefect work-pool create datasift-pool --type process
 
 # For Docker work pool
 prefect work-pool create datasift-pool --type docker
-
-# For Kubernetes work pool
-prefect work-pool create datasift-pool --type kubernetes
 ```
 
 #### Missing Batch Storage Configuration
@@ -1521,7 +1025,7 @@ ls -la /data/batches
 4. Too many batches for available workers
 
 **Solutions:**
-- Increase worker resources (Kubernetes: adjust `cpu_limit`, `memory_limit`)
+- Increase worker resources (Docker: adjust container resources)
 - Add more workers to work pool
 - Use local storage for same-machine deployments
 - Optimize batch size
@@ -1656,55 +1160,16 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 ---
 
-#### Kubernetes
-
-**Flow JSON:**
-```json
-{
-  "global_config": {
-    "prefect": {
-      "batch_execution": {
-        "strategy": "work-pool-kubernetes",
-        "work_pool_name": "datasift-k8s-pool",
-        "image": "registry.io/datasift:v1.0.0",
-        "namespace": "datasift",
-        "cpu_request": "1000m",
-        "memory_request": "2Gi",
-        "env": {
-          "PREFECT_MODE": "server",
-          "PREFECT_API_URL": "http://prefect-server:4200/api"
-        },
-        "batch_storage": {
-          "type": "s3",
-          "bucket": "production-batches"
-        }
-      }
-    }
-  }
-}
-```
-
-**Environment (submitter):**
-```bash
-export PREFECT_MODE=server
-export PREFECT_API_URL=http://localhost:4200/api
-```
-
-**When to use:**
-- Production deployments
-- Cloud-native architectures
-- High availability requirements
-
 ### 6.2 Side-by-Side Comparison
 
-| Feature | Ephemeral | Local Distributed | Docker | Kubernetes |
-|---------|-----------|-------------------|--------|------------|
-| Setup Complexity | ⭐ Simple | ⭐⭐ Medium | ⭐⭐⭐ Complex | ⭐⭐⭐⭐ Very Complex |
-| Scalability | ❌ Single machine | ✅ Single machine | ✅✅ Multi-container | ✅✅✅ Multi-node |
-| Isolation | ❌ None | ❌ Process-level | ✅ Container | ✅ Pod |
-| Resource Limits | ❌ No | ❌ No | ✅ Yes | ✅✅ Advanced |
-| Production Ready | ❌ No | ❌ No | ✅ Yes | ✅✅ Yes |
-| Fault Tolerance | ❌ No | ✅ Basic | ✅✅ Good | ✅✅✅ Excellent |
+| Feature | Ephemeral | Local Distributed | Docker |
+|---------|-----------|-------------------|--------|
+| Setup Complexity | ⭐ Simple | ⭐⭐ Medium | ⭐⭐⭐ Complex |
+| Scalability | ❌ Single machine | ✅ Single machine | ✅✅ Multi-container |
+| Isolation | ❌ None | ❌ Process-level | ✅ Container |
+| Resource Limits | ❌ No | ❌ No | ✅ Yes |
+| Production Ready | ❌ No | ❌ No | ✅ Yes |
+| Fault Tolerance | ❌ No | ✅ Basic | ✅✅ Good |
 
 ### 6.3 Upgrade Guidance
 
@@ -1720,13 +1185,6 @@ export PREFECT_API_URL=http://localhost:4200/api
 2. Start docker-compose stack
 3. Update flow JSON with Docker configuration
 4. Configure shared local filesystem storage
-
-**From Docker to Kubernetes:**
-1. Push image to registry
-2. Deploy Kubernetes manifests
-3. Create Kubernetes work pool
-4. Update flow JSON with Kubernetes configuration
-5. Configure shared filesystem storage for production
 
 ---
 
@@ -1781,45 +1239,6 @@ export PREFECT_API_URL=http://localhost:4200/api
 }
 ```
 
-**Full configuration (Kubernetes):**
-
-```json
-{
-  "global_config": {
-    "prefect": {
-      "batch_execution": {
-        "strategy": "work-pool-kubernetes",
-        "work_pool_name": "datasift-k8s-pool",
-        "image": "registry.io/datasift:v1.0.0",
-        "image_pull_policy": "Always",
-        "namespace": "datasift",
-        "service_account_name": "datasift-worker",
-        "finished_job_ttl": 300,
-        "pod_watch_timeout_seconds": 120,
-        "stream_output": true,
-        "cpu_request": "1000m",
-        "cpu_limit": "2000m",
-        "memory_request": "2Gi",
-        "memory_limit": "4Gi",
-        "env": {
-          "PREFECT_MODE": "server",
-          "PREFECT_API_URL": "http://prefect-server:4200/api",
-          "PYTHONPATH": "/app/src"
-        },
-        "batch_storage": {
-          "type": "s3",
-          "bucket": "production-batches",
-          "prefix": "tmp/batches/",
-          "access_key": "your-access-key",
-          "secret_key": "your-secret-key",  <!-- pragma: allowlist secret -->
-          "region": "us-east-1"
-        }
-      }
-    }
-  }
-}
-```
-
 **Inline storage (for small batches):**
 
 ```json
@@ -1844,15 +1263,11 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 - **Sample Flow**: [`sample_flows/complete_pipeline_flow.json`](../../sample_flows/complete_pipeline_flow.json)
 - **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
-- **Kubernetes Manifests**: [`k8s-deployment-examples/`](../../k8s-deployment-examples/)
-
 ### 7.4 Related Documentation
 
 - **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../../USER_GUIDE_PIPELINE_SETUP.md)
 - **Architecture**: [ARCHITECTURE.md](../../ARCHITECTURE.md)
-- **Kubernetes Setup**: [docs/kubernetes/KUBERNETES_SETUP_GUIDE.md](../kubernetes/KUBERNETES_SETUP_GUIDE.md)
 - **Prefect Documentation**: https://docs.prefect.io/concepts/work-pools/
-- **Kubernetes Documentation**: https://kubernetes.io/docs/home/
 - **Docker Documentation**: https://docs.docker.com/
 
 ---
@@ -1910,18 +1325,14 @@ The following features are planned for future releases to enhance distributed ex
 
 Use descriptive names indicating environment and type:
 - `datasift-dev-docker` - Development Docker pool
-- `datasift-prod-k8s` - Production Kubernetes pool
+- `datasift-prod-process` - Production process pool
 - `datasift-staging-process` - Staging process pool
 
 #### Resource Allocation
 
-**Kubernetes:**
-- Start conservative, increase based on monitoring
-- Set requests at 50-70% of expected usage
-
-# For Kubernetes work pool
-prefect work-pool create datasift-pool --type kubernetes
-```
+**Docker:**
+- Use `--cpus` and `--memory` flags when starting workers
+- Monitor with `docker stats`
 
 #### Missing Batch Storage Configuration
 
@@ -2010,7 +1421,7 @@ ls -la /data/batches
 4. Too many batches for available workers
 
 **Solutions:**
-- Increase worker resources (Kubernetes: adjust `cpu_limit`, `memory_limit`)
+- Increase worker resources (Docker: adjust container resources)
 - Add more workers to work pool
 - Use local storage for same-machine deployments
 - Optimize batch size
@@ -2145,55 +1556,18 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 ---
 
-#### Kubernetes
-
-**Flow JSON:**
-```json
-{
-  "global_config": {
-    "prefect": {
-      "batch_execution": {
-        "strategy": "work-pool-kubernetes",
-        "work_pool_name": "datasift-k8s-pool",
-        "image": "registry.io/datasift:v1.0.0",
-        "namespace": "datasift",
-        "cpu_request": "1000m",
-        "memory_request": "2Gi",
-        "env": {
-          "PREFECT_MODE": "server",
-          "PREFECT_API_URL": "http://prefect-server:4200/api"
-        },
-        "batch_storage": {
-          "type": "s3",
-          "bucket": "production-batches"
-        }
-      }
-    }
-  }
-}
-```
-
-**Environment (submitter):**
-```bash
-export PREFECT_MODE=server
-export PREFECT_API_URL=http://localhost:4200/api
-```
-
-**When to use:**
-- Production deployments
-- Cloud-native architectures
-- High availability requirements
+---
 
 ### 6.2 Side-by-Side Comparison
 
-| Feature | Ephemeral | Local Distributed | Docker | Kubernetes |
-|---------|-----------|-------------------|--------|------------|
-| Setup Complexity | ⭐ Simple | ⭐⭐ Medium | ⭐⭐⭐ Complex | ⭐⭐⭐⭐ Very Complex |
-| Scalability | ❌ Single machine | ✅ Single machine | ✅✅ Multi-container | ✅✅✅ Multi-node |
-| Isolation | ❌ None | ❌ Process-level | ✅ Container | ✅ Pod |
-| Resource Limits | ❌ No | ❌ No | ✅ Yes | ✅✅ Advanced |
-| Production Ready | ❌ No | ❌ No | ✅ Yes | ✅✅ Yes |
-| Fault Tolerance | ❌ No | ✅ Basic | ✅✅ Good | ✅✅✅ Excellent |
+| Feature | Ephemeral | Local Distributed | Docker |
+|---------|-----------|-------------------|--------|
+| Setup Complexity | ⭐ Simple | ⭐⭐ Medium | ⭐⭐⭐ Complex |
+| Scalability | ❌ Single machine | ✅ Single machine | ✅✅ Multi-container |
+| Isolation | ❌ None | ❌ Process-level | ✅ Container |
+| Resource Limits | ❌ No | ❌ No | ✅ Yes |
+| Production Ready | ❌ No | ❌ No | ✅ Yes |
+| Fault Tolerance | ❌ No | ✅ Basic | ✅✅ Good |
 
 ### 6.3 Upgrade Guidance
 
@@ -2209,13 +1583,6 @@ export PREFECT_API_URL=http://localhost:4200/api
 2. Start docker-compose stack
 3. Update flow JSON with Docker configuration
 4. Configure shared local filesystem storage
-
-**From Docker to Kubernetes:**
-1. Push image to registry
-2. Deploy Kubernetes manifests
-3. Create Kubernetes work pool
-4. Update flow JSON with Kubernetes configuration
-5. Configure shared filesystem storage for production
 
 ---
 
@@ -2258,58 +1625,15 @@ export PREFECT_API_URL=http://localhost:4200/api
 }
 ```
 
-**Full configuration (Kubernetes):**
-
-```json
-{
-  "global_config": {
-    "prefect": {
-      "batch_execution": {
-        "strategy": "work-pool-kubernetes",
-        "work_pool_name": "datasift-k8s-pool",
-        "image": "registry.io/datasift:v1.0.0",
-        "image_pull_policy": "Always",
-        "namespace": "datasift",
-        "service_account_name": "datasift-worker",
-        "finished_job_ttl": 300,
-        "pod_watch_timeout_seconds": 120,
-        "stream_output": true,
-        "cpu_request": "1000m",
-        "cpu_limit": "2000m",
-        "memory_request": "2Gi",
-        "memory_limit": "4Gi",
-        "env": {
-          "PREFECT_MODE": "server",
-          "PREFECT_API_URL": "http://prefect-server:4200/api",
-          "PYTHONPATH": "/app/src"
-        },
-        "batch_storage": {
-          "type": "s3",
-          "bucket": "production-batches",
-          "prefix": "tmp/batches/",
-          "access_key": "your-access-key",
-          "secret_key": "your-secret-key",  <!-- pragma: allowlist secret -->
-          "region": "us-east-1"
-        }
-      }
-    }
-  }
-}
-```
-
 ### 7.3 Links to Examples
 
 - **Sample Flow**: [`sample_flows/complete_pipeline_flow.json`](../../sample_flows/complete_pipeline_flow.json)
 - **Docker Compose**: [`docker/docker-compose.distributed.yml`](../../docker/docker-compose.distributed.yml)
-- **Kubernetes Manifests**: [`k8s-deployment-examples/`](../../k8s-deployment-examples/)
-
 ### 7.4 Related Documentation
 
 - **User Guide**: [USER_GUIDE_PIPELINE_SETUP.md](../../USER_GUIDE_PIPELINE_SETUP.md)
 - **Architecture**: [ARCHITECTURE.md](../../ARCHITECTURE.md)
-- **Kubernetes Setup**: [docs/kubernetes/KUBERNETES_SETUP_GUIDE.md](../kubernetes/KUBERNETES_SETUP_GUIDE.md)
 - **Prefect Documentation**: https://docs.prefect.io/concepts/work-pools/
-- **Kubernetes Documentation**: https://kubernetes.io/docs/home/
 - **Docker Documentation**: https://docs.docker.com/
 
 ### 7.5 Best Practices
@@ -2318,16 +1642,10 @@ export PREFECT_API_URL=http://localhost:4200/api
 
 Use descriptive names indicating environment and type:
 - `datasift-dev-docker` - Development Docker pool
-- `datasift-prod-k8s` - Production Kubernetes pool
+- `datasift-prod-process` - Production process pool
 - `datasift-staging-process` - Staging process pool
 
 #### Resource Allocation
-
-**Kubernetes:**
-- Start conservative, increase based on monitoring
-- Set requests at 50-70% of expected usage
-- Set limits at 150-200% of requests
-- Monitor with `kubectl top pods`
 
 **Docker:**
 - Use `--cpus` and `--memory` flags when starting workers
@@ -2339,15 +1657,12 @@ Use descriptive names indicating environment and type:
 |----------|-------------------|
 | Development/testing | `inline` (if batches <400KB) or `local` |
 | Docker Compose | `local` with shared volumes |
-| Kubernetes (same cluster) | `s3` with cluster-local MinIO |
-| Kubernetes (multi-region) | `s3` with regional buckets |
 | Production | `s3` with proper IAM/credentials |
 
 #### Security
 
 - Never commit credentials to version control
 - Store credentials securely (environment variables, secret managers)
-- For Kubernetes: Use service accounts and RBAC
 - Rotate credentials regularly
 
 #### Monitoring
@@ -2365,7 +1680,7 @@ Monitor these metrics:
 
 Distributed execution in DataSift enables horizontal scaling and improved throughput through Prefect work pools and workers. Key takeaways:
 
-1. **Start Simple**: Begin with ephemeral mode, progress to local POC, then Docker/Kubernetes
+1. **Start Simple**: Begin with ephemeral mode, progress to local POC, then Docker
 2. **PREFECT_MODE is Critical**: Always set `PREFECT_MODE=server` for distributed execution
 3. **Choose Right Storage**: Use inline for testing and local shared filesystem storage for distributed execution
 4. **Monitor and Scale**: Add workers as needed, monitor performance metrics

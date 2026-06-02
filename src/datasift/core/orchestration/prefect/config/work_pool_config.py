@@ -70,50 +70,6 @@ class DockerWorkPoolConfig(BaseContainerWorkPoolConfig):
     networks: list[str] | None = None
 
 
-@dataclass
-class KubernetesWorkPoolConfig(BaseContainerWorkPoolConfig):
-    """
-    Configuration for Kubernetes work pools.
-
-    Attributes:
-        image_pull_policy: Kubernetes image pull policy.
-        namespace: Namespace used for job execution.
-        service_account_name: Service account attached to job pods.
-        finished_job_ttl: TTL in seconds for completed jobs.
-        pod_watch_timeout_seconds: Timeout for pod watch operations.
-        stream_output: Whether worker logs should be streamed.
-        cpu_request: CPU request for the job container.
-        cpu_limit: CPU limit for the job container.
-        memory_request: Memory request for the job container.
-        memory_limit: Memory limit for the job container.
-        image_pull_secrets: List of secret names for pulling private container images.
-        volumes: Optional list of Kubernetes volumes to mount.
-        init_containers: Optional list of Kubernetes init containers to run.
-        volume_mounts: Optional list of volume mounts for the primary container.
-    """
-
-    image_pull_policy: str = "IfNotPresent"
-    namespace: str = "datasift"
-    service_account_name: str = "prefect-worker"
-    finished_job_ttl: int = 3600
-    pod_watch_timeout_seconds: int = 300
-    stream_output: bool = True
-    cpu_request: str = "500m"    # LOW request → K8s can schedule many concurrent jobs
-    cpu_limit: str = "2000m"     # 2 CPU max burst per job (as requested)
-    memory_request: str = "1Gi"  # LOW request → K8s can schedule ~55 concurrent jobs
-    memory_limit: str = "2Gi"    # 2 GiB max per job (as requested)
-    image_pull_secrets: list[str] | None = None
-    volumes: list[dict[str, Any]] | None = None
-    init_containers: list[dict[str, Any]] | None = None
-    volume_mounts: list[dict[str, Any]] | None = None
-    working_dir: str | None = None
-
-
-@dataclass
-class ECSWorkPoolConfig(BaseContainerWorkPoolConfig):
-    """Configuration for ECS work pools currently supported by this repository."""
-
-
 def _filter_config_for_dataclass(*, config_dict: dict[str, Any], config_cls: type) -> dict[str, Any]:
     """Filter raw config to the fields accepted by the target dataclass."""
     valid_field_names = {config_field.name for config_field in fields(config_cls)}
@@ -134,8 +90,6 @@ def create_work_pool_config(
     """
     config_class_map = {
         WorkPoolType.DOCKER.value: DockerWorkPoolConfig,
-        WorkPoolType.KUBERNETES.value: KubernetesWorkPoolConfig,
-        WorkPoolType.ECS.value: ECSWorkPoolConfig,
     }
     config_cls = config_class_map.get(work_pool_type, ProcessWorkPoolConfig)
     filtered_config = _filter_config_for_dataclass(

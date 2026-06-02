@@ -29,10 +29,6 @@ class ExecutionStrategyType(StrEnum):
     # Distributed execution via Prefect work pools
     WORK_POOL_PROCESS = "work-pool-process"
     WORK_POOL_DOCKER = "work-pool-docker"
-    WORK_POOL_KUBERNETES = "work-pool-kubernetes"
-    WORK_POOL_ECS = "work-pool-ecs"
-    WORK_POOL_AZURE_CONTAINER_INSTANCE = "work-pool-azure-container-instance"
-    WORK_POOL_CLOUD_RUN = "work-pool-cloud-run"
 
 
 class ExecutionMode(StrEnum):
@@ -60,10 +56,6 @@ class WorkPoolType(StrEnum):
 
     PROCESS = "process"
     DOCKER = "docker"
-    KUBERNETES = "kubernetes"
-    ECS = "ecs"
-    AZURE_CONTAINER_INSTANCE = "azure-container-instance"
-    CLOUD_RUN = "cloud-run"
 
 
 class BatchStorageType(StrEnum):
