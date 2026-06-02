@@ -165,6 +165,8 @@ class AbstractOrchestrator(ABC):
 
     def _handle_node_failure(self, *, e, op_def, global_config):
         self.job_status = ExecutionStatus.FAILING
+        # Capture error message for job-level message field
+        self.message = str(e)
         self.flow_execution_event_handler.after_node_failure(
             node_id=op_def[OperatorConstants.Columns.ID],
             node_name=op_def[OperatorConstants.Columns.NAME],

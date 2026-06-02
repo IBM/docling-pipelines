@@ -411,6 +411,7 @@ class JobTrackerService(JobStatsService):
             operator=node_name,
             node_metadata={
                 Metrics.External.NODE_STATUS: ExecutionStatus.FAILED.value,
+                Metrics.External.ERROR: error_message,
             },
         )
 
