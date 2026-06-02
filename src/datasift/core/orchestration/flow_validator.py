@@ -179,7 +179,7 @@ class FlowValidator:
         self.orchestrator = orchestrator
         self.logger = get_logger()
         self.common_log_arguments = orchestrator.common_log_arguments
-        self.operator_metadata = OperatorMetadata()
+        self.operator_metadata = OperatorMetadata(orchestrator=orchestrator)
         # Load operator metadata once during initialization
         # Operators that require external services may fail to load metadata
         # This is acceptable for validation as we only need structural information
@@ -488,7 +488,9 @@ class FlowValidator:
         validate_results.available_features[node_id] = output_features
 
         operator_factory: OperatorFactory = OperatorFactoryProvider.get_operator_factory(
-            orchestrator=OrchestratorType.PYTHON
+            orchestrator=OrchestratorType.PYTHON,
+            package_names=self.orchestrator.custom_operator_packages,
+            enable_custom_operators=self.orchestrator.enable_custom_operators,
         )
 
         if self._evaluate_node_validation_skip(
@@ -1030,7 +1032,9 @@ class FlowValidator:
             validate_results: Container for validation results
         """
         operator_factory: OperatorFactory = OperatorFactoryProvider.get_operator_factory(
-            orchestrator=OrchestratorType.PYTHON
+            orchestrator=OrchestratorType.PYTHON,
+            package_names=self.orchestrator.custom_operator_packages,
+            enable_custom_operators=self.orchestrator.enable_custom_operators,
         )
 
         for node in dag:

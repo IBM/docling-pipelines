@@ -63,7 +63,7 @@ def format_operator_details(operator_metadata: dict[str, Any], verbose: bool = F
         category = metadata.get(OperatorConstants.Misc.CATEGORY, "Unknown")
         is_available = metadata.get(OperatorConstants.Misc.IS_OPERATOR_AVAILABLE, False)
         status = "Available" if is_available else "Unavailable"
-        owner = metadata.get("owner", "datasift")
+        owner = metadata.get("owner") or "datasift"
 
         # Operator header
         lines.append(f"\n{'=' * 80}")
@@ -159,7 +159,7 @@ def display_operator_summary(operator_metadata: dict[str, Any]) -> str:
 
         label = metadata.get(OperatorConstants.Misc.LABEL, short_name)
         category = metadata.get(OperatorConstants.Misc.CATEGORY, "Unknown")
-        owner = metadata.get("owner", "datasift")
+        owner = metadata.get("owner") or "datasift"
         is_available = metadata.get(OperatorConstants.Misc.IS_OPERATOR_AVAILABLE, False)
         status = "Available" if is_available else "Unavailable"
         features = metadata.get(OperatorConstants.Config.FEATURES, {})

@@ -92,6 +92,8 @@ class TestFlowValidator:
         """Test validation with unnamed operators."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
+        mock_orchestrator.enable_custom_operators = True
+        mock_orchestrator.custom_operator_packages = None
         mock_orchestrator.prefect_executor = Mock()
         mock_orchestrator.prefect_executor.build_non_execute_flow = Mock(return_value=Mock())
 
@@ -118,6 +120,8 @@ class TestFlowValidator:
         """Test validation with duplicate operator names."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
+        mock_orchestrator.enable_custom_operators = True
+        mock_orchestrator.custom_operator_packages = None
         mock_orchestrator.prefect_executor = Mock()
         mock_orchestrator.prefect_executor.build_non_execute_flow = Mock(return_value=Mock())
 

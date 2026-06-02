@@ -24,8 +24,6 @@ logger = get_logger()
 
 
 class PythonOperatorExecutor(AbstractOperatorExecutor):
-    operator_factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
-
     def __init__(
         self,
         *,
@@ -33,12 +31,20 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         operator: str,
         params: dict,
         job_stats_service: JobStatsService | None = None,
+        enable_custom_operators: bool = True,
+        custom_operator_packages: list[str] | None = None,
     ):
         super().__init__(
             name=name,
             operator=operator,
             params=params,
             job_stats_service=job_stats_service,
+        )
+        # Create operator factory with custom operator support
+        self.operator_factory = OperatorFactoryProvider.get_operator_factory(
+            orchestrator=OrchestratorType.PYTHON,
+            package_names=custom_operator_packages,
+            enable_custom_operators=enable_custom_operators,
         )
 
     def _execute_impl(self, tables: pa.Table | dict[str, pa.Table] | None) -> tuple[list[pa.Table], dict[str, Any]]:
@@ -135,8 +141,7 @@ class PythonOperatorExecutor(AbstractOperatorExecutor):
         )
 
     def get_operator(self) -> AbstractOperator:
-        operator_factory = PythonOperatorExecutor.operator_factory
-        clazz = operator_factory.get_operator(operator_name=self._operator)
+        clazz = self.operator_factory.get_operator(operator_name=self._operator)
         if clazz is None:
             raise DatasiftException(f"{ValidationCodeMessages.GET_OPERATOR_FAILED.value}: {self._operator}")
         return clazz(config=self._params)

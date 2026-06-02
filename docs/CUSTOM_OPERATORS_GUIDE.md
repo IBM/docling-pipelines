@@ -465,8 +465,8 @@ from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 # Create flow manager
 manager = DatasiftFlowManager(flow_file="flow.json")
 
-# Register custom operators
-manager.register_custom_operators(paths=["/path/to/custom_operators"])
+# Register custom operators (using filesystem paths)
+manager.register_custom_operators(package_names=["/path/to/custom_operators"])
 
 # Execute flow
 result = manager.execute()
@@ -1280,7 +1280,7 @@ datasift-orchestrator --flow-file flow.json
 from datasift.lib.datasift_flow_manager import DatasiftFlowManager
 
 manager = DatasiftFlowManager(flow_file="flow.json")
-manager.register_custom_operators(paths=["s3://my-bucket/operators"])
+manager.register_custom_operators(package_names=["s3://my-company-operators/production/"])
 result = manager.execute()
 ```
 

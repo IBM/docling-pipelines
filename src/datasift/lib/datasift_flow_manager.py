@@ -18,7 +18,7 @@ from datasift.core.models.session_info import SessionInfo, create_session_info
 from datasift.core.orchestration.flow_executor import FlowExecutor
 from datasift.core.orchestration.flow_validator import FlowValidator
 from datasift.core.orchestration.orchestrator_factory import OrchestratorFactory
-from datasift.exceptions.datasift_exceptions import DatasiftException, FlowInvalidDataException
+from datasift.exceptions.datasift_exceptions import DatasiftException, FlowInvalidDataException, FlowValidationException
 from datasift.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
 from datasift.utils.infrastructure.logging import get_logger, set_dpk_log_level_from_ds_log_level
 from datasift.utils.operators.display import list_operators as _list_operators
@@ -282,8 +282,18 @@ class DatasiftFlowManager:
             raise DatasiftException("Flow definition must be initialized before validation", status_code=500)
 
         try:
-            # Create a temporary orchestrator for validation
-            temp_orchestrator = OrchestratorFactory.create_orchestrator()
+            # Create orchestrator with custom operator settings
+            enable_custom = self.enable_custom_operators if self.enable_custom_operators is not None else True
+            custom_packages = self.custom_operator_packages if len(self.custom_operator_packages) > 0 else None
+
+            temp_orchestrator = OrchestratorFactory.create_orchestrator(
+                enable_custom_operators=enable_custom,
+                custom_operator_packages=custom_packages,
+            )
+
+            # Initialize the orchestrator (required for FlowValidator)
+            temp_orchestrator.initialize(job_id=self.job_id, job_run_id=self.job_run_id)
+
             validator = FlowValidator(orchestrator=temp_orchestrator)
 
             # Prepare validation parameters
@@ -292,16 +302,24 @@ class DatasiftFlowManager:
                 DatasiftConstants.JOB_RUN_ID: self.job_run_id,
             }
 
-            validation_result = validator.validate(flow_def=self.flow_def, params=params)
+            # FlowValidator.validate() raises FlowValidationException on errors/warnings
+            validator.validate(flow_def=self.flow_def, params=params)
 
-            # Handle None return or dict return
-            if validation_result is None:
-                return {"valid": True, "errors": [], "warnings": []}
+            # If we get here, validation succeeded with no errors or warnings
+            return {"valid": True, "errors": [], "warnings": []}
+
+        except FlowValidationException as e:
+            # Extract errors and warnings from the exception
+            errors = [str(err) for err in e.errors] if e.errors else []
+            warnings = [str(warn) for warn in e.warnings] if e.warnings else []
+
+            # Validation fails only if there are errors (warnings are acceptable)
+            is_valid = len(errors) == 0
 
             return {
-                "valid": validation_result.get("status", "FAILED") == "SUCCEEDED",
-                "errors": validation_result.get("errors", []),
-                "warnings": validation_result.get("warnings", []),
+                "valid": is_valid,
+                "errors": errors,
+                "warnings": warnings,
             }
         except Exception as e:
             self.logger.error(f"Flow validation failed: {e}")

@@ -39,6 +39,8 @@ class PythonOrchestrator(AbstractOrchestrator):
             operator=operator,
             params=params,
             job_stats_service=job_stats_service,
+            enable_custom_operators=self.enable_custom_operators,
+            custom_operator_packages=self.custom_operator_packages,
         )
 
     def visualize(self):

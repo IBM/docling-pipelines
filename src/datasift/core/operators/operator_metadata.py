@@ -51,10 +51,16 @@ class OperatorMetadata:
         This class is not thread-safe. Create separate instances for concurrent use.
     """
 
-    def __init__(self) -> None:
-        """Initialize operator metadata manager with empty cache."""
+    def __init__(self, *, orchestrator: Any = None) -> None:
+        """Initialize operator metadata manager with empty cache.
+
+        Args:
+            orchestrator: Optional orchestrator instance to get custom operator settings from.
+                         If provided, will use orchestrator's custom operator configuration.
+        """
         self.session_info = get_session_info()
         self.operator_metadata: dict[str, dict[str, Any]] = {}
+        self.orchestrator = orchestrator
 
     def get_operator_metadata(self, *, internal_features: bool = False) -> dict[str, dict[str, Any]]:
         """Extract and return metadata for all registered operators.
@@ -98,7 +104,15 @@ class OperatorMetadata:
         failed_operator_list: dict[str, Exception] = {}
 
         # Get operator factory for Python orchestrator (used for metadata extraction)
-        operator_factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
+        # If orchestrator is provided, use its custom operator settings
+        if self.orchestrator is not None:
+            operator_factory = OperatorFactoryProvider.get_operator_factory(
+                orchestrator=OrchestratorType.PYTHON,
+                package_names=self.orchestrator.custom_operator_packages,
+                enable_custom_operators=self.orchestrator.enable_custom_operators,
+            )
+        else:
+            operator_factory = OperatorFactoryProvider.get_operator_factory(orchestrator=OrchestratorType.PYTHON)
         logger.info(f"Discovering operators: {list(operator_factory.operators.keys())}")
 
         # Iterate through all registered operators
@@ -121,6 +135,9 @@ class OperatorMetadata:
                 # Get required features from static method
                 required_features = cls.get_required_features()
                 config_values["required_features"] = required_features
+
+                # Add owner from class attribute
+                config_values["owner"] = getattr(cls, "owner", "datasift")
 
                 # Filter internal features if requested
                 if not internal_features:
