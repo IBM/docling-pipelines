@@ -2026,7 +2026,7 @@ def execute_flow():
         metadata = manager.get_execution_metadata()
         print(f"Flow executed successfully")
         print(f"Job ID: {metadata.get('job_id')}")
-        print(f"Flow Name: {metadata.get('name')}")
+        print(f"Flow Name: {metadata.get('flow_name')}")
 
     except FileNotFoundError as exc:
         print(f"Flow file not found: {exc}")
@@ -2321,7 +2321,7 @@ metadata = manager.get_execution_metadata()
 print(f"Job ID: {metadata.get('job_id')}")
 print(f"Job Run ID: {metadata.get('job_run_id')}")
 print(f"Flow ID: {metadata.get('flow_id')}")
-print(f"Flow Name: {metadata.get('name')}")
+print(f"Flow Name: {metadata.get('flow_name')}")
 print(f"Description: {metadata.get('description')}")
 print(f"Number of Operators: {metadata.get('num_operators')}")
 print(f"Flow File: {metadata.get('flow_file')}")
@@ -2392,7 +2392,7 @@ def execute_with_error_handling(flow_file: str):
 
         # Log success
         metadata = manager.get_execution_metadata()
-        print(f"Success: {metadata.get('name')} completed")
+        print(f"Success: {metadata.get('flow_name')} completed")
 
         return result
 
