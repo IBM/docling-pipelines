@@ -24,7 +24,10 @@ class S3SourceConfig(BaseModel):
     # S3 bucket configuration
     bucket: str = Field(..., description="S3 bucket name")
 
-    prefix: str = Field("", description="S3 key prefix to filter objects (e.g., 'documents/reports/')")
+    prefix: str = Field(
+        "",
+        description="S3 key prefix to filter objects. Use 'documents/reports/' for directory or 'documents/report.pdf' for exact file",
+    )
 
     # S3-compatible storage configuration (optional)
     endpoint_url: str | None = Field(
@@ -95,9 +98,6 @@ class S3SourceConfig(BaseModel):
             return ""
         # Remove leading slash
         v = v.lstrip("/")
-        # Ensure trailing slash for directory-like prefixes
-        if v and not v.endswith("/"):
-            v = f"{v}/"
         return v
 
     @field_validator("endpoint_url")
@@ -127,10 +127,10 @@ class S3SourceConfig(BaseModel):
 
         json_schema_extra: ClassVar[dict] = {
             "example": {
-                "access_key": "AKIAIOSFODNN7EXAMPLE",
-                "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+                "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
+                "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
                 "bucket": "my-documents-bucket",
-                "prefix": "documents/reports/",
+                "prefix": "documents/reports/",  # Directory prefix with trailing slash, or "documents/report.pdf" for exact file
                 "endpoint_url": None,
                 "region": "us-east-1",
                 "recursive": True,
