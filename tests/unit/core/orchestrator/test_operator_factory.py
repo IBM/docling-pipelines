@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from datasift.core.constants import DatasiftConstants, OrchestratorType
-from datasift.core.orchestration.operator_factory import OperatorFactory, OperatorFactoryProvider
+from datasift.core.orchestration.operator_factory import OperatorFactoryProvider
 
 
 def test_frozenset_loading():
@@ -159,8 +159,8 @@ def test_priority_map_custom_has_highest_priority():
     print("TEST 6: Priority Map - Custom Has Highest Priority")
     print("=" * 80)
 
-    custom_priority = OperatorFactory.PRIORITY_MAP[DatasiftConstants.OWNER_CUSTOM]
-    datasift_priority = OperatorFactory.PRIORITY_MAP[DatasiftConstants.OWNER_DATASIFT]
+    custom_priority = DatasiftConstants.OPERATOR_PRIORITY_MAP[DatasiftConstants.OWNER_CUSTOM]
+    datasift_priority = DatasiftConstants.OPERATOR_PRIORITY_MAP[DatasiftConstants.OWNER_DATASIFT]
 
     print(f"custom priority: {custom_priority}")
     print(f"datasift priority: {datasift_priority}")

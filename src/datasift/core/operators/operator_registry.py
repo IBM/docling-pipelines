@@ -3,6 +3,9 @@ Operator Registry for Datasift OSS Operators.
 
 This module provides a frozenset-based registry of all datasift (OSS) operators.
 Operators are imported as class references for immediate access without runtime discovery.
+
+The registry supports external operator providers through a plugin hook pattern,
+allowing host applications to inject their own operators at runtime.
 """
 
 # ACL Operator
@@ -77,15 +80,114 @@ DATASIFT_OPERATORS = frozenset(
     }
 )
 
+# Global registry for external operator providers
+# Each provider is a callable that accepts orchestrator parameter and returns a frozenset
+_EXTERNAL_OPERATOR_PROVIDERS: list = []
 
-def get_datasift_operators() -> frozenset:
+
+def register_operator_provider(provider_func):
     """
-    Returns the frozenset of all datasift (OSS) operators.
+    Register an external operator provider function.
+
+    This allows external applications (that install datasift as a wheel) to inject
+    their own operators into the registry. The provider function will be called
+    when get_datasift_operators() is invoked.
+
+    Args:
+        provider_func: Callable that returns frozenset of operator classes
+                      Signature: provider_func(orchestrator: str | None = None) -> frozenset
+
+    Raises:
+        TypeError: If provider_func is not callable
+
+    Example:
+        # In external application that installs datasift-opensource wheel:
+        from datasift.core.operators.operator_registry import register_operator_provider
+
+        def my_app_operators(orchestrator=None):
+            from my_app.operators import APP_OPERATORS
+            return APP_OPERATORS
+
+        # Register at application startup
+        register_operator_provider(my_app_operators)
+    """
+    if not callable(provider_func):
+        raise TypeError(f"Provider must be callable, got {type(provider_func).__name__}")
+
+    _EXTERNAL_OPERATOR_PROVIDERS.append(provider_func)
+
+
+def clear_operator_providers():
+    """
+    Clear all registered operator providers.
+
+    Useful for testing or resetting the registry state.
+    """
+    _EXTERNAL_OPERATOR_PROVIDERS.clear()
+
+
+def get_registered_provider_count() -> int:
+    """
+    Get the number of registered external operator providers.
 
     Returns:
-        frozenset: Set of operator class references
+        int: Number of registered providers
     """
-    return DATASIFT_OPERATORS
+    return len(_EXTERNAL_OPERATOR_PROVIDERS)
+
+
+def get_datasift_operators(*, orchestrator: str | None = None) -> frozenset:
+    """
+    Returns the frozenset of all datasift operators merged with external providers.
+
+    This function collects operators from:
+    1. Base DATASIFT_OPERATORS (OSS operators)
+    2. All registered external provider functions
+
+    Note: This function does NOT apply priority resolution or deduplication.
+    That responsibility belongs to OperatorFactory, which handles operator
+    loading and priority-based conflict resolution.
+
+    Args:
+        orchestrator: Optional orchestrator type (e.g., "python", "spark") for filtering
+
+    Returns:
+        frozenset: Combined set of all operator class references (may contain duplicates by short_name)
+
+    Example:
+        # Get all operators
+        operators = get_datasift_operators()
+
+        # Get operators for specific orchestrator
+        python_operators = get_datasift_operators(orchestrator="python")
+    """
+    from datasift.utils.infrastructure.logging import get_logger
+
+    logger = get_logger()
+
+    # Start with base datasift operators
+    operators = set(DATASIFT_OPERATORS)
+    logger.debug(f"Starting with {len(operators)} base datasift operators")
+
+    # Collect operators from all registered providers
+    for idx, provider_func in enumerate(_EXTERNAL_OPERATOR_PROVIDERS):
+        try:
+            logger.debug(f"Calling external provider {idx + 1}/{len(_EXTERNAL_OPERATOR_PROVIDERS)}: {provider_func.__name__}")
+            external_ops = provider_func(orchestrator=orchestrator)
+
+            if isinstance(external_ops, frozenset):
+                operators.update(external_ops)
+                logger.info(f"Added {len(external_ops)} operators from provider '{provider_func.__name__}'")
+            else:
+                logger.warning(
+                    f"Provider '{provider_func.__name__}' returned {type(external_ops).__name__}, "
+                    f"expected frozenset. Skipping."
+                )
+        except Exception as e:
+            logger.error(f"Error calling operator provider '{provider_func.__name__}': {e}", exc_info=True)
+
+    logger.info(f"Returning {len(operators)} total operators (base + external, before priority resolution)")
+    return frozenset(operators)
 
 
 def get_custom_operators() -> frozenset:

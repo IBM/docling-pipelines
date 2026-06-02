@@ -10,6 +10,7 @@ venv/
 .venv/
 env/
 ENV/
+.venv
 
 # uv
 .uv/

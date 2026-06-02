@@ -121,9 +121,18 @@ class DatasiftConstants:
     ENABLE_CUSTOM_OPERATORS_DEFAULT = True
 
     # Operator Ownership Tiers
+    OWNER_ENTERPRISE = "datasift_enterprise"
     OWNER_DATASIFT = "datasift"
     OWNER_CUSTOM = "custom"
     OWNER_ATTRIBUTE = "owner"
+
+    # Operator Priority Map: lower number = higher priority
+    # Used for resolving conflicts when multiple operators have the same short_name
+    OPERATOR_PRIORITY_MAP: ClassVar[dict[str, int]] = {
+        OWNER_ENTERPRISE: 0,  # Enterprise operators have highest precedence
+        OWNER_CUSTOM: 1,      # Custom operators have medium priority
+        OWNER_DATASIFT: 2,    # OSS datasift operators have lowest priority
+    }
 
     # Feature Flag States
     FEATURE_ENABLED = "enabled"

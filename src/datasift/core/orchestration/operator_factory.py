@@ -90,12 +90,6 @@ class OperatorFactory:
     Supports priority-based operator resolution where lower number = higher priority.
     """
 
-    # Priority map: lower number = higher priority
-    PRIORITY_MAP: ClassVar[dict[str, int]] = {
-        DatasiftConstants.OWNER_CUSTOM: 1,  # Custom operators have highest priority
-        DatasiftConstants.OWNER_DATASIFT: 2,  # Base datasift operators have lower precedence
-    }
-
     def __init__(
         self,
         orchestrator: str,
@@ -112,7 +106,7 @@ class OperatorFactory:
         """
         self.orchestrator = orchestrator
         self.package_names = package_names or []
-        self.operators: dict[str, type] = {}
+        self.operators: dict[str, type[AbstractOperator]] = {}
 
         # Determine if custom operators are enabled
         # Priority: parameter > environment variable > default
@@ -138,18 +132,42 @@ class OperatorFactory:
             logger.info("No custom operator packages specified")
 
     def _load_operators_from_frozenset(self):
-        """Load operators from frozenset registry (OSS operators)."""
+        """
+        Load operators from frozenset registry (OSS + external operators).
+
+        Applies priority-based resolution to handle conflicts when multiple operators
+        have the same short_name.
+        """
         from datasift.core.operators.operator_registry import get_datasift_operators
 
-        logger.info(f"Loading datasift operators from frozenset for: {self.orchestrator}")
-        for operator_class in get_datasift_operators():
-            if operator_class.is_available():
-                short_name = operator_class.short_name
-                self.operators[short_name] = operator_class
+        logger.info(f"Loading datasift operators from frozenset for orchestrator: {self.orchestrator}")
 
-        logger.info(f"Loaded {len(self.operators)} datasift operators from frozenset")
+        # Get all operators from registry (may contain duplicates by short_name)
+        all_operators = get_datasift_operators(orchestrator=self.orchestrator)
 
-    def _load_custom_operators_from_packages(self, *, clear_cache: bool = False) -> dict[str, type]:
+        # Apply priority resolution and availability checks
+        for operator_class in all_operators:
+            try:
+                # Check if operator is available in current environment
+                if hasattr(operator_class, 'is_available') and callable(operator_class.is_available):
+                    if not operator_class.is_available():
+                        short_name = getattr(operator_class, 'short_name', operator_class.__name__)
+                        logger.debug(f"Operator '{short_name}' is not available in current environment, skipping")
+                        continue
+
+                # Apply priority-based resolution
+                OperatorFactory.apply_priority_resolution(
+                    new_operator=operator_class,
+                    operators_dict=self.operators,
+                    default_owner=DatasiftConstants.OWNER_DATASIFT,
+                    log_prefix="Operator",
+                )
+            except Exception as e:
+                logger.error(f"Error processing operator {operator_class.__name__}: {e}", exc_info=True)
+
+        logger.info(f"Loaded {len(self.operators)} operators from frozenset (datasift + external, after priority resolution)")
+
+    def _load_custom_operators_from_packages(self, *, clear_cache: bool = False) -> dict[str, type[AbstractOperator]]:
         """Load custom operators from all sources (packages, filesystem, S3) with priority resolution.
 
         Args:
@@ -175,7 +193,13 @@ class OperatorFactory:
             custom_operators = loader.validate_and_load(builtin_operators=self.operators, clear_cache=clear_cache)
 
             # Apply priority resolution between datasift and custom operators
-            self._apply_priority_resolution_with_custom(custom_operators=custom_operators)
+            for _short_name, operator_class in custom_operators.items():
+                OperatorFactory.apply_priority_resolution(
+                    new_operator=operator_class,
+                    operators_dict=self.operators,
+                    default_owner=DatasiftConstants.OWNER_CUSTOM,
+                    log_prefix="Custom operator",
+                )
 
             logger.info(f"Successfully loaded {len(custom_operators)} custom operator(s)")
             return custom_operators
@@ -184,41 +208,106 @@ class OperatorFactory:
             logger.error(f"Failed to load custom operators: {e}", exc_info=True)
             return {}
 
-    def _apply_priority_resolution_with_custom(self, *, custom_operators: dict[str, type]):
-        """Apply priority resolution between datasift and custom operators.
+    @staticmethod
+    def apply_priority_resolution(
+        *,
+        new_operator: type[AbstractOperator],
+        operators_dict: dict[str, type[AbstractOperator]],
+        default_owner: str = DatasiftConstants.OWNER_DATASIFT,
+        log_prefix: str = "Operator",
+    ) -> bool:
+        """
+        Apply priority-based resolution to add or reject an operator.
 
-        Custom operators (priority 1) can override datasift operators (priority 2).
+        This function checks if a new operator should be added to the operators dictionary,
+        potentially overriding an existing operator with the same short_name based on
+        ownership priority.
 
         Args:
-            custom_operators: Dictionary of custom operators (short_name -> class)
+            new_operator: The operator class to add
+            operators_dict: Dictionary of existing operators (short_name -> class)
+            default_owner: Default owner if operator doesn't have owner attribute
+            log_prefix: Prefix for log messages (e.g., "Operator", "Custom operator")
+
+        Returns:
+            bool: True if operator was added/updated, False if rejected
+
+        Side Effects:
+            - May update operators_dict if operator is added or overrides existing
+            - Logs info/warning messages about resolution decisions
         """
-        for short_name, operator_class in custom_operators.items():
-            # Get owner and priority
-            owner = getattr(operator_class, DatasiftConstants.OWNER_ATTRIBUTE, None) or DatasiftConstants.OWNER_CUSTOM
-            priority = self.PRIORITY_MAP.get(owner, float("inf"))
+        if not hasattr(new_operator, 'short_name'):
+            logger.warning(f"{log_prefix} {new_operator.__name__} missing 'short_name' attribute, skipping")
+            return False
 
-            # Check if we should override existing datasift operator
-            if short_name in self.operators:
-                existing_owner = getattr(self.operators[short_name], DatasiftConstants.OWNER_ATTRIBUTE, None)
-                existing_priority = self.PRIORITY_MAP.get(
-                    existing_owner or DatasiftConstants.OWNER_CUSTOM, float("inf")
-                )
+        short_name = new_operator.short_name
+        existing_operator = operators_dict.get(short_name)
 
-                if priority <= existing_priority:
-                    logger.info(
-                        f"Custom operator '{short_name}' (priority={priority}) "
-                        f"overrides existing operator (priority={existing_priority})"
-                    )
-                    self.operators[short_name] = operator_class
-                else:
-                    logger.warning(
-                        f"Custom operator '{short_name}' (priority={priority}) "
-                        f"cannot override existing operator (priority={existing_priority})"
-                    )
-            else:
-                # No conflict, add the custom operator
-                self.operators[short_name] = operator_class
-                logger.debug(f"Added custom operator: {short_name}")
+        should_override, new_priority, existing_priority = OperatorFactory.resolve_operator_by_priority(
+            new_operator=new_operator,
+            existing_operator=existing_operator,
+            default_owner=default_owner,
+        )
+
+        if existing_operator is None:
+            # No conflict, add the operator
+            operators_dict[short_name] = new_operator
+            logger.debug(f"Added {log_prefix.lower()}: {short_name}")
+            return True
+
+        if should_override:
+            logger.info(
+                f"{log_prefix} '{short_name}': {new_operator.__name__} (priority={new_priority}) "
+                f"overrides {existing_operator.__name__} (priority={existing_priority})"
+            )
+            operators_dict[short_name] = new_operator
+            return True
+        else:
+            logger.info(
+                f"{log_prefix} '{short_name}': {new_operator.__name__} (priority={new_priority}) "
+                f"cannot override {existing_operator.__name__} (priority={existing_priority})"
+            )
+            return False
+
+    @staticmethod
+    def resolve_operator_by_priority(
+        new_operator: type[AbstractOperator],
+        existing_operator: type[AbstractOperator] | None,
+        default_owner: str = DatasiftConstants.OWNER_DATASIFT,
+    ) -> tuple[bool, int | float, int | float]:
+        """
+        Determine if a new operator should override an existing one based on priority.
+
+        Priority rules (lower number = higher priority):
+        - Enterprise operators (0) can override Custom (1) and OSS (2)
+        - Custom operators (1) can override OSS (2) but not Enterprise (0)
+        - OSS operators (2) cannot override Custom (1) or Enterprise (0)
+
+        Args:
+            new_operator: The new operator class to potentially add
+            existing_operator: The existing operator class (None if no conflict)
+            default_owner: Default owner if operator doesn't have owner attribute
+
+        Returns:
+            Tuple of (should_override: bool, new_priority: int, existing_priority: int)
+            If existing_operator is None, returns (True, new_priority, inf)
+        """
+        # Get new operator's priority
+        new_owner = getattr(new_operator, DatasiftConstants.OWNER_ATTRIBUTE, None) or default_owner
+        new_priority = DatasiftConstants.OPERATOR_PRIORITY_MAP.get(new_owner, float("inf"))
+
+        # If no existing operator, always add the new one
+        if existing_operator is None:
+            return True, new_priority, float("inf")
+
+        # Get existing operator's priority
+        existing_owner = getattr(existing_operator, DatasiftConstants.OWNER_ATTRIBUTE, None) or default_owner
+        existing_priority = DatasiftConstants.OPERATOR_PRIORITY_MAP.get(existing_owner, float("inf"))
+
+        # Lower or equal priority value means higher precedence
+        should_override = new_priority <= existing_priority
+
+        return should_override, new_priority, existing_priority
 
     def refresh_operators(self):
         """Refreshes custom operators (non-core packages) with priority resolution."""
@@ -230,9 +319,7 @@ class OperatorFactory:
 
         # Use CustomOperatorLoader to reload operators from packages with cache clearing
         try:
-            custom_operators = self._load_custom_operators_from_packages(clear_cache=True)
-            self._apply_priority_resolution_with_custom(custom_operators=custom_operators)
-            logger.info(f"Successfully refreshed {len(custom_operators)} custom operators")
+            self._load_custom_operators_from_packages(clear_cache=True)
         except Exception as e:
             logger.error(f"Failed to refresh custom operators: {e}")
             raise
