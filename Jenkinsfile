@@ -76,8 +76,10 @@ timestamps {
               curl -LsSf https://astral.sh/uv/install.sh | sh
               export PATH="$HOME/.cargo/bin:$PATH"
 
-              # Install system dependencies
-              sudo apt-get update
+              # Install system dependencies with robust apt-get update
+              sudo rm -rf /var/lib/apt/lists/*
+              sudo apt-get clean
+              sudo apt-get update --allow-releaseinfo-change -o Acquire::Retries=3 || sudo apt-get update --allow-releaseinfo-change || true
               sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
 
               uv sync --all-groups --all-extras
@@ -118,11 +120,6 @@ timestamps {
               
               # Install uv
               curl -LsSf https://astral.sh/uv/install.sh | sh
-              
-              
-              # Install system dependencies including LDAP libraries for python-ldap
-              sudo apt-get update
-              sudo apt-get install -y software-properties-common python3-dev gcc libldap2-dev libsasl2-dev
               
               # Navigate to backend directory and install dependencies
               uv sync --all-groups --all-extras

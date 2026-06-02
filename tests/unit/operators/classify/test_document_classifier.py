@@ -841,11 +841,11 @@ def test_transform_sets_correct_status_on_all_failures(basic_litellm_config):
         _, metadata = operator.transform(table)
 
         # Verify status is FAILED when all documents fail
-        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_WARNINGS.value, (
-            f"Expected {ExecutionStatus.COMPLETED_WITH_WARNINGS.value}, got {metadata[Metrics.External.NODE_STATUS]}"
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.FAILED.value, (
+            f"Expected {ExecutionStatus.FAILED.value}, got {metadata[Metrics.External.NODE_STATUS]}"
         )
         assert metadata[Metrics.External.PROCESSED_DOCS] == 0
-        assert metadata[Metrics.External.SKIPPED_DOCS_COUNT] == 2
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 2
 
 
 @pytest.mark.unit

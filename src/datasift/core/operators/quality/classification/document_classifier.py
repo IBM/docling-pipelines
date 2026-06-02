@@ -637,7 +637,7 @@ class DocumentClassifierOperator(AbstractOperator):
                     else:
                         self.record_failed_document(
                             metadata=metadata,
-                            doc_id=str(idx),
+                            doc_id=str(task["doc_id"]),
                             doc_name=task["doc_name"],
                             reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
                         )
