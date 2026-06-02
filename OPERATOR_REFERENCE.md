@@ -1547,7 +1547,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `provider` | string | No | `litellm` | LLM provider (`ollama`, `watsonx`, `litellm`) |
-| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"${OLLAMA_API_KEY}"}` | Provider-specific configuration including `model_id` |
+| `provider_config` | object | No | `{"api_base":"http://localhost:11434/v1","api_key":"any-string-works-for-ollama-no-need-of-api-key"}` | Provider-specific configuration including `model_id`. For Ollama, `api_key` can be any string as authentication is not required. |
 | `provider_config.model_id` | string | Conditional | `openai/granite3.1-dense:8b` | Model for detection in `<provider>/<model_id>` format (required for watsonx/litellm) |
 | `doc_column` | string | No | `content` | Input text column |
 | `pii_types` | list[string] | No | all types | PII types to detect |
